@@ -170,10 +170,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    return { error };
+    try {
+      const response = await supabase.functions.invoke('reset-password-request', {
+        body: {
+          email,
+          redirectUrl: `${window.location.origin}/reset-password`
+        }
+      });
+
+      if (response.error) {
+        return { error: new Error(response.error.message || 'Erro ao enviar email') };
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: new Error(err.message || 'Erro ao enviar email') };
+    }
   };
 
   const updatePassword = async (password: string) => {
