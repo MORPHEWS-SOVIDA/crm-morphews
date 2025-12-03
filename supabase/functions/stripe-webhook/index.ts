@@ -11,8 +11,17 @@ const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 );
 
+// Generate a random password
+function generatePassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let password = "";
+  for (let i = 0; i < 10; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
 serve(async (req) => {
-  const signature = req.headers.get("Stripe-Signature");
   const body = await req.text();
 
   let event: Stripe.Event;
@@ -32,17 +41,80 @@ serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.user_id;
         const planId = session.metadata?.plan_id;
+        const customerEmail = session.metadata?.customer_email || session.customer_email;
+        const customerName = session.metadata?.customer_name || "";
+        const customerWhatsapp = session.metadata?.customer_whatsapp || "";
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
 
-        if (!userId || !planId) {
-          console.error("Missing metadata in session");
+        console.log("Checkout completed:", { planId, customerEmail, customerName });
+
+        if (!planId || !customerEmail) {
+          console.error("Missing planId or customerEmail in session");
           break;
         }
 
-        // Get user profile to check if they have an organization
+        // Get plan details
+        const { data: plan } = await supabaseAdmin
+          .from("subscription_plans")
+          .select("name")
+          .eq("id", planId)
+          .single();
+
+        const planName = plan?.name || "Morphews CRM";
+
+        // Check if user already exists
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(u => u.email === customerEmail);
+
+        let userId: string;
+        let tempPassword: string | null = null;
+
+        if (existingUser) {
+          console.log("User already exists:", existingUser.id);
+          userId = existingUser.id;
+        } else {
+          // Create new user with temporary password
+          tempPassword = generatePassword();
+          
+          const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+            email: customerEmail,
+            password: tempPassword,
+            email_confirm: true,
+            user_metadata: {
+              first_name: customerName.split(" ")[0] || "Usuário",
+              last_name: customerName.split(" ").slice(1).join(" ") || "",
+            },
+          });
+
+          if (createError) {
+            console.error("Error creating user:", createError);
+            throw createError;
+          }
+
+          userId = newUser.user.id;
+          console.log("New user created:", userId);
+
+          // Create profile
+          const firstName = customerName.split(" ")[0] || "Usuário";
+          const lastName = customerName.split(" ").slice(1).join(" ") || "Novo";
+
+          await supabaseAdmin.from("profiles").upsert({
+            user_id: userId,
+            first_name: firstName,
+            last_name: lastName,
+            whatsapp: customerWhatsapp || null,
+          }, { onConflict: "user_id" });
+
+          // Assign user role
+          await supabaseAdmin.from("user_roles").upsert({
+            user_id: userId,
+            role: "user",
+          }, { onConflict: "user_id" });
+        }
+
+        // Check if user has an organization
         const { data: profile } = await supabaseAdmin
           .from("profiles")
           .select("organization_id")
@@ -53,11 +125,14 @@ serve(async (req) => {
 
         // If no organization, create one
         if (!organizationId) {
+          const orgName = customerName ? `${customerName}` : `Organização ${userId.slice(0, 8)}`;
+          const orgSlug = orgName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `org-${userId.slice(0, 8)}`;
+
           const { data: newOrg, error: orgError } = await supabaseAdmin
             .from("organizations")
             .insert({
-              name: `Organização ${userId.slice(0, 8)}`,
-              slug: `org-${userId.slice(0, 8)}`,
+              name: orgName,
+              slug: orgSlug,
             })
             .select()
             .single();
@@ -68,6 +143,7 @@ serve(async (req) => {
           }
 
           organizationId = newOrg.id;
+          console.log("Organization created:", organizationId);
 
           // Add user as owner of the organization
           await supabaseAdmin.from("organization_members").insert({
@@ -102,7 +178,42 @@ serve(async (req) => {
           console.error("Error creating subscription:", subError);
         }
 
+        // Update interested_leads status
+        await supabaseAdmin
+          .from("interested_leads")
+          .update({ status: "converted", converted_at: new Date().toISOString() })
+          .eq("email", customerEmail);
+
         console.log("Subscription created/updated successfully");
+
+        // Send welcome email with credentials (only for new users)
+        if (tempPassword) {
+          try {
+            const emailResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+              },
+              body: JSON.stringify({
+                email: customerEmail,
+                name: customerName || "Usuário",
+                password: tempPassword,
+                planName,
+              }),
+            });
+
+            if (!emailResponse.ok) {
+              const errorData = await emailResponse.json();
+              console.error("Error sending welcome email:", errorData);
+            } else {
+              console.log("Welcome email sent successfully");
+            }
+          } catch (emailError) {
+            console.error("Error calling send-welcome-email:", emailError);
+          }
+        }
+
         break;
       }
 

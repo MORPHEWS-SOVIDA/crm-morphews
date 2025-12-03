@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2 } from 'lucide-react';
+import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 import { useLeadSources, useLeadProducts, useCreateLeadSource, useCreateLeadProduct, useDeleteLeadSource, useDeleteLeadProduct } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Settings() {
-  const { profile } = useAuth();
+  const { profile, updatePassword } = useAuth();
   const { data: leadSources = [], isLoading: loadingSources } = useLeadSources();
   const { data: leadProducts = [], isLoading: loadingProducts } = useLeadProducts();
   const createSource = useCreateLeadSource();
@@ -20,6 +20,13 @@ export default function Settings() {
 
   const [newSource, setNewSource] = useState('');
   const [newProduct, setNewProduct] = useState('');
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const handleAddSource = async () => {
     if (!newSource.trim()) return;
@@ -58,6 +65,48 @@ export default function Settings() {
       toast({ title: 'Produto removido!' });
     } catch (error: any) {
       toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: 'Senhas não conferem',
+        description: 'A nova senha e a confirmação devem ser iguais.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: 'Senha muito curta',
+        description: 'A senha deve ter pelo menos 6 caracteres.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { error } = await updatePassword(newPassword);
+      if (error) throw error;
+      
+      toast({
+        title: 'Senha alterada!',
+        description: 'Sua senha foi atualizada com sucesso.',
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao alterar senha',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -230,6 +279,66 @@ export default function Settings() {
                 </div>
                 <Switch defaultChecked />
               </div>
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-amber-500/10">
+                <Lock className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Alterar Senha</h2>
+                <p className="text-sm text-muted-foreground">Mantenha sua conta segura</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nova senha</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+              
+              <Button 
+                onClick={handleChangePassword} 
+                disabled={isChangingPassword || !newPassword || !confirmPassword}
+                className="w-full"
+              >
+                {isChangingPassword ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Lock className="w-4 h-4 mr-2" />
+                )}
+                Alterar Senha
+              </Button>
             </div>
           </div>
 

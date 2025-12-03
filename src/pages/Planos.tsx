@@ -90,6 +90,16 @@ export default function Planos() {
       return;
     }
 
+    // Require email for checkout
+    if (!leadForm.email.trim()) {
+      toast({
+        title: "E-mail é obrigatório",
+        description: "Informe seu e-mail para receber as credenciais de acesso.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -97,31 +107,42 @@ export default function Planos() {
       const { error } = await supabase.from("interested_leads").insert({
         name: leadForm.name.trim(),
         whatsapp: leadForm.whatsapp.trim(),
-        email: leadForm.email.trim() || null,
+        email: leadForm.email.trim(),
         plan_id: selectedPlan?.id,
         plan_name: selectedPlan?.name,
         status: "checkout_started",
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error saving lead:", error);
+        // Continue to checkout even if lead save fails
+      }
 
       setShowLeadModal(false);
 
-      // Redirect to checkout or login
-      if (!user) {
-        toast({
-          title: "Dados salvos!",
-          description: "Faça login ou cadastre-se para continuar.",
-        });
-        navigate(`/login?redirect=/planos&plan=${selectedPlan?.id}`);
-      } else {
-        createCheckout.mutate(selectedPlan!.id);
+      // Go directly to Stripe checkout without requiring login
+      const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
+        body: {
+          planId: selectedPlan?.id,
+          customerEmail: leadForm.email.trim(),
+          customerName: leadForm.name.trim(),
+          customerWhatsapp: leadForm.whatsapp.trim(),
+          successUrl: `${window.location.origin}/?subscription=success`,
+          cancelUrl: `${window.location.origin}/planos`,
+        },
+      });
+
+      if (checkoutError) throw checkoutError;
+      if (data?.error) throw new Error(data.error);
+      
+      if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (error: any) {
-      console.error("Error saving lead:", error);
+      console.error("Error creating checkout:", error);
       toast({
-        title: "Erro ao salvar dados",
-        description: "Tente novamente.",
+        title: "Erro ao processar",
+        description: error.message || "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -790,7 +811,7 @@ export default function Planos() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail (opcional)</Label>
+              <Label htmlFor="email">E-mail *</Label>
               <Input
                 id="email"
                 type="email"
@@ -798,6 +819,9 @@ export default function Planos() {
                 value={leadForm.email}
                 onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
               />
+              <p className="text-xs text-muted-foreground">
+                Você receberá suas credenciais de acesso neste e-mail
+              </p>
             </div>
           </div>
           <div className="flex gap-3">
