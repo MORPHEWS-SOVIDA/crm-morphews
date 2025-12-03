@@ -9,7 +9,8 @@ import {
   X,
   UserPlus,
   LogOut,
-  ShoppingCart
+  ShoppingCart,
+  Crown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -17,10 +18,14 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import logoMorphews from '@/assets/logo-morphews.png';
 
+const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
+
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
+  
+  const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
 
   const handleSignOut = async () => {
     await signOut();
@@ -34,6 +39,9 @@ export function Sidebar() {
     ...(isAdmin ? [
       { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
       { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
+    ] : []),
+    ...(isMasterAdmin ? [
+      { icon: Crown, label: 'Super Admin', path: '/super-admin' },
     ] : []),
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' },
     { icon: Settings, label: 'Configurações', path: '/settings' },

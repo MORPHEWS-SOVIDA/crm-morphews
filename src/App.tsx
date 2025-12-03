@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Index from "./pages/Index";
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import InstagramDMs from "./pages/InstagramDMs";
 import Planos from "./pages/Planos";
 import InterestedLeads from "./pages/InterestedLeads";
+import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,12 +39,10 @@ const App = () => (
             <Route path="/setup" element={<Setup />} />
             <Route path="/planos" element={<Planos />} />
             
+            {/* Home - shows landing for non-auth, dashboard for auth */}
+            <Route path="/" element={<Home />} />
+            
             {/* Protected routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
             <Route path="/leads" element={
               <ProtectedRoute>
                 <LeadsList />
@@ -82,6 +81,11 @@ const App = () => (
             <Route path="/interessados" element={
               <ProtectedRoute requireAdmin>
                 <InterestedLeads />
+              </ProtectedRoute>
+            } />
+            <Route path="/super-admin" element={
+              <ProtectedRoute requireAdmin>
+                <SuperAdmin />
               </ProtectedRoute>
             } />
             
