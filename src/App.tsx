@@ -4,6 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import LeadsList from "./pages/LeadsList";
+import LeadDetail from "./pages/LeadDetail";
+import NewLead from "./pages/NewLead";
+import Settings from "./pages/Settings";
+import InstagramDMs from "./pages/InstagramDMs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -16,7 +21,11 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/leads" element={<LeadsList />} />
+          <Route path="/leads/new" element={<NewLead />} />
+          <Route path="/leads/:id" element={<LeadDetail />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/instagram" element={<InstagramDMs />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
