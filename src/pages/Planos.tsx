@@ -288,25 +288,63 @@ export default function Planos() {
             </p>
           </div>
 
-          {/* Funnel Visualization */}
-          <div className="max-w-4xl mx-auto mb-16">
-            <div className="bg-card rounded-2xl border shadow-xl p-8">
-              <div className="flex items-end justify-center gap-2 h-64">
-                {funnelStages.map((stage, index) => (
-                  <div key={stage.name} className="flex flex-col items-center gap-2">
-                    <div className="text-sm font-medium text-muted-foreground">{stage.leads}</div>
-                    <div
-                      className={`${stage.color} rounded-t-lg w-12 md:w-16 transition-all duration-500 hover:opacity-80`}
-                      style={{ height: `${(stage.leads / 45) * 200}px` }}
-                    />
-                    <div className="text-xs text-center text-muted-foreground w-16 md:w-20 truncate">
-                      {stage.name}
+          {/* Funnel Visualization - Real Funnel Shape */}
+          <div className="max-w-lg mx-auto mb-16">
+            <div className="bg-card rounded-2xl border shadow-xl p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 text-center">Funil de Vendas</h3>
+              
+              {/* Cloud - "Não é a hora" */}
+              <div className="flex justify-center mb-4">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  </svg>
+                  Não é a hora (3)
+                </div>
+              </div>
+
+              {/* Funnel Stages */}
+              <div className="flex flex-col items-center gap-1">
+                {[
+                  { label: "Prospectando / Aguardando resposta", count: 45, color: "bg-orange-300", width: "100%" },
+                  { label: "Cliente nos chamou", count: 38, color: "bg-orange-500", width: "90%" },
+                  { label: "Convencendo a marcar call", count: 28, color: "bg-yellow-400", width: "80%" },
+                  { label: "Call agendada", count: 18, color: "bg-blue-400", width: "70%" },
+                  { label: "Call feita positiva", count: 12, color: "bg-green-400 border-2 border-purple-500", width: "60%" },
+                  { label: "Aguardando pagamento", count: 8, color: "bg-green-500", width: "50%" },
+                  { label: "PAGO - SUCESSO!", count: 5, color: "bg-amber-400", width: "40%" },
+                ].map((stage, index) => (
+                  <div
+                    key={stage.label}
+                    style={{ width: stage.width }}
+                    className={`${stage.color} py-3 px-4 transition-all duration-300 hover:scale-[1.02] ${
+                      index === 0 ? "rounded-t-xl" : ""
+                    } ${index === 6 ? "rounded-b-xl" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs md:text-sm font-medium text-gray-800 truncate pr-2">
+                        {stage.label}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/40 text-gray-800 shrink-0">
+                        {stage.count}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-8 text-center text-muted-foreground">
-                <TrendingUp className="h-5 w-5 inline mr-2" />
+
+              {/* Trash - "Sem interesse" */}
+              <div className="flex justify-end mt-4 -mr-2">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-100 text-red-700 text-sm font-medium">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Sem interesse (2)
+                </div>
+              </div>
+
+              <div className="mt-6 text-center text-muted-foreground text-sm">
+                <TrendingUp className="h-4 w-4 inline mr-2" />
                 Acompanhe a evolução dos seus leads em cada etapa
               </div>
             </div>
@@ -384,17 +422,17 @@ export default function Planos() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
               <div className="bg-card rounded-2xl border shadow-xl p-6">
-                <div className="flex flex-wrap gap-2 mb-6">
-                  <Badge variant="secondary" className="gap-1">
+                <div className="grid grid-cols-2 gap-2 mb-6">
+                  <Badge variant="secondary" className="gap-1 justify-center py-2">
                     <Filter className="h-3 w-3" /> Por Responsável
                   </Badge>
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge variant="secondary" className="gap-1 justify-center py-2">
                     <Star className="h-3 w-3" /> Por Estrelas
                   </Badge>
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge variant="secondary" className="gap-1 justify-center py-2">
                     <Target className="h-3 w-3" /> Por Etapa
                   </Badge>
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge variant="secondary" className="gap-1 justify-center py-2">
                     <Calendar className="h-3 w-3" /> Por Data
                   </Badge>
                 </div>
@@ -609,6 +647,27 @@ export default function Planos() {
                 Clique para editar • Automático • Sem formulários
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Guarantee Section */}
+      <section className="py-16 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/50 mb-6">
+              <Shield className="h-8 w-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold mb-4">
+              Garantia de 7 dias
+            </h2>
+            <p className="text-lg text-muted-foreground mb-4">
+              Se você não gostar, pode pedir reembolso sem problema nenhum.
+            </p>
+            <p className="text-muted-foreground">
+              Experimente o Morphews CRM por 7 dias. Se não estiver 100% satisfeito com a plataforma, 
+              devolvemos seu dinheiro integralmente, sem perguntas.
+            </p>
           </div>
         </div>
       </section>
