@@ -34,8 +34,8 @@ interface OrgMember {
     first_name: string;
     last_name: string;
     user_id: string;
+    email?: string;
   } | null;
-  email?: string;
 }
 
 export default function Team() {
@@ -51,6 +51,7 @@ export default function Team() {
     lastName: "",
     email: "",
   });
+  const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
 
   // Fetch org members
   const { data: members = [], isLoading: loadingMembers, refetch: refetchMembers } = useQuery({
@@ -66,16 +67,15 @@ export default function Team() {
 
       if (membersError) throw membersError;
 
-      // Get profiles for each member
+      // Get profiles for each member with email
       const memberIds = membersData.map(m => m.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("first_name, last_name, user_id")
+        .select("first_name, last_name, user_id, email")
         .in("user_id", memberIds);
 
       if (profilesError) throw profilesError;
 
-      // Get emails from auth (we'll use the profile's user_id to match)
       const membersWithProfiles = membersData.map(member => ({
         ...member,
         profile: profiles?.find(p => p.user_id === member.user_id) || null,
@@ -153,6 +153,38 @@ export default function Team() {
 
   const handleManageSubscription = () => {
     customerPortal.mutate();
+  };
+
+  const handleDeleteUser = async (memberId: string, memberUserId: string) => {
+    if (!profile?.organization_id) return;
+    
+    setIsDeletingUser(memberId);
+    
+    try {
+      // Remove from organization_members
+      const { error: memberError } = await supabase
+        .from("organization_members")
+        .delete()
+        .eq("id", memberId);
+
+      if (memberError) throw memberError;
+
+      toast({
+        title: "Usuário removido",
+        description: "O usuário foi removido da equipe.",
+      });
+      
+      refetchMembers();
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: "Erro ao remover usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingUser(null);
+    }
   };
 
   const getRoleBadge = (role: string) => {
@@ -394,15 +426,25 @@ export default function Team() {
                       </p>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail className="w-3 h-3" />
-                        <span>—</span>
+                        <span>{member.profile?.email || "—"}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     {getRoleBadge(member.role)}
                     {member.user_id !== user?.id && member.role !== "owner" && (
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="w-4 h-4" />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteUser(member.id, member.user_id)}
+                        disabled={isDeletingUser === member.id}
+                      >
+                        {isDeletingUser === member.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </Button>
                     )}
                   </div>

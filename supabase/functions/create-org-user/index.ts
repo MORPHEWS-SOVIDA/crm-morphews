@@ -103,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Update profile with organization_id
+    // Update profile with organization_id and email
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
@@ -111,6 +111,7 @@ const handler = async (req: Request): Promise<Response> => {
         first_name: firstName,
         last_name: lastName,
         whatsapp: ownerPhone || null,
+        email: ownerEmail,
       })
       .eq("user_id", userId);
 
@@ -125,6 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
           last_name: lastName,
           organization_id: organizationId,
           whatsapp: ownerPhone || null,
+          email: ownerEmail,
         });
 
       if (insertError) {
