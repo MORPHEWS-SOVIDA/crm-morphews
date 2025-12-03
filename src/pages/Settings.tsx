@@ -233,45 +233,6 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Team */}
-          <div className="bg-card rounded-xl p-6 shadow-card">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-lg bg-primary/10">
-                <Users className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Equipe</h2>
-                <p className="text-sm text-muted-foreground">Gerencie os membros</p>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Adicionar membro</Label>
-                <div className="flex gap-2">
-                  <Input placeholder="email@exemplo.com" />
-                  <Button>Convidar</Button>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <p className="text-sm font-medium text-foreground mb-3">Membros atuais</p>
-                <div className="space-y-2">
-                  {['Maria', 'João', 'Pedro'].map((name) => (
-                    <div key={name} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-                          {name[0]}
-                        </div>
-                        <span className="font-medium">{name}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Vendedor</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </Layout>
