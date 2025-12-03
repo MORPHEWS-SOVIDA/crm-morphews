@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Calendar, Instagram, Bell, Users } from 'lucide-react';
+import { GoogleCalendarConnect } from '@/components/GoogleCalendarConnect';
 
 export default function Settings() {
   return (
@@ -32,13 +33,11 @@ export default function Settings() {
             
             <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-primary/10 border border-blue-500/20 mb-4">
               <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">Em desenvolvimento:</span> A integração com Google Calendar estará disponível em breve. Você poderá ver e criar eventos diretamente do CRM.
+                Conecte seu Google Calendar para visualizar e criar eventos vinculados aos seus leads diretamente do CRM.
               </p>
             </div>
 
-            <Button disabled className="w-full">
-              Conectar Google Calendar
-            </Button>
+            <GoogleCalendarConnect />
           </div>
 
           {/* Instagram Integration */}

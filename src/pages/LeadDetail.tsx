@@ -14,6 +14,7 @@ import {
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { LeadCalendarEvents } from '@/components/LeadCalendarEvents';
 import { useLead } from '@/hooks/useLeads';
 import { FUNNEL_STAGES } from '@/types/lead';
 import { Button } from '@/components/ui/button';
@@ -249,30 +250,18 @@ export default function LeadDetail() {
                 />
                 
                 <Button variant="outline" className="w-full gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Agendar Call
-                </Button>
-                
-                <Button variant="outline" className="w-full gap-2">
                   <Users className="w-4 h-4" />
                   Criar Grupo WhatsApp
                 </Button>
               </div>
             </div>
 
-            {/* Timeline */}
-            <div className="bg-card rounded-xl p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Agenda
-              </h2>
-              
-              <div className="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">Em breve:</span> Integração com Google Calendar para ver e agendar compromissos diretamente aqui.
-                </p>
-              </div>
-            </div>
+            {/* Calendar Events */}
+            <LeadCalendarEvents 
+              leadId={lead.id} 
+              leadName={lead.name}
+              leadEmail={lead.email}
+            />
           </div>
         </div>
       </div>
