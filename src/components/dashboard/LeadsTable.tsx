@@ -22,13 +22,14 @@ interface LeadsTableProps {
 export function LeadsTable({ leads, title }: LeadsTableProps) {
   const navigate = useNavigate();
 
-  const formatFollowers = (num: number) => {
+  const formatFollowers = (num: number | null) => {
+    if (!num) return '0';
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
     return num.toString();
   };
 
-  const formatCurrency = (value?: number) => {
+  const formatCurrency = (value: number | null) => {
     if (!value) return '-';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -103,22 +104,24 @@ export function LeadsTable({ leads, title }: LeadsTableProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-center">
-                      <StarRating rating={lead.stars} size="sm" />
+                      <StarRating rating={lead.stars as 1 | 2 | 3 | 4 | 5} size="sm" />
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{lead.assignedTo}</TableCell>
+                  <TableCell className="text-muted-foreground">{lead.assigned_to}</TableCell>
                   <TableCell className="text-right font-semibold">
-                    {formatCurrency(lead.negotiatedValue)}
+                    {formatCurrency(lead.negotiated_value)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <WhatsAppButton phone={lead.whatsapp} variant="icon" />
-                      <a
-                        href={`mailto:${lead.email}`}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 hover:scale-110"
-                      >
-                        <Mail className="w-4 h-4" />
-                      </a>
+                      {lead.email && (
+                        <a
+                          href={`mailto:${lead.email}`}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 hover:scale-110"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </a>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

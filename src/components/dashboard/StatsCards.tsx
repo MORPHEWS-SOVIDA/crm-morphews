@@ -12,7 +12,7 @@ export function StatsCards({ leads }: StatsCardsProps) {
   const successLeads = leads.filter(l => l.stage === 'success').length;
   const totalRevenue = leads
     .filter(l => l.stage === 'success')
-    .reduce((acc, l) => acc + (l.paidValue || 0), 0);
+    .reduce((acc, l) => acc + (l.paid_value || 0), 0);
   
   const conversionRate = totalLeads > 0 ? ((successLeads / totalLeads) * 100).toFixed(1) : '0';
 

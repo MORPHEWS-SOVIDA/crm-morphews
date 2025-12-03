@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
-import { useToast } from '@/hooks/use-toast';
+import { useCreateLead } from '@/hooks/useLeads';
 
 export default function NewLead() {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const createLead = useCreateLead();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -29,21 +29,31 @@ export default function NewLead() {
     whatsapp: '',
     email: '',
     stage: 'prospect' as FunnelStage,
-    stars: 3 as 1 | 2 | 3 | 4 | 5,
-    assignedTo: '',
-    whatsappGroup: '',
-    desiredProducts: '',
-    negotiatedValue: '',
+    stars: 3,
+    assigned_to: '',
+    whatsapp_group: '',
+    desired_products: '',
+    negotiated_value: '',
     observations: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Here you would save to database
-    toast({
-      title: 'Lead criado com sucesso!',
-      description: `${formData.name} foi adicionado ao seu CRM.`,
+    await createLead.mutateAsync({
+      name: formData.name,
+      specialty: formData.specialty,
+      instagram: formData.instagram,
+      followers: formData.followers ? parseInt(formData.followers) : null,
+      whatsapp: formData.whatsapp,
+      email: formData.email || null,
+      stage: formData.stage,
+      stars: formData.stars,
+      assigned_to: formData.assigned_to,
+      whatsapp_group: formData.whatsapp_group || null,
+      desired_products: formData.desired_products || null,
+      negotiated_value: formData.negotiated_value ? parseFloat(formData.negotiated_value) : null,
+      observations: formData.observations || null,
     });
     
     navigate('/leads');
@@ -65,8 +75,12 @@ export default function NewLead() {
             <h1 className="text-3xl font-bold text-foreground">Novo Lead</h1>
             <p className="text-muted-foreground">Adicione um novo lead ao seu CRM</p>
           </div>
-          <Button type="submit" className="gap-2">
-            <Save className="w-4 h-4" />
+          <Button type="submit" className="gap-2" disabled={createLead.isPending}>
+            {createLead.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
             Salvar Lead
           </Button>
         </div>
@@ -153,7 +167,7 @@ export default function NewLead() {
               <Label>Importância do Lead</Label>
               <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
                 <StarRating
-                  rating={formData.stars}
+                  rating={formData.stars as 1 | 2 | 3 | 4 | 5}
                   onChange={(stars) => updateField('stars', stars)}
                   size="lg"
                   interactive
@@ -188,33 +202,34 @@ export default function NewLead() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assignedTo">Responsável *</Label>
+              <Label htmlFor="assigned_to">Responsável *</Label>
               <Input
-                id="assignedTo"
-                value={formData.assignedTo}
-                onChange={(e) => updateField('assignedTo', e.target.value)}
+                id="assigned_to"
+                value={formData.assigned_to}
+                onChange={(e) => updateField('assigned_to', e.target.value)}
                 placeholder="Nome do responsável"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="whatsappGroup">Nome do Grupo WhatsApp</Label>
+              <Label htmlFor="whatsapp_group">Nome do Grupo WhatsApp</Label>
               <Input
-                id="whatsappGroup"
-                value={formData.whatsappGroup}
-                onChange={(e) => updateField('whatsappGroup', e.target.value)}
+                id="whatsapp_group"
+                value={formData.whatsapp_group}
+                onChange={(e) => updateField('whatsapp_group', e.target.value)}
                 placeholder="Ex: Grupo João - Negociação"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="negotiatedValue">Valor Negociado (R$)</Label>
+              <Label htmlFor="negotiated_value">Valor Negociado (R$)</Label>
               <Input
-                id="negotiatedValue"
+                id="negotiated_value"
                 type="number"
-                value={formData.negotiatedValue}
-                onChange={(e) => updateField('negotiatedValue', e.target.value)}
+                step="0.01"
+                value={formData.negotiated_value}
+                onChange={(e) => updateField('negotiated_value', e.target.value)}
                 placeholder="Ex: 25000"
               />
             </div>
@@ -226,11 +241,11 @@ export default function NewLead() {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="desiredProducts">Produtos de Interesse</Label>
+                <Label htmlFor="desired_products">Produtos de Interesse</Label>
                 <Textarea
-                  id="desiredProducts"
-                  value={formData.desiredProducts}
-                  onChange={(e) => updateField('desiredProducts', e.target.value)}
+                  id="desired_products"
+                  value={formData.desired_products}
+                  onChange={(e) => updateField('desired_products', e.target.value)}
                   placeholder="Quais produtos o lead demonstrou interesse?"
                   rows={4}
                 />

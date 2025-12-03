@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Plus } from 'lucide-react';
+import { Search, Filter, Plus, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { LeadsTable } from '@/components/dashboard/LeadsTable';
-import { mockLeads } from '@/data/mockLeads';
+import { useLeads } from '@/hooks/useLeads';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,38 +13,62 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
+import { FUNNEL_STAGES } from '@/types/lead';
 
 export default function LeadsList() {
   const navigate = useNavigate();
+  const { data: leads = [], isLoading, error } = useLeads();
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [starsFilter, setStarsFilter] = useState<string>('all');
 
   const filteredLeads = useMemo(() => {
-    let leads = [...mockLeads];
+    let filtered = [...leads];
 
     if (search) {
       const searchLower = search.toLowerCase();
-      leads = leads.filter(
+      filtered = filtered.filter(
         (lead) =>
           lead.name.toLowerCase().includes(searchLower) ||
           lead.specialty.toLowerCase().includes(searchLower) ||
           lead.instagram.toLowerCase().includes(searchLower) ||
-          lead.email.toLowerCase().includes(searchLower)
+          (lead.email && lead.email.toLowerCase().includes(searchLower))
       );
     }
 
     if (stageFilter !== 'all') {
-      leads = leads.filter((lead) => lead.stage === stageFilter);
+      filtered = filtered.filter((lead) => lead.stage === stageFilter);
     }
 
     if (starsFilter !== 'all') {
-      leads = leads.filter((lead) => lead.stars === parseInt(starsFilter));
+      filtered = filtered.filter((lead) => lead.stars === parseInt(starsFilter));
     }
 
-    return leads;
-  }, [search, stageFilter, starsFilter]);
+    return filtered;
+  }, [leads, search, stageFilter, starsFilter]);
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-destructive mb-2">Erro ao carregar leads</p>
+            <p className="text-sm text-muted-foreground">{error.message}</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

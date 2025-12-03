@@ -5,26 +5,28 @@ import { StarsFilter } from '@/components/dashboard/StarsFilter';
 import { FunnelVisualization } from '@/components/dashboard/FunnelVisualization';
 import { LeadsTable } from '@/components/dashboard/LeadsTable';
 import { CalendarWidget } from '@/components/dashboard/CalendarWidget';
-import { mockLeads } from '@/data/mockLeads';
+import { useLeads } from '@/hooks/useLeads';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
+import { Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
+  const { data: leads = [], isLoading, error } = useLeads();
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
 
   const filteredLeads = useMemo(() => {
-    let leads = [...mockLeads];
+    let filtered = [...leads];
     
     if (selectedStars !== null) {
-      leads = leads.filter((lead) => lead.stars === selectedStars);
+      filtered = filtered.filter((lead) => lead.stars === selectedStars);
     }
     
     if (selectedStage !== null) {
-      leads = leads.filter((lead) => lead.stage === selectedStage);
+      filtered = filtered.filter((lead) => lead.stage === selectedStage);
     }
     
-    return leads;
-  }, [selectedStars, selectedStage]);
+    return filtered;
+  }, [leads, selectedStars, selectedStage]);
 
   const getTableTitle = () => {
     const parts: string[] = [];
@@ -45,6 +47,29 @@ export default function Dashboard() {
   };
 
   const hasFilters = selectedStars !== null || selectedStage !== null;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-destructive mb-2">Erro ao carregar leads</p>
+            <p className="text-sm text-muted-foreground">{error.message}</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -71,14 +96,14 @@ export default function Dashboard() {
         </div>
 
         {/* Stats */}
-        <StatsCards leads={mockLeads} />
+        <StatsCards leads={leads} />
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Funnel */}
           <div className="lg:col-span-5">
             <FunnelVisualization
-              leads={mockLeads}
+              leads={leads}
               selectedStage={selectedStage}
               onSelectStage={setSelectedStage}
             />
@@ -87,7 +112,7 @@ export default function Dashboard() {
           {/* Stars Filter */}
           <div className="lg:col-span-3">
             <StarsFilter
-              leads={mockLeads}
+              leads={leads}
               selectedStars={selectedStars}
               onSelectStars={setSelectedStars}
             />

@@ -1,32 +1,25 @@
-export type FunnelStage = 
-  | 'prospect'
-  | 'contacted'
-  | 'convincing'
-  | 'scheduled'
-  | 'positive'
-  | 'waiting_payment'
-  | 'success'
-  | 'trash'
-  | 'cloud';
+import type { Database } from '@/integrations/supabase/types';
+
+export type FunnelStage = Database['public']['Enums']['funnel_stage'];
 
 export interface Lead {
   id: string;
   name: string;
   specialty: string;
   instagram: string;
-  followers: number;
+  followers: number | null;
   whatsapp: string;
-  email: string;
+  email: string | null;
   stage: FunnelStage;
-  stars: 1 | 2 | 3 | 4 | 5;
-  assignedTo: string;
-  whatsappGroup?: string;
-  desiredProducts?: string;
-  negotiatedValue?: number;
-  paidValue?: number;
-  observations?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  stars: number;
+  assigned_to: string;
+  whatsapp_group: string | null;
+  desired_products: string | null;
+  negotiated_value: number | null;
+  paid_value: number | null;
+  observations: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const FUNNEL_STAGES: Record<FunnelStage, { label: string; color: string; textColor: string }> = {

@@ -8,12 +8,13 @@ import {
   MessageSquare,
   DollarSign,
   User,
-  Edit
+  Edit,
+  Loader2
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
-import { mockLeads } from '@/data/mockLeads';
+import { useLead } from '@/hooks/useLeads';
 import { FUNNEL_STAGES } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,9 +24,19 @@ export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const lead = mockLeads.find((l) => l.id === id);
+  const { data: lead, isLoading, error } = useLead(id);
 
-  if (!lead) {
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error || !lead) {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -40,13 +51,14 @@ export default function LeadDetail() {
 
   const stageInfo = FUNNEL_STAGES[lead.stage];
 
-  const formatFollowers = (num: number) => {
+  const formatFollowers = (num: number | null) => {
+    if (!num) return '0';
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
     return num.toString();
   };
 
-  const formatCurrency = (value?: number) => {
+  const formatCurrency = (value: number | null) => {
     if (!value) return 'Não definido';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -65,11 +77,11 @@ export default function LeadDetail() {
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-foreground">{lead.name}</h1>
-              <StarRating rating={lead.stars} size="lg" />
+              <StarRating rating={lead.stars as 1 | 2 | 3 | 4 | 5} size="lg" />
             </div>
             <p className="text-muted-foreground">{lead.specialty}</p>
           </div>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => navigate(`/leads/${id}/edit`)}>
             <Edit className="w-4 h-4" />
             Editar
           </Button>
@@ -136,12 +148,16 @@ export default function LeadDetail() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">E-mail</p>
-                    <a 
-                      href={`mailto:${lead.email}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {lead.email}
-                    </a>
+                    {lead.email ? (
+                      <a 
+                        href={`mailto:${lead.email}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {lead.email}
+                      </a>
+                    ) : (
+                      <p className="font-medium text-muted-foreground">Não informado</p>
+                    )}
                   </div>
                 </div>
 
@@ -151,7 +167,7 @@ export default function LeadDetail() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Responsável</p>
-                    <p className="font-medium">{lead.assignedTo}</p>
+                    <p className="font-medium">{lead.assigned_to}</p>
                   </div>
                 </div>
               </div>
@@ -167,7 +183,7 @@ export default function LeadDetail() {
                     Produtos de interesse
                   </label>
                   <p className="mt-1 p-3 rounded-lg bg-muted/50 text-foreground">
-                    {lead.desiredProducts || 'Nenhum produto especificado ainda'}
+                    {lead.desired_products || 'Nenhum produto especificado ainda'}
                   </p>
                 </div>
 
@@ -180,14 +196,14 @@ export default function LeadDetail() {
                   </p>
                 </div>
 
-                {lead.whatsappGroup && (
+                {lead.whatsapp_group && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">
                       Grupo de WhatsApp
                     </label>
                     <p className="mt-1 p-3 rounded-lg bg-green-500/10 text-foreground flex items-center gap-2">
                       <MessageSquare className="w-4 h-4 text-green-500" />
-                      {lead.whatsappGroup}
+                      {lead.whatsapp_group}
                     </p>
                   </div>
                 )}
@@ -208,14 +224,14 @@ export default function LeadDetail() {
                 <div className="p-4 rounded-lg bg-muted/50">
                   <p className="text-sm text-muted-foreground">Valor Negociado</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(lead.negotiatedValue)}
+                    {formatCurrency(lead.negotiated_value)}
                   </p>
                 </div>
 
                 <div className="p-4 rounded-lg bg-funnel-success/20">
                   <p className="text-sm text-funnel-success-foreground">Valor Pago</p>
                   <p className="text-2xl font-bold text-funnel-success-foreground">
-                    {formatCurrency(lead.paidValue)}
+                    {formatCurrency(lead.paid_value)}
                   </p>
                 </div>
               </div>
