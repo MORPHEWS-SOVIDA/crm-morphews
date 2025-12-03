@@ -10,6 +10,7 @@ interface Profile {
   instagram: string | null;
   whatsapp: string | null;
   avatar_url: string | null;
+  organization_id: string | null;
 }
 
 interface AuthContextType {

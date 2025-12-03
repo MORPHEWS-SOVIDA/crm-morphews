@@ -17,6 +17,7 @@ import NewLead from "./pages/NewLead";
 import EditLead from "./pages/EditLead";
 import Settings from "./pages/Settings";
 import InstagramDMs from "./pages/InstagramDMs";
+import Planos from "./pages/Planos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/setup" element={<Setup />} />
+            <Route path="/planos" element={<Planos />} />
             
             {/* Protected routes */}
             <Route path="/" element={
