@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -110,6 +110,7 @@ export default function SuperAdmin() {
   });
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [sendingCredentialsFor, setSendingCredentialsFor] = useState<string | null>(null);
 
   // Only allow master admin
   if (!authLoading && user?.email !== MASTER_ADMIN_EMAIL) {
@@ -290,6 +291,54 @@ export default function SuperAdmin() {
       });
     } finally {
       setIsCreatingOrg(false);
+    }
+  };
+
+  // Send credentials to an existing org that has no users
+  const sendCredentialsToOrg = async (org: Organization) => {
+    if (!org.owner_email || !org.owner_name) {
+      toast({
+        title: "Erro",
+        description: "Organização precisa ter email e nome do dono configurados.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSendingCredentialsFor(org.id);
+      
+      const subscription = subscriptions?.find(s => s.organization_id === org.id);
+      const planName = subscription?.subscription_plans?.name || "Morphews CRM";
+
+      const { data, error } = await supabase.functions.invoke("create-org-user", {
+        body: {
+          organizationId: org.id,
+          ownerName: org.owner_name,
+          ownerEmail: org.owner_email,
+          ownerPhone: org.phone || "",
+          planName: planName,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({ 
+        title: "Sucesso!", 
+        description: `Credenciais enviadas para ${org.owner_email}` 
+      });
+
+      refetchMembers();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao enviar credenciais",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingCredentialsFor(null);
     }
   };
 
@@ -829,6 +878,24 @@ export default function SuperAdmin() {
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
+
+                                {/* Send Credentials - show when org has email but no users */}
+                                {memberCount === 0 && org.owner_email && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Enviar credenciais para o dono"
+                                    onClick={() => sendCredentialsToOrg(org)}
+                                    disabled={sendingCredentialsFor === org.id}
+                                    className="text-primary hover:text-primary"
+                                  >
+                                    {sendingCredentialsFor === org.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Send className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                )}
 
                                 {/* Toggle Status */}
                                 {subscription && (
