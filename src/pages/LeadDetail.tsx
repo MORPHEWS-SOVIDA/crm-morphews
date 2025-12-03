@@ -365,11 +365,11 @@ export default function LeadDetail() {
               </div>
             </div>
 
-            {/* Products & Notes */}
+            {/* Produtos Negociados & Observações */}
             <div className="bg-card rounded-xl p-6 shadow-card">
               <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Package className="w-5 h-5 text-primary" />
-                Produtos & Observações
+                Produtos Negociados & Observações
               </h2>
               
               <div className="space-y-4">
