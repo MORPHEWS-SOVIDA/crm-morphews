@@ -18,6 +18,7 @@ import EditLead from "./pages/EditLead";
 import Settings from "./pages/Settings";
 import InstagramDMs from "./pages/InstagramDMs";
 import Planos from "./pages/Planos";
+import InterestedLeads from "./pages/InterestedLeads";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,11 @@ const App = () => (
             <Route path="/instagram" element={
               <ProtectedRoute>
                 <InstagramDMs />
+              </ProtectedRoute>
+            } />
+            <Route path="/interessados" element={
+              <ProtectedRoute requireAdmin>
+                <InterestedLeads />
               </ProtectedRoute>
             } />
             

@@ -8,7 +8,8 @@ import {
   Menu,
   X,
   UserPlus,
-  LogOut
+  LogOut,
+  ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -30,7 +31,10 @@ export function Sidebar() {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
-    ...(isAdmin ? [{ icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' }] : []),
+    ...(isAdmin ? [
+      { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
+      { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
+    ] : []),
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];

@@ -44,6 +44,53 @@ export type Database = {
         }
         Relationships: []
       }
+      interested_leads: {
+        Row: {
+          converted_at: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          plan_id: string | null
+          plan_name: string | null
+          status: string
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          plan_id?: string | null
+          plan_name?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp: string
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          plan_id?: string | null
+          plan_name?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interested_leads_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_events: {
         Row: {
           created_at: string
