@@ -16,8 +16,10 @@ import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { InlineEdit } from '@/components/InlineEdit';
+import { InlineSelect } from '@/components/InlineSelect';
 import { DeleteLeadDialog } from '@/components/DeleteLeadDialog';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
+import { useUsers } from '@/hooks/useUsers';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,8 +37,14 @@ export default function LeadDetail() {
   const navigate = useNavigate();
   
   const { data: lead, isLoading, error } = useLead(id);
+  const { data: users = [] } = useUsers();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
+  
+  const userOptions = users.map((user) => ({
+    value: `${user.first_name} ${user.last_name}`,
+    label: `${user.first_name} ${user.last_name}`,
+  }));
 
   const handleUpdate = (field: string, value: string | number | null) => {
     if (!id) return;
@@ -234,11 +242,12 @@ export default function LeadDetail() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Responsável</p>
-                    <InlineEdit
+                    <InlineSelect
                       value={lead.assigned_to}
+                      options={userOptions}
                       onSave={(value) => handleUpdate('assigned_to', value)}
                       displayClassName="font-medium"
-                      placeholder="Nome do responsável"
+                      placeholder="Selecione o responsável"
                     />
                   </div>
                 </div>
