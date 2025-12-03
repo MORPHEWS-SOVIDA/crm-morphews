@@ -100,9 +100,52 @@ export type Database = {
           },
         ]
       }
+      lead_products: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      lead_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           assigned_to: string
+          cpf_cnpj: string | null
           created_at: string
           created_by: string | null
           desired_products: string | null
@@ -110,6 +153,8 @@ export type Database = {
           followers: number | null
           id: string
           instagram: string
+          lead_source: string | null
+          linkedin: string | null
           meeting_date: string | null
           meeting_link: string | null
           meeting_time: string | null
@@ -117,8 +162,10 @@ export type Database = {
           negotiated_value: number | null
           observations: string | null
           paid_value: number | null
+          products: string[] | null
           recorded_call_link: string | null
-          specialty: string
+          site: string | null
+          specialty: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
           stars: number
           updated_at: string
@@ -127,6 +174,7 @@ export type Database = {
         }
         Insert: {
           assigned_to: string
+          cpf_cnpj?: string | null
           created_at?: string
           created_by?: string | null
           desired_products?: string | null
@@ -134,6 +182,8 @@ export type Database = {
           followers?: number | null
           id?: string
           instagram: string
+          lead_source?: string | null
+          linkedin?: string | null
           meeting_date?: string | null
           meeting_link?: string | null
           meeting_time?: string | null
@@ -141,8 +191,10 @@ export type Database = {
           negotiated_value?: number | null
           observations?: string | null
           paid_value?: number | null
+          products?: string[] | null
           recorded_call_link?: string | null
-          specialty: string
+          site?: string | null
+          specialty?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
           stars?: number
           updated_at?: string
@@ -151,6 +203,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string
+          cpf_cnpj?: string | null
           created_at?: string
           created_by?: string | null
           desired_products?: string | null
@@ -158,6 +211,8 @@ export type Database = {
           followers?: number | null
           id?: string
           instagram?: string
+          lead_source?: string | null
+          linkedin?: string | null
           meeting_date?: string | null
           meeting_link?: string | null
           meeting_time?: string | null
@@ -165,8 +220,10 @@ export type Database = {
           negotiated_value?: number | null
           observations?: string | null
           paid_value?: number | null
+          products?: string[] | null
           recorded_call_link?: string | null
-          specialty?: string
+          site?: string | null
+          specialty?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
           stars?: number
           updated_at?: string

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
+import { MultiSelect } from '@/components/MultiSelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,12 +17,17 @@ import {
 } from '@/components/ui/select';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useCreateLead } from '@/hooks/useLeads';
+import { useUsers } from '@/hooks/useUsers';
+import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { leadSchema } from '@/lib/validations';
 import { toast } from '@/hooks/use-toast';
 
 export default function NewLead() {
   const navigate = useNavigate();
   const createLead = useCreateLead();
+  const { data: users = [] } = useUsers();
+  const { data: leadSources = [] } = useLeadSources();
+  const { data: leadProducts = [] } = useLeadProducts();
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
@@ -42,6 +48,11 @@ export default function NewLead() {
     meeting_time: '',
     meeting_link: '',
     recorded_call_link: '',
+    linkedin: '',
+    cpf_cnpj: '',
+    site: '',
+    lead_source: '',
+    products: [] as string[],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +77,7 @@ export default function NewLead() {
     
     await createLead.mutateAsync({
       name: formData.name.trim(),
-      specialty: formData.specialty.trim(),
+      specialty: formData.specialty.trim() || null,
       instagram: formData.instagram.trim(),
       followers: formData.followers ? parseInt(formData.followers) : null,
       whatsapp: formData.whatsapp.trim(),
@@ -82,12 +93,17 @@ export default function NewLead() {
       meeting_time: formData.meeting_time || null,
       meeting_link: formData.meeting_link || null,
       recorded_call_link: formData.recorded_call_link || null,
+      linkedin: formData.linkedin || null,
+      cpf_cnpj: formData.cpf_cnpj || null,
+      site: formData.site || null,
+      lead_source: formData.lead_source || null,
+      products: formData.products.length > 0 ? formData.products : null,
     });
     
     navigate('/leads');
   };
 
-  const updateField = (field: string, value: string | number) => {
+  const updateField = (field: string, value: string | number | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -125,20 +141,18 @@ export default function NewLead() {
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder="Ex: Dr. João Silva"
-                required
                 className={errors.name ? 'border-destructive' : ''}
               />
               {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="specialty">Especialidade *</Label>
+              <Label htmlFor="specialty">Empresa ou Especialidade</Label>
               <Input
                 id="specialty"
                 value={formData.specialty}
                 onChange={(e) => updateField('specialty', e.target.value)}
-                placeholder="Ex: Dermatologista"
-                required
+                placeholder="Ex: Dermatologista ou Nome da Empresa"
                 className={errors.specialty ? 'border-destructive' : ''}
               />
               {errors.specialty && <p className="text-sm text-destructive">{errors.specialty}</p>}
@@ -152,7 +166,6 @@ export default function NewLead() {
                   value={formData.instagram}
                   onChange={(e) => updateField('instagram', e.target.value)}
                   placeholder="@usuario"
-                  required
                   className={errors.instagram ? 'border-destructive' : ''}
                 />
                 {errors.instagram && <p className="text-sm text-destructive">{errors.instagram}</p>}
@@ -177,7 +190,6 @@ export default function NewLead() {
                 value={formData.whatsapp}
                 onChange={(e) => updateField('whatsapp', e.target.value)}
                 placeholder="5511999999999"
-                required
                 className={errors.whatsapp ? 'border-destructive' : ''}
               />
               {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
@@ -192,6 +204,40 @@ export default function NewLead() {
                 onChange={(e) => updateField('email', e.target.value)}
                 placeholder="email@exemplo.com"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="linkedin">LinkedIn</Label>
+              <Input
+                id="linkedin"
+                value={formData.linkedin}
+                onChange={(e) => updateField('linkedin', e.target.value)}
+                placeholder="https://linkedin.com/in/usuario"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cpf_cnpj">CPF/CNPJ</Label>
+                <Input
+                  id="cpf_cnpj"
+                  value={formData.cpf_cnpj}
+                  onChange={(e) => updateField('cpf_cnpj', e.target.value)}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="site">Site</Label>
+                <Input
+                  id="site"
+                  value={formData.site}
+                  onChange={(e) => updateField('site', e.target.value)}
+                  placeholder="https://..."
+                  className={errors.site ? 'border-destructive' : ''}
+                />
+                {errors.site && <p className="text-sm text-destructive">{errors.site}</p>}
+              </div>
             </div>
           </div>
 
@@ -239,15 +285,51 @@ export default function NewLead() {
 
             <div className="space-y-2">
               <Label htmlFor="assigned_to">Responsável *</Label>
-              <Input
-                id="assigned_to"
+              <Select
                 value={formData.assigned_to}
-                onChange={(e) => updateField('assigned_to', e.target.value)}
-                placeholder="Nome do responsável"
-                required
-                className={errors.assigned_to ? 'border-destructive' : ''}
-              />
+                onValueChange={(value) => updateField('assigned_to', value)}
+              >
+                <SelectTrigger className={errors.assigned_to ? 'border-destructive' : ''}>
+                  <SelectValue placeholder="Selecione o responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={`${user.first_name} ${user.last_name}`}>
+                      {user.first_name} {user.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.assigned_to && <p className="text-sm text-destructive">{errors.assigned_to}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lead_source">Origem do Lead</Label>
+              <Select
+                value={formData.lead_source}
+                onValueChange={(value) => updateField('lead_source', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leadSources.map((source) => (
+                    <SelectItem key={source.id} value={source.name}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Produtos Negociados</Label>
+              <MultiSelect
+                options={leadProducts.map((p) => ({ value: p.name, label: p.name }))}
+                selected={formData.products}
+                onChange={(selected) => updateField('products', selected)}
+                placeholder="Selecione os produtos"
+              />
             </div>
 
             <div className="space-y-2">
@@ -277,7 +359,7 @@ export default function NewLead() {
           <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Reunião</h2>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="meeting_date">Data da Reunião</Label>
                 <Input
@@ -326,12 +408,12 @@ export default function NewLead() {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="desired_products">Produtos de Interesse</Label>
+                <Label htmlFor="desired_products">Notas sobre Interesse</Label>
                 <Textarea
                   id="desired_products"
                   value={formData.desired_products}
                   onChange={(e) => updateField('desired_products', e.target.value)}
-                  placeholder="Quais produtos o lead demonstrou interesse?"
+                  placeholder="Anotações sobre interesse do lead..."
                   rows={4}
                 />
               </div>

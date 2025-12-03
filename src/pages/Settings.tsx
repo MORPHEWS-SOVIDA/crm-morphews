@@ -1,11 +1,66 @@
+import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Users } from 'lucide-react';
+import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2 } from 'lucide-react';
+import { useLeadSources, useLeadProducts, useCreateLeadSource, useCreateLeadProduct, useDeleteLeadSource, useDeleteLeadProduct } from '@/hooks/useConfigOptions';
+import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Settings() {
+  const { profile } = useAuth();
+  const { data: leadSources = [], isLoading: loadingSources } = useLeadSources();
+  const { data: leadProducts = [], isLoading: loadingProducts } = useLeadProducts();
+  const createSource = useCreateLeadSource();
+  const createProduct = useCreateLeadProduct();
+  const deleteSource = useDeleteLeadSource();
+  const deleteProduct = useDeleteLeadProduct();
+
+  const [newSource, setNewSource] = useState('');
+  const [newProduct, setNewProduct] = useState('');
+
+  const handleAddSource = async () => {
+    if (!newSource.trim()) return;
+    try {
+      await createSource.mutateAsync(newSource.trim());
+      setNewSource('');
+      toast({ title: 'Origem adicionada com sucesso!' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao adicionar', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!newProduct.trim()) return;
+    try {
+      await createProduct.mutateAsync(newProduct.trim());
+      setNewProduct('');
+      toast({ title: 'Produto adicionado com sucesso!' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao adicionar', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteSource = async (id: string) => {
+    try {
+      await deleteSource.mutateAsync(id);
+      toast({ title: 'Origem removida!' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct.mutateAsync(id);
+      toast({ title: 'Produto removido!' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -18,6 +73,104 @@ export default function Settings() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Lead Sources Configuration */}
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-primary/10">
+                <Tag className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Origens de Lead</h2>
+                <p className="text-sm text-muted-foreground">Canais de aquisição</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nova origem..."
+                  value={newSource}
+                  onChange={(e) => setNewSource(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddSource()}
+                />
+                <Button onClick={handleAddSource} disabled={createSource.isPending}>
+                  {createSource.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-auto">
+                {loadingSources ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  leadSources.map((source) => (
+                    <div key={source.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <span className="font-medium">{source.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteSource(source.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Lead Products Configuration */}
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-funnel-success/20">
+                <Package className="w-6 h-6 text-funnel-success-foreground" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Produtos</h2>
+                <p className="text-sm text-muted-foreground">Produtos negociados</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Novo produto..."
+                  value={newProduct}
+                  onChange={(e) => setNewProduct(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddProduct()}
+                />
+                <Button onClick={handleAddProduct} disabled={createProduct.isPending}>
+                  {createProduct.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-auto">
+                {loadingProducts ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  leadProducts.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <span className="font-medium">{product.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteProduct(product.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Instagram Integration */}
           <div className="bg-card rounded-xl p-6 shadow-card">
             <div className="flex items-center gap-3 mb-4">

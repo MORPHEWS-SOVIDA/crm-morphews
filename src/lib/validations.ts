@@ -33,7 +33,7 @@ export const cadastroSchema = z.object({
 // Lead validations
 export const leadSchema = z.object({
   name: z.string().trim().min(1, { message: 'Nome é obrigatório' }).max(200, { message: 'Nome muito longo' }),
-  specialty: z.string().trim().min(1, { message: 'Especialidade é obrigatória' }).max(200, { message: 'Especialidade muito longa' }),
+  specialty: z.string().max(200, { message: 'Empresa/Especialidade muito longa' }).optional().or(z.literal('')),
   instagram: z.string().trim().min(1, { message: 'Instagram é obrigatório' }).max(100, { message: 'Instagram muito longo' }),
   followers: z.string().optional().or(z.literal('')),
   whatsapp: z.string().trim().min(1, { message: 'WhatsApp é obrigatório' }).max(20, { message: 'WhatsApp muito longo' }),
@@ -49,6 +49,11 @@ export const leadSchema = z.object({
   meeting_time: z.string().optional().or(z.literal('')),
   meeting_link: z.string().url({ message: 'Link inválido' }).optional().or(z.literal('')),
   recorded_call_link: z.string().url({ message: 'Link inválido' }).optional().or(z.literal('')),
+  linkedin: z.string().max(200).optional().or(z.literal('')),
+  cpf_cnpj: z.string().max(20).optional().or(z.literal('')),
+  site: z.string().url({ message: 'URL inválida' }).optional().or(z.literal('')),
+  lead_source: z.string().optional().or(z.literal('')),
+  products: z.array(z.string()).optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

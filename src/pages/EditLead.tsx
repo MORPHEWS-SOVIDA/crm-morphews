@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
+import { MultiSelect } from '@/components/MultiSelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,12 +17,17 @@ import {
 } from '@/components/ui/select';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';
+import { useUsers } from '@/hooks/useUsers';
+import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 
 export default function EditLead() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: lead, isLoading: isLoadingLead } = useLead(id);
   const updateLead = useUpdateLead();
+  const { data: users = [] } = useUsers();
+  const { data: leadSources = [] } = useLeadSources();
+  const { data: leadProducts = [] } = useLeadProducts();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -41,6 +47,12 @@ export default function EditLead() {
     meeting_date: '',
     meeting_time: '',
     meeting_link: '',
+    recorded_call_link: '',
+    linkedin: '',
+    cpf_cnpj: '',
+    site: '',
+    lead_source: '',
+    products: [] as string[],
   });
 
   useEffect(() => {
@@ -63,6 +75,12 @@ export default function EditLead() {
         meeting_date: lead.meeting_date || '',
         meeting_time: lead.meeting_time || '',
         meeting_link: lead.meeting_link || '',
+        recorded_call_link: (lead as any).recorded_call_link || '',
+        linkedin: (lead as any).linkedin || '',
+        cpf_cnpj: (lead as any).cpf_cnpj || '',
+        site: (lead as any).site || '',
+        lead_source: (lead as any).lead_source || '',
+        products: (lead as any).products || [],
       });
     }
   }, [lead]);
@@ -75,7 +93,7 @@ export default function EditLead() {
     await updateLead.mutateAsync({
       id,
       name: formData.name,
-      specialty: formData.specialty,
+      specialty: formData.specialty || null,
       instagram: formData.instagram,
       followers: formData.followers ? parseInt(formData.followers) : null,
       whatsapp: formData.whatsapp,
@@ -91,12 +109,18 @@ export default function EditLead() {
       meeting_date: formData.meeting_date || null,
       meeting_time: formData.meeting_time || null,
       meeting_link: formData.meeting_link || null,
+      recorded_call_link: formData.recorded_call_link || null,
+      linkedin: formData.linkedin || null,
+      cpf_cnpj: formData.cpf_cnpj || null,
+      site: formData.site || null,
+      lead_source: formData.lead_source || null,
+      products: formData.products.length > 0 ? formData.products : null,
     });
     
     navigate(`/leads/${id}`);
   };
 
-  const updateField = (field: string, value: string | number) => {
+  const updateField = (field: string, value: string | number | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -149,13 +173,12 @@ export default function EditLead() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="specialty">Especialidade *</Label>
+              <Label htmlFor="specialty">Empresa ou Especialidade</Label>
               <Input
                 id="specialty"
                 value={formData.specialty}
                 onChange={(e) => updateField('specialty', e.target.value)}
-                placeholder="Ex: Dermatologista"
-                required
+                placeholder="Ex: Dermatologista ou Nome da Empresa"
               />
             </div>
 
@@ -204,6 +227,38 @@ export default function EditLead() {
                 placeholder="email@exemplo.com"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="linkedin">LinkedIn</Label>
+              <Input
+                id="linkedin"
+                value={formData.linkedin}
+                onChange={(e) => updateField('linkedin', e.target.value)}
+                placeholder="https://linkedin.com/in/usuario"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cpf_cnpj">CPF/CNPJ</Label>
+                <Input
+                  id="cpf_cnpj"
+                  value={formData.cpf_cnpj}
+                  onChange={(e) => updateField('cpf_cnpj', e.target.value)}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="site">Site</Label>
+                <Input
+                  id="site"
+                  value={formData.site}
+                  onChange={(e) => updateField('site', e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
           </div>
 
           {/* Status & Classification */}
@@ -243,12 +298,49 @@ export default function EditLead() {
 
             <div className="space-y-2">
               <Label htmlFor="assigned_to">Responsável *</Label>
-              <Input
-                id="assigned_to"
+              <Select
                 value={formData.assigned_to}
-                onChange={(e) => updateField('assigned_to', e.target.value)}
-                placeholder="Nome do responsável"
-                required
+                onValueChange={(value) => updateField('assigned_to', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={`${user.first_name} ${user.last_name}`}>
+                      {user.first_name} {user.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lead_source">Origem do Lead</Label>
+              <Select
+                value={formData.lead_source}
+                onValueChange={(value) => updateField('lead_source', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leadSources.map((source) => (
+                    <SelectItem key={source.id} value={source.name}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Produtos Negociados</Label>
+              <MultiSelect
+                options={leadProducts.map((p) => ({ value: p.name, label: p.name }))}
+                selected={formData.products}
+                onChange={(selected) => updateField('products', selected)}
+                placeholder="Selecione os produtos"
               />
             </div>
 
@@ -292,7 +384,7 @@ export default function EditLead() {
           <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Reunião</h2>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="meeting_date">Data da Reunião</Label>
                 <Input
@@ -322,6 +414,16 @@ export default function EditLead() {
                   placeholder="https://calendar.app.google/..."
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recorded_call_link">Link da Gravação</Label>
+                <Input
+                  id="recorded_call_link"
+                  value={formData.recorded_call_link}
+                  onChange={(e) => updateField('recorded_call_link', e.target.value)}
+                  placeholder="Link do vídeo"
+                />
+              </div>
             </div>
           </div>
 
@@ -331,12 +433,12 @@ export default function EditLead() {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="desired_products">Produtos de Interesse</Label>
+                <Label htmlFor="desired_products">Notas sobre Interesse</Label>
                 <Textarea
                   id="desired_products"
                   value={formData.desired_products}
                   onChange={(e) => updateField('desired_products', e.target.value)}
-                  placeholder="Quais produtos o lead demonstrou interesse?"
+                  placeholder="Anotações sobre interesse do lead..."
                   rows={4}
                 />
               </div>
