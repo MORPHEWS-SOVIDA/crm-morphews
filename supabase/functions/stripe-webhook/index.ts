@@ -23,16 +23,28 @@ function generatePassword(): string {
 
 serve(async (req) => {
   const body = await req.text();
+  const signature = req.headers.get("stripe-signature");
 
   let event: Stripe.Event;
 
   try {
-    // For now, we'll process without signature verification
-    // In production, you should set up STRIPE_WEBHOOK_SECRET
-    event = JSON.parse(body) as Stripe.Event;
-  } catch (err) {
-    console.error("Error parsing webhook:", err);
-    return new Response("Invalid payload", { status: 400 });
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    
+    if (!webhookSecret) {
+      console.error("STRIPE_WEBHOOK_SECRET not configured");
+      return new Response("Webhook secret not configured", { status: 500 });
+    }
+
+    if (!signature) {
+      console.error("No stripe-signature header");
+      return new Response("No signature", { status: 400 });
+    }
+
+    // Verify the webhook signature
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
   console.log("Processing event:", event.type);
