@@ -73,7 +73,7 @@ export default function ForcePasswordChange() {
         description: "Você será redirecionado para o dashboard.",
       });
 
-      navigate("/dashboard");
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Erro ao alterar senha",

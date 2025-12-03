@@ -52,7 +52,7 @@ export default function Onboarding() {
         description: "Bem-vindo ao Morphews CRM!",
       });
 
-      navigate("/dashboard");
+      navigate("/");
     } catch (error: any) {
       console.error("Error saving onboarding data:", error);
       toast({
@@ -66,7 +66,7 @@ export default function Onboarding() {
   };
 
   const handleSkip = () => {
-    navigate("/dashboard");
+    navigate("/");
   };
 
   return (
