@@ -27,6 +27,7 @@ import { DeleteLeadDialog } from '@/components/DeleteLeadDialog';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
+import { useAuth } from '@/hooks/useAuth';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,8 +48,12 @@ export default function LeadDetail() {
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
+  const { user, isAdmin } = useAuth();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
+  
+  // Check if current user can see sensitive data (CPF/CNPJ)
+  const canSeeSensitiveData = isAdmin || (user && lead?.created_by === user.id);
   
   const userOptions = users.map((user) => ({
     value: `${user.first_name} ${user.last_name}`,
@@ -332,20 +337,22 @@ export default function LeadDetail() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="p-2 rounded-lg bg-slate-500/10">
-                    <FileText className="w-5 h-5 text-slate-500" />
+                {canSeeSensitiveData && (
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                    <div className="p-2 rounded-lg bg-slate-500/10">
+                      <FileText className="w-5 h-5 text-slate-500" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">CPF/CNPJ</p>
+                      <InlineEdit
+                        value={lead.cpf_cnpj}
+                        onSave={(value) => handleUpdate('cpf_cnpj', value || null)}
+                        displayClassName="font-medium"
+                        placeholder="000.000.000-00"
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">CPF/CNPJ</p>
-                    <InlineEdit
-                      value={lead.cpf_cnpj}
-                      onSave={(value) => handleUpdate('cpf_cnpj', value || null)}
-                      displayClassName="font-medium"
-                      placeholder="000.000.000-00"
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
                   <div className="p-2 rounded-lg bg-teal-500/10">
