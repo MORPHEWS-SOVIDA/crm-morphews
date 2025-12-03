@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,27 @@ import { loginSchema } from '@/lib/validations';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { signIn, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  // If user is already logged in, redirect
+  useEffect(() => {
+    if (user) {
+      const redirect = searchParams.get('redirect');
+      const plan = searchParams.get('plan');
+      if (redirect) {
+        const url = plan ? `${redirect}?plan=${plan}` : redirect;
+        navigate(url, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [user, navigate, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +68,7 @@ export default function Login() {
       description: 'Bem-vindo ao Morphews CRM',
     });
     
-    navigate('/');
+    // Redirect will be handled by the useEffect above when user state changes
   };
 
   return (

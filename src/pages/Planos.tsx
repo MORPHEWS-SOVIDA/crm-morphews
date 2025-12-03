@@ -46,13 +46,34 @@ export default function Planos() {
   const [selectedPlan, setSelectedPlan] = useState<{ id: string; name: string } | null>(null);
   const [leadForm, setLeadForm] = useState({ name: "", whatsapp: "", email: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoCheckoutTriggered, setAutoCheckoutTriggered] = useState(false);
 
+  // Handle subscription success redirect
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("subscription") === "success") {
       navigate("/", { replace: true });
     }
   }, [navigate]);
+
+  // Auto-trigger checkout if user came from login with a plan selected
+  useEffect(() => {
+    if (user && plans && !autoCheckoutTriggered && !plansLoading) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const planId = urlParams.get("plan");
+      
+      if (planId) {
+        const plan = plans.find(p => p.id === planId);
+        if (plan) {
+          setAutoCheckoutTriggered(true);
+          // Clear the URL params
+          window.history.replaceState({}, '', '/planos');
+          // Trigger checkout
+          createCheckout.mutate(planId);
+        }
+      }
+    }
+  }, [user, plans, plansLoading, autoCheckoutTriggered, createCheckout]);
 
   const handleSelectPlan = (planId: string, planName: string) => {
     setSelectedPlan({ id: planId, name: planName });
