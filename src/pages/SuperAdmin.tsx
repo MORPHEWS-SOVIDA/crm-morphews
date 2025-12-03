@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -93,6 +93,14 @@ export default function SuperAdmin() {
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [selectedOrgForUser, setSelectedOrgForUser] = useState<string | null>(null);
   const [selectedOrgDetails, setSelectedOrgDetails] = useState<string | null>(null);
+  const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    owner_name: "",
+    owner_email: "",
+    phone: "",
+    planId: "",
+  });
   const [newOrg, setNewOrg] = useState({ 
     name: "", 
     planId: "",
@@ -101,6 +109,7 @@ export default function SuperAdmin() {
     ownerPhone: ""
   });
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Only allow master admin
   if (!authLoading && user?.email !== MASTER_ADMIN_EMAIL) {
@@ -319,6 +328,94 @@ export default function SuperAdmin() {
       });
     },
   });
+
+  const updateOrganizationMutation = useMutation({
+    mutationFn: async ({ orgId, data, planId }: { orgId: string; data: Partial<Organization>; planId?: string }) => {
+      // Update organization
+      const { error: orgError } = await supabase
+        .from("organizations")
+        .update(data)
+        .eq("id", orgId);
+
+      if (orgError) throw orgError;
+
+      // Update subscription plan if provided
+      if (planId) {
+        const { error: subError } = await supabase
+          .from("subscriptions")
+          .update({ plan_id: planId })
+          .eq("organization_id", orgId);
+
+        if (subError) throw subError;
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Organização atualizada com sucesso!" });
+      setEditingOrg(null);
+      queryClient.invalidateQueries({ queryKey: ["super-admin-organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-subscriptions"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar organização",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleSubscriptionStatusMutation = useMutation({
+    mutationFn: async ({ subId, newStatus }: { subId: string; newStatus: "active" | "canceled" | "past_due" | "trialing" | "unpaid" }) => {
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ status: newStatus })
+        .eq("id", subId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Status da assinatura atualizado!" });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-subscriptions"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar status",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openEditDialog = (org: Organization) => {
+    const subscription = getSubscriptionForOrg(org.id);
+    setEditForm({
+      name: org.name,
+      owner_name: org.owner_name || "",
+      owner_email: org.owner_email || "",
+      phone: org.phone || "",
+      planId: subscription?.plan_id || "",
+    });
+    setEditingOrg(org);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingOrg) return;
+    setIsSavingEdit(true);
+    try {
+      await updateOrganizationMutation.mutateAsync({
+        orgId: editingOrg.id,
+        data: {
+          name: editForm.name,
+          owner_name: editForm.owner_name || null,
+          owner_email: editForm.owner_email || null,
+          phone: editForm.phone || null,
+        },
+        planId: editForm.planId,
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const getSubscriptionForOrg = (orgId: string) => {
     return subscriptions?.find((s) => s.organization_id === orgId);
@@ -648,78 +745,111 @@ export default function SuperAdmin() {
                               {format(new Date(org.created_at), "dd/MM/yyyy", { locale: ptBR })}
                             </TableCell>
                             <TableCell>
-                              <Dialog open={selectedOrgDetails === org.id} onOpenChange={(open) => setSelectedOrgDetails(open ? org.id : null)}>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Detalhes: {org.name}</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div>
-                                        <Label className="text-muted-foreground">Nome do Dono</Label>
-                                        <p className="font-medium">{org.owner_name || "-"}</p>
+                              <div className="flex items-center gap-1">
+                                {/* View Details */}
+                                <Dialog open={selectedOrgDetails === org.id} onOpenChange={(open) => setSelectedOrgDetails(open ? org.id : null)}>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" title="Ver detalhes">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                      <DialogTitle>Detalhes: {org.name}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <Label className="text-muted-foreground">Nome do Dono</Label>
+                                          <p className="font-medium">{org.owner_name || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <Label className="text-muted-foreground">Email</Label>
+                                          <p className="font-medium">{org.owner_email || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <Label className="text-muted-foreground">Telefone</Label>
+                                          <p className="font-medium">{org.phone || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <Label className="text-muted-foreground">Plano</Label>
+                                          <p className="font-medium">{subscription?.subscription_plans?.name || "-"}</p>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <Label className="text-muted-foreground">Email</Label>
-                                        <p className="font-medium">{org.owner_email || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <Label className="text-muted-foreground">Telefone</Label>
-                                        <p className="font-medium">{org.phone || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <Label className="text-muted-foreground">Plano</Label>
-                                        <p className="font-medium">{subscription?.subscription_plans?.name || "-"}</p>
-                                      </div>
+                                      
+                                      {onboarding && (
+                                        <div className="border-t pt-4">
+                                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                            <FileText className="h-4 w-4" />
+                                            Dados do Onboarding
+                                          </h4>
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                              <Label className="text-muted-foreground">CNPJ</Label>
+                                              <p className="font-medium">{onboarding.cnpj || "-"}</p>
+                                            </div>
+                                            <div>
+                                              <Label className="text-muted-foreground">Site</Label>
+                                              <p className="font-medium">
+                                                {onboarding.company_site ? (
+                                                  <a href={onboarding.company_site} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                                                    <Globe className="h-3 w-3" />
+                                                    {onboarding.company_site}
+                                                  </a>
+                                                ) : "-"}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <div className="mt-3">
+                                            <Label className="text-muted-foreground">Como pretende usar o CRM</Label>
+                                            <p className="font-medium text-sm mt-1">{onboarding.crm_usage_intent || "-"}</p>
+                                          </div>
+                                          <div className="mt-3">
+                                            <Label className="text-muted-foreground">Sobre o Negócio</Label>
+                                            <p className="font-medium text-sm mt-1">{onboarding.business_description || "-"}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {!onboarding && (
+                                        <div className="border-t pt-4 text-center text-muted-foreground">
+                                          <p>Onboarding ainda não foi preenchido</p>
+                                        </div>
+                                      )}
                                     </div>
-                                    
-                                    {onboarding && (
-                                      <div className="border-t pt-4">
-                                        <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                          <FileText className="h-4 w-4" />
-                                          Dados do Onboarding
-                                        </h4>
-                                        <div className="grid grid-cols-2 gap-4">
-                                          <div>
-                                            <Label className="text-muted-foreground">CNPJ</Label>
-                                            <p className="font-medium">{onboarding.cnpj || "-"}</p>
-                                          </div>
-                                          <div>
-                                            <Label className="text-muted-foreground">Site</Label>
-                                            <p className="font-medium">
-                                              {onboarding.company_site ? (
-                                                <a href={onboarding.company_site} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                                                  <Globe className="h-3 w-3" />
-                                                  {onboarding.company_site}
-                                                </a>
-                                              ) : "-"}
-                                            </p>
-                                          </div>
-                                        </div>
-                                        <div className="mt-3">
-                                          <Label className="text-muted-foreground">Como pretende usar o CRM</Label>
-                                          <p className="font-medium text-sm mt-1">{onboarding.crm_usage_intent || "-"}</p>
-                                        </div>
-                                        <div className="mt-3">
-                                          <Label className="text-muted-foreground">Sobre o Negócio</Label>
-                                          <p className="font-medium text-sm mt-1">{onboarding.business_description || "-"}</p>
-                                        </div>
-                                      </div>
+                                  </DialogContent>
+                                </Dialog>
+
+                                {/* Edit Organization */}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  title="Editar organização"
+                                  onClick={() => openEditDialog(org)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+
+                                {/* Toggle Status */}
+                                {subscription && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title={subscription.status === "canceled" ? "Reativar assinatura" : "Desativar assinatura"}
+                                    onClick={() => {
+                                      const newStatus = subscription.status === "canceled" ? "active" : "canceled";
+                                      toggleSubscriptionStatusMutation.mutate({ subId: subscription.id, newStatus });
+                                    }}
+                                    className={subscription.status === "canceled" ? "text-green-600 hover:text-green-700" : "text-destructive hover:text-destructive"}
+                                  >
+                                    {subscription.status === "canceled" ? (
+                                      <Power className="h-4 w-4" />
+                                    ) : (
+                                      <PowerOff className="h-4 w-4" />
                                     )}
-                                    
-                                    {!onboarding && (
-                                      <div className="border-t pt-4 text-center text-muted-foreground">
-                                        <p>Onboarding ainda não foi preenchido</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -729,6 +859,85 @@ export default function SuperAdmin() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Edit Organization Dialog */}
+            <Dialog open={!!editingOrg} onOpenChange={(open) => !open && setEditingOrg(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Editar Organização</DialogTitle>
+                  <DialogDescription>
+                    Atualize os dados da organização e do plano
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Nome da Organização *</Label>
+                    <Input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Plano</Label>
+                    <Select
+                      value={editForm.planId}
+                      onValueChange={(value) => setEditForm({ ...editForm, planId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um plano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {plans?.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name} ({formatPrice(plan.price_cents)}/mês)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-3">Dados do Dono</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Nome do Dono</Label>
+                        <Input
+                          value={editForm.owner_name}
+                          onChange={(e) => setEditForm({ ...editForm, owner_name: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email do Dono</Label>
+                        <Input
+                          type="email"
+                          value={editForm.owner_email}
+                          onChange={(e) => setEditForm({ ...editForm, owner_email: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Telefone</Label>
+                        <Input
+                          value={editForm.phone}
+                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => setEditingOrg(null)} className="flex-1">
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={!editForm.name || isSavingEdit}
+                    className="flex-1"
+                  >
+                    {isSavingEdit && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="interested">
