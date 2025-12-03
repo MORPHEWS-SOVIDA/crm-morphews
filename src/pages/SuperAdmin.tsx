@@ -67,10 +67,8 @@ export default function SuperAdmin() {
   const queryClient = useQueryClient();
   
   const [showCreateOrg, setShowCreateOrg] = useState(false);
-  const [showAddUser, setShowAddUser] = useState(false);
   const [selectedOrgForUser, setSelectedOrgForUser] = useState<string | null>(null);
   const [newOrg, setNewOrg] = useState({ name: "", planId: "" });
-  const [userEmail, setUserEmail] = useState("");
 
   // Only allow master admin
   if (!authLoading && user?.email !== MASTER_ADMIN_EMAIL) {
@@ -189,32 +187,40 @@ export default function SuperAdmin() {
   });
 
   const addUserToOrgMutation = useMutation({
-    mutationFn: async ({ orgId, email }: { orgId: string; email: string }) => {
-      // Find user by email in profiles (we need to search by joining with auth)
-      // Since we can't query auth.users directly, we'll look for a profile
-      // This assumes the user exists - for now we'll show instructions
-      
-      const { data: profileData, error: profileError } = await supabase
+    mutationFn: async ({ orgId, userId }: { orgId: string; userId: string }) => {
+      // Add user as member of organization
+      const { error: memberError } = await supabase
+        .from("organization_members")
+        .insert({
+          organization_id: orgId,
+          user_id: userId,
+          role: "member",
+        });
+
+      if (memberError) throw memberError;
+
+      // Update profile with organization_id
+      const { error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, first_name, last_name")
-        .limit(100);
+        .update({ organization_id: orgId })
+        .eq("user_id", userId);
 
       if (profileError) throw profileError;
 
-      // We need to find the user - for now let's check if we have a profile with matching data
-      // In a real scenario, you'd need an edge function to look up by email
-      
-      toast({
-        title: "Funcionalidade em desenvolvimento",
-        description: "Por enquanto, peça para o usuário se cadastrar e depois associe manualmente pelo ID.",
-      });
-      
-      return null;
+      return { orgId, userId };
     },
     onSuccess: () => {
-      setShowAddUser(false);
-      setUserEmail("");
-      refetchMembers();
+      toast({ title: "Usuário adicionado à organização!" });
+      setSelectedOrgForUser(null);
+      queryClient.invalidateQueries({ queryKey: ["super-admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-members"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao adicionar usuário",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -527,6 +533,7 @@ export default function SuperAdmin() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>User ID</TableHead>
+                    <TableHead>Adicionar à Organização</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -538,13 +545,34 @@ export default function SuperAdmin() {
                       <TableCell className="text-muted-foreground font-mono text-xs">
                         {profile.user_id}
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            onValueChange={(orgId) => {
+                              setSelectedOrgForUser(profile.user_id);
+                              addUserToOrgMutation.mutate({ orgId, userId: profile.user_id });
+                            }}
+                          >
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Selecionar organização" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {organizations?.map((org) => (
+                                <SelectItem key={org.id} value={org.id}>
+                                  {org.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {addUserToOrgMutation.isPending && selectedOrgForUser === profile.user_id && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              <p className="text-sm text-muted-foreground mt-4">
-                💡 Estes usuários podem ser adicionados manualmente a uma organização editando o banco de dados.
-              </p>
             </CardContent>
           </Card>
         )}
