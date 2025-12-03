@@ -89,32 +89,20 @@ export default function Cadastro() {
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Create profile
+        // Update profile created by trigger with real data
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            user_id: authData.user.id,
+          .update({
             first_name: formData.firstName,
             last_name: formData.lastName,
             instagram: formData.instagram || null,
             whatsapp: formData.whatsapp || null,
             avatar_url: avatarPreview || null,
-          });
+          })
+          .eq('user_id', authData.user.id);
 
         if (profileError) {
-          console.error('Error creating profile:', profileError);
-        }
-
-        // Create user role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            role: 'user',
-          });
-
-        if (roleError) {
-          console.error('Error creating role:', roleError);
+          console.error('Error updating profile:', profileError);
         }
 
         toast({

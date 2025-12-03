@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Setup from "./pages/Setup";
 import Cadastro from "./pages/Cadastro";
 import LeadsList from "./pages/LeadsList";
 import LeadDetail from "./pages/LeadDetail";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/setup" element={<Setup />} />
             
             {/* Protected routes */}
             <Route path="/" element={
