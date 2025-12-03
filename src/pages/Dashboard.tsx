@@ -5,6 +5,7 @@ import { StarsFilter } from '@/components/dashboard/StarsFilter';
 import { FunnelVisualization } from '@/components/dashboard/FunnelVisualization';
 import { LeadsTable } from '@/components/dashboard/LeadsTable';
 import { UpcomingMeetings } from '@/components/dashboard/UpcomingMeetings';
+import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { useLeads } from '@/hooks/useLeads';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
 import { Loader2 } from 'lucide-react';
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const { data: leads = [], isLoading, error } = useLeads();
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
+  const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
 
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
@@ -24,9 +26,13 @@ export default function Dashboard() {
     if (selectedStage !== null) {
       filtered = filtered.filter((lead) => lead.stage === selectedStage);
     }
+
+    if (selectedResponsavel !== null) {
+      filtered = filtered.filter((lead) => lead.assigned_to === selectedResponsavel);
+    }
     
     return filtered;
-  }, [leads, selectedStars, selectedStage]);
+  }, [leads, selectedStars, selectedStage, selectedResponsavel]);
 
   const getTableTitle = () => {
     const parts: string[] = [];
@@ -38,6 +44,10 @@ export default function Dashboard() {
     if (selectedStars) {
       parts.push(`${selectedStars} estrela${selectedStars > 1 ? 's' : ''}`);
     }
+
+    if (selectedResponsavel) {
+      parts.push(selectedResponsavel);
+    }
     
     if (parts.length === 0) {
       return 'Todos os Leads';
@@ -46,7 +56,7 @@ export default function Dashboard() {
     return parts.join(' - ');
   };
 
-  const hasFilters = selectedStars !== null || selectedStage !== null;
+  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null;
 
   if (isLoading) {
     return (
@@ -87,6 +97,7 @@ export default function Dashboard() {
               onClick={() => {
                 setSelectedStars(null);
                 setSelectedStage(null);
+                setSelectedResponsavel(null);
               }}
               className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
             >
@@ -110,7 +121,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stars Filter */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
             <StarsFilter
               leads={leads}
               selectedStars={selectedStars}
@@ -118,8 +129,16 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* Responsavel Filter */}
+          <div className="lg:col-span-2">
+            <ResponsavelFilter
+              selectedResponsavel={selectedResponsavel}
+              onSelectResponsavel={setSelectedResponsavel}
+            />
+          </div>
+
           {/* Upcoming Meetings */}
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-3">
             <UpcomingMeetings leads={leads} />
           </div>
         </div>

@@ -85,6 +85,11 @@ export function UpcomingMeetings({ leads }: UpcomingMeetingsProps) {
           <span>•</span>
           <span>{formatTime(lead.meeting_time!)}</span>
         </div>
+        {lead.assigned_to && (
+          <p className="text-xs text-primary mt-0.5">
+            {lead.assigned_to}
+          </p>
+        )}
       </div>
       {lead.meeting_link && (
         <a
