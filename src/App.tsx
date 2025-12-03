@@ -22,6 +22,7 @@ import InterestedLeads from "./pages/InterestedLeads";
 import SuperAdmin from "./pages/SuperAdmin";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+import AuthError from "./pages/AuthError";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/setup" element={<Setup />} />
             <Route path="/planos" element={<Planos />} />
+            <Route path="/auth/error" element={<AuthError />} />
             
             {/* Home - shows landing for non-auth, dashboard for auth */}
             <Route path="/" element={<Home />} />
