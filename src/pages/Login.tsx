@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import logoMorphews from '@/assets/logo-morphews.png';
+import { loginSchema } from '@/lib/validations';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,12 +16,25 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setErrors({});
 
-    const { error } = await signIn(email, password);
+    const result = loginSchema.safeParse({ email, password });
+    if (!result.success) {
+      const fieldErrors: { email?: string; password?: string } = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0] === 'email') fieldErrors.email = err.message;
+        if (err.path[0] === 'password') fieldErrors.password = err.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await signIn(email.trim(), password);
 
     if (error) {
       toast({
@@ -66,7 +80,9 @@ export default function Login() {
                 placeholder="seu@email.com"
                 required
                 autoComplete="email"
+                className={errors.email ? 'border-destructive' : ''}
               />
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -80,7 +96,7 @@ export default function Login() {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="pr-10"
+                  className={`pr-10 ${errors.password ? 'border-destructive' : ''}`}
                 />
                 <button
                   type="button"
@@ -90,6 +106,7 @@ export default function Login() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
 
             <div className="flex justify-end">

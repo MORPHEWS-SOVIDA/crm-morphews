@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { cadastroSchema } from '@/lib/validations';
 
 export default function Cadastro() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Cadastro() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -55,22 +57,16 @@ export default function Cadastro() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: 'Senhas não conferem',
-        description: 'A senha e a confirmação devem ser iguais.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    setErrors({});
 
-    if (formData.password.length < 6) {
-      toast({
-        title: 'Senha muito curta',
-        description: 'A senha deve ter pelo menos 6 caracteres.',
-        variant: 'destructive',
+    const result = cadastroSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as string;
+        fieldErrors[field] = err.message;
       });
+      setErrors(fieldErrors);
       return;
     }
 
@@ -218,7 +214,9 @@ export default function Cadastro() {
                   onChange={(e) => updateField('firstName', e.target.value)}
                   placeholder="João"
                   required
+                  className={errors.firstName ? 'border-destructive' : ''}
                 />
+                {errors.firstName && <p className="text-sm text-destructive">{errors.firstName}</p>}
               </div>
 
               <div className="space-y-2">
@@ -229,7 +227,9 @@ export default function Cadastro() {
                   onChange={(e) => updateField('lastName', e.target.value)}
                   placeholder="Silva"
                   required
+                  className={errors.lastName ? 'border-destructive' : ''}
                 />
+                {errors.lastName && <p className="text-sm text-destructive">{errors.lastName}</p>}
               </div>
             </div>
 
@@ -267,7 +267,9 @@ export default function Cadastro() {
                 onChange={(e) => updateField('email', e.target.value)}
                 placeholder="email@exemplo.com"
                 required
+                className={errors.email ? 'border-destructive' : ''}
               />
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -281,7 +283,7 @@ export default function Cadastro() {
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="pr-10"
+                  className={`pr-10 ${errors.password ? 'border-destructive' : ''}`}
                 />
                 <button
                   type="button"
@@ -291,6 +293,7 @@ export default function Cadastro() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
 
             <div className="space-y-2">
@@ -303,7 +306,9 @@ export default function Cadastro() {
                 placeholder="••••••••"
                 required
                 minLength={6}
+                className={errors.confirmPassword ? 'border-destructive' : ''}
               />
+              {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
             </div>
           </div>
         </div>

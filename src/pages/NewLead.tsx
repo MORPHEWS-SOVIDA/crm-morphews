@@ -16,10 +16,13 @@ import {
 } from '@/components/ui/select';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useCreateLead } from '@/hooks/useLeads';
+import { leadSchema } from '@/lib/validations';
+import { toast } from '@/hooks/use-toast';
 
 export default function NewLead() {
   const navigate = useNavigate();
   const createLead = useCreateLead();
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     name: '',
@@ -43,17 +46,34 @@ export default function NewLead() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+
+    const result = leadSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as string;
+        fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
+      toast({
+        title: 'Erro de validação',
+        description: 'Verifique os campos destacados.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     await createLead.mutateAsync({
-      name: formData.name,
-      specialty: formData.specialty,
-      instagram: formData.instagram,
+      name: formData.name.trim(),
+      specialty: formData.specialty.trim(),
+      instagram: formData.instagram.trim(),
       followers: formData.followers ? parseInt(formData.followers) : null,
-      whatsapp: formData.whatsapp,
+      whatsapp: formData.whatsapp.trim(),
       email: formData.email || null,
       stage: formData.stage,
       stars: formData.stars,
-      assigned_to: formData.assigned_to,
+      assigned_to: formData.assigned_to.trim(),
       whatsapp_group: formData.whatsapp_group || null,
       desired_products: formData.desired_products || null,
       negotiated_value: formData.negotiated_value ? parseFloat(formData.negotiated_value) : null,
@@ -106,7 +126,9 @@ export default function NewLead() {
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder="Ex: Dr. João Silva"
                 required
+                className={errors.name ? 'border-destructive' : ''}
               />
+              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -117,7 +139,9 @@ export default function NewLead() {
                 onChange={(e) => updateField('specialty', e.target.value)}
                 placeholder="Ex: Dermatologista"
                 required
+                className={errors.specialty ? 'border-destructive' : ''}
               />
+              {errors.specialty && <p className="text-sm text-destructive">{errors.specialty}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -129,7 +153,9 @@ export default function NewLead() {
                   onChange={(e) => updateField('instagram', e.target.value)}
                   placeholder="@usuario"
                   required
+                  className={errors.instagram ? 'border-destructive' : ''}
                 />
+                {errors.instagram && <p className="text-sm text-destructive">{errors.instagram}</p>}
               </div>
 
               <div className="space-y-2">
@@ -152,7 +178,9 @@ export default function NewLead() {
                 onChange={(e) => updateField('whatsapp', e.target.value)}
                 placeholder="5511999999999"
                 required
+                className={errors.whatsapp ? 'border-destructive' : ''}
               />
+              {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
             </div>
 
             <div className="space-y-2">
@@ -217,7 +245,9 @@ export default function NewLead() {
                 onChange={(e) => updateField('assigned_to', e.target.value)}
                 placeholder="Nome do responsável"
                 required
+                className={errors.assigned_to ? 'border-destructive' : ''}
               />
+              {errors.assigned_to && <p className="text-sm text-destructive">{errors.assigned_to}</p>}
             </div>
 
             <div className="space-y-2">
