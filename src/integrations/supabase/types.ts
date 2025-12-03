@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          desired_products: string | null
+          email: string | null
+          followers: number | null
+          id: string
+          instagram: string
+          name: string
+          negotiated_value: number | null
+          observations: string | null
+          paid_value: number | null
+          specialty: string
+          stage: Database["public"]["Enums"]["funnel_stage"]
+          stars: number
+          updated_at: string
+          whatsapp: string
+          whatsapp_group: string | null
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          desired_products?: string | null
+          email?: string | null
+          followers?: number | null
+          id?: string
+          instagram: string
+          name: string
+          negotiated_value?: number | null
+          observations?: string | null
+          paid_value?: number | null
+          specialty: string
+          stage?: Database["public"]["Enums"]["funnel_stage"]
+          stars?: number
+          updated_at?: string
+          whatsapp: string
+          whatsapp_group?: string | null
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          desired_products?: string | null
+          email?: string | null
+          followers?: number | null
+          id?: string
+          instagram?: string
+          name?: string
+          negotiated_value?: number | null
+          observations?: string | null
+          paid_value?: number | null
+          specialty?: string
+          stage?: Database["public"]["Enums"]["funnel_stage"]
+          stars?: number
+          updated_at?: string
+          whatsapp?: string
+          whatsapp_group?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +82,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      funnel_stage:
+        | "prospect"
+        | "contacted"
+        | "convincing"
+        | "scheduled"
+        | "positive"
+        | "waiting_payment"
+        | "success"
+        | "trash"
+        | "cloud"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +218,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      funnel_stage: [
+        "prospect",
+        "contacted",
+        "convincing",
+        "scheduled",
+        "positive",
+        "waiting_payment",
+        "success",
+        "trash",
+        "cloud",
+      ],
+    },
   },
 } as const
