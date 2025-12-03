@@ -12,6 +12,7 @@ interface CreateOrgUserRequest {
   ownerEmail: string;
   ownerPhone: string;
   planName: string;
+  isAdditionalUser?: boolean; // For adding users to existing org
 }
 
 function generateTemporaryPassword(): string {
@@ -29,9 +30,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { organizationId, ownerName, ownerEmail, ownerPhone, planName }: CreateOrgUserRequest = await req.json();
+    const { organizationId, ownerName, ownerEmail, ownerPhone, planName, isAdditionalUser }: CreateOrgUserRequest = await req.json();
 
-    console.log("Creating user for organization:", organizationId, "Email:", ownerEmail);
+    console.log("Creating user for organization:", organizationId, "Email:", ownerEmail, "isAdditionalUser:", isAdditionalUser);
 
     // Validate required fields
     if (!organizationId || !ownerName || !ownerEmail) {
@@ -52,6 +53,14 @@ const handler = async (req: Request): Promise<Response> => {
         persistSession: false,
       },
     });
+
+    // Check if user already exists
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === ownerEmail);
+    
+    if (existingUser) {
+      throw new Error("Já existe um usuário com este email");
+    }
 
     // Generate temporary password
     const tempPassword = generateTemporaryPassword();
@@ -77,19 +86,21 @@ const handler = async (req: Request): Promise<Response> => {
     const userId = authData.user.id;
     console.log("Auth user created:", userId);
 
-    // Update organization with owner info
-    const { error: orgError } = await supabaseAdmin
-      .from("organizations")
-      .update({
-        owner_name: ownerName,
-        owner_email: ownerEmail,
-        phone: ownerPhone,
-      })
-      .eq("id", organizationId);
+    // Only update organization owner info if this is the primary owner (not additional user)
+    if (!isAdditionalUser) {
+      const { error: orgError } = await supabaseAdmin
+        .from("organizations")
+        .update({
+          owner_name: ownerName,
+          owner_email: ownerEmail,
+          phone: ownerPhone,
+        })
+        .eq("id", organizationId);
 
-    if (orgError) {
-      console.error("Error updating organization:", orgError);
-      throw new Error(`Erro ao atualizar organização: ${orgError.message}`);
+      if (orgError) {
+        console.error("Error updating organization:", orgError);
+        throw new Error(`Erro ao atualizar organização: ${orgError.message}`);
+      }
     }
 
     // Update profile with organization_id
@@ -99,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
         organization_id: organizationId,
         first_name: firstName,
         last_name: lastName,
-        whatsapp: ownerPhone,
+        whatsapp: ownerPhone || null,
       })
       .eq("user_id", userId);
 
@@ -113,7 +124,7 @@ const handler = async (req: Request): Promise<Response> => {
           first_name: firstName,
           last_name: lastName,
           organization_id: organizationId,
-          whatsapp: ownerPhone,
+          whatsapp: ownerPhone || null,
         });
 
       if (insertError) {
@@ -121,13 +132,16 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Add user to organization_members as owner
+    // Add user to organization_members
+    // Use "member" role for additional users, "owner" for primary owner
+    const memberRole = isAdditionalUser ? "member" : "owner";
+    
     const { error: memberError } = await supabaseAdmin
       .from("organization_members")
       .insert({
         organization_id: organizationId,
         user_id: userId,
-        role: "owner",
+        role: memberRole,
       });
 
     if (memberError) {
@@ -135,8 +149,24 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Erro ao adicionar membro: ${memberError.message}`);
     }
 
+    // Record temp password reset for forced password change
+    const { error: tempResetError } = await supabaseAdmin
+      .from("temp_password_resets")
+      .insert({
+        user_id: userId,
+        email: ownerEmail,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+      });
+
+    if (tempResetError) {
+      console.error("Error recording temp password reset:", tempResetError);
+    }
+
     // Send welcome email with credentials
     const loginUrl = "https://crm.morphews.com/login";
+    const roleText = isAdditionalUser 
+      ? `Você foi adicionado à equipe no ${planName}!`
+      : `sua conta no plano ${planName} está pronta!`;
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -148,7 +178,7 @@ const handler = async (req: Request): Promise<Response> => {
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
           <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Bem-vindo ao Morphews CRM!</h1>
-          <p style="color: rgba(255,255,255,0.9); margin-top: 10px;">Olá ${firstName}, sua conta no plano ${planName} está pronta!</p>
+          <p style="color: rgba(255,255,255,0.9); margin-top: 10px;">Olá ${firstName}, ${roleText}</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
@@ -160,7 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #856404;">⚠️ <strong>Importante:</strong> Por segurança, altere sua senha após o primeiro login em Configurações.</p>
+            <p style="margin: 0; color: #856404;">⚠️ <strong>Importante:</strong> No primeiro login, você deverá criar uma nova senha.</p>
           </div>
           
           <div style="text-align: center; margin-top: 30px;">

@@ -10,7 +10,8 @@ import {
   UserPlus,
   LogOut,
   ShoppingCart,
-  Crown
+  Crown,
+  UsersRound
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -32,10 +33,14 @@ export function Sidebar() {
     navigate('/login');
   };
 
+  // Check if user is org admin (owner or admin role in organization_members)
+  const isOrgAdmin = isAdmin || profile?.organization_id;
+
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
+    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     ...(isAdmin ? [
       { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
       { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
