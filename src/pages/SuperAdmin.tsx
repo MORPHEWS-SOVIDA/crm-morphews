@@ -93,7 +93,14 @@ export default function SuperAdmin() {
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [selectedOrgForUser, setSelectedOrgForUser] = useState<string | null>(null);
   const [selectedOrgDetails, setSelectedOrgDetails] = useState<string | null>(null);
-  const [newOrg, setNewOrg] = useState({ name: "", planId: "" });
+  const [newOrg, setNewOrg] = useState({ 
+    name: "", 
+    planId: "",
+    ownerName: "",
+    ownerEmail: "",
+    ownerPhone: ""
+  });
+  const [isCreatingOrg, setIsCreatingOrg] = useState(false);
 
   // Only allow master admin
   if (!authLoading && user?.email !== MASTER_ADMIN_EMAIL) {
@@ -194,14 +201,22 @@ export default function SuperAdmin() {
     enabled: user?.email === MASTER_ADMIN_EMAIL,
   });
 
-  const createOrgMutation = useMutation({
-    mutationFn: async ({ name, planId }: { name: string; planId: string }) => {
-      const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const createOrgWithUser = async () => {
+    try {
+      setIsCreatingOrg(true);
+      
+      const slug = newOrg.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       
       // Create organization
       const { data: org, error: orgError } = await supabase
         .from("organizations")
-        .insert({ name, slug })
+        .insert({ 
+          name: newOrg.name, 
+          slug,
+          owner_name: newOrg.ownerName,
+          owner_email: newOrg.ownerEmail,
+          phone: newOrg.ownerPhone
+        })
         .select()
         .single();
 
@@ -212,7 +227,7 @@ export default function SuperAdmin() {
         .from("subscriptions")
         .insert({
           organization_id: org.id,
-          plan_id: planId,
+          plan_id: newOrg.planId,
           status: "active",
           current_period_start: new Date().toISOString(),
           current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
@@ -220,23 +235,54 @@ export default function SuperAdmin() {
 
       if (subError) throw subError;
 
-      return org;
-    },
-    onSuccess: () => {
-      toast({ title: "Organização criada com sucesso!" });
+      // Get plan name for email
+      const selectedPlan = plans?.find(p => p.id === newOrg.planId);
+      const planName = selectedPlan?.name || "Morphews CRM";
+
+      // If owner email is provided, create user and send credentials
+      if (newOrg.ownerEmail && newOrg.ownerName) {
+        const { data, error } = await supabase.functions.invoke("create-org-user", {
+          body: {
+            organizationId: org.id,
+            ownerName: newOrg.ownerName,
+            ownerEmail: newOrg.ownerEmail,
+            ownerPhone: newOrg.ownerPhone,
+            planName: planName,
+          },
+        });
+
+        if (error) {
+          console.error("Error creating user:", error);
+          toast({
+            title: "Organização criada, mas houve erro ao criar usuário",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({ 
+            title: "Sucesso!", 
+            description: `Organização criada e credenciais enviadas para ${newOrg.ownerEmail}` 
+          });
+        }
+      } else {
+        toast({ title: "Organização criada com sucesso!" });
+      }
+
       setShowCreateOrg(false);
-      setNewOrg({ name: "", planId: "" });
+      setNewOrg({ name: "", planId: "", ownerName: "", ownerEmail: "", ownerPhone: "" });
       refetchOrgs();
       refetchSubs();
-    },
-    onError: (error: any) => {
+      refetchMembers();
+    } catch (error: any) {
       toast({
         title: "Erro ao criar organização",
         description: error.message,
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsCreatingOrg(false);
+    }
+  };
 
   const addUserToOrgMutation = useMutation({
     mutationFn: async ({ orgId, userId }: { orgId: string; userId: string }) => {
@@ -369,9 +415,9 @@ export default function SuperAdmin() {
                   Crie uma organização e atribua um plano (ex: Influencer para parceiros)
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                 <div className="space-y-2">
-                  <Label htmlFor="org-name">Nome da Organização</Label>
+                  <Label htmlFor="org-name">Nome da Organização *</Label>
                   <Input
                     id="org-name"
                     placeholder="Ex: Empresa do João"
@@ -380,7 +426,7 @@ export default function SuperAdmin() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Plano</Label>
+                  <Label>Plano *</Label>
                   <Select
                     value={newOrg.planId}
                     onValueChange={(value) => setNewOrg({ ...newOrg, planId: value })}
@@ -410,20 +456,61 @@ export default function SuperAdmin() {
                     </p>
                   )}
                 </div>
+                
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Dados do Dono (para criar conta e enviar credenciais)
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="owner-name">Nome Completo *</Label>
+                      <Input
+                        id="owner-name"
+                        placeholder="Ex: João da Silva"
+                        value={newOrg.ownerName}
+                        onChange={(e) => setNewOrg({ ...newOrg, ownerName: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="owner-email">E-mail *</Label>
+                      <Input
+                        id="owner-email"
+                        type="email"
+                        placeholder="email@exemplo.com"
+                        value={newOrg.ownerEmail}
+                        onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Uma senha provisória será enviada para este e-mail
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="owner-phone">WhatsApp</Label>
+                      <Input
+                        id="owner-phone"
+                        placeholder="Ex: 5511999999999"
+                        value={newOrg.ownerPhone}
+                        onChange={(e) => setNewOrg({ ...newOrg, ownerPhone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setShowCreateOrg(false)} className="flex-1">
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => createOrgMutation.mutate(newOrg)}
-                  disabled={!newOrg.name || !newOrg.planId || createOrgMutation.isPending}
+                  onClick={createOrgWithUser}
+                  disabled={!newOrg.name || !newOrg.planId || !newOrg.ownerName || !newOrg.ownerEmail || isCreatingOrg}
                   className="flex-1"
                 >
-                  {createOrgMutation.isPending ? (
+                  {isCreatingOrg ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
-                  Criar Organização
+                  Criar e Enviar Credenciais
                 </Button>
               </div>
             </DialogContent>
