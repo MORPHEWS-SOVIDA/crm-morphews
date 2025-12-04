@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const ZAPI_INSTANCE_ID = Deno.env.get('ZAPI_INSTANCE_ID');
 const ZAPI_TOKEN = Deno.env.get('ZAPI_TOKEN');
+const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN');
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -77,10 +78,25 @@ function normalizeBrazilianPhone(phone: string): string[] {
 async function sendWhatsAppMessage(phone: string, message: string) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
   
+  console.log('Sending WhatsApp message to:', phone);
+  console.log('Z-API URL:', url);
+  
+  const headers: Record<string, string> = { 
+    'Content-Type': 'application/json' 
+  };
+  
+  // Add Client-Token if available (required for account security)
+  if (ZAPI_CLIENT_TOKEN) {
+    headers['Client-Token'] = ZAPI_CLIENT_TOKEN;
+    console.log('Using Client-Token for Z-API authentication');
+  } else {
+    console.log('Warning: ZAPI_CLIENT_TOKEN not set');
+  }
+  
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         phone: phone,
         message: message
@@ -88,6 +104,7 @@ async function sendWhatsAppMessage(phone: string, message: string) {
     });
     
     const data = await response.json();
+    console.log('Z-API response status:', response.status);
     console.log('Z-API response:', data);
     return data;
   } catch (error) {
