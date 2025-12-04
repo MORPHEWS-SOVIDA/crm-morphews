@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useCurrentSubscription, useCustomerPortal } from "@/hooks/useSubscription";
+import { useCurrentSubscription, useCustomerPortal, useSubscriptionPlans, useCreateCheckout } from "@/hooks/useSubscription";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Users, 
@@ -22,7 +23,10 @@ import {
   User,
   Mail,
   Trash2,
-  Settings
+  Settings,
+  Pencil,
+  ArrowUp,
+  Check
 } from "lucide-react";
 
 interface OrgMember {
@@ -42,10 +46,17 @@ export default function Team() {
   const { profile, user } = useAuth();
   const queryClient = useQueryClient();
   const { data: subscription, isLoading: loadingSubscription } = useCurrentSubscription();
+  const { data: allPlans = [], isLoading: loadingPlans } = useSubscriptionPlans();
   const customerPortal = useCustomerPortal();
+  const createCheckout = useCreateCheckout();
   
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<OrgMember | null>(null);
+  const [editRole, setEditRole] = useState<"admin" | "member">("member");
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [newUserData, setNewUserData] = useState({
     firstName: "",
     lastName: "",
@@ -91,6 +102,13 @@ export default function Team() {
   const maxUsers = (plan?.max_users || 3) + (subscription?.extra_users || 0);
   const canAddUser = currentUserCount < maxUsers;
   const extraUserPrice = plan?.extra_user_price_cents ? plan.extra_user_price_cents / 100 : 37;
+
+  // Filter plans for upgrade (only higher tier than current)
+  const currentPlanPrice = plan?.price_cents || 0;
+  const upgradePlans = allPlans.filter(p => 
+    p.price_cents > currentPlanPrice && 
+    p.name !== "INFLUENCER" // Hide special plans
+  );
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +171,49 @@ export default function Team() {
 
   const handleManageSubscription = () => {
     customerPortal.mutate();
+  };
+
+  const handleUpgradePlan = (planId: string) => {
+    createCheckout.mutate(planId);
+  };
+
+  const handleEditMember = (member: OrgMember) => {
+    setEditingMember(member);
+    setEditRole(member.role === "admin" ? "admin" : "member");
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateRole = async () => {
+    if (!editingMember) return;
+    
+    setIsUpdatingRole(true);
+    
+    try {
+      const { error } = await supabase
+        .from("organization_members")
+        .update({ role: editRole })
+        .eq("id", editingMember.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Papel atualizado",
+        description: `O papel do usuário foi alterado para ${editRole === "admin" ? "Administrador" : "Membro"}.`,
+      });
+      
+      setIsEditDialogOpen(false);
+      setEditingMember(null);
+      refetchMembers();
+    } catch (error: any) {
+      console.error("Error updating role:", error);
+      toast({
+        title: "Erro ao atualizar papel",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingRole(false);
+    }
   };
 
   const handleDeleteUser = async (memberId: string, memberUserId: string) => {
@@ -261,7 +322,7 @@ export default function Team() {
                 ) : (
                   <Settings className="w-4 h-4 mr-2" />
                 )}
-                Gerenciar Plano
+                Gerenciar Pagamento
               </Button>
             </div>
           </CardHeader>
@@ -310,10 +371,83 @@ export default function Team() {
 
             {/* Upgrade/Add Users Buttons */}
             <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t">
-              <Button variant="outline" onClick={handleManageSubscription} disabled={customerPortal.isPending}>
-                Fazer Upgrade
-              </Button>
-              <Button variant="outline" onClick={handleManageSubscription} disabled={customerPortal.isPending}>
+              {/* Upgrade Dialog */}
+              <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" disabled={upgradePlans.length === 0}>
+                    <ArrowUp className="w-4 h-4 mr-2" />
+                    Fazer Upgrade
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Fazer Upgrade do Plano</DialogTitle>
+                    <DialogDescription>
+                      Escolha um plano com mais recursos para sua equipe
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 py-4">
+                    {loadingPlans ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    ) : upgradePlans.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
+                        <p>Você já está no plano mais completo!</p>
+                      </div>
+                    ) : (
+                      upgradePlans.map((upgradePlan) => (
+                        <div
+                          key={upgradePlan.id}
+                          className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                        >
+                          <div>
+                            <p className="font-semibold">{upgradePlan.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {upgradePlan.max_users} usuários • {upgradePlan.max_leads ? `${upgradePlan.max_leads} leads/mês` : "Leads ilimitados"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <p className="font-bold text-primary">
+                              R$ {(upgradePlan.price_cents / 100).toFixed(2).replace(".", ",")}
+                              <span className="text-xs text-muted-foreground font-normal">/mês</span>
+                            </p>
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpgradePlan(upgradePlan.id)}
+                              disabled={createCheckout.isPending}
+                            >
+                              {createCheckout.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                "Escolher"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsUpgradeDialogOpen(false)}>
+                      Fechar
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Manage Subscription Button (for extra users, cancel, etc.) */}
+              <Button 
+                variant="outline" 
+                onClick={handleManageSubscription} 
+                disabled={customerPortal.isPending}
+              >
+                {customerPortal.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
                 Adicionar Usuários Extras (R$ {extraUserPrice.toFixed(2).replace(".", ",")}/usuário)
               </Button>
             </div>
@@ -433,19 +567,29 @@ export default function Team() {
                   <div className="flex items-center gap-3">
                     {getRoleBadge(member.role)}
                     {member.user_id !== user?.id && member.role !== "owner" && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteUser(member.id, member.user_id)}
-                        disabled={isDeletingUser === member.id}
-                      >
-                        {isDeletingUser === member.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </Button>
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditMember(member)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteUser(member.id, member.user_id)}
+                          disabled={isDeletingUser === member.id}
+                        >
+                          {isDeletingUser === member.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -460,6 +604,44 @@ export default function Team() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Edit Member Role Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Membro</DialogTitle>
+              <DialogDescription>
+                Altere o papel de {editingMember?.profile?.first_name} {editingMember?.profile?.last_name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Papel</Label>
+                <Select value={editRole} onValueChange={(v) => setEditRole(v as "admin" | "member")}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="member">Membro</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Administradores podem gerenciar a equipe e configurações. Membros podem usar o CRM normalmente.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
+                {isUpdatingRole && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
