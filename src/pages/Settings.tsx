@@ -75,7 +75,17 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     if (!user?.id) return;
     
-    const cleanWhatsapp = profileData.whatsapp.replace(/\D/g, '');
+    // Normalize WhatsApp: remove non-digits, add 55 if needed, add 9th digit if needed
+    let cleanWhatsapp = profileData.whatsapp.replace(/\D/g, '');
+    if (cleanWhatsapp) {
+      if (!cleanWhatsapp.startsWith('55')) {
+        cleanWhatsapp = '55' + cleanWhatsapp;
+      }
+      // Add 9th digit if needed (12 digits should become 13)
+      if (cleanWhatsapp.length === 12 && cleanWhatsapp.startsWith('55')) {
+        cleanWhatsapp = cleanWhatsapp.slice(0, 4) + '9' + cleanWhatsapp.slice(4);
+      }
+    }
     
     setIsSavingProfile(true);
     try {

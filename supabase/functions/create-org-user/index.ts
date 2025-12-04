@@ -24,6 +24,26 @@ function generateTemporaryPassword(): string {
   return password;
 }
 
+// Normalize Brazilian phone to always have 55 + DD + 9 + 8 digits
+function normalizeWhatsApp(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  
+  let clean = phone.replace(/\D/g, '');
+  if (!clean) return null;
+  
+  // Add country code if not present
+  if (!clean.startsWith('55')) {
+    clean = '55' + clean;
+  }
+  
+  // Add 9th digit if needed (12 digits should become 13)
+  if (clean.length === 12 && clean.startsWith('55')) {
+    clean = clean.slice(0, 4) + '9' + clean.slice(4);
+  }
+  
+  return clean;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -104,13 +124,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Update profile with organization_id and email
+    const normalizedPhone = normalizeWhatsApp(ownerPhone);
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         organization_id: organizationId,
         first_name: firstName,
         last_name: lastName,
-        whatsapp: ownerPhone || null,
+        whatsapp: normalizedPhone,
         email: ownerEmail,
       })
       .eq("user_id", userId);
@@ -125,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
           first_name: firstName,
           last_name: lastName,
           organization_id: organizationId,
-          whatsapp: ownerPhone || null,
+          whatsapp: normalizedPhone,
           email: ownerEmail,
         });
 

@@ -21,6 +21,26 @@ function generatePassword(): string {
   return password;
 }
 
+// Normalize Brazilian phone to always have 55 + DD + 9 + 8 digits
+function normalizeWhatsApp(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  
+  let clean = phone.replace(/\D/g, '');
+  if (!clean) return null;
+  
+  // Add country code if not present
+  if (!clean.startsWith('55')) {
+    clean = '55' + clean;
+  }
+  
+  // Add 9th digit if needed (12 digits should become 13)
+  if (clean.length === 12 && clean.startsWith('55')) {
+    clean = clean.slice(0, 4) + '9' + clean.slice(4);
+  }
+  
+  return clean;
+}
+
 serve(async (req) => {
   const body = await req.text();
   const signature = req.headers.get("stripe-signature");
@@ -116,8 +136,16 @@ serve(async (req) => {
             user_id: userId,
             first_name: firstName,
             last_name: lastName,
-            whatsapp: customerWhatsapp || null,
+            whatsapp: normalizeWhatsApp(customerWhatsapp),
+            email: customerEmail,
           }, { onConflict: "user_id" });
+
+          // Record temp password reset for forced password change
+          await supabaseAdmin.from("temp_password_resets").insert({
+            user_id: userId,
+            email: customerEmail,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          });
 
           // Assign user role
           await supabaseAdmin.from("user_roles").upsert({
