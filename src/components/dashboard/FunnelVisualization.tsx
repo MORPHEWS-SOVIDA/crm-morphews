@@ -1,4 +1,4 @@
-import { Cloud, Trash2 } from 'lucide-react';
+import { Cloud, Trash2, Kanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Lead, FunnelStage, FUNNEL_STAGES } from '@/types/lead';
 import { FunnelStageCustom } from '@/hooks/useFunnelStages';
@@ -8,6 +8,7 @@ interface FunnelVisualizationProps {
   stages: FunnelStageCustom[];
   selectedStage: FunnelStage | null;
   onSelectStage: (stage: FunnelStage | null) => void;
+  onSwitchToKanban?: () => void;
 }
 
 // Map position to legacy enum values for lead matching
@@ -23,7 +24,7 @@ const positionToEnum: Record<number, FunnelStage> = {
   8: 'trash',
 };
 
-export function FunnelVisualization({ leads, stages, selectedStage, onSelectStage }: FunnelVisualizationProps) {
+export function FunnelVisualization({ leads, stages, selectedStage, onSelectStage, onSwitchToKanban }: FunnelVisualizationProps) {
   const getStageEnumValue = (stage: FunnelStageCustom): FunnelStage => {
     return positionToEnum[stage.position] || 'cloud';
   };
@@ -40,7 +41,18 @@ export function FunnelVisualization({ leads, stages, selectedStage, onSelectStag
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-shadow duration-300">
-      <h3 className="text-lg font-semibold text-foreground mb-4">Funil de Vendas</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-foreground">Funil de Vendas</h3>
+        {onSwitchToKanban && (
+          <button
+            onClick={onSwitchToKanban}
+            className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+          >
+            <Kanban className="w-4 h-4" />
+            Ver em Kanban
+          </button>
+        )}
+      </div>
       
       {/* Cloud - "Não classificado" */}
       {cloudStage && (

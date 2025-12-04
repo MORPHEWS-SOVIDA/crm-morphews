@@ -1,12 +1,29 @@
 import { useState } from 'react';
-import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, FunnelStageCustom } from '@/hooks/useFunnelStages';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom } from '@/hooks/useFunnelStages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, ArrowDown } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -130,22 +147,120 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
   );
 }
 
+interface SortableStageItemProps {
+  stage: FunnelStageCustom;
+  canDelete: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SortableStageItem({ stage, canDelete, onEdit, onDelete }: SortableStageItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: stage.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-center gap-2 group',
+        isDragging && 'opacity-50'
+      )}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="p-1 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <div className={cn('flex-1 p-3 rounded-lg', stage.color)}>
+        <span className={stage.text_color}>{stage.name}</span>
+      </div>
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onEdit}
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function FunnelStagesManager() {
   const { profile } = useAuth();
   const { data: stages = [], isLoading } = useFunnelStages();
   const updateStage = useUpdateFunnelStage();
   const createStage = useCreateFunnelStage();
   const deleteStage = useDeleteFunnelStage();
+  const reorderStages = useReorderFunnelStages();
 
   const [editingStage, setEditingStage] = useState<FunnelStageCustom | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<FunnelStageCustom | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const cloudStage = stages.find(s => s.stage_type === 'cloud');
   const funnelStages = stages.filter(s => s.stage_type === 'funnel').sort((a, b) => a.position - b.position);
   const trashStage = stages.find(s => s.stage_type === 'trash');
 
   const maxPosition = Math.max(...stages.map(s => s.position), 0);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = funnelStages.findIndex((s) => s.id === active.id);
+    const newIndex = funnelStages.findIndex((s) => s.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(funnelStages, oldIndex, newIndex);
+    
+    // Update positions (funnel stages start at position 1)
+    const updates = reordered.map((stage, index) => ({
+      id: stage.id,
+      position: index + 1, // Position 0 is cloud, so funnel starts at 1
+    }));
+
+    await reorderStages.mutateAsync(updates);
+  };
 
   const handleSaveEdit = async (data: Partial<FunnelStageCustom>) => {
     if (!editingStage) return;
@@ -204,7 +319,7 @@ export function FunnelStagesManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Personalize as etapas do seu funil de vendas
+          Arraste as etapas para reordenar
         </p>
         <Dialog open={isAddingNew} onOpenChange={setIsAddingNew}>
           <DialogTrigger asChild>
@@ -237,22 +352,28 @@ export function FunnelStagesManager() {
         </div>
       )}
 
-      {/* Funnel Stages */}
+      {/* Funnel Stages - Sortable */}
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Etapas do Funil</Label>
-        <div className="relative">
-          <div className="absolute left-6 top-4 bottom-4 w-0.5 bg-border" />
-          <div className="space-y-2">
-            {funnelStages.map((stage, index) => (
-              <div key={stage.id} className="relative flex items-center">
-                <div className="absolute left-6 w-2 h-2 rounded-full bg-primary -translate-x-1/2" />
-                <div className="ml-10 flex-1">
-                  <StageItem stage={stage} canDelete={funnelStages.length > 1} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Etapas do Funil (arraste para reordenar)</Label>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={funnelStages.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {funnelStages.map((stage) => (
+                <SortableStageItem
+                  key={stage.id}
+                  stage={stage}
+                  canDelete={funnelStages.length > 1}
+                  onEdit={() => setEditingStage(stage)}
+                  onDelete={() => setDeleteConfirm(stage)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* Trash Stage */}

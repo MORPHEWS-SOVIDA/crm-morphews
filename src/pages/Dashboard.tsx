@@ -209,6 +209,7 @@ export default function Dashboard() {
                   stages={stages}
                   selectedStage={selectedStage}
                   onSelectStage={setSelectedStage}
+                  onSwitchToKanban={() => setViewMode('kanban')}
                 />
               </div>
 
@@ -243,6 +244,7 @@ export default function Dashboard() {
                   stages={stages}
                   selectedStage={selectedStage}
                   onSelectStage={setSelectedStage}
+                  onSwitchToKanban={() => setViewMode('kanban')}
                 />
                 <UpcomingMeetings leads={leads} />
               </div>
