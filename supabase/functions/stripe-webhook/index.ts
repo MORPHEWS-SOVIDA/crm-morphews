@@ -60,8 +60,8 @@ serve(async (req) => {
       return new Response("No signature", { status: 400 });
     }
 
-    // Verify the webhook signature
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    // Verify the webhook signature - use async version for Deno
+    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
@@ -263,23 +263,45 @@ serve(async (req) => {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+        const stripePriceId = subscription.items.data[0]?.price?.id;
+
+        console.log("Subscription updated:", { customerId, stripePriceId, status: subscription.status });
 
         // Find subscription by stripe_customer_id
         const { data: existingSub } = await supabaseAdmin
           .from("subscriptions")
-          .select("id")
+          .select("id, plan_id")
           .eq("stripe_customer_id", customerId)
           .single();
 
         if (existingSub) {
+          // Get new plan from stripe_price_id
+          let newPlanId = existingSub.plan_id;
+          
+          if (stripePriceId) {
+            const { data: plan } = await supabaseAdmin
+              .from("subscription_plans")
+              .select("id")
+              .eq("stripe_price_id", stripePriceId)
+              .single();
+            
+            if (plan) {
+              newPlanId = plan.id;
+              console.log("Plan changed to:", newPlanId);
+            }
+          }
+
           await supabaseAdmin
             .from("subscriptions")
             .update({
+              plan_id: newPlanId,
               status: subscription.status as any,
               current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
               current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
             })
             .eq("id", existingSub.id);
+
+          console.log("Subscription updated in database");
         }
         break;
       }
