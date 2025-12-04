@@ -7,6 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Z-API configuration for WhatsApp
+const ZAPI_INSTANCE_ID = Deno.env.get('ZAPI_INSTANCE_ID');
+const ZAPI_TOKEN = Deno.env.get('ZAPI_TOKEN');
+const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN');
+
 // Generate temporary password
 function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -15,6 +20,54 @@ function generateTempPassword(): string {
     password += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return password;
+}
+
+// Send WhatsApp welcome message
+async function sendWhatsAppWelcome(phone: string, customerName: string, tempPassword: string) {
+  if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN) {
+    console.log('Z-API not configured, skipping WhatsApp message');
+    return;
+  }
+  
+  const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
+  
+  const welcomeMessage = `🎉 *Bem-vindo ao Morphews CRM, ${customerName}!*
+
+Sua conta gratuita foi criada com sucesso! 🚀
+
+📧 *Suas credenciais de acesso:*
+Senha temporária: *${tempPassword}*
+
+⚠️ Por segurança, você deverá trocar sua senha no primeiro acesso.
+
+🔗 *Acesse agora:*
+https://crm.morphews.com/login
+
+📱 *Dicas rápidas:*
+• Você pode gerenciar leads por aqui mesmo no WhatsApp!
+• Digite "ajuda" a qualquer momento para ver os comandos
+• Seu plano gratuito inclui 5 leads/mês
+
+Qualquer dúvida, estou por aqui! 💚`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Client-Token': ZAPI_CLIENT_TOKEN || ''
+      },
+      body: JSON.stringify({
+        phone: phone,
+        message: welcomeMessage
+      })
+    });
+    
+    const result = await response.text();
+    console.log('WhatsApp welcome sent:', response.status, result);
+  } catch (error) {
+    console.error('Error sending WhatsApp welcome:', error);
+  }
 }
 
 // Generate slug from name
@@ -229,6 +282,15 @@ serve(async (req) => {
         } catch (emailError) {
           console.error("Error sending email:", emailError);
         }
+      }
+
+      // Send WhatsApp welcome message
+      if (normalizedWhatsapp) {
+        await sendWhatsAppWelcome(
+          normalizedWhatsapp, 
+          customerName?.split(' ')[0] || 'você',
+          tempPassword
+        );
       }
 
       return new Response(JSON.stringify({ 
