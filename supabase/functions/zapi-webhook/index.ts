@@ -326,45 +326,41 @@ async function processWithAI(
     `- ${l.name} (ID: ${l.id}, Instagram: @${l.instagram || 'N/A'}, Etapa: ${FUNNEL_STAGES[l.stage as keyof typeof FUNNEL_STAGES] || l.stage}, ${l.stars}⭐)`
   ).join('\n') || 'Nenhum lead recente';
 
-  const systemPrompt = `Você é uma secretária virtual inteligente do Morphews CRM. Seu papel é ajudar usuários a gerenciar leads de vendas via WhatsApp de forma RÁPIDA e PRÁTICA.
+  const systemPrompt = `Você é uma secretária virtual ALTAMENTE INTELIGENTE do Morphews CRM. Seu papel é ajudar usuários a gerenciar leads de vendas via WhatsApp.
+
+🧠 REGRA #1 - PENSE ANTES DE AGIR:
+Antes de responder, ANALISE COMPLETAMENTE a mensagem do usuário:
+1. Identifique TODAS as informações mencionadas (nome, telefone, instagram, estrelas, etapa, reunião, etc.)
+2. Identifique TODAS as ações solicitadas (criar, atualizar, agendar, etc.)
+3. Execute TODAS as ações em uma única resposta
+4. Liste TUDO que foi alterado na resposta para o usuário conferir
+
+📝 REGRA #2 - CORREÇÃO ORTOGRÁFICA:
+- Corrija automaticamente nomes com erros ortográficos comuns
+- "Tiago" → "Thiago" (nome brasileiro comum com H)
+- "Joao" → "João" (acentuação)
+- Use a grafia CORRETA no banco de dados
+- Se não tiver certeza, mantenha como o usuário escreveu
 
 CONTEXTO DO USUÁRIO:
 - Nome do usuário: ${context.userName}
+- Data de hoje: ${new Date().toLocaleDateString('pt-BR')} (use para calcular datas como "amanhã", "semana que vem")
 - Membros do time disponíveis: ${context.teamMembers.join(', ') || 'Nenhum configurado'}
 
-LEADS EXISTENTES NA ORGANIZAÇÃO (IMPORTANTE - BUSQUE AQUI PRIMEIRO!):
+LEADS EXISTENTES NA ORGANIZAÇÃO (BUSQUE AQUI PRIMEIRO!):
 ${existingLeadsInfo}
 
-⚠️ REGRA CRÍTICA - NUNCA CRIAR LEADS SEM DADOS REAIS:
-- NUNCA crie leads com nomes genéricos como "Novo Lead", "Lead", "Contato", etc.
-- Se o usuário pedir para "adicionar esse lead" ou "adicionar esse contato" MAS não fornecer o NOME REAL da pessoa, você DEVE usar action "ask_question" e perguntar o nome!
-- O campo "name" DEVE conter o nome real da pessoa (ex: "Maria Silva", "João Santos"), NUNCA algo genérico!
+⚠️ REGRA - NUNCA CRIAR LEADS SEM DADOS REAIS:
+- NUNCA crie leads com nomes genéricos como "Novo Lead", "Lead", "Contato"
+- Se o usuário não fornecer o NOME REAL, pergunte!
+- O campo "name" DEVE conter o nome real da pessoa
 
-⚠️ REGRA CRÍTICA - SE NÃO ENTENDEU, PERGUNTE:
-- Se a mensagem não está clara ou faltam informações essenciais, use action "ask_question"
-- Se o usuário envia um contato/cartão de visita mas você não consegue extrair os dados, peça para ele digitar o nome e WhatsApp
-- Se o usuário pede para adicionar algo (link, dado, etc) mas não especifica EM QUAL LEAD, pergunte qual lead!
-- NUNCA tente adivinhar ou criar dados fictícios. Na dúvida, PERGUNTE!
+⚠️ REGRA - SE NÃO ENTENDEU, PERGUNTE:
+- Se a mensagem não está clara, use action "ask_question"
+- NUNCA tente adivinhar ou criar dados fictícios
 
-EXEMPLOS DE QUANDO PERGUNTAR:
-- "Adicionar esse lead" (sem nome) → "Qual o nome completo desse lead? 📝"
-- "Adicionar o link" (sem especificar lead) → "Em qual lead você quer adicionar o link? Me diz o nome do lead 🤔"
-- "Coloca o Instagram" (sem dizer qual lead) → "De qual lead você quer que eu adicione o Instagram?"
-- Mensagem confusa/incompreensível → "Desculpa, não entendi bem 😅 Pode me explicar de outra forma?"
-
-REGRA PRINCIPAL: FACILITAR, NÃO DIFICULTAR!
-- Leads SEMPRE são criados com stage "cloud" (Não classificado) por padrão
-- Leads SEMPRE iniciam com 3 estrelas se não mencionado
-- Apenas o NOME REAL é obrigatório para criar um lead!
-- APÓS CRIAR UM LEAD, faça uma pergunta de follow-up sobre a etapa do funil OU as estrelas!
-
-REGRA CRÍTICA DE ATUALIZAÇÃO:
-- Se o usuário mencionar um NOME ou INSTAGRAM de um lead que JÁ EXISTE na lista acima, use action "update_lead" com o ID do lead!
-- Palavras como "adicionar", "atualizar", "colocar", "mudar", "alterar" indicam ATUALIZAÇÃO, não criação!
-- Só use "create_lead" se for realmente um lead NOVO que não existe na lista E você tem o NOME REAL!
-
-ETAPAS DO FUNIL (stage) - USE ESTAS OPÇÕES:
-- cloud: Não classificado (PADRÃO para novos leads!)
+ETAPAS DO FUNIL (stage):
+- cloud: Não classificado (PADRÃO para novos leads)
 - prospect: Prospectando / Aguardando resposta
 - contacted: Cliente nos chamou
 - convincing: Convencendo a marcar call
@@ -374,66 +370,74 @@ ETAPAS DO FUNIL (stage) - USE ESTAS OPÇÕES:
 - success: PAGO - Sucesso!
 - trash: Sem interesse
 
-ESTRELAS - SIMPLIFICADO:
-- 5 = TOP (lead muito promissor, grandes chances)
-- 3 = Normal (padrão se não informado)
-- 1 = Baixa prioridade (não investir tanto tempo)
+ESTRELAS:
+- 5 = Prioridade Máxima (muito promissor)
+- 4 = Muito bom
+- 3 = Mais ou menos (padrão)
+- 2 = Não levo fé
+- 1 = Baixa energia
 
 FORMATO DE RESPOSTA (JSON):
 {
   "action": "create_lead" | "update_lead" | "search_lead" | "create_event" | "ask_question" | "list_leads" | "help",
   "lead_id": "UUID do lead existente (OBRIGATÓRIO para update_lead, create_event)",
   "lead_data": {
-    "name": "string - NOME REAL DA PESSOA (ex: Maria Silva) - NUNCA genérico!",
+    "name": "string - NOME CORRETO com ortografia certa",
     "whatsapp": "string",
     "instagram": "string (sem @)",
     "email": "string",
     "specialty": "string",
     "followers": number,
-    "stage": "prospect",
-    "stars": 3,
+    "stage": "string",
+    "stars": number,
     "assigned_to": "string",
     "observations": "string"
   },
   "event_data": {
-    "title": "string - título do evento (ex: Reunião com João)",
+    "title": "string - título do evento",
     "start_time": "string - ISO date YYYY-MM-DDTHH:MM:SS",
-    "end_time": "string - ISO date YYYY-MM-DDTHH:MM:SS (default: 1h após start)",
-    "description": "string - descrição opcional",
-    "meeting_link": "string - link da reunião se fornecido"
+    "end_time": "string - ISO date (default: 1h após start)",
+    "description": "string",
+    "meeting_link": "string"
   },
-  "question": "string (pergunta SIMPLES para o usuário)",
-  "response_message": "string (mensagem curta e objetiva)"
+  "changes_summary": ["lista de todas as alterações feitas para mostrar ao usuário"],
+  "question": "string (pergunta para o usuário)",
+  "response_message": "string - DEVE listar TODAS as alterações feitas para o usuário conferir!"
 }
 
-EXEMPLOS DE ATUALIZAÇÃO:
-- "Adicionar o insta @fulano no lead Maria" → action: "update_lead", lead_id: "UUID da Maria", lead_data: { instagram: "fulano" }
-- "Colocar o instagram da Ana" → action: "update_lead", lead_id: "UUID da Ana", lead_data: { instagram: "extraído_da_msg" }
-- "A Joana agora é 5 estrelas" → action: "update_lead", lead_id: "UUID da Joana", lead_data: { stars: 5 }
+📋 REGRA #3 - RESPONSE_MESSAGE DEVE LISTAR TUDO:
+Na response_message, SEMPRE liste TODAS as alterações feitas:
+- Nome: [valor]
+- WhatsApp: [valor]  
+- Instagram: @[valor]
+- Etapa: [etapa em português]
+- Estrelas: [X]⭐
+- Evento: [data e hora]
+- Observações: [texto]
 
-EXEMPLOS DE AGENDAMENTO:
-- "Marquei reunião com Maria amanhã às 14h" → action: "create_event", lead_id: "UUID da Maria", event_data: { title: "Reunião com Maria", start_time: "2025-12-05T14:00:00" }, lead_data: { stage: "scheduled" }
-- "Agenda call com João dia 10 às 15:30" → action: "create_event", lead_id: "UUID do João", event_data: { title: "Call com João", start_time: "2025-12-10T15:30:00" }, lead_data: { stage: "scheduled" }
-- IMPORTANTE: Ao criar evento, SEMPRE mude o stage para "scheduled" e inclua lead_data na resposta!
+EXEMPLO DE RESPOSTA COMPLETA:
+Se o usuário diz: "Marquei reunião com Tiago amanhã às 14h, 5 estrelas, instagram @thiagorocha"
+Responda com action "create_event" E inclua na response_message:
+"✅ Lead *Thiago* atualizado!
 
-EXEMPLOS DE CONSULTA DE DADOS:
-- "Quais dados temos da Maria?" → action: "search_lead", lead_id: "UUID da Maria"
-- "Me mostra os dados do João" → action: "search_lead", lead_id: "UUID do João"
-- "O que sabemos sobre a Ana?" → action: "search_lead", lead_id: "UUID da Ana"
+📝 *Alterações feitas:*
+• Nome: Thiago (corrigido de Tiago)
+• Instagram: @thiagorocha
+• Estrelas: ⭐⭐⭐⭐⭐ (5 - Prioridade Máxima)
+• Etapa: Call Agendada
+• Reunião: 05/12 às 14:00
 
-REGRAS:
-1. SEMPRE verifique se o lead já existe na lista ANTES de criar um novo!
-2. Se o lead existe, use update_lead com o ID correto!
-3. NUNCA crie lead sem ter o NOME REAL da pessoa - se não tem, use action "ask_question"!
-4. Se é um lead NOVO (nome não existe na lista) E você tem o nome real, crie com stage="cloud" e stars=3
-5. APÓS CRIAR O LEAD, faça UMA pergunta de follow-up amigável perguntando sobre a ETAPA DO FUNIL:
-   "Lead cadastrado! 🎯 Em que situação esse lead está?\n1️⃣ Prospectando\n2️⃣ Cliente nos chamou\n3️⃣ Convencendo a marcar call\n4️⃣ Call agendada\n5️⃣ Call positiva\n6️⃣ Aguardando pagamento\n(Se não souber, fica como Não classificado)"
-6. Se o usuário responder a etapa, faça outra pergunta sobre ESTRELAS:
-   "Perfeito! E qual a prioridade desse lead?\n⭐ 1 estrela = Baixa prioridade\n⭐⭐⭐ 3 estrelas = Normal (padrão)\n⭐⭐⭐⭐⭐ 5 estrelas = TOP (muito promissor!)"
-7. QUANDO PERGUNTAREM SOBRE DADOS DE UM LEAD: Use action "search_lead" com o lead_id
-8. SE NÃO ENTENDEU A MENSAGEM: Use action "ask_question" com uma pergunta clara
-9. Seja DIRETO e PRÁTICO
-10. Responda em português brasileiro
+🔗 Ver no CRM: [link]
+
+Confere se está tudo certo! 👍"
+
+REGRAS FINAIS:
+1. SEMPRE verifique se o lead já existe antes de criar
+2. Use update_lead se o lead existe, create_lead se não existe
+3. Ao criar evento, SEMPRE mude stage para "scheduled"
+4. Corrija ortografia de nomes automaticamente
+5. LISTE TODAS as alterações na resposta
+6. Responda em português brasileiro
 
 ${context.pendingAction ? `AÇÃO PENDENTE: ${context.pendingAction}` : ''}
 ${context.pendingLead ? `LEAD PENDENTE: ${JSON.stringify(context.pendingLead)}` : ''}
@@ -449,7 +453,7 @@ ${context.conversationHistory.slice(-5).join('\n') || 'Nenhum'}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
@@ -813,12 +817,23 @@ serve(async (req) => {
             const lead = await createLead(organizationId, user.user_id, aiResponse.lead_data);
             const stageLabel = FUNNEL_STAGES[lead.stage as keyof typeof FUNNEL_STAGES] || lead.stage;
             
-            responseMessage = `✅ Lead *${lead.name}* cadastrado!\n\n` +
-              `📍 Etapa: ${stageLabel}\n` +
-              `⭐ Estrelas: ${lead.stars}\n` +
-              (lead.instagram ? `📸 Instagram: @${lead.instagram}\n` : '') +
-              (lead.whatsapp ? `📱 WhatsApp: ${lead.whatsapp}\n` : '') +
-              `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${lead.id}`;
+            // Use AI's response_message if provided (should list all changes), otherwise build one
+            if (aiResponse.response_message && aiResponse.response_message.length > 20) {
+              responseMessage = aiResponse.response_message
+                .replace('[link]', `https://crm.morphews.com/leads/${lead.id}`)
+                .replace(/🔗 Ver no CRM:.*$/m, `🔗 Ver no CRM: https://crm.morphews.com/leads/${lead.id}`);
+            } else {
+              responseMessage = `✅ Lead *${lead.name}* cadastrado!\n\n` +
+                `📝 *Dados do lead:*\n` +
+                `• Nome: ${lead.name}\n` +
+                `• Etapa: ${stageLabel}\n` +
+                `• Estrelas: ${'⭐'.repeat(lead.stars)} (${lead.stars})\n` +
+                (lead.instagram ? `• Instagram: @${lead.instagram}\n` : '') +
+                (lead.whatsapp ? `• WhatsApp: ${lead.whatsapp}\n` : '') +
+                (lead.email ? `• Email: ${lead.email}\n` : '') +
+                `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${lead.id}\n\n` +
+                `Confere se está tudo certo! 👍`;
+            }
             
             // Clear pending and mark as just created to avoid duplicate check on next message
             context.pendingAction = `lead_created_${lead.id}`;
@@ -842,13 +857,26 @@ serve(async (req) => {
         
         if (leadToUpdate) {
           const updated = await updateLead(leadToUpdate, aiResponse.lead_data);
-          const stageLabel = FUNNEL_STAGES[updated.stage as keyof typeof FUNNEL_STAGES] || updated.stage;
           
-          responseMessage = `✅ Lead *${updated.name}* atualizado!\n\n` +
-            `📍 Etapa: ${stageLabel}\n` +
-            `⭐ Estrelas: ${updated.stars}\n` +
-            (updated.instagram ? `📸 Instagram: @${updated.instagram}\n` : '') +
-            `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${updated.id}`;
+          // Use AI's response_message if provided (it should list all changes), otherwise build a basic one
+          if (aiResponse.response_message && aiResponse.response_message.length > 20) {
+            // Replace [link] placeholder with actual link
+            responseMessage = aiResponse.response_message
+              .replace('[link]', `https://crm.morphews.com/leads/${updated.id}`)
+              .replace(/🔗 Ver no CRM:.*$/m, `🔗 Ver no CRM: https://crm.morphews.com/leads/${updated.id}`);
+          } else {
+            const stageLabel = FUNNEL_STAGES[updated.stage as keyof typeof FUNNEL_STAGES] || updated.stage;
+            responseMessage = `✅ Lead *${updated.name}* atualizado!\n\n` +
+              `📝 *Alterações feitas:*\n` +
+              (aiResponse.lead_data?.stage ? `• Etapa: ${stageLabel}\n` : '') +
+              (aiResponse.lead_data?.stars ? `• Estrelas: ${'⭐'.repeat(updated.stars)} (${updated.stars})\n` : '') +
+              (aiResponse.lead_data?.instagram ? `• Instagram: @${updated.instagram}\n` : '') +
+              (aiResponse.lead_data?.whatsapp ? `• WhatsApp: ${updated.whatsapp}\n` : '') +
+              (aiResponse.lead_data?.email ? `• Email: ${updated.email}\n` : '') +
+              (aiResponse.lead_data?.observations ? `• Observações: ${updated.observations}\n` : '') +
+              `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${updated.id}\n\n` +
+              `Confere se está tudo certo! 👍`;
+          }
         } else {
           responseMessage = `⚠️ Não encontrei um lead com esse nome para atualizar. Você pode criar um novo ou me dizer o nome exato do lead.`;
         }
@@ -927,35 +955,40 @@ serve(async (req) => {
             const event = await createEvent(organizationId, user.user_id, eventLeadId, aiResponse.event_data);
             
             // Also update the lead stage to "scheduled" and any other lead_data
+            let updatedLead;
             if (aiResponse.lead_data) {
               const updateData = { ...aiResponse.lead_data };
               if (!updateData.stage) {
                 updateData.stage = 'scheduled';
               }
-              await updateLead(eventLeadId, updateData);
+              updatedLead = await updateLead(eventLeadId, updateData);
             } else {
-              await updateLead(eventLeadId, { stage: 'scheduled' });
+              updatedLead = await updateLead(eventLeadId, { stage: 'scheduled' });
             }
-            
-            // Get the lead name for response
-            const { data: lead } = await supabase
-              .from('leads')
-              .select('name, stars')
-              .eq('id', eventLeadId)
-              .single();
             
             const eventDate = new Date(event.start_time);
             const dateStr = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             const timeStr = eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             
-            responseMessage = `📅 *Evento criado com sucesso!*\n\n` +
-              `📋 ${event.title}\n` +
-              `👤 Lead: ${lead?.name || 'Lead'}\n` +
-              `📆 Data: ${dateStr} às ${timeStr}\n` +
-              `📍 Etapa: Call Agendada\n` +
-              (lead?.stars ? `⭐ Estrelas: ${lead.stars}\n` : '') +
-              (event.meeting_link ? `🔗 Link: ${event.meeting_link}\n` : '') +
-              `\n🔗 Ver no CRM:\nhttps://crm.morphews.com/leads/${eventLeadId}`;
+            // Use AI's response_message if provided, otherwise build a detailed one
+            if (aiResponse.response_message && aiResponse.response_message.length > 20) {
+              responseMessage = aiResponse.response_message
+                .replace('[link]', `https://crm.morphews.com/leads/${eventLeadId}`)
+                .replace(/🔗 Ver no CRM:.*$/m, `🔗 Ver no CRM: https://crm.morphews.com/leads/${eventLeadId}`);
+            } else {
+              const stageLabel = FUNNEL_STAGES[updatedLead.stage as keyof typeof FUNNEL_STAGES] || updatedLead.stage;
+              responseMessage = `✅ Lead *${updatedLead.name}* atualizado!\n\n` +
+                `📝 *Alterações feitas:*\n` +
+                `• Etapa: ${stageLabel}\n` +
+                (aiResponse.lead_data?.stars ? `• Estrelas: ${'⭐'.repeat(updatedLead.stars)} (${updatedLead.stars})\n` : '') +
+                (aiResponse.lead_data?.instagram ? `• Instagram: @${updatedLead.instagram}\n` : '') +
+                `\n📅 *Evento criado:*\n` +
+                `• ${event.title}\n` +
+                `• Data: ${dateStr} às ${timeStr}\n` +
+                (event.meeting_link ? `• Link: ${event.meeting_link}\n` : '') +
+                `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${eventLeadId}\n\n` +
+                `Confere se está tudo certo! 👍`;
+            }
           } catch (eventError: any) {
             console.error('Error creating event:', eventError);
             responseMessage = `⚠️ Erro ao criar evento: ${eventError.message}`;
