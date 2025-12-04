@@ -87,20 +87,15 @@ function normalizeBrazilianPhone(phone: string): string[] {
 async function sendWhatsAppMessage(phone: string, message: string) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
   
-  console.log('Sending WhatsApp message to:', phone);
-  console.log('Z-API URL:', url);
+  console.log('=== Sending WhatsApp Message ===');
+  console.log('Phone:', phone);
+  console.log('URL:', url);
   
+  // Note: Only use Client-Token header if account security token is enabled in Z-API
+  // Currently NOT using Client-Token as it's not enabled
   const headers: Record<string, string> = { 
     'Content-Type': 'application/json' 
   };
-  
-  // Add Client-Token if available (required for account security)
-  if (ZAPI_CLIENT_TOKEN) {
-    headers['Client-Token'] = ZAPI_CLIENT_TOKEN;
-    console.log('Using Client-Token for Z-API authentication');
-  } else {
-    console.log('Warning: ZAPI_CLIENT_TOKEN not set');
-  }
   
   try {
     const response = await fetch(url, {
@@ -112,10 +107,15 @@ async function sendWhatsAppMessage(phone: string, message: string) {
       })
     });
     
-    const data = await response.json();
+    const responseText = await response.text();
     console.log('Z-API response status:', response.status);
-    console.log('Z-API response:', data);
-    return data;
+    console.log('Z-API response body:', responseText);
+    
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      return { raw: responseText };
+    }
   } catch (error) {
     console.error('Error sending WhatsApp message:', error);
     throw error;
@@ -129,23 +129,34 @@ async function findUserByWhatsApp(whatsapp: string) {
   console.log('Input phone:', whatsapp);
   console.log('Phone variants to search:', phoneVariants);
   
-  // Try each variant directly
+  // Try each variant directly - query profiles WITHOUT the join that doesn't exist
   for (const phone of phoneVariants) {
     console.log(`Trying direct match for: ${phone}`);
-    const { data, error } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
-      .select('*, organization_members(organization_id, role)')
+      .select('*')
       .eq('whatsapp', phone)
       .maybeSingle();
     
     if (error) {
       console.log(`Error searching for ${phone}:`, error.message);
+      continue;
     }
     
-    if (data) {
-      console.log(`✅ User found: ${data.first_name} ${data.last_name} (matched with ${phone})`);
-      console.log(`   Organization ID: ${data.organization_members?.[0]?.organization_id || data.organization_id || 'N/A'}`);
-      return data;
+    if (profile) {
+      console.log(`✅ User found: ${profile.first_name} ${profile.last_name} (matched with ${phone})`);
+      
+      // Now get organization membership separately
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('organization_id, role')
+        .eq('user_id', profile.user_id)
+        .maybeSingle();
+      
+      const orgId = membership?.organization_id || profile.organization_id;
+      console.log(`   Organization ID: ${orgId || 'N/A'}`);
+      
+      return { ...profile, organization_id: orgId, membership };
     }
   }
   
@@ -154,7 +165,7 @@ async function findUserByWhatsApp(whatsapp: string) {
   // If not found, fetch all profiles and do manual matching
   const { data: allProfiles, error: fetchError } = await supabase
     .from('profiles')
-    .select('*, organization_members(organization_id, role)')
+    .select('*')
     .not('whatsapp', 'is', null);
   
   if (fetchError) {
@@ -164,9 +175,8 @@ async function findUserByWhatsApp(whatsapp: string) {
   console.log(`Found ${allProfiles?.length || 0} profiles with WhatsApp numbers`);
   
   if (allProfiles && allProfiles.length > 0) {
-    console.log('Available profiles:');
     for (const profile of allProfiles) {
-      console.log(`  - ${profile.first_name} ${profile.last_name}: ${profile.whatsapp}`);
+      console.log(`  Checking: ${profile.first_name} ${profile.last_name} - ${profile.whatsapp}`);
       
       if (!profile.whatsapp) continue;
       
@@ -176,15 +186,21 @@ async function findUserByWhatsApp(whatsapp: string) {
       for (const incomingVariant of phoneVariants) {
         if (storedVariants.includes(incomingVariant)) {
           console.log(`✅ User found via cross-match: ${profile.first_name} ${profile.last_name}`);
-          return profile;
+          
+          // Get organization membership
+          const { data: membership } = await supabase
+            .from('organization_members')
+            .select('organization_id, role')
+            .eq('user_id', profile.user_id)
+            .maybeSingle();
+          
+          return { ...profile, organization_id: membership?.organization_id || profile.organization_id, membership };
         }
       }
     }
   }
   
-  // Log available phones for debugging
   console.log('❌ User NOT found');
-  
   return null;
 }
 
