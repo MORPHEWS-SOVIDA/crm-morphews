@@ -53,10 +53,26 @@ export function useCreateLead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (lead: LeadInsert) => {
+    mutationFn: async (lead: Omit<LeadInsert, 'organization_id' | 'created_by'>) => {
+      // Get user's organization_id and user_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data: orgData, error: orgError } = await supabase
+        .rpc('get_user_organization_id');
+      
+      if (orgError || !orgData) {
+        console.error('Error getting organization:', orgError);
+        throw new Error('Não foi possível identificar sua organização');
+      }
+
       const { data, error } = await supabase
         .from('leads')
-        .insert(lead)
+        .insert({
+          ...lead,
+          organization_id: orgData,
+          created_by: user.id,
+        })
         .select()
         .single();
 

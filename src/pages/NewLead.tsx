@@ -78,7 +78,7 @@ export default function NewLead() {
     await createLead.mutateAsync({
       name: formData.name.trim(),
       specialty: formData.specialty.trim() || null,
-      instagram: formData.instagram.trim(),
+      instagram: formData.instagram.trim() || '',
       followers: formData.followers ? parseInt(formData.followers) : null,
       whatsapp: formData.whatsapp.trim(),
       email: formData.email || null,
@@ -158,9 +158,24 @@ export default function NewLead() {
               {errors.specialty && <p className="text-sm text-destructive">{errors.specialty}</p>}
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp">Telefone/WhatsApp *</Label>
+              <Input
+                id="whatsapp"
+                value={formData.whatsapp}
+                onChange={(e) => updateField('whatsapp', e.target.value.replace(/\D/g, ''))}
+                placeholder="5551999984646"
+                className={errors.whatsapp ? 'border-destructive' : ''}
+              />
+              <p className="text-xs text-muted-foreground">
+                Apenas números: DDI + DDD + número. Ex: 5551999984646 (55 para Brasil)
+              </p>
+              {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="instagram">Instagram *</Label>
+                <Label htmlFor="instagram">Instagram</Label>
                 <Input
                   id="instagram"
                   value={formData.instagram}
@@ -181,18 +196,6 @@ export default function NewLead() {
                   placeholder="Ex: 50000"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp *</Label>
-              <Input
-                id="whatsapp"
-                value={formData.whatsapp}
-                onChange={(e) => updateField('whatsapp', e.target.value)}
-                placeholder="5511999999999"
-                className={errors.whatsapp ? 'border-destructive' : ''}
-              />
-              {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
             </div>
 
             <div className="space-y-2">

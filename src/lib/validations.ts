@@ -34,9 +34,12 @@ export const cadastroSchema = z.object({
 export const leadSchema = z.object({
   name: z.string().trim().min(1, { message: 'Nome é obrigatório' }).max(200, { message: 'Nome muito longo' }),
   specialty: z.string().max(200, { message: 'Empresa/Especialidade muito longa' }).optional().or(z.literal('')),
-  instagram: z.string().trim().min(1, { message: 'Instagram é obrigatório' }).max(100, { message: 'Instagram muito longo' }),
+  instagram: z.string().max(100, { message: 'Instagram muito longo' }).optional().or(z.literal('')),
   followers: z.string().optional().or(z.literal('')),
-  whatsapp: z.string().trim().min(1, { message: 'WhatsApp é obrigatório' }).max(20, { message: 'WhatsApp muito longo' }),
+  whatsapp: z.string().trim()
+    .min(1, { message: 'Telefone/WhatsApp é obrigatório' })
+    .max(20, { message: 'Número muito longo' })
+    .regex(/^\d+$/, { message: 'Apenas números, sem símbolos ou espaços' }),
   email: z.string().email({ message: 'E-mail inválido' }).optional().or(z.literal('')),
   stage: z.string(),
   stars: z.number().min(1).max(5),
