@@ -728,6 +728,20 @@ serve(async (req) => {
           `"O Dr. João agendou call para amanhã" ou "João agora é 5 estrelas"\n\n` +
           `Sempre me diga a *etapa do funil* e *quantas estrelas* o lead merece! 🌟`;
         break;
+      
+      default:
+        // Unknown action or couldn't process
+        responseMessage = `🤔 Não consegui entender sua mensagem.\n\n` +
+          `Tente novamente ou acesse nossa versão web para cadastrar diretamente:\n` +
+          `🌐 crm.morphews.com`;
+        break;
+    }
+
+    // Fallback if no response was generated
+    if (!responseMessage || responseMessage.trim() === '') {
+      responseMessage = `🤔 Não consegui processar sua solicitação.\n\n` +
+        `Tente enviar de outra forma ou acesse nossa versão web:\n` +
+        `🌐 crm.morphews.com`;
     }
 
     // Add response to history
@@ -754,6 +768,20 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error processing webhook:', error);
+    
+    // Try to send error message to user if we have their phone
+    try {
+      const payload = await req.clone().json().catch(() => null);
+      if (payload?.phone) {
+        const errorMessage = `😕 Desculpe, ocorreu um erro ao processar sua mensagem.\n\n` +
+          `Por favor, tente novamente ou acesse nossa versão web:\n` +
+          `🌐 crm.morphews.com`;
+        await sendWhatsAppMessage(payload.phone.replace(/\D/g, ''), errorMessage);
+      }
+    } catch (sendError) {
+      console.error('Error sending error message:', sendError);
+    }
+    
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }), {
