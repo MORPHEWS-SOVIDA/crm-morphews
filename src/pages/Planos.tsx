@@ -499,6 +499,25 @@ export default function Planos() {
 
             {/* Features List */}
             <div className="space-y-6">
+              {/* NEW - View Toggle Feature */}
+              <div className="flex items-start gap-4 p-4 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-card rounded-xl border-2 border-indigo-200 dark:border-indigo-800">
+                <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                  <svg className="h-6 w-6 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                </div>
+                <div>
+                  <Badge className="mb-2 bg-indigo-100 text-indigo-700 border-indigo-200">Novo!</Badge>
+                  <h3 className="font-semibold mb-1">Você Escolhe: Funil ou Kanban</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Prefere visualizar em funil de vendas ou estilo Kanban? Alterne entre as visualizações com um clique.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
                 <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
                   <Star className="h-6 w-6 text-amber-500 fill-amber-500" />
@@ -511,6 +530,20 @@ export default function Planos() {
                 </div>
               </div>
 
+              {/* NEW - Team Visibility Feature */}
+              <div className="flex items-start gap-4 p-4 bg-gradient-to-br from-teal-50 to-white dark:from-teal-900/20 dark:to-card rounded-xl border-2 border-teal-200 dark:border-teal-800">
+                <div className="h-12 w-12 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+                  <Users className="h-6 w-6 text-teal-600" />
+                </div>
+                <div>
+                  <Badge className="mb-2 bg-teal-100 text-teal-700 border-teal-200">Novo!</Badge>
+                  <h3 className="font-semibold mb-1">Controle de Visibilidade</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Tem time de vendas? <strong>Você decide</strong>: todos veem todos os leads ou cada vendedor vê apenas os seus.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
                 <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
                   <Filter className="h-6 w-6 text-blue-500" />
@@ -519,18 +552,6 @@ export default function Planos() {
                   <h3 className="font-semibold mb-1">Filtros Inteligentes</h3>
                   <p className="text-muted-foreground text-sm">
                     Filtre por responsável, estrelas, etapa do funil, data de reunião e muito mais.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
-                <div className="h-12 w-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-                  <Users className="h-6 w-6 text-green-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">Equipe Colaborativa</h3>
-                  <p className="text-muted-foreground text-sm">
-                    Atribua leads para membros do time. Cada um vê seu próprio funil e métricas.
                   </p>
                 </div>
               </div>
@@ -645,6 +666,25 @@ export default function Planos() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Modern System Banner */}
+          <div className="mt-12 max-w-4xl mx-auto">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-8 md:p-12 text-white">
+              <div className="absolute inset-0 bg-black/10" />
+              <div className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+              <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+              
+              <div className="relative z-10 text-center">
+                <Badge className="mb-4 bg-white/20 text-white border-white/30">Sistema Moderno</Badge>
+                <h3 className="text-2xl md:text-3xl font-bold mb-4">
+                  Morphews foi feito pra te ajudar, facilitar, e fazer você <span className="underline decoration-wavy decoration-yellow-300">produzir e vender mais</span>
+                </h3>
+                <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                  Chega de planilhas bagunçadas e sistemas complicados. Simples, intuitivo e poderoso.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
