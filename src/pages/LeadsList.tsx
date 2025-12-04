@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Plus, Loader2 } from 'lucide-react';
+import { Search, Plus, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { LeadsTable } from '@/components/dashboard/LeadsTable';
+import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
+import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { useLeads } from '@/hooks/useLeads';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,14 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FUNNEL_STAGES } from '@/types/lead';
+import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 
 export default function LeadsList() {
   const navigate = useNavigate();
   const { data: leads = [], isLoading, error } = useLeads();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [starsFilter, setStarsFilter] = useState<string>('all');
+  const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null);
+
+  const responsaveis = useMemo(() => {
+    const uniqueResponsaveis = [...new Set(leads.map(lead => lead.assigned_to))];
+    return uniqueResponsaveis.filter(Boolean);
+  }, [leads]);
 
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
@@ -30,7 +40,7 @@ export default function LeadsList() {
       filtered = filtered.filter(
         (lead) =>
           lead.name.toLowerCase().includes(searchLower) ||
-          lead.specialty.toLowerCase().includes(searchLower) ||
+          lead.specialty?.toLowerCase().includes(searchLower) ||
           lead.instagram.toLowerCase().includes(searchLower) ||
           (lead.email && lead.email.toLowerCase().includes(searchLower))
       );
@@ -44,8 +54,12 @@ export default function LeadsList() {
       filtered = filtered.filter((lead) => lead.stars === parseInt(starsFilter));
     }
 
+    if (responsavelFilter) {
+      filtered = filtered.filter((lead) => lead.assigned_to === responsavelFilter);
+    }
+
     return filtered;
-  }, [leads, search, stageFilter, starsFilter]);
+  }, [leads, search, stageFilter, starsFilter, responsavelFilter]);
 
   if (isLoading) {
     return (
@@ -72,38 +86,39 @@ export default function LeadsList() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-4 lg:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Todos os Leads</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Todos os Leads</h1>
+            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
               Gerencie e acompanhe todos os seus leads
             </p>
           </div>
-          <Button onClick={() => navigate('/leads/new')} className="gap-2">
+          <Button onClick={() => navigate('/leads/new')} className="gap-2 w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             Novo Lead
           </Button>
         </div>
 
         {/* Filters */}
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
+        <div className="bg-card rounded-xl p-3 lg:p-4 shadow-card">
+          <div className="flex flex-col gap-3">
+            {/* Search */}
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, especialidade, Instagram..."
+                placeholder="Buscar leads..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
             
-            <div className="flex gap-3">
+            {/* Desktop Filters */}
+            <div className="hidden sm:flex gap-3">
               <Select value={stageFilter} onValueChange={setStageFilter}>
                 <SelectTrigger className="w-[180px]">
-                  <Filter className="w-4 h-4 mr-2" />
                   <SelectValue placeholder="Etapa" />
                 </SelectTrigger>
                 <SelectContent>
@@ -130,14 +145,34 @@ export default function LeadsList() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Mobile Filter Button */}
+            {isMobile && (
+              <MobileFilters
+                selectedStars={starsFilter !== 'all' ? parseInt(starsFilter) : null}
+                selectedStage={stageFilter !== 'all' ? stageFilter as FunnelStage : null}
+                selectedResponsavel={responsavelFilter}
+                onSelectStars={(stars) => setStarsFilter(stars?.toString() || 'all')}
+                onSelectStage={(stage) => setStageFilter(stage || 'all')}
+                onSelectResponsavel={setResponsavelFilter}
+                responsaveis={responsaveis}
+              />
+            )}
           </div>
         </div>
 
-        {/* Table */}
-        <LeadsTable 
-          leads={filteredLeads} 
-          title={`${filteredLeads.length} leads encontrados`} 
-        />
+        {/* Table / List */}
+        {isMobile ? (
+          <MobileLeadsList 
+            leads={filteredLeads} 
+            title={`${filteredLeads.length} leads encontrados`} 
+          />
+        ) : (
+          <LeadsTable 
+            leads={filteredLeads} 
+            title={`${filteredLeads.length} leads encontrados`} 
+          />
+        )}
       </div>
     </Layout>
   );

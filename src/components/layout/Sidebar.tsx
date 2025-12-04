@@ -54,29 +54,8 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </Button>
-
-      {/* Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={cn(
-        'fixed top-0 left-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40 transition-transform duration-300 lg:translate-x-0',
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
+      {/* Sidebar - Desktop Only */}
+      <aside className="fixed top-0 left-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40 hidden lg:block">
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">

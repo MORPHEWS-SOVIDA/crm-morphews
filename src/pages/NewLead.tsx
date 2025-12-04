@@ -109,17 +109,17 @@ export default function NewLead() {
 
   return (
     <Layout>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button type="button" variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Button type="button" variant="ghost" size="icon" onClick={() => navigate(-1)} className="self-start">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-foreground">Novo Lead</h1>
-            <p className="text-muted-foreground">Adicione um novo lead ao seu CRM</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Novo Lead</h1>
+            <p className="text-muted-foreground text-sm lg:text-base">Adicione um novo lead ao seu CRM</p>
           </div>
-          <Button type="submit" className="gap-2" disabled={createLead.isPending}>
+          <Button type="submit" className="gap-2 w-full sm:w-auto" disabled={createLead.isPending}>
             {createLead.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
@@ -129,9 +129,9 @@ export default function NewLead() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Basic Info */}
-          <div className="bg-card rounded-xl p-6 shadow-card space-y-4">
+          <div className="bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Informações Básicas</h2>
             
             <div className="space-y-2">
@@ -158,7 +158,7 @@ export default function NewLead() {
               {errors.specialty && <p className="text-sm text-destructive">{errors.specialty}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="instagram">Instagram *</Label>
                 <Input
@@ -216,7 +216,7 @@ export default function NewLead() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cpf_cnpj">CPF/CNPJ</Label>
                 <Input
@@ -242,7 +242,7 @@ export default function NewLead() {
           </div>
 
           {/* Status & Classification */}
-          <div className="bg-card rounded-xl p-6 shadow-card space-y-4">
+          <div className="bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Status & Classificação</h2>
             
             <div className="space-y-2">
@@ -356,10 +356,10 @@ export default function NewLead() {
           </div>
 
           {/* Meeting Info */}
-          <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card space-y-4">
+          <div className="lg:col-span-2 bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Reunião</h2>
             
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="meeting_date">Data da Reunião</Label>
                 <Input
@@ -403,7 +403,7 @@ export default function NewLead() {
           </div>
 
           {/* Additional Info */}
-          <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card space-y-4">
+          <div className="lg:col-span-2 bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Informações Adicionais</h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

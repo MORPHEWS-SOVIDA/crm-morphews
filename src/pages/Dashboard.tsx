@@ -4,9 +4,12 @@ import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
 import { FunnelVisualization } from '@/components/dashboard/FunnelVisualization';
 import { LeadsTable } from '@/components/dashboard/LeadsTable';
+import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
+import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { UpcomingMeetings } from '@/components/dashboard/UpcomingMeetings';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { useLeads } from '@/hooks/useLeads';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
 import { Loader2 } from 'lucide-react';
 
@@ -15,6 +18,12 @@ export default function Dashboard() {
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+
+  const responsaveis = useMemo(() => {
+    const uniqueResponsaveis = [...new Set(leads.map(lead => lead.assigned_to))];
+    return uniqueResponsaveis.filter(Boolean);
+  }, [leads]);
 
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
@@ -87,32 +96,46 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
               Visão geral dos seus leads e vendas
             </p>
           </div>
-          {hasFilters && (
-            <button
-              onClick={() => {
-                setSelectedStars(null);
-                setSelectedStage(null);
-                setSelectedResponsavel(null);
-              }}
-              className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
-            >
-              Limpar filtros
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Mobile Filters */}
+            {isMobile && (
+              <MobileFilters
+                selectedStars={selectedStars}
+                selectedStage={selectedStage}
+                selectedResponsavel={selectedResponsavel}
+                onSelectStars={setSelectedStars}
+                onSelectStage={setSelectedStage}
+                onSelectResponsavel={setSelectedResponsavel}
+                responsaveis={responsaveis}
+              />
+            )}
+            {hasFilters && (
+              <button
+                onClick={() => {
+                  setSelectedStars(null);
+                  setSelectedStage(null);
+                  setSelectedResponsavel(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
         <StatsCards leads={leads} />
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Grid - Desktop */}
+        <div className="hidden lg:grid grid-cols-12 gap-6">
           {/* Funnel */}
-          <div className="lg:col-span-5">
+          <div className="col-span-5">
             <FunnelVisualization
               leads={leads}
               selectedStage={selectedStage}
@@ -121,7 +144,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stars Filter */}
-          <div className="lg:col-span-2">
+          <div className="col-span-2">
             <StarsFilter
               leads={leads}
               selectedStars={selectedStars}
@@ -130,7 +153,7 @@ export default function Dashboard() {
           </div>
 
           {/* Responsavel Filter */}
-          <div className="lg:col-span-2">
+          <div className="col-span-2">
             <ResponsavelFilter
               selectedResponsavel={selectedResponsavel}
               onSelectResponsavel={setSelectedResponsavel}
@@ -138,13 +161,29 @@ export default function Dashboard() {
           </div>
 
           {/* Upcoming Meetings */}
-          <div className="lg:col-span-3">
+          <div className="col-span-3">
             <UpcomingMeetings leads={leads} />
           </div>
         </div>
 
-        {/* Leads Table */}
-        <LeadsTable leads={filteredLeads} title={getTableTitle()} />
+        {/* Mobile Funnel & Meetings */}
+        {isMobile && (
+          <div className="space-y-4">
+            <FunnelVisualization
+              leads={leads}
+              selectedStage={selectedStage}
+              onSelectStage={setSelectedStage}
+            />
+            <UpcomingMeetings leads={leads} />
+          </div>
+        )}
+
+        {/* Leads Table / List */}
+        {isMobile ? (
+          <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
+        ) : (
+          <LeadsTable leads={filteredLeads} title={getTableTitle()} />
+        )}
       </div>
     </Layout>
   );
