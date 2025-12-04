@@ -4,6 +4,7 @@ import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { MultiSelect } from '@/components/MultiSelect';
+import { AddressFields } from '@/components/AddressFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +36,7 @@ export default function EditLead() {
     instagram: '',
     followers: '',
     whatsapp: '',
+    secondary_phone: '',
     email: '',
     stage: 'prospect' as FunnelStage,
     stars: 3,
@@ -53,16 +55,26 @@ export default function EditLead() {
     site: '',
     lead_source: '',
     products: [] as string[],
+    // Address fields
+    cep: '',
+    street: '',
+    street_number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
   });
 
   useEffect(() => {
     if (lead) {
+      const cep = (lead as any).cep || '';
       setFormData({
         name: lead.name || '',
         specialty: lead.specialty || '',
         instagram: lead.instagram || '',
         followers: lead.followers?.toString() || '',
         whatsapp: lead.whatsapp || '',
+        secondary_phone: (lead as any).secondary_phone || '',
         email: lead.email || '',
         stage: lead.stage,
         stars: lead.stars,
@@ -81,6 +93,14 @@ export default function EditLead() {
         site: (lead as any).site || '',
         lead_source: (lead as any).lead_source || '',
         products: (lead as any).products || [],
+        // Address fields
+        cep: cep.length === 8 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep,
+        street: (lead as any).street || '',
+        street_number: (lead as any).street_number || '',
+        complement: (lead as any).complement || '',
+        neighborhood: (lead as any).neighborhood || '',
+        city: (lead as any).city || '',
+        state: (lead as any).state || '',
       });
     }
   }, [lead]);
@@ -97,6 +117,7 @@ export default function EditLead() {
       instagram: formData.instagram,
       followers: formData.followers ? parseInt(formData.followers) : null,
       whatsapp: formData.whatsapp,
+      secondary_phone: formData.secondary_phone || null,
       email: formData.email || null,
       stage: formData.stage,
       stars: formData.stars,
@@ -115,6 +136,14 @@ export default function EditLead() {
       site: formData.site || null,
       lead_source: formData.lead_source || null,
       products: formData.products.length > 0 ? formData.products : null,
+      // Address fields
+      cep: formData.cep.replace(/\D/g, '') || null,
+      street: formData.street || null,
+      street_number: formData.street_number || null,
+      complement: formData.complement || null,
+      neighborhood: formData.neighborhood || null,
+      city: formData.city || null,
+      state: formData.state || null,
     });
     
     navigate(`/leads/${id}`);
@@ -206,15 +235,27 @@ export default function EditLead() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp *</Label>
-              <Input
-                id="whatsapp"
-                value={formData.whatsapp}
-                onChange={(e) => updateField('whatsapp', e.target.value)}
-                placeholder="5511999999999"
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">WhatsApp *</Label>
+                <Input
+                  id="whatsapp"
+                  value={formData.whatsapp}
+                  onChange={(e) => updateField('whatsapp', e.target.value.replace(/\D/g, ''))}
+                  placeholder="5511999999999"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secondary_phone">Telefone Secundário</Label>
+                <Input
+                  id="secondary_phone"
+                  value={formData.secondary_phone}
+                  onChange={(e) => updateField('secondary_phone', e.target.value.replace(/\D/g, ''))}
+                  placeholder="5511999999999"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -259,6 +300,21 @@ export default function EditLead() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Address */}
+          <div className="bg-card rounded-xl p-6 shadow-card space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Endereço</h2>
+            <AddressFields
+              cep={formData.cep}
+              street={formData.street}
+              streetNumber={formData.street_number}
+              complement={formData.complement}
+              neighborhood={formData.neighborhood}
+              city={formData.city}
+              state={formData.state}
+              onFieldChange={updateField}
+            />
           </div>
 
           {/* Status & Classification */}

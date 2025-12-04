@@ -297,6 +297,9 @@ export type Database = {
       leads: {
         Row: {
           assigned_to: string
+          cep: string | null
+          city: string | null
+          complement: string | null
           cpf_cnpj: string | null
           created_at: string
           created_by: string | null
@@ -312,21 +315,29 @@ export type Database = {
           meeting_time: string | null
           name: string
           negotiated_value: number | null
+          neighborhood: string | null
           observations: string | null
           organization_id: string | null
           paid_value: number | null
           products: string[] | null
           recorded_call_link: string | null
+          secondary_phone: string | null
           site: string | null
           specialty: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
           stars: number
+          state: string | null
+          street: string | null
+          street_number: string | null
           updated_at: string
           whatsapp: string
           whatsapp_group: string | null
         }
         Insert: {
           assigned_to: string
+          cep?: string | null
+          city?: string | null
+          complement?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           created_by?: string | null
@@ -342,21 +353,29 @@ export type Database = {
           meeting_time?: string | null
           name: string
           negotiated_value?: number | null
+          neighborhood?: string | null
           observations?: string | null
           organization_id?: string | null
           paid_value?: number | null
           products?: string[] | null
           recorded_call_link?: string | null
+          secondary_phone?: string | null
           site?: string | null
           specialty?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
           stars?: number
+          state?: string | null
+          street?: string | null
+          street_number?: string | null
           updated_at?: string
           whatsapp: string
           whatsapp_group?: string | null
         }
         Update: {
           assigned_to?: string
+          cep?: string | null
+          city?: string | null
+          complement?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           created_by?: string | null
@@ -372,15 +391,20 @@ export type Database = {
           meeting_time?: string | null
           name?: string
           negotiated_value?: number | null
+          neighborhood?: string | null
           observations?: string | null
           organization_id?: string | null
           paid_value?: number | null
           products?: string[] | null
           recorded_call_link?: string | null
+          secondary_phone?: string | null
           site?: string | null
           specialty?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
           stars?: number
+          state?: string | null
+          street?: string | null
+          street_number?: string | null
           updated_at?: string
           whatsapp?: string
           whatsapp_group?: string | null

@@ -4,6 +4,7 @@ import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { MultiSelect } from '@/components/MultiSelect';
+import { AddressFields } from '@/components/AddressFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +37,7 @@ export default function NewLead() {
     instagram: '',
     followers: '',
     whatsapp: '',
+    secondary_phone: '',
     email: '',
     stage: 'prospect' as FunnelStage,
     stars: 3,
@@ -53,6 +55,14 @@ export default function NewLead() {
     site: '',
     lead_source: '',
     products: [] as string[],
+    // Address fields
+    cep: '',
+    street: '',
+    street_number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,6 +91,7 @@ export default function NewLead() {
       instagram: formData.instagram.trim() || '',
       followers: formData.followers ? parseInt(formData.followers) : null,
       whatsapp: formData.whatsapp.trim(),
+      secondary_phone: formData.secondary_phone.trim() || null,
       email: formData.email || null,
       stage: formData.stage,
       stars: formData.stars,
@@ -98,6 +109,14 @@ export default function NewLead() {
       site: formData.site || null,
       lead_source: formData.lead_source || null,
       products: formData.products.length > 0 ? formData.products : null,
+      // Address fields
+      cep: formData.cep.replace(/\D/g, '') || null,
+      street: formData.street || null,
+      street_number: formData.street_number || null,
+      complement: formData.complement || null,
+      neighborhood: formData.neighborhood || null,
+      city: formData.city || null,
+      state: formData.state || null,
     });
     
     navigate('/leads');
@@ -158,19 +177,34 @@ export default function NewLead() {
               {errors.specialty && <p className="text-sm text-destructive">{errors.specialty}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">Telefone/WhatsApp *</Label>
-              <Input
-                id="whatsapp"
-                value={formData.whatsapp}
-                onChange={(e) => updateField('whatsapp', e.target.value.replace(/\D/g, ''))}
-                placeholder="5551999984646"
-                className={errors.whatsapp ? 'border-destructive' : ''}
-              />
-              <p className="text-xs text-muted-foreground">
-                Apenas números: DDI + DDD + número. Ex: 5551999984646 (55 para Brasil)
-              </p>
-              {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">Telefone/WhatsApp *</Label>
+                <Input
+                  id="whatsapp"
+                  value={formData.whatsapp}
+                  onChange={(e) => updateField('whatsapp', e.target.value.replace(/\D/g, ''))}
+                  placeholder="5551999984646"
+                  className={errors.whatsapp ? 'border-destructive' : ''}
+                />
+                <p className="text-xs text-muted-foreground">
+                  DDI + DDD + número. Ex: 5551999984646
+                </p>
+                {errors.whatsapp && <p className="text-sm text-destructive">{errors.whatsapp}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secondary_phone">Telefone Secundário</Label>
+                <Input
+                  id="secondary_phone"
+                  value={formData.secondary_phone}
+                  onChange={(e) => updateField('secondary_phone', e.target.value.replace(/\D/g, ''))}
+                  placeholder="5551999984646"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Telefone alternativo para contato
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -242,6 +276,21 @@ export default function NewLead() {
                 {errors.site && <p className="text-sm text-destructive">{errors.site}</p>}
               </div>
             </div>
+          </div>
+
+          {/* Address */}
+          <div className="bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Endereço</h2>
+            <AddressFields
+              cep={formData.cep}
+              street={formData.street}
+              streetNumber={formData.street_number}
+              complement={formData.complement}
+              neighborhood={formData.neighborhood}
+              city={formData.city}
+              state={formData.state}
+              onFieldChange={updateField}
+            />
           </div>
 
           {/* Status & Classification */}
