@@ -465,6 +465,43 @@ ${context.conversationHistory.slice(-5).join('\n') || 'Nenhum'}`;
 }
 
 async function createLead(organizationId: string, userId: string, leadData: any) {
+  // Check lead limit for the organization's subscription plan
+  const { data: subscription, error: subError } = await supabase
+    .from('subscriptions')
+    .select(`
+      *,
+      plan:subscription_plans(*)
+    `)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (subError) {
+    console.error('Error fetching subscription:', subError);
+    throw new Error('Erro ao verificar plano de assinatura');
+  }
+
+  if (subscription?.plan?.max_leads !== null) {
+    // Count leads created this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { count, error: countError } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .gte('created_at', startOfMonth.toISOString());
+
+    if (countError) {
+      console.error('Error counting leads:', countError);
+      throw new Error('Erro ao verificar limite de leads');
+    }
+
+    if (count !== null && count >= subscription.plan.max_leads) {
+      throw new Error(`Limite de ${subscription.plan.max_leads} leads/mês atingido. Faça upgrade do plano em crm.morphews.com/equipe`);
+    }
+  }
+
   const { data, error } = await supabase
     .from('leads')
     .insert({
