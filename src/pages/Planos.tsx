@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Zap, Crown, Rocket, Users, Database, Loader2, Star, Filter, Phone, Mail, Target, TrendingUp, Calendar, ChevronRight, Play, ArrowRight, MessageCircle, BarChart3, Sparkles, Shield, Clock } from "lucide-react";
+import { Check, Zap, Crown, Rocket, Loader2, Star, Phone, ArrowRight, MessageCircle, Sparkles, Shield, Clock, Mic, Image, Send, Bot, ChevronRight, Play, Users, Target, Calendar, Filter, BarChart3, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,16 +25,6 @@ const planColors: Record<string, string> = {
   Ultra: "from-amber-500 to-orange-500",
 };
 
-const funnelStages = [
-  { name: "Prospecção", color: "bg-orange-300", leads: 45 },
-  { name: "Contato", color: "bg-orange-500", leads: 38 },
-  { name: "Convencimento", color: "bg-yellow-400", leads: 28 },
-  { name: "Reunião", color: "bg-blue-400", leads: 18 },
-  { name: "Positivo", color: "bg-green-400", leads: 12 },
-  { name: "Aguardando", color: "bg-green-500", leads: 8 },
-  { name: "Sucesso", color: "bg-amber-400", leads: 5 },
-];
-
 export default function Planos() {
   const { user, isLoading: authLoading } = useAuth();
   const { data: plans, isLoading: plansLoading } = useSubscriptionPlans();
@@ -48,7 +38,6 @@ export default function Planos() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoCheckoutTriggered, setAutoCheckoutTriggered] = useState(false);
 
-  // Handle subscription success redirect
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("subscription") === "success") {
@@ -56,7 +45,6 @@ export default function Planos() {
     }
   }, [navigate]);
 
-  // Auto-trigger checkout if user came from login with a plan selected
   useEffect(() => {
     if (user && plans && !autoCheckoutTriggered && !plansLoading) {
       const urlParams = new URLSearchParams(window.location.search);
@@ -66,9 +54,7 @@ export default function Planos() {
         const plan = plans.find(p => p.id === planId);
         if (plan) {
           setAutoCheckoutTriggered(true);
-          // Clear the URL params
           window.history.replaceState({}, '', '/planos');
-          // Trigger checkout
           createCheckout.mutate(planId);
         }
       }
@@ -90,7 +76,6 @@ export default function Planos() {
       return;
     }
 
-    // Require email for checkout
     if (!leadForm.email.trim()) {
       toast({
         title: "E-mail é obrigatório",
@@ -103,8 +88,7 @@ export default function Planos() {
     setIsSubmitting(true);
 
     try {
-      // Save interested lead
-      const { error } = await supabase.from("interested_leads").insert({
+      await supabase.from("interested_leads").insert({
         name: leadForm.name.trim(),
         whatsapp: leadForm.whatsapp.trim(),
         email: leadForm.email.trim(),
@@ -113,14 +97,8 @@ export default function Planos() {
         status: "checkout_started",
       });
 
-      if (error) {
-        console.error("Error saving lead:", error);
-        // Continue to checkout even if lead save fails
-      }
-
       setShowLeadModal(false);
 
-      // Go directly to Stripe checkout without requiring login
       const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
         body: {
           planId: selectedPlan?.id,
@@ -170,20 +148,20 @@ export default function Planos() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/favicon.jpg" alt="Morphews CRM" className="h-8 w-8 rounded" />
-            <span className="font-bold text-xl">Morphews CRM</span>
+            <img src="/favicon.jpg" alt="Morphews" className="h-8 w-8 rounded" />
+            <span className="font-bold text-xl">Morphews</span>
           </Link>
           <div className="flex items-center gap-4">
+            <a href="#como-funciona" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+              Como Funciona
+            </a>
             <a href="#precos" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Preços
-            </a>
-            <a href="#funcionalidades" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
-              Funcionalidades
             </a>
             {user ? (
               <Link to="/">
@@ -198,53 +176,144 @@ export default function Planos() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero Section - WhatsApp AI Assistant Focus */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5" />
-        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        {/* Animated background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-emerald-500/10" />
+        <div className="absolute top-10 left-10 w-96 h-96 bg-green-500/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-10 right-10 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
         
-        <div className="container mx-auto px-4 py-20 md:py-32 relative">
-          <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="secondary" className="mb-6 px-4 py-2">
-              <Sparkles className="h-3 w-3 mr-2" />
-              O CRM que vai transformar suas vendas
-            </Badge>
-            
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-              Pare de perder leads e 
-              <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent"> comece a fechar mais vendas</span>
-            </h1>
-            
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Organize seus leads, acompanhe o funil de vendas, qualifique com estrelas e nunca mais esqueça de fazer follow-up. Simples, intuitivo e poderoso.
-            </p>
+        <div className="container mx-auto px-4 py-16 md:py-24 relative">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left - Text */}
+            <div className="text-center lg:text-left">
+              <Badge className="mb-6 px-4 py-2 bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20">
+                <Bot className="h-3 w-3 mr-2" />
+                Sua Secretária Comercial com IA
+              </Badge>
+              
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                Gerencie seus leads pelo{" "}
+                <span className="bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+                  WhatsApp
+                </span>
+              </h1>
+              
+              <p className="text-xl text-muted-foreground mb-8 max-w-xl">
+                Converse com sua secretária por <strong>áudio</strong>, <strong>mensagem</strong> ou até <strong>print screen</strong>. 
+                Ela atualiza seu CRM automaticamente enquanto você foca no que importa: <strong>vender</strong>.
+              </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <a href="#precos">
-                <Button size="lg" className="text-lg px-8 gap-2">
-                  Começar Agora <ArrowRight className="h-5 w-5" />
-                </Button>
-              </a>
-              <a href="#funcionalidades">
-                <Button size="lg" variant="outline" className="text-lg px-8 gap-2">
-                  <Play className="h-5 w-5" /> Ver Funcionalidades
-                </Button>
-              </a>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
+                <a href="#precos">
+                  <Button size="lg" className="text-lg px-8 gap-2 bg-green-600 hover:bg-green-700">
+                    Quero Minha Secretária <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </a>
+                <a href="#como-funciona">
+                  <Button size="lg" variant="outline" className="text-lg px-8 gap-2">
+                    <Play className="h-5 w-5" /> Ver Como Funciona
+                  </Button>
+                </a>
+              </div>
+
+              <div className="flex flex-wrap justify-center lg:justify-start gap-6 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Mic className="h-4 w-4 text-green-500" />
+                  Fale por áudio
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-green-500" />
+                  Envie mensagens
+                </div>
+                <div className="flex items-center gap-2">
+                  <Image className="h-4 w-4 text-green-500" />
+                  Mande prints
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-green-500" />
-                Dados seguros
+            {/* Right - WhatsApp Mockup */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-3xl blur-2xl" />
+              
+              {/* Phone Frame */}
+              <div className="relative mx-auto max-w-[320px] bg-gray-900 rounded-[3rem] p-3 shadow-2xl">
+                <div className="bg-[#111b21] rounded-[2.5rem] overflow-hidden">
+                  {/* WhatsApp Header */}
+                  <div className="bg-[#202c33] px-4 py-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                      <Bot className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-white font-medium text-sm">Secretária Morphews</div>
+                      <div className="text-green-400 text-xs">online</div>
+                    </div>
+                  </div>
+
+                  {/* Chat Messages */}
+                  <div className="h-[400px] bg-[#0b141a] p-3 space-y-3 overflow-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CjxyZWN0IHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgZmlsbD0iIzBiMTQxYSIvPgo8Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIxLjUiIGZpbGw9IiMxYzI2MmQiIG9wYWNpdHk9IjAuMyIvPgo8L3N2Zz4=')]">
+                    {/* User message */}
+                    <div className="flex justify-end">
+                      <div className="bg-[#005c4b] text-white px-3 py-2 rounded-lg rounded-tr-none max-w-[80%] text-sm">
+                        Acabei de falar com a Dra. Ana, cirurgiã plástica, @draana no insta, 50k seguidores. Muito interessada, marcamos call pra amanhã!
+                      </div>
+                    </div>
+
+                    {/* Bot response */}
+                    <div className="flex justify-start">
+                      <div className="bg-[#202c33] text-white px-3 py-2 rounded-lg rounded-tl-none max-w-[85%] text-sm space-y-2">
+                        <p>✅ <strong>Lead cadastrado!</strong></p>
+                        <p className="text-gray-300">
+                          📋 Dra. Ana<br />
+                          📍 Reunião Agendada<br />
+                          ⭐ 4 estrelas (50k seguidores)<br />
+                          📸 @draana
+                        </p>
+                        <p className="text-green-400 text-xs">🔗 Clique para ver no CRM</p>
+                      </div>
+                    </div>
+
+                    {/* Another user message */}
+                    <div className="flex justify-end">
+                      <div className="bg-[#005c4b] text-white px-3 py-2 rounded-lg rounded-tr-none max-w-[80%] text-sm">
+                        Coloca ela como 5 estrelas
+                      </div>
+                    </div>
+
+                    {/* Bot confirmation */}
+                    <div className="flex justify-start">
+                      <div className="bg-[#202c33] text-white px-3 py-2 rounded-lg rounded-tl-none max-w-[80%] text-sm">
+                        ✅ Atualizado! Dra. Ana agora tem ⭐⭐⭐⭐⭐
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Input area */}
+                  <div className="bg-[#202c33] px-3 py-2 flex items-center gap-2">
+                    <div className="flex-1 bg-[#2a3942] rounded-full px-4 py-2 text-gray-400 text-sm">
+                      Digite uma mensagem...
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                      <Mic className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-500" />
-                Setup em 5 minutos
+
+              {/* Floating badges */}
+              <div className="absolute -left-4 top-20 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 animate-bounce" style={{ animationDuration: "3s" }}>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mic className="h-4 w-4 text-green-500" />
+                  <span className="font-medium">Áudio de 15s</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-purple-500" />
-                Suporte por WhatsApp
+
+              <div className="absolute -right-4 bottom-32 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 animate-bounce" style={{ animationDuration: "4s", animationDelay: "1s" }}>
+                <div className="flex items-center gap-2 text-sm">
+                  <Image className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium">Print do Instagram</span>
+                </div>
               </div>
             </div>
           </div>
@@ -256,44 +325,117 @@ export default function Planos() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-3xl md:text-4xl font-bold text-primary">500+</div>
-              <div className="text-muted-foreground">Leads gerenciados</div>
+              <div className="text-3xl md:text-4xl font-bold text-green-600">10x</div>
+              <div className="text-muted-foreground">Mais rápido</div>
             </div>
             <div>
-              <div className="text-3xl md:text-4xl font-bold text-primary">98%</div>
-              <div className="text-muted-foreground">Satisfação</div>
+              <div className="text-3xl md:text-4xl font-bold text-green-600">0</div>
+              <div className="text-muted-foreground">Leads esquecidos</div>
             </div>
             <div>
-              <div className="text-3xl md:text-4xl font-bold text-primary">3x</div>
-              <div className="text-muted-foreground">Mais conversões</div>
+              <div className="text-3xl md:text-4xl font-bold text-green-600">24/7</div>
+              <div className="text-muted-foreground">Sempre disponível</div>
             </div>
             <div>
-              <div className="text-3xl md:text-4xl font-bold text-primary">24/7</div>
-              <div className="text-muted-foreground">Acesso ilimitado</div>
+              <div className="text-3xl md:text-4xl font-bold text-green-600">100%</div>
+              <div className="text-muted-foreground">Organizado</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Funnel Feature */}
-      <section id="funcionalidades" className="py-20 md:py-32">
+      {/* How It Works */}
+      <section id="como-funciona" className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">Funil Visual</Badge>
+            <Badge variant="outline" className="mb-4">Como Funciona</Badge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Visualize todo seu pipeline de vendas
+              Simples assim: fale, ela faz
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Acompanhe cada lead em tempo real e saiba exatamente onde cada oportunidade está no seu processo de vendas.
+              Sua secretária entende linguagem natural. Fale do jeito que você quiser, ela interpreta e atualiza seu CRM.
             </p>
           </div>
 
-          {/* Funnel Visualization - Real Funnel Shape */}
-          <div className="max-w-lg mx-auto mb-16">
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Voice */}
+            <Card className="relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardHeader className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                  <Mic className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">Envie Áudio</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-muted-foreground mb-4">
+                  "Acabei de sair de uma reunião com o Dr. Pedro, ele quer fechar o pacote premium"
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <p className="text-green-600 font-medium">→ Lead atualizado automaticamente</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Text */}
+            <Card className="relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-500/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardHeader className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                  <MessageCircle className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">Envie Mensagem</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-muted-foreground mb-4">
+                  "Busca a Dra. Maria" ou "Lista todos os leads 5 estrelas"
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <p className="text-blue-600 font-medium">→ Informações na hora</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Screenshot */}
+            <Card className="relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-2 hover:border-purple-500/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardHeader className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+                  <Image className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">Envie Print</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-muted-foreground mb-4">
+                  Mande um print do perfil do Instagram e ela extrai todos os dados
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <p className="text-purple-600 font-medium">→ Lead criado com dados completos</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Dashboard + CRM Features */}
+      <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <Badge variant="outline" className="mb-4">Dashboard Completo</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Tudo sincronizado no seu painel
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Cada interação no WhatsApp aparece instantaneamente no seu CRM. Interface web completa para quando você precisar de mais controle.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Funnel Visualization */}
             <div className="bg-card rounded-2xl border shadow-xl p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 text-center">Funil de Vendas</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4 text-center">Funil de Vendas Visual</h3>
               
-              {/* Cloud - "Não é a hora" */}
               <div className="flex justify-center mb-4">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,26 +445,25 @@ export default function Planos() {
                 </div>
               </div>
 
-              {/* Funnel Stages */}
               <div className="flex flex-col items-center gap-1">
                 {[
-                  { label: "Prospectando / Aguardando resposta", count: 45, color: "bg-orange-300", width: "100%" },
-                  { label: "Cliente nos chamou", count: 38, color: "bg-orange-500", width: "90%" },
-                  { label: "Convencendo a marcar call", count: 28, color: "bg-yellow-400", width: "80%" },
-                  { label: "Call agendada", count: 18, color: "bg-blue-400", width: "70%" },
-                  { label: "Call feita positiva", count: 12, color: "bg-green-400 border-2 border-purple-500", width: "60%" },
-                  { label: "Aguardando pagamento", count: 8, color: "bg-green-500", width: "50%" },
-                  { label: "PAGO - SUCESSO!", count: 5, color: "bg-amber-400", width: "40%" },
+                  { label: "Prospectando", count: 45, color: "bg-orange-300", width: "100%" },
+                  { label: "Contatado", count: 38, color: "bg-orange-500", width: "90%" },
+                  { label: "Convencendo", count: 28, color: "bg-yellow-400", width: "80%" },
+                  { label: "Reunião Agendada", count: 18, color: "bg-blue-400", width: "70%" },
+                  { label: "Positivo", count: 12, color: "bg-green-400", width: "60%" },
+                  { label: "Aguardando Pgto", count: 8, color: "bg-green-500", width: "50%" },
+                  { label: "SUCESSO! 🎉", count: 5, color: "bg-amber-400", width: "40%" },
                 ].map((stage, index) => (
                   <div
                     key={stage.label}
                     style={{ width: stage.width }}
-                    className={`${stage.color} py-3 px-4 transition-all duration-300 hover:scale-[1.02] ${
+                    className={`${stage.color} py-2 px-3 transition-all duration-300 hover:scale-[1.02] ${
                       index === 0 ? "rounded-t-xl" : ""
                     } ${index === 6 ? "rounded-b-xl" : ""}`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs md:text-sm font-medium text-gray-800 truncate pr-2">
+                      <span className="text-xs font-medium text-gray-800 truncate pr-2">
                         {stage.label}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/40 text-gray-800 shrink-0">
@@ -333,8 +474,7 @@ export default function Planos() {
                 ))}
               </div>
 
-              {/* Trash - "Sem interesse" */}
-              <div className="flex justify-end mt-4 -mr-2">
+              <div className="flex justify-end mt-4">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-100 text-red-700 text-sm font-medium">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -342,311 +482,156 @@ export default function Planos() {
                   Sem interesse (2)
                 </div>
               </div>
+            </div>
 
-              <div className="mt-6 text-center text-muted-foreground text-sm">
-                <TrendingUp className="h-4 w-4 inline mr-2" />
-                Acompanhe a evolução dos seus leads em cada etapa
+            {/* Features List */}
+            <div className="space-y-6">
+              <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
+                <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                  <Star className="h-6 w-6 text-amber-500 fill-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Classificação por Estrelas</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Priorize leads de 1 a 5 estrelas. Leads 5⭐ são influenciadores, 1⭐ são iniciantes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
+                <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                  <Filter className="h-6 w-6 text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Filtros Inteligentes</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Filtre por responsável, estrelas, etapa do funil, data de reunião e muito mais.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
+                <div className="h-12 w-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                  <Users className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Equipe Colaborativa</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Atribua leads para membros do time. Cada um vê seu próprio funil e métricas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 bg-card rounded-xl border">
+                <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                  <Calendar className="h-6 w-6 text-purple-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Próximas Reuniões</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Veja todas as calls agendadas. Link da reunião e link da gravação organizados.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Star Rating Feature */}
-      <section className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <Badge variant="outline" className="mb-4">Qualificação por Estrelas</Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Priorize os leads mais valiosos
-              </h2>
-              <p className="text-muted-foreground text-lg mb-6">
-                Classifique seus leads de 1 a 5 estrelas baseado no potencial de conversão. Leads 5 estrelas são influenciadores com muitos seguidores. Leads 1 estrela são profissionais em formação.
-              </p>
-              <ul className="space-y-3">
-                <li className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                  </div>
-                  <span>Filtre leads por classificação com um clique</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                  </div>
-                  <span>Visualize rapidamente quem são os melhores leads</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                  </div>
-                  <span>Foque seu tempo onde realmente importa</span>
-                </li>
-              </ul>
-            </div>
-            <div className="bg-card rounded-2xl border shadow-xl p-6">
-              <div className="space-y-4">
-                {[
-                  { name: "Dr. João Silva", stars: 5, followers: "150k", stage: "Reunião Agendada" },
-                  { name: "Dra. Maria Santos", stars: 4, followers: "80k", stage: "Convencimento" },
-                  { name: "Dr. Pedro Costa", stars: 3, followers: "25k", stage: "Contato Inicial" },
-                ].map((lead, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div>
-                      <div className="font-medium">{lead.name}</div>
-                      <div className="text-sm text-muted-foreground">{lead.followers} seguidores</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex gap-0.5 mb-1 justify-end">
-                        {Array.from({ length: 5 }).map((_, j) => (
-                          <Star
-                            key={j}
-                            className={`h-4 w-4 ${j < lead.stars ? "text-amber-500 fill-amber-500" : "text-gray-300"}`}
-                          />
-                        ))}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{lead.stage}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Filters Feature */}
+      {/* Benefits Grid */}
       <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="order-2 md:order-1">
-              <div className="bg-card rounded-2xl border shadow-xl p-6">
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                  <Badge variant="secondary" className="gap-1 justify-center py-2">
-                    <Filter className="h-3 w-3" /> Por Responsável
-                  </Badge>
-                  <Badge variant="secondary" className="gap-1 justify-center py-2">
-                    <Star className="h-3 w-3" /> Por Estrelas
-                  </Badge>
-                  <Badge variant="secondary" className="gap-1 justify-center py-2">
-                    <Target className="h-3 w-3" /> Por Etapa
-                  </Badge>
-                  <Badge variant="secondary" className="gap-1 justify-center py-2">
-                    <Calendar className="h-3 w-3" /> Por Data
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-10 bg-muted/50 rounded animate-pulse" />
-                  <div className="h-10 bg-muted/30 rounded animate-pulse" />
-                  <div className="h-10 bg-muted/50 rounded animate-pulse" />
-                </div>
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Encontre qualquer lead em segundos
-                </div>
-              </div>
-            </div>
-            <div className="order-1 md:order-2">
-              <Badge variant="outline" className="mb-4">Filtros Inteligentes</Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Encontre qualquer lead instantaneamente
-              </h2>
-              <p className="text-muted-foreground text-lg mb-6">
-                Filtre por responsável, por estrelas, por etapa do funil, por data de reunião e muito mais. Tenha controle total sobre seus dados.
-              </p>
-              <ul className="space-y-3">
-                <li className="flex items-center gap-3">
-                  <Check className="h-5 w-5 text-green-500" />
-                  <span>Veja leads por vendedor responsável</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Check className="h-5 w-5 text-green-500" />
-                  <span>Filtre por classificação de estrelas</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Check className="h-5 w-5 text-green-500" />
-                  <span>Busque por qualquer campo do cadastro</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Complete Fields Feature */}
-      <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">Cadastro Completo</Badge>
+            <Badge variant="outline" className="mb-4">Benefícios</Badge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Todas as informações em um só lugar
+              Por que você <span className="text-green-600">precisa</span> disso
             </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Registre tudo sobre seu lead: dados pessoais, redes sociais, produtos de interesse, valores negociados e muito mais.
-            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <Card className="bg-card">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <Card className="bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-background border-green-200 dark:border-green-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Users className="h-5 w-5 text-primary" />
-                  Dados Pessoais
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-green-600" />
+                  Economize Tempo
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Nome completo</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Especialidade/Empresa</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> CPF/CNPJ</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> E-mail</div>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Cadastre leads em segundos pelo WhatsApp. Sem abrir sistemas, sem planilhas, sem perder tempo.
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card">
+            <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-900/20 dark:to-background border-blue-200 dark:border-blue-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <MessageCircle className="h-5 w-5 text-primary" />
-                  Contato & Redes
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-blue-600" />
+                  Zero Leads Perdidos
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> WhatsApp (clicável)</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Instagram + seguidores</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> LinkedIn</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Site</div>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Acabou de conversar com um prospect? Registre na hora. Nunca mais esqueça um lead importante.
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card">
+            <Card className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-background border-purple-200 dark:border-purple-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                  Negociação
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-purple-600" />
+                  Visão Completa
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Produtos negociados</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Valor negociado</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Valor pago</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Origem do lead</div>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Funil visual, métricas de time, próximas reuniões. Tudo em um dashboard intuitivo.
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card">
+            <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-900/20 dark:to-background border-amber-200 dark:border-amber-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  Reuniões
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-amber-600" />
+                  Aumente Conversões
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Data e hora</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Link da reunião</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Link da gravação</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Grupo WhatsApp</div>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Com leads organizados e priorizados, você foca nos que realmente vão fechar.
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card">
+            <Card className="bg-gradient-to-br from-pink-50 to-white dark:from-pink-900/20 dark:to-background border-pink-200 dark:border-pink-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Star className="h-5 w-5 text-primary" />
-                  Qualificação
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-pink-600" />
+                  IA de Verdade
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Classificação 1-5 estrelas</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Etapa do funil</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Responsável pelo lead</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Data de criação</div>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Não é chatbot de menu. É IA que entende contexto, extrai dados e aprende com você.
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-card">
+            <Card className="bg-gradient-to-br from-cyan-50 to-white dark:from-cyan-900/20 dark:to-background border-cyan-200 dark:border-cyan-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Target className="h-5 w-5 text-primary" />
-                  Observações
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-cyan-600" />
+                  Dados Seguros
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Notas gerais</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Produtos de interesse</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Histórico completo</div>
-                <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Edição inline rápida</div>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Seus leads são seus. Criptografia de ponta, backups automáticos, privacidade total.
+                </p>
               </CardContent>
             </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Intuitive Feature */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <Badge variant="outline" className="mb-4">Edição Inline</Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Edite qualquer informação com um clique
-              </h2>
-              <p className="text-muted-foreground text-lg mb-6">
-                Nosso sistema foi projetado para ser o mais intuitivo possível. Clique em qualquer campo e edite na hora, sem precisar abrir formulários ou telas separadas.
-              </p>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Zap className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-medium">Super Rápido</div>
-                    <div className="text-sm text-muted-foreground">Atualize dados em menos de 2 segundos</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Phone className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-medium">WhatsApp Integrado</div>
-                    <div className="text-sm text-muted-foreground">Clique no número e abra conversa direto</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <BarChart3 className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-medium">Dashboard Completo</div>
-                    <div className="text-sm text-muted-foreground">Todas as métricas importantes em um lugar</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-card rounded-2xl border shadow-xl p-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg group cursor-pointer hover:bg-muted/50 transition-colors">
-                  <span className="text-muted-foreground">Nome:</span>
-                  <span className="font-medium group-hover:text-primary transition-colors">Dr. João Silva ✏️</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg group cursor-pointer hover:bg-muted/50 transition-colors">
-                  <span className="text-muted-foreground">WhatsApp:</span>
-                  <span className="font-medium text-green-600 group-hover:underline">(11) 99999-9999</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg group cursor-pointer hover:bg-muted/50 transition-colors">
-                  <span className="text-muted-foreground">Valor Negociado:</span>
-                  <span className="font-medium group-hover:text-primary transition-colors">R$ 5.000,00 ✏️</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border-2 border-primary border-dashed">
-                  <span className="text-muted-foreground">Etapa:</span>
-                  <select className="bg-transparent font-medium text-primary focus:outline-none">
-                    <option>Reunião Agendada</option>
-                  </select>
-                </div>
-              </div>
-              <p className="text-center text-sm text-muted-foreground mt-4">
-                Clique para editar • Automático • Sem formulários
-              </p>
-            </div>
           </div>
         </div>
       </section>
@@ -662,11 +647,10 @@ export default function Planos() {
               Garantia de 7 dias
             </h2>
             <p className="text-lg text-muted-foreground mb-4">
-              Se você não gostar, pode pedir reembolso sem problema nenhum.
+              Teste sua secretária por 7 dias. Se não mudar sua vida, devolvemos seu dinheiro.
             </p>
             <p className="text-muted-foreground">
-              Experimente o Morphews CRM por 7 dias. Se não estiver 100% satisfeito com a plataforma, 
-              devolvemos seu dinheiro integralmente, sem perguntas.
+              Sem perguntas, sem burocracia. Simples assim.
             </p>
           </div>
         </div>
@@ -676,12 +660,12 @@ export default function Planos() {
       <section id="precos" className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge variant="secondary" className="mb-4">Planos e Preços</Badge>
+            <Badge className="mb-4 bg-green-500/10 text-green-600 border-green-500/20">Planos</Badge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Escolha o plano ideal para seu negócio
+              Escolha seu plano e comece <span className="text-green-600">agora</span>
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Comece a organizar seus leads hoje. Todos os planos incluem suporte e atualizações.
+              Sua secretária comercial está esperando. Todos os planos incluem acesso ao WhatsApp + Dashboard completo.
             </p>
           </div>
 
@@ -694,11 +678,11 @@ export default function Planos() {
                 <Card
                   key={plan.id}
                   className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
-                    isPro ? "border-primary shadow-lg md:scale-105" : "hover:scale-102"
+                    isPro ? "border-green-500 shadow-lg md:scale-105" : "hover:scale-102"
                   }`}
                 >
                   {isPro && (
-                    <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1 text-sm font-medium rounded-bl-lg">
+                    <div className="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 text-sm font-medium rounded-bl-lg">
                       Mais Popular
                     </div>
                   )}
@@ -715,7 +699,7 @@ export default function Planos() {
                     <CardDescription>
                       {plan.name === "Start" && "Para começar a organizar"}
                       {plan.name === "Pro" && "Para equipes em crescimento"}
-                      {plan.name === "Ultra" && "Alta performance"}
+                      {plan.name === "Ultra" && "Máxima performance"}
                     </CardDescription>
                   </CardHeader>
 
@@ -726,6 +710,12 @@ export default function Planos() {
                     </div>
 
                     <ul className="space-y-3 text-left">
+                      <li className="flex items-center gap-3">
+                        <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-green-600" />
+                        </div>
+                        <span className="font-medium text-green-600">Secretária via WhatsApp</span>
+                      </li>
                       <li className="flex items-center gap-3">
                         <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                           <Check className="h-3 w-3 text-green-600" />
@@ -744,7 +734,7 @@ export default function Planos() {
                         <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                           <Check className="h-3 w-3 text-green-600" />
                         </div>
-                        <span>Funil de vendas visual</span>
+                        <span>Dashboard completo</span>
                       </li>
                       <li className="flex items-center gap-3">
                         <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -761,7 +751,7 @@ export default function Planos() {
 
                   <CardFooter>
                     <Button
-                      className={`w-full ${isPro ? "bg-primary hover:bg-primary/90" : ""}`}
+                      className={`w-full ${isPro ? "bg-green-600 hover:bg-green-700" : ""}`}
                       variant={isPro ? "default" : "outline"}
                       size="lg"
                       onClick={() => handleSelectPlan(plan.id, plan.name)}
@@ -789,27 +779,27 @@ export default function Planos() {
             </div>
             <div className="grid gap-4">
               <div className="bg-card rounded-lg p-6 border">
+                <h3 className="font-semibold mb-2">Como funciona a secretária no WhatsApp?</h3>
+                <p className="text-muted-foreground">
+                  Você adiciona o número dela no seu WhatsApp e pode enviar áudios, textos ou prints. Ela interpreta e atualiza seu CRM automaticamente.
+                </p>
+              </div>
+              <div className="bg-card rounded-lg p-6 border">
+                <h3 className="font-semibold mb-2">Preciso instalar alguma coisa?</h3>
+                <p className="text-muted-foreground">
+                  Não! A secretária funciona direto no WhatsApp que você já usa. O dashboard é web, acesse de qualquer lugar.
+                </p>
+              </div>
+              <div className="bg-card rounded-lg p-6 border">
                 <h3 className="font-semibold mb-2">Posso trocar de plano depois?</h3>
                 <p className="text-muted-foreground">
-                  Sim! Você pode fazer upgrade ou downgrade a qualquer momento. A diferença será calculada proporcionalmente.
-                </p>
-              </div>
-              <div className="bg-card rounded-lg p-6 border">
-                <h3 className="font-semibold mb-2">Como funciona o limite de leads?</h3>
-                <p className="text-muted-foreground">
-                  O limite é por mês. Ao final de cada período, o contador é zerado. Leads existentes permanecem no sistema.
-                </p>
-              </div>
-              <div className="bg-card rounded-lg p-6 border">
-                <h3 className="font-semibold mb-2">Posso cancelar quando quiser?</h3>
-                <p className="text-muted-foreground">
-                  Sim, sem multas ou taxas. Você continua com acesso até o fim do período pago.
+                  Sim! Upgrade ou downgrade a qualquer momento. A diferença é calculada proporcionalmente.
                 </p>
               </div>
               <div className="bg-card rounded-lg p-6 border">
                 <h3 className="font-semibold mb-2">Meus dados ficam seguros?</h3>
                 <p className="text-muted-foreground">
-                  Absolutamente. Usamos criptografia de ponta e servidores seguros. Seus dados são apenas seus.
+                  Absolutamente. Criptografia de ponta, servidores seguros. Seus dados são somente seus.
                 </p>
               </div>
             </div>
@@ -817,18 +807,18 @@ export default function Planos() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-primary text-primary-foreground">
+      {/* Final CTA */}
+      <section className="py-20 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Pronto para organizar suas vendas?
+            Sua secretária está esperando
           </h2>
           <p className="text-lg opacity-90 mb-8 max-w-xl mx-auto">
-            Junte-se a centenas de profissionais que já transformaram seu processo de vendas com o Morphews CRM.
+            Enquanto você lê isso, seus concorrentes estão perdendo leads. Não seja um deles.
           </p>
           <a href="#precos">
-            <Button size="lg" variant="secondary" className="text-lg px-8">
-              Começar Agora <ChevronRight className="ml-2 h-5 w-5" />
+            <Button size="lg" variant="secondary" className="text-lg px-8 bg-white text-green-600 hover:bg-gray-100">
+              Quero Minha Secretária <ChevronRight className="ml-2 h-5 w-5" />
             </Button>
           </a>
         </div>
@@ -837,7 +827,7 @@ export default function Planos() {
       {/* Footer */}
       <footer className="border-t py-8 bg-muted/30">
         <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Morphews CRM. Todos os direitos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Morphews. Todos os direitos reservados.</p>
         </div>
       </footer>
 
@@ -847,7 +837,7 @@ export default function Planos() {
           <DialogHeader>
             <DialogTitle>Quase lá! 🎉</DialogTitle>
             <DialogDescription>
-              Preencha seus dados para continuar com o plano <strong>{selectedPlan?.name}</strong>
+              Preencha seus dados para ativar sua secretária com o plano <strong>{selectedPlan?.name}</strong>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -887,9 +877,9 @@ export default function Planos() {
             <Button variant="outline" onClick={() => setShowLeadModal(false)} className="flex-1">
               Cancelar
             </Button>
-            <Button onClick={handleLeadSubmit} disabled={isSubmitting} className="flex-1">
+            <Button onClick={handleLeadSubmit} disabled={isSubmitting} className="flex-1 bg-green-600 hover:bg-green-700">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Continuar
+              Ativar Secretária
             </Button>
           </div>
         </DialogContent>
