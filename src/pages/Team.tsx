@@ -26,7 +26,8 @@ import {
   Settings,
   Pencil,
   ArrowUp,
-  Check
+  Check,
+  Phone
 } from "lucide-react";
 
 interface OrgMember {
@@ -61,6 +62,7 @@ export default function Team() {
     firstName: "",
     lastName: "",
     email: "",
+    whatsapp: "",
   });
   const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
 
@@ -140,7 +142,7 @@ export default function Team() {
           organizationId: profile.organization_id,
           ownerName: `${newUserData.firstName} ${newUserData.lastName}`,
           ownerEmail: newUserData.email,
-          ownerPhone: "",
+          ownerPhone: newUserData.whatsapp.replace(/\D/g, ''),
           planName: plan?.name || "Morphews CRM",
           isAdditionalUser: true,
         },
@@ -154,7 +156,7 @@ export default function Team() {
         description: `Credenciais enviadas para ${newUserData.email}`,
       });
 
-      setNewUserData({ firstName: "", lastName: "", email: "" });
+      setNewUserData({ firstName: "", lastName: "", email: "", whatsapp: "" });
       setIsDialogOpen(false);
       refetchMembers();
     } catch (error: any) {
@@ -514,6 +516,20 @@ export default function Team() {
                         onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
                         required
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="whatsapp">WhatsApp *</Label>
+                      <Input
+                        id="whatsapp"
+                        type="tel"
+                        placeholder="5511999999999"
+                        value={newUserData.whatsapp}
+                        onChange={(e) => setNewUserData({ ...newUserData, whatsapp: e.target.value })}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Número com código do país (ex: 5511999999999). Necessário para usar o assistente via WhatsApp.
+                      </p>
                     </div>
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>

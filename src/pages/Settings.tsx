@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff, User, Phone, Save } from 'lucide-react';
 import { useLeadSources, useLeadProducts, useCreateLeadSource, useCreateLeadProduct, useDeleteLeadSource, useDeleteLeadProduct } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Settings() {
-  const { profile, updatePassword } = useAuth();
+  const { profile, updatePassword, user } = useAuth();
   const { data: leadSources = [], isLoading: loadingSources } = useLeadSources();
   const { data: leadProducts = [], isLoading: loadingProducts } = useLeadProducts();
   const createSource = useCreateLeadSource();
@@ -21,12 +22,33 @@ export default function Settings() {
   const [newSource, setNewSource] = useState('');
   const [newProduct, setNewProduct] = useState('');
   
+  // Profile edit state
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    whatsapp: '',
+    instagram: '',
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Load profile data
+  useEffect(() => {
+    if (profile) {
+      setProfileData({
+        firstName: profile.first_name || '',
+        lastName: profile.last_name || '',
+        whatsapp: profile.whatsapp || '',
+        instagram: profile.instagram || '',
+      });
+    }
+  }, [profile]);
 
   const handleAddSource = async () => {
     if (!newSource.trim()) return;
@@ -47,6 +69,41 @@ export default function Settings() {
       toast({ title: 'Produto adicionado com sucesso!' });
     } catch (error: any) {
       toast({ title: 'Erro ao adicionar', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    
+    const cleanWhatsapp = profileData.whatsapp.replace(/\D/g, '');
+    
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: profileData.firstName,
+          last_name: profileData.lastName,
+          whatsapp: cleanWhatsapp || null,
+          instagram: profileData.instagram || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Perfil atualizado!',
+        description: 'Suas informações foram salvas.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao salvar perfil',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -119,6 +176,80 @@ export default function Settings() {
           <p className="text-muted-foreground mt-1">
             Gerencie suas integrações e preferências
           </p>
+        </div>
+
+        {/* My Profile */}
+        <div className="bg-card rounded-xl p-6 shadow-card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-lg bg-primary/10">
+              <User className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Meu Perfil</h2>
+              <p className="text-sm text-muted-foreground">Edite suas informações pessoais</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">Nome</Label>
+              <Input
+                id="firstName"
+                value={profileData.firstName}
+                onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Sobrenome</Label>
+              <Input
+                id="lastName"
+                value={profileData.lastName}
+                onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-whatsapp" className="flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                WhatsApp *
+              </Label>
+              <Input
+                id="profile-whatsapp"
+                type="tel"
+                placeholder="5511999999999"
+                value={profileData.whatsapp}
+                onChange={(e) => setProfileData({ ...profileData, whatsapp: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-instagram" className="flex items-center gap-2">
+                <Instagram className="w-4 h-4" />
+                Instagram
+              </Label>
+              <Input
+                id="profile-instagram"
+                placeholder="seu_usuario"
+                value={profileData.instagram}
+                onChange={(e) => setProfileData({ ...profileData, instagram: e.target.value })}
+              />
+            </div>
+          </div>
+          
+          <p className="text-xs text-muted-foreground mt-2">
+            * WhatsApp obrigatório para usar o assistente via WhatsApp (formato: 5511999999999)
+          </p>
+
+          <Button 
+            onClick={handleSaveProfile} 
+            disabled={isSavingProfile}
+            className="mt-4"
+          >
+            {isSavingProfile ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Salvar Perfil
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
