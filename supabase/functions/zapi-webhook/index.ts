@@ -90,11 +90,12 @@ async function sendWhatsAppMessage(phone: string, message: string) {
   console.log('=== Sending WhatsApp Message ===');
   console.log('Phone:', phone);
   console.log('URL:', url);
+  console.log('Client-Token configured:', ZAPI_CLIENT_TOKEN ? 'YES' : 'NO');
   
-  // Note: Only use Client-Token header if account security token is enabled in Z-API
-  // Currently NOT using Client-Token as it's not enabled
+  // Headers with Client-Token for account security
   const headers: Record<string, string> = { 
-    'Content-Type': 'application/json' 
+    'Content-Type': 'application/json',
+    'Client-Token': ZAPI_CLIENT_TOKEN || ''
   };
   
   try {
