@@ -425,12 +425,38 @@ serve(async (req) => {
     const user = await findUserByWhatsApp(senderPhone);
     
     if (!user) {
+      // User not registered - send invitation to sign up for free plan
+      const senderName = payload.senderName || payload.chatName || 'Olá';
+      
+      console.log(`User not found. Sending signup invitation to ${senderPhone} (${senderName})`);
+      
+      // Save as interested lead
+      try {
+        await supabase.from('interested_leads').insert({
+          name: senderName,
+          whatsapp: senderPhone,
+          status: 'whatsapp_signup_invite',
+        });
+        console.log('Interested lead saved from WhatsApp');
+      } catch (e) {
+        console.log('Could not save interested lead (may already exist):', e);
+      }
+      
+      const signupUrl = `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app')}/planos`;
+      
       await sendWhatsAppMessage(senderPhone, 
-        '❌ Desculpe, não encontrei sua conta no Morphews CRM.\n\n' +
-        'Para usar o assistente via WhatsApp, seu número precisa estar cadastrado no seu perfil do sistema.\n\n' +
-        'Acesse o CRM e adicione seu WhatsApp nas configurações do perfil.'
+        `👋 Oi${senderName ? `, ${senderName.split(' ')[0]}` : ''}! Percebi que você ainda não tem uma conta no Morphews.\n\n` +
+        `🎁 *TESTE GRÁTIS!*\n` +
+        `Crie sua conta agora e ganhe:\n` +
+        `✅ 5 leads por mês\n` +
+        `✅ Secretária IA no WhatsApp\n` +
+        `✅ Dashboard completo\n` +
+        `✅ Sem cartão de crédito\n\n` +
+        `📱 É só acessar:\nhttps://morphews.lovable.app/planos\n\n` +
+        `Crie sua conta gratuita e volte a me mandar mensagem! 🚀`
       );
-      return new Response(JSON.stringify({ status: 'user_not_found' }), {
+      
+      return new Response(JSON.stringify({ status: 'signup_invitation_sent' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

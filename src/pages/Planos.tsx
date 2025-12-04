@@ -14,12 +14,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const planIcons: Record<string, React.ReactNode> = {
+  "Grátis": <Star className="h-6 w-6" />,
   Start: <Zap className="h-6 w-6" />,
   Pro: <Crown className="h-6 w-6" />,
   Ultra: <Rocket className="h-6 w-6" />,
 };
 
 const planColors: Record<string, string> = {
+  "Grátis": "from-green-500 to-emerald-500",
   Start: "from-blue-500 to-cyan-500",
   Pro: "from-purple-500 to-pink-500",
   Ultra: "from-amber-500 to-orange-500",
@@ -113,6 +115,17 @@ export default function Planos() {
       if (checkoutError) throw checkoutError;
       if (data?.error) throw new Error(data.error);
       
+      // For free plan, redirect to login with success message
+      if (data?.success && data?.redirect) {
+        toast({
+          title: "Conta criada com sucesso! 🎉",
+          description: "Verifique seu e-mail para obter as credenciais de acesso.",
+        });
+        navigate(data.redirect);
+        return;
+      }
+      
+      // For paid plans, redirect to Stripe
       if (data?.url) {
         window.location.href = data.url;
       }
@@ -669,21 +682,27 @@ export default function Planos() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {plans?.map((plan) => {
               const isPro = plan.name === "Pro";
+              const isFree = plan.name === "Grátis";
               const isCurrent = isCurrentPlan(plan.id);
 
               return (
                 <Card
                   key={plan.id}
                   className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
-                    isPro ? "border-green-500 shadow-lg md:scale-105" : "hover:scale-102"
-                  }`}
+                    isPro ? "border-green-500 shadow-lg lg:scale-105" : ""
+                  } ${isFree ? "border-emerald-500/50 bg-gradient-to-b from-emerald-50/50 to-background dark:from-emerald-900/10" : ""}`}
                 >
                   {isPro && (
                     <div className="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 text-sm font-medium rounded-bl-lg">
                       Mais Popular
+                    </div>
+                  )}
+                  {isFree && (
+                    <div className="absolute top-0 right-0 bg-emerald-500 text-white px-3 py-1 text-sm font-medium rounded-bl-lg">
+                      Teste Grátis
                     </div>
                   )}
 
@@ -697,6 +716,7 @@ export default function Planos() {
                     </div>
                     <CardTitle className="text-2xl">{plan.name}</CardTitle>
                     <CardDescription>
+                      {plan.name === "Grátis" && "Para testar o sistema"}
                       {plan.name === "Start" && "Para começar a organizar"}
                       {plan.name === "Pro" && "Para equipes em crescimento"}
                       {plan.name === "Ultra" && "Máxima performance"}
@@ -705,8 +725,14 @@ export default function Planos() {
 
                   <CardContent className="text-center">
                     <div className="mb-6">
-                      <span className="text-4xl font-bold">{formatPrice(plan.price_cents)}</span>
-                      <span className="text-muted-foreground">/mês</span>
+                      {isFree ? (
+                        <span className="text-4xl font-bold text-emerald-600">Grátis</span>
+                      ) : (
+                        <>
+                          <span className="text-4xl font-bold">{formatPrice(plan.price_cents)}</span>
+                          <span className="text-muted-foreground">/mês</span>
+                        </>
+                      )}
                     </div>
 
                     <ul className="space-y-3 text-left">
@@ -728,7 +754,7 @@ export default function Planos() {
                         <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                           <Check className="h-3 w-3 text-green-600" />
                         </div>
-                        <span>{plan.max_users} usuários inclusos</span>
+                        <span>{plan.max_users} usuário{plan.max_users > 1 ? 's' : ''}</span>
                       </li>
                       <li className="flex items-center gap-3">
                         <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -736,23 +762,27 @@ export default function Planos() {
                         </div>
                         <span>Dashboard completo</span>
                       </li>
-                      <li className="flex items-center gap-3">
-                        <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                          <Check className="h-3 w-3 text-green-600" />
-                        </div>
-                        <span>Suporte por WhatsApp</span>
-                      </li>
+                      {!isFree && (
+                        <li className="flex items-center gap-3">
+                          <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <Check className="h-3 w-3 text-green-600" />
+                          </div>
+                          <span>Suporte prioritário</span>
+                        </li>
+                      )}
                     </ul>
 
-                    <p className="text-sm text-muted-foreground mt-4">
-                      +{formatPrice(plan.extra_user_price_cents)}/usuário extra
-                    </p>
+                    {!isFree && (
+                      <p className="text-sm text-muted-foreground mt-4">
+                        +{formatPrice(plan.extra_user_price_cents)}/usuário extra
+                      </p>
+                    )}
                   </CardContent>
 
                   <CardFooter>
                     <Button
-                      className={`w-full ${isPro ? "bg-green-600 hover:bg-green-700" : ""}`}
-                      variant={isPro ? "default" : "outline"}
+                      className={`w-full ${isPro ? "bg-green-600 hover:bg-green-700" : ""} ${isFree ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+                      variant={isPro || isFree ? "default" : "outline"}
                       size="lg"
                       onClick={() => handleSelectPlan(plan.id, plan.name)}
                       disabled={isCurrent || createCheckout.isPending}
@@ -760,7 +790,7 @@ export default function Planos() {
                       {createCheckout.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       ) : null}
-                      {isCurrent ? "Plano Atual" : "Quero Esse!"}
+                      {isCurrent ? "Plano Atual" : isFree ? "Começar Grátis" : "Quero Esse!"}
                     </Button>
                   </CardFooter>
                 </Card>
