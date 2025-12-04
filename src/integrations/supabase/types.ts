@@ -189,6 +189,38 @@ export type Database = {
           },
         ]
       }
+      lead_responsibles: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_responsibles_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_sources: {
         Row: {
           created_at: string
@@ -459,6 +491,7 @@ export type Database = {
       }
       organization_members: {
         Row: {
+          can_see_all_leads: boolean
           created_at: string
           id: string
           organization_id: string
@@ -466,6 +499,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          can_see_all_leads?: boolean
           created_at?: string
           id?: string
           organization_id: string
@@ -473,6 +507,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          can_see_all_leads?: boolean
           created_at?: string
           id?: string
           organization_id?: string
@@ -800,6 +835,10 @@ export type Database = {
       }
       user_belongs_to_org: {
         Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_can_see_lead: {
+        Args: { _lead_id: string; _user_id: string }
         Returns: boolean
       }
     }

@@ -27,13 +27,17 @@ import {
   Pencil,
   ArrowUp,
   Check,
-  Phone
+  Phone,
+  Eye,
+  EyeOff
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface OrgMember {
   id: string;
   user_id: string;
   role: "owner" | "admin" | "member";
+  can_see_all_leads: boolean;
   created_at: string;
   profile?: {
     first_name: string;
@@ -59,7 +63,9 @@ export default function Team() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<OrgMember | null>(null);
   const [editRole, setEditRole] = useState<"admin" | "member">("member");
+  const [editCanSeeAllLeads, setEditCanSeeAllLeads] = useState(true);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
   const [newUserData, setNewUserData] = useState({
     firstName: "",
     lastName: "",
@@ -112,10 +118,10 @@ export default function Team() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      // Get members
+      // Get members including can_see_all_leads
       const { data: membersData, error: membersError } = await supabase
         .from("organization_members")
-        .select("*")
+        .select("id, user_id, role, can_see_all_leads, created_at, organization_id")
         .eq("organization_id", profile.organization_id);
 
       if (membersError) throw membersError;
@@ -271,7 +277,39 @@ export default function Team() {
   const handleEditMember = (member: OrgMember) => {
     setEditingMember(member);
     setEditRole(member.role === "admin" ? "admin" : "member");
+    setEditCanSeeAllLeads(member.can_see_all_leads ?? true);
     setIsEditDialogOpen(true);
+  };
+
+  const handleToggleVisibility = async (memberId: string, currentValue: boolean) => {
+    setIsTogglingVisibility(memberId);
+    
+    try {
+      const { error } = await supabase
+        .from("organization_members")
+        .update({ can_see_all_leads: !currentValue })
+        .eq("id", memberId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Visibilidade atualizada",
+        description: !currentValue 
+          ? "O usuário agora pode ver todos os leads."
+          : "O usuário agora só pode ver leads que é responsável.",
+      });
+      
+      refetchMembers();
+    } catch (error: any) {
+      console.error("Error toggling visibility:", error);
+      toast({
+        title: "Erro ao atualizar visibilidade",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingVisibility(null);
+    }
   };
 
   const handleUpdateRole = async () => {
@@ -282,23 +320,26 @@ export default function Team() {
     try {
       const { error } = await supabase
         .from("organization_members")
-        .update({ role: editRole })
+        .update({ 
+          role: editRole,
+          can_see_all_leads: editCanSeeAllLeads,
+        })
         .eq("id", editingMember.id);
 
       if (error) throw error;
 
       toast({
-        title: "Papel atualizado",
-        description: `O papel do usuário foi alterado para ${editRole === "admin" ? "Administrador" : "Membro"}.`,
+        title: "Membro atualizado",
+        description: "As alterações foram salvas.",
       });
       
       setIsEditDialogOpen(false);
       setEditingMember(null);
       refetchMembers();
     } catch (error: any) {
-      console.error("Error updating role:", error);
+      console.error("Error updating member:", error);
       toast({
-        title: "Erro ao atualizar papel",
+        title: "Erro ao atualizar membro",
         description: error.message,
         variant: "destructive",
       });
@@ -868,6 +909,21 @@ export default function Team() {
                   </div>
                   <div className="flex items-center gap-3">
                     {getRoleBadge(member.role)}
+                    {/* Visibility badge */}
+                    {member.role !== "owner" && (
+                      <Badge 
+                        variant="outline" 
+                        className={member.can_see_all_leads 
+                          ? "bg-green-500/10 text-green-600 border-green-500/30" 
+                          : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
+                      >
+                        {member.can_see_all_leads ? (
+                          <><Eye className="w-3 h-3 mr-1" />Vê todos</>
+                        ) : (
+                          <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
+                        )}
+                      </Badge>
+                    )}
                     {member.user_id !== user?.id && member.role !== "owner" && (
                       <>
                         <Button 
@@ -913,10 +969,10 @@ export default function Team() {
             <DialogHeader>
               <DialogTitle>Editar Membro</DialogTitle>
               <DialogDescription>
-                Altere o papel de {editingMember?.profile?.first_name} {editingMember?.profile?.last_name}
+                Configure as permissões de {editingMember?.profile?.first_name} {editingMember?.profile?.last_name}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-6 py-4">
               <div className="space-y-2">
                 <Label>Papel</Label>
                 <Select value={editRole} onValueChange={(v) => setEditRole(v as "admin" | "member")}>
@@ -931,6 +987,31 @@ export default function Team() {
                 <p className="text-xs text-muted-foreground">
                   Administradores podem gerenciar a equipe e configurações. Membros podem usar o CRM normalmente.
                 </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Visibilidade de Leads</Label>
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2 font-medium">
+                      {editCanSeeAllLeads ? (
+                        <Eye className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-amber-500" />
+                      )}
+                      {editCanSeeAllLeads ? "Ver todos os leads" : "Apenas seus leads"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {editCanSeeAllLeads 
+                        ? "Pode visualizar todos os leads da empresa" 
+                        : "Só vê leads que criou ou é responsável"}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editCanSeeAllLeads}
+                    onCheckedChange={setEditCanSeeAllLeads}
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>

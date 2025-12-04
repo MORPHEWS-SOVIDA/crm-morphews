@@ -547,6 +547,20 @@ async function createLead(organizationId: string, userId: string, leadData: any)
     throw error;
   }
 
+  // Add the creator as responsible for the lead
+  const { error: responsibleError } = await supabase
+    .from('lead_responsibles')
+    .insert({
+      lead_id: data.id,
+      user_id: userId,
+      organization_id: organizationId,
+    });
+
+  if (responsibleError) {
+    console.error('Error adding lead responsible:', responsibleError);
+    // Don't throw - lead was created successfully
+  }
+
   return data;
 }
 
