@@ -44,11 +44,11 @@ export function StarsFilter({ leads, selectedStars, onSelectStars }: StarsFilter
                 ))}
               </div>
               <span className="text-sm text-muted-foreground ml-2">
-                {star === 5 && 'Top Priority'}
-                {star === 4 && 'Alta Prioridade'}
-                {star === 3 && 'Média'}
-                {star === 2 && 'Baixa'}
-                {star === 1 && 'Iniciante'}
+                {star === 5 && 'Prioridade Máxima'}
+                {star === 4 && 'Muito bom'}
+                {star === 3 && 'Mais ou menos'}
+                {star === 2 && 'Não levo Fé'}
+                {star === 1 && 'Baixa energia'}
               </span>
             </div>
             <span className={cn(
