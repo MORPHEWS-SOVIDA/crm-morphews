@@ -381,8 +381,8 @@ ESTRELAS - SIMPLIFICADO:
 
 FORMATO DE RESPOSTA (JSON):
 {
-  "action": "create_lead" | "update_lead" | "search_lead" | "ask_question" | "list_leads" | "help",
-  "lead_id": "UUID do lead existente (OBRIGATÓRIO para update_lead)",
+  "action": "create_lead" | "update_lead" | "search_lead" | "create_event" | "ask_question" | "list_leads" | "help",
+  "lead_id": "UUID do lead existente (OBRIGATÓRIO para update_lead, create_event)",
   "lead_data": {
     "name": "string - NOME REAL DA PESSOA (ex: Maria Silva) - NUNCA genérico!",
     "whatsapp": "string",
@@ -395,6 +395,13 @@ FORMATO DE RESPOSTA (JSON):
     "assigned_to": "string",
     "observations": "string"
   },
+  "event_data": {
+    "title": "string - título do evento (ex: Reunião com João)",
+    "start_time": "string - ISO date YYYY-MM-DDTHH:MM:SS",
+    "end_time": "string - ISO date YYYY-MM-DDTHH:MM:SS (default: 1h após start)",
+    "description": "string - descrição opcional",
+    "meeting_link": "string - link da reunião se fornecido"
+  },
   "question": "string (pergunta SIMPLES para o usuário)",
   "response_message": "string (mensagem curta e objetiva)"
 }
@@ -403,6 +410,11 @@ EXEMPLOS DE ATUALIZAÇÃO:
 - "Adicionar o insta @fulano no lead Maria" → action: "update_lead", lead_id: "UUID da Maria", lead_data: { instagram: "fulano" }
 - "Colocar o instagram da Ana" → action: "update_lead", lead_id: "UUID da Ana", lead_data: { instagram: "extraído_da_msg" }
 - "A Joana agora é 5 estrelas" → action: "update_lead", lead_id: "UUID da Joana", lead_data: { stars: 5 }
+
+EXEMPLOS DE AGENDAMENTO:
+- "Marquei reunião com Maria amanhã às 14h" → action: "create_event", lead_id: "UUID da Maria", event_data: { title: "Reunião com Maria", start_time: "2025-12-05T14:00:00" }, lead_data: { stage: "scheduled" }
+- "Agenda call com João dia 10 às 15:30" → action: "create_event", lead_id: "UUID do João", event_data: { title: "Call com João", start_time: "2025-12-10T15:30:00" }, lead_data: { stage: "scheduled" }
+- IMPORTANTE: Ao criar evento, SEMPRE mude o stage para "scheduled" e inclua lead_data na resposta!
 
 EXEMPLOS DE CONSULTA DE DADOS:
 - "Quais dados temos da Maria?" → action: "search_lead", lead_id: "UUID da Maria"
@@ -562,6 +574,51 @@ async function searchLeads(organizationId: string, query: string) {
     .limit(10);
 
   return data || [];
+}
+
+async function createEvent(organizationId: string, userId: string, leadId: string, eventData: any) {
+  // Parse and validate the start time
+  let startTime = new Date(eventData.start_time);
+  
+  // If invalid date, try to parse common formats
+  if (isNaN(startTime.getTime())) {
+    console.error('Invalid start_time:', eventData.start_time);
+    throw new Error('Data/hora inválida para o evento');
+  }
+  
+  // Calculate end time (default 1 hour after start)
+  let endTime: Date;
+  if (eventData.end_time) {
+    endTime = new Date(eventData.end_time);
+    if (isNaN(endTime.getTime())) {
+      endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+    }
+  } else {
+    endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+  }
+  
+  const { data, error } = await supabase
+    .from('lead_events')
+    .insert({
+      lead_id: leadId,
+      user_id: userId,
+      organization_id: organizationId,
+      title: eventData.title || 'Reunião',
+      start_time: startTime.toISOString(),
+      end_time: endTime.toISOString(),
+      description: eventData.description || null,
+      meeting_link: eventData.meeting_link || null,
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error creating event:', error);
+    throw error;
+  }
+  
+  console.log('Event created:', data.id);
+  return data;
 }
 
 // Store conversation context (in-memory for now, could be database)
@@ -847,6 +904,66 @@ serve(async (req) => {
           }
         } else {
           responseMessage = `⚠️ Me diga o nome do lead que você quer consultar.`;
+        }
+        break;
+
+      case 'create_event':
+        // Create an event/meeting for a lead
+        let eventLeadId = aiResponse.lead_id;
+        
+        // If no lead_id, try to find by name from lead_data
+        if (!eventLeadId && aiResponse.lead_data?.name) {
+          console.log('Searching lead by name for event:', aiResponse.lead_data.name);
+          const foundLeads = await searchLeads(organizationId, aiResponse.lead_data.name);
+          if (foundLeads.length > 0) {
+            eventLeadId = foundLeads[0].id;
+            console.log('Found lead for event:', foundLeads[0].name, eventLeadId);
+          }
+        }
+        
+        if (eventLeadId && aiResponse.event_data?.start_time) {
+          try {
+            // Create the event
+            const event = await createEvent(organizationId, user.user_id, eventLeadId, aiResponse.event_data);
+            
+            // Also update the lead stage to "scheduled" and any other lead_data
+            if (aiResponse.lead_data) {
+              const updateData = { ...aiResponse.lead_data };
+              if (!updateData.stage) {
+                updateData.stage = 'scheduled';
+              }
+              await updateLead(eventLeadId, updateData);
+            } else {
+              await updateLead(eventLeadId, { stage: 'scheduled' });
+            }
+            
+            // Get the lead name for response
+            const { data: lead } = await supabase
+              .from('leads')
+              .select('name, stars')
+              .eq('id', eventLeadId)
+              .single();
+            
+            const eventDate = new Date(event.start_time);
+            const dateStr = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            const timeStr = eventDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            
+            responseMessage = `📅 *Evento criado com sucesso!*\n\n` +
+              `📋 ${event.title}\n` +
+              `👤 Lead: ${lead?.name || 'Lead'}\n` +
+              `📆 Data: ${dateStr} às ${timeStr}\n` +
+              `📍 Etapa: Call Agendada\n` +
+              (lead?.stars ? `⭐ Estrelas: ${lead.stars}\n` : '') +
+              (event.meeting_link ? `🔗 Link: ${event.meeting_link}\n` : '') +
+              `\n🔗 Ver no CRM:\nhttps://crm.morphews.com/leads/${eventLeadId}`;
+          } catch (eventError: any) {
+            console.error('Error creating event:', eventError);
+            responseMessage = `⚠️ Erro ao criar evento: ${eventError.message}`;
+          }
+        } else if (!eventLeadId) {
+          responseMessage = `⚠️ Não encontrei o lead mencionado. Qual é o nome do lead para agendar a reunião?`;
+        } else {
+          responseMessage = `⚠️ Preciso saber a data e hora da reunião. Pode me informar?`;
         }
         break;
 
