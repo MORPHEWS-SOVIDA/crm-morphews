@@ -27,6 +27,53 @@ const FUNNEL_STAGES = {
   'cloud': 'Nuvem (ainda não pronto)'
 };
 
+// Brazilian phone number normalization
+// Always normalize to 13 digits: 55 + DD + 9 + XXXXXXXX
+function normalizeBrazilianPhone(phone: string): string[] {
+  const clean = phone.replace(/\D/g, '');
+  const variants: string[] = [];
+  
+  // Add the original cleaned number
+  variants.push(clean);
+  
+  // Only process Brazilian numbers (starting with 55)
+  if (!clean.startsWith('55')) {
+    return variants;
+  }
+  
+  // 12 digits: 55 + DD + 8 digits (missing 9th digit)
+  // Convert to 13 digits by adding 9 after area code
+  if (clean.length === 12) {
+    const normalized = clean.slice(0, 4) + '9' + clean.slice(4);
+    variants.push(normalized);
+    console.log(`Phone normalization: ${clean} -> added 9th digit -> ${normalized}`);
+  }
+  
+  // 13 digits: 55 + DD + 9 digits (has 9th digit)
+  // Also try without the 9th digit for backwards compatibility
+  if (clean.length === 13) {
+    const withoutNinth = clean.slice(0, 4) + clean.slice(5);
+    variants.push(withoutNinth);
+    console.log(`Phone normalization: ${clean} -> removed 9th digit -> ${withoutNinth}`);
+  }
+  
+  // 11 digits: DD + 9 + XXXXXXXX (missing country code)
+  if (clean.length === 11 && clean.charAt(2) === '9') {
+    const withCountry = '55' + clean;
+    variants.push(withCountry);
+    console.log(`Phone normalization: ${clean} -> added country code -> ${withCountry}`);
+  }
+  
+  // 10 digits: DD + XXXXXXXX (missing country code and 9th digit)
+  if (clean.length === 10) {
+    const withCountryAnd9th = '55' + clean.slice(0, 2) + '9' + clean.slice(2);
+    variants.push(withCountryAnd9th);
+    console.log(`Phone normalization: ${clean} -> added country + 9th -> ${withCountryAnd9th}`);
+  }
+  
+  return [...new Set(variants)]; // Remove duplicates
+}
+
 async function sendWhatsAppMessage(phone: string, message: string) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
   
@@ -50,66 +97,52 @@ async function sendWhatsAppMessage(phone: string, message: string) {
 }
 
 async function findUserByWhatsApp(whatsapp: string) {
-  // Clean phone number
-  const cleanPhone = whatsapp.replace(/\D/g, '');
+  const phoneVariants = normalizeBrazilianPhone(whatsapp);
   
-  console.log('Looking for user with WhatsApp:', cleanPhone);
+  console.log('Looking for user with WhatsApp variants:', phoneVariants);
   
-  // Try exact match first
-  let { data, error } = await supabase
-    .from('profiles')
-    .select('*, organization_members(organization_id, role)')
-    .eq('whatsapp', cleanPhone)
-    .single();
-  
-  if (!error && data) {
-    console.log('User found with exact match:', data.first_name, data.last_name);
-    return data;
-  }
-  
-  // Brazilian phone number normalization
-  // Try adding the 9th digit if the phone has 12 digits (55 + DD + 8 digits)
-  if (cleanPhone.length === 12 && cleanPhone.startsWith('55')) {
-    const withNinthDigit = cleanPhone.slice(0, 4) + '9' + cleanPhone.slice(4);
-    console.log('Trying with 9th digit added:', withNinthDigit);
-    
-    const result = await supabase
+  // Try each variant
+  for (const phone of phoneVariants) {
+    const { data, error } = await supabase
       .from('profiles')
       .select('*, organization_members(organization_id, role)')
-      .eq('whatsapp', withNinthDigit)
-      .single();
+      .eq('whatsapp', phone)
+      .maybeSingle();
     
-    if (!result.error && result.data) {
-      console.log('User found with 9th digit:', result.data.first_name, result.data.last_name);
-      return result.data;
+    if (!error && data) {
+      console.log(`User found: ${data.first_name} ${data.last_name} (matched with ${phone})`);
+      return data;
     }
   }
   
-  // Try removing the 9th digit if the phone has 13 digits (55 + DD + 9 digits)
-  if (cleanPhone.length === 13 && cleanPhone.startsWith('55')) {
-    const withoutNinthDigit = cleanPhone.slice(0, 4) + cleanPhone.slice(5);
-    console.log('Trying without 9th digit:', withoutNinthDigit);
-    
-    const result = await supabase
-      .from('profiles')
-      .select('*, organization_members(organization_id, role)')
-      .eq('whatsapp', withoutNinthDigit)
-      .single();
-    
-    if (!result.error && result.data) {
-      console.log('User found without 9th digit:', result.data.first_name, result.data.last_name);
-      return result.data;
-    }
-  }
-  
-  // List all profiles with WhatsApp to debug
+  // If not found, also try matching against normalized versions of stored phones
+  // This handles cases where the stored phone is in a different format
   const { data: allProfiles } = await supabase
     .from('profiles')
-    .select('whatsapp, first_name, last_name')
+    .select('*, organization_members(organization_id, role)')
     .not('whatsapp', 'is', null);
   
-  console.log('User not found. Available WhatsApp numbers:', 
-    allProfiles?.map(p => `${p.first_name}: ${p.whatsapp}`).join(', '));
+  if (allProfiles) {
+    for (const profile of allProfiles) {
+      if (!profile.whatsapp) continue;
+      
+      const storedVariants = normalizeBrazilianPhone(profile.whatsapp);
+      
+      // Check if any variant of the incoming phone matches any variant of the stored phone
+      for (const incomingVariant of phoneVariants) {
+        if (storedVariants.includes(incomingVariant)) {
+          console.log(`User found via cross-match: ${profile.first_name} ${profile.last_name}`);
+          console.log(`Incoming variants: ${phoneVariants.join(', ')}`);
+          console.log(`Stored variants: ${storedVariants.join(', ')}`);
+          return profile;
+        }
+      }
+    }
+  }
+  
+  // Log available phones for debugging
+  console.log('User NOT found. Available WhatsApp numbers:', 
+    allProfiles?.map(p => `${p.first_name}: ${p.whatsapp}`).join(', ') || 'none');
   
   return null;
 }
