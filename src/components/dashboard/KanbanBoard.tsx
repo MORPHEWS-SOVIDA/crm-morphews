@@ -14,14 +14,18 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Lead } from '@/types/lead';
+import { Lead, FunnelStage } from '@/types/lead';
 import { FunnelStageCustom } from '@/hooks/useFunnelStages';
 import { useUpdateLead } from '@/hooks/useLeads';
+import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
+import { useAuth } from '@/hooks/useAuth';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { StageChangeDialog } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { GripVertical, User, Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from '@/hooks/use-toast';
 
 interface KanbanBoardProps {
   leads: Lead[];
@@ -165,10 +169,23 @@ function KanbanColumn({ stage, leads, onCardClick }: KanbanColumnProps) {
   );
 }
 
+interface PendingStageChange {
+  leadId: string;
+  lead: Lead;
+  previousStage: FunnelStage;
+  newStage: FunnelStage;
+}
+
 export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel }: KanbanBoardProps) {
   const navigate = useNavigate();
+  const { profile, user } = useAuth();
   const updateLead = useUpdateLead();
+  const addStageHistory = useAddStageHistory();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
+  
+  // State for stage change dialog
+  const [pendingChange, setPendingChange] = useState<PendingStageChange | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -245,14 +262,60 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
 
     if (!overStage) return;
 
-    const newStageEnum = getStageEnumValue(overStage);
+    const newStageEnum = getStageEnumValue(overStage) as FunnelStage;
     
     if (lead.stage !== newStageEnum) {
-      updateLead.mutate({
-        id: leadId,
-        stage: newStageEnum as Lead['stage'],
+      // Open dialog to ask for justification
+      setPendingChange({
+        leadId,
+        lead,
+        previousStage: lead.stage as FunnelStage,
+        newStage: newStageEnum,
       });
     }
+  };
+
+  const handleConfirmStageChange = async (reason: string | null) => {
+    if (!pendingChange || !profile?.organization_id) return;
+    
+    setIsUpdating(true);
+    
+    try {
+      // Update the lead stage
+      await updateLead.mutateAsync({
+        id: pendingChange.leadId,
+        stage: pendingChange.newStage,
+      });
+
+      // Record in stage history
+      await addStageHistory.mutateAsync({
+        lead_id: pendingChange.leadId,
+        organization_id: profile.organization_id,
+        stage: pendingChange.newStage,
+        previous_stage: pendingChange.previousStage,
+        reason: reason,
+        changed_by: user?.id || null,
+      });
+
+      toast({
+        title: "Etapa atualizada",
+        description: "O lead foi movido e o histórico foi registrado.",
+      });
+    } catch (error: any) {
+      console.error("Error updating stage:", error);
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+      setPendingChange(null);
+    }
+  };
+
+  const handleCancelStageChange = () => {
+    setPendingChange(null);
   };
 
   const handleCardClick = (leadId: string) => {
@@ -260,28 +323,42 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-4 min-w-max">
-          {stages.map((stage) => (
-            <KanbanColumn
-              key={stage.id}
-              stage={stage}
-              leads={leadsByStage[stage.id] || []}
-              onCardClick={handleCardClick}
-            />
-          ))}
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-4 min-w-max">
+            {stages.map((stage) => (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                leads={leadsByStage[stage.id] || []}
+                onCardClick={handleCardClick}
+              />
+            ))}
+          </div>
         </div>
-      </div>
 
-      <DragOverlay>
-        {activeLead && <KanbanCardOverlay lead={activeLead} />}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeLead && <KanbanCardOverlay lead={activeLead} />}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Stage Change Dialog */}
+      {pendingChange && (
+        <StageChangeDialog
+          open={!!pendingChange}
+          onOpenChange={(open) => !open && handleCancelStageChange()}
+          previousStage={pendingChange.previousStage}
+          newStage={pendingChange.newStage}
+          onConfirm={handleConfirmStageChange}
+          isLoading={isUpdating}
+        />
+      )}
+    </>
   );
 }
