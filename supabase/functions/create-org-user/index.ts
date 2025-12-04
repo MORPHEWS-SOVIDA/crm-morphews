@@ -12,7 +12,7 @@ interface CreateOrgUserRequest {
   ownerEmail: string;
   ownerPhone: string;
   planName: string;
-  isAdditionalUser?: boolean; // For adding users to existing org
+  isAdditionalUser?: boolean;
 }
 
 function generateTemporaryPassword(): string {
@@ -42,6 +42,77 @@ function normalizeWhatsApp(phone: string | null | undefined): string | null {
   }
   
   return clean;
+}
+
+// Send welcome WhatsApp message via Z-API
+async function sendWelcomeWhatsApp(phone: string, firstName: string, tempPassword: string): Promise<void> {
+  const zapiInstanceId = Deno.env.get("ZAPI_INSTANCE_ID");
+  const zapiToken = Deno.env.get("ZAPI_TOKEN");
+  const zapiClientToken = Deno.env.get("ZAPI_CLIENT_TOKEN");
+
+  if (!zapiInstanceId || !zapiToken) {
+    console.log("Z-API credentials not configured, skipping WhatsApp welcome message");
+    return;
+  }
+
+  const normalizedPhone = normalizeWhatsApp(phone);
+  if (!normalizedPhone) {
+    console.log("Invalid phone number, skipping WhatsApp welcome message");
+    return;
+  }
+
+  const welcomeMessage = `🎉 *Bem-vindo ao Morphews CRM, ${firstName}!*
+
+Você foi adicionado à equipe e já pode começar a usar o sistema.
+
+📧 *Suas credenciais foram enviadas por email*
+
+🔑 *Senha provisória:* ${tempPassword}
+
+⚠️ No primeiro login, você deverá criar uma nova senha.
+
+🌐 Acesse: crm.morphews.com
+
+---
+
+💡 *Dica:* Este número (555130760100) é seu assistente virtual! Você pode atualizar seus leads via conversa aqui pelo WhatsApp.
+
+Basta enviar uma mensagem como:
+• "Adicionar lead João 51999998888"
+• "Atualizar lead Maria para call agendada"
+
+Qualquer dúvida, estamos por aqui! 🚀`;
+
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    if (zapiClientToken) {
+      headers["Client-Token"] = zapiClientToken;
+    }
+
+    const response = await fetch(
+      `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          phone: normalizedPhone,
+          message: welcomeMessage,
+        }),
+      }
+    );
+
+    if (response.ok) {
+      console.log("Welcome WhatsApp sent successfully to", normalizedPhone);
+    } else {
+      const errorData = await response.text();
+      console.error("Error sending WhatsApp:", errorData);
+    }
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp:", error);
+  }
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -165,6 +236,7 @@ const handler = async (req: Request): Promise<Response> => {
         organization_id: organizationId,
         user_id: userId,
         role: memberRole,
+        can_see_all_leads: memberRole === "owner", // Owners always see all leads
       });
 
     if (memberError) {
@@ -223,6 +295,8 @@ const handler = async (req: Request): Promise<Response> => {
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
           
           <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
+            💡 <strong>Dica:</strong> Você pode atualizar seus leads via WhatsApp!<br>
+            Basta enviar uma mensagem para <strong>555130760100</strong><br><br>
             Precisa de ajuda? Entre em contato pelo WhatsApp<br>
             <strong>Morphews CRM</strong> - Transforme seus leads em clientes
           </p>
@@ -249,9 +323,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!emailRes.ok) {
       console.error("Resend API error:", emailData);
-      // Don't fail the whole process if email fails, just log it
     } else {
       console.log("Welcome email sent successfully:", emailData);
+    }
+
+    // Send welcome WhatsApp message (only for additional users)
+    if (isAdditionalUser && ownerPhone) {
+      await sendWelcomeWhatsApp(ownerPhone, firstName, tempPassword);
     }
 
     return new Response(

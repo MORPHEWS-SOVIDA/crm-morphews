@@ -44,6 +44,7 @@ interface OrgMember {
     last_name: string;
     user_id: string;
     email?: string;
+    whatsapp?: string;
   } | null;
 }
 
@@ -64,6 +65,11 @@ export default function Team() {
   const [editingMember, setEditingMember] = useState<OrgMember | null>(null);
   const [editRole, setEditRole] = useState<"admin" | "member">("member");
   const [editCanSeeAllLeads, setEditCanSeeAllLeads] = useState(true);
+  const [editMemberData, setEditMemberData] = useState({
+    firstName: "",
+    lastName: "",
+    whatsapp: "",
+  });
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
   const [newUserData, setNewUserData] = useState({
@@ -126,11 +132,11 @@ export default function Team() {
 
       if (membersError) throw membersError;
 
-      // Get profiles for each member with email
+      // Get profiles for each member with email and whatsapp
       const memberIds = membersData.map(m => m.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("first_name, last_name, user_id, email")
+        .select("first_name, last_name, user_id, email, whatsapp")
         .in("user_id", memberIds);
 
       if (profilesError) throw profilesError;
@@ -278,6 +284,11 @@ export default function Team() {
     setEditingMember(member);
     setEditRole(member.role === "admin" ? "admin" : "member");
     setEditCanSeeAllLeads(member.can_see_all_leads ?? true);
+    setEditMemberData({
+      firstName: member.profile?.first_name || "",
+      lastName: member.profile?.last_name || "",
+      whatsapp: member.profile?.whatsapp || "",
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -318,15 +329,31 @@ export default function Team() {
     setIsUpdatingRole(true);
     
     try {
-      const { error } = await supabase
+      // Admins always see all leads
+      const finalCanSeeAllLeads = editRole === "admin" ? true : editCanSeeAllLeads;
+      
+      // Update organization_members
+      const { error: memberError } = await supabase
         .from("organization_members")
         .update({ 
           role: editRole,
-          can_see_all_leads: editCanSeeAllLeads,
+          can_see_all_leads: finalCanSeeAllLeads,
         })
         .eq("id", editingMember.id);
 
-      if (error) throw error;
+      if (memberError) throw memberError;
+
+      // Update profile data
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          first_name: editMemberData.firstName,
+          last_name: editMemberData.lastName,
+          whatsapp: editMemberData.whatsapp.replace(/\D/g, '') || null,
+        })
+        .eq("user_id", editingMember.user_id);
+
+      if (profileError) throw profileError;
 
       toast({
         title: "Membro atualizado",
@@ -354,6 +381,47 @@ export default function Team() {
     setIsDeletingUser(memberId);
     
     try {
+      // Find the owner/admin to transfer leads to
+      const ownerOrAdmin = members.find(m => m.role === "owner" || m.role === "admin");
+      
+      if (ownerOrAdmin && ownerOrAdmin.user_id !== memberUserId) {
+        // Transfer all lead_responsibles from deleted user to owner/admin
+        const { data: leadResponsibles } = await supabase
+          .from("lead_responsibles")
+          .select("id, lead_id")
+          .eq("user_id", memberUserId);
+
+        if (leadResponsibles && leadResponsibles.length > 0) {
+          // For each lead, add owner/admin as responsible if not already
+          for (const lr of leadResponsibles) {
+            // Check if owner/admin is already responsible for this lead
+            const { data: existingResp } = await supabase
+              .from("lead_responsibles")
+              .select("id")
+              .eq("lead_id", lr.lead_id)
+              .eq("user_id", ownerOrAdmin.user_id)
+              .single();
+
+            if (!existingResp && profile?.organization_id) {
+              // Add owner/admin as responsible
+              await supabase
+                .from("lead_responsibles")
+                .insert({
+                  lead_id: lr.lead_id,
+                  user_id: ownerOrAdmin.user_id,
+                  organization_id: profile.organization_id,
+                });
+            }
+          }
+          
+          // Remove all lead_responsibles for the deleted user
+          await supabase
+            .from("lead_responsibles")
+            .delete()
+            .eq("user_id", memberUserId);
+        }
+      }
+
       // Remove from organization_members
       const { error: memberError } = await supabase
         .from("organization_members")
@@ -364,7 +432,7 @@ export default function Team() {
 
       toast({
         title: "Usuário removido",
-        description: "O usuário foi removido da equipe.",
+        description: "O usuário foi removido da equipe. Os leads foram transferidos para o administrador.",
       });
       
       refetchMembers();
@@ -734,7 +802,7 @@ export default function Team() {
                       onChange={(e) => setMyProfileData({ ...myProfileData, whatsapp: e.target.value })}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Número com código do país (ex: 5511999999999)
+                      Número com código do país. Este número poderá atualizar leads via conversa no WhatsApp pelo número 555130760100.
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -855,7 +923,7 @@ export default function Team() {
                         required
                       />
                       <p className="text-xs text-muted-foreground">
-                        Número com código do país (ex: 5511999999999). Necessário para usar o assistente via WhatsApp.
+                        Número com código do país (ex: 5511999999999). Este número poderá atualizar leads via conversa no WhatsApp pelo número 555130760100.
                       </p>
                     </div>
                     <DialogFooter>
@@ -965,14 +1033,52 @@ export default function Team() {
 
         {/* Edit Member Role Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Editar Membro</DialogTitle>
               <DialogDescription>
-                Configure as permissões de {editingMember?.profile?.first_name} {editingMember?.profile?.last_name}
+                Edite os dados e permissões de {editingMember?.profile?.first_name} {editingMember?.profile?.last_name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
+              {/* Nome e Sobrenome */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editFirstName">Nome</Label>
+                  <Input
+                    id="editFirstName"
+                    value={editMemberData.firstName}
+                    onChange={(e) => setEditMemberData({ ...editMemberData, firstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editLastName">Sobrenome</Label>
+                  <Input
+                    id="editLastName"
+                    value={editMemberData.lastName}
+                    onChange={(e) => setEditMemberData({ ...editMemberData, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* WhatsApp */}
+              <div className="space-y-2">
+                <Label htmlFor="editWhatsapp">WhatsApp</Label>
+                <Input
+                  id="editWhatsapp"
+                  type="tel"
+                  placeholder="5511999999999"
+                  value={editMemberData.whatsapp}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, whatsapp: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Número com código do país. Este número poderá atualizar leads via conversa no WhatsApp pelo número 555130760100.
+                </p>
+              </div>
+
+              {/* Role */}
               <div className="space-y-2">
                 <Label>Papel</Label>
                 <Select value={editRole} onValueChange={(v) => setEditRole(v as "admin" | "member")}>
@@ -985,34 +1091,46 @@ export default function Team() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Administradores podem gerenciar a equipe e configurações. Membros podem usar o CRM normalmente.
+                  Administradores podem gerenciar a equipe, configurações e sempre veem todos os leads.
                 </p>
               </div>
               
-              <div className="space-y-2">
-                <Label>Visibilidade de Leads</Label>
-                <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2 font-medium">
-                      {editCanSeeAllLeads ? (
-                        <Eye className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <EyeOff className="w-4 h-4 text-amber-500" />
-                      )}
-                      {editCanSeeAllLeads ? "Ver todos os leads" : "Apenas seus leads"}
+              {/* Visibility - Only show for members, not admins */}
+              {editRole !== "admin" && (
+                <div className="space-y-2">
+                  <Label>Visibilidade de Leads</Label>
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 font-medium">
+                        {editCanSeeAllLeads ? (
+                          <Eye className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <EyeOff className="w-4 h-4 text-amber-500" />
+                        )}
+                        {editCanSeeAllLeads ? "Ver todos os leads" : "Apenas seus leads"}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {editCanSeeAllLeads 
+                          ? "Pode visualizar todos os leads da empresa" 
+                          : "Só vê leads que criou ou é responsável"}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {editCanSeeAllLeads 
-                        ? "Pode visualizar todos os leads da empresa" 
-                        : "Só vê leads que criou ou é responsável"}
-                    </p>
+                    <Switch
+                      checked={editCanSeeAllLeads}
+                      onCheckedChange={setEditCanSeeAllLeads}
+                    />
                   </div>
-                  <Switch
-                    checked={editCanSeeAllLeads}
-                    onCheckedChange={setEditCanSeeAllLeads}
-                  />
                 </div>
-              </div>
+              )}
+              
+              {editRole === "admin" && (
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <Eye className="w-4 h-4" />
+                    <span className="text-sm font-medium">Administradores sempre veem todos os leads</span>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>

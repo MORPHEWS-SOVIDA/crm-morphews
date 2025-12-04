@@ -246,7 +246,7 @@ export default function Settings() {
           </div>
           
           <p className="text-xs text-muted-foreground mt-2">
-            * WhatsApp obrigatório para usar o assistente via WhatsApp (formato: 5511999999999)
+            * Este número poderá atualizar seus leads via conversa no WhatsApp pelo número 555130760100 (formato: 5511999999999)
           </p>
 
           <Button 
