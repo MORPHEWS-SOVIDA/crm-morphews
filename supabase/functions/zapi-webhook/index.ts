@@ -318,18 +318,32 @@ async function processWithAI(
     conversationHistory: string[];
     pendingAction?: string;
     pendingLead?: any;
+    existingLeads?: any[];
   }
 ) {
+  // Build existing leads context for AI to know what's already in the system
+  const existingLeadsInfo = context.existingLeads?.map(l => 
+    `- ${l.name} (ID: ${l.id}, Instagram: @${l.instagram || 'N/A'}, Etapa: ${FUNNEL_STAGES[l.stage as keyof typeof FUNNEL_STAGES] || l.stage}, ${l.stars}⭐)`
+  ).join('\n') || 'Nenhum lead recente';
+
   const systemPrompt = `Você é uma secretária virtual inteligente do Morphews CRM. Seu papel é ajudar usuários a gerenciar leads de vendas via WhatsApp de forma RÁPIDA e PRÁTICA.
 
 CONTEXTO DO USUÁRIO:
 - Nome do usuário: ${context.userName}
 - Membros do time disponíveis: ${context.teamMembers.join(', ') || 'Nenhum configurado'}
 
+LEADS EXISTENTES NA ORGANIZAÇÃO (IMPORTANTE - BUSQUE AQUI PRIMEIRO!):
+${existingLeadsInfo}
+
 REGRA PRINCIPAL: FACILITAR, NÃO DIFICULTAR!
 - Leads SEMPRE são criados com stage "prospect" (Não classificado) por padrão
 - Leads SEMPRE iniciam com 3 estrelas se não mencionado
 - NÃO fique perguntando muitas coisas - apenas o NOME é obrigatório para criar um lead!
+
+REGRA CRÍTICA DE ATUALIZAÇÃO:
+- Se o usuário mencionar um NOME ou INSTAGRAM de um lead que JÁ EXISTE na lista acima, use action "update_lead" com o ID do lead!
+- Palavras como "adicionar", "atualizar", "colocar", "mudar", "alterar" indicam ATUALIZAÇÃO, não criação!
+- Só use "create_lead" se for realmente um lead NOVO que não existe na lista!
 
 ETAPAS DO FUNIL (stage):
 - prospect: Não classificado / Prospectando (PADRÃO)
@@ -350,8 +364,9 @@ ESTRELAS - SIMPLIFICADO:
 FORMATO DE RESPOSTA (JSON):
 {
   "action": "create_lead" | "update_lead" | "search_lead" | "ask_question" | "list_leads" | "help",
+  "lead_id": "UUID do lead existente (OBRIGATÓRIO para update_lead)",
   "lead_data": {
-    "name": "string (ÚNICO campo obrigatório)",
+    "name": "string (ÚNICO campo obrigatório para criar)",
     "whatsapp": "string",
     "instagram": "string (sem @)",
     "email": "string",
@@ -366,12 +381,18 @@ FORMATO DE RESPOSTA (JSON):
   "response_message": "string (mensagem curta e objetiva)"
 }
 
+EXEMPLOS DE ATUALIZAÇÃO:
+- "Adicionar o insta @fulano no lead Maria" → action: "update_lead", lead_id: "UUID da Maria", lead_data: { instagram: "fulano" }
+- "Colocar o instagram da Ana" → action: "update_lead", lead_id: "UUID da Ana", lead_data: { instagram: "extraído_da_msg" }
+- "A Joana agora é 5 estrelas" → action: "update_lead", lead_id: "UUID da Joana", lead_data: { stars: 5 }
+
 REGRAS:
-1. Se tem NOME, CRIE O LEAD IMEDIATAMENTE com stage="prospect" e stars=3
-2. Depois de criar, pergunte de forma SIMPLES: "Lead criado! Quer classificar como 5⭐ (TOP) ou 1⭐ (baixa prioridade)? Se não responder, fica 3⭐."
-3. NÃO pergunte etapa do funil - sempre começa como "prospect" (Não classificado)
-4. Seja DIRETO e PRÁTICO
-5. Responda em português brasileiro
+1. SEMPRE verifique se o lead já existe na lista ANTES de criar um novo!
+2. Se o lead existe, use update_lead com o ID correto!
+3. Se é um lead NOVO (nome não existe na lista), crie com stage="prospect" e stars=3
+4. Depois de criar, pergunte de forma SIMPLES: "Lead criado! Quer classificar como 5⭐ (TOP) ou 1⭐ (baixa prioridade)? Se não responder, fica 3⭐."
+5. Seja DIRETO e PRÁTICO
+6. Responda em português brasileiro
 
 ${context.pendingAction ? `AÇÃO PENDENTE: ${context.pendingAction}` : ''}
 ${context.pendingLead ? `LEAD PENDENTE: ${JSON.stringify(context.pendingLead)}` : ''}
@@ -598,12 +619,21 @@ serve(async (req) => {
       });
     }
 
-    // Get context and configurations
-    const [teamMembers, leadSources, products] = await Promise.all([
+    // Get context and configurations - INCLUDING existing leads for context
+    const [teamMembers, leadSources, products, existingLeadsData] = await Promise.all([
       getOrganizationUsers(organizationId),
       getLeadSources(organizationId),
-      getLeadProducts(organizationId)
+      getLeadProducts(organizationId),
+      supabase
+        .from('leads')
+        .select('id, name, instagram, stage, stars, whatsapp')
+        .eq('organization_id', organizationId)
+        .order('updated_at', { ascending: false })
+        .limit(50)
     ]);
+    
+    const existingLeads = existingLeadsData.data || [];
+    console.log(`Found ${existingLeads.length} existing leads for organization`);
 
     // Get or create conversation context
     let context = conversationContexts.get(senderPhone) || { history: [] };
@@ -611,7 +641,7 @@ serve(async (req) => {
     // Add user message to history
     context.history.push(`Usuário: ${messageText}`);
 
-    // Process message with AI
+    // Process message with AI - now with existing leads context!
     const aiResponse = await processWithAI(messageText, {
       userName: `${user.first_name} ${user.last_name}`,
       organizationId,
@@ -620,7 +650,8 @@ serve(async (req) => {
       products,
       conversationHistory: context.history,
       pendingAction: context.pendingAction,
-      pendingLead: context.pendingLead
+      pendingLead: context.pendingLead,
+      existingLeads: existingLeads
     });
 
     let responseMessage = aiResponse.response_message || 'Desculpe, não entendi. Pode repetir?';
@@ -664,7 +695,7 @@ serve(async (req) => {
               `⭐ Estrelas: ${lead.stars}\n` +
               (lead.instagram ? `📸 Instagram: @${lead.instagram}\n` : '') +
               (lead.whatsapp ? `📱 WhatsApp: ${lead.whatsapp}\n` : '') +
-              `\n🔗 Ver no CRM: https://crm.morphews.com/lead/${lead.id}`;
+              `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${lead.id}`;
             
             // Clear pending and mark as just created to avoid duplicate check on next message
             context.pendingAction = `lead_created_${lead.id}`;
@@ -692,7 +723,9 @@ serve(async (req) => {
           
           responseMessage = `✅ Lead *${updated.name}* atualizado!\n\n` +
             `📍 Etapa: ${stageLabel}\n` +
-            `⭐ Estrelas: ${updated.stars}`;
+            `⭐ Estrelas: ${updated.stars}\n` +
+            (updated.instagram ? `📸 Instagram: @${updated.instagram}\n` : '') +
+            `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${updated.id}`;
         } else {
           responseMessage = `⚠️ Não encontrei um lead com esse nome para atualizar. Você pode criar um novo ou me dizer o nome exato do lead.`;
         }
