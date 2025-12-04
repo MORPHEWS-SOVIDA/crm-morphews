@@ -53,18 +53,65 @@ async function findUserByWhatsApp(whatsapp: string) {
   // Clean phone number
   const cleanPhone = whatsapp.replace(/\D/g, '');
   
-  const { data, error } = await supabase
+  console.log('Looking for user with WhatsApp:', cleanPhone);
+  
+  // Try exact match first
+  let { data, error } = await supabase
     .from('profiles')
     .select('*, organization_members(organization_id, role)')
     .eq('whatsapp', cleanPhone)
     .single();
   
-  if (error || !data) {
-    console.log('User not found for WhatsApp:', cleanPhone);
-    return null;
+  if (!error && data) {
+    console.log('User found with exact match:', data.first_name, data.last_name);
+    return data;
   }
   
-  return data;
+  // Brazilian phone number normalization
+  // Try adding the 9th digit if the phone has 12 digits (55 + DD + 8 digits)
+  if (cleanPhone.length === 12 && cleanPhone.startsWith('55')) {
+    const withNinthDigit = cleanPhone.slice(0, 4) + '9' + cleanPhone.slice(4);
+    console.log('Trying with 9th digit added:', withNinthDigit);
+    
+    const result = await supabase
+      .from('profiles')
+      .select('*, organization_members(organization_id, role)')
+      .eq('whatsapp', withNinthDigit)
+      .single();
+    
+    if (!result.error && result.data) {
+      console.log('User found with 9th digit:', result.data.first_name, result.data.last_name);
+      return result.data;
+    }
+  }
+  
+  // Try removing the 9th digit if the phone has 13 digits (55 + DD + 9 digits)
+  if (cleanPhone.length === 13 && cleanPhone.startsWith('55')) {
+    const withoutNinthDigit = cleanPhone.slice(0, 4) + cleanPhone.slice(5);
+    console.log('Trying without 9th digit:', withoutNinthDigit);
+    
+    const result = await supabase
+      .from('profiles')
+      .select('*, organization_members(organization_id, role)')
+      .eq('whatsapp', withoutNinthDigit)
+      .single();
+    
+    if (!result.error && result.data) {
+      console.log('User found without 9th digit:', result.data.first_name, result.data.last_name);
+      return result.data;
+    }
+  }
+  
+  // List all profiles with WhatsApp to debug
+  const { data: allProfiles } = await supabase
+    .from('profiles')
+    .select('whatsapp, first_name, last_name')
+    .not('whatsapp', 'is', null);
+  
+  console.log('User not found. Available WhatsApp numbers:', 
+    allProfiles?.map(p => `${p.first_name}: ${p.whatsapp}`).join(', '));
+  
+  return null;
 }
 
 async function findSimilarLeads(organizationId: string, name?: string, instagram?: string) {
