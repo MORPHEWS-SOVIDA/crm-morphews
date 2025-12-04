@@ -60,11 +60,11 @@ export default function ForcePasswordChange() {
 
       // Mark the temp password as used
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (user?.email) {
         await supabase
           .from("temp_password_resets")
           .update({ used_at: new Date().toISOString() })
-          .eq("user_id", user.id)
+          .eq("email", user.email.toLowerCase())
           .is("used_at", null);
       }
 
