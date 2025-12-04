@@ -10,6 +10,7 @@ const ZAPI_INSTANCE_ID = Deno.env.get('ZAPI_INSTANCE_ID');
 const ZAPI_TOKEN = Deno.env.get('ZAPI_TOKEN');
 const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN');
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -120,6 +121,59 @@ async function sendWhatsAppMessage(phone: string, message: string) {
   } catch (error) {
     console.error('Error sending WhatsApp message:', error);
     throw error;
+  }
+}
+
+// Transcribe audio using OpenAI Whisper
+async function transcribeAudio(audioUrl: string): Promise<string | null> {
+  console.log('=== Transcribing Audio ===');
+  console.log('Audio URL:', audioUrl);
+  
+  if (!OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY not configured');
+    return null;
+  }
+  
+  try {
+    // Download the audio file
+    console.log('Downloading audio file...');
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      console.error('Failed to download audio:', audioResponse.status);
+      return null;
+    }
+    
+    const audioBuffer = await audioResponse.arrayBuffer();
+    console.log('Audio downloaded, size:', audioBuffer.byteLength, 'bytes');
+    
+    // Create form data for Whisper API
+    const formData = new FormData();
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/ogg' });
+    formData.append('file', audioBlob, 'audio.ogg');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'pt'); // Portuguese
+    
+    console.log('Sending to Whisper API...');
+    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+    
+    if (!whisperResponse.ok) {
+      const errorText = await whisperResponse.text();
+      console.error('Whisper API error:', whisperResponse.status, errorText);
+      return null;
+    }
+    
+    const result = await whisperResponse.json();
+    console.log('Transcription result:', result.text);
+    return result.text;
+  } catch (error) {
+    console.error('Error transcribing audio:', error);
+    return null;
   }
 }
 
@@ -441,25 +495,42 @@ serve(async (req) => {
     console.log('Z-API Webhook payload:', JSON.stringify(payload, null, 2));
 
     // Z-API sends different event types
-    // We're interested in received messages - text OR image with caption
+    // We're interested in received messages - text, image with caption, or audio
     const textMessage = payload.text?.message;
     const imageCaption = payload.image?.caption;
-    const messageContent = textMessage || imageCaption;
+    const audioUrl = payload.audio?.audioUrl;
+    
+    // Check if it's an audio message - transcribe it first
+    let audioTranscription: string | null = null;
+    if (audioUrl && !textMessage && !imageCaption) {
+      console.log('=== Audio Message Detected ===');
+      audioTranscription = await transcribeAudio(audioUrl);
+      if (!audioTranscription) {
+        console.log('Failed to transcribe audio, ignoring message');
+        return new Response(JSON.stringify({ status: 'audio_transcription_failed' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log('Audio transcription:', audioTranscription);
+    }
+    
+    const messageContent = textMessage || imageCaption || audioTranscription;
     
     if (!payload.phone || !messageContent) {
-      console.log('Ignoring message without text/caption or missing phone');
+      console.log('Ignoring message without text/caption/audio or missing phone');
       return new Response(JSON.stringify({ status: 'ignored' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const senderPhone = payload.phone.replace(/\D/g, '');
-    const messageText = messageContent; // Can be text message or image caption
+    const messageText = messageContent; // Can be text message, image caption, or audio transcription
     const isFromMe = payload.fromMe === true;
     
     console.log('=== Message Content ===');
     console.log('Text message:', textMessage || 'N/A');
     console.log('Image caption:', imageCaption || 'N/A');
+    console.log('Audio transcription:', audioTranscription || 'N/A');
     console.log('Using content:', messageText);
 
     // Ignore messages sent by the system itself
