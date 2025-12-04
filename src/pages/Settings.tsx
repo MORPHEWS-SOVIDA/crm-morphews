@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff, User, Phone, Save } from 'lucide-react';
+import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff, User, Phone, Save, Filter } from 'lucide-react';
 import { useLeadSources, useLeadProducts, useCreateLeadSource, useCreateLeadProduct, useDeleteLeadSource, useDeleteLeadProduct } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { FunnelStagesManager } from '@/components/settings/FunnelStagesManager';
 
 export default function Settings() {
   const { profile, updatePassword, user } = useAuth();
@@ -260,6 +261,20 @@ export default function Settings() {
             )}
             Salvar Perfil
           </Button>
+        </div>
+
+        {/* Funnel Stages Configuration */}
+        <div className="bg-card rounded-xl p-6 shadow-card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-lg bg-primary/10">
+              <Filter className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Etapas do Funil</h2>
+              <p className="text-sm text-muted-foreground">Personalize seu funil de vendas</p>
+            </div>
+          </div>
+          <FunnelStagesManager />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

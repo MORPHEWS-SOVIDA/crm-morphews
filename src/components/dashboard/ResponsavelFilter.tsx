@@ -11,10 +11,32 @@ import {
 interface ResponsavelFilterProps {
   selectedResponsavel: string | null;
   onSelectResponsavel: (responsavel: string | null) => void;
+  compact?: boolean;
 }
 
-export function ResponsavelFilter({ selectedResponsavel, onSelectResponsavel }: ResponsavelFilterProps) {
+export function ResponsavelFilter({ selectedResponsavel, onSelectResponsavel, compact = false }: ResponsavelFilterProps) {
   const { data: users = [] } = useUsers();
+
+  if (compact) {
+    return (
+      <Select
+        value={selectedResponsavel || 'all'}
+        onValueChange={(value) => onSelectResponsavel(value === 'all' ? null : value)}
+      >
+        <SelectTrigger className="w-40 h-8 text-xs">
+          <SelectValue placeholder="Responsável" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          {users.map((user) => (
+            <SelectItem key={user.id} value={`${user.first_name} ${user.last_name}`}>
+              {user.first_name} {user.last_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
 
   return (
     <div className="bg-card rounded-xl p-4 shadow-card">

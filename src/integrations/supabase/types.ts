@@ -410,6 +410,53 @@ export type Database = {
           },
         ]
       }
+      organization_funnel_stages: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          organization_id: string
+          position: number
+          stage_type: string
+          text_color: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          organization_id: string
+          position: number
+          stage_type?: string
+          text_color?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          organization_id?: string
+          position?: number
+          stage_type?: string
+          text_color?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_funnel_stages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -741,6 +788,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      initialize_org_funnel_stages: {
+        Args: { org_id: string }
+        Returns: undefined
       }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {

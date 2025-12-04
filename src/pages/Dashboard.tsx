@@ -3,6 +3,7 @@ import { Layout } from '@/components/layout/Layout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
 import { FunnelVisualization } from '@/components/dashboard/FunnelVisualization';
+import { KanbanBoard } from '@/components/dashboard/KanbanBoard';
 import { LeadsTable } from '@/components/dashboard/LeadsTable';
 import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
@@ -10,15 +11,19 @@ import { UpcomingMeetings } from '@/components/dashboard/UpcomingMeetings';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { OnboardingGuide } from '@/components/dashboard/OnboardingGuide';
 import { useLeads } from '@/hooks/useLeads';
+import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Filter, Kanban } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Dashboard() {
   const { data: leads = [], isLoading, error } = useLeads();
+  const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'funnel' | 'kanban'>('funnel');
   const isMobile = useIsMobile();
 
   const responsaveis = useMemo(() => {
@@ -48,7 +53,15 @@ export default function Dashboard() {
     const parts: string[] = [];
     
     if (selectedStage) {
-      parts.push(FUNNEL_STAGES[selectedStage].label);
+      // Try to get label from custom stages first
+      const customStage = stages.find(s => {
+        const positionToEnum: Record<number, string> = {
+          0: 'cloud', 1: 'prospect', 2: 'contacted', 3: 'convincing',
+          4: 'scheduled', 5: 'positive', 6: 'waiting_payment', 7: 'success', 8: 'trash',
+        };
+        return positionToEnum[s.position] === selectedStage;
+      });
+      parts.push(customStage?.name || FUNNEL_STAGES[selectedStage].label);
     }
     
     if (selectedStars) {
@@ -73,7 +86,7 @@ export default function Dashboard() {
     return leads.some(lead => lead.stage !== 'cloud' && lead.stage !== 'prospect');
   }, [leads]);
 
-  if (isLoading) {
+  if (isLoading || loadingStages) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -108,6 +121,20 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* View Mode Tabs */}
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'funnel' | 'kanban')}>
+              <TabsList className="h-9">
+                <TabsTrigger value="funnel" className="text-xs px-3">
+                  <Filter className="w-4 h-4 mr-1.5" />
+                  Funil
+                </TabsTrigger>
+                <TabsTrigger value="kanban" className="text-xs px-3">
+                  <Kanban className="w-4 h-4 mr-1.5" />
+                  Kanban
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             {/* Mobile Filters */}
             {isMobile && (
               <MobileFilters
@@ -141,57 +168,93 @@ export default function Dashboard() {
         {/* Stats */}
         <StatsCards leads={leads} />
 
-        {/* Main Grid - Desktop */}
-        <div className="hidden lg:grid grid-cols-12 gap-6">
-          {/* Funnel */}
-          <div className="col-span-5">
-            <FunnelVisualization
+        {/* View Mode Content */}
+        {viewMode === 'kanban' ? (
+          /* Kanban View */
+          <div className="bg-card rounded-xl p-4 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Kanban</h3>
+              {!isMobile && (
+                <div className="flex items-center gap-4">
+                  <StarsFilter
+                    leads={leads}
+                    selectedStars={selectedStars}
+                    onSelectStars={setSelectedStars}
+                    compact
+                  />
+                  <ResponsavelFilter
+                    selectedResponsavel={selectedResponsavel}
+                    onSelectResponsavel={setSelectedResponsavel}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+            <KanbanBoard
               leads={leads}
-              selectedStage={selectedStage}
-              onSelectStage={setSelectedStage}
-            />
-          </div>
-
-          {/* Stars Filter */}
-          <div className="col-span-2">
-            <StarsFilter
-              leads={leads}
+              stages={stages}
               selectedStars={selectedStars}
-              onSelectStars={setSelectedStars}
-            />
-          </div>
-
-          {/* Responsavel Filter */}
-          <div className="col-span-2">
-            <ResponsavelFilter
               selectedResponsavel={selectedResponsavel}
-              onSelectResponsavel={setSelectedResponsavel}
             />
           </div>
-
-          {/* Upcoming Meetings */}
-          <div className="col-span-3">
-            <UpcomingMeetings leads={leads} />
-          </div>
-        </div>
-
-        {/* Mobile Funnel & Meetings */}
-        {isMobile && (
-          <div className="space-y-4">
-            <FunnelVisualization
-              leads={leads}
-              selectedStage={selectedStage}
-              onSelectStage={setSelectedStage}
-            />
-            <UpcomingMeetings leads={leads} />
-          </div>
-        )}
-
-        {/* Leads Table / List */}
-        {isMobile ? (
-          <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
         ) : (
-          <LeadsTable leads={filteredLeads} title={getTableTitle()} />
+          /* Funnel View */
+          <>
+            {/* Main Grid - Desktop */}
+            <div className="hidden lg:grid grid-cols-12 gap-6">
+              {/* Funnel */}
+              <div className="col-span-5">
+                <FunnelVisualization
+                  leads={leads}
+                  stages={stages}
+                  selectedStage={selectedStage}
+                  onSelectStage={setSelectedStage}
+                />
+              </div>
+
+              {/* Stars Filter */}
+              <div className="col-span-2">
+                <StarsFilter
+                  leads={leads}
+                  selectedStars={selectedStars}
+                  onSelectStars={setSelectedStars}
+                />
+              </div>
+
+              {/* Responsavel Filter */}
+              <div className="col-span-2">
+                <ResponsavelFilter
+                  selectedResponsavel={selectedResponsavel}
+                  onSelectResponsavel={setSelectedResponsavel}
+                />
+              </div>
+
+              {/* Upcoming Meetings */}
+              <div className="col-span-3">
+                <UpcomingMeetings leads={leads} />
+              </div>
+            </div>
+
+            {/* Mobile Funnel & Meetings */}
+            {isMobile && (
+              <div className="space-y-4">
+                <FunnelVisualization
+                  leads={leads}
+                  stages={stages}
+                  selectedStage={selectedStage}
+                  onSelectStage={setSelectedStage}
+                />
+                <UpcomingMeetings leads={leads} />
+              </div>
+            )}
+
+            {/* Leads Table / List */}
+            {isMobile ? (
+              <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
+            ) : (
+              <LeadsTable leads={filteredLeads} title={getTableTitle()} />
+            )}
+          </>
         )}
       </div>
     </Layout>

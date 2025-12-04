@@ -6,13 +6,39 @@ interface StarsFilterProps {
   leads: Lead[];
   selectedStars: number | null;
   onSelectStars: (stars: number | null) => void;
+  compact?: boolean;
 }
 
-export function StarsFilter({ leads, selectedStars, onSelectStars }: StarsFilterProps) {
+export function StarsFilter({ leads, selectedStars, onSelectStars, compact = false }: StarsFilterProps) {
   const starCounts = [5, 4, 3, 2, 1].map((star) => ({
     star,
     count: leads.filter((lead) => lead.stars === star).length,
   }));
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Estrelas:</span>
+        <div className="flex gap-1">
+          {[5, 4, 3, 2, 1].map((star) => (
+            <button
+              key={star}
+              onClick={() => onSelectStars(selectedStars === star ? null : star)}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded text-xs transition-all',
+                selectedStars === star
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 hover:bg-muted'
+              )}
+            >
+              <Star className="w-3 h-3 fill-star-filled text-star-filled" />
+              {star}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-shadow duration-300">
