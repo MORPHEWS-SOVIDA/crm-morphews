@@ -67,7 +67,7 @@ export const FUNNEL_STAGES: Record<FunnelStage, { label: string; color: string; 
     textColor: 'text-funnel-trash-foreground' 
   },
   cloud: { 
-    label: 'Não está na hora ainda', 
+    label: 'Não classificado', 
     color: 'bg-funnel-cloud', 
     textColor: 'text-funnel-cloud-foreground' 
   },
