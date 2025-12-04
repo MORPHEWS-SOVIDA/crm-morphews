@@ -42,7 +42,7 @@ export function FunnelVisualization({ leads, selectedStage, onSelectStage }: Fun
         >
           <Cloud className="w-5 h-5 text-funnel-cloud-foreground" />
           <span className="text-sm font-medium text-funnel-cloud-foreground">
-            Não é a hora ({cloudCount})
+            Não classificado ({cloudCount})
           </span>
         </button>
       </div>
