@@ -8,6 +8,7 @@ import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { UpcomingMeetings } from '@/components/dashboard/UpcomingMeetings';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
+import { OnboardingGuide } from '@/components/dashboard/OnboardingGuide';
 import { useLeads } from '@/hooks/useLeads';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
@@ -66,6 +67,11 @@ export default function Dashboard() {
   };
 
   const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null;
+
+  // Check if user has any stage updates (for onboarding)
+  const hasStageUpdates = useMemo(() => {
+    return leads.some(lead => lead.stage !== 'cloud' && lead.stage !== 'prospect');
+  }, [leads]);
 
   if (isLoading) {
     return (
@@ -128,6 +134,9 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Onboarding Guide - Shows for new users */}
+        <OnboardingGuide leadsCount={leads.length} hasStageUpdates={hasStageUpdates} />
 
         {/* Stats */}
         <StatsCards leads={leads} />

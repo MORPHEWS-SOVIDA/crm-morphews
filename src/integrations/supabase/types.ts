@@ -645,6 +645,65 @@ export type Database = {
         }
         Relationships: []
       }
+      user_onboarding_progress: {
+        Row: {
+          created_at: string
+          first_lead_created: boolean | null
+          first_lead_tips_sent: boolean | null
+          first_stage_update: boolean | null
+          funnel_tips_sent: boolean | null
+          id: string
+          leads_count_milestone_3: boolean | null
+          leads_created_count: number | null
+          organization_id: string
+          stage_tips_sent: boolean | null
+          stage_updates_count: number | null
+          updated_at: string
+          user_id: string
+          welcome_sent: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          first_lead_created?: boolean | null
+          first_lead_tips_sent?: boolean | null
+          first_stage_update?: boolean | null
+          funnel_tips_sent?: boolean | null
+          id?: string
+          leads_count_milestone_3?: boolean | null
+          leads_created_count?: number | null
+          organization_id: string
+          stage_tips_sent?: boolean | null
+          stage_updates_count?: number | null
+          updated_at?: string
+          user_id: string
+          welcome_sent?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          first_lead_created?: boolean | null
+          first_lead_tips_sent?: boolean | null
+          first_stage_update?: boolean | null
+          funnel_tips_sent?: boolean | null
+          id?: string
+          leads_count_milestone_3?: boolean | null
+          leads_created_count?: number | null
+          organization_id?: string
+          stage_tips_sent?: boolean | null
+          stage_updates_count?: number | null
+          updated_at?: string
+          user_id?: string
+          welcome_sent?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_onboarding_progress_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

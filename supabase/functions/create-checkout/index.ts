@@ -33,7 +33,7 @@ async function sendWhatsAppWelcome(phone: string, customerName: string, tempPass
   
   const welcomeMessage = `🎉 *Bem-vindo ao Morphews CRM, ${customerName}!*
 
-Sua conta gratuita foi criada com sucesso! 🚀
+Sua conta foi criada com sucesso! 🚀
 
 📧 *Suas credenciais de acesso:*
 Senha temporária: *${tempPassword}*
@@ -43,10 +43,23 @@ Senha temporária: *${tempPassword}*
 🔗 *Acesse agora:*
 https://crm.morphews.com/login
 
-📱 *Dicas rápidas:*
-• Você pode gerenciar leads por aqui mesmo no WhatsApp!
-• Digite "ajuda" a qualquer momento para ver os comandos
-• Seu plano gratuito inclui 5 leads/mês
+━━━━━━━━━━━━━━━━━━━━━
+
+📱 *COMO USAR O WHATSAPP:*
+
+Você pode gerenciar seus leads por aqui! É só me mandar:
+
+✍️ *Texto:* "Acabei de falar com Maria, nutricionista, muito interessada"
+
+🎤 *Áudio:* Grave falando sobre o lead
+
+📸 *Print:* Mande uma foto de conversa
+
+Eu vou cadastrar tudo automaticamente! 🤖
+
+━━━━━━━━━━━━━━━━━━━━━
+
+🌟 *Dica:* Me mande agora o nome do seu primeiro lead para testar!
 
 Qualquer dúvida, estou por aqui! 💚`;
 

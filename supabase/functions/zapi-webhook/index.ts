@@ -580,6 +580,81 @@ async function searchLeads(organizationId: string, query: string) {
   return data || [];
 }
 
+// Get or create onboarding progress for a user
+async function getOnboardingProgress(userId: string, organizationId: string) {
+  const { data, error } = await supabase
+    .from('user_onboarding_progress')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+  
+  if (data) return data;
+  
+  // Create new progress record
+  const { data: newProgress, error: insertError } = await supabase
+    .from('user_onboarding_progress')
+    .insert({
+      user_id: userId,
+      organization_id: organizationId,
+      welcome_sent: true, // They're interacting via WhatsApp
+    })
+    .select()
+    .single();
+  
+  if (insertError) {
+    console.error('Error creating onboarding progress:', insertError);
+    return null;
+  }
+  
+  return newProgress;
+}
+
+// Update onboarding progress
+async function updateOnboardingProgress(userId: string, updates: any) {
+  const { error } = await supabase
+    .from('user_onboarding_progress')
+    .update(updates)
+    .eq('user_id', userId);
+  
+  if (error) {
+    console.error('Error updating onboarding progress:', error);
+  }
+}
+
+// Send educational tip message
+async function sendOnboardingTip(phone: string, tipType: string) {
+  const tips: Record<string, string> = {
+    first_lead: `\n\n💡 *Dica de quem usa bem o CRM:*\nEsse lead tem vários campos que podem te ajudar depois:\n` +
+      `• *Estrelas* (1-5): pra priorizar os melhores\n` +
+      `• *Etapa do funil*: onde ele está na jornada\n` +
+      `• *Instagram/WhatsApp*: pra contato rápido\n\n` +
+      `Quer me mandar mais dados dele? É só falar! Ou acessa o link acima pra preencher tudo.`,
+    
+    three_leads: `\n\n🎯 *Você já tem 3 leads!*\n` +
+      `Agora o segredo é mover eles pelo funil.\n\n` +
+      `Me diz coisas como:\n` +
+      `• "Maria fez call positiva"\n` +
+      `• "João está aguardando pagamento"\n` +
+      `• "Pedro pagou!"\n\n` +
+      `Quanto mais você atualiza, mais fácil é ver quem precisa de atenção! 📊`,
+    
+    first_stage_update: `\n\n🚀 *Muito bem!* Você moveu um lead no funil!\n` +
+      `Isso ajuda a ver exatamente onde cada pessoa está.\n\n` +
+      `Lembra de usar as *estrelas* também:\n` +
+      `⭐⭐⭐⭐⭐ = Prioridade máxima (muito promissor)\n` +
+      `⭐⭐⭐ = Normal\n` +
+      `⭐ = Baixa energia\n\n` +
+      `Assim você sabe quem atender primeiro! 🎯`
+  };
+  
+  const tip = tips[tipType];
+  if (tip) {
+    // Don't send separately, this will be appended to the main message
+    return tip;
+  }
+  return '';
+}
+
 async function createEvent(organizationId: string, userId: string, leadId: string, eventData: any) {
   // Parse and validate the start time
   let startTime = new Date(eventData.start_time);
@@ -835,6 +910,39 @@ serve(async (req) => {
                 `Confere se está tudo certo! 👍`;
             }
             
+            // === ONBOARDING TIPS ===
+            try {
+              const progress = await getOnboardingProgress(user.user_id, organizationId);
+              if (progress) {
+                const newLeadsCount = (progress.leads_created_count || 0) + 1;
+                
+                // First lead tip
+                if (!progress.first_lead_tips_sent && newLeadsCount === 1) {
+                  const tip = await sendOnboardingTip(senderPhone, 'first_lead');
+                  responseMessage += tip;
+                  await updateOnboardingProgress(user.user_id, {
+                    first_lead_created: true,
+                    first_lead_tips_sent: true,
+                    leads_created_count: newLeadsCount
+                  });
+                }
+                // Three leads milestone
+                else if (!progress.leads_count_milestone_3 && newLeadsCount === 3) {
+                  const tip = await sendOnboardingTip(senderPhone, 'three_leads');
+                  responseMessage += tip;
+                  await updateOnboardingProgress(user.user_id, {
+                    leads_count_milestone_3: true,
+                    funnel_tips_sent: true,
+                    leads_created_count: newLeadsCount
+                  });
+                } else {
+                  await updateOnboardingProgress(user.user_id, { leads_created_count: newLeadsCount });
+                }
+              }
+            } catch (tipError) {
+              console.error('Error sending onboarding tip:', tipError);
+            }
+            
             // Clear pending and mark as just created to avoid duplicate check on next message
             context.pendingAction = `lead_created_${lead.id}`;
             context.pendingLead = undefined;
@@ -876,6 +984,30 @@ serve(async (req) => {
               (aiResponse.lead_data?.observations ? `• Observações: ${updated.observations}\n` : '') +
               `\n🔗 Ver no CRM: https://crm.morphews.com/leads/${updated.id}\n\n` +
               `Confere se está tudo certo! 👍`;
+          }
+          
+          // === ONBOARDING TIP for first stage update ===
+          if (aiResponse.lead_data?.stage) {
+            try {
+              const progress = await getOnboardingProgress(user.user_id, organizationId);
+              if (progress && !progress.stage_tips_sent) {
+                const newStageUpdates = (progress.stage_updates_count || 0) + 1;
+                
+                if (newStageUpdates === 1) {
+                  const tip = await sendOnboardingTip(senderPhone, 'first_stage_update');
+                  responseMessage += tip;
+                  await updateOnboardingProgress(user.user_id, {
+                    first_stage_update: true,
+                    stage_tips_sent: true,
+                    stage_updates_count: newStageUpdates
+                  });
+                } else {
+                  await updateOnboardingProgress(user.user_id, { stage_updates_count: newStageUpdates });
+                }
+              }
+            } catch (tipError) {
+              console.error('Error sending stage update tip:', tipError);
+            }
           }
         } else {
           responseMessage = `⚠️ Não encontrei um lead com esse nome para atualizar. Você pode criar um novo ou me dizer o nome exato do lead.`;
