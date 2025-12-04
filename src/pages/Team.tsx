@@ -67,6 +67,44 @@ export default function Team() {
     whatsapp: "",
   });
   const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
+  
+  // My Profile state
+  const [isEditingMyProfile, setIsEditingMyProfile] = useState(false);
+  const [isSavingMyProfile, setIsSavingMyProfile] = useState(false);
+  const [myProfileData, setMyProfileData] = useState({
+    firstName: "",
+    lastName: "",
+    whatsapp: "",
+    instagram: "",
+  });
+
+  // Fetch current user's full profile
+  const { data: myFullProfile, refetch: refetchMyProfile } = useQuery({
+    queryKey: ["my-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Initialize myProfileData when profile loads
+  useState(() => {
+    if (myFullProfile) {
+      setMyProfileData({
+        firstName: myFullProfile.first_name || "",
+        lastName: myFullProfile.last_name || "",
+        whatsapp: myFullProfile.whatsapp || "",
+        instagram: myFullProfile.instagram || "",
+      });
+    }
+  });
 
   // Fetch org members
   const { data: members = [], isLoading: loadingMembers, refetch: refetchMembers } = useQuery({
@@ -179,6 +217,55 @@ export default function Team() {
 
   const handleUpgradePlan = (planId: string) => {
     createCheckout.mutate(planId);
+  };
+
+  const handleStartEditMyProfile = () => {
+    setMyProfileData({
+      firstName: myFullProfile?.first_name || "",
+      lastName: myFullProfile?.last_name || "",
+      whatsapp: myFullProfile?.whatsapp || "",
+      instagram: myFullProfile?.instagram || "",
+    });
+    setIsEditingMyProfile(true);
+  };
+
+  const handleSaveMyProfile = async () => {
+    if (!user?.id) return;
+    
+    setIsSavingMyProfile(true);
+    
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          first_name: myProfileData.firstName,
+          last_name: myProfileData.lastName,
+          whatsapp: myProfileData.whatsapp.replace(/\D/g, '') || null,
+          instagram: myProfileData.instagram || null,
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Perfil atualizado!",
+        description: "Seus dados foram salvos com sucesso.",
+      });
+      
+      setIsEditingMyProfile(false);
+      refetchMyProfile();
+      refetchMembers();
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    } catch (error: any) {
+      console.error("Error saving profile:", error);
+      toast({
+        title: "Erro ao salvar perfil",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingMyProfile(false);
+    }
   };
 
   const handleEditMember = (member: OrgMember) => {
@@ -546,6 +633,112 @@ export default function Team() {
                 </DialogContent>
               </Dialog>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* My Profile Card */}
+        <Card className="border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-transparent">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-lg bg-blue-500/10">
+                  <User className="w-6 h-6 text-blue-500" />
+                </div>
+                <div>
+                  <CardTitle>Meu Cadastro</CardTitle>
+                  <CardDescription>
+                    {myFullProfile?.email || user?.email}
+                  </CardDescription>
+                </div>
+              </div>
+              {!isEditingMyProfile && (
+                <Button variant="outline" onClick={handleStartEditMyProfile}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Editar
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isEditingMyProfile ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="myFirstName">Nome</Label>
+                    <Input
+                      id="myFirstName"
+                      value={myProfileData.firstName}
+                      onChange={(e) => setMyProfileData({ ...myProfileData, firstName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="myLastName">Sobrenome</Label>
+                    <Input
+                      id="myLastName"
+                      value={myProfileData.lastName}
+                      onChange={(e) => setMyProfileData({ ...myProfileData, lastName: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="myWhatsapp">WhatsApp</Label>
+                    <Input
+                      id="myWhatsapp"
+                      type="tel"
+                      placeholder="5511999999999"
+                      value={myProfileData.whatsapp}
+                      onChange={(e) => setMyProfileData({ ...myProfileData, whatsapp: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Número com código do país (ex: 5511999999999)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="myInstagram">Instagram</Label>
+                    <Input
+                      id="myInstagram"
+                      placeholder="@seuinstagram"
+                      value={myProfileData.instagram}
+                      onChange={(e) => setMyProfileData({ ...myProfileData, instagram: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setIsEditingMyProfile(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleSaveMyProfile} disabled={isSavingMyProfile}>
+                    {isSavingMyProfile && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-card border">
+                  <p className="text-sm text-muted-foreground mb-1">Nome</p>
+                  <p className="font-medium">{myFullProfile?.first_name || "—"} {myFullProfile?.last_name || ""}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border">
+                  <p className="text-sm text-muted-foreground mb-1">Email</p>
+                  <p className="font-medium truncate">{myFullProfile?.email || user?.email || "—"}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
+                    <Phone className="w-3 h-3" />
+                    WhatsApp
+                  </div>
+                  <p className="font-medium">{myFullProfile?.whatsapp || "—"}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border">
+                  <p className="text-sm text-muted-foreground mb-1">Instagram</p>
+                  <p className="font-medium">{myFullProfile?.instagram || "—"}</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

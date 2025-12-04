@@ -100,7 +100,25 @@ export default function Onboarding() {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    if (!profile?.organization_id || !user?.id) {
+      navigate("/", { replace: true });
+      return;
+    }
+
+    try {
+      // Create empty onboarding record to mark as skipped
+      await supabase.from("onboarding_data").upsert({
+        organization_id: profile.organization_id,
+        user_id: user.id,
+        completed_at: new Date().toISOString(),
+      }, {
+        onConflict: 'organization_id'
+      });
+    } catch (error) {
+      console.error("Error skipping onboarding:", error);
+    }
+    
     navigate("/", { replace: true });
   };
 
