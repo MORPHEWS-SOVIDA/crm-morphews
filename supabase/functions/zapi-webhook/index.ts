@@ -27,15 +27,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Funnel stages mapping
 const FUNNEL_STAGES = {
-  'prospect': 'Não classificado',
+  'cloud': 'Não classificado',
+  'prospect': 'Prospectando / Aguardando resposta',
   'contacted': 'Cliente nos chamou',
   'convincing': 'Convencendo a marcar call',
   'scheduled': 'Call agendada',
   'positive': 'Positivo/Interessado',
   'waiting_payment': 'Aguardando pagamento',
   'success': 'PAGO - Sucesso!',
-  'trash': 'Sem interesse',
-  'cloud': 'Não classificado'
+  'trash': 'Sem interesse'
 };
 
 // Brazilian phone number normalization
@@ -336,17 +336,19 @@ LEADS EXISTENTES NA ORGANIZAÇÃO (IMPORTANTE - BUSQUE AQUI PRIMEIRO!):
 ${existingLeadsInfo}
 
 REGRA PRINCIPAL: FACILITAR, NÃO DIFICULTAR!
-- Leads SEMPRE são criados com stage "prospect" (Não classificado) por padrão
+- Leads SEMPRE são criados com stage "cloud" (Não classificado) por padrão
 - Leads SEMPRE iniciam com 3 estrelas se não mencionado
 - NÃO fique perguntando muitas coisas - apenas o NOME é obrigatório para criar um lead!
+- APÓS CRIAR UM LEAD, faça uma pergunta de follow-up sobre a etapa do funil OU as estrelas!
 
 REGRA CRÍTICA DE ATUALIZAÇÃO:
 - Se o usuário mencionar um NOME ou INSTAGRAM de um lead que JÁ EXISTE na lista acima, use action "update_lead" com o ID do lead!
 - Palavras como "adicionar", "atualizar", "colocar", "mudar", "alterar" indicam ATUALIZAÇÃO, não criação!
 - Só use "create_lead" se for realmente um lead NOVO que não existe na lista!
 
-ETAPAS DO FUNIL (stage):
-- prospect: Não classificado / Prospectando (PADRÃO)
+ETAPAS DO FUNIL (stage) - USE ESTAS OPÇÕES:
+- cloud: Não classificado (PADRÃO para novos leads!)
+- prospect: Prospectando / Aguardando resposta
 - contacted: Cliente nos chamou
 - convincing: Convencendo a marcar call
 - scheduled: Call agendada
@@ -354,7 +356,6 @@ ETAPAS DO FUNIL (stage):
 - waiting_payment: Aguardando pagamento
 - success: PAGO - Sucesso!
 - trash: Sem interesse
-- cloud: Não classificado
 
 ESTRELAS - SIMPLIFICADO:
 - 5 = TOP (lead muito promissor, grandes chances)
@@ -389,10 +390,13 @@ EXEMPLOS DE ATUALIZAÇÃO:
 REGRAS:
 1. SEMPRE verifique se o lead já existe na lista ANTES de criar um novo!
 2. Se o lead existe, use update_lead com o ID correto!
-3. Se é um lead NOVO (nome não existe na lista), crie com stage="prospect" e stars=3
-4. Depois de criar, pergunte de forma SIMPLES: "Lead criado! Quer classificar como 5⭐ (TOP) ou 1⭐ (baixa prioridade)? Se não responder, fica 3⭐."
-5. Seja DIRETO e PRÁTICO
-6. Responda em português brasileiro
+3. Se é um lead NOVO (nome não existe na lista), crie com stage="cloud" (Não classificado) e stars=3
+4. APÓS CRIAR O LEAD, faça UMA pergunta de follow-up amigável perguntando sobre a ETAPA DO FUNIL:
+   "Lead cadastrado! 🎯 Em que situação esse lead está?\n1️⃣ Prospectando\n2️⃣ Cliente nos chamou\n3️⃣ Convencendo a marcar call\n4️⃣ Call agendada\n5️⃣ Call positiva\n6️⃣ Aguardando pagamento\n(Se não souber, fica como Não classificado)"
+5. Se o usuário responder a etapa, faça outra pergunta sobre ESTRELAS:
+   "Perfeito! E qual a prioridade desse lead?\n⭐ 1 estrela = Baixa prioridade\n⭐⭐⭐ 3 estrelas = Normal (padrão)\n⭐⭐⭐⭐⭐ 5 estrelas = TOP (muito promissor!)"
+6. Seja DIRETO e PRÁTICO
+7. Responda em português brasileiro
 
 ${context.pendingAction ? `AÇÃO PENDENTE: ${context.pendingAction}` : ''}
 ${context.pendingLead ? `LEAD PENDENTE: ${JSON.stringify(context.pendingLead)}` : ''}
@@ -447,7 +451,7 @@ async function createLead(organizationId: string, userId: string, leadData: any)
       email: leadData.email || null,
       specialty: leadData.specialty || null,
       followers: leadData.followers || 0,
-      stage: leadData.stage || 'prospect',
+      stage: leadData.stage || 'cloud',
       stars: leadData.stars || 3,
       assigned_to: leadData.assigned_to || '',
       lead_source: leadData.lead_source || null,
