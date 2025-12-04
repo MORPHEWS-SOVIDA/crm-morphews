@@ -67,14 +67,14 @@ export default function EditLead() {
 
   useEffect(() => {
     if (lead) {
-      const cep = (lead as any).cep || '';
+      const cep = lead.cep || '';
       setFormData({
         name: lead.name || '',
         specialty: lead.specialty || '',
         instagram: lead.instagram || '',
         followers: lead.followers?.toString() || '',
         whatsapp: lead.whatsapp || '',
-        secondary_phone: (lead as any).secondary_phone || '',
+        secondary_phone: lead.secondary_phone || '',
         email: lead.email || '',
         stage: lead.stage,
         stars: lead.stars,
@@ -87,20 +87,20 @@ export default function EditLead() {
         meeting_date: lead.meeting_date || '',
         meeting_time: lead.meeting_time || '',
         meeting_link: lead.meeting_link || '',
-        recorded_call_link: (lead as any).recorded_call_link || '',
-        linkedin: (lead as any).linkedin || '',
-        cpf_cnpj: (lead as any).cpf_cnpj || '',
-        site: (lead as any).site || '',
-        lead_source: (lead as any).lead_source || '',
-        products: (lead as any).products || [],
+        recorded_call_link: lead.recorded_call_link || '',
+        linkedin: lead.linkedin || '',
+        cpf_cnpj: lead.cpf_cnpj || '',
+        site: lead.site || '',
+        lead_source: lead.lead_source || '',
+        products: lead.products || [],
         // Address fields
         cep: cep.length === 8 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep,
-        street: (lead as any).street || '',
-        street_number: (lead as any).street_number || '',
-        complement: (lead as any).complement || '',
-        neighborhood: (lead as any).neighborhood || '',
-        city: (lead as any).city || '',
-        state: (lead as any).state || '',
+        street: lead.street || '',
+        street_number: lead.street_number || '',
+        complement: lead.complement || '',
+        neighborhood: lead.neighborhood || '',
+        city: lead.city || '',
+        state: lead.state || '',
       });
     }
   }, [lead]);

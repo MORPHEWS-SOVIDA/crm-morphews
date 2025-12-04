@@ -294,7 +294,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Tel. Secundário</p>
                     <InlineEdit
-                      value={(lead as any).secondary_phone}
+                      value={lead.secondary_phone}
                       onSave={(value) => handleUpdate('secondary_phone', value || null)}
                       displayClassName="font-medium"
                       placeholder="5511999999999"
@@ -441,7 +441,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">CEP</p>
                     <InlineEdit
-                      value={(lead as any).cep}
+                      value={lead.cep}
                       onSave={(value) => handleUpdate('cep', value ? value.replace(/\D/g, '') : null)}
                       displayClassName="font-medium"
                       placeholder="00000-000"
@@ -453,7 +453,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Rua</p>
                     <InlineEdit
-                      value={(lead as any).street}
+                      value={lead.street}
                       onSave={(value) => handleUpdate('street', value || null)}
                       displayClassName="font-medium"
                       placeholder="Nome da rua"
@@ -465,7 +465,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Número</p>
                     <InlineEdit
-                      value={(lead as any).street_number}
+                      value={lead.street_number}
                       onSave={(value) => handleUpdate('street_number', value || null)}
                       displayClassName="font-medium"
                       placeholder="123"
@@ -477,7 +477,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Complemento</p>
                     <InlineEdit
-                      value={(lead as any).complement}
+                      value={lead.complement}
                       onSave={(value) => handleUpdate('complement', value || null)}
                       displayClassName="font-medium"
                       placeholder="Apto, sala..."
@@ -489,7 +489,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Bairro</p>
                     <InlineEdit
-                      value={(lead as any).neighborhood}
+                      value={lead.neighborhood}
                       onSave={(value) => handleUpdate('neighborhood', value || null)}
                       displayClassName="font-medium"
                       placeholder="Nome do bairro"
@@ -502,14 +502,14 @@ export default function LeadDetail() {
                     <p className="text-sm text-muted-foreground">Cidade / Estado</p>
                     <div className="flex gap-2">
                       <InlineEdit
-                        value={(lead as any).city}
+                        value={lead.city}
                         onSave={(value) => handleUpdate('city', value || null)}
                         displayClassName="font-medium"
                         placeholder="Cidade"
                       />
                       <span className="text-muted-foreground">/</span>
                       <InlineEdit
-                        value={(lead as any).state}
+                        value={lead.state}
                         onSave={(value) => handleUpdate('state', value || null)}
                         displayClassName="font-medium"
                         placeholder="UF"
