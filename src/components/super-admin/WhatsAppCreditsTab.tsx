@@ -92,34 +92,7 @@ export function WhatsAppCreditsTab() {
     },
   });
 
-  // Handle errors
-  if (orgError || creditsError || instancesError) {
-    return (
-      <div className="text-center py-8">
-        <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-        <p className="text-destructive mb-2">Erro ao carregar dados</p>
-        <p className="text-muted-foreground text-sm mb-4">
-          Verifique se você tem permissão de master admin.
-        </p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Tentar novamente
-        </Button>
-      </div>
-    );
-  }
-
-  // Loading state
-  const isLoading = loadingOrgs || loadingCredits || loadingInstances;
-  if (isLoading) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-        <p>Carregando dados...</p>
-      </div>
-    );
-  }
-
-  // Add credits mutation
+  // Add credits mutation - MUST be before any conditional returns (React hooks rule)
   const addCreditsMutation = useMutation({
     mutationFn: async ({ orgId, count }: { orgId: string; count: number }) => {
       // Check if credits record exists
@@ -186,6 +159,33 @@ export function WhatsAppCreditsTab() {
       });
     },
   });
+
+  // Handle errors - after all hooks
+  if (orgError || creditsError || instancesError) {
+    return (
+      <div className="text-center py-8">
+        <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+        <p className="text-destructive mb-2">Erro ao carregar dados</p>
+        <p className="text-muted-foreground text-sm mb-4">
+          Verifique se você tem permissão de master admin.
+        </p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
+  // Loading state
+  const isLoading = loadingOrgs || loadingCredits || loadingInstances;
+  if (isLoading) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+        <p>Carregando dados...</p>
+      </div>
+    );
+  }
 
   const getOrgName = (orgId: string) => {
     return organizations.find((o) => o.id === orgId)?.name || "Organização";
