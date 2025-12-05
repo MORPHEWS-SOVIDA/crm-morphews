@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, Plus, Minus, Building2, MessageSquare, Loader2 } from "lucide-react";
+import { Gift, Plus, Minus, Building2, MessageSquare, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,41 +45,50 @@ export function WhatsAppCreditsTab() {
   const [creditsToAdd, setCreditsToAdd] = useState(1);
 
   // Fetch organizations
-  const { data: organizations, isError: orgError } = useQuery({
+  const { data: organizations = [], isLoading: loadingOrgs, isError: orgError } = useQuery({
     queryKey: ["super-admin-organizations"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name, owner_email")
         .order("name");
-      if (error) throw error;
-      return data as Organization[];
+      if (error) {
+        console.error("Error fetching organizations:", error);
+        throw error;
+      }
+      return (data || []) as Organization[];
     },
   });
 
   // Fetch all credits
-  const { data: credits, isLoading: loadingCredits, isError: creditsError } = useQuery({
+  const { data: credits = [], isLoading: loadingCredits, isError: creditsError } = useQuery({
     queryKey: ["super-admin-whatsapp-credits"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organization_whatsapp_credits")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as WhatsAppCredit[];
+      if (error) {
+        console.error("Error fetching credits:", error);
+        throw error;
+      }
+      return (data || []) as WhatsAppCredit[];
     },
   });
 
   // Fetch all instances
-  const { data: instances, isError: instancesError } = useQuery({
+  const { data: instances = [], isLoading: loadingInstances, isError: instancesError } = useQuery({
     queryKey: ["super-admin-whatsapp-instances"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as WhatsAppInstance[];
+      if (error) {
+        console.error("Error fetching instances:", error);
+        throw error;
+      }
+      return (data || []) as WhatsAppInstance[];
     },
   });
 
@@ -87,10 +96,25 @@ export function WhatsAppCreditsTab() {
   if (orgError || creditsError || instancesError) {
     return (
       <div className="text-center py-8">
+        <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
         <p className="text-destructive mb-2">Erro ao carregar dados</p>
+        <p className="text-muted-foreground text-sm mb-4">
+          Verifique se você tem permissão de master admin.
+        </p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Tentar novamente
         </Button>
+      </div>
+    );
+  }
+
+  // Loading state
+  const isLoading = loadingOrgs || loadingCredits || loadingInstances;
+  if (isLoading) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+        <p>Carregando dados...</p>
       </div>
     );
   }
@@ -164,23 +188,23 @@ export function WhatsAppCreditsTab() {
   });
 
   const getOrgName = (orgId: string) => {
-    return organizations?.find((o) => o.id === orgId)?.name || "Organização";
+    return organizations.find((o) => o.id === orgId)?.name || "Organização";
   };
 
   const getOrgInstances = (orgId: string) => {
-    return instances?.filter((i) => i.organization_id === orgId) || [];
+    return instances.filter((i) => i.organization_id === orgId);
   };
 
   const getUsedCredits = (orgId: string) => {
-    return instances?.filter(
+    return instances.filter(
       (i) => i.organization_id === orgId && i.payment_source === "admin_grant"
-    ).length || 0;
+    ).length;
   };
 
   // Stats
-  const totalCreditsGiven = credits?.reduce((sum, c) => sum + c.free_instances_count, 0) || 0;
-  const totalFreeInstances = instances?.filter((i) => i.payment_source === "admin_grant").length || 0;
-  const totalPaidInstances = instances?.filter((i) => i.payment_source === "stripe").length || 0;
+  const totalCreditsGiven = credits.reduce((sum, c) => sum + c.free_instances_count, 0);
+  const totalFreeInstances = instances.filter((i) => i.payment_source === "admin_grant").length;
+  const totalPaidInstances = instances.filter((i) => i.payment_source === "stripe").length;
 
   return (
     <div className="space-y-6">
@@ -303,12 +327,7 @@ export function WhatsAppCreditsTab() {
       </div>
 
       {/* Credits Table */}
-      {loadingCredits ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-          Carregando...
-        </div>
-      ) : credits?.length === 0 ? (
+      {credits.length === 0 ? (
         <Card className="text-center py-8">
           <CardContent>
             <Gift className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -330,7 +349,7 @@ export function WhatsAppCreditsTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {credits?.map((credit) => {
+              {credits.map((credit) => {
                 const orgInstances = getOrgInstances(credit.organization_id);
                 const usedCredits = getUsedCredits(credit.organization_id);
                 const available = credit.free_instances_count - usedCredits;

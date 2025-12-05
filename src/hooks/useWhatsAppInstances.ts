@@ -128,10 +128,29 @@ export function useCreateWhatsAppInstance() {
         .single();
 
       if (error) throw error;
+
+      // Increment coupon usage if a coupon was applied
+      if (data.couponId) {
+        // Get current uses and increment
+        const { data: coupon } = await supabase
+          .from("discount_coupons")
+          .select("current_uses")
+          .eq("id", data.couponId)
+          .single();
+        
+        if (coupon) {
+          await supabase
+            .from("discount_coupons")
+            .update({ current_uses: coupon.current_uses + 1 })
+            .eq("id", data.couponId);
+        }
+      }
+
       return instance;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      queryClient.invalidateQueries({ queryKey: ["discount-coupons"] });
       toast({ title: "Instância criada com sucesso!" });
     },
     onError: (error: Error) => {
