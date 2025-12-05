@@ -44,52 +44,68 @@ export function WhatsAppCreditsTab() {
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [creditsToAdd, setCreditsToAdd] = useState(1);
 
+  console.log("[WhatsAppCreditsTab] Rendering component");
+
   // Fetch organizations
-  const { data: organizations = [], isLoading: loadingOrgs, isError: orgError } = useQuery({
-    queryKey: ["super-admin-organizations"],
+  const { data: organizations = [], isLoading: loadingOrgs, isError: orgError, error: orgErrorDetails } = useQuery({
+    queryKey: ["super-admin-orgs-for-credits"],
     queryFn: async () => {
+      console.log("[WhatsAppCreditsTab] Fetching organizations...");
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name, owner_email")
         .order("name");
       if (error) {
-        console.error("Error fetching organizations:", error);
+        console.error("[WhatsAppCreditsTab] Error fetching organizations:", error);
         throw error;
       }
+      console.log("[WhatsAppCreditsTab] Organizations fetched:", data?.length);
       return (data || []) as Organization[];
     },
   });
 
   // Fetch all credits
-  const { data: credits = [], isLoading: loadingCredits, isError: creditsError } = useQuery({
+  const { data: credits = [], isLoading: loadingCredits, isError: creditsError, error: creditsErrorDetails } = useQuery({
     queryKey: ["super-admin-whatsapp-credits"],
     queryFn: async () => {
+      console.log("[WhatsAppCreditsTab] Fetching credits...");
       const { data, error } = await supabase
         .from("organization_whatsapp_credits")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) {
-        console.error("Error fetching credits:", error);
+        console.error("[WhatsAppCreditsTab] Error fetching credits:", error);
         throw error;
       }
+      console.log("[WhatsAppCreditsTab] Credits fetched:", data?.length);
       return (data || []) as WhatsAppCredit[];
     },
   });
 
   // Fetch all instances
-  const { data: instances = [], isLoading: loadingInstances, isError: instancesError } = useQuery({
+  const { data: instances = [], isLoading: loadingInstances, isError: instancesError, error: instancesErrorDetails } = useQuery({
     queryKey: ["super-admin-whatsapp-instances"],
     queryFn: async () => {
+      console.log("[WhatsAppCreditsTab] Fetching instances...");
       const { data, error } = await supabase
         .from("whatsapp_instances")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) {
-        console.error("Error fetching instances:", error);
+        console.error("[WhatsAppCreditsTab] Error fetching instances:", error);
         throw error;
       }
+      console.log("[WhatsAppCreditsTab] Instances fetched:", data?.length);
       return (data || []) as WhatsAppInstance[];
     },
+  });
+
+  console.log("[WhatsAppCreditsTab] State:", { 
+    loadingOrgs, loadingCredits, loadingInstances, 
+    orgError, creditsError, instancesError,
+    orgsCount: organizations.length,
+    creditsCount: credits.length,
+    instancesCount: instances.length
   });
 
   // Add credits mutation - MUST be before any conditional returns (React hooks rule)
@@ -162,12 +178,14 @@ export function WhatsAppCreditsTab() {
 
   // Handle errors - after all hooks
   if (orgError || creditsError || instancesError) {
+    const errorMessage = (orgErrorDetails as Error)?.message || (creditsErrorDetails as Error)?.message || (instancesErrorDetails as Error)?.message || "Erro desconhecido";
+    console.error("[WhatsAppCreditsTab] Error details:", { orgErrorDetails, creditsErrorDetails, instancesErrorDetails });
     return (
       <div className="text-center py-8">
         <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
         <p className="text-destructive mb-2">Erro ao carregar dados</p>
         <p className="text-muted-foreground text-sm mb-4">
-          Verifique se você tem permissão de master admin.
+          {errorMessage}
         </p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Tentar novamente
