@@ -3,8 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
 };
+
+// Validate internal secret for service-to-service calls
+const INTERNAL_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.substring(0, 32);
 
 interface CreateOrgUserRequest {
   organizationId: string;
@@ -121,6 +124,16 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Validate internal secret to prevent unauthorized access
+    const internalSecret = req.headers.get("x-internal-secret");
+    if (!INTERNAL_SECRET || internalSecret !== INTERNAL_SECRET) {
+      console.error("Unauthorized: Invalid or missing x-internal-secret");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const { organizationId, ownerName, ownerEmail, ownerPhone, planName, isAdditionalUser }: CreateOrgUserRequest = await req.json();
 
     console.log("Creating user for organization:", organizationId, "Email:", ownerEmail, "isAdditionalUser:", isAdditionalUser);
