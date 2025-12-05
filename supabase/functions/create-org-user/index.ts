@@ -123,11 +123,64 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
   try {
-    // Validate internal secret to prevent unauthorized access
+    // Check authentication: either x-internal-secret OR valid JWT from authorized user
     const internalSecret = req.headers.get("x-internal-secret");
-    if (!INTERNAL_SECRET || internalSecret !== INTERNAL_SECRET) {
-      console.error("Unauthorized: Invalid or missing x-internal-secret");
+    const authHeader = req.headers.get("authorization");
+    
+    let isAuthorized = false;
+    let callerUserId: string | null = null;
+
+    // Option 1: Internal secret (for server-to-server calls like stripe-webhook)
+    if (INTERNAL_SECRET && internalSecret === INTERNAL_SECRET) {
+      isAuthorized = true;
+      console.log("Authorized via x-internal-secret");
+    }
+    // Option 2: JWT auth (for client calls from admins)
+    else if (authHeader) {
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+      
+      if (user && !userError) {
+        callerUserId = user.id;
+        
+        // Check if user is master admin
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        
+        const { data: isMasterAdmin } = await supabaseAdmin.rpc('is_master_admin', { _user_id: user.id });
+        
+        if (isMasterAdmin) {
+          isAuthorized = true;
+          console.log("Authorized as master admin:", user.email);
+        } else {
+          // Check if user is org admin (will verify org membership later with organizationId)
+          const { data: orgMember } = await supabaseAdmin
+            .from('organization_members')
+            .select('role, organization_id')
+            .eq('user_id', user.id)
+            .in('role', ['owner', 'admin'])
+            .single();
+          
+          if (orgMember) {
+            isAuthorized = true;
+            console.log("Authorized as org admin:", user.email, "org:", orgMember.organization_id);
+          }
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      console.error("Unauthorized: No valid authentication provided");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -143,8 +196,6 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Campos obrigatórios: organizationId, ownerName, ownerEmail");
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     if (!resendApiKey) {
