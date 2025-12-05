@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Gift, Plus, Minus, Building2, MessageSquare, Loader2, AlertCircle } fro
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Organization {
   id: string;
@@ -38,19 +39,21 @@ interface WhatsAppInstance {
   phone_number: string | null;
 }
 
+const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
+
 export function WhatsAppCreditsTab() {
   const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
   const [showAddCredits, setShowAddCredits] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [creditsToAdd, setCreditsToAdd] = useState(1);
 
-  console.log("[WhatsAppCreditsTab] Rendering component");
+  const isMasterAdmin = !authLoading && user?.email === MASTER_ADMIN_EMAIL;
 
   // Fetch organizations
   const { data: organizations = [], isLoading: loadingOrgs, isError: orgError, error: orgErrorDetails } = useQuery({
     queryKey: ["super-admin-orgs-for-credits"],
     queryFn: async () => {
-      console.log("[WhatsAppCreditsTab] Fetching organizations...");
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name, owner_email")
@@ -59,16 +62,14 @@ export function WhatsAppCreditsTab() {
         console.error("[WhatsAppCreditsTab] Error fetching organizations:", error);
         throw error;
       }
-      console.log("[WhatsAppCreditsTab] Organizations fetched:", data?.length);
       return (data || []) as Organization[];
     },
+    enabled: isMasterAdmin,
   });
-
   // Fetch all credits
   const { data: credits = [], isLoading: loadingCredits, isError: creditsError, error: creditsErrorDetails } = useQuery({
     queryKey: ["super-admin-whatsapp-credits"],
     queryFn: async () => {
-      console.log("[WhatsAppCreditsTab] Fetching credits...");
       const { data, error } = await supabase
         .from("organization_whatsapp_credits")
         .select("*")
@@ -77,16 +78,15 @@ export function WhatsAppCreditsTab() {
         console.error("[WhatsAppCreditsTab] Error fetching credits:", error);
         throw error;
       }
-      console.log("[WhatsAppCreditsTab] Credits fetched:", data?.length);
       return (data || []) as WhatsAppCredit[];
     },
+    enabled: isMasterAdmin,
   });
 
   // Fetch all instances
   const { data: instances = [], isLoading: loadingInstances, isError: instancesError, error: instancesErrorDetails } = useQuery({
     queryKey: ["super-admin-whatsapp-instances"],
     queryFn: async () => {
-      console.log("[WhatsAppCreditsTab] Fetching instances...");
       const { data, error } = await supabase
         .from("whatsapp_instances")
         .select("*")
@@ -95,17 +95,9 @@ export function WhatsAppCreditsTab() {
         console.error("[WhatsAppCreditsTab] Error fetching instances:", error);
         throw error;
       }
-      console.log("[WhatsAppCreditsTab] Instances fetched:", data?.length);
       return (data || []) as WhatsAppInstance[];
     },
-  });
-
-  console.log("[WhatsAppCreditsTab] State:", { 
-    loadingOrgs, loadingCredits, loadingInstances, 
-    orgError, creditsError, instancesError,
-    orgsCount: organizations.length,
-    creditsCount: credits.length,
-    instancesCount: instances.length
+    enabled: isMasterAdmin,
   });
 
   // Add credits mutation - MUST be before any conditional returns (React hooks rule)
@@ -187,20 +179,34 @@ export function WhatsAppCreditsTab() {
         <p className="text-muted-foreground text-sm mb-4">
           {errorMessage}
         </p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button variant="outline" onClick={() => {
+          queryClient.invalidateQueries({ queryKey: ["super-admin-orgs-for-credits"] });
+          queryClient.invalidateQueries({ queryKey: ["super-admin-whatsapp-credits"] });
+          queryClient.invalidateQueries({ queryKey: ["super-admin-whatsapp-instances"] });
+        }}>
           Tentar novamente
         </Button>
       </div>
     );
   }
 
-  // Loading state
-  const isLoading = loadingOrgs || loadingCredits || loadingInstances;
+  // Loading state - include auth loading
+  const isLoading = authLoading || loadingOrgs || loadingCredits || loadingInstances;
   if (isLoading) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
         <p>Carregando dados...</p>
+      </div>
+    );
+  }
+
+  // Check if user is authorized
+  if (!isMasterAdmin) {
+    return (
+      <div className="text-center py-8">
+        <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+        <p className="text-destructive">Acesso não autorizado</p>
       </div>
     );
   }

@@ -129,21 +129,9 @@ export function useCreateWhatsAppInstance() {
 
       if (error) throw error;
 
-      // Increment coupon usage if a coupon was applied
+      // Increment coupon usage if a coupon was applied using SQL function
       if (data.couponId) {
-        // Get current uses and increment
-        const { data: coupon } = await supabase
-          .from("discount_coupons")
-          .select("current_uses")
-          .eq("id", data.couponId)
-          .single();
-        
-        if (coupon) {
-          await supabase
-            .from("discount_coupons")
-            .update({ current_uses: coupon.current_uses + 1 })
-            .eq("id", data.couponId);
-        }
+        await supabase.rpc("increment_coupon_usage", { coupon_id: data.couponId });
       }
 
       return instance;
