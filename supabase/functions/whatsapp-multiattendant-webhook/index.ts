@@ -179,6 +179,8 @@ async function saveMessage(
   mediaCaption?: string,
   isFromBot = false
 ) {
+  // Status must be: sent, delivered, read, or failed (constraint)
+  // For inbound messages, we use "delivered" as the initial status
   const { data, error } = await supabase
     .from("whatsapp_messages")
     .insert({
@@ -191,7 +193,7 @@ async function saveMessage(
       media_url: mediaUrl || null,
       media_caption: mediaCaption || null,
       is_from_bot: isFromBot,
-      status: direction === "outbound" ? "sent" : "received",
+      status: direction === "outbound" ? "sent" : "delivered",
     })
     .select()
     .single();

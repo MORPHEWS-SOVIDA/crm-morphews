@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
@@ -19,29 +19,39 @@ import {
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useCreateLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
+import { useAuth } from '@/hooks/useAuth';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { leadSchema } from '@/lib/validations';
 import { toast } from '@/hooks/use-toast';
 
 export default function NewLead() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { profile } = useAuth();
   const createLead = useCreateLead();
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
   const [errors, setErrors] = useState<Record<string, string>>({});
   
+  // Pre-fill from URL params (from WhatsApp chat)
+  const urlWhatsapp = searchParams.get('whatsapp') || '';
+  const urlName = searchParams.get('name') || '';
+  
+  // Default assigned_to to current user's name
+  const defaultAssignedTo = profile ? `${profile.first_name} ${profile.last_name}` : '';
+  
   const [formData, setFormData] = useState({
-    name: '',
+    name: urlName,
     specialty: '',
     instagram: '',
     followers: '',
-    whatsapp: '',
+    whatsapp: urlWhatsapp,
     secondary_phone: '',
     email: '',
     stage: 'prospect' as FunnelStage,
     stars: 3,
-    assigned_to: '',
+    assigned_to: defaultAssignedTo,
     whatsapp_group: '',
     desired_products: '',
     negotiated_value: '',
@@ -64,6 +74,16 @@ export default function NewLead() {
     city: '',
     state: '',
   });
+
+  // Update formData when URL params or profile changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      name: urlName || prev.name,
+      whatsapp: urlWhatsapp || prev.whatsapp,
+      assigned_to: prev.assigned_to || (profile ? `${profile.first_name} ${profile.last_name}` : ''),
+    }));
+  }, [urlWhatsapp, urlName, profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

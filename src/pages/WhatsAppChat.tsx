@@ -233,9 +233,9 @@ export default function WhatsAppChat() {
       const { error } = await supabase.functions.invoke('whatsapp-send-message', {
         body: {
           instanceId: selectedInstance,
-          phone: selectedConversation.phone_number,
-          message: newMessage,
-          conversationId: selectedConversation.id
+          conversationId: selectedConversation.id,
+          content: newMessage.trim(),
+          messageType: 'text'
         }
       });
 
