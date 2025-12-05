@@ -36,7 +36,8 @@ export function MobileNav() {
 
   const menuNavItems = [
     ...(canSeeWhatsAppDMs ? [
-      { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
+      { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
+      { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
     ] : []),
     ...(isAdmin ? [
       { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },

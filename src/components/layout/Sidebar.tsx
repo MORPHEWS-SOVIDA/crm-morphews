@@ -47,7 +47,8 @@ export function Sidebar() {
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
     ...(canSeeWhatsAppDMs ? [
-      { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
+      { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
+      { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
     ] : []),
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     ...(isAdmin ? [
