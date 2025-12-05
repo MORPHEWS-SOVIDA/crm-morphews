@@ -214,19 +214,11 @@ export default function Dashboard() {
               </div>
 
               {/* Stars Filter */}
-              <div className="col-span-2">
+              <div className="col-span-4">
                 <StarsFilter
                   leads={leads}
                   selectedStars={selectedStars}
                   onSelectStars={setSelectedStars}
-                />
-              </div>
-
-              {/* Responsavel Filter */}
-              <div className="col-span-2">
-                <ResponsavelFilter
-                  selectedResponsavel={selectedResponsavel}
-                  onSelectResponsavel={setSelectedResponsavel}
                 />
               </div>
 
@@ -254,7 +246,17 @@ export default function Dashboard() {
             {isMobile ? (
               <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
             ) : (
-              <LeadsTable leads={filteredLeads} title={getTableTitle()} />
+              <LeadsTable 
+                leads={filteredLeads} 
+                title={getTableTitle()}
+                headerRight={
+                  <ResponsavelFilter
+                    selectedResponsavel={selectedResponsavel}
+                    onSelectResponsavel={setSelectedResponsavel}
+                    compact
+                  />
+                }
+              />
             )}
           </>
         )}

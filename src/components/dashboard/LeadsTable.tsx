@@ -17,9 +17,10 @@ import { Badge } from '@/components/ui/badge';
 interface LeadsTableProps {
   leads: Lead[];
   title: string;
+  headerRight?: React.ReactNode;
 }
 
-export function LeadsTable({ leads, title }: LeadsTableProps) {
+export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
   const navigate = useNavigate();
 
   const formatFollowers = (num: number | null) => {
@@ -49,9 +50,12 @@ export function LeadsTable({ leads, title }: LeadsTableProps) {
 
   return (
     <div className="bg-card rounded-xl shadow-card overflow-hidden animate-fade-in">
-      <div className="p-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground">{leads.length} leads</p>
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+          <p className="text-sm text-muted-foreground">{leads.length} leads</p>
+        </div>
+        {headerRight && <div>{headerRight}</div>}
       </div>
       
       <div className="overflow-x-auto">
