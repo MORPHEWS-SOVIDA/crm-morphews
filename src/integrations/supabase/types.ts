@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      discount_coupons: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          current_uses: number
+          discount_value_cents: number
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          discount_value_cents?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          discount_value_cents?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       google_tokens: {
         Row: {
           access_token: string
@@ -548,6 +584,38 @@ export type Database = {
           },
         ]
       }
+      organization_whatsapp_credits: {
+        Row: {
+          created_at: string
+          free_instances_count: number
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          free_instances_count?: number
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          free_instances_count?: number
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_whatsapp_credits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
@@ -830,6 +898,305 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      whatsapp_bot_configs: {
+        Row: {
+          bot_gender: string | null
+          bot_name: string | null
+          company_name: string | null
+          company_website: string | null
+          created_at: string
+          forbidden_words: string[] | null
+          id: string
+          instance_id: string
+          is_enabled: boolean
+          is_human_like: boolean
+          main_objective: string | null
+          products_prices: string | null
+          supervisor_mode: boolean
+          tokens_limit_month: number
+          tokens_used_month: number
+          updated_at: string
+        }
+        Insert: {
+          bot_gender?: string | null
+          bot_name?: string | null
+          company_name?: string | null
+          company_website?: string | null
+          created_at?: string
+          forbidden_words?: string[] | null
+          id?: string
+          instance_id: string
+          is_enabled?: boolean
+          is_human_like?: boolean
+          main_objective?: string | null
+          products_prices?: string | null
+          supervisor_mode?: boolean
+          tokens_limit_month?: number
+          tokens_used_month?: number
+          updated_at?: string
+        }
+        Update: {
+          bot_gender?: string | null
+          bot_name?: string | null
+          company_name?: string | null
+          company_website?: string | null
+          created_at?: string
+          forbidden_words?: string[] | null
+          id?: string
+          instance_id?: string
+          is_enabled?: boolean
+          is_human_like?: boolean
+          main_objective?: string | null
+          products_prices?: string | null
+          supervisor_mode?: boolean
+          tokens_limit_month?: number
+          tokens_used_month?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_configs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_conversations: {
+        Row: {
+          contact_name: string | null
+          contact_profile_pic: string | null
+          created_at: string
+          id: string
+          instance_id: string
+          last_message_at: string | null
+          lead_id: string | null
+          organization_id: string
+          phone_number: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_profile_pic?: string | null
+          created_at?: string
+          id?: string
+          instance_id: string
+          last_message_at?: string | null
+          lead_id?: string | null
+          organization_id: string
+          phone_number: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          contact_name?: string | null
+          contact_profile_pic?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string
+          last_message_at?: string | null
+          lead_id?: string | null
+          organization_id?: string
+          phone_number?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_instance_users: {
+        Row: {
+          can_send: boolean
+          can_view: boolean
+          created_at: string
+          id: string
+          instance_id: string
+          user_id: string
+        }
+        Insert: {
+          can_send?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          instance_id: string
+          user_id: string
+        }
+        Update: {
+          can_send?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          instance_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instance_users_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_instances: {
+        Row: {
+          applied_coupon_id: string | null
+          created_at: string
+          discount_applied_cents: number | null
+          id: string
+          is_connected: boolean
+          monthly_price_cents: number
+          name: string
+          organization_id: string
+          payment_source: string
+          phone_number: string | null
+          qr_code_base64: string | null
+          status: string
+          stripe_subscription_item_id: string | null
+          updated_at: string
+          z_api_client_token: string | null
+          z_api_instance_id: string | null
+          z_api_token: string | null
+        }
+        Insert: {
+          applied_coupon_id?: string | null
+          created_at?: string
+          discount_applied_cents?: number | null
+          id?: string
+          is_connected?: boolean
+          monthly_price_cents?: number
+          name: string
+          organization_id: string
+          payment_source?: string
+          phone_number?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          stripe_subscription_item_id?: string | null
+          updated_at?: string
+          z_api_client_token?: string | null
+          z_api_instance_id?: string | null
+          z_api_token?: string | null
+        }
+        Update: {
+          applied_coupon_id?: string | null
+          created_at?: string
+          discount_applied_cents?: number | null
+          id?: string
+          is_connected?: boolean
+          monthly_price_cents?: number
+          name?: string
+          organization_id?: string
+          payment_source?: string
+          phone_number?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          stripe_subscription_item_id?: string | null
+          updated_at?: string
+          z_api_client_token?: string | null
+          z_api_instance_id?: string | null
+          z_api_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_applied_coupon_id_fkey"
+            columns: ["applied_coupon_id"]
+            isOneToOne: false
+            referencedRelation: "discount_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          instance_id: string
+          is_from_bot: boolean
+          media_caption: string | null
+          media_url: string | null
+          message_type: string
+          status: string | null
+          z_api_message_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          id?: string
+          instance_id: string
+          is_from_bot?: boolean
+          media_caption?: string | null
+          media_url?: string | null
+          message_type?: string
+          status?: string | null
+          z_api_message_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          instance_id?: string
+          is_from_bot?: boolean
+          media_caption?: string | null
+          media_url?: string | null
+          message_type?: string
+          status?: string | null
+          z_api_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

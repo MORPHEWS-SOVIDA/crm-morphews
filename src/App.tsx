@@ -18,6 +18,7 @@ import NewLead from "./pages/NewLead";
 import EditLead from "./pages/EditLead";
 import Settings from "./pages/Settings";
 import InstagramDMs from "./pages/InstagramDMs";
+import WhatsAppDMs from "./pages/WhatsAppDMs";
 import Planos from "./pages/Planos";
 import InterestedLeads from "./pages/InterestedLeads";
 import SuperAdmin from "./pages/SuperAdmin";
@@ -84,6 +85,11 @@ const App = () => (
             <Route path="/instagram" element={
               <ProtectedRoute>
                 <InstagramDMs />
+              </ProtectedRoute>
+            } />
+            <Route path="/whatsapp" element={
+              <ProtectedRoute>
+                <WhatsAppDMs />
               </ProtectedRoute>
             } />
             <Route path="/interessados" element={

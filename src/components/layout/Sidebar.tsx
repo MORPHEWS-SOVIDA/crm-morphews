@@ -5,6 +5,7 @@ import {
   Plus, 
   Settings, 
   Instagram,
+  MessageSquare,
   Menu,
   X,
   UserPlus,
@@ -40,6 +41,7 @@ export function Sidebar() {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
+    { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     ...(isAdmin ? [
       { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },

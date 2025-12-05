@@ -13,10 +13,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { CouponsTab } from "@/components/super-admin/CouponsTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -720,9 +721,13 @@ export default function SuperAdmin() {
         </div>
 
         <Tabs defaultValue="organizations" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="organizations">Organizações</TabsTrigger>
             <TabsTrigger value="interested">Quiz Interessados ({interestedLeads?.length || 0})</TabsTrigger>
+            <TabsTrigger value="coupons" className="gap-1">
+              <Tag className="h-3 w-3" />
+              Cupons
+            </TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
             <TabsTrigger value="users">Usuários sem Org</TabsTrigger>
           </TabsList>
@@ -1165,6 +1170,10 @@ export default function SuperAdmin() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="coupons">
+            <CouponsTab />
           </TabsContent>
         </Tabs>
       </div>
