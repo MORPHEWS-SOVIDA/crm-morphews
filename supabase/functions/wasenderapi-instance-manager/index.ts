@@ -21,7 +21,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { action, instanceId, phoneNumber } = await req.json();
+    const { action, instanceId, phoneNumber, sessionName } = await req.json();
 
     console.log("WasenderAPI Instance Manager:", action, instanceId);
 
@@ -64,7 +64,11 @@ serve(async (req) => {
         // Build webhook URL
         const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-multiattendant-webhook`;
 
+        // Use provided session name or fallback to instance name
+        const finalSessionName = sessionName || instance.name || "Sessão WhatsApp";
+
         console.log("Creating WasenderAPI session...");
+        console.log("Session name:", finalSessionName);
         console.log("Webhook URL:", webhookUrl);
         console.log("Phone number:", phoneNumber);
 
@@ -77,7 +81,7 @@ serve(async (req) => {
             "Authorization": `Bearer ${WASENDERAPI_TOKEN}`,
           },
           body: JSON.stringify({
-            name: `Morphews - ${instance.name}`,
+            name: finalSessionName,
             phone_number: phoneNumber.startsWith("+") ? phoneNumber : `+${phoneNumber}`,
             account_protection: true,
             log_messages: true,
