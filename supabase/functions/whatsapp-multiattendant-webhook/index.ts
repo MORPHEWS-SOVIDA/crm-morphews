@@ -8,6 +8,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -21,6 +23,138 @@ function normalizePhone(phone: string): string {
   }
   
   return clean;
+}
+
+// Analyze image using Lovable AI (Gemini Vision)
+async function analyzeImage(imageUrl: string): Promise<string | null> {
+  if (!LOVABLE_API_KEY) {
+    console.log("LOVABLE_API_KEY not configured, skipping image analysis");
+    return null;
+  }
+
+  try {
+    console.log("Analyzing image with Gemini Vision:", imageUrl);
+    
+    // Fetch image and convert to base64
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      console.error("Failed to fetch image:", imageResponse.status);
+      return null;
+    }
+    
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    const mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um assistente que analisa imagens enviadas por WhatsApp para extrair informações de leads e negócios.
+            
+Ao analisar a imagem, extraia informações relevantes como:
+- Nomes de pessoas
+- Números de telefone
+- Emails
+- Datas e horários de reuniões
+- Informações de empresas
+- Valores ou preços
+- Qualquer texto legível relevante
+
+Responda de forma clara e concisa em português, listando as informações encontradas.
+Se a imagem não contiver informações de negócio relevantes, descreva brevemente o que você vê.`
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Analise esta imagem e extraia todas as informações relevantes de negócio/leads:"
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini Vision API error:", response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const analysis = data.choices?.[0]?.message?.content;
+    
+    console.log("Image analysis result:", analysis?.substring(0, 200));
+    return analysis || null;
+  } catch (error) {
+    console.error("Error analyzing image:", error);
+    return null;
+  }
+}
+
+// Transcribe audio using OpenAI Whisper
+async function transcribeAudio(audioUrl: string): Promise<string | null> {
+  if (!OPENAI_API_KEY) {
+    console.log("OPENAI_API_KEY not configured, skipping audio transcription");
+    return null;
+  }
+
+  try {
+    console.log("Transcribing audio with Whisper:", audioUrl);
+    
+    // Fetch audio file
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      console.error("Failed to fetch audio:", audioResponse.status);
+      return null;
+    }
+    
+    const audioBlob = await audioResponse.blob();
+    
+    // Prepare form data for Whisper API
+    const formData = new FormData();
+    formData.append("file", audioBlob, "audio.ogg");
+    formData.append("model", "whisper-1");
+    formData.append("language", "pt");
+    
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Whisper API error:", response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const transcription = data.text;
+    
+    console.log("Audio transcription result:", transcription?.substring(0, 200));
+    return transcription || null;
+  } catch (error) {
+    console.error("Error transcribing audio:", error);
+    return null;
+  }
 }
 
 // Find instance by different provider IDs
@@ -283,14 +417,14 @@ async function processWasenderMessage(instance: any, body: any) {
   }
   
   // Extract message content from various WasenderAPI formats
-  const text = msgData.messageBody || 
-              msgData.body ||
-              msgData.text ||
-              msgData.message?.conversation || 
-              msgData.message?.extendedTextMessage?.text ||
-              msgData.message?.imageMessage?.caption ||
-              msgData.message?.videoMessage?.caption ||
-              "";
+  let text = msgData.messageBody || 
+            msgData.body ||
+            msgData.text ||
+            msgData.message?.conversation || 
+            msgData.message?.extendedTextMessage?.text ||
+            msgData.message?.imageMessage?.caption ||
+            msgData.message?.videoMessage?.caption ||
+            "";
   
   const messageId = msgData.key?.id || msgData.id || msgData.messageId || "";
   const isGroup = remoteJid.includes("@g.us") || msgData.isGroup || false;
@@ -304,12 +438,12 @@ async function processWasenderMessage(instance: any, body: any) {
   else if (msgData.message?.documentMessage || msgData.type === "document") messageType = "document";
   else if (msgData.message?.stickerMessage) messageType = "sticker";
   
-  const mediaUrl = msgData.mediaUrl || 
-                  msgData.message?.imageMessage?.url ||
-                  msgData.message?.audioMessage?.url ||
-                  msgData.message?.videoMessage?.url ||
-                  msgData.message?.documentMessage?.url ||
-                  null;
+  let mediaUrl = msgData.mediaUrl || 
+                msgData.message?.imageMessage?.url ||
+                msgData.message?.audioMessage?.url ||
+                msgData.message?.videoMessage?.url ||
+                msgData.message?.documentMessage?.url ||
+                null;
   const caption = msgData.message?.imageMessage?.caption || 
                  msgData.message?.videoMessage?.caption ||
                  msgData.caption || 
@@ -321,7 +455,8 @@ async function processWasenderMessage(instance: any, body: any) {
     messageId, 
     senderName,
     isFromMe,
-    messageType 
+    messageType,
+    mediaUrl: mediaUrl ? "has_media" : "no_media"
   });
 
   if (!phone) {
@@ -333,6 +468,31 @@ async function processWasenderMessage(instance: any, body: any) {
   if (isGroup) {
     console.log("Group message, skipping...");
     return null;
+  }
+
+  // Process media: analyze images and transcribe audio
+  let processedContent = text || caption || null;
+  
+  if (mediaUrl && !isFromMe) {
+    // Process image - analyze with Gemini Vision
+    if (messageType === "image") {
+      console.log("Processing image message...");
+      const imageAnalysis = await analyzeImage(mediaUrl);
+      if (imageAnalysis) {
+        processedContent = processedContent 
+          ? `${processedContent}\n\n📸 Análise da imagem:\n${imageAnalysis}`
+          : `📸 Análise da imagem:\n${imageAnalysis}`;
+      }
+    }
+    
+    // Process audio - transcribe with Whisper
+    if (messageType === "audio") {
+      console.log("Processing audio message...");
+      const transcription = await transcribeAudio(mediaUrl);
+      if (transcription) {
+        processedContent = `🎤 Transcrição do áudio:\n${transcription}`;
+      }
+    }
   }
 
   // Get or create conversation
@@ -348,7 +508,7 @@ async function processWasenderMessage(instance: any, body: any) {
   const savedMessage = await saveMessage(
     conversation.id,
     instance.id,
-    text || caption || null,
+    processedContent,
     direction,
     messageType,
     messageId,
@@ -360,8 +520,9 @@ async function processWasenderMessage(instance: any, body: any) {
     conversationId: conversation.id,
     from: phone,
     direction,
-    text: text?.substring(0, 50),
-    saved: !!savedMessage
+    text: processedContent?.substring(0, 50),
+    saved: !!savedMessage,
+    hadMediaProcessing: messageType === "image" || messageType === "audio"
   });
 
   return savedMessage;
@@ -512,7 +673,7 @@ serve(async (req) => {
       case "message":
       case "received": {
         const phone = body.phone || body.from?.replace("@c.us", "");
-        const text = body.text?.message || body.body || body.message || "";
+        let text = body.text?.message || body.body || body.message || "";
         const messageId = body.messageId || body.id;
         const isGroup = body.isGroup || false;
         const senderName = body.senderName || body.pushName || body.notifyName;
@@ -535,6 +696,29 @@ serve(async (req) => {
           });
         }
 
+        // Process media for Z-API
+        let processedContent = text || caption || null;
+        
+        if (mediaUrl) {
+          // Process image
+          if (messageType === "image" || body.image?.imageUrl) {
+            const imageAnalysis = await analyzeImage(mediaUrl);
+            if (imageAnalysis) {
+              processedContent = processedContent 
+                ? `${processedContent}\n\n📸 Análise da imagem:\n${imageAnalysis}`
+                : `📸 Análise da imagem:\n${imageAnalysis}`;
+            }
+          }
+          
+          // Process audio
+          if (messageType === "audio" || body.audio?.audioUrl) {
+            const transcription = await transcribeAudio(mediaUrl);
+            if (transcription) {
+              processedContent = `🎤 Transcrição do áudio:\n${transcription}`;
+            }
+          }
+        }
+
         const conversation = await getOrCreateConversation(
           instance.id,
           instance.organization_id,
@@ -546,7 +730,7 @@ serve(async (req) => {
         await saveMessage(
           conversation.id,
           instance.id,
-          text || null,
+          processedContent,
           "inbound",
           messageType,
           messageId,
@@ -557,7 +741,7 @@ serve(async (req) => {
         console.log("Z-API message saved:", {
           conversationId: conversation.id,
           from: phone,
-          text: text?.substring(0, 50),
+          text: processedContent?.substring(0, 50),
         });
 
         return new Response(JSON.stringify({ status: "message_saved" }), {
