@@ -6,10 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useWhatsAppInstances, useValidateCoupon, useCreateWhatsAppInstance, useOrganizationWhatsAppCredits, useUpdateWhatsAppInstance, DiscountCoupon, WhatsAppInstance } from "@/hooks/useWhatsAppInstances";
-import { useOrganizationWhatsAppProviders, PROVIDER_LABELS, PROVIDER_PRICES, type WhatsAppProvider } from "@/hooks/useWhatsAppProviders";
+import { useOrganizationWhatsAppProviders, PROVIDER_PRICES, type WhatsAppProvider } from "@/hooks/useWhatsAppProviders";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -374,6 +373,15 @@ export default function WhatsAppDMs() {
     );
   }
 
+  // Check which providers are available
+  const canUseZapi = isMasterAdmin || availableProviders.find(p => p.provider === "zapi");
+  const canUseWasender = isMasterAdmin || availableProviders.find(p => p.provider === "wasenderapi");
+
+  const openCreateDialogForProvider = (provider: WhatsAppProvider) => {
+    setSelectedProvider(provider);
+    setShowCreateDialog(true);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -389,160 +397,159 @@ export default function WhatsAppDMs() {
             </p>
           </div>
 
-          {/* Todos podem contratar instâncias */}
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Contratar Nova Instância
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Contratar Nova Instância WhatsApp</DialogTitle>
-                  <DialogDescription>
-                    Cada instância permite conectar um número de WhatsApp
-                  </DialogDescription>
-                </DialogHeader>
+          {/* Two separate buttons for each provider */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            {canUseZapi && (
+              <Button 
+                onClick={() => openCreateDialogForProvider("zapi")}
+                className="gap-2 bg-green-600 hover:bg-green-700"
+              >
+                <Flag className="h-4 w-4" />
+                Contratar API Brasileira
+                <Badge variant="secondary" className="ml-1 text-xs bg-green-800 text-white">
+                  {formatPrice(PROVIDER_PRICES.zapi)}/mês
+                </Badge>
+              </Button>
+            )}
+            {canUseWasender && (
+              <Button 
+                onClick={() => openCreateDialogForProvider("wasenderapi")}
+                className="gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <Globe className="h-4 w-4" />
+                Contratar API Internacional
+                <Badge variant="secondary" className="ml-1 text-xs bg-blue-800 text-white">
+                  {formatPrice(PROVIDER_PRICES.wasenderapi)}/mês
+                </Badge>
+              </Button>
+            )}
+          </div>
+        </div>
 
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="instance-name">Nome da Instância *</Label>
-                    <Input
-                      id="instance-name"
-                      placeholder="Ex: Atendimento Principal"
-                      value={newInstanceName}
-                      onChange={(e) => setNewInstanceName(e.target.value)}
-                    />
-                  </div>
+        {/* Create Dialog - simplified since provider is pre-selected */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedProvider === "zapi" ? (
+                  <>
+                    <Flag className="h-5 w-5 text-green-600" />
+                    Contratar API Brasileira (Z-API)
+                  </>
+                ) : (
+                  <>
+                    <Globe className="h-5 w-5 text-blue-600" />
+                    Contratar API Internacional (WasenderAPI)
+                  </>
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                Cada instância permite conectar um número de WhatsApp
+              </DialogDescription>
+            </DialogHeader>
 
-                  {/* Provider Selection */}
-                  {(isMasterAdmin || availableProviders.length > 0) && (
-                    <div className="space-y-2">
-                      <Label>Selecione o Provider</Label>
-                      <RadioGroup
-                        value={selectedProvider}
-                        onValueChange={(value) => setSelectedProvider(value as WhatsAppProvider)}
-                        className="grid grid-cols-2 gap-3"
-                      >
-                        {(isMasterAdmin || availableProviders.find(p => p.provider === "zapi")) && (
-                          <div className="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-muted/50">
-                            <RadioGroupItem value="zapi" id="zapi" />
-                            <Label htmlFor="zapi" className="cursor-pointer flex-1">
-                              <div className="flex items-center gap-2">
-                                <Flag className="h-4 w-4 text-green-600" />
-                                <span className="font-medium">API Brasileira</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">{formatPrice(PROVIDER_PRICES.zapi)}/mês</span>
-                            </Label>
-                          </div>
-                        )}
-                        {(isMasterAdmin || availableProviders.find(p => p.provider === "wasenderapi")) && (
-                          <div className="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-muted/50">
-                            <RadioGroupItem value="wasenderapi" id="wasenderapi" />
-                            <Label htmlFor="wasenderapi" className="cursor-pointer flex-1">
-                              <div className="flex items-center gap-2">
-                                <Globe className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium">API Internacional</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">{formatPrice(PROVIDER_PRICES.wasenderapi)}/mês</span>
-                            </Label>
-                          </div>
-                        )}
-                      </RadioGroup>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="instance-name">Nome da Instância *</Label>
+                <Input
+                  id="instance-name"
+                  placeholder="Ex: Atendimento Principal"
+                  value={newInstanceName}
+                  onChange={(e) => setNewInstanceName(e.target.value)}
+                />
+              </div>
+
+              {/* Pricing */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">
+                    {selectedProvider === "zapi" ? "API Brasileira" : "API Internacional"}:
+                  </span>
+                  <span className={appliedCoupon ? "line-through text-muted-foreground" : "font-semibold"}>
+                    {formatPrice(currentPrice)}
+                  </span>
+                </div>
+
+                {appliedCoupon && (
+                  <>
+                    <div className="flex justify-between items-center text-green-600">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-4 w-4" />
+                        Desconto ({appliedCoupon.code}):
+                      </span>
+                      <span>-{formatPrice(appliedCoupon.discount_value_cents)}</span>
                     </div>
-                  )}
-
-                  {/* Pricing */}
-                  <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Valor mensal:</span>
-                      <span className={appliedCoupon ? "line-through text-muted-foreground" : "font-semibold"}>
-                        {formatPrice(currentPrice)}
+                    <div className="border-t pt-2 flex justify-between items-center">
+                      <span className="font-semibold">Total:</span>
+                      <span className="font-bold text-lg text-green-600">
+                        {formatPrice(finalPrice)}/mês
                       </span>
                     </div>
+                  </>
+                )}
 
-                    {appliedCoupon && (
-                      <>
-                        <div className="flex justify-between items-center text-green-600">
-                          <span className="flex items-center gap-1">
-                            <Tag className="h-4 w-4" />
-                            Desconto ({appliedCoupon.code}):
-                          </span>
-                          <span>-{formatPrice(appliedCoupon.discount_value_cents)}</span>
-                        </div>
-                        <div className="border-t pt-2 flex justify-between items-center">
-                          <span className="font-semibold">Total:</span>
-                          <span className="font-bold text-lg text-green-600">
-                            {formatPrice(finalPrice)}/mês
-                          </span>
-                        </div>
-                      </>
-                    )}
-
-                    {freeInstancesAvailable > 0 && (
-                      <div className="text-sm text-green-600 bg-green-50 dark:bg-green-900/20 p-2 rounded">
-                        🎁 Você tem {freeInstancesAvailable} instância(s) gratuita(s) disponível(is)!
-                      </div>
-                    )}
+                {freeInstancesAvailable > 0 && (
+                  <div className="text-sm text-green-600 bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                    🎁 Você tem {freeInstancesAvailable} instância(s) gratuita(s) disponível(is)!
                   </div>
+                )}
+              </div>
 
-                  {/* Coupon */}
-                  <div className="space-y-2">
-                    <Label htmlFor="coupon">Cupom de Desconto</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="coupon"
-                        placeholder="Digite o cupom"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        disabled={!!appliedCoupon}
-                      />
-                      {appliedCoupon ? (
-                        <Button variant="outline" size="icon" onClick={handleRemoveCoupon}>
-                          <X className="h-4 w-4" />
-                        </Button>
+              {/* Coupon */}
+              <div className="space-y-2">
+                <Label htmlFor="coupon">Cupom de Desconto</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="coupon"
+                    placeholder="Digite o cupom"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    disabled={!!appliedCoupon}
+                  />
+                  {appliedCoupon ? (
+                    <Button variant="outline" size="icon" onClick={handleRemoveCoupon}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      onClick={handleValidateCoupon}
+                      disabled={!couponCode.trim() || isValidatingCoupon}
+                    >
+                      {isValidatingCoupon ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Button 
-                          variant="outline" 
-                          onClick={handleValidateCoupon}
-                          disabled={!couponCode.trim() || isValidatingCoupon}
-                        >
-                          {isValidatingCoupon ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <Check className="h-4 w-4" />
                       )}
-                    </div>
-                    {appliedCoupon && (
-                      <p className="text-sm text-green-600 flex items-center gap-1">
-                        <Check className="h-3 w-3" />
-                        Cupom aplicado!
-                      </p>
-                    )}
-                  </div>
+                    </Button>
+                  )}
                 </div>
+                {appliedCoupon && (
+                  <p className="text-sm text-green-600 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Cupom aplicado!
+                  </p>
+                )}
+              </div>
+            </div>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={() => setShowCreateDialog(false)}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    className="flex-1" 
-                    onClick={handleCreateInstance}
-                    disabled={!newInstanceName.trim() || createInstance.isPending}
-                  >
-                    {createInstance.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    {freeInstancesAvailable > 0 || finalPrice === 0 ? "Criar Grátis" : "Ir para Pagamento"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-        </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCreateDialog(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleCreateInstance}
+                disabled={!newInstanceName.trim() || createInstance.isPending}
+              >
+                {createInstance.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                {freeInstancesAvailable > 0 || finalPrice === 0 ? "Criar Grátis" : "Ir para Pagamento"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Instances List */}
         {isLoading ? (
@@ -569,7 +576,23 @@ export default function WhatsAppDMs() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {instances?.map((instance) => (
               <Card key={instance.id} className="relative overflow-hidden">
-                <CardHeader className="pb-3">
+                {/* Provider indicator badge at top */}
+                <div className="absolute top-0 right-0">
+                  <Badge 
+                    className={`rounded-none rounded-bl-lg text-xs ${
+                      instance.provider === "wasenderapi" 
+                        ? "bg-blue-600 text-white" 
+                        : "bg-green-600 text-white"
+                    }`}
+                  >
+                    {instance.provider === "wasenderapi" ? (
+                      <><Globe className="h-3 w-3 mr-1" />Internacional</>
+                    ) : (
+                      <><Flag className="h-3 w-3 mr-1" />Brasileira</>
+                    )}
+                  </Badge>
+                </div>
+                <CardHeader className="pb-3 pt-8">
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-lg">{instance.name}</CardTitle>
@@ -577,7 +600,12 @@ export default function WhatsAppDMs() {
                         {instance.phone_number || "Número não configurado"}
                       </CardDescription>
                     </div>
-                    {getStatusBadge(instance.status, instance.is_connected)}
+                    <div className="flex flex-col items-end gap-1">
+                      {getStatusBadge(instance.status, instance.is_connected)}
+                      <Badge variant="outline" className="text-xs">
+                        {formatPrice(instance.monthly_price_cents)}/mês
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
