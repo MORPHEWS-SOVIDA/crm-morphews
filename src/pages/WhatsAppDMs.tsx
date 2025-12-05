@@ -347,6 +347,86 @@ export default function WhatsAppDMs() {
     }
   };
 
+  const handleReconnectWasender = async (instance: WhatsAppInstance) => {
+    setIsGeneratingQR(instance.id);
+    
+    try {
+      toast({ 
+        title: "Reconectando sessão...", 
+        description: "Obtendo novo QR Code",
+      });
+
+      // Call connect_session action
+      const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+        body: { action: "connect_session", instanceId: instance.id },
+      });
+
+      if (error) throw error;
+
+      if (data?.qrCode) {
+        toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+      } else {
+        // Try get_qr_code as fallback
+        const { data: qrData } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+          body: { action: "get_qr_code", instanceId: instance.id },
+        });
+        
+        if (qrData?.qrCode) {
+          toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+        } else {
+          toast({ 
+            title: "QR Code não disponível", 
+            description: "Tente novamente em alguns segundos",
+            variant: "destructive",
+          });
+        }
+      }
+
+      refetch();
+    } catch (error: any) {
+      console.error("Error reconnecting:", error);
+      toast({
+        title: "Erro ao reconectar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingQR(null);
+    }
+  };
+
+  const handleDisconnect = async (instance: WhatsAppInstance) => {
+    setIsGeneratingQR(instance.id);
+    const provider = instance.provider || "zapi";
+    
+    try {
+      const functionName = provider === "wasenderapi" 
+        ? "wasenderapi-instance-manager" 
+        : "zapi-instance-manager";
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { action: "disconnect", instanceId: instance.id },
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "WhatsApp desconectado", 
+        description: "Clique em 'Reconectar' para gerar novo QR Code",
+      });
+      refetch();
+    } catch (error: any) {
+      console.error("Error disconnecting:", error);
+      toast({
+        title: "Erro ao desconectar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingQR(null);
+    }
+  };
+
   const handleCheckConnection = async (instance: WhatsAppInstance) => {
     setIsCheckingConnection(instance.id);
     const provider = instance.provider || "zapi";
@@ -692,26 +772,58 @@ export default function WhatsAppDMs() {
                           <p className="text-sm text-muted-foreground">
                             Clique para gerar o QR Code
                           </p>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleGenerateQRCode(instance)}
-                            disabled={isGeneratingQR === instance.id}
-                          >
-                            {isGeneratingQR === instance.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : null}
-                            Gerar QR Code
-                          </Button>
+                          <div className="flex gap-2 justify-center">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleGenerateQRCode(instance)}
+                              disabled={isGeneratingQR === instance.id}
+                            >
+                              {isGeneratingQR === instance.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              Gerar QR Code
+                            </Button>
+                            {/* Show Reconnect button for WasenderAPI instances that have session but need QR */}
+                            {instance.provider === "wasenderapi" && instance.wasender_session_id && (
+                              <Button 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => handleReconnectWasender(instance)}
+                                disabled={isGeneratingQR === instance.id}
+                              >
+                                {isGeneratingQR === instance.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                )}
+                                Reconectar
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
                   ) : instance.is_connected ? (
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center space-y-3">
                       <Check className="h-8 w-8 mx-auto text-green-500 mb-2" />
                       <p className="text-sm text-green-700 dark:text-green-300 font-medium">
                         WhatsApp conectado e funcionando!
                       </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDisconnect(instance)}
+                        disabled={isGeneratingQR === instance.id}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        {isGeneratingQR === instance.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Unplug className="h-4 w-4 mr-2" />
+                        )}
+                        Desconectar
+                      </Button>
                     </div>
                   ) : null}
 
