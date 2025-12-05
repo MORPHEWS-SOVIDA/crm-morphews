@@ -740,7 +740,7 @@ export default function WhatsAppDMs() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* QR Code Area */}
-                  {instance.status === "pending" || (!instance.is_connected && instance.status === "active") ? (
+                  {instance.status === "pending" || (!instance.is_connected && instance.status === "active") || (!instance.is_connected && instance.provider === "wasenderapi") ? (
                     <div className="bg-muted/50 rounded-lg p-4 text-center">
                       {instance.qr_code_base64 ? (
                         <div className="space-y-2">
@@ -770,24 +770,15 @@ export default function WhatsAppDMs() {
                         <div className="space-y-2 py-4">
                           <QrCode className="h-12 w-12 mx-auto text-muted-foreground" />
                           <p className="text-sm text-muted-foreground">
-                            Clique para gerar o QR Code
+                            {instance.provider === "wasenderapi" && instance.wasender_session_id 
+                              ? "Reconecte para gerar novo QR Code" 
+                              : "Clique para gerar o QR Code"}
                           </p>
-                          <div className="flex gap-2 justify-center">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleGenerateQRCode(instance)}
-                              disabled={isGeneratingQR === instance.id}
-                            >
-                              {isGeneratingQR === instance.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Gerar QR Code
-                            </Button>
-                            {/* Show Reconnect button for WasenderAPI instances that have session but need QR */}
-                            {instance.provider === "wasenderapi" && instance.wasender_session_id && (
+                          <div className="flex gap-2 justify-center flex-wrap">
+                            {/* For WasenderAPI with session, show Reconectar as primary button */}
+                            {instance.provider === "wasenderapi" && instance.wasender_session_id ? (
                               <Button 
-                                variant="secondary" 
+                                variant="default" 
                                 size="sm"
                                 onClick={() => handleReconnectWasender(instance)}
                                 disabled={isGeneratingQR === instance.id}
@@ -798,6 +789,18 @@ export default function WhatsAppDMs() {
                                   <RefreshCw className="h-4 w-4 mr-2" />
                                 )}
                                 Reconectar
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleGenerateQRCode(instance)}
+                                disabled={isGeneratingQR === instance.id}
+                              >
+                                {isGeneratingQR === instance.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : null}
+                                Gerar QR Code
                               </Button>
                             )}
                           </div>
