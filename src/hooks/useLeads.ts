@@ -55,16 +55,26 @@ export function useCreateLead() {
   return useMutation({
     mutationFn: async (lead: Omit<LeadInsert, 'organization_id' | 'created_by'>) => {
       // Get user's organization_id and user_id
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('Auth error:', authError);
+        throw new Error('Você precisa estar logado para criar um lead. Por favor, faça login novamente.');
+      }
 
       const { data: orgData, error: orgError } = await supabase
         .rpc('get_user_organization_id');
       
-      if (orgError || !orgData) {
+      if (orgError) {
         console.error('Error getting organization:', orgError);
-        throw new Error('Não foi possível identificar sua organização');
+        throw new Error('Erro ao identificar sua organização. Contate o suporte.');
       }
+
+      if (!orgData) {
+        console.error('No organization found for user:', user.id);
+        throw new Error('Você não está associado a nenhuma organização. Contate o administrador para ser adicionado a uma equipe.');
+      }
+
+      console.log('Creating lead for org:', orgData, 'user:', user.id);
 
       // Check lead limit for the organization's subscription plan
       const { data: subscription, error: subError } = await supabase
@@ -78,7 +88,7 @@ export function useCreateLead() {
 
       if (subError) {
         console.error('Error fetching subscription:', subError);
-        throw new Error('Erro ao verificar plano de assinatura');
+        throw new Error('Erro ao verificar plano de assinatura. Tente novamente.');
       }
 
       if (subscription?.plan?.max_leads !== null) {
@@ -95,7 +105,7 @@ export function useCreateLead() {
 
         if (countError) {
           console.error('Error counting leads:', countError);
-          throw new Error('Erro ao verificar limite de leads');
+          throw new Error('Erro ao verificar limite de leads. Tente novamente.');
         }
 
         if (count !== null && count >= subscription.plan.max_leads) {
@@ -115,7 +125,19 @@ export function useCreateLead() {
 
       if (error) {
         console.error('Error creating lead:', error);
-        throw error;
+        // Provide more specific error messages
+        if (error.message.includes('row-level security')) {
+          throw new Error('Erro de permissão: Sua conta não tem permissão para criar leads nesta organização. Contate o administrador.');
+        }
+        if (error.message.includes('violates not-null constraint')) {
+          const match = error.message.match(/column "(\w+)"/);
+          const field = match ? match[1] : 'campo obrigatório';
+          throw new Error(`O campo "${field}" é obrigatório e não pode ficar vazio.`);
+        }
+        if (error.message.includes('violates check constraint')) {
+          throw new Error('Algum campo possui valor inválido. Verifique os dados e tente novamente.');
+        }
+        throw new Error(`Erro ao salvar lead: ${error.message}`);
       }
 
       // Add the creator as responsible for the lead
@@ -141,7 +163,7 @@ export function useCreateLead() {
         description: 'O lead foi adicionado ao seu CRM.',
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: 'Erro ao criar lead',
         description: error.message,

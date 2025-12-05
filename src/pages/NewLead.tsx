@@ -89,57 +89,77 @@ export default function NewLead() {
     e.preventDefault();
     setErrors({});
 
-    const result = leadSchema.safeParse(formData);
+    // Build validation data including address fields
+    const validationData = {
+      ...formData,
+      cep: formData.cep,
+      street: formData.street,
+      street_number: formData.street_number,
+      complement: formData.complement,
+      neighborhood: formData.neighborhood,
+      city: formData.city,
+      state: formData.state,
+    };
+
+    const result = leadSchema.safeParse(validationData);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
+      const errorMessages: string[] = [];
       result.error.errors.forEach((err) => {
         const field = err.path[0] as string;
         fieldErrors[field] = err.message;
+        errorMessages.push(`${field}: ${err.message}`);
       });
       setErrors(fieldErrors);
+      console.log('Validation errors:', fieldErrors);
       toast({
         title: 'Erro de validação',
-        description: 'Verifique os campos destacados.',
+        description: errorMessages.slice(0, 3).join(', '),
         variant: 'destructive',
       });
       return;
     }
     
-    await createLead.mutateAsync({
-      name: formData.name.trim(),
-      specialty: formData.specialty.trim() || null,
-      instagram: formData.instagram.trim() || '',
-      followers: formData.followers ? parseInt(formData.followers) : null,
-      whatsapp: formData.whatsapp.trim(),
-      secondary_phone: formData.secondary_phone.trim() || null,
-      email: formData.email || null,
-      stage: formData.stage,
-      stars: formData.stars,
-      assigned_to: formData.assigned_to.trim(),
-      whatsapp_group: formData.whatsapp_group || null,
-      desired_products: formData.desired_products || null,
-      negotiated_value: formData.negotiated_value ? parseFloat(formData.negotiated_value) : null,
-      observations: formData.observations || null,
-      meeting_date: formData.meeting_date || null,
-      meeting_time: formData.meeting_time || null,
-      meeting_link: formData.meeting_link || null,
-      recorded_call_link: formData.recorded_call_link || null,
-      linkedin: formData.linkedin || null,
-      cpf_cnpj: formData.cpf_cnpj || null,
-      site: formData.site || null,
-      lead_source: formData.lead_source || null,
-      products: formData.products.length > 0 ? formData.products : null,
-      // Address fields
-      cep: formData.cep.replace(/\D/g, '') || null,
-      street: formData.street || null,
-      street_number: formData.street_number || null,
-      complement: formData.complement || null,
-      neighborhood: formData.neighborhood || null,
-      city: formData.city || null,
-      state: formData.state || null,
-    });
-    
-    navigate('/leads');
+    try {
+      await createLead.mutateAsync({
+        name: formData.name.trim(),
+        specialty: formData.specialty.trim() || null,
+        instagram: formData.instagram.trim() || '',
+        followers: formData.followers ? parseInt(formData.followers) : null,
+        whatsapp: formData.whatsapp.trim(),
+        secondary_phone: formData.secondary_phone.trim() || null,
+        email: formData.email || null,
+        stage: formData.stage,
+        stars: formData.stars,
+        assigned_to: formData.assigned_to.trim(),
+        whatsapp_group: formData.whatsapp_group || null,
+        desired_products: formData.desired_products || null,
+        negotiated_value: formData.negotiated_value ? parseFloat(formData.negotiated_value) : null,
+        observations: formData.observations || null,
+        meeting_date: formData.meeting_date || null,
+        meeting_time: formData.meeting_time || null,
+        meeting_link: formData.meeting_link || null,
+        recorded_call_link: formData.recorded_call_link || null,
+        linkedin: formData.linkedin || null,
+        cpf_cnpj: formData.cpf_cnpj || null,
+        site: formData.site || null,
+        lead_source: formData.lead_source || null,
+        products: formData.products.length > 0 ? formData.products : null,
+        // Address fields
+        cep: formData.cep.replace(/\D/g, '') || null,
+        street: formData.street || null,
+        street_number: formData.street_number || null,
+        complement: formData.complement || null,
+        neighborhood: formData.neighborhood || null,
+        city: formData.city || null,
+        state: formData.state || null,
+      });
+      
+      navigate('/leads');
+    } catch (error) {
+      // Error already handled by mutation
+      console.error('Lead creation failed:', error);
+    }
   };
 
   const updateField = (field: string, value: string | number | string[]) => {

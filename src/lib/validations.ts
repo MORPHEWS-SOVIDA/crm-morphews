@@ -40,6 +40,7 @@ export const leadSchema = z.object({
     .min(1, { message: 'Telefone/WhatsApp é obrigatório' })
     .max(20, { message: 'Número muito longo' })
     .regex(/^\d+$/, { message: 'Apenas números, sem símbolos ou espaços' }),
+  secondary_phone: z.string().max(20, { message: 'Número muito longo' }).optional().or(z.literal('')),
   email: z.string().email({ message: 'E-mail inválido' }).optional().or(z.literal('')),
   stage: z.string(),
   stars: z.number().min(1).max(5),
@@ -50,13 +51,21 @@ export const leadSchema = z.object({
   observations: z.string().max(2000).optional().or(z.literal('')),
   meeting_date: z.string().optional().or(z.literal('')),
   meeting_time: z.string().optional().or(z.literal('')),
-  meeting_link: z.string().url({ message: 'Link inválido' }).optional().or(z.literal('')),
-  recorded_call_link: z.string().url({ message: 'Link inválido' }).optional().or(z.literal('')),
+  meeting_link: z.string().optional().refine((val) => !val || val === '' || val.startsWith('http'), { message: 'Link deve começar com http:// ou https://' }),
+  recorded_call_link: z.string().optional().refine((val) => !val || val === '' || val.startsWith('http'), { message: 'Link deve começar com http:// ou https://' }),
   linkedin: z.string().max(200).optional().or(z.literal('')),
   cpf_cnpj: z.string().max(20).optional().or(z.literal('')),
-  site: z.string().url({ message: 'URL inválida' }).optional().or(z.literal('')),
+  site: z.string().optional().refine((val) => !val || val === '' || val.startsWith('http'), { message: 'URL deve começar com http:// ou https://' }),
   lead_source: z.string().optional().or(z.literal('')),
   products: z.array(z.string()).optional(),
+  // Address fields
+  cep: z.string().optional().or(z.literal('')),
+  street: z.string().optional().or(z.literal('')),
+  street_number: z.string().optional().or(z.literal('')),
+  complement: z.string().optional().or(z.literal('')),
+  neighborhood: z.string().optional().or(z.literal('')),
+  city: z.string().optional().or(z.literal('')),
+  state: z.string().optional().or(z.literal('')),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
