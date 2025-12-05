@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw, Unplug } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
+import { InstancePermissions } from "@/components/whatsapp/InstancePermissions";
 
 const INSTANCE_PRICE_CENTS = 19700; // R$ 197
 
@@ -31,6 +32,7 @@ export default function WhatsAppDMs() {
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
   const [isGeneratingQR, setIsGeneratingQR] = useState<string | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState<string | null>(null);
+  const [permissionsInstance, setPermissionsInstance] = useState<WhatsAppInstance | null>(null);
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -460,7 +462,12 @@ export default function WhatsAppDMs() {
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 gap-2" size="sm">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 gap-2" 
+                      size="sm"
+                      onClick={() => setPermissionsInstance(instance)}
+                    >
                       <Users className="h-4 w-4" />
                       Permissões
                     </Button>
@@ -541,6 +548,16 @@ export default function WhatsAppDMs() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Permissions Dialog */}
+        {permissionsInstance && (
+          <InstancePermissions
+            instanceId={permissionsInstance.id}
+            instanceName={permissionsInstance.name}
+            open={!!permissionsInstance}
+            onOpenChange={(open) => !open && setPermissionsInstance(null)}
+          />
+        )}
       </div>
     </Layout>
   );

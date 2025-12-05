@@ -112,29 +112,28 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     mutationFn: async (text: string) => {
       if (!selectedConversation) throw new Error("No conversation selected");
 
-      // Insert message into database
-      const { data, error } = await supabase
-        .from("whatsapp_messages")
-        .insert({
-          conversation_id: selectedConversation.id,
-          instance_id: instanceId,
+      // Call edge function to send message via Z-API
+      const { data, error } = await supabase.functions.invoke("zapi-send-message", {
+        body: {
+          conversationId: selectedConversation.id,
+          instanceId: instanceId,
           content: text,
-          direction: "outbound",
-          message_type: "text",
-          is_from_bot: false,
-        })
-        .select()
-        .single();
+          messageType: "text",
+        },
+      });
 
       if (error) throw error;
-
-      // TODO: Call Z-API to send actual message
-      // This would be done via an edge function
+      if (data?.error) throw new Error(data.error);
 
       return data;
     },
     onSuccess: () => {
       setMessageText("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+    },
+    onError: (error: any) => {
+      console.error("Error sending message:", error);
+      // Message might still be saved locally even if Z-API fails
       queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
     },
   });
