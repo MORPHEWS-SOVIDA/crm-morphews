@@ -135,10 +135,84 @@ serve(async (req) => {
 
         console.log("WasenderAPI credentials saved successfully");
 
+        // Now automatically try to get the QR code
+        console.log("Fetching QR code for new session...");
+        
+        // Wait a moment for the session to be ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const qrResponse = await fetch(
+          `${WASENDERAPI_BASE_URL}/whatsapp-sessions/${session.id}/qrcode`,
+          {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${WASENDERAPI_TOKEN}`,
+            },
+          }
+        );
+
+        const qrText = await qrResponse.text();
+        console.log("WasenderAPI QR response status:", qrResponse.status);
+        console.log("WasenderAPI QR response:", qrText.substring(0, 200));
+
+        let qrCode = null;
+        if (qrResponse.ok) {
+          try {
+            const qrData = JSON.parse(qrText);
+            if (qrData.success && qrData.data?.qrCode) {
+              qrCode = qrData.data.qrCode;
+              console.log("QR code received successfully");
+              
+              // Save QR code to database
+              await supabaseAdmin
+                .from("whatsapp_instances")
+                .update({ qr_code_base64: qrCode })
+                .eq("id", instanceId);
+            }
+          } catch (e) {
+            console.log("Could not parse QR response, will try connect endpoint");
+          }
+        }
+
+        // If no QR code yet, try the connect endpoint
+        if (!qrCode) {
+          console.log("Trying connect endpoint to get QR code...");
+          const connectResponse = await fetch(
+            `${WASENDERAPI_BASE_URL}/whatsapp-sessions/${session.id}/connect`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${WASENDERAPI_TOKEN}`,
+              },
+            }
+          );
+
+          const connectText = await connectResponse.text();
+          console.log("WasenderAPI connect response:", connectResponse.status, connectText.substring(0, 200));
+
+          if (connectResponse.ok) {
+            try {
+              const connectData = JSON.parse(connectText);
+              if (connectData.success && connectData.data?.qrCode) {
+                qrCode = connectData.data.qrCode;
+                console.log("QR code received from connect endpoint");
+                
+                await supabaseAdmin
+                  .from("whatsapp_instances")
+                  .update({ qr_code_base64: qrCode })
+                  .eq("id", instanceId);
+              }
+            } catch (e) {
+              console.log("Could not parse connect response");
+            }
+          }
+        }
+
         return new Response(JSON.stringify({ 
           success: true, 
           message: "Sessão WasenderAPI criada com sucesso!",
           sessionId: session.id,
+          qrCode: qrCode,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

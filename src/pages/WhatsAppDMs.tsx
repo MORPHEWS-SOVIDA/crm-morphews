@@ -229,6 +229,14 @@ export default function WhatsAppDMs() {
             return;
           }
 
+          // If QR code was returned with the create response, we're done
+          if (createData?.qrCode) {
+            toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+            refetch();
+            setIsGeneratingQR(null);
+            return;
+          }
+
           toast({ title: "Sessão criada!", description: "Obtendo QR Code..." });
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
