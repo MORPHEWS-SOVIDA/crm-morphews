@@ -238,22 +238,25 @@ serve(async (req) => {
     let provider = "unknown";
     let instanceIdentifier = "";
     
-    // WasenderAPI webhook format
-    if (body.session_id || body.event?.startsWith("messages.")) {
+    // WasenderAPI webhook format - check for sessionId (api_key) or event patterns
+    if (body.sessionId || body.session_id || body.event?.startsWith("messages.") || body.event?.startsWith("session.")) {
       provider = "wasenderapi";
-      instanceIdentifier = String(body.session_id || body.sessionId || "");
+      // WasenderAPI sends api_key as sessionId in webhooks
+      instanceIdentifier = String(body.sessionId || body.session_id || "");
+      console.log("WasenderAPI webhook detected - sessionId (api_key):", instanceIdentifier);
     }
     // Z-API webhook format
     else if (body.instanceId || req.headers.get("x-instance-id")) {
       provider = "zapi";
       instanceIdentifier = body.instanceId || req.headers.get("x-instance-id") || "";
+      console.log("Z-API webhook detected - instanceId:", instanceIdentifier);
     }
     
     console.log("Provider detected:", provider);
     console.log("Instance identifier:", instanceIdentifier);
 
     if (!instanceIdentifier) {
-      console.log("No instance ID provided, ignoring...");
+      console.log("No instance ID provided, ignoring webhook...");
       return new Response(JSON.stringify({ status: "ignored" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -276,15 +279,46 @@ serve(async (req) => {
       
       switch (event) {
         case "messages.received": {
-          const message = body.data;
-          const phone = message.from || message.phone;
-          const text = message.body || message.text || message.message || "";
-          const messageId = message.id || message.messageId;
-          const isGroup = message.isGroup || message.from?.includes("@g.us");
-          const senderName = message.pushName || message.senderName || message.name;
-          const messageType = message.type || "text";
-          const mediaUrl = message.mediaUrl || message.image?.url || message.audio?.url || message.video?.url;
-          const caption = message.caption;
+          // WasenderAPI structure: data.messages contains the message info
+          const msgData = body.data?.messages || body.data;
+          
+          // Extract phone from various possible fields
+          const remoteJid = msgData?.key?.remoteJid || msgData?.remoteJid || "";
+          const phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "") ||
+                       msgData?.key?.cleanedSenderPn ||
+                       msgData?.from || 
+                       msgData?.phone || "";
+          
+          // Extract message content
+          const text = msgData?.messageBody || 
+                      msgData?.message?.conversation || 
+                      msgData?.message?.extendedTextMessage?.text ||
+                      msgData?.body || 
+                      msgData?.text || 
+                      "";
+          
+          const messageId = msgData?.key?.id || msgData?.id || msgData?.messageId || "";
+          const isGroup = remoteJid.includes("@g.us") || msgData?.isGroup || false;
+          const senderName = msgData?.pushName || msgData?.senderName || msgData?.name || "";
+          
+          // Determine message type
+          let messageType = "text";
+          if (msgData?.message?.imageMessage) messageType = "image";
+          else if (msgData?.message?.audioMessage) messageType = "audio";
+          else if (msgData?.message?.videoMessage) messageType = "video";
+          else if (msgData?.message?.documentMessage) messageType = "document";
+          
+          const mediaUrl = msgData?.mediaUrl || 
+                          msgData?.message?.imageMessage?.url ||
+                          msgData?.message?.audioMessage?.url ||
+                          msgData?.message?.videoMessage?.url ||
+                          null;
+          const caption = msgData?.message?.imageMessage?.caption || 
+                         msgData?.message?.videoMessage?.caption ||
+                         msgData?.caption || 
+                         null;
+
+          console.log("Parsed message:", { phone, text: text?.substring(0, 50), messageId, senderName });
 
           if (!phone) {
             console.log("No phone number in message");
