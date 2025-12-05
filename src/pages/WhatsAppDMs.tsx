@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,24 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useWhatsAppInstances, useValidateCoupon, useCreateWhatsAppInstance, useOrganizationWhatsAppCredits, DiscountCoupon } from "@/hooks/useWhatsAppInstances";
+import { useWhatsAppInstances, useValidateCoupon, useCreateWhatsAppInstance, useOrganizationWhatsAppCredits, useUpdateWhatsAppInstance, DiscountCoupon, WhatsAppInstance } from "@/hooks/useWhatsAppInstances";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
 
 const INSTANCE_PRICE_CENTS = 19700; // R$ 197
 
 export default function WhatsAppDMs() {
   const { profile, isAdmin } = useAuth();
-  const { data: instances, isLoading } = useWhatsAppInstances();
+  const { data: instances, isLoading, refetch } = useWhatsAppInstances();
   const { data: credits } = useOrganizationWhatsAppCredits();
   const validateCoupon = useValidateCoupon();
   const createInstance = useCreateWhatsAppInstance();
+  const updateInstance = useUpdateWhatsAppInstance();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<DiscountCoupon | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
+  const [isGeneratingQR, setIsGeneratingQR] = useState<string | null>(null);
+  const [isCheckingConnection, setIsCheckingConnection] = useState<string | null>(null);
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -66,7 +72,7 @@ export default function WhatsAppDMs() {
     }
 
     try {
-      await createInstance.mutateAsync({
+      const instance = await createInstance.mutateAsync({
         name: newInstanceName,
         couponId: appliedCoupon?.id,
         discountCents: appliedCoupon?.discount_value_cents,
@@ -77,16 +83,106 @@ export default function WhatsAppDMs() {
       setCouponCode("");
       setAppliedCoupon(null);
 
-      // TODO: After instance creation, redirect to Stripe checkout if finalPrice > 0
-      // For now, just show a message
-      if (finalPrice > 0) {
+      // If there are free credits available or coupon covers full price, activate directly
+      if (freeInstancesAvailable > 0 || finalPrice === 0) {
         toast({ 
           title: "Instância criada!", 
-          description: "Em breve você será redirecionado para o pagamento.",
+          description: "Agora gere o QR Code para conectar.",
+        });
+        return;
+      }
+
+      // Otherwise, redirect to Stripe checkout
+      const { data, error } = await supabase.functions.invoke("whatsapp-instance-checkout", {
+        body: {
+          instanceId: instance.id,
+          couponId: appliedCoupon?.id,
+          discountCents: appliedCoupon?.discount_value_cents,
+          successUrl: `${window.location.origin}/whatsapp-dms?success=true`,
+          cancelUrl: `${window.location.origin}/whatsapp-dms`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else if (data?.success) {
+        toast({ title: "Instância ativada!", description: data.message });
+        refetch();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar instância",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateQRCode = async (instance: WhatsAppInstance) => {
+    setIsGeneratingQR(instance.id);
+    try {
+      // First, create Z-API instance if not exists
+      if (!instance.z_api_instance_id) {
+        await supabase.functions.invoke("zapi-instance-manager", {
+          body: { action: "create_zapi_instance", instanceId: instance.id },
         });
       }
-    } catch (error) {
-      // Error handled in mutation
+
+      // Then get QR code
+      const { data, error } = await supabase.functions.invoke("zapi-instance-manager", {
+        body: { action: "get_qr_code", instanceId: instance.id },
+      });
+
+      if (error) throw error;
+
+      if (data?.qrCode) {
+        toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+      } else if (data?.needsConfig) {
+        toast({ 
+          title: "Configuração necessária", 
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao gerar QR Code",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingQR(null);
+    }
+  };
+
+  const handleCheckConnection = async (instance: WhatsAppInstance) => {
+    setIsCheckingConnection(instance.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("zapi-instance-manager", {
+        body: { action: "check_connection", instanceId: instance.id },
+      });
+
+      if (error) throw error;
+
+      if (data?.connected) {
+        toast({ title: "WhatsApp conectado!", description: `Número: ${data.phoneNumber}` });
+      } else {
+        toast({ title: "Não conectado", description: "Escaneie o QR Code para conectar" });
+      }
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao verificar conexão",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingConnection(null);
     }
   };
 
@@ -107,6 +203,31 @@ export default function WhatsAppDMs() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  // If viewing chat for a specific instance
+  if (selectedInstance) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedInstance(null)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <MessageSquare className="h-6 w-6 text-green-500" />
+                {selectedInstance.name}
+              </h1>
+              <p className="text-muted-foreground">
+                {selectedInstance.phone_number || "Conversas do WhatsApp"}
+              </p>
+            </div>
+          </div>
+          <WhatsAppChat instanceId={selectedInstance.id} onBack={() => setSelectedInstance(null)} />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -234,7 +355,7 @@ export default function WhatsAppDMs() {
                     {createInstance.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : null}
-                    {finalPrice > 0 ? "Ir para Pagamento" : "Criar Grátis"}
+                    {freeInstancesAvailable > 0 || finalPrice === 0 ? "Criar Grátis" : "Ir para Pagamento"}
                   </Button>
                 </div>
               </DialogContent>
@@ -294,14 +415,35 @@ export default function WhatsAppDMs() {
                           <p className="text-sm text-muted-foreground">
                             Escaneie o QR Code com o WhatsApp
                           </p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleCheckConnection(instance)}
+                            disabled={isCheckingConnection === instance.id}
+                          >
+                            {isCheckingConnection === instance.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                            )}
+                            Verificar Conexão
+                          </Button>
                         </div>
                       ) : (
                         <div className="space-y-2 py-4">
                           <QrCode className="h-12 w-12 mx-auto text-muted-foreground" />
                           <p className="text-sm text-muted-foreground">
-                            Aguardando geração do QR Code...
+                            Clique para gerar o QR Code
                           </p>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleGenerateQRCode(instance)}
+                            disabled={isGeneratingQR === instance.id}
+                          >
+                            {isGeneratingQR === instance.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
                             Gerar QR Code
                           </Button>
                         </div>
@@ -329,7 +471,11 @@ export default function WhatsAppDMs() {
                   </div>
 
                   {instance.is_connected && (
-                    <Button className="w-full gap-2" variant="default">
+                    <Button 
+                      className="w-full gap-2" 
+                      variant="default"
+                      onClick={() => setSelectedInstance(instance)}
+                    >
                       <MessageSquare className="h-4 w-4" />
                       Abrir Conversas
                     </Button>
