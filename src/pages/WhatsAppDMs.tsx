@@ -41,6 +41,7 @@ export default function WhatsAppDMs() {
   const [phoneDialogInstance, setPhoneDialogInstance] = useState<WhatsAppInstance | null>(null);
   const [wasenderPhoneNumber, setWasenderPhoneNumber] = useState("");
   const [wasenderCountryCode, setWasenderCountryCode] = useState("55");
+  const [wasenderSessionName, setWasenderSessionName] = useState("");
 
   // Check if master admin
   const isMasterAdmin = user?.email === "thiago.morphews@gmail.com";
@@ -169,10 +170,11 @@ export default function WhatsAppDMs() {
       const needsSession = !instance.wasender_session_id || !instance.wasender_api_key;
       
       if (needsSession) {
-        // Open dialog to get phone number first
+        // Open dialog to get phone number and session name first
         setPhoneDialogInstance(instance);
         setWasenderPhoneNumber("");
         setWasenderCountryCode("55");
+        setWasenderSessionName(instance.name || "");
         return;
       }
     }
@@ -181,7 +183,7 @@ export default function WhatsAppDMs() {
     await executeQRCodeGeneration(instance);
   };
 
-  const executeQRCodeGeneration = async (instance: WhatsAppInstance, phoneNumber?: string) => {
+  const executeQRCodeGeneration = async (instance: WhatsAppInstance, phoneNumber?: string, sessionName?: string) => {
     setIsGeneratingQR(instance.id);
     const provider = instance.provider || "zapi";
     
@@ -207,7 +209,12 @@ export default function WhatsAppDMs() {
           });
 
           const { data: createData, error: createError } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-            body: { action: "create_wasender_session", instanceId: instance.id, phoneNumber },
+            body: { 
+              action: "create_wasender_session", 
+              instanceId: instance.id, 
+              phoneNumber,
+              sessionName: sessionName || instance.name,
+            },
           });
 
           if (createError) throw createError;
@@ -833,15 +840,27 @@ export default function WhatsAppDMs() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-blue-600" />
-                Informe o Número do WhatsApp
+                Configure a Sessão WasenderAPI
               </DialogTitle>
               <DialogDescription>
-                Digite o número de telefone que será conectado a esta instância. 
-                Este é o número que receberá as mensagens dos clientes.
+                Informe os dados para criar a sessão do WhatsApp. 
+                Após criar, você escaneará o QR Code para conectar.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Nome da Sessão *</Label>
+                <Input
+                  placeholder="Ex: Atendimento Principal"
+                  value={wasenderSessionName}
+                  onChange={(e) => setWasenderSessionName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Nome para identificar esta sessão (visível apenas para você)
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label>Número do WhatsApp *</Label>
                 <div className="flex gap-2">
@@ -885,6 +904,14 @@ export default function WhatsAppDMs() {
               </Button>
               <Button 
                 onClick={async () => {
+                  if (!wasenderSessionName.trim()) {
+                    toast({ 
+                      title: "Nome obrigatório", 
+                      description: "Preencha o nome da sessão",
+                      variant: "destructive" 
+                    });
+                    return;
+                  }
                   if (!wasenderCountryCode || !wasenderPhoneNumber) {
                     toast({ 
                       title: "Telefone obrigatório", 
@@ -895,13 +922,14 @@ export default function WhatsAppDMs() {
                   }
                   
                   const fullPhone = `+${wasenderCountryCode}${wasenderPhoneNumber}`;
+                  const sessionNameToUse = wasenderSessionName.trim();
                   setPhoneDialogInstance(null);
                   
                   if (phoneDialogInstance) {
-                    await executeQRCodeGeneration(phoneDialogInstance, fullPhone);
+                    await executeQRCodeGeneration(phoneDialogInstance, fullPhone, sessionNameToUse);
                   }
                 }}
-                disabled={!wasenderCountryCode || !wasenderPhoneNumber}
+                disabled={!wasenderSessionName.trim() || !wasenderCountryCode || !wasenderPhoneNumber}
               >
                 Criar Sessão e Gerar QR Code
               </Button>
