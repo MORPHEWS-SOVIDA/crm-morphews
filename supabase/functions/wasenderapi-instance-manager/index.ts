@@ -387,8 +387,17 @@ serve(async (req) => {
           });
         }
 
-        const isConnected = statusData.success && statusData.data?.status === "connected";
-        const phoneNumber = statusData.data?.phone_number || null;
+        // WasenderAPI returns {"status":"connected"} directly OR {"success":true,"data":{...}}
+        const isConnected = statusData.status === "connected" || 
+                           (statusData.success && statusData.data?.status === "connected");
+        
+        // Try different response structures for phone number
+        const phoneNumber = statusData.phone_number || 
+                           statusData.data?.phone_number || 
+                           instance.phone_number || 
+                           null;
+
+        console.log("Connection check result:", { isConnected, phoneNumber, rawStatus: statusData });
 
         await supabaseAdmin
           .from("whatsapp_instances")
