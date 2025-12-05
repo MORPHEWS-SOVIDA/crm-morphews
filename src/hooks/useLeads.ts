@@ -54,27 +54,35 @@ export function useCreateLead() {
 
   return useMutation({
     mutationFn: async (lead: Omit<LeadInsert, 'organization_id' | 'created_by'>) => {
-      // Get user's organization_id and user_id
+      // Refresh session to ensure valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError) {
+        console.error('Session refresh error:', sessionError);
+      }
+
+      // Get user's organization_id and user_id  
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         console.error('Auth error:', authError);
-        throw new Error('Você precisa estar logado para criar um lead. Por favor, faça login novamente.');
+        throw new Error('Sessão expirada. Por favor, faça logout e login novamente.');
       }
+
+      console.log('User authenticated:', user.id, user.email);
 
       const { data: orgData, error: orgError } = await supabase
         .rpc('get_user_organization_id');
       
       if (orgError) {
         console.error('Error getting organization:', orgError);
-        throw new Error('Erro ao identificar sua organização. Contate o suporte.');
+        throw new Error('Erro ao identificar sua organização. Faça logout e login novamente.');
       }
 
       if (!orgData) {
-        console.error('No organization found for user:', user.id);
-        throw new Error('Você não está associado a nenhuma organização. Contate o administrador para ser adicionado a uma equipe.');
+        console.error('No organization found for user:', user.id, user.email);
+        throw new Error('Sua conta não está vinculada a nenhuma organização. Contate o administrador.');
       }
 
-      console.log('Creating lead for org:', orgData, 'user:', user.id);
+      console.log('Creating lead - org:', orgData, 'user:', user.id, 'email:', user.email);
 
       // Check lead limit for the organization's subscription plan
       const { data: subscription, error: subError } = await supabase
