@@ -30,6 +30,7 @@ interface Organization {
   owner_name: string | null;
   owner_email: string | null;
   phone: string | null;
+  whatsapp_dms_enabled: boolean;
 }
 
 interface Subscription {
@@ -437,6 +438,32 @@ export default function SuperAdmin() {
     },
   });
 
+  const toggleWhatsAppDMsMutation = useMutation({
+    mutationFn: async ({ orgId, enabled }: { orgId: string; enabled: boolean }) => {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ whatsapp_dms_enabled: enabled })
+        .eq("id", orgId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      toast({ 
+        title: variables.enabled 
+          ? "WhatsApp DMs habilitado!" 
+          : "WhatsApp DMs desabilitado!" 
+      });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-organizations"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const openEditDialog = (org: Organization) => {
     const subscription = getSubscriptionForOrg(org.id);
     setEditForm({
@@ -758,6 +785,7 @@ export default function SuperAdmin() {
                         <TableHead>Plano</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Usuários</TableHead>
+                        <TableHead className="text-center">WhatsApp DMs</TableHead>
                         <TableHead>Criado em</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
@@ -800,6 +828,24 @@ export default function SuperAdmin() {
                               {subscription ? getStatusBadge(subscription.status) : "-"}
                             </TableCell>
                             <TableCell>{memberCount}</TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant={org.whatsapp_dms_enabled ? "default" : "outline"}
+                                size="sm"
+                                className={org.whatsapp_dms_enabled ? "bg-green-500 hover:bg-green-600" : ""}
+                                onClick={() => toggleWhatsAppDMsMutation.mutate({ 
+                                  orgId: org.id, 
+                                  enabled: !org.whatsapp_dms_enabled 
+                                })}
+                                disabled={toggleWhatsAppDMsMutation.isPending}
+                              >
+                                {org.whatsapp_dms_enabled ? (
+                                  <MessageSquare className="h-4 w-4" />
+                                ) : (
+                                  <span className="text-xs">Off</span>
+                                )}
+                              </Button>
+                            </TableCell>
                             <TableCell>
                               {format(new Date(org.created_at), "dd/MM/yyyy", { locale: ptBR })}
                             </TableCell>

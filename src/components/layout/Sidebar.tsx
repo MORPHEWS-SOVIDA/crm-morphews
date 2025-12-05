@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import logoMorphews from '@/assets/logo-morphews.png';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
@@ -25,9 +26,13 @@ const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
+  const { data: orgSettings } = useOrganizationSettings();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // WhatsApp DMs is visible for master admin or if organization has it enabled
+  const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,7 +46,9 @@ export function Sidebar() {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
-    { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
+    ...(canSeeWhatsAppDMs ? [
+      { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
+    ] : []),
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     ...(isAdmin ? [
       { icon: UserPlus, label: 'Nova Organização', path: '/cadastro' },

@@ -626,6 +626,7 @@ export type Database = {
           phone: string | null
           slug: string
           updated_at: string
+          whatsapp_dms_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -636,6 +637,7 @@ export type Database = {
           phone?: string | null
           slug: string
           updated_at?: string
+          whatsapp_dms_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -646,6 +648,7 @@ export type Database = {
           phone?: string | null
           slug?: string
           updated_at?: string
+          whatsapp_dms_enabled?: boolean
         }
         Relationships: []
       }

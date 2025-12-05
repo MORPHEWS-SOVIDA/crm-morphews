@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, Settings, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { Button } from '@/components/ui/button';
 import { LogOut, UserPlus, ShoppingCart, Crown, UsersRound, Instagram } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -14,8 +15,12 @@ const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
+  const { data: orgSettings } = useOrganizationSettings();
   const navigate = useNavigate();
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // WhatsApp DMs is visible for master admin or if organization has it enabled
+  const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
 
   const handleSignOut = async () => {
     await signOut();
@@ -30,6 +35,9 @@ export function MobileNav() {
   ];
 
   const menuNavItems = [
+    ...(canSeeWhatsAppDMs ? [
+      { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
+    ] : []),
     ...(isAdmin ? [
       { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
       { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
