@@ -13,7 +13,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Normalize Brazilian phone number
 function normalizePhone(phone: string): string {
-  const clean = phone.replace(/\D/g, "").replace("@c.us", "");
+  const clean = phone.replace(/\D/g, "").replace("@c.us", "").replace("@s.whatsapp.net", "");
   
   // Add country code if missing
   if (!clean.startsWith("55") && clean.length <= 11) {
@@ -167,6 +167,20 @@ async function getOrCreateConversation(
   return newConversation;
 }
 
+// Check if message already exists to avoid duplicates
+async function messageExists(conversationId: string, messageId: string) {
+  if (!messageId) return false;
+  
+  const { data } = await supabase
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .eq("z_api_message_id", messageId)
+    .single();
+  
+  return !!data;
+}
+
 // Save message to database
 async function saveMessage(
   conversationId: string,
@@ -179,8 +193,13 @@ async function saveMessage(
   mediaCaption?: string,
   isFromBot = false
 ) {
+  // Check for duplicates
+  if (messageId && await messageExists(conversationId, messageId)) {
+    console.log("Message already exists, skipping:", messageId);
+    return null;
+  }
+
   // Status must be: sent, delivered, read, or failed (constraint)
-  // For inbound messages, we use "delivered" as the initial status
   const { data, error } = await supabase
     .from("whatsapp_messages")
     .insert({
@@ -223,7 +242,112 @@ async function saveMessage(
     .update(updateData)
     .eq("id", conversationId);
 
+  console.log("Message saved successfully:", data?.id);
   return data;
+}
+
+// Process WasenderAPI message payload - handles both messages.received and messages.upsert
+async function processWasenderMessage(instance: any, body: any) {
+  const msgData = body.data?.messages?.[0] || body.data?.message || body.data;
+  
+  if (!msgData) {
+    console.log("No message data in payload");
+    return null;
+  }
+
+  // Check if fromMe (our own message) - skip if already saved by send function
+  const isFromMe = msgData.key?.fromMe || msgData.fromMe || false;
+  
+  // Extract phone from various possible fields
+  const remoteJid = msgData.key?.remoteJid || msgData.remoteJid || "";
+  const phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "") ||
+               msgData.key?.cleanedSenderPn ||
+               msgData.from || 
+               msgData.phone || "";
+  
+  // Extract message content from various WasenderAPI formats
+  const text = msgData.messageBody || 
+              msgData.body ||
+              msgData.text ||
+              msgData.message?.conversation || 
+              msgData.message?.extendedTextMessage?.text ||
+              msgData.message?.imageMessage?.caption ||
+              msgData.message?.videoMessage?.caption ||
+              "";
+  
+  const messageId = msgData.key?.id || msgData.id || msgData.messageId || "";
+  const isGroup = remoteJid.includes("@g.us") || msgData.isGroup || false;
+  const senderName = msgData.pushName || msgData.senderName || msgData.name || "";
+  
+  // Determine message type
+  let messageType = "text";
+  if (msgData.message?.imageMessage || msgData.type === "image") messageType = "image";
+  else if (msgData.message?.audioMessage || msgData.type === "audio") messageType = "audio";
+  else if (msgData.message?.videoMessage || msgData.type === "video") messageType = "video";
+  else if (msgData.message?.documentMessage || msgData.type === "document") messageType = "document";
+  else if (msgData.message?.stickerMessage) messageType = "sticker";
+  
+  const mediaUrl = msgData.mediaUrl || 
+                  msgData.message?.imageMessage?.url ||
+                  msgData.message?.audioMessage?.url ||
+                  msgData.message?.videoMessage?.url ||
+                  msgData.message?.documentMessage?.url ||
+                  null;
+  const caption = msgData.message?.imageMessage?.caption || 
+                 msgData.message?.videoMessage?.caption ||
+                 msgData.caption || 
+                 null;
+
+  console.log("Parsed WasenderAPI message:", { 
+    phone, 
+    text: text?.substring(0, 50), 
+    messageId, 
+    senderName,
+    isFromMe,
+    messageType 
+  });
+
+  if (!phone) {
+    console.log("No phone number in message");
+    return null;
+  }
+
+  // Skip group messages
+  if (isGroup) {
+    console.log("Group message, skipping...");
+    return null;
+  }
+
+  // Get or create conversation
+  const conversation = await getOrCreateConversation(
+    instance.id,
+    instance.organization_id,
+    phone,
+    senderName
+  );
+
+  // Save the message
+  const direction = isFromMe ? "outbound" : "inbound";
+  const savedMessage = await saveMessage(
+    conversation.id,
+    instance.id,
+    text || caption || null,
+    direction,
+    messageType,
+    messageId,
+    mediaUrl,
+    caption
+  );
+
+  console.log("WasenderAPI message processed:", {
+    conversationId: conversation.id,
+    from: phone,
+    direction,
+    text: text?.substring(0, 50),
+    saved: !!savedMessage
+  });
+
+  return savedMessage;
 }
 
 serve(async (req) => {
@@ -278,121 +402,46 @@ serve(async (req) => {
     // Handle WasenderAPI webhooks
     if (provider === "wasenderapi" || instance.provider === "wasenderapi") {
       const event = body.event;
+      console.log("WasenderAPI event:", event);
       
       switch (event) {
-        case "messages.received": {
-          // WasenderAPI structure: data.messages contains the message info
-          const msgData = body.data?.messages || body.data;
-          
-          // Extract phone from various possible fields
-          const remoteJid = msgData?.key?.remoteJid || msgData?.remoteJid || "";
-          const phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "") ||
-                       msgData?.key?.cleanedSenderPn ||
-                       msgData?.from || 
-                       msgData?.phone || "";
-          
-          // Extract message content
-          const text = msgData?.messageBody || 
-                      msgData?.message?.conversation || 
-                      msgData?.message?.extendedTextMessage?.text ||
-                      msgData?.body || 
-                      msgData?.text || 
-                      "";
-          
-          const messageId = msgData?.key?.id || msgData?.id || msgData?.messageId || "";
-          const isGroup = remoteJid.includes("@g.us") || msgData?.isGroup || false;
-          const senderName = msgData?.pushName || msgData?.senderName || msgData?.name || "";
-          
-          // Determine message type
-          let messageType = "text";
-          if (msgData?.message?.imageMessage) messageType = "image";
-          else if (msgData?.message?.audioMessage) messageType = "audio";
-          else if (msgData?.message?.videoMessage) messageType = "video";
-          else if (msgData?.message?.documentMessage) messageType = "document";
-          
-          const mediaUrl = msgData?.mediaUrl || 
-                          msgData?.message?.imageMessage?.url ||
-                          msgData?.message?.audioMessage?.url ||
-                          msgData?.message?.videoMessage?.url ||
-                          null;
-          const caption = msgData?.message?.imageMessage?.caption || 
-                         msgData?.message?.videoMessage?.caption ||
-                         msgData?.caption || 
-                         null;
-
-          console.log("Parsed message:", { phone, text: text?.substring(0, 50), messageId, senderName });
-
-          if (!phone) {
-            console.log("No phone number in message");
-            return new Response(JSON.stringify({ status: "no_phone" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-
-          // Skip group messages
-          if (isGroup) {
-            console.log("Group message, skipping...");
-            return new Response(JSON.stringify({ status: "group_ignored" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-
-          // Get or create conversation
-          const conversation = await getOrCreateConversation(
-            instance.id,
-            instance.organization_id,
-            phone,
-            senderName
-          );
-
-          // Save the message
-          await saveMessage(
-            conversation.id,
-            instance.id,
-            text || null,
-            "inbound",
-            messageType,
-            messageId,
-            mediaUrl,
-            caption
-          );
-
-          console.log("WasenderAPI message saved:", {
-            conversationId: conversation.id,
-            from: phone,
-            text: text?.substring(0, 50),
-          });
-
-          return new Response(JSON.stringify({ status: "message_saved" }), {
+        case "messages.received":
+        case "messages.upsert": {
+          // Process incoming or upserted messages
+          const result = await processWasenderMessage(instance, body);
+          return new Response(JSON.stringify({ 
+            status: result ? "message_saved" : "message_skipped" 
+          }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
         case "messages.update":
         case "messages.ack": {
-          const messageId = body.data?.id || body.data?.messageId;
+          const messageId = body.data?.key?.id || body.data?.id || body.data?.messageId;
           const status = body.data?.status || body.data?.ack;
 
           if (messageId) {
+            // Map WasenderAPI status codes to our status values
             const statusMap: Record<string, string> = {
               "sent": "sent",
               "delivered": "delivered",
               "read": "read",
+              "0": "sent",
               "1": "sent",
               "2": "delivered",
               "3": "read",
+              "4": "read", // Status 4 = played (for audio) or read
             };
 
-            const newStatus = statusMap[String(status)] || status;
+            const newStatus = statusMap[String(status)] || "delivered";
 
-            if (newStatus) {
-              await supabase
-                .from("whatsapp_messages")
-                .update({ status: newStatus })
-                .eq("z_api_message_id", messageId);
+            await supabase
+              .from("whatsapp_messages")
+              .update({ status: newStatus })
+              .eq("z_api_message_id", messageId);
 
-              console.log("Message status updated:", messageId, newStatus);
-            }
+            console.log("Message status updated:", messageId, newStatus);
           }
 
           return new Response(JSON.stringify({ status: "status_updated" }), {
@@ -500,20 +549,24 @@ serve(async (req) => {
       }
 
       case "MessageStatusCallback":
-      case "ack":
-      case "status": {
+      case "status":
+      case "ack": {
         const messageId = body.messageId || body.id;
         const status = body.status || body.ack;
 
         if (messageId) {
           const statusMap: Record<string, string> = {
+            "SENT": "sent",
+            "RECEIVED": "delivered",
+            "READ": "read",
+            "PLAYED": "read",
             "1": "sent",
             "2": "delivered",
             "3": "read",
-            "4": "played",
+            "4": "read",
           };
 
-          const newStatus = typeof status === "number" ? statusMap[String(status)] : status;
+          const newStatus = statusMap[String(status)] || status;
 
           if (newStatus) {
             await supabase
@@ -521,7 +574,7 @@ serve(async (req) => {
               .update({ status: newStatus })
               .eq("z_api_message_id", messageId);
 
-            console.log("Message status updated:", messageId, newStatus);
+            console.log("Z-API Message status updated:", messageId, newStatus);
           }
         }
 
@@ -530,9 +583,9 @@ serve(async (req) => {
         });
       }
 
-      case "connected":
-      case "ready": {
-        const phone = body.phone || body.wid?.replace("@c.us", "");
+      case "ConnectedCallback":
+      case "connected": {
+        const phone = body.phone || body.phoneNumber;
 
         await supabase
           .from("whatsapp_instances")
@@ -544,37 +597,35 @@ serve(async (req) => {
           })
           .eq("id", instance.id);
 
-        console.log("Instance connected:", instance.name, phone);
+        console.log("Z-API instance connected:", instance.name, phone);
 
         return new Response(JSON.stringify({ status: "connected" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      case "disconnected":
-      case "qr": {
+      case "DisconnectedCallback":
+      case "disconnected": {
         await supabase
           .from("whatsapp_instances")
           .update({
             is_connected: false,
-            status: webhookType === "qr" ? "pending" : "disconnected",
-            qr_code_base64: body.qrCode || body.base64Qr || null,
+            status: "disconnected",
           })
           .eq("id", instance.id);
 
-        console.log("Instance status changed:", instance.name, webhookType);
+        console.log("Z-API instance disconnected:", instance.name);
 
-        return new Response(JSON.stringify({ status: webhookType }), {
+        return new Response(JSON.stringify({ status: "disconnected" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      default:
-        console.log("Unknown webhook type:", webhookType);
-        return new Response(JSON.stringify({ status: "unknown_type" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
     }
+
+    console.log("Unhandled webhook type:", webhookType);
+    return new Response(JSON.stringify({ status: "ignored" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
     console.error("Webhook error:", error);
     return new Response(JSON.stringify({ error: error.message }), {

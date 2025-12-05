@@ -88,7 +88,7 @@ serve(async (req) => {
             read_incoming_messages: true,
             webhook_url: webhookUrl,
             webhook_enabled: true,
-            webhook_events: ["messages.received", "session.status", "messages.update"],
+            webhook_events: ["messages.received", "messages.upsert", "session.status", "messages.update"],
             auto_reject_calls: true,
           }),
         });

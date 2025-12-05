@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { 
   Send, 
@@ -21,7 +20,11 @@ import {
   Plus,
   Bot,
   UserCheck,
-  ArrowLeft
+  ArrowLeft,
+  Image,
+  Mic,
+  Paperclip,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -81,6 +84,7 @@ export default function WhatsAppChat() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch instances user has access to
@@ -126,7 +130,7 @@ export default function WhatsAppChat() {
         .from('whatsapp_conversations')
         .select('*')
         .eq('instance_id', selectedInstance)
-        .order('last_message_at', { ascending: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (!error && data) {
         setConversations(data);
@@ -135,7 +139,7 @@ export default function WhatsAppChat() {
 
     fetchConversations();
     
-    // Set up realtime subscription
+    // Set up realtime subscription for conversations
     const channel = supabase
       .channel('conversations-changes')
       .on('postgres_changes', {
@@ -154,41 +158,57 @@ export default function WhatsAppChat() {
   }, [selectedInstance]);
 
   // Fetch messages for selected conversation
+  const fetchMessages = async () => {
+    if (!selectedConversation) return;
+    setIsLoading(true);
+    
+    const { data, error } = await supabase
+      .from('whatsapp_messages')
+      .select('*')
+      .eq('conversation_id', selectedConversation.id)
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      setMessages(data);
+      // Reset unread count
+      await supabase
+        .from('whatsapp_conversations')
+        .update({ unread_count: 0 })
+        .eq('id', selectedConversation.id);
+    }
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (!selectedConversation) return;
-      setIsLoading(true);
-      
-      const { data, error } = await supabase
-        .from('whatsapp_messages')
-        .select('*')
-        .eq('conversation_id', selectedConversation.id)
-        .order('created_at', { ascending: true });
-
-      if (!error && data) {
-        setMessages(data);
-        // Reset unread count
-        await supabase
-          .from('whatsapp_conversations')
-          .update({ unread_count: 0 })
-          .eq('id', selectedConversation.id);
-      }
-      setIsLoading(false);
-    };
-
     fetchMessages();
 
     // Realtime for messages
     if (selectedConversation) {
       const channel = supabase
-        .channel('messages-changes')
+        .channel(`messages-${selectedConversation.id}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'whatsapp_messages',
           filter: `conversation_id=eq.${selectedConversation.id}`
         }, (payload) => {
-          setMessages(prev => [...prev, payload.new as Message]);
+          console.log('New message received:', payload.new);
+          setMessages(prev => {
+            // Avoid duplicates
+            const exists = prev.some(m => m.id === (payload.new as Message).id);
+            if (exists) return prev;
+            return [...prev, payload.new as Message];
+          });
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_messages',
+          filter: `conversation_id=eq.${selectedConversation.id}`
+        }, (payload) => {
+          setMessages(prev => prev.map(m => 
+            m.id === (payload.new as Message).id ? payload.new as Message : m
+          ));
         })
         .subscribe();
 
@@ -196,7 +216,7 @@ export default function WhatsAppChat() {
         supabase.removeChannel(channel);
       };
     }
-  }, [selectedConversation]);
+  }, [selectedConversation?.id]);
 
   // Fetch lead data
   useEffect(() => {
@@ -225,23 +245,55 @@ export default function WhatsAppChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const refreshMessages = async () => {
+    setIsRefreshing(true);
+    await fetchMessages();
+    setIsRefreshing(false);
+    toast.success('Mensagens atualizadas');
+  };
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !selectedInstance) return;
     
+    const messageText = newMessage.trim();
+    setNewMessage('');
     setIsSending(true);
+    
+    // Add optimistic message immediately
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      content: messageText,
+      direction: 'outbound',
+      message_type: 'text',
+      media_url: null,
+      media_caption: null,
+      created_at: new Date().toISOString(),
+      is_from_bot: false,
+      status: 'sending'
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+    
     try {
-      const { error } = await supabase.functions.invoke('whatsapp-send-message', {
+      const { data, error } = await supabase.functions.invoke('whatsapp-send-message', {
         body: {
           instanceId: selectedInstance,
           conversationId: selectedConversation.id,
-          content: newMessage.trim(),
+          content: messageText,
           messageType: 'text'
         }
       });
 
       if (error) throw error;
-      setNewMessage('');
+      
+      // Replace optimistic message with real one
+      if (data?.message) {
+        setMessages(prev => prev.map(m => 
+          m.id === optimisticMessage.id ? data.message : m
+        ));
+      }
     } catch (error: any) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
       toast.error('Erro ao enviar mensagem: ' + error.message);
     } finally {
       setIsSending(false);
@@ -252,7 +304,26 @@ export default function WhatsAppChat() {
     if (!selectedConversation) return;
     
     // Navigate to new lead page with phone pre-filled
-    navigate(`/leads/new?whatsapp=${selectedConversation.phone_number}&name=${selectedConversation.contact_name || ''}`);
+    const params = new URLSearchParams();
+    params.set('whatsapp', selectedConversation.phone_number);
+    if (selectedConversation.contact_name) {
+      params.set('name', selectedConversation.contact_name);
+    }
+    navigate(`/leads/new?${params.toString()}`);
+  };
+
+  const linkToLead = async (leadId: string) => {
+    if (!selectedConversation) return;
+    
+    const { error } = await supabase
+      .from('whatsapp_conversations')
+      .update({ lead_id: leadId })
+      .eq('id', selectedConversation.id);
+    
+    if (!error) {
+      setSelectedConversation(prev => prev ? { ...prev, lead_id: leadId } : null);
+      toast.success('Lead vinculado com sucesso');
+    }
   };
 
   const filteredConversations = conversations.filter(c => 
@@ -261,6 +332,15 @@ export default function WhatsAppChat() {
   );
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
+
+  const getStatusIcon = (status: string | null) => {
+    switch (status) {
+      case 'sent': return '✓';
+      case 'delivered': return '✓✓';
+      case 'read': return '✓✓';
+      default: return '';
+    }
+  };
 
   return (
     <Layout>
@@ -394,6 +474,14 @@ export default function WhatsAppChat() {
                     <p className="text-sm text-muted-foreground">{selectedConversation.phone_number}</p>
                   </div>
                 </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={refreshMessages}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                </Button>
               </div>
 
               {/* Messages */}
@@ -404,7 +492,11 @@ export default function WhatsAppChat() {
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
-                    Nenhuma mensagem ainda
+                    <div className="text-center">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Nenhuma mensagem ainda</p>
+                      <p className="text-sm">Envie uma mensagem para começar</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -430,20 +522,46 @@ export default function WhatsAppChat() {
                               Bot
                             </div>
                           )}
-                          {msg.media_url && (
+                          {msg.media_url && msg.message_type === 'image' && (
                             <img 
                               src={msg.media_url} 
                               alt="Media" 
-                              className="rounded mb-2 max-w-full"
+                              className="rounded mb-2 max-w-full max-h-64 object-contain"
                             />
                           )}
-                          <p className="whitespace-pre-wrap">{msg.content || msg.media_caption}</p>
-                          <span className={cn(
-                            "text-xs mt-1 block",
-                            msg.direction === 'outbound' ? "text-primary-foreground/70" : "text-muted-foreground"
+                          {msg.media_url && msg.message_type === 'audio' && (
+                            <audio controls className="mb-2 max-w-full">
+                              <source src={msg.media_url} />
+                            </audio>
+                          )}
+                          {msg.media_url && msg.message_type === 'video' && (
+                            <video controls className="mb-2 max-w-full max-h-64 rounded">
+                              <source src={msg.media_url} />
+                            </video>
+                          )}
+                          {(msg.content || msg.media_caption) && (
+                            <p className="whitespace-pre-wrap break-words">
+                              {msg.content || msg.media_caption}
+                            </p>
+                          )}
+                          {!msg.content && !msg.media_caption && !msg.media_url && (
+                            <p className="text-muted-foreground italic text-sm">
+                              [Mensagem sem conteúdo]
+                            </p>
+                          )}
+                          <div className={cn(
+                            "flex items-center gap-1 text-xs mt-1",
+                            msg.direction === 'outbound' ? "text-primary-foreground/70 justify-end" : "text-muted-foreground"
                           )}>
-                            {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
-                          </span>
+                            <span>{format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}</span>
+                            {msg.direction === 'outbound' && (
+                              <span className={cn(
+                                msg.status === 'read' && "text-blue-400"
+                              )}>
+                                {getStatusIcon(msg.status)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -490,50 +608,65 @@ export default function WhatsAppChat() {
                   Dados do Contato
                 </h3>
               </div>
-              
+
               <ScrollArea className="flex-1 p-4">
                 {lead ? (
                   <div className="space-y-4">
-                    {/* Lead Name */}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Nome</p>
-                      <p className="font-medium">{lead.name}</p>
-                    </div>
-
-                    {/* Phone */}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Telefone</p>
-                      <p className="font-medium">{lead.whatsapp}</p>
-                    </div>
-
-                    {/* Stars */}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Prioridade</p>
-                      <div className="flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Star
-                            key={star}
-                            className={cn(
-                              "h-4 w-4",
-                              star <= lead.stars ? "fill-yellow-400 text-yellow-400" : "text-muted"
-                            )}
-                          />
-                        ))}
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-16 w-16">
+                        <AvatarFallback className="bg-primary/20 text-primary text-xl">
+                          {lead.name[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-semibold">{lead.name}</h4>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              className={cn(
+                                "h-4 w-4",
+                                i < lead.stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"
+                              )}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Stage */}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Etapa do Funil</p>
-                      <Badge variant="outline">{lead.stage}</Badge>
                     </div>
 
                     <Separator />
 
-                    {/* Actions */}
-                    <Button
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span>{lead.whatsapp}</span>
+                      </div>
+                      {lead.email && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">@</span>
+                          <span>{lead.email}</span>
+                        </div>
+                      )}
+                      {lead.instagram && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">IG</span>
+                          <span>{lead.instagram}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <span className="text-sm text-muted-foreground">Etapa do funil</span>
+                      <Badge variant="secondary" className="mt-1 capitalize">
+                        {lead.stage}
+                      </Badge>
+                    </div>
+
+                    <Button 
+                      variant="outline" 
                       className="w-full"
-                      variant="outline"
                       onClick={() => navigate(`/leads/${lead.id}`)}
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
@@ -542,7 +675,7 @@ export default function WhatsAppChat() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <User className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                     <p className="text-muted-foreground mb-4">
                       Nenhum lead vinculado a esta conversa
                     </p>
@@ -557,8 +690,8 @@ export default function WhatsAppChat() {
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center text-muted-foreground p-4">
-                <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Selecione uma conversa para ver os dados do lead</p>
+                <User className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Selecione uma conversa para ver os dados do contato</p>
               </div>
             </div>
           )}
