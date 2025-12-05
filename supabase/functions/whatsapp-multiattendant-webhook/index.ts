@@ -25,15 +25,33 @@ function normalizePhone(phone: string): string {
 
 // Find instance by different provider IDs
 async function findInstance(identifier: string, provider?: string) {
-  // Try WasenderAPI first (by wasender_session_id or by ID in webhook)
+  console.log("Finding instance by identifier:", identifier, "provider:", provider);
+  
+  // Try WasenderAPI first
   if (provider === "wasenderapi" || !provider) {
+    // WasenderAPI sends the api_key as sessionId in webhooks
+    const { data: wasenderByApiKey } = await supabase
+      .from("whatsapp_instances")
+      .select("*")
+      .eq("wasender_api_key", identifier)
+      .single();
+
+    if (wasenderByApiKey) {
+      console.log("Found instance by wasender_api_key:", wasenderByApiKey.id);
+      return wasenderByApiKey;
+    }
+
+    // Try by session ID (numeric)
     const { data: wasenderInstance } = await supabase
       .from("whatsapp_instances")
       .select("*")
       .eq("wasender_session_id", identifier)
       .single();
 
-    if (wasenderInstance) return wasenderInstance;
+    if (wasenderInstance) {
+      console.log("Found instance by wasender_session_id:", wasenderInstance.id);
+      return wasenderInstance;
+    }
 
     // Try by internal ID
     const { data: byId } = await supabase
@@ -42,7 +60,10 @@ async function findInstance(identifier: string, provider?: string) {
       .eq("id", identifier)
       .single();
 
-    if (byId) return byId;
+    if (byId) {
+      console.log("Found instance by id:", byId.id);
+      return byId;
+    }
   }
 
   // Try Z-API
@@ -52,7 +73,10 @@ async function findInstance(identifier: string, provider?: string) {
     .eq("z_api_instance_id", identifier)
     .single();
 
-  if (zapiInstance) return zapiInstance;
+  if (zapiInstance) {
+    console.log("Found instance by z_api_instance_id:", zapiInstance.id);
+    return zapiInstance;
+  }
 
   console.error("Instance not found:", identifier);
   return null;

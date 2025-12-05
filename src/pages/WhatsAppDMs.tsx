@@ -724,19 +724,19 @@ export default function WhatsAppDMs() {
                   </Badge>
                 </div>
                 <CardHeader className="pb-3 pt-8">
-                  <div className="flex justify-between items-start">
-                    <div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{instance.name}</CardTitle>
-                      <CardDescription>
-                        {instance.phone_number || "Número não configurado"}
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
                       {getStatusBadge(instance.status, instance.is_connected)}
-                      <Badge variant="outline" className="text-xs">
-                        {formatPrice(instance.monthly_price_cents)}/mês
-                      </Badge>
                     </div>
+                    {instance.phone_number && (
+                      <p className="text-sm font-medium text-muted-foreground">
+                        📱 {instance.phone_number}
+                      </p>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {formatPrice(instance.monthly_price_cents || getProviderPrice(instance.provider as WhatsAppProvider || "zapi"))}/mês
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
