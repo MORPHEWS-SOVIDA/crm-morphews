@@ -85,20 +85,20 @@ export function Sidebar() {
           )}
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setIsOpen(false)}
                 className={({ isActive }) => cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
+                  'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm',
                   isActive
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
                 )}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">{item.label}</span>
                 {item.badge && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">

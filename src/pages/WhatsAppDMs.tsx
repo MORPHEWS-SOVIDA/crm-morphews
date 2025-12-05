@@ -246,7 +246,7 @@ export default function WhatsAppDMs() {
             </p>
           </div>
 
-          {isAdmin && (
+          {/* Todos podem contratar instâncias */}
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -362,7 +362,6 @@ export default function WhatsAppDMs() {
                 </div>
               </DialogContent>
             </Dialog>
-          )}
         </div>
 
         {/* Instances List */}
@@ -380,12 +379,10 @@ export default function WhatsAppDMs() {
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                 Contrate uma instância do WhatsApp para começar a atender seus clientes diretamente pelo CRM.
               </p>
-              {isAdmin && (
-                <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Contratar Primeira Instância
-                </Button>
-              )}
+              <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Contratar Primeira Instância
+              </Button>
             </CardContent>
           </Card>
         ) : (

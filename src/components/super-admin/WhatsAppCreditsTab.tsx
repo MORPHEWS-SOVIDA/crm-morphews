@@ -45,7 +45,7 @@ export function WhatsAppCreditsTab() {
   const [creditsToAdd, setCreditsToAdd] = useState(1);
 
   // Fetch organizations
-  const { data: organizations } = useQuery({
+  const { data: organizations, isError: orgError } = useQuery({
     queryKey: ["super-admin-organizations"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -58,7 +58,7 @@ export function WhatsAppCreditsTab() {
   });
 
   // Fetch all credits
-  const { data: credits, isLoading: loadingCredits } = useQuery({
+  const { data: credits, isLoading: loadingCredits, isError: creditsError } = useQuery({
     queryKey: ["super-admin-whatsapp-credits"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -71,7 +71,7 @@ export function WhatsAppCreditsTab() {
   });
 
   // Fetch all instances
-  const { data: instances } = useQuery({
+  const { data: instances, isError: instancesError } = useQuery({
     queryKey: ["super-admin-whatsapp-instances"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -82,6 +82,18 @@ export function WhatsAppCreditsTab() {
       return data as WhatsAppInstance[];
     },
   });
+
+  // Handle errors
+  if (orgError || creditsError || instancesError) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-destructive mb-2">Erro ao carregar dados</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
 
   // Add credits mutation
   const addCreditsMutation = useMutation({
