@@ -26,26 +26,48 @@ function normalizePhone(phone: string): string {
 }
 
 // Analyze image using Lovable AI (Gemini Vision)
-async function analyzeImage(imageUrl: string): Promise<string | null> {
+async function analyzeImage(imageUrl: string, base64Data?: string): Promise<string | null> {
   if (!LOVABLE_API_KEY) {
     console.log("LOVABLE_API_KEY not configured, skipping image analysis");
     return null;
   }
 
   try {
-    console.log("Analyzing image with Gemini Vision:", imageUrl);
+    console.log("=== Starting image analysis ===");
+    console.log("Image URL:", imageUrl?.substring(0, 100));
+    console.log("Has base64 data:", !!base64Data);
     
-    // Fetch image and convert to base64
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      console.error("Failed to fetch image:", imageResponse.status);
+    let base64Image: string;
+    let mimeType = "image/jpeg";
+    
+    // Use base64 data if provided (preferred - doesn't expire)
+    if (base64Data) {
+      console.log("Using provided base64 data");
+      base64Image = base64Data;
+    } else if (imageUrl) {
+      // Try to fetch from URL
+      console.log("Fetching image from URL...");
+      const imageResponse = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (!imageResponse.ok) {
+        console.error("Failed to fetch image:", imageResponse.status, imageResponse.statusText);
+        return null;
+      }
+      
+      const imageBuffer = await imageResponse.arrayBuffer();
+      base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+      mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
+      console.log("Image fetched successfully, size:", imageBuffer.byteLength, "mime:", mimeType);
+    } else {
+      console.log("No image URL or base64 provided");
       return null;
     }
     
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-    const mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
-    
+    console.log("Calling Gemini Vision API...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -69,6 +91,7 @@ Ao analisar a imagem, extraia informações relevantes como:
 - Qualquer texto legível relevante
 
 Responda de forma clara e concisa em português, listando as informações encontradas.
+Se for um print de conversa, resuma os pontos principais.
 Se a imagem não contiver informações de negócio relevantes, descreva brevemente o que você vê.`
           },
           {
@@ -76,7 +99,7 @@ Se a imagem não contiver informações de negócio relevantes, descreva breveme
             content: [
               {
                 type: "text",
-                text: "Analise esta imagem e extraia todas as informações relevantes de negócio/leads:"
+                text: "Analise esta imagem e extraia todas as informações relevantes:"
               },
               {
                 type: "image_url",
@@ -99,7 +122,8 @@ Se a imagem não contiver informações de negócio relevantes, descreva breveme
     const data = await response.json();
     const analysis = data.choices?.[0]?.message?.content;
     
-    console.log("Image analysis result:", analysis?.substring(0, 200));
+    console.log("=== Image analysis complete ===");
+    console.log("Result preview:", analysis?.substring(0, 200));
     return analysis || null;
   } catch (error) {
     console.error("Error analyzing image:", error);
@@ -108,23 +132,47 @@ Se a imagem não contiver informações de negócio relevantes, descreva breveme
 }
 
 // Transcribe audio using OpenAI Whisper
-async function transcribeAudio(audioUrl: string): Promise<string | null> {
+async function transcribeAudio(audioUrl: string, base64Data?: string): Promise<string | null> {
   if (!OPENAI_API_KEY) {
     console.log("OPENAI_API_KEY not configured, skipping audio transcription");
     return null;
   }
 
   try {
-    console.log("Transcribing audio with Whisper:", audioUrl);
+    console.log("=== Starting audio transcription ===");
+    console.log("Audio URL:", audioUrl?.substring(0, 100));
+    console.log("Has base64 data:", !!base64Data);
     
-    // Fetch audio file
-    const audioResponse = await fetch(audioUrl);
-    if (!audioResponse.ok) {
-      console.error("Failed to fetch audio:", audioResponse.status);
+    let audioBlob: Blob;
+    
+    // Use base64 data if provided
+    if (base64Data) {
+      console.log("Using provided base64 data for audio");
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      audioBlob = new Blob([bytes], { type: 'audio/ogg' });
+    } else if (audioUrl) {
+      console.log("Fetching audio from URL...");
+      const audioResponse = await fetch(audioUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (!audioResponse.ok) {
+        console.error("Failed to fetch audio:", audioResponse.status, audioResponse.statusText);
+        return null;
+      }
+      
+      audioBlob = await audioResponse.blob();
+      console.log("Audio fetched successfully, size:", audioBlob.size);
+    } else {
+      console.log("No audio URL or base64 provided");
       return null;
     }
-    
-    const audioBlob = await audioResponse.blob();
     
     // Prepare form data for Whisper API
     const formData = new FormData();
@@ -132,6 +180,7 @@ async function transcribeAudio(audioUrl: string): Promise<string | null> {
     formData.append("model", "whisper-1");
     formData.append("language", "pt");
     
+    console.log("Calling Whisper API...");
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: {
@@ -149,7 +198,8 @@ async function transcribeAudio(audioUrl: string): Promise<string | null> {
     const data = await response.json();
     const transcription = data.text;
     
-    console.log("Audio transcription result:", transcription?.substring(0, 200));
+    console.log("=== Audio transcription complete ===");
+    console.log("Result:", transcription?.substring(0, 200));
     return transcription || null;
   } catch (error) {
     console.error("Error transcribing audio:", error);
@@ -449,15 +499,25 @@ async function processWasenderMessage(instance: any, body: any) {
                  msgData.caption || 
                  null;
 
-  console.log("Parsed WasenderAPI message:", { 
-    phone, 
-    text: text?.substring(0, 50), 
-    messageId, 
-    senderName,
-    isFromMe,
-    messageType,
-    mediaUrl: mediaUrl ? "has_media" : "no_media"
-  });
+  // Try to get base64 data from payload (WasenderAPI sometimes includes it)
+  const base64Data = msgData.base64 || 
+                     msgData.mediaBase64 || 
+                     msgData.message?.imageMessage?.base64 ||
+                     msgData.message?.audioMessage?.base64 ||
+                     msgData.message?.videoMessage?.base64 ||
+                     msgData.data?.base64 ||
+                     null;
+
+  console.log("=== Parsed WasenderAPI message ===");
+  console.log("Phone:", phone);
+  console.log("Text preview:", text?.substring(0, 50));
+  console.log("Message ID:", messageId);
+  console.log("Sender:", senderName);
+  console.log("Is from me:", isFromMe);
+  console.log("Message type:", messageType);
+  console.log("Has media URL:", !!mediaUrl);
+  console.log("Media URL preview:", mediaUrl?.substring(0, 80));
+  console.log("Has base64:", !!base64Data);
 
   if (!phone) {
     console.log("No phone number in message, msgData keys:", Object.keys(msgData));
@@ -470,29 +530,40 @@ async function processWasenderMessage(instance: any, body: any) {
     return null;
   }
 
-  // Process media: analyze images and transcribe audio
+  // Process media: analyze images and transcribe audio (only for incoming messages)
   let processedContent = text || caption || null;
   
-  if (mediaUrl && !isFromMe) {
+  if (!isFromMe && (mediaUrl || base64Data)) {
+    console.log("=== Processing media content ===");
+    console.log("Processing for message type:", messageType);
+    
     // Process image - analyze with Gemini Vision
     if (messageType === "image") {
-      console.log("Processing image message...");
-      const imageAnalysis = await analyzeImage(mediaUrl);
+      console.log("Starting image analysis...");
+      const imageAnalysis = await analyzeImage(mediaUrl || "", base64Data);
+      console.log("Image analysis result:", imageAnalysis ? "Success" : "Failed/Empty");
       if (imageAnalysis) {
         processedContent = processedContent 
           ? `${processedContent}\n\n📸 Análise da imagem:\n${imageAnalysis}`
           : `📸 Análise da imagem:\n${imageAnalysis}`;
+        console.log("Updated content with image analysis");
       }
     }
     
     // Process audio - transcribe with Whisper
     if (messageType === "audio") {
-      console.log("Processing audio message...");
-      const transcription = await transcribeAudio(mediaUrl);
+      console.log("Starting audio transcription...");
+      const transcription = await transcribeAudio(mediaUrl || "", base64Data);
+      console.log("Transcription result:", transcription ? "Success" : "Failed/Empty");
       if (transcription) {
-        processedContent = `🎤 Transcrição do áudio:\n${transcription}`;
+        processedContent = processedContent
+          ? `${processedContent}\n\n🎤 Transcrição do áudio:\n${transcription}`
+          : `🎤 Transcrição do áudio:\n${transcription}`;
+        console.log("Updated content with transcription");
       }
     }
+  } else {
+    console.log("Skipping media processing - isFromMe:", isFromMe, "hasMedia:", !!(mediaUrl || base64Data));
   }
 
   // Get or create conversation
