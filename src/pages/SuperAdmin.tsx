@@ -13,11 +13,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CouponsTab } from "@/components/super-admin/CouponsTab";
+import { WhatsAppCreditsTab } from "@/components/super-admin/WhatsAppCreditsTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -728,6 +729,10 @@ export default function SuperAdmin() {
               <Tag className="h-3 w-3" />
               Cupons
             </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-1">
+              <MessageSquare className="h-3 w-3" />
+              WhatsApp Créditos
+            </TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
             <TabsTrigger value="users">Usuários sem Org</TabsTrigger>
           </TabsList>
@@ -1174,6 +1179,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="coupons">
             <CouponsTab />
+          </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <WhatsAppCreditsTab />
           </TabsContent>
         </Tabs>
       </div>
