@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw, Unplug, Globe, Flag } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -743,28 +744,60 @@ export default function WhatsAppDMs() {
                   {instance.status === "pending" || (!instance.is_connected && instance.status === "active") || (!instance.is_connected && instance.provider === "wasenderapi") ? (
                     <div className="bg-muted/50 rounded-lg p-4 text-center">
                       {instance.qr_code_base64 ? (
-                        <div className="space-y-2">
-                          <img 
-                            src={`data:image/png;base64,${instance.qr_code_base64}`} 
-                            alt="QR Code WhatsApp" 
-                            className="mx-auto w-48 h-48"
-                          />
+                        <div className="space-y-3">
+                          {/* WasenderAPI returns QR string (starts with "2@"), Z-API returns base64 image */}
+                          {instance.qr_code_base64.startsWith("2@") || !instance.qr_code_base64.includes("/") ? (
+                            <div className="bg-white p-3 rounded-lg inline-block mx-auto">
+                              <QRCodeSVG 
+                                value={instance.qr_code_base64} 
+                                size={192}
+                                level="M"
+                                includeMargin={false}
+                              />
+                            </div>
+                          ) : (
+                            <img 
+                              src={`data:image/png;base64,${instance.qr_code_base64}`} 
+                              alt="QR Code WhatsApp" 
+                              className="mx-auto w-48 h-48"
+                            />
+                          )}
                           <p className="text-sm text-muted-foreground">
                             Escaneie o QR Code com o WhatsApp
                           </p>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleCheckConnection(instance)}
-                            disabled={isCheckingConnection === instance.id}
-                          >
-                            {isCheckingConnection === instance.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                              <RefreshCw className="h-4 w-4 mr-2" />
+                          <p className="text-xs text-amber-600">
+                            QR Code expira em ~40 segundos
+                          </p>
+                          <div className="flex gap-2 justify-center flex-wrap">
+                            {instance.provider === "wasenderapi" && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleReconnectWasender(instance)}
+                                disabled={isGeneratingQR === instance.id}
+                              >
+                                {isGeneratingQR === instance.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                )}
+                                Atualizar QR Code
+                              </Button>
                             )}
-                            Verificar Conexão
-                          </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleCheckConnection(instance)}
+                              disabled={isCheckingConnection === instance.id}
+                            >
+                              {isCheckingConnection === instance.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <Check className="h-4 w-4 mr-2" />
+                              )}
+                              Verificar Status
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-2 py-4">
