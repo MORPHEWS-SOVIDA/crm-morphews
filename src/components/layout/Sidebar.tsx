@@ -44,7 +44,7 @@ export function Sidebar() {
     { icon: MessageSquare, label: 'WhatsApp DMs', path: '/whatsapp' },
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     ...(isAdmin ? [
-      { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
+      { icon: UserPlus, label: 'Nova Organização', path: '/cadastro' },
       { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
     ] : []),
     ...(isMasterAdmin ? [
