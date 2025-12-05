@@ -248,22 +248,39 @@ async function saveMessage(
 
 // Process WasenderAPI message payload - handles both messages.received and messages.upsert
 async function processWasenderMessage(instance: any, body: any) {
-  const msgData = body.data?.messages?.[0] || body.data?.message || body.data;
+  // WasenderAPI sends messages as object, not array!
+  // Handle both: data.messages (object) and data.messages[0] (array format from other providers)
+  let msgData = body.data?.messages;
+  
+  // If messages is an array, get first element
+  if (Array.isArray(msgData)) {
+    msgData = msgData[0];
+  }
+  // If messages is null/undefined, try other fields
+  if (!msgData) {
+    msgData = body.data?.message || body.data;
+  }
   
   if (!msgData) {
     console.log("No message data in payload");
     return null;
   }
 
+  console.log("Processing msgData:", JSON.stringify(msgData, null, 2));
+
   // Check if fromMe (our own message) - skip if already saved by send function
-  const isFromMe = msgData.key?.fromMe || msgData.fromMe || false;
+  const isFromMe = msgData.key?.fromMe === true;
   
   // Extract phone from various possible fields
   const remoteJid = msgData.key?.remoteJid || msgData.remoteJid || "";
-  const phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "") ||
-               msgData.key?.cleanedSenderPn ||
-               msgData.from || 
-               msgData.phone || "";
+  let phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+  
+  // Fallback to other phone fields if remoteJid parsing failed
+  if (!phone) {
+    phone = msgData.key?.cleanedSenderPn ||
+            msgData.from?.replace("@s.whatsapp.net", "").replace("@c.us", "") || 
+            msgData.phone || "";
+  }
   
   // Extract message content from various WasenderAPI formats
   const text = msgData.messageBody || 
@@ -282,7 +299,7 @@ async function processWasenderMessage(instance: any, body: any) {
   // Determine message type
   let messageType = "text";
   if (msgData.message?.imageMessage || msgData.type === "image") messageType = "image";
-  else if (msgData.message?.audioMessage || msgData.type === "audio") messageType = "audio";
+  else if (msgData.message?.audioMessage || msgData.type === "audio" || msgData.type === "ptt") messageType = "audio";
   else if (msgData.message?.videoMessage || msgData.type === "video") messageType = "video";
   else if (msgData.message?.documentMessage || msgData.type === "document") messageType = "document";
   else if (msgData.message?.stickerMessage) messageType = "sticker";
@@ -308,7 +325,7 @@ async function processWasenderMessage(instance: any, body: any) {
   });
 
   if (!phone) {
-    console.log("No phone number in message");
+    console.log("No phone number in message, msgData keys:", Object.keys(msgData));
     return null;
   }
 
