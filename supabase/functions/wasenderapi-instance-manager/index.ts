@@ -62,6 +62,10 @@ serve(async (req) => {
         console.log("Creating WasenderAPI session...");
         console.log("Webhook URL:", webhookUrl);
 
+        // Use a placeholder phone number - the real number will be set when user scans QR
+        // WasenderAPI requires this field but it's just for identification
+        const placeholderPhone = "+5500000000000";
+
         // Create session on WasenderAPI
         const createResponse = await fetch(`${WASENDERAPI_BASE_URL}/whatsapp-sessions`, {
           method: "POST",
@@ -71,7 +75,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             name: `Morphews - ${instance.name}`,
-            phone_number: instance.phone_number || "",
+            phone_number: placeholderPhone,
             account_protection: true,
             log_messages: true,
             read_incoming_messages: true,

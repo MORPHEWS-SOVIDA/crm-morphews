@@ -676,15 +676,18 @@ export default function WhatsAppDMs() {
                       <Users className="h-4 w-4" />
                       Permissões
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 gap-2" 
-                      size="sm"
-                      onClick={() => setConfigInstance(instance)}
-                    >
-                      <Settings className="h-4 w-4" />
-                      Configurar
-                    </Button>
+                    {/* Only show Configure button for Z-API - WasenderAPI is fully automatic */}
+                    {instance.provider === "zapi" && (
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 gap-2" 
+                        size="sm"
+                        onClick={() => setConfigInstance(instance)}
+                      >
+                        <Settings className="h-4 w-4" />
+                        Configurar
+                      </Button>
+                    )}
                   </div>
 
                   {instance.is_connected && (
