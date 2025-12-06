@@ -343,7 +343,7 @@ export type Database = {
           email: string | null
           followers: number | null
           id: string
-          instagram: string
+          instagram: string | null
           lead_source: string | null
           linkedin: string | null
           meeting_date: string | null
@@ -381,7 +381,7 @@ export type Database = {
           email?: string | null
           followers?: number | null
           id?: string
-          instagram: string
+          instagram?: string | null
           lead_source?: string | null
           linkedin?: string | null
           meeting_date?: string | null
@@ -419,7 +419,7 @@ export type Database = {
           email?: string | null
           followers?: number | null
           id?: string
-          instagram?: string
+          instagram?: string | null
           lead_source?: string | null
           linkedin?: string | null
           meeting_date?: string | null
