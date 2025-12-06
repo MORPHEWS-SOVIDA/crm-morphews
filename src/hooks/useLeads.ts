@@ -54,22 +54,16 @@ export function useCreateLead() {
 
   return useMutation({
     mutationFn: async (lead: Omit<LeadInsert, 'organization_id' | 'created_by'>) => {
-      // Refresh session to ensure valid token
-      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
-      if (sessionError) {
-        console.error('Session refresh error:', sessionError);
-      }
-
-      // Get user's organization_id and user_id  
+      // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         console.error('Auth error:', authError);
-        throw new Error('Sessão expirada. Por favor, faça logout e login novamente.');
+        throw new Error('Você precisa estar logado. Faça logout e login novamente.');
       }
 
-      console.log('User authenticated:', user.id, user.email);
+      console.log('User:', user.id, user.email);
 
-      // First try to get org from organization_members directly
+      // Get organization_id directly from organization_members table
       const { data: memberData, error: memberError } = await supabase
         .from('organization_members')
         .select('organization_id')
@@ -77,106 +71,66 @@ export function useCreateLead() {
         .limit(1)
         .maybeSingle();
 
-      console.log('Direct membership query result:', memberData, memberError);
-
-      const { data: orgData, error: orgError } = await supabase
-        .rpc('get_user_organization_id');
-      
-      console.log('RPC get_user_organization_id result:', orgData, orgError);
-
-      if (orgError) {
-        console.error('Error getting organization via RPC:', orgError);
+      if (memberError) {
+        console.error('Member query error:', memberError);
+        throw new Error('Erro ao buscar sua organização. Tente novamente.');
       }
 
-      // Use direct query result if RPC fails
-      const finalOrgId = orgData || memberData?.organization_id;
-
-      if (!finalOrgId) {
-        console.error('No organization found for user:', user.id, user.email);
-        throw new Error('Sua conta não está vinculada a nenhuma organização. Contate o administrador.');
+      if (!memberData?.organization_id) {
+        console.error('No organization found for user:', user.id);
+        throw new Error('Você não está vinculado a nenhuma organização. Contate o administrador.');
       }
 
-      console.log('Creating lead - org:', finalOrgId, 'user:', user.id, 'email:', user.email);
+      const organizationId = memberData.organization_id;
+      console.log('Organization ID:', organizationId);
 
-      // Check lead limit for the organization's subscription plan
-      const { data: subscription, error: subError } = await supabase
+      // Check subscription lead limit
+      const { data: subscription } = await supabase
         .from('subscriptions')
-        .select(`
-          *,
-          plan:subscription_plans(*)
-        `)
-        .eq('organization_id', finalOrgId)
+        .select(`*, plan:subscription_plans(*)`)
+        .eq('organization_id', organizationId)
         .maybeSingle();
 
-      if (subError) {
-        console.error('Error fetching subscription:', subError);
-        throw new Error('Erro ao verificar plano de assinatura. Tente novamente.');
-      }
-
-      if (subscription?.plan?.max_leads !== null) {
-        // Count leads created this month
+      if (subscription?.plan?.max_leads !== null && subscription?.plan?.max_leads !== undefined) {
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
 
-        const { count, error: countError } = await supabase
+        const { count } = await supabase
           .from('leads')
           .select('*', { count: 'exact', head: true })
-          .eq('organization_id', finalOrgId)
+          .eq('organization_id', organizationId)
           .gte('created_at', startOfMonth.toISOString());
 
-        if (countError) {
-          console.error('Error counting leads:', countError);
-          throw new Error('Erro ao verificar limite de leads. Tente novamente.');
-        }
-
         if (count !== null && count >= subscription.plan.max_leads) {
-          throw new Error(`Limite de ${subscription.plan.max_leads} leads/mês atingido. Faça upgrade do seu plano para adicionar mais leads.`);
+          throw new Error(`Limite de ${subscription.plan.max_leads} leads/mês atingido. Faça upgrade do plano.`);
         }
       }
 
+      // Insert the lead
       const { data, error } = await supabase
         .from('leads')
         .insert({
           ...lead,
-          organization_id: finalOrgId,
+          organization_id: organizationId,
           created_by: user.id,
         })
         .select()
         .single();
 
-      console.log('Lead insert result:', data, error);
-
       if (error) {
-        console.error('Error creating lead:', error);
-        // Provide more specific error messages
-        if (error.message.includes('row-level security')) {
-          throw new Error('Erro de permissão: Sua conta não tem permissão para criar leads nesta organização. Contate o administrador.');
-        }
-        if (error.message.includes('violates not-null constraint')) {
-          const match = error.message.match(/column "(\w+)"/);
-          const field = match ? match[1] : 'campo obrigatório';
-          throw new Error(`O campo "${field}" é obrigatório e não pode ficar vazio.`);
-        }
-        if (error.message.includes('violates check constraint')) {
-          throw new Error('Algum campo possui valor inválido. Verifique os dados e tente novamente.');
-        }
-        throw new Error(`Erro ao salvar lead: ${error.message}`);
+        console.error('Insert error:', error);
+        throw new Error('Erro ao criar lead: ' + error.message);
       }
 
-      // Add the creator as responsible for the lead
-      const { error: responsibleError } = await supabase
+      // Add creator as responsible
+      await supabase
         .from('lead_responsibles')
         .insert({
           lead_id: data.id,
           user_id: user.id,
-          organization_id: finalOrgId,
+          organization_id: organizationId,
         });
-
-      if (responsibleError) {
-        console.error('Error adding lead responsible:', responsibleError);
-        // Don't throw - lead was created successfully
-      }
 
       return data;
     },
