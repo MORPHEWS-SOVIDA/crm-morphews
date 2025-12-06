@@ -61,7 +61,9 @@ export function useCreateLead() {
         throw new Error('Você precisa estar logado. Faça logout e login novamente.');
       }
 
-      console.log('User:', user.id, user.email);
+      console.log('=== DEBUG LEAD CREATION ===');
+      console.log('User ID:', user.id);
+      console.log('User Email:', user.email);
 
       // Get organization_id directly from organization_members table
       const { data: memberData, error: memberError } = await supabase
@@ -71,9 +73,12 @@ export function useCreateLead() {
         .limit(1)
         .maybeSingle();
 
+      console.log('Member query result:', memberData);
+      console.log('Member query error:', memberError);
+
       if (memberError) {
         console.error('Member query error:', memberError);
-        throw new Error('Erro ao buscar sua organização. Tente novamente.');
+        throw new Error('Erro ao buscar sua organização: ' + memberError.message);
       }
 
       if (!memberData?.organization_id) {
@@ -82,7 +87,7 @@ export function useCreateLead() {
       }
 
       const organizationId = memberData.organization_id;
-      console.log('Organization ID:', organizationId);
+      console.log('Organization ID found:', organizationId);
 
       // Check subscription lead limit
       const { data: subscription } = await supabase
@@ -107,21 +112,31 @@ export function useCreateLead() {
         }
       }
 
+      // Prepare lead data
+      const leadData = {
+        ...lead,
+        organization_id: organizationId,
+        created_by: user.id,
+      };
+      
+      console.log('Lead data to insert:', JSON.stringify(leadData, null, 2));
+
       // Insert the lead
       const { data, error } = await supabase
         .from('leads')
-        .insert({
-          ...lead,
-          organization_id: organizationId,
-          created_by: user.id,
-        })
+        .insert(leadData)
         .select()
         .single();
 
       if (error) {
         console.error('Insert error:', error);
+        console.error('Insert error code:', error.code);
+        console.error('Insert error details:', error.details);
+        console.error('Insert error hint:', error.hint);
         throw new Error('Erro ao criar lead: ' + error.message);
       }
+
+      console.log('Lead created successfully:', data.id);
 
       // Add creator as responsible
       await supabase
