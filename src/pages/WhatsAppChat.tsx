@@ -413,7 +413,7 @@ export default function WhatsAppChat() {
           </div>
 
           {/* Conversations List */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             {filteredConversations.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -471,7 +471,7 @@ export default function WhatsAppChat() {
                 ))}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Center Column - Chat */}
