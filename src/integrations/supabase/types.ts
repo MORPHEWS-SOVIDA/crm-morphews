@@ -1282,6 +1282,10 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      user_can_insert_to_org: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_can_see_lead: {
         Args: { _lead_id: string; _user_id: string }
         Returns: boolean
