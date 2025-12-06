@@ -364,11 +364,11 @@ export default function WhatsAppChat() {
 
   return (
     <Layout>
-      <div className="h-[calc(100vh-4rem)] flex bg-background">
+      <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
         {/* Left Column - Conversations List */}
-        <div className="w-80 border-r border-border flex flex-col bg-card">
+        <div className="w-80 border-r border-border flex flex-col bg-card overflow-hidden">
           {/* Header */}
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-lg flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary" />
@@ -413,7 +413,7 @@ export default function WhatsAppChat() {
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {filteredConversations.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
