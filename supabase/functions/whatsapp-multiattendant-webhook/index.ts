@@ -13,19 +13,94 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Normalize Brazilian phone number
-function normalizePhone(phone: string): string {
-  const clean = phone.replace(/\D/g, "").replace("@c.us", "").replace("@s.whatsapp.net", "");
+// ============================================================================
+// PHONE NUMBER UTILITIES - Critical for multi-tenant scale
+// ============================================================================
+
+/**
+ * Extracts the REAL phone number from WasenderAPI payload
+ * WasenderAPI uses LID format internally which is NOT a sendable phone number
+ * 
+ * Priority order:
+ * 1. cleanedSenderPn - best source, already cleaned
+ * 2. senderPn - contains @s.whatsapp.net suffix
+ * 3. remoteJid - ONLY if not LID format
+ */
+function extractPhoneFromWasenderPayload(msgData: any): { conversationId: string; sendablePhone: string } {
+  const remoteJid = msgData.key?.remoteJid || msgData.remoteJid || "";
+  const isLidFormat = remoteJid.includes("@lid");
   
-  // Add country code if missing
+  // For conversation identification, we use remoteJid as-is (unique per contact)
+  // This ensures we don't create duplicate conversations
+  let conversationId = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "").replace("@lid", "");
+  
+  // For sending messages, we need the REAL phone number
+  let sendablePhone = "";
+  
+  // Priority 1: cleanedSenderPn (best - already just digits)
+  if (msgData.key?.cleanedSenderPn) {
+    sendablePhone = msgData.key.cleanedSenderPn;
+  } 
+  // Priority 2: senderPn (needs cleaning)
+  else if (msgData.key?.senderPn) {
+    sendablePhone = msgData.key.senderPn.replace("@s.whatsapp.net", "").replace("@c.us", "");
+  }
+  // Priority 3: remoteJid ONLY if not LID format
+  else if (!isLidFormat) {
+    sendablePhone = conversationId;
+  }
+  // Priority 4: other fields
+  else {
+    sendablePhone = msgData.from?.replace("@s.whatsapp.net", "").replace("@c.us", "") || 
+                    msgData.phone || "";
+  }
+  
+  // Normalize sendable phone to E.164-like format (just digits, with country code)
+  sendablePhone = normalizePhoneE164(sendablePhone);
+  
+  console.log("Phone extraction:", { 
+    remoteJid, 
+    isLidFormat, 
+    conversationId, 
+    sendablePhone,
+    source: msgData.key?.cleanedSenderPn ? "cleanedSenderPn" : 
+            msgData.key?.senderPn ? "senderPn" : 
+            !isLidFormat ? "remoteJid" : "fallback"
+  });
+  
+  return { conversationId, sendablePhone };
+}
+
+/**
+ * Normalize phone to E.164-like format (digits only with country code)
+ * Brazilian phones: 55 + DDD (2 digits) + number (8-9 digits)
+ */
+function normalizePhoneE164(phone: string): string {
+  // Remove all non-digits
+  let clean = phone.replace(/\D/g, "");
+  
+  // Handle empty
+  if (!clean) return "";
+  
+  // Add Brazil country code if missing
   if (!clean.startsWith("55") && clean.length <= 11) {
-    return "55" + clean;
+    clean = "55" + clean;
   }
   
   return clean;
 }
 
-// Fetch conversation history for context
+/**
+ * Legacy normalize function for backward compatibility
+ */
+function normalizePhone(phone: string): string {
+  return normalizePhoneE164(phone);
+}
+
+// ============================================================================
+// AI FUNCTIONS
+// ============================================================================
+
 async function getConversationHistory(conversationId: string, limit = 20): Promise<Array<{ role: string; content: string }>> {
   const { data: messages } = await supabase
     .from("whatsapp_messages")
@@ -36,14 +111,12 @@ async function getConversationHistory(conversationId: string, limit = 20): Promi
 
   if (!messages || messages.length === 0) return [];
 
-  // Convert to chat format (oldest first)
   return messages.reverse().map((msg) => ({
     role: msg.direction === "inbound" ? "user" : "assistant",
     content: msg.content || msg.media_caption || "[mídia sem texto]",
   })).filter(m => m.content);
 }
 
-// Generate intelligent AI response based on conversation context
 async function generateAIResponse(
   conversationHistory: Array<{ role: string; content: string }>,
   newMessage: string,
@@ -56,9 +129,7 @@ async function generateAIResponse(
 
   try {
     console.log("=== Generating AI response ===");
-    console.log("History messages:", conversationHistory.length);
-    console.log("New message:", newMessage?.substring(0, 100));
-
+    
     const leadContext = leadInfo 
       ? `\n\nINFORMAÇÕES DO LEAD NO CRM:
 - Nome: ${leadInfo.name || "Não cadastrado"}
@@ -88,16 +159,11 @@ REGRAS:
 5. Se não tiver certeza de algo, pergunte para confirmar
 6. Priorize extrair: nome, telefone, email, data/hora de reunião
 7. Quando identificar uma reunião marcada, confirme os detalhes: data, hora, com quem
-${leadContext}
-
-EXEMPLOS DE COMPORTAMENTO INTELIGENTE:
-- Se o usuário pedir "cadastrar reunião" e antes enviou dados, use esses dados
-- Se a conversa menciona "segunda 14:00", identifique isso como horário de reunião
-- Se identificar um nome na conversa, use-o para perguntar "Quer cadastrar [Nome] como lead?"`;
+${leadContext}`;
 
     const messages = [
       { role: "system", content: systemPrompt },
-      ...conversationHistory.slice(-15), // Last 15 messages for context
+      ...conversationHistory.slice(-15),
       { role: "user", content: newMessage }
     ];
 
@@ -120,60 +186,38 @@ EXEMPLOS DE COMPORTAMENTO INTELIGENTE:
     }
 
     const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content;
-    
-    console.log("=== AI response generated ===");
-    console.log("Response preview:", aiResponse?.substring(0, 200));
-    return aiResponse || null;
+    return data.choices?.[0]?.message?.content || null;
   } catch (error) {
     console.error("Error generating AI response:", error);
     return null;
   }
 }
 
-// Analyze image using Lovable AI (Gemini Vision)
 async function analyzeImage(imageUrl: string, base64Data?: string): Promise<string | null> {
-  if (!LOVABLE_API_KEY) {
-    console.log("LOVABLE_API_KEY not configured, skipping image analysis");
-    return null;
-  }
+  if (!LOVABLE_API_KEY) return null;
 
   try {
     console.log("=== Starting image analysis ===");
-    console.log("Image URL:", imageUrl?.substring(0, 100));
-    console.log("Has base64 data:", !!base64Data);
     
     let base64Image: string;
     let mimeType = "image/jpeg";
     
-    // Use base64 data if provided (preferred - doesn't expire)
     if (base64Data) {
-      console.log("Using provided base64 data");
       base64Image = base64Data;
     } else if (imageUrl) {
-      // Try to fetch from URL
-      console.log("Fetching image from URL...");
       const imageResponse = await fetch(imageUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        headers: { 'User-Agent': 'Mozilla/5.0' }
       });
       
-      if (!imageResponse.ok) {
-        console.error("Failed to fetch image:", imageResponse.status, imageResponse.statusText);
-        return null;
-      }
+      if (!imageResponse.ok) return null;
       
       const imageBuffer = await imageResponse.arrayBuffer();
       base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
       mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
-      console.log("Image fetched successfully, size:", imageBuffer.byteLength, "mime:", mimeType);
     } else {
-      console.log("No image URL or base64 provided");
       return null;
     }
     
-    console.log("Calling Gemini Vision API...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -196,64 +240,37 @@ Ao analisar a imagem, extraia informações relevantes como:
 - Valores ou preços
 - Qualquer texto legível relevante
 
-Responda de forma clara e concisa em português, listando as informações encontradas.
-Se for um print de conversa, resuma os pontos principais.
-Se a imagem não contiver informações de negócio relevantes, descreva brevemente o que você vê.`
+Responda de forma clara e concisa em português, listando as informações encontradas.`
           },
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: "Analise esta imagem e extraia todas as informações relevantes:"
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`
-                }
-              }
+              { type: "text", text: "Analise esta imagem e extraia todas as informações relevantes:" },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Image}` } }
             ]
           }
         ],
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini Vision API error:", response.status, errorText);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = await response.json();
-    const analysis = data.choices?.[0]?.message?.content;
-    
-    console.log("=== Image analysis complete ===");
-    console.log("Result preview:", analysis?.substring(0, 200));
-    return analysis || null;
+    return data.choices?.[0]?.message?.content || null;
   } catch (error) {
     console.error("Error analyzing image:", error);
     return null;
   }
 }
 
-// Transcribe audio using OpenAI Whisper
 async function transcribeAudio(audioUrl: string, base64Data?: string): Promise<string | null> {
-  if (!OPENAI_API_KEY) {
-    console.log("OPENAI_API_KEY not configured, skipping audio transcription");
-    return null;
-  }
+  if (!OPENAI_API_KEY) return null;
 
   try {
     console.log("=== Starting audio transcription ===");
-    console.log("Audio URL:", audioUrl?.substring(0, 100));
-    console.log("Has base64 data:", !!base64Data);
     
     let audioBlob: Blob;
     
-    // Use base64 data if provided
     if (base64Data) {
-      console.log("Using provided base64 data for audio");
       const binaryString = atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -261,63 +278,42 @@ async function transcribeAudio(audioUrl: string, base64Data?: string): Promise<s
       }
       audioBlob = new Blob([bytes], { type: 'audio/ogg' });
     } else if (audioUrl) {
-      console.log("Fetching audio from URL...");
       const audioResponse = await fetch(audioUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        headers: { 'User-Agent': 'Mozilla/5.0' }
       });
-      
-      if (!audioResponse.ok) {
-        console.error("Failed to fetch audio:", audioResponse.status, audioResponse.statusText);
-        return null;
-      }
-      
+      if (!audioResponse.ok) return null;
       audioBlob = await audioResponse.blob();
-      console.log("Audio fetched successfully, size:", audioBlob.size);
     } else {
-      console.log("No audio URL or base64 provided");
       return null;
     }
     
-    // Prepare form data for Whisper API
     const formData = new FormData();
     formData.append("file", audioBlob, "audio.ogg");
     formData.append("model", "whisper-1");
     formData.append("language", "pt");
     
-    console.log("Calling Whisper API...");
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: formData,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Whisper API error:", response.status, errorText);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = await response.json();
-    const transcription = data.text;
-    
-    console.log("=== Audio transcription complete ===");
-    console.log("Result:", transcription?.substring(0, 200));
-    return transcription || null;
+    return data.text || null;
   } catch (error) {
     console.error("Error transcribing audio:", error);
     return null;
   }
 }
 
-// Find instance by different provider IDs
+// ============================================================================
+// DATABASE FUNCTIONS
+// ============================================================================
+
 async function findInstance(identifier: string, provider?: string) {
   console.log("Finding instance by identifier:", identifier, "provider:", provider);
   
-  // Try WasenderAPI first
   if (provider === "wasenderapi" || !provider) {
     // WasenderAPI sends the api_key as sessionId in webhooks
     const { data: wasenderByApiKey } = await supabase
@@ -331,7 +327,6 @@ async function findInstance(identifier: string, provider?: string) {
       return wasenderByApiKey;
     }
 
-    // Try by session ID (numeric)
     const { data: wasenderInstance } = await supabase
       .from("whatsapp_instances")
       .select("*")
@@ -343,7 +338,6 @@ async function findInstance(identifier: string, provider?: string) {
       return wasenderInstance;
     }
 
-    // Try by internal ID
     const { data: byId } = await supabase
       .from("whatsapp_instances")
       .select("*")
@@ -356,7 +350,6 @@ async function findInstance(identifier: string, provider?: string) {
     }
   }
 
-  // Try Z-API
   const { data: zapiInstance } = await supabase
     .from("whatsapp_instances")
     .select("*")
@@ -372,11 +365,9 @@ async function findInstance(identifier: string, provider?: string) {
   return null;
 }
 
-// Try to find existing lead by phone number
 async function findLeadByPhone(organizationId: string, phone: string) {
   const normalizedPhone = normalizePhone(phone);
   
-  // Generate possible phone formats
   const variants = [
     normalizedPhone,
     normalizedPhone.replace("55", ""),
@@ -399,41 +390,61 @@ async function findLeadByPhone(organizationId: string, phone: string) {
   return null;
 }
 
-// Get or create conversation
+/**
+ * Get or create conversation with proper phone handling for scale
+ * 
+ * @param instanceId - The WhatsApp instance ID
+ * @param organizationId - The tenant/organization ID
+ * @param conversationPhone - The phone/JID used for conversation identification (may be LID)
+ * @param sendablePhone - The actual phone number for sending messages (E.164 format)
+ * @param contactName - Optional contact name
+ * @param contactProfilePic - Optional profile picture URL
+ */
 async function getOrCreateConversation(
   instanceId: string,
   organizationId: string,
-  phoneNumber: string,
+  conversationPhone: string,
+  sendablePhone: string,
   contactName?: string,
   contactProfilePic?: string
 ) {
-  const normalizedPhone = normalizePhone(phoneNumber);
-  
-  // Try to find existing conversation
+  // Try to find existing conversation by instance + phone
   const { data: existing } = await supabase
     .from("whatsapp_conversations")
     .select("*")
     .eq("instance_id", instanceId)
-    .eq("phone_number", normalizedPhone)
+    .eq("phone_number", conversationPhone)
     .single();
 
   if (existing) {
-    // Update contact info if available
-    if (contactName || contactProfilePic) {
+    // Update contact info and sendable_phone if needed
+    const updates: any = {
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (contactName && !existing.contact_name) {
+      updates.contact_name = contactName;
+    }
+    if (contactProfilePic && !existing.contact_profile_pic) {
+      updates.contact_profile_pic = contactProfilePic;
+    }
+    // Always update sendable_phone if we have a better value
+    if (sendablePhone && (!existing.sendable_phone || existing.sendable_phone !== sendablePhone)) {
+      updates.sendable_phone = sendablePhone;
+    }
+    
+    if (Object.keys(updates).length > 1) { // More than just updated_at
       await supabase
         .from("whatsapp_conversations")
-        .update({
-          contact_name: contactName || existing.contact_name,
-          contact_profile_pic: contactProfilePic || existing.contact_profile_pic,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updates)
         .eq("id", existing.id);
     }
+    
     return existing;
   }
 
   // Try to find matching lead
-  const lead = await findLeadByPhone(organizationId, normalizedPhone);
+  const lead = await findLeadByPhone(organizationId, sendablePhone || conversationPhone);
 
   // Create new conversation
   const { data: newConversation, error } = await supabase
@@ -441,7 +452,8 @@ async function getOrCreateConversation(
     .insert({
       instance_id: instanceId,
       organization_id: organizationId,
-      phone_number: normalizedPhone,
+      phone_number: conversationPhone,
+      sendable_phone: sendablePhone || null,
       contact_name: contactName || lead?.name || null,
       contact_profile_pic: contactProfilePic || null,
       lead_id: lead?.id || null,
@@ -454,10 +466,10 @@ async function getOrCreateConversation(
     throw error;
   }
 
+  console.log("Created new conversation:", newConversation.id, "sendable_phone:", sendablePhone);
   return newConversation;
 }
 
-// Check if message already exists to avoid duplicates
 async function messageExists(conversationId: string, messageId: string) {
   if (!messageId) return false;
   
@@ -471,7 +483,6 @@ async function messageExists(conversationId: string, messageId: string) {
   return !!data;
 }
 
-// Save message to database
 async function saveMessage(
   conversationId: string,
   instanceId: string,
@@ -483,13 +494,11 @@ async function saveMessage(
   mediaCaption?: string,
   isFromBot = false
 ) {
-  // Check for duplicates
   if (messageId && await messageExists(conversationId, messageId)) {
     console.log("Message already exists, skipping:", messageId);
     return null;
   }
 
-  // Status must be: sent, delivered, read, or failed (constraint)
   const { data, error } = await supabase
     .from("whatsapp_messages")
     .insert({
@@ -512,18 +521,14 @@ async function saveMessage(
     throw error;
   }
 
-  // Update conversation last_message_at and unread count
-  const updateData: any = {
-    last_message_at: new Date().toISOString(),
-  };
-
+  // Update conversation
+  const updateData: any = { last_message_at: new Date().toISOString() };
   if (direction === "inbound") {
     const { data: conv } = await supabase
       .from("whatsapp_conversations")
       .select("unread_count")
       .eq("id", conversationId)
       .single();
-
     updateData.unread_count = (conv?.unread_count || 0) + 1;
   }
 
@@ -536,17 +541,16 @@ async function saveMessage(
   return data;
 }
 
-// Process WasenderAPI message payload - handles both messages.received and messages.upsert
+// ============================================================================
+// MESSAGE PROCESSING
+// ============================================================================
+
 async function processWasenderMessage(instance: any, body: any) {
-  // WasenderAPI sends messages as object, not array!
-  // Handle both: data.messages (object) and data.messages[0] (array format from other providers)
   let msgData = body.data?.messages;
   
-  // If messages is an array, get first element
   if (Array.isArray(msgData)) {
     msgData = msgData[0];
   }
-  // If messages is null/undefined, try other fields
   if (!msgData) {
     msgData = body.data?.message || body.data;
   }
@@ -558,40 +562,17 @@ async function processWasenderMessage(instance: any, body: any) {
 
   console.log("Processing msgData:", JSON.stringify(msgData, null, 2));
 
-  // Check if fromMe (our own message) - skip if already saved by send function
   const isFromMe = msgData.key?.fromMe === true;
   
-  // Extract phone from various possible fields
-  // IMPORTANT: WasenderAPI uses LID format (remoteJid ends with @lid) which is NOT a real phone number
-  // We need to use senderPn or cleanedSenderPn which contains the actual phone number
-  const remoteJid = msgData.key?.remoteJid || msgData.remoteJid || "";
-  const isLidFormat = remoteJid.includes("@lid");
+  // Extract both conversation ID (for storage) and sendable phone (for replies)
+  const { conversationId: phoneForConversation, sendablePhone } = extractPhoneFromWasenderPayload(msgData);
   
-  let phone = "";
-  
-  // Prefer cleanedSenderPn or senderPn for actual phone number (these contain real phone numbers)
-  if (msgData.key?.cleanedSenderPn) {
-    phone = msgData.key.cleanedSenderPn;
-  } else if (msgData.key?.senderPn) {
-    phone = msgData.key.senderPn.replace("@s.whatsapp.net", "").replace("@c.us", "");
-  } else if (!isLidFormat) {
-    // Only use remoteJid if it's NOT in LID format
-    phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "").replace("@lid", "");
+  if (!phoneForConversation && !sendablePhone) {
+    console.log("No phone number in message, msgData keys:", Object.keys(msgData));
+    return null;
   }
   
-  // Fallback to other phone fields
-  if (!phone) {
-    phone = msgData.from?.replace("@s.whatsapp.net", "").replace("@c.us", "") || 
-            msgData.phone || "";
-  }
-  
-  // If still using LID as fallback (no better option), log warning but continue
-  if (!phone && isLidFormat) {
-    console.log("WARNING: Using LID format as phone - sending messages may fail. RemoteJid:", remoteJid);
-    phone = remoteJid.replace("@lid", "");
-  }
-  
-  // Extract message content from various WasenderAPI formats
+  // Extract message content
   let text = msgData.messageBody || 
             msgData.body ||
             msgData.text ||
@@ -602,6 +583,7 @@ async function processWasenderMessage(instance: any, body: any) {
             "";
   
   const messageId = msgData.key?.id || msgData.id || msgData.messageId || "";
+  const remoteJid = msgData.key?.remoteJid || msgData.remoteJid || "";
   const isGroup = remoteJid.includes("@g.us") || msgData.isGroup || false;
   const senderName = msgData.pushName || msgData.senderName || msgData.name || "";
   
@@ -619,83 +601,61 @@ async function processWasenderMessage(instance: any, body: any) {
                 msgData.message?.videoMessage?.url ||
                 msgData.message?.documentMessage?.url ||
                 null;
+                
   const caption = msgData.message?.imageMessage?.caption || 
                  msgData.message?.videoMessage?.caption ||
                  msgData.caption || 
                  null;
 
-  // Try to get base64 data from payload (WasenderAPI sometimes includes it)
   const base64Data = msgData.base64 || 
                      msgData.mediaBase64 || 
                      msgData.message?.imageMessage?.base64 ||
                      msgData.message?.audioMessage?.base64 ||
                      msgData.message?.videoMessage?.base64 ||
-                     msgData.data?.base64 ||
                      null;
 
   console.log("=== Parsed WasenderAPI message ===");
-  console.log("Phone:", phone);
+  console.log("ConversationPhone:", phoneForConversation);
+  console.log("SendablePhone:", sendablePhone);
   console.log("Text preview:", text?.substring(0, 50));
-  console.log("Message ID:", messageId);
   console.log("Sender:", senderName);
   console.log("Is from me:", isFromMe);
   console.log("Message type:", messageType);
-  console.log("Has media URL:", !!mediaUrl);
-  console.log("Media URL preview:", mediaUrl?.substring(0, 80));
-  console.log("Has base64:", !!base64Data);
 
-  if (!phone) {
-    console.log("No phone number in message, msgData keys:", Object.keys(msgData));
-    return null;
-  }
-
-  // Skip group messages
   if (isGroup) {
     console.log("Group message, skipping...");
     return null;
   }
 
-  // Process media: analyze images and transcribe audio (only for incoming messages)
+  // Process media for incoming messages
   let processedContent = text || caption || null;
   
   if (!isFromMe && (mediaUrl || base64Data)) {
-    console.log("=== Processing media content ===");
-    console.log("Processing for message type:", messageType);
-    
-    // Process image - analyze with Gemini Vision
     if (messageType === "image") {
-      console.log("Starting image analysis...");
       const imageAnalysis = await analyzeImage(mediaUrl || "", base64Data);
-      console.log("Image analysis result:", imageAnalysis ? "Success" : "Failed/Empty");
       if (imageAnalysis) {
         processedContent = processedContent 
           ? `${processedContent}\n\n📸 Análise da imagem:\n${imageAnalysis}`
           : `📸 Análise da imagem:\n${imageAnalysis}`;
-        console.log("Updated content with image analysis");
       }
     }
     
-    // Process audio - transcribe with Whisper
     if (messageType === "audio") {
-      console.log("Starting audio transcription...");
       const transcription = await transcribeAudio(mediaUrl || "", base64Data);
-      console.log("Transcription result:", transcription ? "Success" : "Failed/Empty");
       if (transcription) {
         processedContent = processedContent
           ? `${processedContent}\n\n🎤 Transcrição do áudio:\n${transcription}`
           : `🎤 Transcrição do áudio:\n${transcription}`;
-        console.log("Updated content with transcription");
       }
     }
-  } else {
-    console.log("Skipping media processing - isFromMe:", isFromMe, "hasMedia:", !!(mediaUrl || base64Data));
   }
 
-  // Get or create conversation
+  // Get or create conversation with BOTH phone formats
   const conversation = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
-    phone,
+    phoneForConversation,
+    sendablePhone,
     senderName
   );
 
@@ -714,33 +674,25 @@ async function processWasenderMessage(instance: any, body: any) {
 
   console.log("WasenderAPI message processed:", {
     conversationId: conversation.id,
-    from: phone,
+    sendablePhone,
     direction,
-    text: processedContent?.substring(0, 50),
     saved: !!savedMessage,
-    hadMediaProcessing: messageType === "image" || messageType === "audio"
   });
 
-  // Generate and send AI response for incoming messages (if bot is enabled)
+  // Generate AI response for incoming messages if bot is enabled
   if (!isFromMe && savedMessage && processedContent) {
     try {
-      // Check if bot is enabled for this instance
       const { data: botConfig } = await supabase
         .from("whatsapp_bot_configs")
-        .select("is_enabled, supervisor_mode, bot_name, company_name, main_objective, products_prices")
+        .select("is_enabled")
         .eq("instance_id", instance.id)
         .single();
 
       console.log("Bot config:", botConfig);
 
       if (botConfig?.is_enabled) {
-        console.log("=== Bot enabled, generating intelligent response ===");
-        
-        // Get conversation history for context
         const conversationHistory = await getConversationHistory(conversation.id, 20);
-        console.log("Fetched conversation history:", conversationHistory.length, "messages");
-
-        // Get lead info if linked
+        
         let leadInfo = null;
         if (conversation.lead_id) {
           const { data: lead } = await supabase
@@ -751,20 +703,15 @@ async function processWasenderMessage(instance: any, body: any) {
           leadInfo = lead;
         }
 
-        // Generate AI response based on context
-        const aiResponse = await generateAIResponse(
-          conversationHistory,
-          processedContent,
-          leadInfo
-        );
+        const aiResponse = await generateAIResponse(conversationHistory, processedContent, leadInfo);
 
         if (aiResponse) {
-          console.log("=== Sending AI response ===");
-          console.log("Response preview:", aiResponse.substring(0, 100));
-
-          // Send the AI response via WasenderAPI
+          // Use sendable_phone for actually sending the reply
+          const phoneToSend = conversation.sendable_phone || sendablePhone;
+          const formattedPhone = phoneToSend.startsWith("+") ? phoneToSend : `+${phoneToSend}`;
+          
           const apiKey = instance.wasender_api_key;
-          if (apiKey) {
+          if (apiKey && phoneToSend) {
             const sendResponse = await fetch("https://www.wasenderapi.com/api/send-message", {
               method: "POST",
               headers: {
@@ -772,16 +719,15 @@ async function processWasenderMessage(instance: any, body: any) {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                to: phone.startsWith("+") ? phone : `+${phone}`,
+                to: formattedPhone,
                 text: aiResponse,
               }),
             });
 
             if (sendResponse.ok) {
               const sendData = await sendResponse.json();
-              console.log("AI response sent successfully:", sendData);
+              console.log("AI response sent successfully");
               
-              // Save the AI response to database
               await saveMessage(
                 conversation.id,
                 instance.id,
@@ -791,25 +737,106 @@ async function processWasenderMessage(instance: any, body: any) {
                 sendData.data?.key?.id || undefined,
                 undefined,
                 undefined,
-                true // isFromBot
+                true
               );
             } else {
-              const errorText = await sendResponse.text();
-              console.error("Failed to send AI response:", errorText);
+              console.error("Failed to send AI response:", await sendResponse.text());
             }
           }
         }
       } else {
         console.log("Bot not enabled for this instance");
       }
-    } catch (botError) {
-      console.error("Error in bot response generation:", botError);
-      // Don't fail the webhook if bot fails
+    } catch (error) {
+      console.error("Error generating/sending AI response:", error);
     }
   }
 
-  return savedMessage;
+  return { conversationId: conversation.id, saved: !!savedMessage };
 }
+
+async function processZapiMessage(instance: any, body: any) {
+  const phone = body.phone?.replace("@c.us", "").replace("@s.whatsapp.net", "") || "";
+  const text = body.text?.message || body.text || body.message || "";
+  const messageId = body.messageId || body.ids?.[0] || "";
+  const isFromMe = body.fromMe === true;
+  const senderName = body.senderName || body.pushName || "";
+  const isGroup = body.isGroup === true;
+
+  if (!phone) {
+    console.log("No phone number in Z-API message");
+    return null;
+  }
+
+  if (isGroup) {
+    console.log("Group message, skipping...");
+    return null;
+  }
+
+  // For Z-API, phone is already the real phone number
+  const conversation = await getOrCreateConversation(
+    instance.id,
+    instance.organization_id,
+    phone,
+    phone, // Same for Z-API since it uses real phones
+    senderName
+  );
+
+  const direction = isFromMe ? "outbound" : "inbound";
+  const savedMessage = await saveMessage(
+    conversation.id,
+    instance.id,
+    text,
+    direction,
+    "text",
+    messageId
+  );
+
+  console.log("Z-API message processed:", {
+    conversationId: conversation.id,
+    direction,
+    saved: !!savedMessage,
+  });
+
+  return { conversationId: conversation.id, saved: !!savedMessage };
+}
+
+async function handleMessageStatusUpdate(instance: any, body: any) {
+  let messageId = "";
+  let status = "";
+
+  // WasenderAPI format
+  if (body.data?.key?.id) {
+    messageId = body.data.key.id;
+    const statusCode = body.data.status;
+    if (statusCode === 2) status = "sent";
+    else if (statusCode === 3) status = "delivered";
+    else if (statusCode === 4 || statusCode === 5) status = "read";
+  }
+  // Z-API format
+  else if (body.ids?.[0]) {
+    messageId = body.ids[0];
+    status = body.status || body.ack;
+  }
+
+  if (!messageId || !status) {
+    console.log("Invalid status update payload");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("whatsapp_messages")
+    .update({ status })
+    .eq("z_api_message_id", messageId);
+
+  if (!error) {
+    console.log("Message status updated:", messageId, status);
+  }
+}
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -818,296 +845,79 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    
     console.log("=== WhatsApp Multiattendant Webhook ===");
     console.log("Payload:", JSON.stringify(body, null, 2));
 
-    // Detect provider from webhook payload structure
-    let provider = "unknown";
+    // Detect provider from payload structure
+    let provider = "";
     let instanceIdentifier = "";
     
-    // WasenderAPI webhook format - check for sessionId (api_key) or event patterns
-    if (body.sessionId || body.session_id || body.event?.startsWith("messages.") || body.event?.startsWith("session.")) {
+    // WasenderAPI detection
+    if (body.sessionId || body.data?.sessionId) {
       provider = "wasenderapi";
-      // WasenderAPI sends api_key as sessionId in webhooks
-      instanceIdentifier = String(body.sessionId || body.session_id || "");
+      instanceIdentifier = body.sessionId || body.data?.sessionId;
       console.log("WasenderAPI webhook detected - sessionId (api_key):", instanceIdentifier);
     }
-    // Z-API webhook format
-    else if (body.instanceId || req.headers.get("x-instance-id")) {
+    // Z-API detection
+    else if (body.instanceId) {
       provider = "zapi";
-      instanceIdentifier = body.instanceId || req.headers.get("x-instance-id") || "";
+      instanceIdentifier = body.instanceId;
       console.log("Z-API webhook detected - instanceId:", instanceIdentifier);
     }
-    
-    console.log("Provider detected:", provider);
-    console.log("Instance identifier:", instanceIdentifier);
-
-    if (!instanceIdentifier) {
-      console.log("No instance ID provided, ignoring webhook...");
-      return new Response(JSON.stringify({ status: "ignored" }), {
+    else {
+      console.log("Unknown webhook format");
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Find our instance
+    console.log("Provider detected:", provider);
+    console.log("Instance identifier:", instanceIdentifier);
+    console.log("Finding instance by identifier:", instanceIdentifier, "provider:", provider);
+
+    // Find instance
     const instance = await findInstance(instanceIdentifier, provider);
+    
     if (!instance) {
-      console.log("Instance not found:", instanceIdentifier);
-      return new Response(JSON.stringify({ status: "instance_not_found" }), {
+      console.error("Instance not found for:", instanceIdentifier);
+      return new Response(JSON.stringify({ success: false, error: "Instance not found" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     console.log("Instance found:", instance.name, instance.id, "provider:", instance.provider);
 
-    // Handle WasenderAPI webhooks
-    if (provider === "wasenderapi" || instance.provider === "wasenderapi") {
-      const event = body.event;
-      console.log("WasenderAPI event:", event);
+    // Handle based on event type
+    const event = body.event || body.type || "";
+    console.log("WasenderAPI event:", event);
+
+    if (event === "messages.received" || event === "messages.upsert" || event === "ReceivedCallback") {
+      if (provider === "wasenderapi") {
+        await processWasenderMessage(instance, body);
+      } else if (provider === "zapi") {
+        await processZapiMessage(instance, body);
+      }
+    } else if (event === "messages.update" || event === "MessageStatusCallback") {
+      await handleMessageStatusUpdate(instance, body);
+    } else if (event === "connection.update") {
+      // Handle connection status updates
+      const status = body.data?.state || body.data?.connection;
+      const isConnected = status === "open" || status === "connected";
       
-      switch (event) {
-        case "messages.received":
-        case "messages.upsert": {
-          // Process incoming or upserted messages
-          const result = await processWasenderMessage(instance, body);
-          return new Response(JSON.stringify({ 
-            status: result ? "message_saved" : "message_skipped" 
-          }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        case "messages.update":
-        case "messages.ack": {
-          const messageId = body.data?.key?.id || body.data?.id || body.data?.messageId;
-          const status = body.data?.status || body.data?.ack;
-
-          if (messageId) {
-            // Map WasenderAPI status codes to our status values
-            const statusMap: Record<string, string> = {
-              "sent": "sent",
-              "delivered": "delivered",
-              "read": "read",
-              "0": "sent",
-              "1": "sent",
-              "2": "delivered",
-              "3": "read",
-              "4": "read", // Status 4 = played (for audio) or read
-            };
-
-            const newStatus = statusMap[String(status)] || "delivered";
-
-            await supabase
-              .from("whatsapp_messages")
-              .update({ status: newStatus })
-              .eq("z_api_message_id", messageId);
-
-            console.log("Message status updated:", messageId, newStatus);
-          }
-
-          return new Response(JSON.stringify({ status: "status_updated" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        case "session.status": {
-          const status = body.data?.status;
-          const phone = body.data?.phone_number;
-
-          if (status === "connected" || status === "ready") {
-            await supabase
-              .from("whatsapp_instances")
-              .update({
-                is_connected: true,
-                phone_number: phone,
-                status: "active",
-                qr_code_base64: null,
-              })
-              .eq("id", instance.id);
-
-            console.log("WasenderAPI instance connected:", instance.name, phone);
-          } else if (status === "disconnected" || status === "qr" || status === "NEED_SCAN") {
-            await supabase
-              .from("whatsapp_instances")
-              .update({
-                is_connected: false,
-                status: status === "NEED_SCAN" ? "pending" : "disconnected",
-              })
-              .eq("id", instance.id);
-
-            console.log("WasenderAPI instance status:", instance.name, status);
-          }
-
-          return new Response(JSON.stringify({ status: "status_handled" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        default:
-          console.log("Unknown WasenderAPI event:", event);
-      }
-    }
-
-    // Handle Z-API webhooks (legacy)
-    const webhookType = body.type || body.event;
-
-    switch (webhookType) {
-      case "ReceivedCallback":
-      case "message":
-      case "received": {
-        const phone = body.phone || body.from?.replace("@c.us", "");
-        let text = body.text?.message || body.body || body.message || "";
-        const messageId = body.messageId || body.id;
-        const isGroup = body.isGroup || false;
-        const senderName = body.senderName || body.pushName || body.notifyName;
-        const senderPhoto = body.senderPhoto || body.profilePicUrl;
-        const messageType = body.type || "text";
-        const mediaUrl = body.image?.imageUrl || body.audio?.audioUrl || body.video?.videoUrl || body.document?.documentUrl;
-        const caption = body.caption;
-
-        if (!phone) {
-          console.log("No phone number in message");
-          return new Response(JSON.stringify({ status: "no_phone" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        if (isGroup) {
-          console.log("Group message, skipping...");
-          return new Response(JSON.stringify({ status: "group_ignored" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        // Process media for Z-API
-        let processedContent = text || caption || null;
+      await supabase
+        .from("whatsapp_instances")
+        .update({ 
+          is_connected: isConnected,
+          status: isConnected ? "connected" : "disconnected",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", instance.id);
         
-        if (mediaUrl) {
-          // Process image
-          if (messageType === "image" || body.image?.imageUrl) {
-            const imageAnalysis = await analyzeImage(mediaUrl);
-            if (imageAnalysis) {
-              processedContent = processedContent 
-                ? `${processedContent}\n\n📸 Análise da imagem:\n${imageAnalysis}`
-                : `📸 Análise da imagem:\n${imageAnalysis}`;
-            }
-          }
-          
-          // Process audio
-          if (messageType === "audio" || body.audio?.audioUrl) {
-            const transcription = await transcribeAudio(mediaUrl);
-            if (transcription) {
-              processedContent = `🎤 Transcrição do áudio:\n${transcription}`;
-            }
-          }
-        }
-
-        const conversation = await getOrCreateConversation(
-          instance.id,
-          instance.organization_id,
-          phone,
-          senderName,
-          senderPhoto
-        );
-
-        await saveMessage(
-          conversation.id,
-          instance.id,
-          processedContent,
-          "inbound",
-          messageType,
-          messageId,
-          mediaUrl,
-          caption
-        );
-
-        console.log("Z-API message saved:", {
-          conversationId: conversation.id,
-          from: phone,
-          text: processedContent?.substring(0, 50),
-        });
-
-        return new Response(JSON.stringify({ status: "message_saved" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      case "MessageStatusCallback":
-      case "status":
-      case "ack": {
-        const messageId = body.messageId || body.id;
-        const status = body.status || body.ack;
-
-        if (messageId) {
-          const statusMap: Record<string, string> = {
-            "SENT": "sent",
-            "RECEIVED": "delivered",
-            "READ": "read",
-            "PLAYED": "read",
-            "1": "sent",
-            "2": "delivered",
-            "3": "read",
-            "4": "read",
-          };
-
-          const newStatus = statusMap[String(status)] || status;
-
-          if (newStatus) {
-            await supabase
-              .from("whatsapp_messages")
-              .update({ status: newStatus })
-              .eq("z_api_message_id", messageId);
-
-            console.log("Z-API Message status updated:", messageId, newStatus);
-          }
-        }
-
-        return new Response(JSON.stringify({ status: "status_updated" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      case "ConnectedCallback":
-      case "connected": {
-        const phone = body.phone || body.phoneNumber;
-
-        await supabase
-          .from("whatsapp_instances")
-          .update({
-            is_connected: true,
-            phone_number: phone,
-            status: "active",
-            qr_code_base64: null,
-          })
-          .eq("id", instance.id);
-
-        console.log("Z-API instance connected:", instance.name, phone);
-
-        return new Response(JSON.stringify({ status: "connected" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      case "DisconnectedCallback":
-      case "disconnected": {
-        await supabase
-          .from("whatsapp_instances")
-          .update({
-            is_connected: false,
-            status: "disconnected",
-          })
-          .eq("id", instance.id);
-
-        console.log("Z-API instance disconnected:", instance.name);
-
-        return new Response(JSON.stringify({ status: "disconnected" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      console.log("Connection status updated:", status);
     }
 
-    console.log("Unhandled webhook type:", webhookType);
-    return new Response(JSON.stringify({ status: "ignored" }), {
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {

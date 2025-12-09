@@ -8,7 +8,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const WASENDERAPI_TOKEN = Deno.env.get("WASENDERAPI_TOKEN");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -24,6 +23,7 @@ serve(async (req) => {
     console.log("ConversationId:", conversationId);
     console.log("InstanceId:", instanceId);
     console.log("Content:", content?.substring(0, 50));
+    console.log("MessageType:", messageType);
 
     if (!conversationId || !instanceId) {
       throw new Error("conversationId and instanceId are required");
@@ -40,7 +40,7 @@ serve(async (req) => {
       throw new Error("Instance not found");
     }
 
-    // Get conversation
+    // Get conversation with sendable_phone
     const { data: conversation, error: convError } = await supabase
       .from("whatsapp_conversations")
       .select("*")
@@ -51,7 +51,20 @@ serve(async (req) => {
       throw new Error("Conversation not found");
     }
 
-    const phone = conversation.phone_number;
+    // CRITICAL: Use sendable_phone for sending, fallback to phone_number
+    // sendable_phone contains the actual E.164 phone number
+    // phone_number may contain LID format which doesn't work for sending
+    let phone = conversation.sendable_phone || conversation.phone_number;
+    
+    console.log("Using phone for send:", phone);
+    console.log("sendable_phone:", conversation.sendable_phone);
+    console.log("phone_number:", conversation.phone_number);
+    
+    // Validate we have a sendable phone
+    if (!phone || phone.length < 8) {
+      throw new Error("Número de telefone inválido para envio. O contato pode não ter um número real associado.");
+    }
+
     let messageSent = false;
     let externalMessageId = null;
 
@@ -64,93 +77,63 @@ serve(async (req) => {
       console.log("Sending via WasenderAPI...");
 
       // Format phone for WasenderAPI (with + prefix)
-      const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
+      // Remove any existing + and add it back to ensure correct format
+      const cleanPhone = phone.replace(/\D/g, "");
+      const formattedPhone = `+${cleanPhone}`;
+      
+      console.log("Formatted phone:", formattedPhone);
 
       // Check if mediaUrl is base64 data - need to upload first
-      let uploadedImageUrl = mediaUrl;
+      let uploadedMediaUrl = mediaUrl;
       
-      if (messageType === "image" && mediaUrl && mediaUrl.startsWith("data:")) {
-        console.log("Uploading base64 image to WasenderAPI...");
+      if (mediaUrl && mediaUrl.startsWith("data:")) {
+        console.log("Uploading base64 media to WasenderAPI...");
         
-        // Upload image first
         const uploadResponse = await fetch("https://www.wasenderapi.com/api/upload", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${instance.wasender_api_key}`,
           },
-          body: JSON.stringify({
-            file: mediaUrl,
-          }),
+          body: JSON.stringify({ file: mediaUrl }),
         });
 
         const uploadText = await uploadResponse.text();
-        console.log("Upload response:", uploadResponse.status, uploadText);
+        console.log("Upload response:", uploadResponse.status);
 
         if (uploadResponse.ok) {
           try {
             const uploadData = JSON.parse(uploadText);
-            if (uploadData.success && uploadData.data?.publicUrl) {
-              uploadedImageUrl = uploadData.data.publicUrl;
-              console.log("Image uploaded successfully:", uploadedImageUrl);
-            } else if (uploadData.data?.url) {
-              uploadedImageUrl = uploadData.data.url;
-              console.log("Image uploaded successfully:", uploadedImageUrl);
-            }
+            uploadedMediaUrl = uploadData.data?.publicUrl || uploadData.data?.url || mediaUrl;
+            console.log("Media uploaded successfully");
           } catch (e) {
             console.error("Failed to parse upload response");
           }
         } else {
-          console.error("Image upload failed:", uploadText);
-          throw new Error("Falha ao enviar imagem");
+          console.error("Media upload failed:", uploadText);
+          throw new Error("Falha ao enviar mídia");
         }
       }
 
-      // WasenderAPI uses a single endpoint for all message types
-      const endpoint = "https://www.wasenderapi.com/api/send-message";
-      const payload: any = {
-        to: formattedPhone,
-      };
+      // Build payload based on message type
+      const payload: any = { to: formattedPhone };
 
-      // WasenderAPI requires "text" field for text messages
       if (messageType === "text" && content) {
         payload.text = content;
-      } else if (messageType === "image" && uploadedImageUrl) {
-        payload.imageUrl = uploadedImageUrl;
+      } else if (messageType === "image" && uploadedMediaUrl) {
+        payload.imageUrl = uploadedMediaUrl;
         if (content || mediaCaption) {
           payload.text = mediaCaption || content;
         }
-      } else if (messageType === "audio" && mediaUrl) {
-        // Audio needs upload too if base64
-        if (mediaUrl.startsWith("data:")) {
-          console.log("Uploading base64 audio to WasenderAPI...");
-          const uploadResponse = await fetch("https://www.wasenderapi.com/api/upload", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${instance.wasender_api_key}`,
-            },
-            body: JSON.stringify({ file: mediaUrl }),
-          });
-          const uploadText = await uploadResponse.text();
-          if (uploadResponse.ok) {
-            try {
-              const uploadData = JSON.parse(uploadText);
-              payload.audioUrl = uploadData.data?.publicUrl || uploadData.data?.url || mediaUrl;
-            } catch (e) {
-              payload.audioUrl = mediaUrl;
-            }
-          }
-        } else {
-          payload.audioUrl = mediaUrl;
-        }
-      } else if (messageType === "document" && mediaUrl) {
-        payload.documentUrl = mediaUrl;
+      } else if (messageType === "audio" && uploadedMediaUrl) {
+        payload.audioUrl = uploadedMediaUrl;
+      } else if (messageType === "document" && uploadedMediaUrl) {
+        payload.documentUrl = uploadedMediaUrl;
         if (mediaCaption) {
           payload.text = mediaCaption;
         }
-      } else if (messageType === "video" && mediaUrl) {
-        payload.videoUrl = mediaUrl;
+      } else if (messageType === "video" && uploadedMediaUrl) {
+        payload.videoUrl = uploadedMediaUrl;
         if (content || mediaCaption) {
           payload.text = mediaCaption || content;
         }
@@ -158,10 +141,12 @@ serve(async (req) => {
       
       // Validate we have something to send
       if (!payload.text && !payload.imageUrl && !payload.audioUrl && !payload.documentUrl && !payload.videoUrl) {
-        throw new Error("Message content is required");
+        throw new Error("Conteúdo da mensagem é obrigatório");
       }
 
-      const response = await fetch(endpoint, {
+      console.log("Sending payload:", JSON.stringify({ ...payload, to: formattedPhone }));
+
+      const response = await fetch("https://www.wasenderapi.com/api/send-message", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -178,18 +163,27 @@ serve(async (req) => {
           const data = JSON.parse(responseText);
           if (data.success) {
             messageSent = true;
-            externalMessageId = data.data?.id || data.data?.messageId;
+            externalMessageId = data.data?.id || data.data?.messageId || data.data?.key?.id;
+          } else {
+            console.error("WasenderAPI returned success=false:", data.message);
           }
         } catch (e) {
           console.error("Failed to parse WasenderAPI response");
         }
-      }
-
-      if (!messageSent) {
-        console.error("WasenderAPI send failed:", responseText);
+      } else {
+        // Parse error message for user-friendly feedback
+        try {
+          const errorData = JSON.parse(responseText);
+          if (errorData.message?.includes("JID does not exist")) {
+            throw new Error("Este número não existe no WhatsApp. Verifique se o número está correto.");
+          }
+          console.error("WasenderAPI error:", errorData);
+        } catch (e) {
+          console.error("WasenderAPI send failed:", responseText);
+        }
       }
     }
-    // Z-API fallback
+    // Z-API 
     else if (instance.provider === "zapi") {
       if (!instance.z_api_instance_id || !instance.z_api_token) {
         throw new Error("Z-API not configured for this instance");
@@ -197,7 +191,7 @@ serve(async (req) => {
 
       console.log("Sending via Z-API...");
 
-      const zapiPhone = phone.includes("@") ? phone : `${phone}@c.us`;
+      const cleanPhone = phone.replace(/\D/g, "").replace("@c.us", "").replace("@s.whatsapp.net", "");
       const zapiUrl = `https://api.z-api.io/instances/${instance.z_api_instance_id}/token/${instance.z_api_token}/send-text`;
 
       const response = await fetch(zapiUrl, {
@@ -207,7 +201,7 @@ serve(async (req) => {
           "Client-Token": instance.z_api_client_token || "",
         },
         body: JSON.stringify({
-          phone: zapiPhone.replace("@c.us", ""),
+          phone: cleanPhone,
           message: content,
         }),
       });
@@ -226,7 +220,7 @@ serve(async (req) => {
       }
     }
 
-    // Save message to database regardless of send status
+    // Save message to database
     const { data: savedMessage, error: saveError } = await supabase
       .from("whatsapp_messages")
       .insert({
@@ -253,7 +247,7 @@ serve(async (req) => {
       .from("whatsapp_conversations")
       .update({
         last_message_at: new Date().toISOString(),
-        unread_count: 0, // Reset unread when user sends message
+        unread_count: 0,
       })
       .eq("id", conversationId);
 
@@ -262,6 +256,7 @@ serve(async (req) => {
         success: messageSent,
         message: savedMessage,
         externalMessageId,
+        error: !messageSent ? "Falha ao enviar mensagem. Verifique se o número está correto." : undefined,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -269,7 +264,10 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error("Send message error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error.message 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });

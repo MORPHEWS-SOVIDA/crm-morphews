@@ -1016,6 +1016,7 @@ export type Database = {
           lead_id: string | null
           organization_id: string
           phone_number: string
+          sendable_phone: string | null
           unread_count: number
           updated_at: string
         }
@@ -1029,6 +1030,7 @@ export type Database = {
           lead_id?: string | null
           organization_id: string
           phone_number: string
+          sendable_phone?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -1042,6 +1044,7 @@ export type Database = {
           lead_id?: string | null
           organization_id?: string
           phone_number?: string
+          sendable_phone?: string | null
           unread_count?: number
           updated_at?: string
         }
