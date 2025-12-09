@@ -141,6 +141,18 @@ export function useCreateWhatsAppInstance() {
         await supabase.rpc("increment_coupon_usage", { coupon_id: data.couponId });
       }
 
+      // Auto-add creator as instance user with view/send permissions
+      if (profile?.user_id && instance) {
+        await supabase
+          .from("whatsapp_instance_users")
+          .insert({
+            instance_id: instance.id,
+            user_id: profile.user_id,
+            can_view: true,
+            can_send: true,
+          });
+      }
+
       return instance;
     },
     onSuccess: () => {

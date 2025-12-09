@@ -387,15 +387,43 @@ serve(async (req) => {
           });
         }
 
-        // WasenderAPI returns {"status":"connected"} directly OR {"success":true,"data":{...}}
+        // WasenderAPI returns {"status":"connected"} directly
         const isConnected = statusData.status === "connected" || 
                            (statusData.success && statusData.data?.status === "connected");
         
-        // Try different response structures for phone number
-        const phoneNumber = statusData.phone_number || 
-                           statusData.data?.phone_number || 
-                           instance.phone_number || 
-                           null;
+        // Fetch session details to get phone number (GET /api/whatsapp-sessions/{id})
+        let phoneNumber = instance.phone_number;
+        
+        if (isConnected && instance.wasender_session_id) {
+          try {
+            const detailsResponse = await fetch(
+              `${WASENDERAPI_BASE_URL}/whatsapp-sessions/${instance.wasender_session_id}`,
+              {
+                method: "GET",
+                headers: {
+                  "Authorization": `Bearer ${WASENDERAPI_TOKEN}`,
+                },
+              }
+            );
+            
+            if (detailsResponse.ok) {
+              const detailsText = await detailsResponse.text();
+              console.log("WasenderAPI session details:", detailsText.substring(0, 200));
+              
+              try {
+                const detailsData = JSON.parse(detailsText);
+                if (detailsData.success && detailsData.data?.phone_number) {
+                  phoneNumber = detailsData.data.phone_number.replace(/\D/g, "");
+                  console.log("Phone number from session details:", phoneNumber);
+                }
+              } catch (e) {
+                console.log("Could not parse session details");
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching session details:", e);
+          }
+        }
 
         console.log("Connection check result:", { isConnected, phoneNumber, rawStatus: statusData });
 
