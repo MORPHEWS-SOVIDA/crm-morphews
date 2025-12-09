@@ -353,6 +353,15 @@ export default function WhatsAppDMs() {
   };
 
   const handleReconnectWasender = async (instance: WhatsAppInstance) => {
+    // If no phone number is connected, ask for one first
+    if (!instance.phone_number) {
+      setPhoneDialogInstance(instance);
+      setWasenderPhoneNumber("");
+      setWasenderCountryCode("55");
+      setWasenderSessionName(instance.name || "");
+      return;
+    }
+    
     setIsGeneratingQR(instance.id);
     
     try {
