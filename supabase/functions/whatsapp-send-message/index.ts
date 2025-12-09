@@ -121,7 +121,29 @@ serve(async (req) => {
           payload.text = mediaCaption || content;
         }
       } else if (messageType === "audio" && mediaUrl) {
-        payload.audioUrl = mediaUrl;
+        // Audio needs upload too if base64
+        if (mediaUrl.startsWith("data:")) {
+          console.log("Uploading base64 audio to WasenderAPI...");
+          const uploadResponse = await fetch("https://www.wasenderapi.com/api/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${instance.wasender_api_key}`,
+            },
+            body: JSON.stringify({ file: mediaUrl }),
+          });
+          const uploadText = await uploadResponse.text();
+          if (uploadResponse.ok) {
+            try {
+              const uploadData = JSON.parse(uploadText);
+              payload.audioUrl = uploadData.data?.publicUrl || uploadData.data?.url || mediaUrl;
+            } catch (e) {
+              payload.audioUrl = mediaUrl;
+            }
+          }
+        } else {
+          payload.audioUrl = mediaUrl;
+        }
       } else if (messageType === "document" && mediaUrl) {
         payload.documentUrl = mediaUrl;
         if (mediaCaption) {

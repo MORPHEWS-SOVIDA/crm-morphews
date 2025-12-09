@@ -18,13 +18,10 @@ import {
   Star,
   ExternalLink,
   Plus,
-  Bot,
-  UserCheck,
   ArrowLeft,
-  Image,
-  Mic,
-  Paperclip,
-  RefreshCw
+  RefreshCw,
+  Link,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -32,6 +29,10 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { EmojiPicker } from '@/components/whatsapp/EmojiPicker';
 import { ImageUpload } from '@/components/whatsapp/ImageUpload';
+import { AudioRecorder } from '@/components/whatsapp/AudioRecorder';
+import { MessageBubble } from '@/components/whatsapp/MessageBubble';
+import { ConversationItem } from '@/components/whatsapp/ConversationItem';
+import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 
 interface Conversation {
   id: string;
@@ -74,8 +75,10 @@ interface Instance {
 }
 
 export default function WhatsAppChat() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
+  
+  // State
   const [instances, setInstances] = useState<Instance[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -87,10 +90,18 @@ export default function WhatsAppChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Media state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedImageMime, setSelectedImageMime] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [pendingAudio, setPendingAudio] = useState<{ base64: string; mimeType: string } | null>(null);
+  
+  // Dialog state
+  const [showLeadDialog, setShowLeadDialog] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch instances user has access to
   useEffect(() => {
@@ -126,23 +137,18 @@ export default function WhatsAppChat() {
     fetchInstances();
   }, [user]);
 
-  // Send presence updates every 5 minutes to keep notifications flowing
+  // Send presence updates every 5 minutes
   useEffect(() => {
     const sendPresenceUpdate = async () => {
       try {
         await supabase.functions.invoke('whatsapp-presence-update');
-        console.log('Presence update sent');
       } catch (error) {
         console.error('Presence update error:', error);
       }
     };
 
-    // Send immediately on mount
     sendPresenceUpdate();
-
-    // Then every 5 minutes
     const presenceInterval = setInterval(sendPresenceUpdate, 5 * 60 * 1000);
-
     return () => clearInterval(presenceInterval);
   }, []);
 
@@ -164,7 +170,7 @@ export default function WhatsAppChat() {
 
     fetchConversations();
     
-    // Set up realtime subscription for conversations
+    // Realtime subscription
     const channel = supabase
       .channel('conversations-changes')
       .on('postgres_changes', {
@@ -183,7 +189,7 @@ export default function WhatsAppChat() {
   }, [selectedInstance]);
 
   // Fetch messages for selected conversation
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!selectedConversation) return;
     setIsLoading(true);
     
@@ -202,13 +208,13 @@ export default function WhatsAppChat() {
         .eq('id', selectedConversation.id);
     }
     setIsLoading(false);
-  };
+  }, [selectedConversation]);
 
   useEffect(() => {
     fetchMessages();
 
-    // Realtime for messages + polling backup every 3 seconds
     if (selectedConversation) {
+      // Realtime for messages
       const channel = supabase
         .channel(`messages-${selectedConversation.id}`)
         .on('postgres_changes', {
@@ -217,7 +223,6 @@ export default function WhatsAppChat() {
           table: 'whatsapp_messages',
           filter: `conversation_id=eq.${selectedConversation.id}`
         }, (payload) => {
-          console.log('New message received via realtime:', payload.new);
           setMessages(prev => {
             const exists = prev.some(m => m.id === (payload.new as Message).id);
             if (exists) return prev;
@@ -236,7 +241,7 @@ export default function WhatsAppChat() {
         })
         .subscribe();
 
-      // Polling backup - fetch new messages every 3 seconds
+      // Polling backup every 3 seconds
       const pollInterval = setInterval(async () => {
         const { data } = await supabase
           .from('whatsapp_messages')
@@ -244,15 +249,8 @@ export default function WhatsAppChat() {
           .eq('conversation_id', selectedConversation.id)
           .order('created_at', { ascending: true });
         
-        if (data) {
-          setMessages(prev => {
-            // Only update if there are new messages
-            if (data.length > prev.length || 
-                (data.length > 0 && prev.length > 0 && data[data.length - 1].id !== prev[prev.length - 1].id)) {
-              return data;
-            }
-            return prev;
-          });
+        if (data && data.length > messages.length) {
+          setMessages(data);
         }
       }, 3000);
 
@@ -261,7 +259,7 @@ export default function WhatsAppChat() {
         clearInterval(pollInterval);
       };
     }
-  }, [selectedConversation?.id]);
+  }, [selectedConversation?.id, fetchMessages]);
 
   // Fetch lead data
   useEffect(() => {
@@ -298,27 +296,38 @@ export default function WhatsAppChat() {
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !selectedImage) || !selectedConversation || !selectedInstance) return;
+    if ((!newMessage.trim() && !selectedImage && !pendingAudio) || !selectedConversation || !selectedInstance) return;
     
     const messageText = newMessage.trim();
     const imageToSend = selectedImage;
-    const imageMime = selectedImageMime;
+    const audioToSend = pendingAudio;
     
+    // Clear inputs
     setNewMessage('');
     setSelectedImage(null);
     setSelectedImageMime(null);
+    setPendingAudio(null);
     setIsSending(true);
     
     // Determine message type
-    const messageType = imageToSend ? 'image' : 'text';
+    let messageType = 'text';
+    let mediaUrl = null;
     
-    // Add optimistic message immediately
+    if (audioToSend) {
+      messageType = 'audio';
+      mediaUrl = audioToSend.base64;
+    } else if (imageToSend) {
+      messageType = 'image';
+      mediaUrl = imageToSend;
+    }
+    
+    // Add optimistic message
     const optimisticMessage: Message = {
       id: `temp-${Date.now()}`,
-      content: messageText,
+      content: messageText || null,
       direction: 'outbound',
       message_type: messageType,
-      media_url: imageToSend,
+      media_url: mediaUrl,
       media_caption: messageText || null,
       created_at: new Date().toISOString(),
       is_from_bot: false,
@@ -331,15 +340,14 @@ export default function WhatsAppChat() {
         instanceId: selectedInstance,
         conversationId: selectedConversation.id,
         messageType,
+        content: messageText || '',
       };
 
-      if (imageToSend) {
-        // For images, we send the base64 data directly
+      if (audioToSend) {
+        body.mediaUrl = audioToSend.base64;
+      } else if (imageToSend) {
         body.mediaUrl = imageToSend;
         body.mediaCaption = messageText || '';
-        body.content = messageText || '';
-      } else {
-        body.content = messageText;
       }
 
       const { data, error } = await supabase.functions.invoke('whatsapp-send-message', {
@@ -354,10 +362,11 @@ export default function WhatsAppChat() {
           m.id === optimisticMessage.id ? data.message : m
         ));
       }
+      
+      inputRef.current?.focus();
     } catch (error: any) {
-      // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
-      toast.error('Erro ao enviar mensagem: ' + error.message);
+      toast.error('Erro ao enviar: ' + error.message);
     } finally {
       setIsSending(false);
     }
@@ -365,6 +374,7 @@ export default function WhatsAppChat() {
 
   const handleEmojiSelect = (emoji: string) => {
     setNewMessage(prev => prev + emoji);
+    inputRef.current?.focus();
   };
 
   const handleImageSelect = (base64: string, mimeType: string) => {
@@ -372,24 +382,21 @@ export default function WhatsAppChat() {
     setSelectedImageMime(mimeType);
   };
 
+  const handleAudioReady = (base64: string, mimeType: string) => {
+    setPendingAudio({ base64, mimeType });
+  };
+
   const clearSelectedImage = () => {
     setSelectedImage(null);
     setSelectedImageMime(null);
   };
 
-  const createLead = async () => {
-    if (!selectedConversation) return;
-    
-    // Navigate to new lead page with phone pre-filled
-    const params = new URLSearchParams();
-    params.set('whatsapp', selectedConversation.phone_number);
-    if (selectedConversation.contact_name) {
-      params.set('name', selectedConversation.contact_name);
-    }
-    navigate(`/leads/new?${params.toString()}`);
+  const clearPendingAudio = () => {
+    setPendingAudio(null);
   };
 
-  const linkToLead = async (leadId: string) => {
+  // Lead management
+  const handleLeadSelected = async (leadId: string) => {
     if (!selectedConversation) return;
     
     const { error } = await supabase
@@ -399,7 +406,50 @@ export default function WhatsAppChat() {
     
     if (!error) {
       setSelectedConversation(prev => prev ? { ...prev, lead_id: leadId } : null);
-      toast.success('Lead vinculado com sucesso');
+      toast.success('Lead vinculado!');
+    }
+  };
+
+  const handleCreateLead = async (name: string, phone: string) => {
+    if (!profile?.organization_id || !selectedConversation) return;
+    
+    try {
+      const { data: lead, error } = await supabase
+        .from('leads')
+        .insert({
+          name,
+          whatsapp: phone,
+          instagram: '',
+          assigned_to: `${profile.first_name} ${profile.last_name}`,
+          organization_id: profile.organization_id,
+          created_by: profile.user_id,
+          stage: 'prospect',
+          stars: 3,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update conversation with lead_id
+      await supabase
+        .from('whatsapp_conversations')
+        .update({ lead_id: lead.id })
+        .eq('id', selectedConversation.id);
+
+      // Add as lead responsible
+      await supabase
+        .from('lead_responsibles')
+        .insert({
+          lead_id: lead.id,
+          user_id: profile.user_id,
+          organization_id: profile.organization_id,
+        });
+
+      setSelectedConversation(prev => prev ? { ...prev, lead_id: lead.id } : null);
+      toast.success('Lead criado e vinculado!');
+    } catch (error: any) {
+      toast.error('Erro ao criar lead: ' + error.message);
     }
   };
 
@@ -410,39 +460,32 @@ export default function WhatsAppChat() {
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
-  const getStatusIcon = (status: string | null) => {
-    switch (status) {
-      case 'sent': return '✓';
-      case 'delivered': return '✓✓';
-      case 'read': return '✓✓';
-      default: return '';
-    }
-  };
-
   return (
     <Layout>
       <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
         {/* Left Column - Conversations List */}
         <div className="w-80 border-r border-border flex flex-col bg-card overflow-hidden">
           {/* Header */}
-          <div className="p-4 border-b border-border flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
+          <div className="p-3 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-lg flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-primary" />
+                <MessageSquare className="h-5 w-5 text-green-600" />
                 Conversas
                 {totalUnread > 0 && (
-                  <Badge variant="destructive" className="text-xs">{totalUnread}</Badge>
+                  <Badge variant="destructive" className="text-xs rounded-full">
+                    {totalUnread}
+                  </Badge>
                 )}
               </h2>
               <Button variant="ghost" size="icon" onClick={() => navigate('/whatsapp')}>
-                <ArrowLeft className="h-4 w-4" />
+                <Settings className="h-4 w-4" />
               </Button>
             </div>
             
             {/* Instance selector */}
             {instances.length > 1 && (
               <select 
-                className="w-full mb-3 p-2 rounded-md border border-input bg-background text-sm"
+                className="w-full mb-2 p-2 rounded-md border border-input bg-background text-sm"
                 value={selectedInstance || ''}
                 onChange={(e) => {
                   setSelectedInstance(e.target.value);
@@ -464,232 +507,165 @@ export default function WhatsAppChat() {
                 placeholder="Buscar conversa..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-background"
               />
             </div>
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <ScrollArea className="flex-1">
             {filteredConversations.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Nenhuma conversa ainda</p>
+                <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                <p className="font-medium">Nenhuma conversa</p>
                 <p className="text-xs mt-1">Mensagens recebidas aparecerão aqui</p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                {filteredConversations.map(conv => (
-                  <div
-                    key={conv.id}
-                    onClick={() => setSelectedConversation(conv)}
-                    className={cn(
-                      "p-3 cursor-pointer hover:bg-accent/50 transition-colors",
-                      selectedConversation?.id === conv.id && "bg-accent"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={conv.contact_profile_pic || undefined} />
-                        <AvatarFallback className="bg-primary/20 text-primary">
-                          {conv.contact_name?.[0] || conv.phone_number.slice(-2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium truncate">
-                            {conv.contact_name || conv.phone_number}
-                          </span>
-                          {conv.last_message_at && (
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(conv.last_message_at), 'HH:mm', { locale: ptBR })}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-sm text-muted-foreground truncate">
-                            {conv.phone_number}
-                          </span>
-                          {conv.unread_count > 0 && (
-                            <Badge variant="destructive" className="text-xs h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                              {conv.unread_count}
-                            </Badge>
-                          )}
-                        </div>
-                        {conv.lead_id && (
-                          <Badge variant="outline" className="mt-1 text-xs">
-                            <UserCheck className="h-3 w-3 mr-1" />
-                            Lead vinculado
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              filteredConversations.map(conv => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isSelected={selectedConversation?.id === conv.id}
+                  onClick={() => setSelectedConversation(conv)}
+                />
+              ))
             )}
-          </div>
+          </ScrollArea>
         </div>
 
         {/* Center Column - Chat */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-[#e5ddd5] dark:bg-zinc-900">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <div className="p-4 border-b border-border bg-card flex items-center justify-between">
+              <div className="h-14 border-b border-border bg-card flex items-center justify-between px-4">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
-                    <AvatarFallback className="bg-primary/20 text-primary">
-                      {selectedConversation.contact_name?.[0] || selectedConversation.phone_number.slice(-2)}
+                    <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white">
+                      {selectedConversation.contact_name?.[0]?.toUpperCase() || selectedConversation.phone_number.slice(-2)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-semibold">
+                    <h3 className="font-semibold text-sm">
                       {selectedConversation.contact_name || selectedConversation.phone_number}
                     </h3>
-                    <p className="text-sm text-muted-foreground">{selectedConversation.phone_number}</p>
+                    <p className="text-xs text-muted-foreground">{selectedConversation.phone_number}</p>
                   </div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={refreshMessages}
-                  disabled={isRefreshing}
-                >
-                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={refreshMessages}
+                    disabled={isRefreshing}
+                    className="h-8 w-8"
+                  >
+                    <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                  </Button>
+                </div>
               </div>
 
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4 bg-muted/30">
+              <ScrollArea className="flex-1 p-4">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center">
+                    <div className="text-center bg-white/80 dark:bg-zinc-800/80 rounded-lg p-6">
                       <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>Nenhuma mensagem ainda</p>
+                      <p className="font-medium">Nenhuma mensagem</p>
                       <p className="text-sm">Envie uma mensagem para começar</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 max-w-3xl mx-auto">
                     {messages.map(msg => (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          "flex",
-                          msg.direction === 'outbound' ? "justify-end" : "justify-start"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "max-w-[70%] rounded-lg px-4 py-2 shadow-sm",
-                            msg.direction === 'outbound'
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-card border border-border"
-                          )}
-                        >
-                          {msg.is_from_bot && (
-                            <div className="flex items-center gap-1 text-xs opacity-70 mb-1">
-                              <Bot className="h-3 w-3" />
-                              Bot
-                            </div>
-                          )}
-                          {msg.media_url && msg.message_type === 'image' && (
-                            <img 
-                              src={msg.media_url} 
-                              alt="Media" 
-                              className="rounded mb-2 max-w-full max-h-64 object-contain"
-                            />
-                          )}
-                          {msg.media_url && msg.message_type === 'audio' && (
-                            <audio controls className="mb-2 max-w-full">
-                              <source src={msg.media_url} />
-                            </audio>
-                          )}
-                          {msg.media_url && msg.message_type === 'video' && (
-                            <video controls className="mb-2 max-w-full max-h-64 rounded">
-                              <source src={msg.media_url} />
-                            </video>
-                          )}
-                          {(msg.content || msg.media_caption) && (
-                            <p className="whitespace-pre-wrap break-words">
-                              {msg.content || msg.media_caption}
-                            </p>
-                          )}
-                          {!msg.content && !msg.media_caption && !msg.media_url && (
-                            <p className="text-muted-foreground italic text-sm">
-                              [Mensagem sem conteúdo]
-                            </p>
-                          )}
-                          <div className={cn(
-                            "flex items-center gap-1 text-xs mt-1",
-                            msg.direction === 'outbound' ? "text-primary-foreground/70 justify-end" : "text-muted-foreground"
-                          )}>
-                            <span>{format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}</span>
-                            {msg.direction === 'outbound' && (
-                              <span className={cn(
-                                msg.status === 'read' && "text-blue-400"
-                              )}>
-                                {getStatusIcon(msg.status)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <MessageBubble key={msg.id} message={msg} />
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
               </ScrollArea>
 
-              {/* Image Preview */}
-              {selectedImage && (
+              {/* Media Preview */}
+              {(selectedImage || pendingAudio) && (
                 <div className="px-4 py-2 border-t border-border bg-card">
-                  <div className="flex items-center gap-2">
-                    <img 
-                      src={selectedImage} 
-                      alt="Preview" 
-                      className="h-16 w-16 object-cover rounded"
-                    />
-                    <span className="text-sm text-muted-foreground">Imagem selecionada</span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={clearSelectedImage}
-                      className="ml-auto"
-                    >
-                      Remover
-                    </Button>
+                  <div className="flex items-center gap-3">
+                    {selectedImage && (
+                      <>
+                        <img 
+                          src={selectedImage} 
+                          alt="Preview" 
+                          className="h-16 w-16 object-cover rounded"
+                        />
+                        <span className="text-sm text-muted-foreground">Imagem selecionada</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={clearSelectedImage}
+                          className="ml-auto"
+                        >
+                          Remover
+                        </Button>
+                      </>
+                    )}
+                    {pendingAudio && (
+                      <>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                          <div className="w-2 h-2 bg-green-500 rounded-full" />
+                          <span className="text-sm">Áudio pronto para enviar</span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={clearPendingAudio}
+                          className="ml-auto"
+                        >
+                          Remover
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Input */}
-              <div className="p-4 border-t border-border bg-card">
+              <div className="p-3 border-t border-border bg-card">
                 <div className="flex items-center gap-2">
                   <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                   <ImageUpload 
                     onImageSelect={handleImageSelect}
-                    isUploading={isUploadingImage}
-                    selectedImage={selectedImage}
+                    isUploading={false}
+                    selectedImage={null}
                     onClear={clearSelectedImage}
                   />
+                  <AudioRecorder 
+                    onAudioReady={handleAudioReady}
+                    isRecording={isRecordingAudio}
+                    setIsRecording={setIsRecordingAudio}
+                  />
                   <Input
+                    ref={inputRef}
                     placeholder="Digite sua mensagem..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                    disabled={isSending}
-                    className="flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    disabled={isSending || isRecordingAudio}
+                    className="flex-1 bg-background"
                   />
                   <Button 
                     onClick={sendMessage} 
-                    disabled={isSending || (!newMessage.trim() && !selectedImage)}
+                    disabled={isSending || isRecordingAudio || (!newMessage.trim() && !selectedImage && !pendingAudio)}
+                    size="icon"
+                    className="bg-green-600 hover:bg-green-700 h-9 w-9"
                   >
                     <Send className="h-4 w-4" />
                   </Button>
@@ -697,10 +673,10 @@ export default function WhatsAppChat() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-muted/30">
-              <div className="text-center text-muted-foreground">
-                <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium">Selecione uma conversa</h3>
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center text-muted-foreground bg-white/80 dark:bg-zinc-800/80 rounded-lg p-8">
+                <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                <h3 className="text-lg font-medium mb-1">Selecione uma conversa</h3>
                 <p className="text-sm">Escolha uma conversa para começar a atender</p>
               </div>
             </div>
@@ -711,7 +687,7 @@ export default function WhatsAppChat() {
         <div className="w-80 border-l border-border bg-card flex flex-col">
           {selectedConversation ? (
             <>
-              <div className="p-4 border-b border-border">
+              <div className="p-4 border-b border-border bg-muted/30">
                 <h3 className="font-semibold flex items-center gap-2">
                   <User className="h-4 w-4" />
                   Dados do Contato
@@ -729,13 +705,13 @@ export default function WhatsAppChat() {
                       </Avatar>
                       <div>
                         <h4 className="font-semibold">{lead.name}</h4>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star 
                               key={i} 
                               className={cn(
                                 "h-4 w-4",
-                                i < lead.stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"
+                                i < lead.stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"
                               )}
                             />
                           ))}
@@ -784,13 +760,13 @@ export default function WhatsAppChat() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <User className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground mb-4">
-                      Nenhum lead vinculado a esta conversa
+                    <User className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-30" />
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      Nenhum lead vinculado
                     </p>
-                    <Button onClick={createLead} className="w-full">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar Lead
+                    <Button onClick={() => setShowLeadDialog(true)} className="w-full">
+                      <Link className="h-4 w-4 mr-2" />
+                      Vincular Lead
                     </Button>
                   </div>
                 )}
@@ -799,13 +775,25 @@ export default function WhatsAppChat() {
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center text-muted-foreground p-4">
-                <User className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Selecione uma conversa para ver os dados do contato</p>
+                <User className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Selecione uma conversa para ver os dados</p>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Lead Search Dialog */}
+      {selectedConversation && (
+        <LeadSearchDialog
+          open={showLeadDialog}
+          onOpenChange={setShowLeadDialog}
+          conversationPhone={selectedConversation.phone_number}
+          contactName={selectedConversation.contact_name}
+          onLeadSelected={handleLeadSelected}
+          onCreateNew={handleCreateLead}
+        />
+      )}
     </Layout>
   );
 }
