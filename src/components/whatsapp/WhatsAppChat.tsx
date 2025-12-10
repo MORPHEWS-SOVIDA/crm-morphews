@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Smile, Phone, Search, ArrowLeft, User, Star, ChevronRight, Loader2, Plus, ExternalLink } from "lucide-react";
+import { Send, Paperclip, Smile, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { MessageBubble } from "./MessageBubble";
+import { AudioRecorder } from "./AudioRecorder";
 
 interface WhatsAppChatProps {
   instanceId: string;
@@ -53,6 +55,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false);
   const [newLeadName, setNewLeadName] = useState("");
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isSendingAudio, setIsSendingAudio] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations
@@ -168,6 +172,41 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
     sendMessage.mutate(messageText);
+  };
+
+  const handleSendAudio = async (base64: string, mimeType: string) => {
+    if (!selectedConversation) return;
+    
+    setIsSendingAudio(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          conversationId: selectedConversation.id,
+          instanceId: instanceId,
+          content: "",
+          messageType: "audio",
+          mediaBase64: base64,
+          mediaMimeType: mimeType,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+      toast({ title: "Áudio enviado!" });
+    } catch (error: any) {
+      console.error("Error sending audio:", error);
+      toast({
+        title: "Erro ao enviar áudio",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingAudio(false);
+      setIsRecordingAudio(false);
+    }
   };
 
   const handleCreateLead = async () => {
@@ -423,50 +462,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </div>
                 ) : (
                   messages?.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "flex",
-                        message.direction === "outbound" ? "justify-end" : "justify-start"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "max-w-[75%] rounded-lg px-3 py-2 shadow-sm",
-                          message.direction === "outbound"
-                            ? "bg-green-100 dark:bg-green-900/40 text-foreground"
-                            : "bg-background text-foreground border",
-                          message.is_from_bot && "border-l-2 border-blue-400"
-                        )}
-                      >
-                        {message.is_from_bot && (
-                          <span className="text-xs text-blue-500 font-medium block mb-1">
-                            🤖 Robô
-                          </span>
-                        )}
-                        {message.media_url && message.message_type === "image" && (
-                          <img
-                            src={message.media_url}
-                            alt="Media"
-                            className="rounded-lg max-w-full mb-2"
-                          />
-                        )}
-                        {message.media_url && message.message_type === "audio" && (
-                          <audio controls className="max-w-full mb-2">
-                            <source src={message.media_url} />
-                          </audio>
-                        )}
-                        <p className="whitespace-pre-wrap break-words">
-                          {message.content || message.media_caption || (message.message_type !== "text" && `[${message.message_type}]`)}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground float-right mt-1 ml-2 flex items-center gap-1">
-                          {format(new Date(message.created_at), "HH:mm")}
-                          {message.direction === "outbound" && (
-                            <span className="ml-1">{getStatusIcon(message.status)}</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                    <MessageBubble key={message.id} message={message} />
                   ))
                 )}
                 <div ref={messagesEndRef} />
@@ -476,37 +472,66 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
             {/* Input Area */}
             <div className="p-3 border-t bg-muted/30">
               <div className="flex items-center gap-2 max-w-3xl mx-auto">
-                <Button variant="ghost" size="icon" className="shrink-0" disabled>
-                  <Smile className="h-5 w-5 text-muted-foreground" />
-                </Button>
-                <Button variant="ghost" size="icon" className="shrink-0" disabled>
-                  <Paperclip className="h-5 w-5 text-muted-foreground" />
-                </Button>
-                <Input
-                  placeholder="Digite uma mensagem..."
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  className="flex-1"
-                  disabled={sendMessage.isPending}
-                />
-                <Button
-                  size="icon"
-                  className="shrink-0 bg-green-500 hover:bg-green-600"
-                  onClick={handleSendMessage}
-                  disabled={!messageText.trim() || sendMessage.isPending}
-                >
-                  {sendMessage.isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                </Button>
+                {isRecordingAudio ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <AudioRecorder
+                      onAudioReady={handleSendAudio}
+                      isRecording={isRecordingAudio}
+                      setIsRecording={setIsRecordingAudio}
+                    />
+                    {isSendingAudio && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Enviando...</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="icon" className="shrink-0" disabled>
+                      <Smile className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="shrink-0" disabled>
+                      <Paperclip className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                    <Input
+                      placeholder="Digite uma mensagem..."
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      className="flex-1"
+                      disabled={sendMessage.isPending}
+                    />
+                    {messageText.trim() ? (
+                      <Button
+                        size="icon"
+                        className="shrink-0 bg-green-500 hover:bg-green-600"
+                        onClick={handleSendMessage}
+                        disabled={sendMessage.isPending}
+                      >
+                        {sendMessage.isPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Send className="h-5 w-5" />
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="shrink-0"
+                        onClick={() => setIsRecordingAudio(true)}
+                      >
+                        <Mic className="h-5 w-5 text-muted-foreground" />
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </>

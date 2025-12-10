@@ -41,6 +41,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   };
 
   const [imageError, setImageError] = useState(false);
+  const [audioError, setAudioError] = useState(false);
 
   const renderContent = () => {
     switch (message.message_type) {
@@ -77,13 +78,29 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       case 'audio':
         return (
           <div className="min-w-[200px]">
-            {message.media_url ? (
-              <audio controls className="w-full h-10">
+            {message.media_url && !audioError ? (
+              <audio 
+                controls 
+                className="w-full h-10"
+                onError={() => setAudioError(true)}
+              >
                 <source src={message.media_url} />
                 Seu navegador não suporta áudio.
               </audio>
             ) : (
-              <span className="text-muted-foreground text-sm">🎵 Áudio</span>
+              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                <span>🎤</span>
+                <span>
+                  {message.content?.includes("Transcrição do áudio") 
+                    ? "Áudio transcrito" 
+                    : "Áudio não disponível"}
+                </span>
+              </div>
+            )}
+            {message.content && message.content.includes("Transcrição do áudio") && (
+              <p className="whitespace-pre-wrap break-words text-sm mt-1">
+                {message.content}
+              </p>
             )}
           </div>
         );

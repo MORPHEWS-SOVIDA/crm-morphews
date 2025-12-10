@@ -17,13 +17,24 @@ serve(async (req) => {
   }
 
   try {
-    const { conversationId, instanceId, content, messageType = "text", mediaUrl, mediaCaption } = await req.json();
+    const { 
+      conversationId, 
+      instanceId, 
+      content, 
+      messageType = "text", 
+      mediaUrl, 
+      mediaCaption,
+      mediaBase64,
+      mediaMimeType 
+    } = await req.json();
 
     console.log("=== WhatsApp Send Message ===");
     console.log("ConversationId:", conversationId);
     console.log("InstanceId:", instanceId);
     console.log("Content:", content?.substring(0, 50));
     console.log("MessageType:", messageType);
+    console.log("Has mediaBase64:", !!mediaBase64);
+    console.log("MediaMimeType:", mediaMimeType);
 
     if (!conversationId || !instanceId) {
       throw new Error("conversationId and instanceId are required");
@@ -83,10 +94,17 @@ serve(async (req) => {
       
       console.log("Formatted phone:", formattedPhone);
 
-      // Check if mediaUrl is base64 data - need to upload first
+      // Check if mediaUrl is base64 data OR we have mediaBase64 - need to upload first
       let uploadedMediaUrl = mediaUrl;
+      let mediaDataToUpload = mediaUrl;
       
-      if (mediaUrl && mediaUrl.startsWith("data:")) {
+      // If we have mediaBase64, convert to data URL for upload
+      if (mediaBase64 && mediaMimeType) {
+        mediaDataToUpload = `data:${mediaMimeType};base64,${mediaBase64}`;
+        console.log("Using mediaBase64 for upload");
+      }
+      
+      if (mediaDataToUpload && mediaDataToUpload.startsWith("data:")) {
         console.log("Uploading base64 media to WasenderAPI...");
         
         const uploadResponse = await fetch("https://www.wasenderapi.com/api/upload", {
@@ -95,7 +113,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${instance.wasender_api_key}`,
           },
-          body: JSON.stringify({ file: mediaUrl }),
+          body: JSON.stringify({ file: mediaDataToUpload }),
         });
 
         const uploadText = await uploadResponse.text();
@@ -105,7 +123,7 @@ serve(async (req) => {
           try {
             const uploadData = JSON.parse(uploadText);
             uploadedMediaUrl = uploadData.data?.publicUrl || uploadData.data?.url || mediaUrl;
-            console.log("Media uploaded successfully");
+            console.log("Media uploaded successfully:", uploadedMediaUrl);
           } catch (e) {
             console.error("Failed to parse upload response");
           }
