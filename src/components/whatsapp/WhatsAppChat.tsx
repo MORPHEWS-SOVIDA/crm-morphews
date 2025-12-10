@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Smile, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { MessageBubble } from "./MessageBubble";
 import { AudioRecorder } from "./AudioRecorder";
+import { EmojiPicker } from "./EmojiPicker";
 
 interface WhatsAppChatProps {
   instanceId: string;
@@ -57,6 +58,9 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isSendingAudio, setIsSendingAudio] = useState(false);
+  const [isSendingImage, setIsSendingImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string } | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations
@@ -179,19 +183,23 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     
     setIsSendingAudio(true);
     try {
+      // Extract raw base64 without data: prefix
+      const rawBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
+      
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           conversationId: selectedConversation.id,
           instanceId: instanceId,
           content: "",
           messageType: "audio",
-          mediaBase64: base64,
+          mediaBase64: rawBase64,
           mediaMimeType: mimeType,
         },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      if (!data?.success) throw new Error("Falha ao enviar áudio");
 
       queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
       queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
@@ -200,13 +208,85 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       console.error("Error sending audio:", error);
       toast({
         title: "Erro ao enviar áudio",
-        description: error.message,
+        description: error.message || "Erro desconhecido",
         variant: "destructive",
       });
     } finally {
       setIsSendingAudio(false);
       setIsRecordingAudio(false);
     }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Arquivo inválido", description: "Selecione uma imagem", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setSelectedImage({ base64, mimeType: file.type });
+    };
+    reader.readAsDataURL(file);
+
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  };
+
+  const handleSendImage = async () => {
+    if (!selectedConversation || !selectedImage) return;
+
+    setIsSendingImage(true);
+    try {
+      // Extract raw base64 without data: prefix
+      const rawBase64 = selectedImage.base64.includes(',') 
+        ? selectedImage.base64.split(',')[1] 
+        : selectedImage.base64;
+
+      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          conversationId: selectedConversation.id,
+          instanceId: instanceId,
+          content: messageText || "",
+          messageType: "image",
+          mediaBase64: rawBase64,
+          mediaMimeType: selectedImage.mimeType,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.success) throw new Error("Falha ao enviar imagem");
+
+      setSelectedImage(null);
+      setMessageText("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+      toast({ title: "Imagem enviada!" });
+    } catch (error: any) {
+      console.error("Error sending image:", error);
+      toast({
+        title: "Erro ao enviar imagem",
+        description: error.message || "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingImage(false);
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessageText(prev => prev + emoji);
   };
 
   const handleCreateLead = async () => {
@@ -469,8 +549,32 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               </div>
             </ScrollArea>
 
+            {/* Image preview */}
+            {selectedImage && (
+              <div className="p-3 border-t bg-muted/30">
+                <div className="max-w-3xl mx-auto flex items-center gap-3">
+                  <img 
+                    src={selectedImage.base64} 
+                    alt="Preview" 
+                    className="h-16 w-16 object-cover rounded-lg"
+                  />
+                  <span className="text-sm text-muted-foreground flex-1">Imagem selecionada</span>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedImage(null)}>
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Input Area */}
             <div className="p-3 border-t bg-muted/30">
+              <input
+                type="file"
+                ref={imageInputRef}
+                onChange={handleImageSelect}
+                accept="image/*"
+                className="hidden"
+              />
               <div className="flex items-center gap-2 max-w-3xl mx-auto">
                 {isRecordingAudio ? (
                   <div className="flex-1 flex items-center justify-center">
@@ -488,11 +592,19 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </div>
                 ) : (
                   <>
-                    <Button variant="ghost" size="icon" className="shrink-0" disabled>
-                      <Smile className="h-5 w-5 text-muted-foreground" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="shrink-0" disabled>
-                      <Paperclip className="h-5 w-5 text-muted-foreground" />
+                    <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="shrink-0"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={isSendingImage}
+                    >
+                      {isSendingImage ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                      )}
                     </Button>
                     <Input
                       placeholder="Digite uma mensagem..."
@@ -501,13 +613,30 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
-                          handleSendMessage();
+                          if (selectedImage) {
+                            handleSendImage();
+                          } else {
+                            handleSendMessage();
+                          }
                         }
                       }}
                       className="flex-1"
-                      disabled={sendMessage.isPending}
+                      disabled={sendMessage.isPending || isSendingImage}
                     />
-                    {messageText.trim() ? (
+                    {selectedImage ? (
+                      <Button
+                        size="icon"
+                        className="shrink-0 bg-green-500 hover:bg-green-600"
+                        onClick={handleSendImage}
+                        disabled={isSendingImage}
+                      >
+                        {isSendingImage ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Send className="h-5 w-5" />
+                        )}
+                      </Button>
+                    ) : messageText.trim() ? (
                       <Button
                         size="icon"
                         className="shrink-0 bg-green-500 hover:bg-green-600"

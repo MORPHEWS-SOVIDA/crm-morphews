@@ -94,18 +94,14 @@ serve(async (req) => {
       
       console.log("Formatted phone:", formattedPhone);
 
-      // Check if mediaUrl is base64 data OR we have mediaBase64 - need to upload first
+      // Check if we have mediaBase64 to upload
       let uploadedMediaUrl = mediaUrl;
-      let mediaDataToUpload = mediaUrl;
       
-      // If we have mediaBase64, convert to data URL for upload
       if (mediaBase64 && mediaMimeType) {
-        mediaDataToUpload = `data:${mediaMimeType};base64,${mediaBase64}`;
-        console.log("Using mediaBase64 for upload");
-      }
-      
-      if (mediaDataToUpload && mediaDataToUpload.startsWith("data:")) {
         console.log("Uploading base64 media to WasenderAPI...");
+        
+        // Construct the proper data URL for WasenderAPI upload
+        const dataUrl = `data:${mediaMimeType};base64,${mediaBase64}`;
         
         const uploadResponse = await fetch("https://www.wasenderapi.com/api/upload", {
           method: "POST",
@@ -113,23 +109,29 @@ serve(async (req) => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${instance.wasender_api_key}`,
           },
-          body: JSON.stringify({ file: mediaDataToUpload }),
+          body: JSON.stringify({ file: dataUrl }),
         });
 
         const uploadText = await uploadResponse.text();
-        console.log("Upload response:", uploadResponse.status);
+        console.log("Upload response status:", uploadResponse.status);
 
         if (uploadResponse.ok) {
           try {
             const uploadData = JSON.parse(uploadText);
-            uploadedMediaUrl = uploadData.data?.publicUrl || uploadData.data?.url || mediaUrl;
+            uploadedMediaUrl = uploadData.data?.publicUrl || uploadData.data?.url;
             console.log("Media uploaded successfully:", uploadedMediaUrl);
+            
+            if (!uploadedMediaUrl) {
+              console.error("Upload response missing URL:", uploadText);
+              throw new Error("Falha ao obter URL da mídia enviada");
+            }
           } catch (e) {
-            console.error("Failed to parse upload response");
+            console.error("Failed to parse upload response:", uploadText);
+            throw new Error("Falha ao processar upload de mídia");
           }
         } else {
           console.error("Media upload failed:", uploadText);
-          throw new Error("Falha ao enviar mídia");
+          throw new Error("Falha ao enviar mídia para WasenderAPI");
         }
       }
 
