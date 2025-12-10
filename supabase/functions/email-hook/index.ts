@@ -3,8 +3,11 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-internal-secret",
 };
+
+// Internal secret for authentication - derived from service role key
+const INTERNAL_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.slice(0, 32);
 
 interface EmailHookPayload {
   user: {
@@ -26,6 +29,16 @@ interface EmailHookPayload {
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate internal secret to prevent unauthorized access
+  const internalSecret = req.headers.get("x-internal-secret");
+  if (!INTERNAL_SECRET || internalSecret !== INTERNAL_SECRET) {
+    console.error("Unauthorized access attempt to email-hook");
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
   }
 
   try {
