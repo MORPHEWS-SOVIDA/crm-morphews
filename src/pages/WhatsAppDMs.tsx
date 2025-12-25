@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw, Unplug, Globe, Flag, Phone, Smartphone } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw, Unplug, Globe, Phone, Smartphone, Clock } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,33 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useWhatsAppInstances, useValidateCoupon, useCreateWhatsAppInstance, useOrganizationWhatsAppCredits, useUpdateWhatsAppInstance, DiscountCoupon, WhatsAppInstance } from "@/hooks/useWhatsAppInstances";
-import { useOrganizationWhatsAppProviders, PROVIDER_PRICES, type WhatsAppProvider } from "@/hooks/useWhatsAppProviders";
+import { useOrganizationWhatsAppProviders, PROVIDER_PRICES, DEFAULT_PROVIDER, type WhatsAppProvider } from "@/hooks/useWhatsAppProviders";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
 import { InstancePermissions } from "@/components/whatsapp/InstancePermissions";
-import { ZApiConfigDialog } from "@/components/whatsapp/ZApiConfigDialog";
+
+// Status mapping for human-readable display
+type InstanceStatus = "connected" | "waiting_qr" | "disconnected" | "logged_out" | "error";
+
+const STATUS_LABELS: Record<InstanceStatus, string> = {
+  connected: "Conectado",
+  waiting_qr: "Aguardando QR",
+  disconnected: "Desconectado",
+  logged_out: "Sessão expirada",
+  error: "Erro",
+};
+
+const mapStatusToInternal = (status: string, isConnected: boolean): InstanceStatus => {
+  if (isConnected) return "connected";
+  if (status === "pending") return "waiting_qr";
+  if (status === "active" && !isConnected) return "disconnected";
+  if (status === "disconnected") return "disconnected";
+  if (status === "logged_out") return "logged_out";
+  if (status === "error") return "error";
+  return "disconnected";
+};
 
 export default function WhatsAppDMs() {
   const { profile, isAdmin, user } = useAuth();
@@ -28,7 +48,6 @@ export default function WhatsAppDMs() {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState("");
-  const [selectedProvider, setSelectedProvider] = useState<WhatsAppProvider>("zapi");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<DiscountCoupon | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
@@ -36,7 +55,6 @@ export default function WhatsAppDMs() {
   const [isGeneratingQR, setIsGeneratingQR] = useState<string | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState<string | null>(null);
   const [permissionsInstance, setPermissionsInstance] = useState<WhatsAppInstance | null>(null);
-  const [configInstance, setConfigInstance] = useState<WhatsAppInstance | null>(null);
   
   // WasenderAPI phone number dialog
   const [phoneDialogInstance, setPhoneDialogInstance] = useState<WhatsAppInstance | null>(null);
@@ -48,22 +66,22 @@ export default function WhatsAppDMs() {
   const [changePhoneInstance, setChangePhoneInstance] = useState<WhatsAppInstance | null>(null);
   const [isChangingPhone, setIsChangingPhone] = useState(false);
 
+  // Polling and auto-refresh state
+  const [lastStatusCheck, setLastStatusCheck] = useState<Record<string, Date>>({});
+  const [qrRefreshCount, setQrRefreshCount] = useState<Record<string, number>>({});
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const qrRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Check if master admin
   const isMasterAdmin = user?.email === "thiago.morphews@gmail.com";
 
-  // Get available providers for this organization
-  const availableProviders = enabledProviders?.filter(p => p.is_enabled) || [];
-  
-  // Master admin can see all providers
-  const canSelectProvider = isMasterAdmin || availableProviders.length > 1;
-  
-  // Get price for selected provider
-  const getProviderPrice = (provider: WhatsAppProvider) => {
-    const orgProvider = enabledProviders?.find(p => p.provider === provider);
-    return orgProvider?.price_cents ?? PROVIDER_PRICES[provider];
+  // Get price for provider (always wasenderapi now)
+  const getProviderPrice = () => {
+    const orgProvider = enabledProviders?.find(p => p.provider === "wasenderapi");
+    return orgProvider?.price_cents ?? PROVIDER_PRICES.wasenderapi;
   };
 
-  const currentPrice = getProviderPrice(selectedProvider);
+  const currentPrice = getProviderPrice();
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -71,6 +89,129 @@ export default function WhatsAppDMs() {
       currency: "BRL",
     }).format(cents / 100);
   };
+
+  // Polling logic for status checks (every 8-10 seconds for non-connected instances)
+  const checkInstanceStatus = useCallback(async (instance: WhatsAppInstance) => {
+    if (!instance.wasender_api_key) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+        body: { action: "status", instanceId: instance.id },
+      });
+
+      if (error) {
+        console.error("Status check error:", error);
+        return;
+      }
+
+      setLastStatusCheck(prev => ({ ...prev, [instance.id]: new Date() }));
+
+      // If was disconnected but now connected, stop polling for this instance
+      if (data?.isConnected && !instance.is_connected) {
+        toast({ title: "WhatsApp conectado!", description: `Número: ${data.phoneNumber || "Desconhecido"}` });
+        refetch();
+      }
+      
+      // If was connected but now disconnected, try auto-restart once
+      if (!data?.isConnected && instance.is_connected) {
+        console.log("Connection lost, attempting restart...");
+        try {
+          await supabase.functions.invoke("wasenderapi-instance-manager", {
+            body: { action: "restart", instanceId: instance.id },
+          });
+          refetch();
+        } catch (e) {
+          console.error("Auto-restart failed:", e);
+        }
+      }
+    } catch (e) {
+      console.error("Status polling error:", e);
+    }
+  }, [refetch]);
+
+  // Auto-refresh QR code (every 30-40 seconds, max 3 times)
+  const refreshQRCode = useCallback(async (instance: WhatsAppInstance) => {
+    const refreshCount = qrRefreshCount[instance.id] || 0;
+    
+    if (refreshCount >= 3) {
+      console.log("Max QR refresh attempts reached for", instance.id);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+        body: { action: "refresh_qr", instanceId: instance.id },
+      });
+
+      if (error) throw error;
+
+      setQrRefreshCount(prev => ({ ...prev, [instance.id]: refreshCount + 1 }));
+      
+      if (data?.qrCode) {
+        refetch();
+      }
+    } catch (e) {
+      console.error("QR refresh error:", e);
+    }
+  }, [qrRefreshCount, refetch]);
+
+  // Setup polling for non-connected instances
+  useEffect(() => {
+    const disconnectedInstances = instances?.filter(
+      i => !i.is_connected && i.wasender_api_key
+    ) || [];
+
+    if (disconnectedInstances.length === 0) {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Poll every 8 seconds
+    pollingIntervalRef.current = setInterval(() => {
+      disconnectedInstances.forEach(instance => {
+        checkInstanceStatus(instance);
+      });
+    }, 8000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [instances, checkInstanceStatus]);
+
+  // Setup QR auto-refresh for waiting_qr instances
+  useEffect(() => {
+    const waitingQrInstances = instances?.filter(
+      i => !i.is_connected && i.qr_code_base64 && i.status === "pending"
+    ) || [];
+
+    if (waitingQrInstances.length === 0) {
+      if (qrRefreshIntervalRef.current) {
+        clearInterval(qrRefreshIntervalRef.current);
+        qrRefreshIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Refresh QR every 35 seconds
+    qrRefreshIntervalRef.current = setInterval(() => {
+      waitingQrInstances.forEach(instance => {
+        if ((qrRefreshCount[instance.id] || 0) < 3) {
+          refreshQRCode(instance);
+        }
+      });
+    }, 35000);
+
+    return () => {
+      if (qrRefreshIntervalRef.current) {
+        clearInterval(qrRefreshIntervalRef.current);
+      }
+    };
+  }, [instances, qrRefreshCount, refreshQRCode]);
 
   const handleValidateCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -104,28 +245,17 @@ export default function WhatsAppDMs() {
       return;
     }
 
-    // Check if provider is enabled for org (unless master admin)
-    if (!isMasterAdmin && availableProviders.length > 0 && !availableProviders.find(p => p.provider === selectedProvider)) {
-      toast({ 
-        title: "Provider não disponível", 
-        description: "Este provider não está habilitado para sua organização.",
-        variant: "destructive" 
-      });
-      return;
-    }
-
     try {
       const instance = await createInstance.mutateAsync({
         name: newInstanceName,
         couponId: appliedCoupon?.id,
         discountCents: appliedCoupon?.discount_value_cents,
-        provider: selectedProvider,
+        provider: DEFAULT_PROVIDER,
         priceCents: currentPrice,
       });
       
       setShowCreateDialog(false);
       setNewInstanceName("");
-      setSelectedProvider("zapi");
       setCouponCode("");
       setAppliedCoupon(null);
 
@@ -168,175 +298,97 @@ export default function WhatsAppDMs() {
   };
 
   const handleGenerateQRCode = async (instance: WhatsAppInstance) => {
-    const provider = instance.provider || "zapi";
+    const needsSession = !instance.wasender_session_id || !instance.wasender_api_key;
     
-    // WasenderAPI: check if needs phone number
-    if (provider === "wasenderapi") {
-      const needsSession = !instance.wasender_session_id || !instance.wasender_api_key;
-      
-      if (needsSession) {
-        // Open dialog to get phone number and session name first
-        setPhoneDialogInstance(instance);
-        setWasenderPhoneNumber("");
-        setWasenderCountryCode("55");
-        setWasenderSessionName(instance.name || "");
-        return;
-      }
+    if (needsSession) {
+      // Open dialog to get phone number and session name first
+      setPhoneDialogInstance(instance);
+      setWasenderPhoneNumber("");
+      setWasenderCountryCode("55");
+      setWasenderSessionName(instance.name || "");
+      return;
     }
     
-    // Proceed with QR generation
-    await executeQRCodeGeneration(instance);
+    // Proceed with connection
+    await executeConnect(instance);
   };
 
-  const executeQRCodeGeneration = async (instance: WhatsAppInstance, phoneNumber?: string, sessionName?: string) => {
+  const executeConnect = async (instance: WhatsAppInstance, phoneNumber?: string, sessionName?: string) => {
     setIsGeneratingQR(instance.id);
-    const provider = instance.provider || "zapi";
+    setQrRefreshCount(prev => ({ ...prev, [instance.id]: 0 })); // Reset refresh count
     
     try {
-      if (provider === "wasenderapi") {
-        // WasenderAPI flow
-        const needsSession = !instance.wasender_session_id || !instance.wasender_api_key;
+      const needsSession = !instance.wasender_session_id || !instance.wasender_api_key;
 
-        if (needsSession) {
-          if (!phoneNumber) {
-            toast({ 
-              title: "Telefone obrigatório", 
-              description: "Por favor, informe o número de telefone para criar a sessão",
-              variant: "destructive",
-            });
-            setIsGeneratingQR(null);
-            return;
-          }
-
+      if (needsSession) {
+        if (!phoneNumber) {
           toast({ 
-            title: "Criando sessão WasenderAPI...", 
-            description: "Aguarde enquanto configuramos sua instância automaticamente",
-          });
-
-          const { data: createData, error: createError } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-            body: { 
-              action: "create_wasender_session", 
-              instanceId: instance.id, 
-              phoneNumber,
-              sessionName: sessionName || instance.name,
-            },
-          });
-
-          if (createError) throw createError;
-
-          if (!createData?.success) {
-            toast({
-              title: "Erro ao criar sessão",
-              description: createData?.message || "Não foi possível criar a sessão automaticamente",
-              variant: "destructive",
-            });
-            setIsGeneratingQR(null);
-            return;
-          }
-
-          // If QR code was returned with the create response, we're done
-          if (createData?.qrCode) {
-            toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
-            refetch();
-            setIsGeneratingQR(null);
-            return;
-          }
-
-          toast({ title: "Sessão criada!", description: "Obtendo QR Code..." });
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-
-        // Connect session to get QR code
-        const { data: connectData, error: connectError } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-          body: { action: "connect_session", instanceId: instance.id },
-        });
-
-        if (connectError) throw connectError;
-
-        if (connectData?.qrCode) {
-          toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
-        } else if (connectData?.needsConnect) {
-          // Try get_qr_code
-          const { data: qrData } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-            body: { action: "get_qr_code", instanceId: instance.id },
-          });
-          
-          if (qrData?.qrCode) {
-            toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
-          }
-        }
-      } else {
-        // Z-API flow (existing logic)
-        const needsCreation = !instance.z_api_instance_id || 
-                             !instance.z_api_token || 
-                             instance.z_api_instance_id.startsWith("morphews_") || 
-                             instance.z_api_token.startsWith("token_");
-
-        if (needsCreation) {
-          toast({ 
-            title: "Criando instância Z-API...", 
-            description: "Aguarde enquanto configuramos sua instância automaticamente",
-          });
-
-          const { data: createData, error: createError } = await supabase.functions.invoke("zapi-instance-manager", {
-            body: { action: "create_zapi_instance", instanceId: instance.id },
-          });
-
-          if (createError) throw createError;
-
-          if (!createData?.success) {
-            toast({
-              title: "Erro ao criar instância",
-              description: createData?.message || "Não foi possível criar a instância automaticamente",
-              variant: "destructive",
-            });
-            setConfigInstance(instance);
-            setIsGeneratingQR(null);
-            return;
-          }
-
-          toast({ title: "Instância criada!", description: "Obtendo QR Code..." });
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-
-        const { data, error } = await supabase.functions.invoke("zapi-instance-manager", {
-          body: { action: "get_qr_code", instanceId: instance.id },
-        });
-
-        if (error) throw error;
-
-        if (data?.qrCode) {
-          toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
-        } else if (data?.needsAutoCreate) {
-          toast({ 
-            title: "Recriando instância...", 
-            description: "A instância anterior expirou. Criando nova...",
-          });
-          
-          const { data: recreateData, error: recreateError } = await supabase.functions.invoke("zapi-instance-manager", {
-            body: { action: "create_zapi_instance", instanceId: instance.id },
-          });
-
-          if (recreateError) throw recreateError;
-          
-          if (recreateData?.success) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            const { data: qrRetry } = await supabase.functions.invoke("zapi-instance-manager", {
-              body: { action: "get_qr_code", instanceId: instance.id },
-            });
-            
-            if (qrRetry?.qrCode) {
-              toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
-            }
-          }
-        } else if (data?.needsConfig) {
-          toast({ 
-            title: "Configuração manual necessária", 
-            description: data.message,
+            title: "Telefone obrigatório", 
+            description: "Por favor, informe o número de telefone para criar a sessão",
             variant: "destructive",
           });
-          setConfigInstance(instance);
+          setIsGeneratingQR(null);
+          return;
         }
+
+        toast({ 
+          title: "Criando sessão WhatsApp...", 
+          description: "Aguarde enquanto configuramos sua instância automaticamente",
+        });
+
+        const { data: createData, error: createError } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+          body: { 
+            action: "create_wasender_session", 
+            instanceId: instance.id, 
+            phoneNumber,
+            sessionName: sessionName || instance.name,
+          },
+        });
+
+        if (createError) throw createError;
+
+        if (!createData?.success) {
+          toast({
+            title: "Erro ao criar sessão",
+            description: createData?.message || "Não foi possível criar a sessão automaticamente",
+            variant: "destructive",
+          });
+          setIsGeneratingQR(null);
+          return;
+        }
+
+        // If QR code was returned with the create response, we're done
+        if (createData?.qrCode) {
+          toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+          refetch();
+          setIsGeneratingQR(null);
+          return;
+        }
+
+        toast({ title: "Sessão criada!", description: "Obtendo QR Code..." });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Connect session to get QR code
+      const { data: connectData, error: connectError } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+        body: { action: "connect", instanceId: instance.id },
+      });
+
+      if (connectError) throw connectError;
+
+      if (connectData?.qrCode) {
+        toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+      } else if (connectData?.needsQr) {
+        // Try refresh_qr
+        const { data: qrData } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+          body: { action: "refresh_qr", instanceId: instance.id },
+        });
+        
+        if (qrData?.qrCode) {
+          toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+        }
+      } else if (connectData?.isConnected) {
+        toast({ title: "Já conectado!", description: `Número: ${connectData.phoneNumber}` });
       }
 
       refetch();
@@ -352,55 +404,32 @@ export default function WhatsAppDMs() {
     }
   };
 
-  const handleReconnectWasender = async (instance: WhatsAppInstance) => {
-    // If no phone number is connected, ask for one first
-    if (!instance.phone_number) {
-      setPhoneDialogInstance(instance);
-      setWasenderPhoneNumber("");
-      setWasenderCountryCode("55");
-      setWasenderSessionName(instance.name || "");
-      return;
-    }
-    
+  const handleManualQRRefresh = async (instance: WhatsAppInstance) => {
     setIsGeneratingQR(instance.id);
+    setQrRefreshCount(prev => ({ ...prev, [instance.id]: 0 })); // Reset count on manual refresh
     
     try {
-      toast({ 
-        title: "Reconectando sessão...", 
-        description: "Obtendo novo QR Code",
-      });
-
-      // Call connect_session action
       const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-        body: { action: "connect_session", instanceId: instance.id },
+        body: { action: "refresh_qr", instanceId: instance.id },
       });
 
       if (error) throw error;
 
       if (data?.qrCode) {
-        toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
+        toast({ title: "QR Code atualizado!", description: "Escaneie com seu WhatsApp" });
       } else {
-        // Try get_qr_code as fallback
-        const { data: qrData } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-          body: { action: "get_qr_code", instanceId: instance.id },
+        toast({ 
+          title: "Não foi possível atualizar", 
+          description: "Tente novamente em alguns segundos",
+          variant: "destructive",
         });
-        
-        if (qrData?.qrCode) {
-          toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
-        } else {
-          toast({ 
-            title: "QR Code não disponível", 
-            description: "Tente novamente em alguns segundos",
-            variant: "destructive",
-          });
-        }
       }
 
       refetch();
     } catch (error: any) {
-      console.error("Error reconnecting:", error);
+      console.error("Error refreshing QR:", error);
       toast({
-        title: "Erro ao reconectar",
+        title: "Erro ao atualizar QR Code",
         description: error.message,
         variant: "destructive",
       });
@@ -411,14 +440,9 @@ export default function WhatsAppDMs() {
 
   const handleDisconnect = async (instance: WhatsAppInstance) => {
     setIsGeneratingQR(instance.id);
-    const provider = instance.provider || "zapi";
     
     try {
-      const functionName = provider === "wasenderapi" 
-        ? "wasenderapi-instance-manager" 
-        : "zapi-instance-manager";
-      
-      const { data, error } = await supabase.functions.invoke(functionName, {
+      const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
         body: { action: "disconnect", instanceId: instance.id },
       });
 
@@ -443,23 +467,20 @@ export default function WhatsAppDMs() {
 
   const handleCheckConnection = async (instance: WhatsAppInstance) => {
     setIsCheckingConnection(instance.id);
-    const provider = instance.provider || "zapi";
     
     try {
-      const edgeFunction = provider === "wasenderapi" 
-        ? "wasenderapi-instance-manager" 
-        : "zapi-instance-manager";
-        
-      const { data, error } = await supabase.functions.invoke(edgeFunction, {
-        body: { action: "check_connection", instanceId: instance.id },
+      const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+        body: { action: "status", instanceId: instance.id },
       });
 
       if (error) throw error;
 
-      if (data?.connected) {
+      setLastStatusCheck(prev => ({ ...prev, [instance.id]: new Date() }));
+
+      if (data?.isConnected) {
         toast({ title: "WhatsApp conectado!", description: `Número: ${data.phoneNumber}` });
       } else {
-        toast({ title: "Não conectado", description: "Escaneie o QR Code para conectar" });
+        toast({ title: "Não conectado", description: data?.status ? STATUS_LABELS[data.status as InstanceStatus] || data.status : "Escaneie o QR Code para conectar" });
       }
 
       refetch();
@@ -474,22 +495,66 @@ export default function WhatsAppDMs() {
     }
   };
 
-  const getStatusBadge = (status: string, isConnected: boolean) => {
-    if (isConnected && status === "active") {
-      return <Badge className="bg-green-500">Conectado</Badge>;
+  const handleChangePhoneNumber = async (instance: WhatsAppInstance, newPhone: string) => {
+    setIsChangingPhone(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
+        body: { action: "change_phone_number", instanceId: instance.id, phoneNumber: newPhone },
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Número atualizado!", 
+        description: "Escaneie o QR Code com o novo telefone",
+      });
+
+      setChangePhoneInstance(null);
+      setWasenderPhoneNumber("");
+      setWasenderCountryCode("55");
+      refetch();
+    } catch (error: any) {
+      console.error("Error changing phone:", error);
+      toast({
+        title: "Erro ao trocar número",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsChangingPhone(false);
     }
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary">Aguardando QR Code</Badge>;
-      case "active":
-        return <Badge className="bg-yellow-500">Desconectado</Badge>;
+  };
+
+  const getStatusBadge = (instance: WhatsAppInstance) => {
+    const internalStatus = mapStatusToInternal(instance.status, instance.is_connected);
+    
+    switch (internalStatus) {
+      case "connected":
+        return <Badge className="bg-green-500">{STATUS_LABELS.connected}</Badge>;
+      case "waiting_qr":
+        return <Badge variant="secondary">{STATUS_LABELS.waiting_qr}</Badge>;
+      case "logged_out":
+        return <Badge variant="destructive">{STATUS_LABELS.logged_out}</Badge>;
+      case "error":
+        return <Badge variant="destructive">{STATUS_LABELS.error}</Badge>;
       case "disconnected":
-        return <Badge variant="destructive">Desconectado</Badge>;
-      case "canceled":
-        return <Badge variant="outline">Cancelado</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge className="bg-yellow-500 text-yellow-900">{STATUS_LABELS.disconnected}</Badge>;
     }
+  };
+
+  const getLastCheckTime = (instanceId: string) => {
+    const lastCheck = lastStatusCheck[instanceId];
+    if (!lastCheck) return null;
+    
+    const now = new Date();
+    const diffMs = now.getTime() - lastCheck.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    
+    if (diffSeconds < 60) return `${diffSeconds}s atrás`;
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    return `${diffMinutes}min atrás`;
   };
 
   // If viewing chat for a specific instance
@@ -517,15 +582,6 @@ export default function WhatsAppDMs() {
     );
   }
 
-  // Check which providers are available
-  const canUseZapi = isMasterAdmin || availableProviders.find(p => p.provider === "zapi");
-  const canUseWasender = isMasterAdmin || availableProviders.find(p => p.provider === "wasenderapi");
-
-  const openCreateDialogForProvider = (provider: WhatsAppProvider) => {
-    setSelectedProvider(provider);
-    setShowCreateDialog(true);
-  };
-
   return (
     <Layout>
       <div className="space-y-6">
@@ -541,51 +597,25 @@ export default function WhatsAppDMs() {
             </p>
           </div>
 
-          {/* Two separate buttons for each provider */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            {canUseZapi && (
-              <Button 
-                onClick={() => openCreateDialogForProvider("zapi")}
-                className="gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <Flag className="h-4 w-4" />
-                Contratar API Brasileira
-                <Badge variant="secondary" className="ml-1 text-xs bg-green-800 text-white">
-                  {formatPrice(PROVIDER_PRICES.zapi)}/mês
-                </Badge>
-              </Button>
-            )}
-            {canUseWasender && (
-              <Button 
-                onClick={() => openCreateDialogForProvider("wasenderapi")}
-                className="gap-2 bg-blue-600 hover:bg-blue-700"
-              >
-                <Globe className="h-4 w-4" />
-                Contratar API Internacional
-                <Badge variant="secondary" className="ml-1 text-xs bg-blue-800 text-white">
-                  {formatPrice(PROVIDER_PRICES.wasenderapi)}/mês
-                </Badge>
-              </Button>
-            )}
-          </div>
+          <Button 
+            onClick={() => setShowCreateDialog(true)}
+            className="gap-2 bg-green-600 hover:bg-green-700"
+          >
+            <Plus className="h-4 w-4" />
+            Contratar WhatsApp
+            <Badge variant="secondary" className="ml-1 text-xs bg-green-800 text-white">
+              {formatPrice(PROVIDER_PRICES.wasenderapi)}/mês
+            </Badge>
+          </Button>
         </div>
 
-        {/* Create Dialog - simplified since provider is pre-selected */}
+        {/* Create Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                {selectedProvider === "zapi" ? (
-                  <>
-                    <Flag className="h-5 w-5 text-green-600" />
-                    Contratar API Brasileira (Z-API)
-                  </>
-                ) : (
-                  <>
-                    <Globe className="h-5 w-5 text-blue-600" />
-                    Contratar API Internacional (WasenderAPI)
-                  </>
-                )}
+                <Globe className="h-5 w-5 text-green-600" />
+                Contratar WhatsApp
               </DialogTitle>
               <DialogDescription>
                 Cada instância permite conectar um número de WhatsApp
@@ -606,9 +636,7 @@ export default function WhatsAppDMs() {
               {/* Pricing */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">
-                    {selectedProvider === "zapi" ? "API Brasileira" : "API Internacional"}:
-                  </span>
+                  <span className="text-muted-foreground">WhatsApp:</span>
                   <span className={appliedCoupon ? "line-through text-muted-foreground" : "font-semibold"}>
                     {formatPrice(currentPrice)}
                   </span>
@@ -718,61 +746,57 @@ export default function WhatsAppDMs() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {instances?.map((instance) => (
-              <Card key={instance.id} className="relative overflow-hidden">
-                {/* Provider indicator badge at top */}
-                <div className="absolute top-0 right-0">
-                  <Badge 
-                    className={`rounded-none rounded-bl-lg text-xs ${
-                      instance.provider === "wasenderapi" 
-                        ? "bg-blue-600 text-white" 
-                        : "bg-green-600 text-white"
-                    }`}
-                  >
-                    {instance.provider === "wasenderapi" ? (
-                      <><Globe className="h-3 w-3 mr-1" />Internacional</>
-                    ) : (
-                      <><Flag className="h-3 w-3 mr-1" />Brasileira</>
-                    )}
-                  </Badge>
-                </div>
-                <CardHeader className="pb-3 pt-8">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{instance.name}</CardTitle>
-                      {getStatusBadge(instance.status, instance.is_connected)}
-                    </div>
-                    
-                    {/* Phone Number Display - More Prominent */}
-                    <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Número conectado:</span>
+            {instances?.map((instance) => {
+              const internalStatus = mapStatusToInternal(instance.status, instance.is_connected);
+              const qrExhausted = (qrRefreshCount[instance.id] || 0) >= 3;
+              const lastCheck = getLastCheckTime(instance.id);
+              
+              return (
+                <Card key={instance.id} className="relative overflow-hidden">
+                  <CardHeader className="pb-3 pt-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{instance.name}</CardTitle>
+                        {getStatusBadge(instance)}
                       </div>
-                      {instance.phone_number ? (
-                        <p className="text-base font-semibold font-mono">
-                          {instance.phone_number}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground italic">
-                          Nenhum número conectado ainda
-                        </p>
+                      
+                      {/* Phone Number Display */}
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">Número conectado:</span>
+                        </div>
+                        {instance.phone_number ? (
+                          <p className="text-base font-semibold font-mono">
+                            {instance.phone_number}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">
+                            Nenhum número conectado ainda
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Last status check */}
+                      {lastCheck && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          Última verificação: {lastCheck}
+                        </div>
                       )}
+                      
+                      <Badge variant="outline" className="text-xs">
+                        {formatPrice(instance.monthly_price_cents || getProviderPrice())}/mês
+                      </Badge>
                     </div>
-                    
-                    <Badge variant="outline" className="text-xs">
-                      {formatPrice(instance.monthly_price_cents || getProviderPrice(instance.provider as WhatsAppProvider || "zapi"))}/mês
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* QR Code Area */}
-                  {instance.status === "pending" || (!instance.is_connected && instance.status === "active") || (!instance.is_connected && instance.provider === "wasenderapi") ? (
-                    <div className="bg-muted/50 rounded-lg p-4 text-center">
-                      {instance.qr_code_base64 ? (
-                        <div className="space-y-3">
-                          {/* WasenderAPI returns QR string (starts with "2@"), Z-API returns base64 image */}
-                          {instance.qr_code_base64.startsWith("2@") || !instance.qr_code_base64.includes("/") ? (
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4">
+                    {/* QR Code Area - Show when not connected */}
+                    {internalStatus !== "connected" && (
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        {instance.qr_code_base64 ? (
+                          <div className="space-y-3">
                             <div className="bg-white p-3 rounded-lg inline-block mx-auto">
                               <QRCodeSVG 
                                 value={instance.qr_code_base64} 
@@ -781,100 +805,114 @@ export default function WhatsAppDMs() {
                                 includeMargin={false}
                               />
                             </div>
-                          ) : (
-                            <img 
-                              src={`data:image/png;base64,${instance.qr_code_base64}`} 
-                              alt="QR Code WhatsApp" 
-                              className="mx-auto w-48 h-48"
-                            />
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            Escaneie o QR Code com o WhatsApp
-                          </p>
-                          <p className="text-xs text-amber-600">
-                            QR Code expira em ~40 segundos
-                          </p>
-                          <div className="flex gap-2 justify-center flex-wrap">
-                            {instance.provider === "wasenderapi" && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleReconnectWasender(instance)}
-                                disabled={isGeneratingQR === instance.id}
-                              >
-                                {isGeneratingQR === instance.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : (
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                )}
-                                Atualizar QR Code
-                              </Button>
-                            )}
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => handleCheckConnection(instance)}
-                              disabled={isCheckingConnection === instance.id}
-                            >
-                              {isCheckingConnection === instance.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : (
-                                <Check className="h-4 w-4 mr-2" />
-                              )}
-                              Verificar Status
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 py-4">
-                          <QrCode className="h-12 w-12 mx-auto text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">
-                            {instance.provider === "wasenderapi" && instance.wasender_session_id 
-                              ? "Reconecte para gerar novo QR Code" 
-                              : "Clique para gerar o QR Code"}
-                          </p>
-                          <div className="flex gap-2 justify-center flex-wrap">
-                            {/* For WasenderAPI with session, show Reconectar as primary button */}
-                            {instance.provider === "wasenderapi" && instance.wasender_session_id ? (
-                              <Button 
-                                variant="default" 
-                                size="sm"
-                                onClick={() => handleReconnectWasender(instance)}
-                                disabled={isGeneratingQR === instance.id}
-                              >
-                                {isGeneratingQR === instance.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : (
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                )}
-                                Reconectar
-                              </Button>
+                            <p className="text-sm text-muted-foreground">
+                              Escaneie o QR Code com o WhatsApp
+                            </p>
+                            
+                            {qrExhausted ? (
+                              <div className="space-y-2">
+                                <p className="text-xs text-amber-600">
+                                  QR expirou. Clique para atualizar.
+                                </p>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleManualQRRefresh(instance)}
+                                  disabled={isGeneratingQR === instance.id}
+                                >
+                                  {isGeneratingQR === instance.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : (
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                  )}
+                                  Atualizar QR Code
+                                </Button>
+                              </div>
                             ) : (
+                              <p className="text-xs text-muted-foreground">
+                                Atualização automática em {35 - ((qrRefreshCount[instance.id] || 0) * 35 % 35)}s
+                              </p>
+                            )}
+                            
+                            <div className="flex gap-2 justify-center flex-wrap">
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => handleGenerateQRCode(instance)}
+                                onClick={() => handleManualQRRefresh(instance)}
                                 disabled={isGeneratingQR === instance.id}
                               >
                                 {isGeneratingQR === instance.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : null}
-                                Gerar QR Code
+                                ) : (
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                )}
+                                Atualizar QR
                               </Button>
-                            )}
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleCheckConnection(instance)}
+                                disabled={isCheckingConnection === instance.id}
+                              >
+                                {isCheckingConnection === instance.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                  <Check className="h-4 w-4 mr-2" />
+                                )}
+                                Verificar Status
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : instance.is_connected ? (
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center space-y-3">
-                      <Check className="h-8 w-8 mx-auto text-green-500 mb-2" />
-                      <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                        WhatsApp conectado e funcionando!
-                      </p>
-                      <div className="flex gap-2 justify-center flex-wrap">
-                        {/* Change Phone Number - WasenderAPI only */}
-                        {instance.provider === "wasenderapi" && (
+                        ) : (
+                          <div className="space-y-2 py-4">
+                            <QrCode className="h-12 w-12 mx-auto text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                              {instance.wasender_session_id 
+                                ? "Reconecte para gerar novo QR Code" 
+                                : "Clique para gerar o QR Code"}
+                            </p>
+                            <div className="flex gap-2 justify-center flex-wrap">
+                              {instance.wasender_session_id ? (
+                                <Button 
+                                  variant="default" 
+                                  size="sm"
+                                  onClick={() => executeConnect(instance)}
+                                  disabled={isGeneratingQR === instance.id}
+                                >
+                                  {isGeneratingQR === instance.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : (
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                  )}
+                                  Reconectar
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleGenerateQRCode(instance)}
+                                  disabled={isGeneratingQR === instance.id}
+                                >
+                                  {isGeneratingQR === instance.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : null}
+                                  Gerar QR Code
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Connected state */}
+                    {internalStatus === "connected" && (
+                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center space-y-3">
+                        <Check className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                        <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                          WhatsApp conectado e funcionando!
+                        </p>
+                        <div className="flex gap-2 justify-center flex-wrap">
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -888,78 +926,62 @@ export default function WhatsAppDMs() {
                             <Phone className="h-4 w-4 mr-2" />
                             Trocar Número
                           </Button>
-                        )}
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDisconnect(instance)}
-                          disabled={isGeneratingQR === instance.id}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          {isGeneratingQR === instance.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <Unplug className="h-4 w-4 mr-2" />
-                          )}
-                          Desconectar
-                        </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDisconnect(instance)}
+                            disabled={isGeneratingQR === instance.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            {isGeneratingQR === instance.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <Unplug className="h-4 w-4 mr-2" />
+                            )}
+                            Desconectar
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
+                    )}
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 gap-2" 
-                      size="sm"
-                      onClick={() => setPermissionsInstance(instance)}
-                    >
-                      <Users className="h-4 w-4" />
-                      Permissões
-                    </Button>
-                    {/* Only show Configure button for Z-API - WasenderAPI is fully automatic */}
-                    {instance.provider === "zapi" && (
+                    {/* Actions */}
+                    <div className="flex gap-2">
                       <Button 
                         variant="outline" 
                         className="flex-1 gap-2" 
                         size="sm"
-                        onClick={() => setConfigInstance(instance)}
+                        onClick={() => setPermissionsInstance(instance)}
                       >
-                        <Settings className="h-4 w-4" />
-                        Configurar
+                        <Users className="h-4 w-4" />
+                        Permissões
+                      </Button>
+                    </div>
+
+                    {instance.is_connected && (
+                      <Button 
+                        className="w-full gap-2" 
+                        variant="default"
+                        onClick={() => setSelectedInstance(instance)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Abrir Conversas
                       </Button>
                     )}
+                  </CardContent>
+
+                  {/* Price badge */}
+                  <div className="absolute top-2 right-2">
+                    {instance.payment_source === "admin_grant" ? (
+                      <Badge variant="secondary" className="text-xs">Cortesia</Badge>
+                    ) : instance.discount_applied_cents && instance.discount_applied_cents > 0 ? (
+                      <Badge className="bg-green-500 text-xs">
+                        {formatPrice(instance.monthly_price_cents - instance.discount_applied_cents)}/mês
+                      </Badge>
+                    ) : null}
                   </div>
-
-                  {instance.is_connected && (
-                    <Button 
-                      className="w-full gap-2" 
-                      variant="default"
-                      onClick={() => setSelectedInstance(instance)}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Abrir Conversas
-                    </Button>
-                  )}
-                </CardContent>
-
-                {/* Price badge */}
-                <div className="absolute top-2 right-2">
-                  {instance.payment_source === "admin_grant" ? (
-                    <Badge variant="secondary" className="text-xs">Cortesia</Badge>
-                  ) : instance.discount_applied_cents && instance.discount_applied_cents > 0 ? (
-                    <Badge className="bg-green-500 text-xs">
-                      {formatPrice(instance.monthly_price_cents - instance.discount_applied_cents)}/mês
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs">
-                      {instance.provider === "wasenderapi" ? "Internacional" : "Brasileira"}
-                    </Badge>
-                  )}
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
 
             {/* Add new instance card */}
             {isAdmin && (
@@ -970,7 +992,7 @@ export default function WhatsAppDMs() {
                 <CardContent className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted-foreground">
                   <Plus className="h-12 w-12 mb-4" />
                   <p className="font-medium">Contratar Nova Instância</p>
-                  <p className="text-sm">A partir de {formatPrice(PROVIDER_PRICES.wasenderapi)}/mês</p>
+                  <p className="text-sm">{formatPrice(PROVIDER_PRICES.wasenderapi)}/mês</p>
                 </CardContent>
               </Card>
             )}
@@ -1018,29 +1040,13 @@ export default function WhatsAppDMs() {
           />
         )}
 
-        {/* Z-API Config Dialog */}
-        {configInstance && (
-          <ZApiConfigDialog
-            instanceId={configInstance.id}
-            instanceName={configInstance.name}
-            currentConfig={{
-              z_api_instance_id: configInstance.z_api_instance_id,
-              z_api_token: configInstance.z_api_token,
-              z_api_client_token: configInstance.z_api_client_token,
-            }}
-            open={!!configInstance}
-            onOpenChange={(open) => !open && setConfigInstance(null)}
-            onSaved={() => refetch()}
-          />
-        )}
-
         {/* WasenderAPI Phone Number Dialog */}
         <Dialog open={!!phoneDialogInstance} onOpenChange={(open) => !open && setPhoneDialogInstance(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-blue-600" />
-                Configure a Sessão WasenderAPI
+                <Globe className="h-5 w-5 text-green-600" />
+                Configurar Sessão WhatsApp
               </DialogTitle>
               <DialogDescription>
                 Informe os dados para criar a sessão do WhatsApp. 
@@ -1126,7 +1132,7 @@ export default function WhatsAppDMs() {
                   setPhoneDialogInstance(null);
                   
                   if (phoneDialogInstance) {
-                    await executeQRCodeGeneration(phoneDialogInstance, fullPhone, sessionNameToUse);
+                    await executeConnect(phoneDialogInstance, fullPhone, sessionNameToUse);
                   }
                 }}
                 disabled={!wasenderSessionName.trim() || !wasenderCountryCode || !wasenderPhoneNumber}
@@ -1137,7 +1143,7 @@ export default function WhatsAppDMs() {
           </DialogContent>
         </Dialog>
 
-        {/* Change Phone Number Dialog - WasenderAPI */}
+        {/* Change Phone Number Dialog */}
         <Dialog open={!!changePhoneInstance} onOpenChange={(open) => !open && setChangePhoneInstance(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -1177,25 +1183,16 @@ export default function WhatsAppDMs() {
                     onChange={(e) => setWasenderPhoneNumber(e.target.value.replace(/\D/g, ""))}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Exemplo para Brasil: +55 11 99999-9999
-                </p>
               </div>
 
               {wasenderCountryCode && wasenderPhoneNumber && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-sm">
                     <span className="text-muted-foreground">Novo número: </span>
                     <span className="font-mono font-medium">+{wasenderCountryCode}{wasenderPhoneNumber}</span>
                   </p>
                 </div>
               )}
-
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  ⚠️ <strong>Atenção:</strong> Após confirmar, você precisará escanear o QR Code com o novo telefone para reconectar.
-                </p>
-              </div>
             </div>
 
             <div className="flex gap-2 justify-end">
@@ -1207,7 +1204,7 @@ export default function WhatsAppDMs() {
                 Cancelar
               </Button>
               <Button 
-                onClick={async () => {
+                onClick={() => {
                   if (!wasenderCountryCode || !wasenderPhoneNumber) {
                     toast({ 
                       title: "Telefone obrigatório", 
@@ -1217,41 +1214,9 @@ export default function WhatsAppDMs() {
                     return;
                   }
                   
-                  setIsChangingPhone(true);
-                  const fullPhone = `+${wasenderCountryCode}${wasenderPhoneNumber}`;
-                  
-                  try {
-                    // Call edge function to change phone number
-                    const { data, error } = await supabase.functions.invoke("wasenderapi-instance-manager", {
-                      body: { 
-                        action: "change_phone_number", 
-                        instanceId: changePhoneInstance?.id,
-                        phoneNumber: fullPhone,
-                      },
-                    });
-
-                    if (error) throw error;
-
-                    if (data?.success) {
-                      toast({ 
-                        title: "Número atualizado!", 
-                        description: "Escaneie o QR Code com o novo telefone",
-                      });
-                      setChangePhoneInstance(null);
-                      setWasenderPhoneNumber("");
-                      setWasenderCountryCode("55");
-                      refetch();
-                    } else {
-                      throw new Error(data?.message || "Erro ao trocar número");
-                    }
-                  } catch (error: any) {
-                    toast({
-                      title: "Erro ao trocar número",
-                      description: error.message,
-                      variant: "destructive",
-                    });
-                  } finally {
-                    setIsChangingPhone(false);
+                  if (changePhoneInstance) {
+                    const fullPhone = `+${wasenderCountryCode}${wasenderPhoneNumber}`;
+                    handleChangePhoneNumber(changePhoneInstance, fullPhone);
                   }
                 }}
                 disabled={!wasenderCountryCode || !wasenderPhoneNumber || isChangingPhone}

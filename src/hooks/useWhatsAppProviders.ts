@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
-export type WhatsAppProvider = "zapi" | "wasenderapi";
+// Only WasenderAPI is supported now
+export type WhatsAppProvider = "wasenderapi";
 
 export interface OrganizationWhatsAppProvider {
   id: string;
@@ -16,14 +17,15 @@ export interface OrganizationWhatsAppProvider {
 }
 
 export const PROVIDER_LABELS: Record<WhatsAppProvider, string> = {
-  zapi: "API Brasileira",
-  wasenderapi: "API Internacional",
+  wasenderapi: "API WhatsApp",
 };
 
 export const PROVIDER_PRICES: Record<WhatsAppProvider, number> = {
-  zapi: 19700, // R$ 197
   wasenderapi: 18500, // R$ 185
 };
+
+// Default provider
+export const DEFAULT_PROVIDER: WhatsAppProvider = "wasenderapi";
 
 // Hook for fetching organization's enabled providers
 export function useOrganizationWhatsAppProviders() {
@@ -37,7 +39,8 @@ export function useOrganizationWhatsAppProviders() {
       const { data, error } = await supabase
         .from("organization_whatsapp_providers")
         .select("*")
-        .eq("organization_id", profile.organization_id);
+        .eq("organization_id", profile.organization_id)
+        .eq("provider", "wasenderapi"); // Only fetch wasenderapi
 
       if (error) throw error;
       return data as OrganizationWhatsAppProvider[];
@@ -56,7 +59,8 @@ export function useAllOrganizationProviders(organizationId: string | null) {
       const { data, error } = await supabase
         .from("organization_whatsapp_providers")
         .select("*")
-        .eq("organization_id", organizationId);
+        .eq("organization_id", organizationId)
+        .eq("provider", "wasenderapi"); // Only fetch wasenderapi
 
       if (error) throw error;
       return data as OrganizationWhatsAppProvider[];
@@ -81,7 +85,11 @@ export function useToggleOrganizationProvider() {
       isEnabled: boolean;
       priceCents?: number;
     }) => {
-      // Try to upsert
+      // Only allow wasenderapi
+      if (provider !== "wasenderapi") {
+        throw new Error("Provider não suportado");
+      }
+
       const { error } = await supabase
         .from("organization_whatsapp_providers")
         .upsert(

@@ -5,11 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Globe, Flag, Search } from "lucide-react";
-import { useToggleOrganizationProvider, useAllOrganizationProviders, PROVIDER_LABELS, PROVIDER_PRICES, type WhatsAppProvider } from "@/hooks/useWhatsAppProviders";
-import { toast } from "@/hooks/use-toast";
+import { Loader2, Globe, Search } from "lucide-react";
+import { useToggleOrganizationProvider, useAllOrganizationProviders, PROVIDER_PRICES, type WhatsAppProvider } from "@/hooks/useWhatsAppProviders";
 
 interface Organization {
   id: string;
@@ -20,7 +18,6 @@ interface Organization {
 
 export function WhatsAppProvidersTab() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
   
   const { data: organizations, isLoading: orgsLoading } = useQuery({
     queryKey: ["super-admin-organizations-providers"],
@@ -54,13 +51,12 @@ export function WhatsAppProvidersTab() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe className="h-5 w-5" />
-          Gerenciar Providers por Organização
+          Gerenciar WhatsApp por Organização
         </CardTitle>
         <CardDescription>
-          Habilite ou desabilite os providers de WhatsApp disponíveis para cada organização.
+          Habilite ou desabilite o WhatsApp disponível para cada organização.
           <br />
-          <span className="font-medium">API Brasileira (Z-API):</span> {formatPrice(PROVIDER_PRICES.zapi)}/mês • 
-          <span className="font-medium ml-2">API Internacional (WasenderAPI):</span> {formatPrice(PROVIDER_PRICES.wasenderapi)}/mês
+          <span className="font-medium">API WhatsApp:</span> {formatPrice(PROVIDER_PRICES.wasenderapi)}/mês
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -91,14 +87,8 @@ export function WhatsAppProvidersTab() {
                 <TableHead>Organização</TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <Flag className="h-4 w-4" />
-                    API Brasileira
-                  </div>
-                </TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
                     <Globe className="h-4 w-4" />
-                    API Internacional
+                    API WhatsApp
                   </div>
                 </TableHead>
               </TableRow>
@@ -131,14 +121,14 @@ function OrganizationProviderRow({
 }) {
   const { data: providers, isLoading } = useAllOrganizationProviders(organization.id);
 
-  const isProviderEnabled = (provider: WhatsAppProvider) => {
-    return providers?.find(p => p.provider === provider)?.is_enabled ?? false;
+  const isProviderEnabled = () => {
+    return providers?.find(p => p.provider === "wasenderapi")?.is_enabled ?? false;
   };
 
-  const handleToggle = (provider: WhatsAppProvider, enabled: boolean) => {
+  const handleToggle = (enabled: boolean) => {
     onToggle({
       organizationId: organization.id,
-      provider,
+      provider: "wasenderapi",
       isEnabled: enabled,
     });
   };
@@ -159,29 +149,11 @@ function OrganizationProviderRow({
         ) : (
           <div className="flex items-center justify-center gap-2">
             <Switch
-              checked={isProviderEnabled("zapi")}
-              onCheckedChange={(checked) => handleToggle("zapi", checked)}
+              checked={isProviderEnabled()}
+              onCheckedChange={(checked) => handleToggle(checked)}
               disabled={isToggling}
             />
-            {isProviderEnabled("zapi") && (
-              <Badge variant="secondary" className="text-xs">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(PROVIDER_PRICES.zapi / 100)}
-              </Badge>
-            )}
-          </div>
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-        ) : (
-          <div className="flex items-center justify-center gap-2">
-            <Switch
-              checked={isProviderEnabled("wasenderapi")}
-              onCheckedChange={(checked) => handleToggle("wasenderapi", checked)}
-              disabled={isToggling}
-            />
-            {isProviderEnabled("wasenderapi") && (
+            {isProviderEnabled() && (
               <Badge variant="secondary" className="text-xs">
                 {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(PROVIDER_PRICES.wasenderapi / 100)}
               </Badge>
