@@ -66,3 +66,23 @@ export {
   type Message,
   type ThreadFilter,
 } from '../useThreads';
+
+// =============================================================================
+// CONTACTS (Contatos - Visão 360)
+// =============================================================================
+export {
+  // Hooks de consulta
+  useContacts,
+  useContact,
+  useSearchContactByPhone,
+  useContactWithThreads,
+  // Mutations
+  useCreateContact,
+  useUpdateContact,
+  useAddContactIdentity,
+  useBackfillContacts,
+  // Tipos
+  type Contact,
+  type ContactIdentity,
+  type ContactWithThreads,
+} from '../useContacts';

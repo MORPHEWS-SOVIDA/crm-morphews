@@ -391,7 +391,37 @@ async function findLeadByPhone(organizationId: string, phone: string) {
 }
 
 /**
+ * Resolve or create contact by phone
+ * Uses the new contacts/contact_identities system
+ */
+async function resolveOrCreateContact(
+  organizationId: string,
+  phone: string,
+  name?: string
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("get_or_create_contact_by_phone", {
+      _organization_id: organizationId,
+      _phone: phone,
+      _name: name || null,
+    });
+
+    if (error) {
+      console.error("Error resolving contact:", error);
+      return null;
+    }
+
+    console.log("Contact resolved/created:", data, "for phone:", phone);
+    return data;
+  } catch (err) {
+    console.error("Exception resolving contact:", err);
+    return null;
+  }
+}
+
+/**
  * Get or create conversation with proper phone handling for scale
+ * Now includes contact resolution for 360 view
  * 
  * @param instanceId - The WhatsApp instance ID
  * @param organizationId - The tenant/organization ID
@@ -408,6 +438,15 @@ async function getOrCreateConversation(
   contactName?: string,
   contactProfilePic?: string
 ) {
+  // Resolve or create contact FIRST
+  const phoneForContact = sendablePhone || conversationPhone;
+  const contactId = await resolveOrCreateContact(organizationId, phoneForContact, contactName);
+  
+  console.log("Resolved contact_id:", contactId, "for phone:", phoneForContact);
+
+  // Normalize phone for storage
+  const customerPhoneE164 = normalizePhoneE164(phoneForContact);
+
   // Try to find existing conversation by instance + phone
   const { data: existing } = await supabase
     .from("whatsapp_conversations")
@@ -417,7 +456,7 @@ async function getOrCreateConversation(
     .single();
 
   if (existing) {
-    // Update contact info and sendable_phone if needed
+    // Update contact info, sendable_phone, and contact_id if needed
     const updates: any = {
       updated_at: new Date().toISOString(),
     };
@@ -432,6 +471,14 @@ async function getOrCreateConversation(
     if (sendablePhone && (!existing.sendable_phone || existing.sendable_phone !== sendablePhone)) {
       updates.sendable_phone = sendablePhone;
     }
+    // Update contact_id if we now have one and didn't before
+    if (contactId && !existing.contact_id) {
+      updates.contact_id = contactId;
+    }
+    // Update customer_phone_e164
+    if (customerPhoneE164 && existing.customer_phone_e164 !== customerPhoneE164) {
+      updates.customer_phone_e164 = customerPhoneE164;
+    }
     
     if (Object.keys(updates).length > 1) { // More than just updated_at
       await supabase
@@ -440,13 +487,13 @@ async function getOrCreateConversation(
         .eq("id", existing.id);
     }
     
-    return existing;
+    return { ...existing, contact_id: existing.contact_id || contactId };
   }
 
   // Try to find matching lead
   const lead = await findLeadByPhone(organizationId, sendablePhone || conversationPhone);
 
-  // Create new conversation
+  // Create new conversation WITH contact_id
   const { data: newConversation, error } = await supabase
     .from("whatsapp_conversations")
     .insert({
@@ -454,9 +501,12 @@ async function getOrCreateConversation(
       organization_id: organizationId,
       phone_number: conversationPhone,
       sendable_phone: sendablePhone || null,
+      customer_phone_e164: customerPhoneE164,
       contact_name: contactName || lead?.name || null,
       contact_profile_pic: contactProfilePic || null,
+      contact_id: contactId,
       lead_id: lead?.id || null,
+      status: "open",
     })
     .select()
     .single();
@@ -466,7 +516,7 @@ async function getOrCreateConversation(
     throw error;
   }
 
-  console.log("Created new conversation:", newConversation.id, "sendable_phone:", sendablePhone);
+  console.log("Created new conversation:", newConversation.id, "contact_id:", contactId, "sendable_phone:", sendablePhone);
   return newConversation;
 }
 
@@ -492,7 +542,8 @@ async function saveMessage(
   messageId?: string,
   mediaUrl?: string,
   mediaCaption?: string,
-  isFromBot = false
+  isFromBot = false,
+  contactId?: string | null
 ) {
   if (messageId && await messageExists(conversationId, messageId)) {
     console.log("Message already exists, skipping:", messageId);
@@ -512,6 +563,7 @@ async function saveMessage(
       media_caption: mediaCaption || null,
       is_from_bot: isFromBot,
       status: direction === "outbound" ? "sent" : "delivered",
+      contact_id: contactId || null,
     })
     .select()
     .single();
@@ -537,7 +589,15 @@ async function saveMessage(
     .update(updateData)
     .eq("id", conversationId);
 
-  console.log("Message saved successfully:", data?.id);
+  // Update contact last_activity_at
+  if (contactId) {
+    await supabase
+      .from("contacts")
+      .update({ last_activity_at: new Date().toISOString() })
+      .eq("id", contactId);
+  }
+
+  console.log("Message saved successfully:", data?.id, "contact_id:", contactId);
   return data;
 }
 
@@ -669,7 +729,9 @@ async function processWasenderMessage(instance: any, body: any) {
     messageType,
     messageId,
     mediaUrl,
-    caption
+    caption,
+    false,
+    conversation.contact_id
   );
 
   console.log("WasenderAPI message processed:", {
@@ -737,7 +799,8 @@ async function processWasenderMessage(instance: any, body: any) {
                 sendData.data?.key?.id || undefined,
                 undefined,
                 undefined,
-                true
+                true,
+                conversation.contact_id
               );
             } else {
               console.error("Failed to send AI response:", await sendResponse.text());
@@ -789,7 +852,11 @@ async function processZapiMessage(instance: any, body: any) {
     text,
     direction,
     "text",
-    messageId
+    messageId,
+    undefined,
+    undefined,
+    false,
+    conversation.contact_id
   );
 
   console.log("Z-API message processed:", {

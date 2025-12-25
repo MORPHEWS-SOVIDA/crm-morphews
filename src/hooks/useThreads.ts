@@ -13,6 +13,7 @@ export interface Thread {
   channel_id: string;
   phone_number: string;
   sendable_phone: string | null;
+  customer_phone_e164: string | null;
   contact_name: string | null;
   contact_profile_pic: string | null;
   lead_id: string | null;
@@ -20,7 +21,7 @@ export interface Thread {
   last_message_at: string | null;
   created_at: string;
   updated_at: string;
-  // Campos futuros (Fase 2)
+  // Campos de contato (Fase 2)
   contact_id: string | null;
   status: 'open' | 'closed' | 'pending';
   assigned_user_id: string | null;
@@ -34,6 +35,11 @@ export interface Thread {
     id: string;
     name: string;
     stage: string;
+  };
+  contact?: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
   };
 }
 
@@ -88,6 +94,11 @@ export function useThreads(options?: {
             id,
             name,
             stage
+          ),
+          contact:contacts (
+            id,
+            full_name,
+            email
           )
         `)
         .eq('organization_id', tenantId)
@@ -99,10 +110,15 @@ export function useThreads(options?: {
         query = query.eq('instance_id', channelId);
       }
 
-      // Filtro por status (quando implementado na Fase 2)
-      // if (status) {
-      //   query = query.eq('status', status);
-      // }
+      // Filtro por status
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      // Filtro por não lidas
+      if (filter === 'unread') {
+        query = query.gt('unread_count', 0);
+      }
 
       // Filtro por não lidas
       if (filter === 'unread') {
@@ -120,14 +136,20 @@ export function useThreads(options?: {
         ...thread,
         tenant_id: thread.organization_id,
         channel_id: thread.instance_id,
-        // Campos placeholder até Fase 2
-        contact_id: null,
-        status: 'open' as const,
-        assigned_user_id: null,
+        // Usar valores reais agora que existem
+        contact_id: thread.contact_id || null,
+        customer_phone_e164: thread.customer_phone_e164 || null,
+        status: thread.status || 'open',
+        assigned_user_id: thread.assigned_user_id || null,
         channel: thread.channel ? {
           name: thread.channel.name,
           provider: thread.channel.provider,
           phone_e164: thread.channel.phone_number,
+        } : undefined,
+        contact: thread.contact ? {
+          id: thread.contact.id,
+          full_name: thread.contact.full_name,
+          email: thread.contact.email,
         } : undefined,
       })) as Thread[];
     },
@@ -160,6 +182,11 @@ export function useThread(threadId: string | null) {
             stage,
             email,
             whatsapp
+          ),
+          contact:contacts (
+            id,
+            full_name,
+            email
           )
         `)
         .eq('id', threadId)
@@ -176,13 +203,19 @@ export function useThread(threadId: string | null) {
         ...data,
         tenant_id: data.organization_id,
         channel_id: data.instance_id,
-        contact_id: null,
-        status: 'open' as const,
-        assigned_user_id: null,
+        contact_id: data.contact_id || null,
+        customer_phone_e164: data.customer_phone_e164 || null,
+        status: data.status || 'open',
+        assigned_user_id: data.assigned_user_id || null,
         channel: data.channel ? {
           name: data.channel.name,
           provider: data.channel.provider,
           phone_e164: data.channel.phone_number,
+        } : undefined,
+        contact: data.contact ? {
+          id: data.contact.id,
+          full_name: data.contact.full_name,
+          email: data.contact.email,
         } : undefined,
       } as Thread;
     },
