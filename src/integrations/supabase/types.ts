@@ -1000,6 +1000,13 @@ export type Database = {
             foreignKeyName: "whatsapp_bot_configs_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: true
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_bot_configs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: true
             referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
@@ -1053,6 +1060,13 @@ export type Database = {
             foreignKeyName: "whatsapp_conversations_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
             referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
@@ -1098,6 +1112,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_instance_users_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_instance_users_instance_id_fkey"
             columns: ["instance_id"]
@@ -1239,7 +1260,21 @@ export type Database = {
             foreignKeyName: "whatsapp_messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
             referencedColumns: ["id"]
           },
           {
@@ -1253,13 +1288,231 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      channel_users: {
+        Row: {
+          can_send: boolean | null
+          can_view: boolean | null
+          channel_id: string | null
+          created_at: string | null
+          id: string | null
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instance_users_instance_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instance_users_instance_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          created_at: string | null
+          external_account_id: string | null
+          id: string | null
+          is_connected: boolean | null
+          monthly_price_cents: number | null
+          name: string | null
+          payment_source: string | null
+          phone_e164: string | null
+          provider: string | null
+          qr_code_base64: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          wasender_api_key: string | null
+          z_api_client_token: string | null
+          z_api_token: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          external_account_id?: never
+          id?: string | null
+          is_connected?: boolean | null
+          monthly_price_cents?: number | null
+          name?: string | null
+          payment_source?: string | null
+          phone_e164?: string | null
+          provider?: string | null
+          qr_code_base64?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          wasender_api_key?: string | null
+          z_api_client_token?: string | null
+          z_api_token?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          external_account_id?: never
+          id?: string | null
+          is_connected?: boolean | null
+          monthly_price_cents?: number | null
+          name?: string | null
+          payment_source?: string | null
+          phone_e164?: string | null
+          provider?: string | null
+          qr_code_base64?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          wasender_api_key?: string | null
+          z_api_client_token?: string | null
+          z_api_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      threads: {
+        Row: {
+          assigned_user_id: string | null
+          channel_id: string | null
+          contact_id: string | null
+          contact_name: string | null
+          contact_profile_pic: string | null
+          created_at: string | null
+          id: string | null
+          last_message_at: string | null
+          lead_id: string | null
+          phone_number: string | null
+          sendable_phone: string | null
+          status: string | null
+          tenant_id: string | null
+          unread_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_user_id?: never
+          channel_id?: string | null
+          contact_id?: never
+          contact_name?: string | null
+          contact_profile_pic?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_message_at?: string | null
+          lead_id?: string | null
+          phone_number?: string | null
+          sendable_phone?: string | null
+          status?: never
+          tenant_id?: string | null
+          unread_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_user_id?: never
+          channel_id?: string | null
+          contact_id?: never
+          contact_name?: string | null
+          contact_profile_pic?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_message_at?: string | null
+          lead_id?: string | null
+          phone_number?: string | null
+          sendable_phone?: string | null
+          status?: never
+          tenant_id?: string | null
+          unread_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_organization_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      current_tenant_id: { Args: never; Returns: string }
+      get_tenant_channels: {
+        Args: { _tenant_id?: string }
+        Returns: {
+          channel_id: string
+          channel_name: string
+          is_connected: boolean
+          phone_e164: string
+          provider: string
+          status: string
+        }[]
+      }
+      get_tenant_role: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: string
+      }
+      get_tenant_stats: {
+        Args: { _tenant_id?: string }
+        Returns: {
+          connected_channels: number
+          total_channels: number
+          total_conversations: number
+          total_leads: number
+          total_members: number
+          unread_conversations: number
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_user_tenants: {
+        Args: { _user_id?: string }
+        Returns: {
+          joined_at: string
+          tenant_id: string
+          tenant_name: string
+          tenant_slug: string
+          user_role: string
+        }[]
       }
       has_role: {
         Args: {
@@ -1279,6 +1532,14 @@ export type Database = {
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_tenant_admin: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_tenant_member: {
+        Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
       user_belongs_to_org: {
