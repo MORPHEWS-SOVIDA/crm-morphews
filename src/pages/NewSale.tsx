@@ -28,13 +28,15 @@ import {
   Eye,
   Pencil,
   AlertTriangle,
-  MapPin
+  MapPin,
+  Truck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, Product } from '@/hooks/useProducts';
-import { useCreateSale, formatCurrency } from '@/hooks/useSales';
+import { useCreateSale, formatCurrency, DeliveryType } from '@/hooks/useSales';
 import { LeadSearchSelect } from '@/components/sales/LeadSearchSelect';
 import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialog';
+import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
 
 interface SelectedItem {
   product_id: string;
@@ -56,6 +58,16 @@ interface SelectedLead {
   complement: string | null;
   neighborhood: string | null;
   cep: string | null;
+  delivery_region_id: string | null;
+}
+
+interface DeliveryConfig {
+  type: DeliveryType;
+  regionId: string | null;
+  scheduledDate: Date | null;
+  scheduledShift: 'morning' | 'afternoon' | 'full_day' | null;
+  carrierId: string | null;
+  shippingCost: number;
 }
 
 export default function NewSale() {
@@ -74,6 +86,16 @@ export default function NewSale() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  // Delivery configuration
+  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>({
+    type: 'pickup',
+    regionId: null,
+    scheduledDate: null,
+    scheduledShift: null,
+    carrierId: null,
+    shippingCost: 0,
+  });
+
   // Calculate totals
   const subtotal = selectedItems.reduce((sum, item) => {
     return sum + (item.unit_price_cents * item.quantity) - item.discount_cents;
@@ -86,7 +108,8 @@ export default function NewSale() {
     totalDiscount = discountValue;
   }
 
-  const total = subtotal - totalDiscount;
+  const shippingCost = deliveryConfig.shippingCost;
+  const total = subtotal - totalDiscount + shippingCost;
 
   const handleLeadChange = (leadId: string | null, lead: SelectedLead | null) => {
     setSelectedLead(lead);
@@ -125,12 +148,34 @@ export default function NewSale() {
       return;
     }
 
+    // Validate motoboy delivery requires region
+    if (deliveryConfig.type === 'motoboy' && !deliveryConfig.regionId) {
+      toast.error('Selecione uma região de entrega para envio por motoboy');
+      return;
+    }
+
+    if (deliveryConfig.type === 'motoboy' && !deliveryConfig.scheduledDate) {
+      toast.error('Selecione uma data de entrega');
+      return;
+    }
+
+    if (deliveryConfig.type === 'carrier' && !deliveryConfig.carrierId) {
+      toast.error('Selecione uma transportadora');
+      return;
+    }
+
     try {
       const sale = await createSale.mutateAsync({
         lead_id: selectedLead.id,
         items: selectedItems,
         discount_type: discountValue > 0 ? discountType : null,
         discount_value: discountValue,
+        delivery_type: deliveryConfig.type,
+        delivery_region_id: deliveryConfig.regionId,
+        scheduled_delivery_date: deliveryConfig.scheduledDate?.toISOString().split('T')[0] || null,
+        scheduled_delivery_shift: deliveryConfig.scheduledShift,
+        shipping_carrier_id: deliveryConfig.carrierId,
+        shipping_cost_cents: deliveryConfig.shippingCost,
       });
 
       navigate(`/vendas`);
@@ -392,6 +437,15 @@ export default function NewSale() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Delivery Type Selection */}
+            {selectedItems.length > 0 && (
+              <DeliveryTypeSelector
+                leadRegionId={selectedLead?.delivery_region_id || null}
+                value={deliveryConfig}
+                onChange={setDeliveryConfig}
+              />
             )}
           </div>
 

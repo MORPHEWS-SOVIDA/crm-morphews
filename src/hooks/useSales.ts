@@ -92,6 +92,8 @@ export interface SaleItem {
   created_at: string;
 }
 
+export type DeliveryType = 'pickup' | 'motoboy' | 'carrier';
+
 export interface CreateSaleData {
   lead_id: string;
   items: {
@@ -103,6 +105,13 @@ export interface CreateSaleData {
   }[];
   discount_type?: 'percentage' | 'fixed' | null;
   discount_value?: number;
+  // Delivery fields
+  delivery_type?: DeliveryType;
+  delivery_region_id?: string | null;
+  scheduled_delivery_date?: string | null;
+  scheduled_delivery_shift?: 'morning' | 'afternoon' | 'full_day' | null;
+  shipping_carrier_id?: string | null;
+  shipping_cost_cents?: number;
 }
 
 export interface UpdateSaleData {
@@ -115,6 +124,13 @@ export interface UpdateSaleData {
   payment_proof_url?: string;
   invoice_pdf_url?: string;
   invoice_xml_url?: string;
+  // Delivery fields
+  delivery_type?: DeliveryType;
+  delivery_region_id?: string | null;
+  scheduled_delivery_date?: string | null;
+  scheduled_delivery_shift?: 'morning' | 'afternoon' | 'full_day' | null;
+  shipping_carrier_id?: string | null;
+  shipping_cost_cents?: number;
 }
 
 // Helper functions
@@ -258,7 +274,9 @@ export function useCreateSale() {
         discount_cents = data.discount_value;
       }
 
-      const total_cents = subtotal_cents - discount_cents;
+      // Add shipping cost if applicable
+      const shippingCost = data.shipping_cost_cents || 0;
+      const total_cents = subtotal_cents - discount_cents + shippingCost;
 
       // Create sale
       const { data: sale, error: saleError } = await supabase
@@ -273,6 +291,12 @@ export function useCreateSale() {
           discount_cents,
           total_cents,
           status: 'draft',
+          delivery_type: data.delivery_type || 'pickup',
+          delivery_region_id: data.delivery_region_id || null,
+          scheduled_delivery_date: data.scheduled_delivery_date || null,
+          scheduled_delivery_shift: data.scheduled_delivery_shift || null,
+          shipping_carrier_id: data.shipping_carrier_id || null,
+          shipping_cost_cents: shippingCost,
         })
         .select()
         .single();

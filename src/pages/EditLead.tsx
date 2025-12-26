@@ -20,6 +20,7 @@ import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
+import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 
 export default function EditLead() {
   const { id } = useParams();
@@ -29,6 +30,7 @@ export default function EditLead() {
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
+  const { data: deliveryRegions = [] } = useDeliveryRegions();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -63,6 +65,7 @@ export default function EditLead() {
     neighborhood: '',
     city: '',
     state: '',
+    delivery_region_id: '',
   });
 
   useEffect(() => {
@@ -101,6 +104,7 @@ export default function EditLead() {
         neighborhood: lead.neighborhood || '',
         city: lead.city || '',
         state: lead.state || '',
+        delivery_region_id: lead.delivery_region_id || '',
       });
     }
   }, [lead]);
@@ -144,6 +148,7 @@ export default function EditLead() {
       neighborhood: formData.neighborhood || null,
       city: formData.city || null,
       state: formData.state || null,
+      delivery_region_id: formData.delivery_region_id || null,
     });
     
     navigate(`/leads/${id}`);

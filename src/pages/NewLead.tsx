@@ -21,6 +21,7 @@ import { useCreateLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
+import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { leadSchema } from '@/lib/validations';
 import { toast } from '@/hooks/use-toast';
 
@@ -32,6 +33,7 @@ export default function NewLead() {
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
+  const { data: deliveryRegions = [] } = useDeliveryRegions();
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   // Pre-fill from URL params (from WhatsApp chat)
@@ -73,6 +75,7 @@ export default function NewLead() {
     neighborhood: '',
     city: '',
     state: '',
+    delivery_region_id: '',
   });
 
   // Update formData when URL params or profile changes
@@ -153,6 +156,7 @@ export default function NewLead() {
         neighborhood: formData.neighborhood || null,
         city: formData.city || null,
         state: formData.state || null,
+        delivery_region_id: formData.delivery_region_id || null,
       });
       
       navigate('/leads');
@@ -318,7 +322,6 @@ export default function NewLead() {
             </div>
           </div>
 
-          {/* Address */}
           <div className="bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Endereço</h2>
             <AddressFields
@@ -331,6 +334,29 @@ export default function NewLead() {
               state={formData.state}
               onFieldChange={updateField}
             />
+            
+            {/* Delivery Region */}
+            <div className="space-y-2 pt-4 border-t">
+              <Label htmlFor="delivery_region">Região de Entrega (Motoboy)</Label>
+              <Select
+                value={formData.delivery_region_id}
+                onValueChange={(value) => updateField('delivery_region_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a região de entrega" />
+                </SelectTrigger>
+                <SelectContent>
+                  {deliveryRegions.filter(r => r.is_active).map((region) => (
+                    <SelectItem key={region.id} value={region.id}>
+                      {region.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Usada para entregas por motoboy
+              </p>
+            </div>
           </div>
 
           {/* Status & Classification */}
