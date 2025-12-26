@@ -470,11 +470,19 @@ async function processWasenderMessage(instance: any, body: any) {
                      msgData.message?.audioMessage?.base64 || msgData.message?.videoMessage?.base64 || null;
 
   console.log("=== WasenderAPI message ===");
-  console.log("Phone:", sendablePhone, "Text:", text?.substring(0, 50), "Type:", messageType, "FromMe:", isFromMe);
+  console.log("Phone:", sendablePhone, "Text:", text?.substring(0, 50), "Type:", messageType, "FromMe:", isFromMe, "IsGroup:", isGroup);
 
+  // GRUPOS: extrair ID do grupo como "phone_number" e criar conversa normal
+  let finalPhoneForConv = phoneForConv;
+  let finalSendablePhone = sendablePhone;
+  let groupName = "";
+  
   if (isGroup) {
-    console.log("Group message, skipping");
-    return null;
+    // Para grupos, usar o ID do grupo (sem @g.us) como identificador
+    finalPhoneForConv = remoteJid.replace("@g.us", "");
+    finalSendablePhone = finalPhoneForConv; // Grupos não têm "sendable_phone" E.164
+    groupName = msgData.groupSubject || msgData.groupName || `Grupo ${finalPhoneForConv.slice(-4)}`;
+    console.log("Group message - ID:", finalPhoneForConv, "Name:", groupName);
   }
 
   // Process media
@@ -491,13 +499,13 @@ async function processWasenderMessage(instance: any, body: any) {
     }
   }
 
-  // Get or create conversation (NOVA LÓGICA: por org+phone)
+  // Get or create conversation (NOVA LÓGICA: por org+phone, suporta grupos)
   const conversation = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
-    phoneForConv,
-    sendablePhone,
-    senderName
+    finalPhoneForConv,
+    finalSendablePhone,
+    isGroup ? groupName : senderName
   );
 
   // Save message with provider_message_id

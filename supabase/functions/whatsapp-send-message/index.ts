@@ -23,28 +23,56 @@ function normalizePhoneE164(phone: string): string {
 /**
  * Upload base64 para Supabase Storage e retorna URL pública
  */
+/**
+ * Upload base64 para Supabase Storage e retorna URL pública
+ * Suporta data:mime;base64,... OU base64 puro
+ */
 async function uploadBase64ToStorage(
-  base64Data: string,
-  mimeType: string,
+  base64Input: string,
+  mimeTypeHint: string,
   organizationId: string,
   conversationId: string
 ): Promise<string | null> {
   try {
+    let base64Data = base64Input;
+    let mimeType = mimeTypeHint || "application/octet-stream";
+
+    // Se vier como data URL, extrair base64 e mime
+    if (base64Input.startsWith("data:")) {
+      const match = base64Input.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        base64Data = match[2];
+      } else {
+        // Formato diferente, tentar extrair só o base64
+        const parts = base64Input.split(",");
+        if (parts.length > 1) {
+          base64Data = parts[1];
+        }
+      }
+    }
+
+    console.log("Upload base64 to storage. MimeType:", mimeType, "Length:", base64Data.length);
+
     // Determinar extensão
     const extMap: Record<string, string> = {
       "image/jpeg": "jpg",
+      "image/jpg": "jpg",
       "image/png": "png",
       "image/gif": "gif",
       "image/webp": "webp",
       "audio/ogg": "ogg",
+      "audio/ogg; codecs=opus": "ogg",
       "audio/mpeg": "mp3",
+      "audio/mp3": "mp3",
       "audio/mp4": "m4a",
       "audio/webm": "webm",
+      "audio/wav": "wav",
       "video/mp4": "mp4",
       "application/pdf": "pdf",
     };
-    const ext = extMap[mimeType] || "bin";
-    const fileName = `${Date.now()}.${ext}`;
+    const ext = extMap[mimeType.split(";")[0]] || "bin";
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
     const filePath = `org/${organizationId}/conv/${conversationId}/${fileName}`;
 
     // Decodificar base64
@@ -54,12 +82,14 @@ async function uploadBase64ToStorage(
       bytes[i] = binaryString.charCodeAt(i);
     }
 
+    console.log("Uploading to storage:", filePath, "Size:", bytes.length);
+
     // Upload para storage
     const { data, error } = await supabase.storage
       .from("whatsapp-media")
       .upload(filePath, bytes, {
-        contentType: mimeType,
-        upsert: false,
+        contentType: mimeType.split(";")[0],
+        upsert: true,
       });
 
     if (error) {
@@ -68,9 +98,10 @@ async function uploadBase64ToStorage(
     }
 
     // Gerar URL pública
-    const { data: publicUrl } = supabase.storage.from("whatsapp-media").getPublicUrl(filePath);
-    console.log("Uploaded to storage:", publicUrl.publicUrl);
-    return publicUrl.publicUrl;
+    const { data: publicUrlData } = supabase.storage.from("whatsapp-media").getPublicUrl(filePath);
+    const publicUrl = publicUrlData.publicUrl;
+    console.log("Uploaded to storage, public URL:", publicUrl);
+    return publicUrl;
   } catch (e) {
     console.error("Upload error:", e);
     return null;
@@ -156,42 +187,33 @@ serve(async (req) => {
       console.log("Sending via WasenderAPI...");
 
       const formattedPhone = `+${phone}`;
-      let uploadedMediaUrl = mediaUrl;
+      let uploadedMediaUrl: string | null = null;
       
-      // Se tem base64, fazer upload para storage OU direto para WasenderAPI
-      if (mediaBase64 && mediaMimeType) {
-        console.log("Processing base64 media...");
-        
-        // Primeiro tenta upload para Supabase Storage
-        const storageUrl = await uploadBase64ToStorage(mediaBase64, mediaMimeType, conversation.organization_id, conversationId);
-        
-        if (storageUrl) {
-          uploadedMediaUrl = storageUrl;
-        } else {
-          // Fallback: upload direto para WasenderAPI
-          console.log("Fallback: uploading to WasenderAPI...");
-          const dataUrl = `data:${mediaMimeType};base64,${mediaBase64}`;
-          
-          const uploadResponse = await fetch("https://www.wasenderapi.com/api/upload", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${instance.wasender_api_key}`,
-            },
-            body: JSON.stringify({ file: dataUrl }),
-          });
-
-          if (uploadResponse.ok) {
-            const uploadData = await uploadResponse.json();
-            uploadedMediaUrl = uploadData.data?.publicUrl || uploadData.data?.url;
-            console.log("WasenderAPI upload:", uploadedMediaUrl);
-          }
-        }
-
-        if (!uploadedMediaUrl) {
-          throw new Error("Falha ao processar mídia");
-        }
+      // Se tem mediaUrl que começa com data:, é base64 e precisa upload
+      if (mediaUrl && mediaUrl.startsWith("data:")) {
+        console.log("MediaUrl is data URL, uploading to storage...");
+        uploadedMediaUrl = await uploadBase64ToStorage(mediaUrl, mediaMimeType || "", conversation.organization_id, conversationId);
       }
+      // Se tem base64 separado
+      else if (mediaBase64) {
+        console.log("Processing mediaBase64...");
+        const dataUrlToUpload = mediaMimeType 
+          ? `data:${mediaMimeType};base64,${mediaBase64}` 
+          : mediaBase64;
+        uploadedMediaUrl = await uploadBase64ToStorage(dataUrlToUpload, mediaMimeType || "", conversation.organization_id, conversationId);
+      }
+      // Já é uma URL http/https
+      else if (mediaUrl && (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://"))) {
+        uploadedMediaUrl = mediaUrl;
+      }
+
+      // Validação final para mensagens de mídia
+      if ((messageType === "image" || messageType === "audio" || messageType === "video" || messageType === "document") && !uploadedMediaUrl) {
+        console.error("Media message but no valid URL after processing");
+        throw new Error("Falha ao processar mídia para envio");
+      }
+
+      console.log("Final uploadedMediaUrl:", uploadedMediaUrl);
 
       // Build payload
       const payload: any = { to: formattedPhone };
