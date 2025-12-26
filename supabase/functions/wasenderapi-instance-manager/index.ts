@@ -128,9 +128,9 @@ serve(async (req) => {
           });
         }
 
-        const apiStatus = String(statusData.status || "");
-        const isConnected = apiStatus === "connected";
-        const internalStatus = mapStatus(apiStatus, isConnected);
+        const rawStatus = (statusData.status ?? "").toString().toLowerCase();
+        const isConnected = rawStatus === "connected" || rawStatus === "open" || rawStatus === "ready";
+        const internalStatus = mapStatus(rawStatus, isConnected);
 
         // SEMPRE buscar phone number quando conectado (da API Wasender)
         let phoneNum = instance.phone_number;
