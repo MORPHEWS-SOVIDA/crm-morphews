@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { MessageBubble } from "./MessageBubble";
 import { AudioRecorder } from "./AudioRecorder";
 import { EmojiPicker } from "./EmojiPicker";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WhatsAppChatProps {
   instanceId?: string; // Agora opcional - se não passar, busca todas da org
@@ -59,10 +62,12 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false);
+  const [showLeadInfoDrawer, setShowLeadInfoDrawer] = useState(false);
   const [newLeadName, setNewLeadName] = useState("");
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -70,6 +75,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [isSendingImage, setIsSendingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations - CONTACT CENTRIC: busca da org, não de uma instância
@@ -155,6 +161,22 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Auto-grow textarea (min 2 linhas, max 6 linhas)
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    textarea.style.height = "auto";
+    const lineHeight = 24; // approx line height
+    const minHeight = lineHeight * 2; // 2 linhas
+    const maxHeight = lineHeight * 6; // 6 linhas
+    const scrollHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+    textarea.style.height = `${scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [messageText, adjustTextareaHeight]);
   // Send message mutation - usa o instance_id da conversa
   const sendMessage = useMutation({
     mutationFn: async (text: string) => {
@@ -516,58 +538,81 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       )}>
         {selectedConversation ? (
           <>
-            {/* Chat Header */}
-            <div className="h-16 border-b flex items-center justify-between px-4 bg-muted/30">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden"
-                  onClick={() => setSelectedConversation(null)}
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <Avatar>
-                  <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
-                  <AvatarFallback className="bg-green-100 text-green-700">
-                    {selectedConversation.contact_name?.charAt(0) || selectedConversation.phone_number.slice(-2)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">
-                    {selectedConversation.contact_name || selectedConversation.phone_number}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedConversation.phone_number}
-                  </p>
+            {/* Chat Header - Mobile First */}
+            <div className="border-b bg-muted/30 sticky top-0 z-10">
+              <div className="flex items-center justify-between px-3 py-2 md:px-4 md:py-3">
+                {/* Left side - Back + Avatar + Info */}
+                <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setSelectedConversation(null)}
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
+                    <AvatarFallback className={cn(
+                      "text-white text-sm",
+                      selectedConversation.is_group ? "bg-blue-500" : "bg-green-500"
+                    )}>
+                      {selectedConversation.is_group 
+                        ? "G" 
+                        : (selectedConversation.display_name?.charAt(0) || selectedConversation.contact_name?.charAt(0) || selectedConversation.phone_number?.slice(-2))}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm md:text-base truncate">
+                      {selectedConversation.is_group && <span className="text-blue-500 mr-1">👥</span>}
+                      {selectedConversation.display_name || selectedConversation.contact_name || (selectedConversation.is_group ? (selectedConversation.group_subject || "Grupo") : selectedConversation.phone_number)}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {selectedConversation.is_group ? "Grupo" : selectedConversation.phone_number}
+                      {selectedConversation.lead_id && (
+                        <span className="text-green-600 ml-1">· Lead vinculado</span>
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedConversation.lead_id ? (
+
+                {/* Right side - Action Buttons */}
+                <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                  {!selectedConversation.lead_id && !selectedConversation.is_group && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1 text-xs md:text-sm h-8 px-2 md:px-3"
+                      onClick={() => {
+                        setNewLeadName(selectedConversation.contact_name || "");
+                        setShowCreateLeadDialog(true);
+                      }}
+                    >
+                      <Link className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="hidden sm:inline">Vincular</span>
+                    </Button>
+                  )}
+                  {selectedConversation.lead_id && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1 text-xs md:text-sm h-8 px-2 md:px-3"
+                      onClick={handleViewLead}
+                    >
+                      <User className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="hidden sm:inline">Ver Lead</span>
+                      <ExternalLink className="h-3 w-3 hidden md:inline" />
+                    </Button>
+                  )}
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    onClick={handleViewLead}
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => setShowLeadInfoDrawer(true)}
                   >
-                    <User className="h-4 w-4" />
-                    Ver Lead
-                    <ExternalLink className="h-3 w-3" />
+                    <Info className="h-4 w-4" />
                   </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    onClick={() => {
-                      setNewLeadName(selectedConversation.contact_name || "");
-                      setShowCreateLeadDialog(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Criar Lead
-                  </Button>
-                )}
+                </div>
               </div>
             </div>
 
@@ -611,8 +656,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               </div>
             )}
 
-            {/* Input Area */}
-            <div className="p-3 border-t bg-muted/30">
+            {/* Input Area - Mobile Optimized */}
+            <div className="p-2 md:p-3 border-t bg-muted/30">
               <input
                 type="file"
                 ref={imageInputRef}
@@ -620,9 +665,9 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                 accept="image/*"
                 className="hidden"
               />
-              <div className="flex items-center gap-2 max-w-3xl mx-auto">
+              <div className="flex items-end gap-1 md:gap-2 max-w-3xl mx-auto">
                 {isRecordingAudio ? (
-                  <div className="flex-1 flex items-center justify-center">
+                  <div className="flex-1 flex items-center justify-center py-2">
                     <AudioRecorder
                       onAudioReady={handleSendAudio}
                       isRecording={isRecordingAudio}
@@ -637,21 +682,35 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </div>
                 ) : (
                   <>
-                    <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="shrink-0"
-                      onClick={() => imageInputRef.current?.click()}
-                      disabled={isSendingImage}
-                    >
-                      {isSendingImage ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </Button>
-                    <Input
+                    {/* Botões lado esquerdo */}
+                    <div className="flex items-center shrink-0">
+                      <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={isSendingImage}
+                      >
+                        {isSendingImage ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9"
+                        onClick={() => setIsRecordingAudio(true)}
+                      >
+                        <Mic className="h-5 w-5 text-muted-foreground" />
+                      </Button>
+                    </div>
+                    
+                    {/* Textarea auto-grow */}
+                    <Textarea
+                      ref={textareaRef}
                       placeholder="Digite uma mensagem..."
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}
@@ -665,43 +724,25 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           }
                         }
                       }}
-                      className="flex-1"
+                      className="flex-1 resize-none min-h-[48px] max-h-[144px] py-3 text-sm md:text-base"
+                      style={{ height: "48px" }}
                       disabled={sendMessage.isPending || isSendingImage}
+                      rows={2}
                     />
-                    {selectedImage ? (
+                    
+                    {/* Botão enviar */}
+                    {(selectedImage || messageText.trim()) && (
                       <Button
                         size="icon"
-                        className="shrink-0 bg-green-500 hover:bg-green-600"
-                        onClick={handleSendImage}
-                        disabled={isSendingImage}
+                        className="shrink-0 bg-green-500 hover:bg-green-600 h-10 w-10"
+                        onClick={selectedImage ? handleSendImage : handleSendMessage}
+                        disabled={sendMessage.isPending || isSendingImage}
                       >
-                        {isSendingImage ? (
+                        {(sendMessage.isPending || isSendingImage) ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
                           <Send className="h-5 w-5" />
                         )}
-                      </Button>
-                    ) : messageText.trim() ? (
-                      <Button
-                        size="icon"
-                        className="shrink-0 bg-green-500 hover:bg-green-600"
-                        onClick={handleSendMessage}
-                        disabled={sendMessage.isPending}
-                      >
-                        {sendMessage.isPending ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <Send className="h-5 w-5" />
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="shrink-0"
-                        onClick={() => setIsRecordingAudio(true)}
-                      >
-                        <Mic className="h-5 w-5 text-muted-foreground" />
                       </Button>
                     )}
                   </>
@@ -760,6 +801,96 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lead Info Drawer - Mobile */}
+      <Drawer open={showLeadInfoDrawer} onOpenChange={setShowLeadInfoDrawer}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>
+              {selectedConversation?.is_group ? "Informações do Grupo" : "Informações do Contato"}
+            </DrawerTitle>
+            <DrawerDescription>
+              {selectedConversation?.display_name || selectedConversation?.contact_name || selectedConversation?.phone_number}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={selectedConversation?.contact_profile_pic || undefined} />
+                <AvatarFallback className={cn(
+                  "text-xl",
+                  selectedConversation?.is_group ? "bg-blue-500 text-white" : "bg-green-500 text-white"
+                )}>
+                  {selectedConversation?.is_group 
+                    ? "G" 
+                    : (selectedConversation?.display_name?.charAt(0) || selectedConversation?.contact_name?.charAt(0) || "?")}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <p className="font-semibold text-lg">
+                  {selectedConversation?.is_group && <span className="text-blue-500 mr-1">👥</span>}
+                  {selectedConversation?.display_name || selectedConversation?.contact_name || "Sem nome"}
+                </p>
+                {selectedConversation?.is_group ? (
+                  <p className="text-sm text-muted-foreground">Grupo de WhatsApp</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{selectedConversation?.phone_number}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">WhatsApp:</span>
+                <span className="font-medium">{selectedConversation?.phone_number || "-"}</span>
+              </div>
+              {selectedConversation?.lead_id ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                    Lead Vinculado
+                  </Badge>
+                </div>
+              ) : (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
+                    Sem Lead
+                  </Badge>
+                </div>
+              )}
+              {selectedConversation?.is_group && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tipo:</span>
+                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                    Grupo
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+          <DrawerFooter>
+            {selectedConversation?.lead_id ? (
+              <Button onClick={() => { setShowLeadInfoDrawer(false); handleViewLead(); }}>
+                <User className="h-4 w-4 mr-2" />
+                Ver Lead Completo
+              </Button>
+            ) : !selectedConversation?.is_group ? (
+              <Button onClick={() => { 
+                setShowLeadInfoDrawer(false);
+                setNewLeadName(selectedConversation?.contact_name || "");
+                setShowCreateLeadDialog(true);
+              }}>
+                <Link className="h-4 w-4 mr-2" />
+                Vincular/Criar Lead
+              </Button>
+            ) : null}
+            <DrawerClose asChild>
+              <Button variant="outline">Fechar</Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
