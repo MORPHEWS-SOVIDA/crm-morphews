@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,13 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Package, Check, Minus, Plus, Percent, DollarSign } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
+import { useLeadProductAnswer, useUpsertLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
 
 interface ProductSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product | null;
+  leadId?: string | null;
   onConfirm: (selection: {
     product_id: string;
     product_name: string;
@@ -29,6 +32,7 @@ export function ProductSelectionDialog({
   open,
   onOpenChange,
   product,
+  leadId,
   onConfirm,
 }: ProductSelectionDialogProps) {
   const [selectedPriceOption, setSelectedPriceOption] = useState<PriceOption>('1');
@@ -36,6 +40,31 @@ export function ProductSelectionDialog({
   const [customUnitPrice, setCustomUnitPrice] = useState(0);
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState(0);
+  
+  // Key questions answers
+  const [answer1, setAnswer1] = useState('');
+  const [answer2, setAnswer2] = useState('');
+  const [answer3, setAnswer3] = useState('');
+  const [answersModified, setAnswersModified] = useState(false);
+
+  // Fetch existing answers for this lead-product combination
+  const { data: existingAnswer } = useLeadProductAnswer(leadId || undefined, product?.id);
+  const upsertAnswer = useUpsertLeadProductAnswer();
+
+  // Load existing answers when they're fetched
+  useEffect(() => {
+    if (existingAnswer) {
+      setAnswer1(existingAnswer.answer_1 || '');
+      setAnswer2(existingAnswer.answer_2 || '');
+      setAnswer3(existingAnswer.answer_3 || '');
+      setAnswersModified(false);
+    } else {
+      setAnswer1('');
+      setAnswer2('');
+      setAnswer3('');
+      setAnswersModified(false);
+    }
+  }, [existingAnswer, product?.id]);
 
   if (!product) return null;
 
@@ -83,6 +112,17 @@ export function ProductSelectionDialog({
   };
 
   const handleConfirm = () => {
+    // Save answers if they were modified and we have a lead
+    if (leadId && answersModified && (answer1 || answer2 || answer3)) {
+      upsertAnswer.mutate({
+        lead_id: leadId,
+        product_id: product.id,
+        answer_1: answer1 || null,
+        answer_2: answer2 || null,
+        answer_3: answer3 || null,
+      });
+    }
+
     onConfirm({
       product_id: product.id,
       product_name: product.name,
@@ -96,7 +136,26 @@ export function ProductSelectionDialog({
     setCustomQuantity(1);
     setCustomUnitPrice(0);
     setDiscountValue(0);
+    setAnswer1('');
+    setAnswer2('');
+    setAnswer3('');
+    setAnswersModified(false);
   };
+
+  const handleSaveAnswers = () => {
+    if (!leadId) return;
+    upsertAnswer.mutate({
+      lead_id: leadId,
+      product_id: product.id,
+      answer_1: answer1 || null,
+      answer_2: answer2 || null,
+      answer_3: answer3 || null,
+    }, {
+      onSuccess: () => setAnswersModified(false),
+    });
+  };
+
+  const hasKeyQuestions = product.key_question_1 || product.key_question_2 || product.key_question_3;
 
   const priceOptions = [
     { key: '1' as PriceOption, label: '1 un', price: product.price_1_unit },
@@ -135,26 +194,100 @@ export function ProductSelectionDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {product.key_question_1 && (
-                  <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                    <p className="text-xs font-medium text-primary">Pergunta 1:</p>
-                    <p className="text-sm">{product.key_question_1}</p>
+              {/* Key Questions with Answers (only show if leadId is provided) */}
+              {hasKeyQuestions && leadId && (
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <HelpCircle className="w-3 h-3" />
+                      Perguntas Chave - Respostas do Cliente
+                    </p>
+                    {answersModified && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSaveAnswers}
+                        disabled={upsertAnswer.isPending}
+                      >
+                        <Save className="w-3 h-3 mr-1" />
+                        Salvar
+                      </Button>
+                    )}
                   </div>
-                )}
-                {product.key_question_2 && (
-                  <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                    <p className="text-xs font-medium text-primary">Pergunta 2:</p>
-                    <p className="text-sm">{product.key_question_2}</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {product.key_question_1 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">{product.key_question_1}</Label>
+                        <Textarea
+                          value={answer1}
+                          onChange={(e) => {
+                            setAnswer1(e.target.value);
+                            setAnswersModified(true);
+                          }}
+                          placeholder="Resposta do cliente..."
+                          rows={2}
+                          className="text-sm"
+                        />
+                      </div>
+                    )}
+                    {product.key_question_2 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">{product.key_question_2}</Label>
+                        <Textarea
+                          value={answer2}
+                          onChange={(e) => {
+                            setAnswer2(e.target.value);
+                            setAnswersModified(true);
+                          }}
+                          placeholder="Resposta do cliente..."
+                          rows={2}
+                          className="text-sm"
+                        />
+                      </div>
+                    )}
+                    {product.key_question_3 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">{product.key_question_3}</Label>
+                        <Textarea
+                          value={answer3}
+                          onChange={(e) => {
+                            setAnswer3(e.target.value);
+                            setAnswersModified(true);
+                          }}
+                          placeholder="Resposta do cliente..."
+                          rows={2}
+                          className="text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-                {product.key_question_3 && (
-                  <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                    <p className="text-xs font-medium text-primary">Pergunta 3:</p>
-                    <p className="text-sm">{product.key_question_3}</p>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Key Questions display-only (no lead selected) */}
+              {hasKeyQuestions && !leadId && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {product.key_question_1 && (
+                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
+                      <p className="text-xs font-medium text-primary">Pergunta 1:</p>
+                      <p className="text-sm">{product.key_question_1}</p>
+                    </div>
+                  )}
+                  {product.key_question_2 && (
+                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
+                      <p className="text-xs font-medium text-primary">Pergunta 2:</p>
+                      <p className="text-sm">{product.key_question_2}</p>
+                    </div>
+                  )}
+                  {product.key_question_3 && (
+                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
+                      <p className="text-xs font-medium text-primary">Pergunta 3:</p>
+                      <p className="text-sm">{product.key_question_3}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {product.usage_period_days > 0 && (
                 <Badge variant="secondary">

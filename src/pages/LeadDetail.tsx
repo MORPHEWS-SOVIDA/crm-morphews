@@ -29,6 +29,7 @@ import { MultiSelect } from '@/components/MultiSelect';
 import { DeleteLeadDialog } from '@/components/DeleteLeadDialog';
 import { LeadStageTimeline } from '@/components/LeadStageTimeline';
 import { StageChangeDialog } from '@/components/StageChangeDialog';
+import { LeadProductAnswersSection } from '@/components/leads/LeadProductAnswersSection';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -585,6 +586,9 @@ export default function LeadDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Lead Product Answers - Key Questions */}
+            <LeadProductAnswersSection leadId={id!} />
 
             {/* Stage History Timeline */}
             <LeadStageTimeline leadId={id!} currentStage={lead.stage} />

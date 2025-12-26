@@ -466,6 +466,7 @@ export default function NewSale() {
         open={productDialogOpen}
         onOpenChange={setProductDialogOpen}
         product={selectedProduct}
+        leadId={selectedLead?.id}
         onConfirm={handleAddItem}
       />
     </Layout>

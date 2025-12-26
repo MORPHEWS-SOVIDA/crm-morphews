@@ -288,6 +288,64 @@ export type Database = {
           },
         ]
       }
+      lead_product_answers: {
+        Row: {
+          answer_1: string | null
+          answer_2: string | null
+          answer_3: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          organization_id: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer_1?: string | null
+          answer_2?: string | null
+          answer_3?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          organization_id: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer_1?: string | null
+          answer_2?: string | null
+          answer_3?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_product_answers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_answers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_answers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_products: {
         Row: {
           created_at: string
