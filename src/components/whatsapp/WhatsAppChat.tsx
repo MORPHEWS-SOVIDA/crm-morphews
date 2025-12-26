@@ -20,7 +20,7 @@ import { AudioRecorder } from "./AudioRecorder";
 import { EmojiPicker } from "./EmojiPicker";
 
 interface WhatsAppChatProps {
-  instanceId: string;
+  instanceId?: string; // Agora opcional - se não passar, busca todas da org
   onBack?: () => void;
 }
 
@@ -32,6 +32,10 @@ interface Conversation {
   last_message_at: string | null;
   unread_count: number;
   lead_id: string | null;
+  contact_id: string | null;
+  instance_id: string;
+  channel_name?: string;
+  channel_phone_number?: string;
 }
 
 interface Message {
@@ -44,6 +48,7 @@ interface Message {
   media_url: string | null;
   media_caption: string | null;
   status: string | null;
+  contact_id: string | null;
 }
 
 export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
@@ -63,20 +68,26 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch conversations
+  // Fetch conversations - CONTACT CENTRIC: busca da org, não de uma instância
   const { data: conversations, isLoading: loadingConversations } = useQuery({
-    queryKey: ["whatsapp-conversations", instanceId],
+    queryKey: ["whatsapp-conversations-org", instanceId, profile?.organization_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_conversations")
+      let query = supabase
+        .from("whatsapp_conversations_view")
         .select("*")
-        .eq("instance_id", instanceId)
         .order("last_message_at", { ascending: false, nullsFirst: false });
+
+      // Se passou instanceId, filtra por ele; senão busca todas da org
+      if (instanceId) {
+        query = query.eq("instance_id", instanceId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Conversation[];
     },
-    enabled: !!instanceId,
+    enabled: !!profile?.organization_id,
     refetchInterval: 5000, // Poll every 5 seconds
   });
 
@@ -110,21 +121,22 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     refetchInterval: 3000, // Poll every 3 seconds
   });
 
-  // Real-time subscription for new messages
+  // Real-time subscription for new messages - agora pela org
   useEffect(() => {
+    if (!profile?.organization_id) return;
+    
     const channel = supabase
-      .channel(`messages-${instanceId}`)
+      .channel(`messages-org-${profile.organization_id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "whatsapp_messages",
-          filter: `instance_id=eq.${instanceId}`,
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
-          queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+          queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
         }
       )
       .subscribe();
@@ -132,14 +144,14 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [instanceId, queryClient]);
+  }, [profile?.organization_id, queryClient]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send message mutation
+  // Send message mutation - usa o instance_id da conversa
   const sendMessage = useMutation({
     mutationFn: async (text: string) => {
       if (!selectedConversation) throw new Error("No conversation selected");
@@ -147,7 +159,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           conversationId: selectedConversation.id,
-          instanceId: instanceId,
+          instanceId: selectedConversation.instance_id, // Usa o instance_id da conversa
           content: text,
           messageType: "text",
         },
@@ -161,7 +173,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     onSuccess: () => {
       setMessageText("");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
     },
     onError: (error: any) => {
       console.error("Error sending message:", error);
@@ -189,7 +201,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           conversationId: selectedConversation.id,
-          instanceId: instanceId,
+          instanceId: selectedConversation.instance_id,
           content: "",
           messageType: "audio",
           mediaBase64: rawBase64,
@@ -202,7 +214,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       if (!data?.success) throw new Error("Falha ao enviar áudio");
 
       queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
       toast({ title: "Áudio enviado!" });
     } catch (error: any) {
       console.error("Error sending audio:", error);
@@ -256,7 +268,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           conversationId: selectedConversation.id,
-          instanceId: instanceId,
+          instanceId: selectedConversation.instance_id,
           content: messageText || "",
           messageType: "image",
           mediaBase64: rawBase64,
@@ -271,7 +283,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       setSelectedImage(null);
       setMessageText("");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
       toast({ title: "Imagem enviada!" });
     } catch (error: any) {
       console.error("Error sending image:", error);
@@ -329,7 +341,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
       // Update local state
       setSelectedConversation({ ...selectedConversation, lead_id: lead.id });
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
 
       toast({ title: "Lead criado com sucesso!" });
       setShowCreateLeadDialog(false);
@@ -442,15 +454,21 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     )}
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground truncate">
+                    <div className="text-sm text-muted-foreground truncate">
                       {conversation.lead_id ? (
                         <span className="text-green-600 flex items-center gap-1">
                           <User className="h-3 w-3" /> Lead vinculado
                         </span>
                       ) : (
-                        conversation.phone_number
+                        <span>{conversation.phone_number}</span>
                       )}
-                    </span>
+                      {/* Mostrar canal se múltiplas instâncias */}
+                      {conversation.channel_name && (
+                        <span className="text-xs opacity-60 ml-1">
+                          · {conversation.channel_name}
+                        </span>
+                      )}
+                    </div>
                     {conversation.unread_count > 0 && (
                       <Badge className="bg-green-500 text-white h-5 min-w-5 flex items-center justify-center">
                         {conversation.unread_count}

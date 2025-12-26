@@ -297,6 +297,12 @@ export default function WhatsAppDMs() {
   };
 
   const handleGenerateQRCode = async (instance: WhatsAppInstance) => {
+    // REGRA ABSOLUTA: se já conectado, não gera QR
+    if (instance.is_connected) {
+      toast({ title: "WhatsApp já está conectado!" });
+      return;
+    }
+    
     const needsSession = !instance.wasender_session_id || !instance.wasender_api_key;
     
     if (needsSession) {
@@ -308,7 +314,7 @@ export default function WhatsAppDMs() {
       return;
     }
     
-    // Proceed with connection
+    // Já tem sessão, apenas reconectar
     await executeConnect(instance);
   };
 
@@ -404,6 +410,21 @@ export default function WhatsAppDMs() {
   };
 
   const handleManualQRRefresh = async (instance: WhatsAppInstance) => {
+    // REGRA: se já conectado, não atualiza QR
+    if (instance.is_connected) {
+      toast({ title: "WhatsApp já está conectado!" });
+      return;
+    }
+    
+    // REGRA: se não tem sessão, abre modal de configuração
+    if (!instance.wasender_session_id) {
+      setPhoneDialogInstance(instance);
+      setWasenderPhoneNumber("");
+      setWasenderCountryCode("55");
+      setWasenderSessionName(instance.name || "");
+      return;
+    }
+    
     setIsGeneratingQR(instance.id);
     setQrRefreshCount(prev => ({ ...prev, [instance.id]: 0 })); // Reset count on manual refresh
     
@@ -416,10 +437,10 @@ export default function WhatsAppDMs() {
 
       if (data?.qrCode) {
         toast({ title: "QR Code atualizado!", description: "Escaneie com seu WhatsApp" });
-      } else {
+      } else if (data?.success === false) {
         toast({ 
           title: "Não foi possível atualizar", 
-          description: "Tente novamente em alguns segundos",
+          description: data.message || "Tente novamente em alguns segundos",
           variant: "destructive",
         });
       }
@@ -791,10 +812,10 @@ export default function WhatsAppDMs() {
                   </CardHeader>
                   
                   <CardContent className="space-y-4">
-                    {/* QR Code Area - Show when not connected */}
-                    {internalStatus !== "connected" && (
+                    {/* QR Code Area - REGRA ABSOLUTA: só mostra se NÃO conectado */}
+                    {!instance.is_connected && (
                       <div className="bg-muted/50 rounded-lg p-4 text-center">
-                        {instance.qr_code_base64 ? (
+                        {instance.qr_code_base64 && !instance.is_connected ? (
                           <div className="space-y-3">
                             <div className="bg-white p-3 rounded-lg inline-block mx-auto">
                               <QRCodeSVG 
