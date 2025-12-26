@@ -291,24 +291,60 @@ export type Database = {
       lead_products: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           is_active: boolean
+          key_question_1: string | null
+          key_question_2: string | null
+          key_question_3: string | null
+          minimum_price: number | null
           name: string
           organization_id: string | null
+          price_1_unit: number | null
+          price_12_units: number | null
+          price_3_units: number | null
+          price_6_units: number | null
+          sales_script: string | null
+          updated_at: string | null
+          usage_period_days: number | null
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
+          key_question_1?: string | null
+          key_question_2?: string | null
+          key_question_3?: string | null
+          minimum_price?: number | null
           name: string
           organization_id?: string | null
+          price_1_unit?: number | null
+          price_12_units?: number | null
+          price_3_units?: number | null
+          price_6_units?: number | null
+          sales_script?: string | null
+          updated_at?: string | null
+          usage_period_days?: number | null
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
+          key_question_1?: string | null
+          key_question_2?: string | null
+          key_question_3?: string | null
+          minimum_price?: number | null
           name?: string
           organization_id?: string | null
+          price_1_unit?: number | null
+          price_12_units?: number | null
+          price_3_units?: number | null
+          price_6_units?: number | null
+          sales_script?: string | null
+          updated_at?: string | null
+          usage_period_days?: number | null
         }
         Relationships: [
           {

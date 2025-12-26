@@ -25,6 +25,7 @@ import InterestedLeads from "./pages/InterestedLeads";
 import SuperAdmin from "./pages/SuperAdmin";
 import Onboarding from "./pages/Onboarding";
 import Team from "./pages/Team";
+import Products from "./pages/Products";
 import SignupSuccess from "./pages/SignupSuccess";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
@@ -116,6 +117,11 @@ const App = () => (
             <Route path="/equipe" element={
               <ProtectedRoute>
                 <Team />
+              </ProtectedRoute>
+            } />
+            <Route path="/produtos" element={
+              <ProtectedRoute>
+                <Products />
               </ProtectedRoute>
             } />
             
