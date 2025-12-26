@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package, Truck, ShoppingCart as SalesIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
+import { useTenantRole } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { LogOut, UserPlus, ShoppingCart, Crown, UsersRound, Instagram } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,8 +17,10 @@ export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
   const { data: orgSettings } = useOrganizationSettings();
+  const { data: tenantRole } = useTenantRole();
   const navigate = useNavigate();
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  const isEntregador = tenantRole === 'entregador';
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
@@ -31,11 +34,15 @@ export function MobileNav() {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Leads', path: '/leads' },
     { icon: Plus, label: 'Novo', path: '/leads/new' },
-    { icon: UsersRound, label: 'Equipe', path: '/equipe' },
+    { icon: SalesIcon, label: 'Vendas', path: '/vendas' },
   ];
 
   const menuNavItems = [
+    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     { icon: Package, label: 'Produtos', path: '/produtos' },
+    ...(isEntregador ? [
+      { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' },
+    ] : []),
     ...(canSeeWhatsAppDMs ? [
       { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
       { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
