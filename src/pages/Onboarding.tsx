@@ -22,7 +22,7 @@ export default function Onboarding() {
     business_description: "",
   });
 
-  // Check if onboarding was already completed
+  // Check if onboarding was already completed using RPC
   useEffect(() => {
     const checkOnboarding = async () => {
       if (!user?.id) {
@@ -38,20 +38,17 @@ export default function Onboarding() {
       }
 
       try {
-        const { data: existing, error } = await supabase
-          .from("onboarding_data")
-          .select("id")
-          .eq("organization_id", profile.organization_id)
-          .maybeSingle();
+        // Use RPC to check if onboarding is completed (bypasses RLS issues)
+        const { data: hasCompleted, error } = await supabase.rpc("has_onboarding_completed");
 
         if (error) {
-          console.error("Error checking onboarding:", error);
-          // If there's an RLS error, just skip onboarding
+          console.error("Error checking onboarding via RPC:", error);
+          // If RPC fails, redirect to dashboard instead of blocking
           navigate("/", { replace: true });
           return;
         }
 
-        if (existing) {
+        if (hasCompleted) {
           // Onboarding already done, redirect to dashboard
           navigate("/", { replace: true });
           return;
@@ -84,20 +81,20 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      // Use upsert to handle both insert and update
-      const { error } = await supabase.from("onboarding_data").upsert({
-        organization_id: profile.organization_id,
-        user_id: user?.id,
-        cnpj: formData.cnpj || null,
-        company_site: formData.company_site || null,
-        crm_usage_intent: formData.crm_usage_intent || null,
-        business_description: formData.business_description || null,
-        completed_at: new Date().toISOString(),
-      }, {
-        onConflict: 'organization_id'
+      // Use RPC to save onboarding data (bypasses RLS issues)
+      const { error } = await supabase.rpc("save_onboarding_data", {
+        _cnpj: formData.cnpj || null,
+        _company_site: formData.company_site || null,
+        _crm_usage_intent: formData.crm_usage_intent || null,
+        _business_description: formData.business_description || null,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message === "ORG_NOT_FOUND") {
+          throw new Error("Organização não encontrada. Entre em contato com o suporte.");
+        }
+        throw error;
+      }
 
       toast({
         title: "Dados salvos com sucesso!",
@@ -109,7 +106,7 @@ export default function Onboarding() {
       console.error("Error saving onboarding data:", error);
       toast({
         title: "Erro ao salvar dados",
-        description: error.message,
+        description: error.message || "Erro desconhecido. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -123,20 +120,26 @@ export default function Onboarding() {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
-      // Create empty onboarding record to mark as skipped
-      await supabase.from("onboarding_data").upsert({
-        organization_id: profile.organization_id,
-        user_id: user.id,
-        completed_at: new Date().toISOString(),
-      }, {
-        onConflict: 'organization_id'
+      // Use RPC to save empty onboarding data (marks as completed)
+      const { error } = await supabase.rpc("save_onboarding_data", {
+        _cnpj: null,
+        _company_site: null,
+        _crm_usage_intent: null,
+        _business_description: null,
       });
+
+      if (error) {
+        console.error("Error skipping onboarding:", error);
+      }
     } catch (error) {
       console.error("Error skipping onboarding:", error);
+    } finally {
+      setIsSubmitting(false);
+      navigate("/", { replace: true });
     }
-    
-    navigate("/", { replace: true });
   };
 
   if (isChecking) {
@@ -223,6 +226,7 @@ export default function Onboarding() {
                 className="flex-1"
                 disabled={isSubmitting}
               >
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Pular por agora
               </Button>
               <Button type="submit" className="flex-1" disabled={isSubmitting}>
