@@ -33,10 +33,26 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
+// All organization roles from org_role enum
+type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance";
+
+const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> = {
+  owner: { label: "Proprietário", description: "Dono da organização com todos os poderes" },
+  admin: { label: "Administrador", description: "Pode gerenciar equipe, configurações e vê todos os leads" },
+  manager: { label: "Gerente", description: "Pode gerenciar equipe e ver relatórios" },
+  seller: { label: "Vendedor", description: "Acesso a leads, produtos e WhatsApp" },
+  member: { label: "Membro", description: "Acesso básico a leads e produtos" },
+  shipping: { label: "Expedição", description: "Acesso a leads e vendas para envio" },
+  finance: { label: "Financeiro", description: "Acesso a finanças e relatórios" },
+};
+
+// Roles that can be assigned (owner is never assignable via UI)
+const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "finance"];
+
 interface OrgMember {
   id: string;
   user_id: string;
-  role: "owner" | "admin" | "member";
+  role: OrgRole;
   can_see_all_leads: boolean;
   created_at: string;
   profile?: {
@@ -64,7 +80,7 @@ export default function Team() {
   const [extraUsersToAdd, setExtraUsersToAdd] = useState(1);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<OrgMember | null>(null);
-  const [editRole, setEditRole] = useState<"admin" | "member">("member");
+  const [editRole, setEditRole] = useState<OrgRole>("member");
   const [editCanSeeAllLeads, setEditCanSeeAllLeads] = useState(true);
   const [editMemberData, setEditMemberData] = useState({
     firstName: "",
@@ -284,7 +300,7 @@ export default function Team() {
 
   const handleEditMember = (member: OrgMember) => {
     setEditingMember(member);
-    setEditRole(member.role === "admin" ? "admin" : "member");
+    setEditRole(member.role);
     setEditCanSeeAllLeads(member.can_see_all_leads ?? true);
     setEditMemberData({
       firstName: member.profile?.first_name || "",
@@ -457,7 +473,15 @@ export default function Team() {
       case "owner":
         return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30"><Crown className="w-3 h-3 mr-1" />Proprietário</Badge>;
       case "admin":
-        return <Badge variant="secondary">Admin</Badge>;
+        return <Badge className="bg-purple-500/20 text-purple-600 border-purple-500/30">Administrador</Badge>;
+      case "manager":
+        return <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30">Gerente</Badge>;
+      case "seller":
+        return <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Vendedor</Badge>;
+      case "shipping":
+        return <Badge className="bg-orange-500/20 text-orange-600 border-orange-500/30">Expedição</Badge>;
+      case "finance":
+        return <Badge className="bg-teal-500/20 text-teal-600 border-teal-500/30">Financeiro</Badge>;
       default:
         return <Badge variant="outline">Membro</Badge>;
     }
@@ -1096,22 +1120,25 @@ export default function Team() {
               {/* Role */}
               <div className="space-y-2">
                 <Label>Papel</Label>
-                <Select value={editRole} onValueChange={(v) => setEditRole(v as "admin" | "member")}>
+                <Select value={editRole} onValueChange={(v) => setEditRole(v as OrgRole)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione o papel" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="member">Membro</SelectItem>
+                    {ASSIGNABLE_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        <div className="flex flex-col">
+                          <span>{ORG_ROLE_LABELS[role].label}</span>
+                          <span className="text-xs text-muted-foreground">{ORG_ROLE_LABELS[role].description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Administradores podem gerenciar a equipe, configurações e sempre veem todos os leads.
-                </p>
               </div>
               
-              {/* Visibility - Only show for members, not admins */}
-              {editRole !== "admin" && (
+              {/* Visibility - Only show for non-admin/owner roles */}
+              {!["admin", "owner"].includes(editRole) && (
                 <div className="space-y-2">
                   <Label>Visibilidade de Leads</Label>
                   <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
@@ -1138,11 +1165,11 @@ export default function Team() {
                 </div>
               )}
               
-              {editRole === "admin" && (
+              {["admin", "owner"].includes(editRole) && (
                 <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
                   <div className="flex items-center gap-2 text-green-600">
                     <Eye className="w-4 h-4" />
-                    <span className="text-sm font-medium">Administradores sempre veem todos os leads</span>
+                    <span className="text-sm font-medium">{ORG_ROLE_LABELS[editRole].label}s sempre veem todos os leads</span>
                   </div>
                 </div>
               )}
