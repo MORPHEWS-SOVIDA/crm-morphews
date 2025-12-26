@@ -25,12 +25,13 @@ import {
   Users,
   Calendar,
   Search,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { useSales } from "@/hooks/useSales";
 import { useUsers } from "@/hooks/useUsers";
 import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConfig";
-
+import { useAuth } from "@/hooks/useAuth";
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos os Status" },
   { value: "draft", label: "Rascunho" },
@@ -92,6 +93,7 @@ const DATE_FILTER_OPTIONS = [
 
 export default function SalesReport() {
   const navigate = useNavigate();
+  const { isLoading: authLoading } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
   
@@ -120,10 +122,23 @@ export default function SalesReport() {
   const [stateFilter, setStateFilter] = useState("");
 
   // Fetch data
-  const { data: sales, isLoading } = useSales();
+  const { data: sales, isLoading: salesLoading } = useSales();
   const { data: users } = useUsers();
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
+
+  const isLoading = authLoading || salesLoading;
+
+  // Show loading state while auth or sales data is loading
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   // Filter sales
   const filteredSales = useMemo(() => {
