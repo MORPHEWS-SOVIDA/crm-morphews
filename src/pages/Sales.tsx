@@ -25,7 +25,8 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  User
+  User,
+  Printer
 } from 'lucide-react';
 import { 
   useSales, 
@@ -198,6 +199,10 @@ export default function Sales() {
                             <DropdownMenuItem onClick={() => navigate(`/vendas/${sale.id}`)}>
                               <Eye className="w-4 h-4 mr-2" />
                               Ver Detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/vendas/${sale.id}/romaneio`)}>
+                              <Printer className="w-4 h-4 mr-2" />
+                              Imprimir Romaneio
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

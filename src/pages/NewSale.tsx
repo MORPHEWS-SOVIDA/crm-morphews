@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,9 @@ interface SelectedLead {
 
 export default function NewSale() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const leadIdFromUrl = searchParams.get('leadId');
+  
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const createSale = useCreateSale();
   
@@ -175,7 +178,7 @@ export default function NewSale() {
               <CardContent>
                 <Label>Selecione o cliente</Label>
                 <LeadSearchSelect
-                  value={selectedLead?.id || null}
+                  value={selectedLead?.id || leadIdFromUrl}
                   onChange={handleLeadChange}
                   placeholder="Buscar cliente por nome ou telefone..."
                 />
