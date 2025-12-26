@@ -1110,14 +1110,18 @@ export type Database = {
       whatsapp_conversations: {
         Row: {
           assigned_user_id: string | null
+          chat_id: string | null
           contact_id: string | null
           contact_name: string | null
           contact_profile_pic: string | null
           created_at: string
           current_instance_id: string | null
           customer_phone_e164: string | null
+          display_name: string | null
+          group_subject: string | null
           id: string
           instance_id: string
+          is_group: boolean
           last_message_at: string | null
           lead_id: string | null
           organization_id: string
@@ -1129,14 +1133,18 @@ export type Database = {
         }
         Insert: {
           assigned_user_id?: string | null
+          chat_id?: string | null
           contact_id?: string | null
           contact_name?: string | null
           contact_profile_pic?: string | null
           created_at?: string
           current_instance_id?: string | null
           customer_phone_e164?: string | null
+          display_name?: string | null
+          group_subject?: string | null
           id?: string
           instance_id: string
+          is_group?: boolean
           last_message_at?: string | null
           lead_id?: string | null
           organization_id: string
@@ -1148,14 +1156,18 @@ export type Database = {
         }
         Update: {
           assigned_user_id?: string | null
+          chat_id?: string | null
           contact_id?: string | null
           contact_name?: string | null
           contact_profile_pic?: string | null
           created_at?: string
           current_instance_id?: string | null
           customer_phone_e164?: string | null
+          display_name?: string | null
+          group_subject?: string | null
           id?: string
           instance_id?: string
+          is_group?: boolean
           last_message_at?: string | null
           lead_id?: string | null
           organization_id?: string

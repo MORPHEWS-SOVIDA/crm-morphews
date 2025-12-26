@@ -36,6 +36,10 @@ interface Conversation {
   instance_id: string;
   channel_name?: string;
   channel_phone_number?: string;
+  chat_id?: string; // NOVO: ID estável do chat (JID)
+  is_group?: boolean; // NOVO: indica se é grupo
+  group_subject?: string; // NOVO: nome do grupo
+  display_name?: string; // NOVO: nome para exibição
 }
 
 interface Message {
@@ -159,7 +163,9 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           conversationId: selectedConversation.id,
-          instanceId: selectedConversation.instance_id, // Usa o instance_id da conversa
+          instanceId: selectedConversation.instance_id,
+          chatId: selectedConversation.chat_id || null, // NOVO: ID estável
+          phone: selectedConversation.phone_number,
           content: text,
           messageType: "text",
         },
@@ -206,9 +212,11 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         body: {
           conversationId: selectedConversation.id,
           instanceId: selectedConversation.instance_id,
+          chatId: selectedConversation.chat_id || null, // NOVO: ID estável
+          phone: selectedConversation.phone_number,
           content: "",
           messageType: "audio",
-          mediaUrl: dataUrl, // Enviar como mediaUrl data:
+          mediaUrl: dataUrl,
           mediaMimeType: mimeType,
         },
       });
@@ -275,9 +283,11 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         body: {
           conversationId: selectedConversation.id,
           instanceId: selectedConversation.instance_id,
+          chatId: selectedConversation.chat_id || null, // NOVO: ID estável
+          phone: selectedConversation.phone_number,
           content: messageText || "",
           messageType: "image",
-          mediaUrl: dataUrl, // Enviar como mediaUrl data:
+          mediaUrl: dataUrl,
           mediaMimeType: selectedImage.mimeType,
         },
       });
@@ -444,14 +454,22 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               >
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={conversation.contact_profile_pic || undefined} />
-                  <AvatarFallback className="bg-green-100 text-green-700">
-                    {conversation.contact_name?.charAt(0) || conversation.phone_number.slice(-2)}
+                  <AvatarFallback className={cn(
+                    "text-white",
+                    conversation.is_group ? "bg-blue-500" : "bg-green-500"
+                  )}>
+                    {conversation.is_group 
+                      ? "G" 
+                      : (conversation.display_name?.charAt(0) || conversation.contact_name?.charAt(0) || conversation.phone_number.slice(-2))}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium truncate">
-                      {conversation.contact_name || conversation.phone_number}
+                    <span className="font-medium truncate flex items-center gap-1">
+                      {conversation.is_group && (
+                        <span className="text-xs text-blue-500">👥</span>
+                      )}
+                      {conversation.display_name || conversation.contact_name || (conversation.is_group ? (conversation.group_subject || "Grupo") : conversation.phone_number)}
                     </span>
                     {conversation.last_message_at && (
                       <span className="text-xs text-muted-foreground">
@@ -461,14 +479,17 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="text-sm text-muted-foreground truncate">
-                      {conversation.lead_id ? (
+                      {conversation.is_group ? (
+                        <span className="text-blue-600 flex items-center gap-1">
+                          Grupo
+                        </span>
+                      ) : conversation.lead_id ? (
                         <span className="text-green-600 flex items-center gap-1">
                           <User className="h-3 w-3" /> Lead vinculado
                         </span>
                       ) : (
                         <span>{conversation.phone_number}</span>
                       )}
-                      {/* Mostrar canal se múltiplas instâncias */}
                       {conversation.channel_name && (
                         <span className="text-xs opacity-60 ml-1">
                           · {conversation.channel_name}

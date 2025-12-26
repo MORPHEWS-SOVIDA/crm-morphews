@@ -268,45 +268,56 @@ async function resolveOrCreateContact(organizationId: string, phone: string, nam
 }
 
 /**
- * NOVA LÓGICA: Upsert conversa por ORGANIZATION_ID + PHONE (não mais por instance)
+ * NOVA LÓGICA: Upsert conversa por ORGANIZATION_ID + CHAT_ID (estável)
+ * chat_id é o remoteJid original (ex: 5511999999999@s.whatsapp.net ou 123456@g.us)
  * Isso garante que o histórico NUNCA se perca ao trocar instância/número
  */
 async function getOrCreateConversation(
   instanceId: string,
   organizationId: string,
-  conversationPhone: string,
+  chatId: string, // remoteJid original - chave estável
+  phoneForDisplay: string,
   sendablePhone: string,
+  isGroup: boolean,
+  groupSubject?: string,
   contactName?: string,
   contactProfilePic?: string
 ) {
-  const phoneForLookup = normalizePhoneE164(sendablePhone || conversationPhone);
-  const contactId = await resolveOrCreateContact(organizationId, phoneForLookup, contactName);
+  const phoneForLookup = normalizePhoneE164(sendablePhone || phoneForDisplay);
+  const contactId = isGroup ? null : await resolveOrCreateContact(organizationId, phoneForLookup, contactName);
   
-  console.log("Looking for conversation by org+phone:", organizationId, phoneForLookup);
+  // Determinar display_name
+  const displayName = isGroup 
+    ? (groupSubject || "Grupo") 
+    : (contactName || null);
+  
+  console.log("Looking for conversation by org+chat_id:", organizationId, chatId);
 
-  // BUSCAR POR ORG + PHONE (não mais por instance)
+  // BUSCAR POR ORG + CHAT_ID (estável, nunca muda)
   const { data: existing } = await supabase
     .from("whatsapp_conversations")
     .select("*")
     .eq("organization_id", organizationId)
-    .eq("phone_number", phoneForLookup)
+    .eq("chat_id", chatId)
     .single();
 
   if (existing) {
-    // Atualizar current_instance_id e outros campos
+    // Atualizar campos variáveis
     const updates: any = {
       updated_at: new Date().toISOString(),
-      current_instance_id: instanceId, // Atualiza para instância atual
-      instance_id: instanceId, // Mantém compatibilidade
+      current_instance_id: instanceId,
+      instance_id: instanceId,
     };
     
+    if (displayName && !existing.display_name) updates.display_name = displayName;
     if (contactName && !existing.contact_name) updates.contact_name = contactName;
     if (contactProfilePic && !existing.contact_profile_pic) updates.contact_profile_pic = contactProfilePic;
     if (sendablePhone && existing.sendable_phone !== sendablePhone) updates.sendable_phone = sendablePhone;
     if (contactId && !existing.contact_id) updates.contact_id = contactId;
+    if (isGroup && groupSubject && existing.group_subject !== groupSubject) updates.group_subject = groupSubject;
     
-    // Auto-vincular lead se não tiver
-    if (!existing.lead_id) {
+    // Auto-vincular lead se não tiver (apenas para não-grupos)
+    if (!existing.lead_id && !isGroup) {
       const lead = await findLeadByPhone(organizationId, phoneForLookup);
       if (lead) updates.lead_id = lead.id;
     }
@@ -318,7 +329,7 @@ async function getOrCreateConversation(
   }
 
   // Criar nova conversa
-  const lead = await findLeadByPhone(organizationId, phoneForLookup);
+  const lead = isGroup ? null : await findLeadByPhone(organizationId, phoneForLookup);
 
   const { data: newConv, error } = await supabase
     .from("whatsapp_conversations")
@@ -326,9 +337,13 @@ async function getOrCreateConversation(
       instance_id: instanceId,
       current_instance_id: instanceId,
       organization_id: organizationId,
-      phone_number: phoneForLookup,
+      chat_id: chatId, // Chave estável
+      phone_number: phoneForDisplay,
       sendable_phone: sendablePhone || null,
       customer_phone_e164: phoneForLookup,
+      is_group: isGroup,
+      group_subject: isGroup ? groupSubject : null,
+      display_name: displayName,
       contact_name: contactName || lead?.name || null,
       contact_profile_pic: contactProfilePic || null,
       contact_id: contactId,
@@ -343,7 +358,7 @@ async function getOrCreateConversation(
     throw error;
   }
 
-  console.log("Created new conversation:", newConv.id, "lead_id:", lead?.id);
+  console.log("Created new conversation:", newConv.id, "is_group:", isGroup, "lead_id:", lead?.id);
   return newConv;
 }
 
@@ -499,13 +514,16 @@ async function processWasenderMessage(instance: any, body: any) {
     }
   }
 
-  // Get or create conversation (NOVA LÓGICA: por org+phone, suporta grupos)
+  // Get or create conversation (NOVA LÓGICA: por org+chat_id estável, suporta grupos)
   const conversation = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
+    remoteJid, // chat_id estável (JID completo)
     finalPhoneForConv,
     finalSendablePhone,
-    isGroup ? groupName : senderName
+    isGroup,
+    isGroup ? groupName : undefined,
+    isGroup ? undefined : senderName
   );
 
   // Save message with provider_message_id
@@ -582,7 +600,9 @@ async function processZapiMessage(instance: any, body: any) {
 
   if (!phone || isGroup) return null;
 
-  const conversation = await getOrCreateConversation(instance.id, instance.organization_id, phone, phone, senderName);
+  // Z-API: usar phone como chat_id
+  const chatId = `${phone}@s.whatsapp.net`;
+  const conversation = await getOrCreateConversation(instance.id, instance.organization_id, chatId, phone, phone, false, undefined, senderName);
   const direction = isFromMe ? "outbound" : "inbound";
   const savedMessage = await saveMessage(conversation.id, instance.id, text, direction, "text", messageId, undefined, undefined, false, conversation.contact_id, "zapi");
 
