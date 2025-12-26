@@ -105,6 +105,7 @@ export default function SuperAdmin() {
     owner_email: "",
     phone: "",
     planId: "",
+    extraUsers: 0,
   });
   const [newOrg, setNewOrg] = useState({ 
     name: "", 
@@ -384,7 +385,7 @@ export default function SuperAdmin() {
   });
 
   const updateOrganizationMutation = useMutation({
-    mutationFn: async ({ orgId, data, planId }: { orgId: string; data: Partial<Organization>; planId?: string }) => {
+    mutationFn: async ({ orgId, data, planId, extraUsers }: { orgId: string; data: Partial<Organization>; planId?: string; extraUsers?: number }) => {
       // Update organization
       const { error: orgError } = await supabase
         .from("organizations")
@@ -393,11 +394,15 @@ export default function SuperAdmin() {
 
       if (orgError) throw orgError;
 
-      // Update subscription plan if provided
-      if (planId) {
+      // Update subscription plan and extra users if provided
+      if (planId || extraUsers !== undefined) {
+        const updateData: Record<string, unknown> = {};
+        if (planId) updateData.plan_id = planId;
+        if (extraUsers !== undefined) updateData.extra_users = extraUsers;
+
         const { error: subError } = await supabase
           .from("subscriptions")
-          .update({ plan_id: planId })
+          .update(updateData)
           .eq("organization_id", orgId);
 
         if (subError) throw subError;
@@ -474,6 +479,7 @@ export default function SuperAdmin() {
       owner_email: org.owner_email || "",
       phone: org.phone || "",
       planId: subscription?.plan_id || "",
+      extraUsers: subscription?.extra_users || 0,
     });
     setEditingOrg(org);
   };
@@ -491,6 +497,7 @@ export default function SuperAdmin() {
           phone: editForm.phone || null,
         },
         planId: editForm.planId,
+        extraUsers: editForm.extraUsers,
       });
     } finally {
       setIsSavingEdit(false);
@@ -1022,11 +1029,23 @@ export default function SuperAdmin() {
                       <SelectContent>
                         {plans?.map((plan) => (
                           <SelectItem key={plan.id} value={plan.id}>
-                            {plan.name} ({formatPrice(plan.price_cents)}/mês)
+                            {plan.name} ({formatPrice(plan.price_cents)}/mês) - Máx {plan.max_users} usuários
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Usuários Extras (além do limite do plano)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={editForm.extraUsers}
+                      onChange={(e) => setEditForm({ ...editForm, extraUsers: parseInt(e.target.value) || 0 })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Total permitido = usuários do plano + usuários extras
+                    </p>
                   </div>
                   <div className="border-t pt-4">
                     <h4 className="font-medium mb-3">Dados do Dono</h4>
