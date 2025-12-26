@@ -28,6 +28,9 @@ import Team from "./pages/Team";
 import Products from "./pages/Products";
 import Sales from "./pages/Sales";
 import NewSale from "./pages/NewSale";
+import SaleDetail from "./pages/SaleDetail";
+import RomaneioPrint from "./pages/RomaneioPrint";
+import MyDeliveries from "./pages/MyDeliveries";
 import SignupSuccess from "./pages/SignupSuccess";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
@@ -134,6 +137,21 @@ const App = () => (
             <Route path="/vendas/nova" element={
               <ProtectedRoute>
                 <NewSale />
+              </ProtectedRoute>
+            } />
+            <Route path="/vendas/:id" element={
+              <ProtectedRoute>
+                <SaleDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/vendas/:id/romaneio" element={
+              <ProtectedRoute>
+                <RomaneioPrint />
+              </ProtectedRoute>
+            } />
+            <Route path="/minhas-entregas" element={
+              <ProtectedRoute>
+                <MyDeliveries />
               </ProtectedRoute>
             } />
             
