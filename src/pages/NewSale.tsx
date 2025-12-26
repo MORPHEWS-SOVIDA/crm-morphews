@@ -24,7 +24,11 @@ import {
   Percent, 
   DollarSign,
   ShoppingCart,
-  User
+  User,
+  Eye,
+  Pencil,
+  AlertTriangle,
+  MapPin
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, Product } from '@/hooks/useProducts';
@@ -177,7 +181,45 @@ export default function NewSale() {
                 />
                 
                 {selectedLead && (
-                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/leads/${selectedLead.id}`)}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Visualizar Cliente
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/leads/${selectedLead.id}/edit`)}
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Editar Cliente
+                      </Button>
+                    </div>
+
+                    {/* Address Warning */}
+                    {!selectedLead.street && (
+                      <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                            Endereço não preenchido
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-500">
+                            Este cliente não possui endereço cadastrado. Clique em "Editar Cliente" para adicionar.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Client Details */}
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">WhatsApp</p>
@@ -191,7 +233,10 @@ export default function NewSale() {
                       )}
                       {selectedLead.street && (
                         <div className="col-span-2">
-                          <p className="text-muted-foreground">Endereço</p>
+                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                            <MapPin className="w-3 h-3" />
+                            <span>Endereço</span>
+                          </div>
                           <p className="font-medium">
                             {selectedLead.street}, {selectedLead.street_number}
                             {selectedLead.complement && ` - ${selectedLead.complement}`}
