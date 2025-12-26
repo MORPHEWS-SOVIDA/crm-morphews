@@ -1809,6 +1809,7 @@ export type Database = {
         Args: { org_id: string }
         Returns: undefined
       }
+      is_current_user_org_admin: { Args: never; Returns: boolean }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }

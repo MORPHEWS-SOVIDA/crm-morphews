@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 
 // Types
 export interface LeadSource {
@@ -45,9 +46,15 @@ export function useLeadSources() {
 export function useCreateLeadSource() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const { data: isOrgAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (name: string) => {
+      // Guard: only admins can create
+      if (!isOrgAdmin) {
+        throw new Error('Sem permissão: apenas administradores podem alterar Origens de Lead.');
+      }
+      
       if (!profile?.organization_id) {
         throw new Error('Organização não encontrada');
       }
@@ -72,9 +79,15 @@ export function useCreateLeadSource() {
 
 export function useDeleteLeadSource() {
   const queryClient = useQueryClient();
+  const { data: isOrgAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Guard: only admins can delete
+      if (!isOrgAdmin) {
+        throw new Error('Sem permissão: apenas administradores podem alterar Origens de Lead.');
+      }
+      
       const { error } = await supabase
         .from('lead_sources')
         .update({ is_active: false })
@@ -114,9 +127,15 @@ export function useLeadProducts() {
 export function useCreateLeadProduct() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const { data: isOrgAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (name: string) => {
+      // Guard: only admins can create
+      if (!isOrgAdmin) {
+        throw new Error('Sem permissão: apenas administradores podem alterar Produtos.');
+      }
+      
       if (!profile?.organization_id) {
         throw new Error('Organização não encontrada');
       }
@@ -141,9 +160,15 @@ export function useCreateLeadProduct() {
 
 export function useDeleteLeadProduct() {
   const queryClient = useQueryClient();
+  const { data: isOrgAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Guard: only admins can delete
+      if (!isOrgAdmin) {
+        throw new Error('Sem permissão: apenas administradores podem alterar Produtos.');
+      }
+      
       const { error } = await supabase
         .from('lead_products')
         .update({ is_active: false })
