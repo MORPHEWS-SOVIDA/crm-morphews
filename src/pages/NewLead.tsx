@@ -20,6 +20,7 @@ import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useCreateLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useDeliveryRegions, useActiveShippingCarriers, DELIVERY_TYPES, DeliveryType } from '@/hooks/useDeliveryConfig';
 import { leadSchema } from '@/lib/validations';
@@ -29,6 +30,7 @@ export default function NewLead() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
+  const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const createLead = useCreateLead();
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
@@ -36,6 +38,22 @@ export default function NewLead() {
   const { data: deliveryRegions = [] } = useDeliveryRegions();
   const shippingCarriers = useActiveShippingCarriers();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Permission check
+  const canCreateLead = permissions?.leads_create;
+  
+  // Redirect if no permission
+  if (!permissionsLoading && !canCreateLead) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h1>
+          <p className="text-muted-foreground mb-4">Você não tem permissão para criar leads.</p>
+          <Button onClick={() => navigate('/')}>Voltar ao Dashboard</Button>
+        </div>
+      </Layout>
+    );
+  }
   
   // Pre-fill from URL params (from WhatsApp chat)
   const urlWhatsapp = searchParams.get('whatsapp') || '';

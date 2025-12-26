@@ -47,6 +47,7 @@ import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialo
 import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 
 interface SelectedItem {
   product_id: string;
@@ -88,7 +89,24 @@ export default function NewSale() {
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: users = [], isLoading: usersLoading } = useUsers();
   const { user } = useAuth();
+  const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const createSale = useCreateSale();
+  
+  // Permission check
+  const canCreateSale = permissions?.sales_create;
+  
+  // Redirect if no permission
+  if (!permissionsLoading && !canCreateSale) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h1>
+          <p className="text-muted-foreground mb-4">Você não tem permissão para criar vendas.</p>
+          <Button onClick={() => navigate('/vendas')}>Voltar para Vendas</Button>
+        </div>
+      </Layout>
+    );
+  }
   
   const [selectedLead, setSelectedLead] = useState<SelectedLead | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);

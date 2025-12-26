@@ -58,8 +58,8 @@ import { toast } from 'sonner';
 import { useSale, useUpdateSale, formatCurrency, getStatusLabel, getStatusColor, DeliveryStatus, getDeliveryStatusLabel } from '@/hooks/useSales';
 import { useTenantMembers } from '@/hooks/multi-tenant';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
-
 const DELIVERY_STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
   { value: 'delivered_normal', label: 'Normal' },
   { value: 'delivered_missing_prescription', label: 'Falta receita' },
@@ -82,7 +82,14 @@ export default function SaleDetail() {
   const updateSale = useUpdateSale();
   const { data: members = [] } = useTenantMembers();
   const { profile } = useAuth();
+  const { data: permissions } = useMyPermissions();
 
+  // Permission checks
+  const canValidateExpedition = permissions?.sales_validate_expedition;
+  const canDispatch = permissions?.sales_dispatch;
+  const canMarkDelivered = permissions?.sales_mark_delivered;
+  const canConfirmPayment = permissions?.sales_confirm_payment;
+  const canCancel = permissions?.sales_cancel;
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -281,7 +288,7 @@ export default function SaleDetail() {
               <Printer className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Imprimir </span>Romaneio
             </Button>
-            {sale.status !== 'cancelled' && sale.status !== 'payment_confirmed' && (
+            {canCancel && sale.status !== 'cancelled' && sale.status !== 'payment_confirmed' && (
               <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => setShowCancelDialog(true)}>
                 <XCircle className="w-4 h-4 mr-2" />
                 Cancelar
@@ -449,7 +456,7 @@ export default function SaleDetail() {
             </Card>
 
             {/* Expedition Actions */}
-            {(sale.status === 'draft' || sale.status === 'pending_expedition') && (
+            {(sale.status === 'draft' || sale.status === 'pending_expedition') && (canValidateExpedition || canDispatch) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -458,7 +465,7 @@ export default function SaleDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {sale.status === 'draft' && (
+                  {sale.status === 'draft' && canValidateExpedition && (
                     <Button 
                       className="w-full" 
                       onClick={() => setShowExpeditionDialog(true)}
@@ -468,7 +475,7 @@ export default function SaleDetail() {
                     </Button>
                   )}
 
-                  {sale.status === 'pending_expedition' && (
+                  {sale.status === 'pending_expedition' && canDispatch && (
                     <>
                       <div>
                         <Label>Selecionar Entregador</Label>
@@ -501,7 +508,7 @@ export default function SaleDetail() {
             )}
 
             {/* Delivery Actions */}
-            {sale.status === 'dispatched' && (
+            {sale.status === 'dispatched' && canMarkDelivered && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -554,7 +561,7 @@ export default function SaleDetail() {
             )}
 
             {/* Finance Actions */}
-            {(sale.status === 'delivered' || sale.status === 'payment_pending') && (
+            {(sale.status === 'delivered' || sale.status === 'payment_pending') && canConfirmPayment && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

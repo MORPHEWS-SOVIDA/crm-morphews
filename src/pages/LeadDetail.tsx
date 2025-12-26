@@ -36,6 +36,7 @@ import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,9 +58,14 @@ export default function LeadDetail() {
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
   const { user, isAdmin } = useAuth();
+  const { data: permissions } = useMyPermissions();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
   const addStageHistory = useAddStageHistory();
+  
+  // Permission checks
+  const canEditLead = permissions?.leads_edit;
+  const canDeleteLead = permissions?.leads_delete;
   
   // State for stage change dialog
   const [stageChangeDialog, setStageChangeDialog] = useState<{
@@ -643,11 +649,13 @@ export default function LeadDetail() {
                   className="w-full justify-center"
                 />
                 
-                <DeleteLeadDialog
-                  leadName={lead.name}
-                  onConfirm={handleDelete}
-                  isDeleting={deleteLead.isPending}
-                />
+                {canDeleteLead && (
+                  <DeleteLeadDialog
+                    leadName={lead.name}
+                    onConfirm={handleDelete}
+                    isDeleting={deleteLead.isPending}
+                  />
+                )}
               </div>
             </div>
 
