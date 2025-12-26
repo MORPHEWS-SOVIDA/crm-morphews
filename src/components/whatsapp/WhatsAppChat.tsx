@@ -458,7 +458,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-200px)] min-h-[500px] border rounded-lg overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-200px)] min-h-[400px] border rounded-lg overflow-hidden bg-background">
       {/* Conversations List */}
       <div className={cn(
         "w-full md:w-80 border-r flex flex-col",
@@ -708,19 +708,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               </div>
             </ScrollArea>
 
-            {/* Botão flutuante para voltar às conversas (mobile) */}
-            {isMobile && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                onClick={() => setSelectedConversation(null)}
-                className="fixed bottom-24 left-4 z-50 shadow-lg md:hidden"
-                aria-label="Voltar para conversas"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            )}
+            {/* Removed floating back button - already have one in header */}
 
 
             {/* Image preview */}
