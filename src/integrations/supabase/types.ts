@@ -1181,6 +1181,7 @@ export type Database = {
           scheduled_delivery_shift:
             | Database["public"]["Enums"]["delivery_shift"]
             | null
+          seller_user_id: string | null
           shipping_carrier_id: string | null
           shipping_cost_cents: number | null
           status: Database["public"]["Enums"]["sale_status"]
@@ -1219,6 +1220,7 @@ export type Database = {
           scheduled_delivery_shift?:
             | Database["public"]["Enums"]["delivery_shift"]
             | null
+          seller_user_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
           status?: Database["public"]["Enums"]["sale_status"]
@@ -1257,6 +1259,7 @@ export type Database = {
           scheduled_delivery_shift?:
             | Database["public"]["Enums"]["delivery_shift"]
             | null
+          seller_user_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
           status?: Database["public"]["Enums"]["sale_status"]

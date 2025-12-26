@@ -32,6 +32,7 @@ export interface Sale {
   organization_id: string;
   lead_id: string;
   created_by: string;
+  seller_user_id: string | null;
   expedition_validated_at: string | null;
   expedition_validated_by: string | null;
   assigned_delivery_user_id: string | null;
@@ -39,6 +40,12 @@ export interface Sale {
   delivery_status: DeliveryStatus;
   delivery_notes: string | null;
   delivered_at: string | null;
+  delivery_type: DeliveryType;
+  delivery_region_id: string | null;
+  scheduled_delivery_date: string | null;
+  scheduled_delivery_shift: 'morning' | 'afternoon' | 'full_day' | null;
+  shipping_carrier_id: string | null;
+  shipping_cost_cents: number;
   subtotal_cents: number;
   discount_type: 'percentage' | 'fixed' | null;
   discount_value: number;
@@ -73,6 +80,10 @@ export interface Sale {
     first_name: string;
     last_name: string;
   };
+  seller_profile?: {
+    first_name: string;
+    last_name: string;
+  };
   delivery_user_profile?: {
     first_name: string;
     last_name: string;
@@ -96,6 +107,7 @@ export type DeliveryType = 'pickup' | 'motoboy' | 'carrier';
 
 export interface CreateSaleData {
   lead_id: string;
+  seller_user_id?: string | null;
   items: {
     product_id: string;
     product_name: string;
@@ -298,6 +310,7 @@ export function useCreateSale() {
           organization_id: profile.organization_id,
           lead_id: data.lead_id,
           created_by: user.id,
+          seller_user_id: data.seller_user_id || user.id,
           subtotal_cents,
           discount_type: data.discount_type || null,
           discount_value: data.discount_value || 0,

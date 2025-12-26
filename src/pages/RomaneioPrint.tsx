@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { useSale, formatCurrency, getStatusLabel } from '@/hooks/useSales';
 import { useAuth } from '@/hooks/useAuth';
 import { QRCodeSVG } from 'qrcode.react';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function RomaneioPrint() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,44 @@ export default function RomaneioPrint() {
   const { data: sale, isLoading } = useSale(id);
   const { profile } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
+  
+  const [sellerName, setSellerName] = useState<string | null>(null);
+  const [deliveryUserName, setDeliveryUserName] = useState<string | null>(null);
+
+  // Fetch seller and delivery user names
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      if (!sale) return;
+
+      // Fetch seller name
+      if (sale.seller_user_id) {
+        const { data: sellerProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.seller_user_id)
+          .maybeSingle();
+        
+        if (sellerProfile) {
+          setSellerName(`${sellerProfile.first_name} ${sellerProfile.last_name}`);
+        }
+      }
+
+      // Fetch delivery user name
+      if (sale.assigned_delivery_user_id) {
+        const { data: deliveryProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.assigned_delivery_user_id)
+          .maybeSingle();
+        
+        if (deliveryProfile) {
+          setDeliveryUserName(`${deliveryProfile.first_name} ${deliveryProfile.last_name}`);
+        }
+      }
+    };
+
+    fetchUserNames();
+  }, [sale]);
 
   const handlePrint = () => {
     window.print();
@@ -51,6 +90,14 @@ export default function RomaneioPrint() {
 
   const qrData = `${window.location.origin}/vendas/${sale.id}`;
 
+  // Determine delivery type label
+  const getDeliveryTypeLabel = () => {
+    if (!sale.delivery_type || sale.delivery_type === 'pickup') return 'RETIRADA NO BALCÃO';
+    if (sale.delivery_type === 'motoboy') return 'TELE-ENTREGA (MOTOBOY)';
+    if (sale.delivery_type === 'carrier') return 'TRANSPORTADORA';
+    return 'TELE-ENTREGA';
+  };
+
   return (
     <>
       {/* Print Controls - Hidden when printing */}
@@ -73,6 +120,9 @@ export default function RomaneioPrint() {
             <div>
               <h1 className="text-2xl font-bold">ROMANEIO: {sale.id.slice(0, 8).toUpperCase()}</h1>
               <p className="text-sm mt-1">
+                <strong>VENDEDOR:</strong> {sellerName || profile?.first_name + ' ' + profile?.last_name}
+              </p>
+              <p className="text-sm">
                 <strong>DIGITADOR:</strong> {profile?.first_name} {profile?.last_name}
               </p>
               <p className="text-sm">
@@ -83,8 +133,8 @@ export default function RomaneioPrint() {
               </p>
             </div>
             <div className="text-right text-sm">
-              {sale.assigned_delivery_user_id && (
-                <p><strong>ENTREGADOR:</strong> Definido</p>
+              {deliveryUserName && (
+                <p><strong>ENTREGADOR:</strong> {deliveryUserName}</p>
               )}
               <p><strong>DATA DE ENTREGA:</strong> ___/___/______</p>
               <p><strong>TURNO:</strong> _________________</p>
@@ -131,7 +181,7 @@ export default function RomaneioPrint() {
         {/* Delivery Type */}
         <div className="border-2 border-black p-4 mb-4">
           <h2 className="font-bold text-lg"># TIPO DE ENTREGA</h2>
-          <p className="font-semibold">TELE-ENTREGA</p>
+          <p className="font-semibold">{getDeliveryTypeLabel()}</p>
         </div>
 
         {/* Products Table */}

@@ -15,6 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   ArrowLeft, 
   Package, 
@@ -29,7 +36,8 @@ import {
   Pencil,
   AlertTriangle,
   MapPin,
-  Truck
+  Truck,
+  UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, Product } from '@/hooks/useProducts';
@@ -37,6 +45,8 @@ import { useCreateSale, formatCurrency, DeliveryType } from '@/hooks/useSales';
 import { LeadSearchSelect } from '@/components/sales/LeadSearchSelect';
 import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialog';
 import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
+import { useUsers } from '@/hooks/useUsers';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SelectedItem {
   product_id: string;
@@ -76,15 +86,25 @@ export default function NewSale() {
   const leadIdFromUrl = searchParams.get('leadId');
   
   const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { user } = useAuth();
   const createSale = useCreateSale();
   
   const [selectedLead, setSelectedLead] = useState<SelectedLead | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState(0);
+  const [sellerUserId, setSellerUserId] = useState<string | null>(null);
   
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Set current user as default seller
+  useEffect(() => {
+    if (user?.id && !sellerUserId) {
+      setSellerUserId(user.id);
+    }
+  }, [user?.id, sellerUserId]);
 
   // Delivery configuration
   const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>({
@@ -167,6 +187,7 @@ export default function NewSale() {
     try {
       const sale = await createSale.mutateAsync({
         lead_id: selectedLead.id,
+        seller_user_id: sellerUserId,
         items: selectedItems,
         discount_type: discountValue > 0 ? discountType : null,
         discount_value: discountValue,
@@ -220,13 +241,37 @@ export default function NewSale() {
                   Cliente
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Label>Selecione o cliente</Label>
-                <LeadSearchSelect
-                  value={selectedLead?.id || leadIdFromUrl}
-                  onChange={handleLeadChange}
-                  placeholder="Buscar cliente por nome ou telefone..."
-                />
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Selecione o cliente</Label>
+                  <LeadSearchSelect
+                    value={selectedLead?.id || leadIdFromUrl}
+                    onChange={handleLeadChange}
+                    placeholder="Buscar cliente por nome ou telefone..."
+                  />
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" />
+                    Vendedor responsável pela venda
+                  </Label>
+                  <Select
+                    value={sellerUserId || ''}
+                    onValueChange={(value) => setSellerUserId(value)}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Selecione o vendedor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((u) => (
+                        <SelectItem key={u.user_id} value={u.user_id}>
+                          {u.first_name} {u.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 
                 {selectedLead && (
                   <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
