@@ -918,6 +918,207 @@ export type Database = {
           },
         ]
       }
+      sale_items: {
+        Row: {
+          created_at: string
+          discount_cents: number
+          id: string
+          notes: string | null
+          product_id: string
+          product_name: string
+          quantity: number
+          sale_id: string
+          total_cents: number
+          unit_price_cents: number
+        }
+        Insert: {
+          created_at?: string
+          discount_cents?: number
+          id?: string
+          notes?: string | null
+          product_id: string
+          product_name: string
+          quantity?: number
+          sale_id: string
+          total_cents: number
+          unit_price_cents: number
+        }
+        Update: {
+          created_at?: string
+          discount_cents?: number
+          id?: string
+          notes?: string | null
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          sale_id?: string
+          total_cents?: number
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_status: Database["public"]["Enums"]["sale_status"]
+          notes: string | null
+          organization_id: string
+          previous_status: Database["public"]["Enums"]["sale_status"] | null
+          sale_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status: Database["public"]["Enums"]["sale_status"]
+          notes?: string | null
+          organization_id: string
+          previous_status?: Database["public"]["Enums"]["sale_status"] | null
+          sale_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["sale_status"]
+          notes?: string | null
+          organization_id?: string
+          previous_status?: Database["public"]["Enums"]["sale_status"] | null
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_status_history_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          assigned_delivery_user_id: string | null
+          created_at: string
+          created_by: string
+          delivered_at: string | null
+          delivery_notes: string | null
+          delivery_status: Database["public"]["Enums"]["delivery_status"] | null
+          discount_cents: number
+          discount_type: string | null
+          discount_value: number | null
+          dispatched_at: string | null
+          expedition_validated_at: string | null
+          expedition_validated_by: string | null
+          id: string
+          invoice_pdf_url: string | null
+          invoice_xml_url: string | null
+          lead_id: string
+          organization_id: string
+          payment_confirmed_at: string | null
+          payment_confirmed_by: string | null
+          payment_method: string | null
+          payment_notes: string | null
+          payment_proof_url: string | null
+          status: Database["public"]["Enums"]["sale_status"]
+          subtotal_cents: number
+          total_cents: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_delivery_user_id?: string | null
+          created_at?: string
+          created_by: string
+          delivered_at?: string | null
+          delivery_notes?: string | null
+          delivery_status?:
+            | Database["public"]["Enums"]["delivery_status"]
+            | null
+          discount_cents?: number
+          discount_type?: string | null
+          discount_value?: number | null
+          dispatched_at?: string | null
+          expedition_validated_at?: string | null
+          expedition_validated_by?: string | null
+          id?: string
+          invoice_pdf_url?: string | null
+          invoice_xml_url?: string | null
+          lead_id: string
+          organization_id: string
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_proof_url?: string | null
+          status?: Database["public"]["Enums"]["sale_status"]
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_delivery_user_id?: string | null
+          created_at?: string
+          created_by?: string
+          delivered_at?: string | null
+          delivery_notes?: string | null
+          delivery_status?:
+            | Database["public"]["Enums"]["delivery_status"]
+            | null
+          discount_cents?: number
+          discount_type?: string | null
+          discount_value?: number | null
+          dispatched_at?: string | null
+          expedition_validated_at?: string | null
+          expedition_validated_by?: string | null
+          id?: string
+          invoice_pdf_url?: string | null
+          invoice_xml_url?: string | null
+          lead_id?: string
+          organization_id?: string
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_proof_url?: string | null
+          status?: Database["public"]["Enums"]["sale_status"]
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string
@@ -1974,6 +2175,20 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      delivery_status:
+        | "pending"
+        | "delivered_normal"
+        | "delivered_missing_prescription"
+        | "delivered_no_money"
+        | "delivered_no_card_limit"
+        | "delivered_customer_absent"
+        | "delivered_customer_denied"
+        | "delivered_customer_gave_up"
+        | "delivered_wrong_product"
+        | "delivered_missing_product"
+        | "delivered_insufficient_address"
+        | "delivered_wrong_time"
+        | "delivered_other"
       funnel_stage:
         | "prospect"
         | "contacted"
@@ -1993,6 +2208,14 @@ export type Database = {
         | "shipping"
         | "finance"
         | "entregador"
+      sale_status:
+        | "draft"
+        | "pending_expedition"
+        | "dispatched"
+        | "delivered"
+        | "payment_pending"
+        | "payment_confirmed"
+        | "cancelled"
       subscription_status:
         | "active"
         | "canceled"
@@ -2127,6 +2350,21 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      delivery_status: [
+        "pending",
+        "delivered_normal",
+        "delivered_missing_prescription",
+        "delivered_no_money",
+        "delivered_no_card_limit",
+        "delivered_customer_absent",
+        "delivered_customer_denied",
+        "delivered_customer_gave_up",
+        "delivered_wrong_product",
+        "delivered_missing_product",
+        "delivered_insufficient_address",
+        "delivered_wrong_time",
+        "delivered_other",
+      ],
       funnel_stage: [
         "prospect",
         "contacted",
@@ -2147,6 +2385,15 @@ export const Constants = {
         "shipping",
         "finance",
         "entregador",
+      ],
+      sale_status: [
+        "draft",
+        "pending_expedition",
+        "dispatched",
+        "delivered",
+        "payment_pending",
+        "payment_confirmed",
+        "cancelled",
       ],
       subscription_status: [
         "active",

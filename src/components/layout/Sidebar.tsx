@@ -13,7 +13,8 @@ import {
   ShoppingCart,
   Crown,
   UsersRound,
-  Package
+  Package,
+  ShoppingCart as SalesIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -48,6 +49,7 @@ export function Sidebar() {
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
     { icon: Package, label: 'Produtos', path: '/produtos' },
+    { icon: SalesIcon, label: 'Vendas', path: '/vendas' },
     ...(canSeeWhatsAppDMs ? [
       { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
       { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },

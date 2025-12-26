@@ -26,6 +26,8 @@ import SuperAdmin from "./pages/SuperAdmin";
 import Onboarding from "./pages/Onboarding";
 import Team from "./pages/Team";
 import Products from "./pages/Products";
+import Sales from "./pages/Sales";
+import NewSale from "./pages/NewSale";
 import SignupSuccess from "./pages/SignupSuccess";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
@@ -122,6 +124,16 @@ const App = () => (
             <Route path="/produtos" element={
               <ProtectedRoute>
                 <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="/vendas" element={
+              <ProtectedRoute>
+                <Sales />
+              </ProtectedRoute>
+            } />
+            <Route path="/vendas/nova" element={
+              <ProtectedRoute>
+                <NewSale />
               </ProtectedRoute>
             } />
             
