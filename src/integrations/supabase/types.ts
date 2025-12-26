@@ -1438,6 +1438,36 @@ export type Database = {
           },
         ]
       }
+      whatsapp_media_tokens: {
+        Row: {
+          bucket_id: string
+          content_type: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          object_path: string
+          token: string
+        }
+        Insert: {
+          bucket_id?: string
+          content_type?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          object_path: string
+          token: string
+        }
+        Update: {
+          bucket_id?: string
+          content_type?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          object_path?: string
+          token?: string
+        }
+        Relationships: []
+      }
       whatsapp_messages: {
         Row: {
           contact_id: string | null
