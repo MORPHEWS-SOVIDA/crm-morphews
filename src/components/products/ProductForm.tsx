@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import {
   Form,
   FormControl,
@@ -227,7 +228,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
         {/* Tabela de Preços */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Tabela de Preços (em centavos)</CardTitle>
+            <CardTitle className="text-lg">Tabela de Preços</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -235,13 +236,13 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
               name="price_1_unit"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Preço 1 Unidade (centavos)</FormLabel>
+                  <FormLabel>Preço 1 Unidade</FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" placeholder="0" {...field} />
+                    <CurrencyInput
+                      value={field.value || 0}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
-                  <FormDescription>
-                    Ex: 9900 = R$ 99,00
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -252,9 +253,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
               name="price_3_units"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Preço 3 Unidades (centavos)</FormLabel>
+                  <FormLabel>Preço 3 Unidades</FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" placeholder="0" {...field} />
+                    <CurrencyInput
+                      value={field.value || 0}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -266,9 +270,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
               name="price_6_units"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Preço 6 Unidades (centavos)</FormLabel>
+                  <FormLabel>Preço 6 Unidades</FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" placeholder="0" {...field} />
+                    <CurrencyInput
+                      value={field.value || 0}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -280,9 +287,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
               name="price_12_units"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Preço 12 Unidades (centavos)</FormLabel>
+                  <FormLabel>Preço 12 Unidades</FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" placeholder="0" {...field} />
+                    <CurrencyInput
+                      value={field.value || 0}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -302,9 +312,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
               name="minimum_price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor Mínimo (centavos)</FormLabel>
+                  <FormLabel>Valor Mínimo</FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" placeholder="0" {...field} />
+                    <CurrencyInput
+                      value={field.value || 0}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormDescription>
                     Abaixo desse valor, venda precisa de autorização
