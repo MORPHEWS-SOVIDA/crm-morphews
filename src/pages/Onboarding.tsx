@@ -167,11 +167,11 @@ export default function Onboarding() {
             <div className="space-y-2">
               <Label htmlFor="cnpj" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                CNPJ (opcional)
+                CPF/CNPJ (opcional)
               </Label>
               <Input
                 id="cnpj"
-                placeholder="00.000.000/0000-00"
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
                 value={formData.cnpj}
                 onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
               />
