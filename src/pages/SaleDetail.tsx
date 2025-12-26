@@ -271,16 +271,18 @@ export default function SaleDetail() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button 
               variant="outline"
+              size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => navigate(`/vendas/${sale.id}/romaneio`)}
             >
               <Printer className="w-4 h-4 mr-2" />
-              Imprimir Romaneio
+              <span className="hidden sm:inline">Imprimir </span>Romaneio
             </Button>
             {sale.status !== 'cancelled' && sale.status !== 'payment_confirmed' && (
-              <Button variant="destructive" onClick={() => setShowCancelDialog(true)}>
+              <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => setShowCancelDialog(true)}>
                 <XCircle className="w-4 h-4 mr-2" />
                 Cancelar
               </Button>

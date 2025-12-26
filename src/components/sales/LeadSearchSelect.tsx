@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Check, ChevronsUpDown, Plus, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +57,13 @@ export function LeadSearchSelect({
   const selectedLead = useMemo(() => {
     return leads.find(lead => lead.id === value);
   }, [leads, value]);
+
+  // Auto-select lead when value is provided from URL
+  useEffect(() => {
+    if (value && selectedLead && !isLoading) {
+      onChange(value, selectedLead as Lead);
+    }
+  }, [selectedLead, isLoading]); // Intentionally not including onChange and value to avoid infinite loops
 
   const handleSelect = (leadId: string) => {
     const lead = leads.find(l => l.id === leadId);

@@ -419,3 +419,26 @@ export function useMyDeliveries() {
     enabled: !!user?.id,
   });
 }
+
+// Hook to get sales for a specific lead
+export function useLeadSales(leadId: string | undefined) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['lead-sales', leadId],
+    queryFn: async () => {
+      if (!leadId || !profile?.organization_id) return [];
+
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('lead_id', leadId)
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Sale[];
+    },
+    enabled: !!leadId && !!profile?.organization_id,
+  });
+}
