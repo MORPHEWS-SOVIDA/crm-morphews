@@ -1547,6 +1547,101 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          created_at: string
+          deliveries_view_all: boolean
+          deliveries_view_own: boolean
+          id: string
+          leads_create: boolean
+          leads_delete: boolean
+          leads_edit: boolean
+          leads_view: boolean
+          organization_id: string
+          products_manage: boolean
+          products_view: boolean
+          reports_view: boolean
+          sales_cancel: boolean
+          sales_confirm_payment: boolean
+          sales_create: boolean
+          sales_dispatch: boolean
+          sales_edit_draft: boolean
+          sales_mark_delivered: boolean
+          sales_validate_expedition: boolean
+          sales_view: boolean
+          settings_manage: boolean
+          settings_view: boolean
+          updated_at: string
+          user_id: string
+          whatsapp_send: boolean
+          whatsapp_view: boolean
+        }
+        Insert: {
+          created_at?: string
+          deliveries_view_all?: boolean
+          deliveries_view_own?: boolean
+          id?: string
+          leads_create?: boolean
+          leads_delete?: boolean
+          leads_edit?: boolean
+          leads_view?: boolean
+          organization_id: string
+          products_manage?: boolean
+          products_view?: boolean
+          reports_view?: boolean
+          sales_cancel?: boolean
+          sales_confirm_payment?: boolean
+          sales_create?: boolean
+          sales_dispatch?: boolean
+          sales_edit_draft?: boolean
+          sales_mark_delivered?: boolean
+          sales_validate_expedition?: boolean
+          sales_view?: boolean
+          settings_manage?: boolean
+          settings_view?: boolean
+          updated_at?: string
+          user_id: string
+          whatsapp_send?: boolean
+          whatsapp_view?: boolean
+        }
+        Update: {
+          created_at?: string
+          deliveries_view_all?: boolean
+          deliveries_view_own?: boolean
+          id?: string
+          leads_create?: boolean
+          leads_delete?: boolean
+          leads_edit?: boolean
+          leads_view?: boolean
+          organization_id?: string
+          products_manage?: boolean
+          products_view?: boolean
+          reports_view?: boolean
+          sales_cancel?: boolean
+          sales_confirm_payment?: boolean
+          sales_create?: boolean
+          sales_dispatch?: boolean
+          sales_edit_draft?: boolean
+          sales_mark_delivered?: boolean
+          sales_validate_expedition?: boolean
+          sales_view?: boolean
+          settings_manage?: boolean
+          settings_view?: boolean
+          updated_at?: string
+          user_id?: string
+          whatsapp_send?: boolean
+          whatsapp_view?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2303,6 +2398,10 @@ export type Database = {
         Args: { _organization_id: string; _phone: string }
         Returns: string
       }
+      get_default_permissions_for_role: {
+        Args: { _role: string }
+        Returns: Json
+      }
       get_or_create_contact_by_phone: {
         Args: { _name?: string; _organization_id: string; _phone: string }
         Returns: string
@@ -2459,6 +2558,7 @@ export type Database = {
         | "shipping"
         | "finance"
         | "entregador"
+        | "delivery"
       sale_status:
         | "draft"
         | "pending_expedition"
@@ -2638,6 +2738,7 @@ export const Constants = {
         "shipping",
         "finance",
         "entregador",
+        "delivery",
       ],
       sale_status: [
         "draft",

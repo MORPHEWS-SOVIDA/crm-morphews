@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,12 +30,15 @@ import {
   Check,
   Phone,
   Eye,
-  EyeOff
+  EyeOff,
+  Shield
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
+import { useApplyRoleDefaults } from "@/hooks/useUserPermissions";
 
 // All organization roles from org_role enum
-type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance";
+type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
 
 const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> = {
   owner: { label: "Proprietário", description: "Dono da organização com todos os poderes" },
@@ -42,12 +46,13 @@ const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> =
   manager: { label: "Gerente", description: "Pode gerenciar equipe e ver relatórios" },
   seller: { label: "Vendedor", description: "Acesso a leads, produtos e WhatsApp" },
   member: { label: "Membro", description: "Acesso básico a leads e produtos" },
-  shipping: { label: "Expedição", description: "Acesso a leads e vendas para envio" },
-  finance: { label: "Financeiro", description: "Acesso a finanças e relatórios" },
+  shipping: { label: "Expedição", description: "Valida expedição e despacha vendas" },
+  delivery: { label: "Entregador", description: "Vê apenas suas entregas atribuídas" },
+  finance: { label: "Financeiro", description: "Confirma pagamentos e acessa relatórios" },
 };
 
 // Roles that can be assigned (owner is never assignable via UI)
-const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "finance"];
+const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance"];
 
 interface OrgMember {
   id: string;
@@ -480,6 +485,8 @@ export default function Team() {
         return <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Vendedor</Badge>;
       case "shipping":
         return <Badge className="bg-orange-500/20 text-orange-600 border-orange-500/30">Expedição</Badge>;
+      case "delivery":
+        return <Badge className="bg-cyan-500/20 text-cyan-600 border-cyan-500/30">Entregador</Badge>;
       case "finance":
         return <Badge className="bg-teal-500/20 text-teal-600 border-teal-500/30">Financeiro</Badge>;
       default:
@@ -1061,128 +1068,156 @@ export default function Team() {
 
         {/* Edit Member Role Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Membro</DialogTitle>
               <DialogDescription>
                 Edite os dados e permissões de {editingMember?.profile?.first_name} {editingMember?.profile?.last_name}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6 py-4">
-              {/* Nome e Sobrenome */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editFirstName">Nome</Label>
-                  <Input
-                    id="editFirstName"
-                    value={editMemberData.firstName}
-                    onChange={(e) => setEditMemberData({ ...editMemberData, firstName: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editLastName">Sobrenome</Label>
-                  <Input
-                    id="editLastName"
-                    value={editMemberData.lastName}
-                    onChange={(e) => setEditMemberData({ ...editMemberData, lastName: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* WhatsApp */}
-              <div className="space-y-2">
-                <Label htmlFor="editWhatsapp">WhatsApp</Label>
-                <Input
-                  id="editWhatsapp"
-                  type="tel"
-                  placeholder="5511999999999"
-                  value={editMemberData.whatsapp}
-                  onChange={(e) => setEditMemberData({ ...editMemberData, whatsapp: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Número com código do país. Este número poderá atualizar leads via conversa no WhatsApp pelo número 555130760100.
-                </p>
-              </div>
-
-              {/* Instagram */}
-              <div className="space-y-2">
-                <Label htmlFor="editInstagram">Instagram</Label>
-                <Input
-                  id="editInstagram"
-                  placeholder="seu_usuario"
-                  value={editMemberData.instagram}
-                  onChange={(e) => setEditMemberData({ ...editMemberData, instagram: e.target.value })}
-                />
-              </div>
-
-              {/* Role */}
-              <div className="space-y-2">
-                <Label>Papel</Label>
-                <Select value={editRole} onValueChange={(v) => setEditRole(v as OrgRole)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o papel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ASSIGNABLE_ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        <div className="flex flex-col">
-                          <span>{ORG_ROLE_LABELS[role].label}</span>
-                          <span className="text-xs text-muted-foreground">{ORG_ROLE_LABELS[role].description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            
+            <Tabs defaultValue="dados" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="dados">
+                  <User className="w-4 h-4 mr-2" />
+                  Dados e Papel
+                </TabsTrigger>
+                <TabsTrigger value="permissoes">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Permissões Detalhadas
+                </TabsTrigger>
+              </TabsList>
               
-              {/* Visibility - Only show for non-admin/owner roles */}
-              {!["admin", "owner"].includes(editRole) && (
-                <div className="space-y-2">
-                  <Label>Visibilidade de Leads</Label>
-                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2 font-medium">
-                        {editCanSeeAllLeads ? (
-                          <Eye className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <EyeOff className="w-4 h-4 text-amber-500" />
-                        )}
-                        {editCanSeeAllLeads ? "Ver todos os leads" : "Apenas seus leads"}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {editCanSeeAllLeads 
-                          ? "Pode visualizar todos os leads da empresa" 
-                          : "Só vê leads que criou ou é responsável"}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={editCanSeeAllLeads}
-                      onCheckedChange={setEditCanSeeAllLeads}
+              <TabsContent value="dados" className="space-y-6 py-4">
+                {/* Nome e Sobrenome */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editFirstName">Nome</Label>
+                    <Input
+                      id="editFirstName"
+                      value={editMemberData.firstName}
+                      onChange={(e) => setEditMemberData({ ...editMemberData, firstName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editLastName">Sobrenome</Label>
+                    <Input
+                      id="editLastName"
+                      value={editMemberData.lastName}
+                      onChange={(e) => setEditMemberData({ ...editMemberData, lastName: e.target.value })}
+                      required
                     />
                   </div>
                 </div>
-              )}
-              
-              {["admin", "owner"].includes(editRole) && (
-                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Eye className="w-4 h-4" />
-                    <span className="text-sm font-medium">{ORG_ROLE_LABELS[editRole].label}s sempre veem todos os leads</span>
-                  </div>
+
+                {/* WhatsApp */}
+                <div className="space-y-2">
+                  <Label htmlFor="editWhatsapp">WhatsApp</Label>
+                  <Input
+                    id="editWhatsapp"
+                    type="tel"
+                    placeholder="5511999999999"
+                    value={editMemberData.whatsapp}
+                    onChange={(e) => setEditMemberData({ ...editMemberData, whatsapp: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Número com código do país. Este número poderá atualizar leads via conversa no WhatsApp pelo número 555130760100.
+                  </p>
                 </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
-                {isUpdatingRole && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                Salvar
-              </Button>
-            </DialogFooter>
+
+                {/* Instagram */}
+                <div className="space-y-2">
+                  <Label htmlFor="editInstagram">Instagram</Label>
+                  <Input
+                    id="editInstagram"
+                    placeholder="seu_usuario"
+                    value={editMemberData.instagram}
+                    onChange={(e) => setEditMemberData({ ...editMemberData, instagram: e.target.value })}
+                  />
+                </div>
+
+                {/* Role */}
+                <div className="space-y-2">
+                  <Label>Papel</Label>
+                  <Select value={editRole} onValueChange={(v) => setEditRole(v as OrgRole)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o papel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ASSIGNABLE_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          <div className="flex flex-col">
+                            <span>{ORG_ROLE_LABELS[role].label}</span>
+                            <span className="text-xs text-muted-foreground">{ORG_ROLE_LABELS[role].description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Ao mudar o papel, as permissões padrão serão aplicadas. Você pode personalizá-las na aba "Permissões Detalhadas".
+                  </p>
+                </div>
+                
+                {/* Visibility - Only show for non-admin/owner roles */}
+                {!["admin", "owner"].includes(editRole) && (
+                  <div className="space-y-2">
+                    <Label>Visibilidade de Leads</Label>
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 font-medium">
+                          {editCanSeeAllLeads ? (
+                            <Eye className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <EyeOff className="w-4 h-4 text-amber-500" />
+                          )}
+                          {editCanSeeAllLeads ? "Ver todos os leads" : "Apenas seus leads"}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {editCanSeeAllLeads 
+                            ? "Pode visualizar todos os leads da empresa" 
+                            : "Só vê leads que criou ou é responsável"}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editCanSeeAllLeads}
+                        onCheckedChange={setEditCanSeeAllLeads}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {["admin", "owner"].includes(editRole) && (
+                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <Eye className="w-4 h-4" />
+                      <span className="text-sm font-medium">{ORG_ROLE_LABELS[editRole].label}s sempre veem todos os leads</span>
+                    </div>
+                  </div>
+                )}
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
+                    {isUpdatingRole && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    Salvar
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+              
+              <TabsContent value="permissoes" className="py-4">
+                {editingMember && (
+                  <UserPermissionsEditor 
+                    userId={editingMember.user_id} 
+                    userRole={editRole}
+                    onClose={() => setIsEditDialogOpen(false)}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
