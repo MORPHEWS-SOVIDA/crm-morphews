@@ -1395,6 +1395,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_messages_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: false
@@ -1604,6 +1611,66 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversations_view: {
+        Row: {
+          assigned_user_id: string | null
+          channel_name: string | null
+          channel_phone_number: string | null
+          channel_provider: string | null
+          contact_id: string | null
+          contact_name: string | null
+          contact_profile_pic: string | null
+          created_at: string | null
+          customer_phone_e164: string | null
+          id: string | null
+          instance_id: string | null
+          last_message_at: string | null
+          lead_id: string | null
+          organization_id: string | null
+          phone_number: string | null
+          sendable_phone: string | null
+          status: string | null
+          unread_count: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       backfill_contacts_from_existing_conversations: {
@@ -1659,6 +1726,15 @@ export type Database = {
           tenant_slug: string
           user_role: string
         }[]
+      }
+      grant_user_instance_access: {
+        Args: {
+          _can_send?: boolean
+          _can_view?: boolean
+          _instance_id: string
+          _user_id: string
+        }
+        Returns: undefined
       }
       has_role: {
         Args: {
