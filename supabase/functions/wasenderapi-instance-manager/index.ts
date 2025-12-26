@@ -132,22 +132,35 @@ serve(async (req) => {
         const isConnected = apiStatus === "connected";
         const internalStatus = mapStatus(apiStatus, isConnected);
 
-        // Fetch phone number if connected
+        // SEMPRE buscar phone number quando conectado (da API Wasender)
         let phoneNum = instance.phone_number;
         if (isConnected && instance.wasender_session_id && WASENDERAPI_TOKEN) {
+          console.log("Fetching session details for phone number...");
           const { data: details } = await safeFetch(
             `${WASENDERAPI_BASE_URL}/whatsapp-sessions/${instance.wasender_session_id}`,
             { headers: { "Authorization": `Bearer ${WASENDERAPI_TOKEN}` } }
           );
+          console.log("Session details response:", JSON.stringify(details).substring(0, 300));
+          
           if (details?.success && details.data?.phone_number) {
-            phoneNum = details.data.phone_number.replace(/\D/g, "");
+            phoneNum = normalizePhone(details.data.phone_number);
+            console.log("Extracted phone from session details:", phoneNum);
+          } else if (details?.data?.phone) {
+            phoneNum = normalizePhone(details.data.phone);
+            console.log("Extracted phone (alt) from session details:", phoneNum);
           }
+        }
+        
+        // Se ainda não tem phone, tentar pegar do endpoint de status
+        if (!phoneNum && statusData.phone) {
+          phoneNum = normalizePhone(statusData.phone);
+          console.log("Extracted phone from status response:", phoneNum);
         }
 
         // Update database - ALWAYS clear QR when connected
         await supabaseAdmin.from("whatsapp_instances").update({
           is_connected: isConnected,
-          phone_number: phoneNum,
+          phone_number: phoneNum || instance.phone_number,
           status: isConnected ? "active" : (internalStatus === "waiting_qr" ? "pending" : "disconnected"),
           qr_code_base64: isConnected ? null : instance.qr_code_base64,
         }).eq("id", instanceId);
@@ -156,7 +169,7 @@ serve(async (req) => {
           success: true, 
           status: internalStatus,
           isConnected,
-          phoneNumber: phoneNum,
+          phoneNumber: phoneNum || instance.phone_number,
           needsQr: !isConnected,
         });
       }

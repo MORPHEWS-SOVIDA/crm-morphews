@@ -195,8 +195,12 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     
     setIsSendingAudio(true);
     try {
-      // Extract raw base64 without data: prefix
-      const rawBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
+      // Enviar data URL completo - o backend vai fazer upload para storage
+      const dataUrl = base64.startsWith('data:') 
+        ? base64 
+        : `data:${mimeType};base64,${base64}`;
+
+      console.log("Sending audio, dataUrl length:", dataUrl.length, "mimeType:", mimeType);
       
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
@@ -204,7 +208,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           instanceId: selectedConversation.instance_id,
           content: "",
           messageType: "audio",
-          mediaBase64: rawBase64,
+          mediaUrl: dataUrl, // Enviar como mediaUrl data:
           mediaMimeType: mimeType,
         },
       });
@@ -260,10 +264,12 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
     setIsSendingImage(true);
     try {
-      // Extract raw base64 without data: prefix
-      const rawBase64 = selectedImage.base64.includes(',') 
-        ? selectedImage.base64.split(',')[1] 
-        : selectedImage.base64;
+      // Enviar data URL completo - o backend vai fazer upload para storage
+      const dataUrl = selectedImage.base64.startsWith('data:') 
+        ? selectedImage.base64 
+        : `data:${selectedImage.mimeType};base64,${selectedImage.base64}`;
+
+      console.log("Sending image, dataUrl length:", dataUrl.length, "mimeType:", selectedImage.mimeType);
 
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
@@ -271,7 +277,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           instanceId: selectedConversation.instance_id,
           content: messageText || "",
           messageType: "image",
-          mediaBase64: rawBase64,
+          mediaUrl: dataUrl, // Enviar como mediaUrl data:
           mediaMimeType: selectedImage.mimeType,
         },
       });
