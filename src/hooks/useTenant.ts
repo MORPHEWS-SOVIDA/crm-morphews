@@ -2,16 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
 
 // =============================================================================
 // TIPOS
 // =============================================================================
 
+// Usar o tipo do banco de dados para garantir consistência
+export type OrgRole = Database['public']['Enums']['org_role'];
+
 export interface Tenant {
   tenant_id: string;
   tenant_name: string;
   tenant_slug: string;
-  user_role: 'owner' | 'admin' | 'member';
+  user_role: OrgRole;
   joined_at: string;
 }
 
@@ -36,7 +40,7 @@ export interface Channel {
 export interface TenantMember {
   id: string;
   user_id: string;
-  role: 'owner' | 'admin' | 'member';
+  role: OrgRole;
   can_see_all_leads: boolean;
   created_at: string;
   profile?: {
@@ -259,7 +263,7 @@ export function useTenantRole(tenantId?: string | null) {
         return null;
       }
 
-      return data as 'owner' | 'admin' | 'member' | null;
+      return data as OrgRole | null;
     },
     enabled: !!user && !!effectiveTenantId,
   });
