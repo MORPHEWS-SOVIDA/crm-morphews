@@ -141,6 +141,35 @@ export type Database = {
           },
         ]
       }
+      delivery_region_users: {
+        Row: {
+          created_at: string
+          id: string
+          region_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          region_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          region_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_region_users_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_regions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_regions: {
         Row: {
           assigned_user_id: string | null

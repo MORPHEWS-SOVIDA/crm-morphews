@@ -3,15 +3,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from './useTenant';
 import { toast } from 'sonner';
 
+export interface DeliveryRegionUser {
+  id: string;
+  region_id: string;
+  user_id: string;
+  created_at: string;
+  user?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
 export interface DeliveryRegion {
   id: string;
   organization_id: string;
   name: string;
-  assigned_user_id: string | null;
+  assigned_user_id: string | null; // Legacy - kept for backwards compatibility
   is_active: boolean;
   created_at: string;
   updated_at: string;
   schedules?: DeliveryRegionSchedule[];
+  assigned_users?: DeliveryRegionUser[];
   assigned_user?: {
     first_name: string;
     last_name: string;
@@ -90,8 +102,16 @@ export function useDeliveryRegions() {
 
       if (schedulesError) throw schedulesError;
 
-      // Fetch assigned users
-      const userIds = regions.filter(r => r.assigned_user_id).map(r => r.assigned_user_id);
+      // Fetch assigned users from the new junction table
+      const { data: regionUsers, error: regionUsersError } = await supabase
+        .from('delivery_region_users')
+        .select('*')
+        .in('region_id', regionIds);
+
+      if (regionUsersError) throw regionUsersError;
+
+      // Fetch user profiles for all assigned users
+      const userIds = [...new Set(regionUsers?.map(ru => ru.user_id) || [])];
       let usersMap: Record<string, { first_name: string; last_name: string }> = {};
       
       if (userIds.length > 0) {
@@ -109,11 +129,20 @@ export function useDeliveryRegions() {
       }
 
       // Combine data
-      return regions.map(region => ({
-        ...region,
-        schedules: schedules?.filter(s => s.region_id === region.id) || [],
-        assigned_user: region.assigned_user_id ? usersMap[region.assigned_user_id] : null,
-      })) as DeliveryRegion[];
+      return regions.map(region => {
+        const assignedUsersForRegion = (regionUsers?.filter(ru => ru.region_id === region.id) || []).map(ru => ({
+          ...ru,
+          user: usersMap[ru.user_id] || null,
+        }));
+        
+        return {
+          ...region,
+          schedules: schedules?.filter(s => s.region_id === region.id) || [],
+          assigned_users: assignedUsersForRegion,
+          // Legacy support - use first user if exists
+          assigned_user: assignedUsersForRegion.length > 0 ? assignedUsersForRegion[0].user : null,
+        };
+      }) as DeliveryRegion[];
     },
     enabled: !!tenantId,
   });
@@ -131,7 +160,7 @@ export function useCreateDeliveryRegion() {
   return useMutation({
     mutationFn: async (data: {
       name: string;
-      assigned_user_id?: string | null;
+      assigned_user_ids?: string[];
       schedules: { day_of_week: number; shift: 'morning' | 'afternoon' | 'full_day' }[];
     }) => {
       if (!tenantId) throw new Error('Tenant não encontrado');
@@ -142,7 +171,6 @@ export function useCreateDeliveryRegion() {
         .insert({
           organization_id: tenantId,
           name: data.name,
-          assigned_user_id: data.assigned_user_id || null,
         })
         .select()
         .single();
@@ -164,6 +192,20 @@ export function useCreateDeliveryRegion() {
         if (schedulesError) throw schedulesError;
       }
 
+      // Create assigned users
+      if (data.assigned_user_ids && data.assigned_user_ids.length > 0) {
+        const { error: usersError } = await supabase
+          .from('delivery_region_users')
+          .insert(
+            data.assigned_user_ids.map(userId => ({
+              region_id: region.id,
+              user_id: userId,
+            }))
+          );
+
+        if (usersError) throw usersError;
+      }
+
       return region;
     },
     onSuccess: () => {
@@ -183,11 +225,11 @@ export function useUpdateDeliveryRegion() {
     mutationFn: async (data: {
       id: string;
       name?: string;
-      assigned_user_id?: string | null;
       is_active?: boolean;
+      assigned_user_ids?: string[];
       schedules?: { day_of_week: number; shift: 'morning' | 'afternoon' | 'full_day' }[];
     }) => {
-      const { id, schedules, ...updateData } = data;
+      const { id, schedules, assigned_user_ids, ...updateData } = data;
 
       // Update region
       const { error: regionError } = await supabase
@@ -218,6 +260,29 @@ export function useUpdateDeliveryRegion() {
             );
 
           if (schedulesError) throw schedulesError;
+        }
+      }
+
+      // Update assigned users if provided
+      if (assigned_user_ids !== undefined) {
+        // Delete existing assigned users
+        await supabase
+          .from('delivery_region_users')
+          .delete()
+          .eq('region_id', id);
+
+        // Insert new assigned users
+        if (assigned_user_ids.length > 0) {
+          const { error: usersError } = await supabase
+            .from('delivery_region_users')
+            .insert(
+              assigned_user_ids.map(userId => ({
+                region_id: id,
+                user_id: userId,
+              }))
+            );
+
+          if (usersError) throw usersError;
         }
       }
     },
