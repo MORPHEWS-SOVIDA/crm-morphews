@@ -20,7 +20,7 @@ import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useLead, useUpdateLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
-import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
+import { useDeliveryRegions, useActiveShippingCarriers, DELIVERY_TYPES, DeliveryType } from '@/hooks/useDeliveryConfig';
 
 export default function EditLead() {
   const { id } = useParams();
@@ -31,6 +31,7 @@ export default function EditLead() {
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
   const { data: deliveryRegions = [] } = useDeliveryRegions();
+  const shippingCarriers = useActiveShippingCarriers();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -66,6 +67,8 @@ export default function EditLead() {
     city: '',
     state: '',
     delivery_region_id: '',
+    preferred_delivery_type: '' as DeliveryType | '',
+    preferred_carrier_id: '',
   });
 
   useEffect(() => {
@@ -105,6 +108,8 @@ export default function EditLead() {
         city: lead.city || '',
         state: lead.state || '',
         delivery_region_id: lead.delivery_region_id || '',
+        preferred_delivery_type: '' as DeliveryType | '',
+        preferred_carrier_id: '',
       });
     }
   }, [lead]);
@@ -320,25 +325,80 @@ export default function EditLead() {
               onFieldChange={updateField}
             />
 
-            {/* Delivery Region */}
-            <div className="space-y-2 pt-4 border-t">
-              <Label htmlFor="delivery_region">Região de Entrega (Motoboy)</Label>
-              <Select
-                value={formData.delivery_region_id}
-                onValueChange={(value) => updateField('delivery_region_id', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a região de entrega" />
-                </SelectTrigger>
-                <SelectContent>
-                  {deliveryRegions.filter(r => r.is_active).map((region) => (
-                    <SelectItem key={region.id} value={region.id}>
-                      {region.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Usada para entregas por motoboy</p>
+            {/* Delivery Preference */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-2">
+                <Label>Método de Entrega Preferencial</Label>
+                <Select
+                  value={formData.preferred_delivery_type || ''}
+                  onValueChange={(value) => {
+                    updateField('preferred_delivery_type', value);
+                    // Clear related fields when changing delivery type
+                    if (value !== 'motoboy') {
+                      updateField('delivery_region_id', '');
+                    }
+                    if (value !== 'carrier') {
+                      updateField('preferred_carrier_id', '');
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o método de entrega" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DELIVERY_TYPES).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Show region selector only for motoboy */}
+              {formData.preferred_delivery_type === 'motoboy' && (
+                <div className="space-y-2">
+                  <Label htmlFor="delivery_region">Região de Entrega</Label>
+                  <Select
+                    value={formData.delivery_region_id}
+                    onValueChange={(value) => updateField('delivery_region_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a região" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deliveryRegions.filter(r => r.is_active).map((region) => (
+                        <SelectItem key={region.id} value={region.id}>
+                          {region.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Define as datas disponíveis para entrega por motoboy</p>
+                </div>
+              )}
+
+              {/* Show carrier selector only for carrier */}
+              {formData.preferred_delivery_type === 'carrier' && (
+                <div className="space-y-2">
+                  <Label htmlFor="preferred_carrier">Transportadora Preferencial</Label>
+                  <Select
+                    value={formData.preferred_carrier_id || ''}
+                    onValueChange={(value) => updateField('preferred_carrier_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a transportadora" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shippingCarriers.map((carrier) => (
+                        <SelectItem key={carrier.id} value={carrier.id}>
+                          {carrier.name} - R$ {(carrier.cost_cents / 100).toFixed(2)} ({carrier.estimated_days} dias)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
 
