@@ -1,4 +1,5 @@
-import { Search, Loader2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Search, Loader2, CheckCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -26,10 +27,18 @@ export function AddressFields({
   onFieldChange,
 }: AddressFieldsProps) {
   const { lookupCep, isLoading } = useCepLookup();
+  const lastLookedUpCep = useRef<string>('');
 
-  const handleCepLookup = async () => {
-    const address = await lookupCep(cep);
+  const handleCepLookup = async (cepToLookup?: string) => {
+    const targetCep = cepToLookup || cep;
+    const cleanCep = targetCep.replace(/\D/g, '');
+    
+    // Prevent duplicate lookups for the same CEP
+    if (cleanCep === lastLookedUpCep.current) return;
+    
+    const address = await lookupCep(targetCep);
     if (address) {
+      lastLookedUpCep.current = cleanCep;
       onFieldChange('street', address.street);
       onFieldChange('neighborhood', address.neighborhood);
       onFieldChange('city', address.city);
@@ -37,7 +46,7 @@ export function AddressFields({
     }
   };
 
-  const handleCepChange = (value: string) => {
+  const handleCepChange = async (value: string) => {
     // Format CEP as user types (00000-000)
     const cleaned = value.replace(/\D/g, '');
     let formatted = cleaned;
@@ -45,6 +54,11 @@ export function AddressFields({
       formatted = `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}`;
     }
     onFieldChange('cep', formatted);
+    
+    // Auto-lookup when CEP is complete (8 digits)
+    if (cleaned.length === 8 && cleaned !== lastLookedUpCep.current) {
+      await handleCepLookup(formatted);
+    }
   };
 
   return (
@@ -64,12 +78,14 @@ export function AddressFields({
               type="button"
               variant="outline"
               size="icon"
-              onClick={handleCepLookup}
+              onClick={() => handleCepLookup()}
               disabled={isLoading || cep.replace(/\D/g, '').length !== 8}
               title="Buscar endereço pelo CEP"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
+              ) : street && neighborhood && city && state ? (
+                <CheckCircle className="w-4 h-4 text-green-500" />
               ) : (
                 <Search className="w-4 h-4" />
               )}
