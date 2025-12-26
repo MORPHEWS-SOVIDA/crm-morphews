@@ -1649,22 +1649,31 @@ export type Database = {
       whatsapp_conversations_view: {
         Row: {
           assigned_user_id: string | null
-          channel_name: string | null
-          channel_phone_number: string | null
-          channel_provider: string | null
+          chat_id: string | null
           contact_id: string | null
           contact_name: string | null
           contact_profile_pic: string | null
           created_at: string | null
+          current_instance_id: string | null
           customer_phone_e164: string | null
+          display_name: string | null
+          group_subject: string | null
           id: string | null
           instance_id: string | null
+          is_group: boolean | null
           last_message_at: string | null
+          lead_email: string | null
           lead_id: string | null
+          lead_instagram: string | null
+          lead_name: string | null
+          lead_secondary_phone: string | null
+          lead_stage: Database["public"]["Enums"]["funnel_stage"] | null
+          lead_whatsapp: string | null
           organization_id: string | null
           phone_number: string | null
           sendable_phone: string | null
           status: string | null
+          title: string | null
           unread_count: number | null
           updated_at: string | null
         }
@@ -1674,6 +1683,20 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_current_instance_id_fkey"
+            columns: ["current_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_current_instance_id_fkey"
+            columns: ["current_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
           {
