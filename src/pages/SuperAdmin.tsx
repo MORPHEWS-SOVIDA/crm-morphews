@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { CouponsTab } from "@/components/super-admin/CouponsTab";
 import { WhatsAppCreditsTab } from "@/components/super-admin/WhatsAppCreditsTab";
 import { WhatsAppProvidersTab } from "@/components/super-admin/WhatsAppProvidersTab";
+import { AllUsersTab } from "@/components/super-admin/AllUsersTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -767,6 +768,10 @@ export default function SuperAdmin() {
             </TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
             <TabsTrigger value="users">Usuários sem Org</TabsTrigger>
+            <TabsTrigger value="all-users" className="gap-1">
+              <Users className="h-3 w-3" />
+              Todos Usuários
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="organizations">
@@ -1238,6 +1243,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="providers">
             <WhatsAppProvidersTab />
+          </TabsContent>
+
+          <TabsContent value="all-users">
+            <AllUsersTab />
           </TabsContent>
         </Tabs>
       </div>
