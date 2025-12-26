@@ -213,13 +213,12 @@ export default function EditLead() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="instagram">Instagram *</Label>
+                <Label htmlFor="instagram">Instagram</Label>
                 <Input
                   id="instagram"
                   value={formData.instagram}
                   onChange={(e) => updateField('instagram', e.target.value)}
                   placeholder="@usuario"
-                  required
                 />
               </div>
 
