@@ -12,7 +12,8 @@ import {
   LogOut,
   ShoppingCart,
   Crown,
-  UsersRound
+  UsersRound,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -46,6 +47,7 @@ export function Sidebar() {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
+    { icon: Package, label: 'Produtos', path: '/produtos' },
     ...(canSeeWhatsAppDMs ? [
       { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
       { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },

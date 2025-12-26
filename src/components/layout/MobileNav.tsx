@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -35,6 +35,7 @@ export function MobileNav() {
   ];
 
   const menuNavItems = [
+    { icon: Package, label: 'Produtos', path: '/produtos' },
     ...(canSeeWhatsAppDMs ? [
       { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
       { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
