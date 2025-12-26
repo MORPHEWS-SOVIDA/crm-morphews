@@ -4,15 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff, User, Phone, Save, Filter } from 'lucide-react';
+import { Instagram, Bell, Users, Tag, Package, Plus, X, Loader2, Lock, Eye, EyeOff, User, Phone, Save, Filter, ShieldAlert } from 'lucide-react';
 import { useLeadSources, useLeadProducts, useCreateLeadSource, useCreateLeadProduct, useDeleteLeadSource, useDeleteLeadProduct } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FunnelStagesManager } from '@/components/settings/FunnelStagesManager';
+import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 
 export default function Settings() {
   const { profile, updatePassword, user } = useAuth();
+  const { data: isOrgAdmin, isLoading: loadingPermissions } = useOrgAdmin();
   const { data: leadSources = [], isLoading: loadingSources } = useLeadSources();
   const { data: leadProducts = [], isLoading: loadingProducts } = useLeadProducts();
   const createSource = useCreateLeadSource();
@@ -177,6 +179,114 @@ export default function Settings() {
       setIsChangingPassword(false);
     }
   };
+
+  // Loading permissions
+  if (loadingPermissions) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Carregando permissões...</span>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Access denied for non-admins
+  if (!isOrgAdmin) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
+            <p className="text-muted-foreground mt-1">
+              Gerencie suas preferências
+            </p>
+          </div>
+
+          {/* Access Restricted Message */}
+          <div className="bg-card rounded-xl p-6 shadow-card border border-amber-500/30">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-lg bg-amber-500/10">
+                <ShieldAlert className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Acesso restrito</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Você não tem permissão para alterar Origens de Lead, Produtos e Etapas do Funil desta empresa.
+                  Solicite ao administrador que ajuste seu acesso caso precise realizar alterações.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* User can still change their password */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Change Password */}
+            <div className="bg-card rounded-xl p-6 shadow-card">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-amber-500/10">
+                  <Lock className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Alterar Senha</h2>
+                  <p className="text-sm text-muted-foreground">Mantenha sua conta segura</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Nova senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+                
+                <Button 
+                  onClick={handleChangePassword} 
+                  disabled={isChangingPassword || !newPassword || !confirmPassword}
+                  className="w-full"
+                >
+                  {isChangingPassword ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Lock className="w-4 h-4 mr-2" />
+                  )}
+                  Alterar Senha
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
