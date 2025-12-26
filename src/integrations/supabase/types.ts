@@ -871,6 +871,53 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_view: boolean
+          created_at: string
+          id: string
+          organization_id: string
+          resource: string
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          organization_id: string
+          resource: string
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          organization_id?: string
+          resource?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string
@@ -1846,6 +1893,10 @@ export type Database = {
         Args: { org_id: string }
         Returns: undefined
       }
+      initialize_org_role_permissions: {
+        Args: { org_id: string }
+        Returns: undefined
+      }
       is_current_user_org_admin: { Args: never; Returns: boolean }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
@@ -1886,6 +1937,10 @@ export type Database = {
         Args: { _lead_id: string; _user_id: string }
         Returns: boolean
       }
+      user_has_permission: {
+        Args: { _action: string; _resource: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
@@ -1899,7 +1954,14 @@ export type Database = {
         | "success"
         | "trash"
         | "cloud"
-      org_role: "owner" | "admin" | "member"
+      org_role:
+        | "owner"
+        | "admin"
+        | "member"
+        | "manager"
+        | "seller"
+        | "shipping"
+        | "finance"
       subscription_status:
         | "active"
         | "canceled"
@@ -2045,7 +2107,15 @@ export const Constants = {
         "trash",
         "cloud",
       ],
-      org_role: ["owner", "admin", "member"],
+      org_role: [
+        "owner",
+        "admin",
+        "member",
+        "manager",
+        "seller",
+        "shipping",
+        "finance",
+      ],
       subscription_status: [
         "active",
         "canceled",
