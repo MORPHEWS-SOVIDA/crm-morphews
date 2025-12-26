@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package, Truck, ShoppingCart as SalesIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package, Truck, ShoppingCart as SalesIcon, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -40,6 +40,7 @@ export function MobileNav() {
   const menuNavItems = [
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     { icon: Package, label: 'Produtos', path: '/produtos' },
+    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas' },
     ...(isEntregador ? [
       { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' },
     ] : []),
