@@ -487,18 +487,32 @@ async function processWasenderMessage(instance: any, body: any) {
   console.log("=== WasenderAPI message ===");
   console.log("Phone:", sendablePhone, "Text:", text?.substring(0, 50), "Type:", messageType, "FromMe:", isFromMe, "IsGroup:", isGroup);
 
+  // STABLE: chat_id é o remoteJid original (ex: 5511999999999@s.whatsapp.net ou 123456@g.us)
+  const chatId = remoteJid; // stable key for upsert
+  const isGroupFinal = remoteJid.endsWith("@g.us");
+
+  // group subject if provided by payload
+  const groupSubject =
+    msgData?.group?.subject ||
+    msgData?.group_subject ||
+    msgData?.groupSubject ||
+    msgData?.groupName ||
+    msgData?.chat?.name ||
+    null;
+
   // GRUPOS: extrair ID do grupo como "phone_number" e criar conversa normal
   let finalPhoneForConv = phoneForConv;
   let finalSendablePhone = sendablePhone;
-  let groupName = "";
   
-  if (isGroup) {
+  if (isGroupFinal) {
     // Para grupos, usar o ID do grupo (sem @g.us) como identificador
     finalPhoneForConv = remoteJid.replace("@g.us", "");
     finalSendablePhone = finalPhoneForConv; // Grupos não têm "sendable_phone" E.164
-    groupName = msgData.groupSubject || msgData.groupName || `Grupo ${finalPhoneForConv.slice(-4)}`;
-    console.log("Group message - ID:", finalPhoneForConv, "Name:", groupName);
+    console.log("Group message - ID:", finalPhoneForConv, "Name:", groupSubject || "Grupo");
   }
+
+  // display_name: usar subject/nome de grupo quando houver, senão contactName
+  const displayName = isGroupFinal ? (groupSubject || "Grupo") : (senderName || null);
 
   // Process media
   let processedContent = text || caption || null;
@@ -518,12 +532,12 @@ async function processWasenderMessage(instance: any, body: any) {
   const conversation = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
-    remoteJid, // chat_id estável (JID completo)
+    chatId, // remoteJid original - chave estável
     finalPhoneForConv,
     finalSendablePhone,
-    isGroup,
-    isGroup ? groupName : undefined,
-    isGroup ? undefined : senderName
+    isGroupFinal,
+    isGroupFinal ? groupSubject : undefined,
+    isGroupFinal ? undefined : senderName
   );
 
   // Save message with provider_message_id
