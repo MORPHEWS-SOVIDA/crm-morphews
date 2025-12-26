@@ -14,13 +14,15 @@ import {
   Crown,
   UsersRound,
   Package,
-  ShoppingCart as SalesIcon
+  ShoppingCart as SalesIcon,
+  Truck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
+import { useTenantRole } from '@/hooks/useTenant';
 import logoMorphews from '@/assets/logo-morphews.png';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
@@ -29,9 +31,11 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
   const { data: orgSettings } = useOrganizationSettings();
+  const { data: tenantRole } = useTenantRole();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  const isEntregador = tenantRole === 'entregador';
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
@@ -50,6 +54,9 @@ export function Sidebar() {
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
     { icon: Package, label: 'Produtos', path: '/produtos' },
     { icon: SalesIcon, label: 'Vendas', path: '/vendas' },
+    ...(isEntregador ? [
+      { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' },
+    ] : []),
     ...(canSeeWhatsAppDMs ? [
       { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
       { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
