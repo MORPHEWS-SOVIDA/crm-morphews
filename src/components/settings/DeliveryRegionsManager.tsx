@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Dialog,
   DialogContent,
@@ -11,13 +10,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -28,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Loader2, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { MultiSelect } from '@/components/MultiSelect';
 import {
   useDeliveryRegions,
   useCreateDeliveryRegion,
@@ -39,9 +32,11 @@ import {
 } from '@/hooks/useDeliveryConfig';
 import { useUsers } from '@/hooks/useUsers';
 
+type ShiftType = 'morning' | 'afternoon' | 'full_day';
+
 interface ScheduleInput {
   day_of_week: number;
-  shift: 'morning' | 'afternoon' | 'full_day';
+  shift: ShiftType;
 }
 
 export function DeliveryRegionsManager() {
@@ -54,14 +49,19 @@ export function DeliveryRegionsManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRegion, setEditingRegion] = useState<DeliveryRegion | null>(null);
   const [name, setName] = useState('');
-  const [assignedUserId, setAssignedUserId] = useState<string>('');
+  const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [dayShifts, setDayShifts] = useState<Record<number, 'morning' | 'afternoon' | 'full_day'>>({});
+  const [dayShifts, setDayShifts] = useState<Record<number, ShiftType[]>>({});
+
+  const userOptions = users.map(user => ({
+    value: user.id,
+    label: `${user.first_name} ${user.last_name}`,
+  }));
 
   const openCreateDialog = () => {
     setEditingRegion(null);
     setName('');
-    setAssignedUserId('');
+    setAssignedUserIds([]);
     setSelectedDays([]);
     setDayShifts({});
     setDialogOpen(true);
@@ -70,14 +70,21 @@ export function DeliveryRegionsManager() {
   const openEditDialog = (region: DeliveryRegion) => {
     setEditingRegion(region);
     setName(region.name);
-    setAssignedUserId(region.assigned_user_id || '');
     
-    const days = region.schedules?.map(s => s.day_of_week) || [];
-    setSelectedDays([...new Set(days)]);
+    // Load assigned users from the new array
+    const userIds = region.assigned_users?.map(au => au.user_id) || [];
+    setAssignedUserIds(userIds);
     
-    const shifts: Record<number, 'morning' | 'afternoon' | 'full_day'> = {};
+    // Group schedules by day and collect all shifts per day
+    const days = [...new Set(region.schedules?.map(s => s.day_of_week) || [])];
+    setSelectedDays(days);
+    
+    const shifts: Record<number, ShiftType[]> = {};
     region.schedules?.forEach(s => {
-      shifts[s.day_of_week] = s.shift;
+      if (!shifts[s.day_of_week]) {
+        shifts[s.day_of_week] = [];
+      }
+      shifts[s.day_of_week].push(s.shift);
     });
     setDayShifts(shifts);
     
@@ -92,34 +99,51 @@ export function DeliveryRegionsManager() {
       setDayShifts(newShifts);
     } else {
       setSelectedDays([...selectedDays, day]);
-      setDayShifts({ ...dayShifts, [day]: 'full_day' });
+      setDayShifts({ ...dayShifts, [day]: ['full_day'] });
     }
   };
 
-  const handleShiftChange = (day: number, shift: 'morning' | 'afternoon' | 'full_day') => {
-    setDayShifts({ ...dayShifts, [day]: shift });
+  const handleShiftToggle = (day: number, shift: ShiftType) => {
+    const currentShifts = dayShifts[day] || [];
+    
+    if (currentShifts.includes(shift)) {
+      // Remove shift, but ensure at least one remains
+      const newShifts = currentShifts.filter(s => s !== shift);
+      if (newShifts.length === 0) {
+        // If removing last one, keep it
+        return;
+      }
+      setDayShifts({ ...dayShifts, [day]: newShifts });
+    } else {
+      // Add shift
+      setDayShifts({ ...dayShifts, [day]: [...currentShifts, shift] });
+    }
   };
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
 
-    const schedules: ScheduleInput[] = selectedDays.map(day => ({
-      day_of_week: day,
-      shift: dayShifts[day] || 'full_day',
-    }));
+    // Build schedules array - one entry per day/shift combination
+    const schedules: ScheduleInput[] = [];
+    selectedDays.forEach(day => {
+      const shifts = dayShifts[day] || ['full_day'];
+      shifts.forEach(shift => {
+        schedules.push({ day_of_week: day, shift });
+      });
+    });
 
     try {
       if (editingRegion) {
         await updateRegion.mutateAsync({
           id: editingRegion.id,
           name: name.trim(),
-          assigned_user_id: assignedUserId || null,
+          assigned_user_ids: assignedUserIds,
           schedules,
         });
       } else {
         await createRegion.mutateAsync({
           name: name.trim(),
-          assigned_user_id: assignedUserId || null,
+          assigned_user_ids: assignedUserIds,
           schedules,
         });
       }
@@ -141,6 +165,16 @@ export function DeliveryRegionsManager() {
     
     const days = [...new Set(region.schedules.map(s => s.day_of_week))].sort();
     return days.map(d => DAYS_OF_WEEK[d].short).join(', ');
+  };
+
+  const formatAssignedUsers = (region: DeliveryRegion): React.ReactNode => {
+    if (!region.assigned_users || region.assigned_users.length === 0) {
+      return <span className="text-muted-foreground">Não atribuído</span>;
+    }
+    
+    return region.assigned_users.map(au => 
+      au.user ? `${au.user.first_name} ${au.user.last_name}` : 'Usuário'
+    ).join(', ');
   };
 
   if (isLoading) {
@@ -178,7 +212,7 @@ export function DeliveryRegionsManager() {
             <TableHeader>
               <TableRow>
                 <TableHead>Região</TableHead>
-                <TableHead>Entregador</TableHead>
+                <TableHead>Entregadores</TableHead>
                 <TableHead>Dias</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
@@ -189,10 +223,7 @@ export function DeliveryRegionsManager() {
                 <TableRow key={region.id}>
                   <TableCell className="font-medium">{region.name}</TableCell>
                   <TableCell>
-                    {(region as DeliveryRegion).assigned_user 
-                      ? `${(region as DeliveryRegion).assigned_user!.first_name} ${(region as DeliveryRegion).assigned_user!.last_name}`
-                      : <span className="text-muted-foreground">Não atribuído</span>
-                    }
+                    {formatAssignedUsers(region)}
                   </TableCell>
                   <TableCell className="text-sm">
                     {formatScheduleSummary(region)}
@@ -249,20 +280,16 @@ export function DeliveryRegionsManager() {
             </div>
 
             <div className="space-y-2">
-              <Label>Entregador Responsável</Label>
-              <Select value={assignedUserId} onValueChange={setAssignedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um entregador (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.first_name} {user.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Entregadores Responsáveis</Label>
+              <MultiSelect
+                options={userOptions}
+                selected={assignedUserIds}
+                onChange={setAssignedUserIds}
+                placeholder="Selecione os entregadores (opcional)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Você pode selecionar mais de um entregador para esta região.
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -286,16 +313,13 @@ export function DeliveryRegionsManager() {
                     
                     {selectedDays.includes(day.value) && (
                       <div className="ml-7 pl-4 border-l-2 border-muted">
-                        <RadioGroup
-                          value={dayShifts[day.value] || 'full_day'}
-                          onValueChange={(v) => handleShiftChange(day.value, v as 'morning' | 'afternoon' | 'full_day')}
-                          className="flex flex-wrap gap-4"
-                        >
+                        <div className="flex flex-wrap gap-4">
                           {SHIFTS.map((shift) => (
                             <div key={shift.value} className="flex items-center gap-2">
-                              <RadioGroupItem 
-                                value={shift.value} 
-                                id={`${day.value}-${shift.value}`} 
+                              <Checkbox
+                                id={`${day.value}-${shift.value}`}
+                                checked={(dayShifts[day.value] || []).includes(shift.value as ShiftType)}
+                                onCheckedChange={() => handleShiftToggle(day.value, shift.value as ShiftType)}
                               />
                               <Label 
                                 htmlFor={`${day.value}-${shift.value}`} 
@@ -305,14 +329,14 @@ export function DeliveryRegionsManager() {
                               </Label>
                             </div>
                           ))}
-                        </RadioGroup>
+                        </div>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Selecione os dias em que há entrega nesta região e o turno correspondente.
+                Selecione os dias e turnos de entrega. Você pode marcar mais de um turno por dia.
               </p>
             </div>
           </div>
