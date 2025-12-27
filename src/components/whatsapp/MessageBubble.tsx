@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Bot, Check, CheckCheck, Clock, Download, ImageIcon } from 'lucide-react';
+import { Bot, Check, CheckCheck, Clock, Download, ImageIcon, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Message {
   id: string;
@@ -14,6 +15,7 @@ interface Message {
   created_at: string;
   is_from_bot: boolean;
   status: string | null;
+  error_details?: string | null;
 }
 
 interface MessageBubbleProps {
@@ -33,10 +35,24 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         return <CheckCheck className="h-3 w-3" />;
       case 'read':
         return <CheckCheck className="h-3 w-3 text-blue-400" />;
+      case 'failed':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertTriangle className="h-3 w-3 text-red-500 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-xs font-medium text-red-600">Falha no envio</p>
+                <p className="text-xs text-muted-foreground">
+                  {message.error_details || 'Erro desconhecido. Tente novamente.'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       default:
-        return message.status === 'failed' ? (
-          <span className="text-red-400 text-xs">!</span>
-        ) : null;
+        return null;
     }
   };
 
@@ -180,7 +196,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           isOutbound
             ? "bg-[#dcf8c6] dark:bg-green-900/60 text-foreground rounded-br-md"
             : "bg-card border border-border rounded-bl-md",
-          message.is_from_bot && "border-l-2 border-l-blue-400"
+          message.is_from_bot && "border-l-2 border-l-blue-400",
+          message.status === 'failed' && "border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30"
         )}
       >
         {/* Bot indicator */}

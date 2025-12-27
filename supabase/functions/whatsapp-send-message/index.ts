@@ -499,6 +499,26 @@ Deno.serve(async (req) => {
     // IMPORTANTE: sempre responder 200 para não “esconder” o JSON de erro no frontend.
     if (!sendResult.success) {
       console.error(`[${requestId}] ❌ Failed to send message:`, sendResult.error);
+      
+      // Log error to database for super admin monitoring
+      try {
+        await supabaseAdmin.from("error_logs").insert({
+          organization_id: organizationId,
+          error_type: "WHATSAPP_SEND_FAILED",
+          error_message: sendResult.error || "Falha ao enviar mensagem",
+          error_details: {
+            instance_id: instanceId,
+            conversation_id: conversationId,
+            message_type: finalType,
+            to: to.substring(0, 20),
+            provider_response: sendResult.raw
+          },
+          source: "whatsapp",
+        });
+      } catch (logErr) {
+        console.error(`[${requestId}] ⚠️ Failed to log error:`, logErr);
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
@@ -524,6 +544,20 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     console.error(`[${requestId}] ❌ Unexpected error:`, error);
+    
+    // Log unexpected errors too
+    try {
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      await supabaseAdmin.from("error_logs").insert({
+        organization_id: null,
+        error_type: "WHATSAPP_SEND_UNEXPECTED",
+        error_message: error?.message || "Erro inesperado",
+        error_details: { stack: error?.stack },
+        source: "whatsapp",
+      });
+    } catch (logErr) {
+      console.error("⚠️ Failed to log unexpected error:", logErr);
+    }
 
     // Também retornar 200 para expor a mensagem real no frontend.
     return new Response(
