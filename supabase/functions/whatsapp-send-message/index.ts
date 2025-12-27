@@ -11,7 +11,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") ?? "";
 const PUBLIC_APP_URL = Deno.env.get("PUBLIC_APP_URL") ?? "";
 
-const WASENDER_BASE = "https://wasenderapi.com";
+const WASENDER_BASE = "https://www.wasenderapi.com";
 
 // ============================================================================
 // HMAC TOKEN GENERATION (for secure media proxy URLs)
@@ -327,21 +327,21 @@ Deno.serve(async (req) => {
       console.error(`[${requestId}] ❌ Missing organizationId`);
       return new Response(
         JSON.stringify({ success: false, error: "organizationId é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     if (!instanceId) {
       console.error(`[${requestId}] ❌ Missing instanceId`);
       return new Response(
         JSON.stringify({ success: false, error: "instanceId é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     if (!conversationId) {
       console.error(`[${requestId}] ❌ Missing conversationId`);
       return new Response(
         JSON.stringify({ success: false, error: "conversationId é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -353,10 +353,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (instErr || !instance) {
-      console.error(`[${requestId}] ❌ Instance not found:`, instanceId);
+      console.error(`[${requestId}] ❌ Instance not found:`, instanceId, instErr);
       return new Response(
         JSON.stringify({ success: false, error: "Instância não encontrada" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     if (!instance.wasender_api_key) {
@@ -376,8 +376,14 @@ Deno.serve(async (req) => {
     }
 
     // Destination: prefer chatId (stable JID), fallback to phone
-    const to = (chatId || phone || "").toString().trim();
-    if (!to) {
+    const toRaw = (chatId || phone || "").toString().trim();
+
+    // Wasender docs use E.164 with "+" for individual numbers; keep JIDs as-is (e.g. @g.us)
+    const to = toRaw.includes("@")
+      ? toRaw
+      : (toRaw.startsWith("+") ? toRaw : `+${toRaw.replace(/[^0-9]/g, "")}`);
+
+    if (!to || to === "+") {
       console.error(`[${requestId}] ❌ No destination (chatId/phone)`);
       return new Response(
         JSON.stringify({ success: false, error: "Destino inválido (chatId/phone vazio)" }),
