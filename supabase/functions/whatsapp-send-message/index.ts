@@ -363,15 +363,16 @@ Deno.serve(async (req) => {
       console.error(`[${requestId}] ❌ Instance not configured (no API key)`);
       return new Response(
         JSON.stringify({ success: false, error: "Instância Wasender não configurada" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // NÃO bloquear envio por is_connected (pode estar desatualizado). Se estiver desconectado,
+    // o Wasender vai retornar erro e a UI mostrará o motivo real.
     if (!instance.is_connected) {
-      console.error(`[${requestId}] ❌ Instance not connected`);
-      return new Response(
-        JSON.stringify({ success: false, error: "WhatsApp não está conectado" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.warn(`[${requestId}] ⚠️ Instance marked as not connected in DB (continuing anyway)`, {
+        instance_id: instanceId,
+      });
     }
 
     // Destination: prefer chatId (stable JID), fallback to phone
@@ -380,7 +381,7 @@ Deno.serve(async (req) => {
       console.error(`[${requestId}] ❌ No destination (chatId/phone)`);
       return new Response(
         JSON.stringify({ success: false, error: "Destino inválido (chatId/phone vazio)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -393,25 +394,24 @@ Deno.serve(async (req) => {
     // NOVO MODO: mediaStoragePath (arquivo já no storage, evita base64 grande)
     if (mediaStoragePath && typeof mediaStoragePath === "string") {
       console.log(`[${requestId}] 📎 Processing media from storage path:`, mediaStoragePath);
-      
+
       // Validar que o path pertence à org (segurança contra cross-tenant)
       if (!mediaStoragePath.startsWith(`orgs/${organizationId}/`)) {
         console.error(`[${requestId}] ❌ Invalid storage path (cross-tenant attempt)`);
         return new Response(
           JSON.stringify({ success: false, error: "Caminho de mídia inválido" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       // Gerar URL segura via proxy
       finalMediaUrl = await generateMediaProxyUrl(mediaStoragePath);
       console.log(`[${requestId}] ✅ Media ready for sending via storage path`);
-      
     } else if (mediaUrl && isDataUrl(mediaUrl)) {
       console.log(`[${requestId}] 📎 Processing media attachment (data URL - legacy mode)`);
-      
+
       const parsed = parseDataUrl(mediaUrl);
-      
+
       // Upload to PRIVATE storage and get secure proxy URL
       finalMediaUrl = await uploadMediaAndGetProxyUrl(
         supabaseAdmin,
@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
         parsed.base64,
         parsed.mime
       );
-      
+
       console.log(`[${requestId}] ✅ Media ready for sending via proxy`);
     } else if (mediaUrl && typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
       // External URL - use as-is (user's responsibility)
@@ -431,7 +431,7 @@ Deno.serve(async (req) => {
 
     // Send message via Wasender
     console.log(`[${requestId}] 📤 Sending ${finalType} message to Wasender...`);
-    
+
     const sendResult = await sendWasenderMessage({
       apiKey: instance.wasender_api_key,
       to,
@@ -481,7 +481,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversationId);
 
-    // Return appropriate status code based on send result
+    // IMPORTANTE: sempre responder 200 para não “esconder” o JSON de erro no frontend.
     if (!sendResult.success) {
       console.error(`[${requestId}] ❌ Failed to send message:`, sendResult.error);
       return new Response(
@@ -491,12 +491,12 @@ Deno.serve(async (req) => {
           providerMessageId: null,
           error: sendResult.error,
         }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log(`[${requestId}] ✅ Message sent successfully`);
-    
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -509,9 +509,11 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     console.error(`[${requestId}] ❌ Unexpected error:`, error);
+
+    // Também retornar 200 para expor a mensagem real no frontend.
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, error: error?.message || "Erro inesperado" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
