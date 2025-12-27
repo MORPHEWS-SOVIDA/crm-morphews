@@ -10,6 +10,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  * - Token is HMAC-SHA256(path:exp, WHATSAPP_MEDIA_TOKEN_SECRET)
  * - Expires in 5 minutes (300 seconds)
  * - Never exposes storage directly
+ * - Path traversal protection (rejects ".." and paths not starting with "orgs/")
+ * - Simple in-memory rate limiting per IP
  */
 
 const corsHeaders = {
@@ -20,6 +22,70 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") ?? "";
+
+// ============================================================================
+// RATE LIMITING (in-memory, best-effort)
+// ============================================================================
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 60 seconds
+const RATE_LIMIT_MAX_REQUESTS = 100; // max requests per IP per window
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    console.warn(`⚠️ Rate limit exceeded for IP: ${ip}`);
+    return true;
+  }
+  
+  return false;
+}
+
+// Cleanup old entries periodically (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// ============================================================================
+// PATH SECURITY VALIDATION
+// ============================================================================
+
+function isPathSafe(path: string): { safe: boolean; reason?: string } {
+  // Check for path traversal attempts
+  if (path.includes("..")) {
+    return { safe: false, reason: "Path traversal detected (..)" };
+  }
+  
+  // Must start with orgs/
+  if (!path.startsWith("orgs/")) {
+    return { safe: false, reason: "Path must start with orgs/" };
+  }
+  
+  // Check for null bytes
+  if (path.includes("\0")) {
+    return { safe: false, reason: "Null byte in path" };
+  }
+  
+  // Check for double slashes
+  if (path.includes("//")) {
+    return { safe: false, reason: "Double slashes in path" };
+  }
+  
+  return { safe: true };
+}
 
 const BUCKET_NAME = "whatsapp-media";
 
@@ -173,6 +239,20 @@ Deno.serve(async (req) => {
   const requestId = crypto.randomUUID().split('-')[0];
   console.log(`\n========== [${requestId}] WHATSAPP MEDIA PROXY ==========`);
 
+  // Get client IP for rate limiting
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
+    || req.headers.get("x-real-ip") 
+    || "unknown";
+
+  // Rate limiting check
+  if (isRateLimited(clientIp)) {
+    console.error(`[${requestId}] ❌ Rate limit exceeded for IP: ${clientIp}`);
+    return new Response(
+      JSON.stringify({ error: "Too many requests" }), 
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" } }
+    );
+  }
+
   try {
     const url = new URL(req.url);
     
@@ -188,7 +268,26 @@ Deno.serve(async (req) => {
 
     // Check if using new HMAC token format
     if (path && expStr && token) {
-      console.log(`[${requestId}] Processing HMAC token request`);
+      console.log(`[${requestId}] Processing HMAC token request`, { ip: clientIp });
+      
+      // Validate path is not empty
+      if (!path.trim()) {
+        console.error(`[${requestId}] ❌ Empty path parameter`);
+        return new Response(
+          JSON.stringify({ error: "Path cannot be empty" }), 
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Security: validate path safety
+      const pathCheck = isPathSafe(path);
+      if (!pathCheck.safe) {
+        console.error(`[${requestId}] ❌ Unsafe path rejected:`, pathCheck.reason);
+        return new Response(
+          JSON.stringify({ error: "Invalid path" }), 
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       const exp = parseInt(expStr, 10);
       if (isNaN(exp)) {
@@ -212,7 +311,7 @@ Deno.serve(async (req) => {
       
     } else if (token && !path && !expStr) {
       // Legacy format: ?token=<uuid> (database-based)
-      console.log(`[${requestId}] Processing legacy token request`);
+      console.log(`[${requestId}] Processing legacy token request`, { ip: clientIp });
       
       const legacyData = await verifyLegacyToken(token, supabaseAdmin);
       if (!legacyData) {
@@ -233,7 +332,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Download file from storage
+    // Download file from storage using SERVICE ROLE
     console.log(`[${requestId}] Downloading from storage:`, { bucket: BUCKET_NAME, path: objectPath });
     
     const { data: fileData, error: fileError } = await supabaseAdmin
@@ -252,7 +351,8 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] ✅ Serving file:`, { 
       path: objectPath, 
       contentType, 
-      size: fileData.size 
+      size: fileData.size,
+      ip: clientIp
     });
     
     return new Response(fileData, {
@@ -260,7 +360,7 @@ Deno.serve(async (req) => {
       headers: {
         ...corsHeaders,
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=300", // Cache for 5 minutes (match token expiry)
+        "Cache-Control": "private, max-age=60", // Short cache, private
         "Content-Disposition": "inline",
       },
     });
