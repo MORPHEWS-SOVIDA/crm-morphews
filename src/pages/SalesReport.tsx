@@ -47,6 +47,7 @@ import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConf
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentTenantId } from "@/hooks/useTenant";
 
+const STATUS_OPTIONS = [
   { value: "all", label: "Todos os Status" },
   { value: "draft", label: "Rascunho" },
   { value: "pending_expedition", label: "Aguardando Expedição" },
