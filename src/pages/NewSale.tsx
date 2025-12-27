@@ -236,6 +236,8 @@ export default function NewSale() {
         scheduled_delivery_shift: deliveryConfig.scheduledShift,
         shipping_carrier_id: deliveryConfig.carrierId,
         shipping_cost_cents: deliveryConfig.shippingCost,
+        payment_method_id: selectedPaymentMethodId,
+        payment_installments: selectedInstallments,
       });
 
       navigate(`/vendas`);

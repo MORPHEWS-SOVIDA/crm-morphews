@@ -1265,7 +1265,9 @@ export type Database = {
           organization_id: string
           payment_confirmed_at: string | null
           payment_confirmed_by: string | null
+          payment_installments: number | null
           payment_method: string | null
+          payment_method_id: string | null
           payment_notes: string | null
           payment_proof_url: string | null
           scheduled_delivery_date: string | null
@@ -1304,7 +1306,9 @@ export type Database = {
           organization_id: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null
+          payment_installments?: number | null
           payment_method?: string | null
+          payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
           scheduled_delivery_date?: string | null
@@ -1343,7 +1347,9 @@ export type Database = {
           organization_id?: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null
+          payment_installments?: number | null
           payment_method?: string | null
+          payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
           scheduled_delivery_date?: string | null
@@ -1378,6 +1384,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id"]
           },
           {
