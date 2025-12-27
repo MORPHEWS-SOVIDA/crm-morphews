@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -7,16 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { 
-  FileText, 
-  Printer, 
-  Filter, 
-  ChevronDown, 
+import {
+  FileText,
+  Printer,
+  Filter,
+  ChevronDown,
   ChevronUp,
   TrendingUp,
   Package,
@@ -26,14 +39,14 @@ import {
   Calendar,
   Search,
   X,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { useSales } from "@/hooks/useSales";
 import { useUsers } from "@/hooks/useUsers";
 import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConfig";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentTenantId } from "@/hooks/useTenant";
-const STATUS_OPTIONS = [
+
   { value: "all", label: "Todos os Status" },
   { value: "draft", label: "Rascunho" },
   { value: "pending_expedition", label: "Aguardando Expedição" },
@@ -254,9 +267,13 @@ export default function SalesReport() {
 
   const handlePrintSelected = () => {
     if (selectedSales.length === 0) return;
-    // Open print page with selected sale IDs
-    const ids = selectedSales.join(",");
-    window.open(`/romaneio-print?ids=${ids}`, "_blank");
+
+    // Abre 1 romaneio por venda (evita rota inexistente e funciona em qualquer ambiente)
+    selectedSales.forEach((saleId, idx) => {
+      setTimeout(() => {
+        window.open(`/vendas/${saleId}/romaneio?auto=true`, "_blank");
+      }, idx * 150);
+    });
   };
 
   const clearFilters = () => {
@@ -774,14 +791,17 @@ export default function SalesReport() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/sales/${sale.id}`)}
+                              onClick={() => navigate(`/vendas/${sale.id}`)}
                             >
                               Ver
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(`/romaneio-print/${sale.id}`, "_blank")}
+                              onClick={() =>
+                                window.open(`/vendas/${sale.id}/romaneio?auto=true`, "_blank")
+                              }
+                              aria-label="Imprimir romaneio"
                             >
                               <Printer className="h-4 w-4" />
                             </Button>
