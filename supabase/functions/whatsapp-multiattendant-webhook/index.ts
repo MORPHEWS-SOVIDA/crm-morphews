@@ -827,15 +827,63 @@ serve(async (req) => {
       else if (provider === "zapi") await processZapiMessage(instance, body);
     } else if (event === "messages.update" || event === "MessageStatusCallback") {
       await handleMessageStatusUpdate(instance, body);
-    } else if (event === "connection.update") {
-      const status = body.data?.state || body.data?.connection;
-      const isConnected = status === "open" || status === "connected";
-      await supabase.from("whatsapp_instances").update({ 
+    } else if (event === "connection.update" || event === "session.status" || event === "StatusCallback") {
+      // =========================================================================
+      // CONNECTION STATUS UPDATE - Atualiza número conectado
+      // =========================================================================
+      const status = body.data?.state || body.data?.connection || body.data?.status || body.status || "";
+      const isConnected = status === "open" || status === "connected" || status === "ready";
+      
+      // Tentar extrair o número do telefone conectado do payload
+      let phoneNumber = null;
+      
+      // Wasender pode enviar o número em diferentes campos
+      if (body.data?.phone) {
+        phoneNumber = normalizePhoneE164(body.data.phone);
+      } else if (body.data?.phoneNumber) {
+        phoneNumber = normalizePhoneE164(body.data.phoneNumber);
+      } else if (body.data?.connectedPhone) {
+        phoneNumber = normalizePhoneE164(body.data.connectedPhone);
+      } else if (body.data?.me?.user) {
+        phoneNumber = normalizePhoneE164(body.data.me.user);
+      } else if (body.data?.jid) {
+        // O jid geralmente é algo como "5511999999999@s.whatsapp.net"
+        const jidPhone = (body.data.jid || "").replace("@s.whatsapp.net", "").replace("@c.us", "");
+        if (jidPhone) {
+          phoneNumber = normalizePhoneE164(jidPhone);
+        }
+      } else if (body.phone) {
+        phoneNumber = normalizePhoneE164(body.phone);
+      }
+      
+      console.log("📱 Connection update:", {
+        instance_id: instance.id,
+        status,
+        is_connected: isConnected,
+        phone_detected: phoneNumber,
+        raw_data: JSON.stringify(body.data || body).substring(0, 500)
+      });
+      
+      // Preparar update para o banco
+      const updateData: any = {
         is_connected: isConnected,
         status: isConnected ? "active" : "disconnected",
-        qr_code_base64: isConnected ? null : undefined,
-      }).eq("id", instance.id);
-      console.log("Connection updated:", status);
+        updated_at: new Date().toISOString(),
+      };
+      
+      // SEMPRE limpar QR quando conectado
+      if (isConnected) {
+        updateData.qr_code_base64 = null;
+      }
+      
+      // Se temos um número, SEMPRE atualizar (para refletir troca de número)
+      if (phoneNumber) {
+        updateData.phone_number = phoneNumber;
+        console.log("📱 Updating phone_number to:", phoneNumber);
+      }
+      
+      await supabase.from("whatsapp_instances").update(updateData).eq("id", instance.id);
+      console.log("✅ Connection status updated:", { instance_id: instance.id, is_connected: isConnected, phone_number: phoneNumber });
     }
 
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

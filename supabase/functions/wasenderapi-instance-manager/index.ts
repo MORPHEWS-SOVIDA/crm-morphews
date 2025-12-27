@@ -132,15 +132,35 @@ serve(async (req) => {
         const isConnected = rawStatus === "connected" || rawStatus === "open" || rawStatus === "ready";
         const internalStatus = mapStatus(rawStatus, isConnected);
 
-        // SEMPRE buscar phone number quando conectado (da API Wasender)
-        let phoneNum = instance.phone_number;
-        if (isConnected && instance.wasender_session_id && WASENDERAPI_TOKEN) {
+        // SEMPRE buscar phone number atualizado quando conectado
+        let phoneNum = null;
+        
+        // Tentar extrair do status response primeiro
+        if (statusData.phone) {
+          phoneNum = normalizePhone(statusData.phone);
+          console.log("Extracted phone from status:", phoneNum);
+        } else if (statusData.phoneNumber) {
+          phoneNum = normalizePhone(statusData.phoneNumber);
+          console.log("Extracted phoneNumber from status:", phoneNum);
+        } else if (statusData.me?.user) {
+          phoneNum = normalizePhone(statusData.me.user);
+          console.log("Extracted phone from me.user:", phoneNum);
+        } else if (statusData.jid) {
+          const jidPhone = (statusData.jid || "").replace("@s.whatsapp.net", "").replace("@c.us", "");
+          if (jidPhone) {
+            phoneNum = normalizePhone(jidPhone);
+            console.log("Extracted phone from jid:", phoneNum);
+          }
+        }
+        
+        // Se não obteve do status e está conectado, tentar da sessão
+        if (!phoneNum && isConnected && instance.wasender_session_id && WASENDERAPI_TOKEN) {
           console.log("Fetching session details for phone number...");
           const { data: details } = await safeFetch(
             `${WASENDERAPI_BASE_URL}/whatsapp-sessions/${instance.wasender_session_id}`,
             { headers: { "Authorization": `Bearer ${WASENDERAPI_TOKEN}` } }
           );
-          console.log("Session details response:", JSON.stringify(details).substring(0, 300));
+          console.log("Session details response:", JSON.stringify(details).substring(0, 500));
           
           if (details?.success && details.data?.phone_number) {
             phoneNum = normalizePhone(details.data.phone_number);
@@ -151,25 +171,31 @@ serve(async (req) => {
           }
         }
         
-        // Se ainda não tem phone, tentar pegar do endpoint de status
-        if (!phoneNum && statusData.phone) {
-          phoneNum = normalizePhone(statusData.phone);
-          console.log("Extracted phone from status response:", phoneNum);
-        }
+        // Fallback para o phone_number atual se não encontrou novo
+        const finalPhoneNum = phoneNum || instance.phone_number;
 
-        // Update database - ALWAYS clear QR when connected
-        await supabaseAdmin.from("whatsapp_instances").update({
+        // Update database - SEMPRE atualizar phone_number se diferente
+        const updateData: any = {
           is_connected: isConnected,
-          phone_number: phoneNum || instance.phone_number,
           status: isConnected ? "active" : (internalStatus === "waiting_qr" ? "pending" : "disconnected"),
           qr_code_base64: isConnected ? null : instance.qr_code_base64,
-        }).eq("id", instanceId);
+        };
+        
+        // Se detectou um número diferente, atualizar
+        if (phoneNum && phoneNum !== instance.phone_number) {
+          updateData.phone_number = phoneNum;
+          console.log("📱 Updating phone_number from", instance.phone_number, "to", phoneNum);
+        } else if (finalPhoneNum) {
+          updateData.phone_number = finalPhoneNum;
+        }
+        
+        await supabaseAdmin.from("whatsapp_instances").update(updateData).eq("id", instanceId);
 
         return ok({ 
           success: true, 
           status: internalStatus,
           isConnected,
-          phoneNumber: phoneNum || instance.phone_number,
+          phoneNumber: updateData.phone_number || finalPhoneNum,
           needsQr: !isConnected,
         });
       }
