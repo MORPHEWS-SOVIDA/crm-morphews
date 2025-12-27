@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -56,8 +56,17 @@ export function DeliveryTypeSelector({
     ? getAvailableDeliveryDates(selectedRegion.id, regions)
     : [];
 
-  // Group available dates by date string for calendar
-  const availableDateStrings = availableDates.map(d => format(d.date, 'yyyy-MM-dd'));
+  // Group available dates by date string for calendar (unique dates)
+  const availableDateStrings = [...new Set(availableDates.map(d => format(d.date, 'yyyy-MM-dd')))];
+
+  // Get available shifts for the selected date
+  const shiftsForSelectedDate = useMemo(() => {
+    if (!value.scheduledDate) return [];
+    const dateStr = format(value.scheduledDate, 'yyyy-MM-dd');
+    return availableDates
+      .filter(d => format(d.date, 'yyyy-MM-dd') === dateStr)
+      .map(d => d.shift);
+  }, [value.scheduledDate, availableDates]);
 
   const handleTypeChange = (type: DeliveryType) => {
     onChange({
@@ -87,17 +96,32 @@ export function DeliveryTypeSelector({
     }
 
     const dateStr = format(date, 'yyyy-MM-dd');
-    const matchingDate = availableDates.find(
-      d => format(d.date, 'yyyy-MM-dd') === dateStr
-    );
+    const matchingShifts = availableDates
+      .filter(d => format(d.date, 'yyyy-MM-dd') === dateStr)
+      .map(d => d.shift);
 
-    if (matchingDate) {
+    // If only one shift available, auto-select it
+    if (matchingShifts.length === 1) {
       onChange({
         ...value,
         scheduledDate: date,
-        scheduledShift: matchingDate.shift,
+        scheduledShift: matchingShifts[0],
+      });
+    } else {
+      // Multiple shifts - user needs to choose
+      onChange({
+        ...value,
+        scheduledDate: date,
+        scheduledShift: null,
       });
     }
+  };
+
+  const handleShiftChange = (shift: 'morning' | 'afternoon' | 'full_day') => {
+    onChange({
+      ...value,
+      scheduledShift: shift,
+    });
   };
 
   const handleCarrierChange = (carrierId: string) => {
@@ -223,16 +247,57 @@ export function DeliveryTypeSelector({
                       className="rounded-md border"
                     />
 
-                    {value.scheduledDate && value.scheduledShift && (
-                      <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                    {value.scheduledDate && (
+                      <div className="mt-2 p-3 bg-muted/50 rounded-lg space-y-2">
                         <p className="text-sm">
                           <span className="font-medium">Data:</span>{' '}
                           {format(value.scheduledDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
                         </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Turno:</span>{' '}
-                          <Badge variant="outline">{formatShift(value.scheduledShift)}</Badge>
-                        </p>
+                        
+                        {/* Show shift selector if multiple shifts available */}
+                        {shiftsForSelectedDate.length > 1 && !value.scheduledShift ? (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Selecione o turno:</Label>
+                            <RadioGroup
+                              value={value.scheduledShift || ''}
+                              onValueChange={(v) => handleShiftChange(v as 'morning' | 'afternoon' | 'full_day')}
+                              className="flex flex-wrap gap-2"
+                            >
+                              {shiftsForSelectedDate.map((shift) => (
+                                <Label
+                                  key={shift}
+                                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors ${
+                                    value.scheduledShift === shift
+                                      ? 'border-primary bg-primary/5'
+                                      : 'hover:bg-muted/50'
+                                  }`}
+                                >
+                                  <RadioGroupItem value={shift} />
+                                  <span>{formatShift(shift)}</span>
+                                </Label>
+                              ))}
+                            </RadioGroup>
+                          </div>
+                        ) : shiftsForSelectedDate.length > 1 && value.scheduledShift ? (
+                          <div className="space-y-2">
+                            <p className="text-sm">
+                              <span className="font-medium">Turno:</span>{' '}
+                              <Badge variant="outline">{formatShift(value.scheduledShift)}</Badge>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => onChange({ ...value, scheduledShift: null })}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              Alterar turno
+                            </button>
+                          </div>
+                        ) : value.scheduledShift ? (
+                          <p className="text-sm">
+                            <span className="font-medium">Turno:</span>{' '}
+                            <Badge variant="outline">{formatShift(value.scheduledShift)}</Badge>
+                          </p>
+                        ) : null}
                       </div>
                     )}
                   </div>
