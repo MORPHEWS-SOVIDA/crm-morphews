@@ -311,6 +311,7 @@ Deno.serve(async (req) => {
       messageType,
       mediaUrl,
       mediaCaption,
+      mediaStoragePath, // NOVO: path no storage (evita base64 grande)
     } = body;
 
     console.log(`[${requestId}] Request params:`, {
@@ -389,8 +390,25 @@ Deno.serve(async (req) => {
       (messageType as any) || "text";
     let text = (content ?? "").toString();
 
-    if (mediaUrl && isDataUrl(mediaUrl)) {
-      console.log(`[${requestId}] 📎 Processing media attachment (data URL)`);
+    // NOVO MODO: mediaStoragePath (arquivo já no storage, evita base64 grande)
+    if (mediaStoragePath && typeof mediaStoragePath === "string") {
+      console.log(`[${requestId}] 📎 Processing media from storage path:`, mediaStoragePath);
+      
+      // Validar que o path pertence à org (segurança contra cross-tenant)
+      if (!mediaStoragePath.startsWith(`orgs/${organizationId}/`)) {
+        console.error(`[${requestId}] ❌ Invalid storage path (cross-tenant attempt)`);
+        return new Response(
+          JSON.stringify({ success: false, error: "Caminho de mídia inválido" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Gerar URL segura via proxy
+      finalMediaUrl = await generateMediaProxyUrl(mediaStoragePath);
+      console.log(`[${requestId}] ✅ Media ready for sending via storage path`);
+      
+    } else if (mediaUrl && isDataUrl(mediaUrl)) {
+      console.log(`[${requestId}] 📎 Processing media attachment (data URL - legacy mode)`);
       
       const parsed = parseDataUrl(mediaUrl);
       

@@ -77,7 +77,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isSendingAudio, setIsSendingAudio] = useState(false);
   const [isSendingImage, setIsSendingImage] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -262,17 +262,55 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
     setIsSendingAudio(true);
     try {
-      // Enviar data URL completo - o backend vai fazer upload para storage
-      const dataUrl = base64.startsWith("data:") ? base64 : `data:${mimeType};base64,${base64}`;
+      // Converter base64 para blob para upload direto
+      const base64Data = base64.includes(",") ? base64.split(",")[1] : base64;
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mimeType });
 
-      console.log("[WhatsApp] Enviando áudio:", {
+      console.log("[WhatsApp] Criando URL de upload para áudio:", {
         conversation_id: selectedConversation.id,
-        instance_id: selectedConversation.instance_id,
-        message_type: "audio",
+        size_bytes: blob.size,
         mime_type: mimeType,
-        data_length: dataUrl.length,
       });
 
+      // 1. Obter signed upload URL
+      const { data: uploadUrlData, error: uploadUrlError } = await supabase.functions.invoke(
+        "whatsapp-create-upload-url",
+        {
+          body: {
+            organizationId: profile.organization_id,
+            conversationId: selectedConversation.id,
+            mimeType: mimeType,
+            kind: "audio",
+          },
+        }
+      );
+
+      if (uploadUrlError || !uploadUrlData?.success) {
+        throw new Error(uploadUrlData?.error || uploadUrlError?.message || "Falha ao criar URL de upload");
+      }
+
+      console.log("[WhatsApp] Upload URL obtida, fazendo upload direto...");
+
+      // 2. Upload direto para storage
+      const uploadResponse = await fetch(uploadUrlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": mimeType },
+        body: blob,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Falha no upload: ${uploadResponse.status}`);
+      }
+
+      console.log("[WhatsApp] Upload concluído, enviando mensagem...");
+
+      // 3. Enviar mensagem com path do storage (não base64!)
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
@@ -282,8 +320,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           phone: selectedConversation.phone_number,
           content: "",
           messageType: "audio",
-          mediaUrl: dataUrl,
-          mediaMimeType: mimeType,
+          mediaStoragePath: uploadUrlData.path,
         },
       });
 
@@ -329,17 +366,15 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+    // Aumentar limite para 10MB (o upload direto suporta arquivos maiores)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Máximo 10MB", variant: "destructive" });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setSelectedImage({ base64, mimeType: file.type });
-    };
-    reader.readAsDataURL(file);
+    // Guardar file e criar preview
+    const preview = URL.createObjectURL(file);
+    setSelectedImage({ file, preview });
 
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
@@ -359,20 +394,47 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
     setIsSendingImage(true);
     try {
-      // Enviar data URL completo - o backend vai fazer upload para storage
-      const dataUrl = selectedImage.base64.startsWith("data:")
-        ? selectedImage.base64
-        : `data:${selectedImage.mimeType};base64,${selectedImage.base64}`;
-
-      console.log("[WhatsApp] Enviando imagem:", {
+      const file = selectedImage.file;
+      
+      console.log("[WhatsApp] Criando URL de upload para imagem:", {
         conversation_id: selectedConversation.id,
-        instance_id: selectedConversation.instance_id,
-        message_type: "image",
-        mime_type: selectedImage.mimeType,
-        data_length: dataUrl.length,
-        has_caption: !!messageText,
+        size_bytes: file.size,
+        mime_type: file.type,
       });
 
+      // 1. Obter signed upload URL
+      const { data: uploadUrlData, error: uploadUrlError } = await supabase.functions.invoke(
+        "whatsapp-create-upload-url",
+        {
+          body: {
+            organizationId: profile.organization_id,
+            conversationId: selectedConversation.id,
+            mimeType: file.type,
+            kind: "image",
+          },
+        }
+      );
+
+      if (uploadUrlError || !uploadUrlData?.success) {
+        throw new Error(uploadUrlData?.error || uploadUrlError?.message || "Falha ao criar URL de upload");
+      }
+
+      console.log("[WhatsApp] Upload URL obtida, fazendo upload direto...");
+
+      // 2. Upload direto para storage
+      const uploadResponse = await fetch(uploadUrlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Falha no upload: ${uploadResponse.status}`);
+      }
+
+      console.log("[WhatsApp] Upload concluído, enviando mensagem...");
+
+      // 3. Enviar mensagem com path do storage (não base64!)
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
@@ -382,8 +444,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           phone: selectedConversation.phone_number,
           content: messageText || "",
           messageType: "image",
-          mediaUrl: dataUrl,
-          mediaMimeType: selectedImage.mimeType,
+          mediaStoragePath: uploadUrlData.path,
+          mediaCaption: messageText || "",
         },
       });
 
@@ -403,6 +465,9 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       }
 
       console.log("[WhatsApp] Imagem enviada com sucesso:", data?.providerMessageId);
+      
+      // Limpar preview URL
+      URL.revokeObjectURL(selectedImage.preview);
       setSelectedImage(null);
       setMessageText("");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
@@ -776,7 +841,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   isMobile ? "" : "max-w-3xl mx-auto"
                 )}>
                   <img 
-                    src={selectedImage.base64} 
+                    src={selectedImage.preview} 
                     alt="Preview" 
                     className="h-14 w-14 object-cover rounded-lg border"
                   />
@@ -788,7 +853,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     variant="ghost" 
                     size="sm" 
                     className="shrink-0 text-destructive hover:text-destructive"
-                    onClick={() => setSelectedImage(null)}
+                    onClick={() => {
+                      if (selectedImage) URL.revokeObjectURL(selectedImage.preview);
+                      setSelectedImage(null);
+                    }}
                   >
                     Remover
                   </Button>

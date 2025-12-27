@@ -533,19 +533,59 @@ async function processWasenderMessage(instance: any, body: any) {
   }
 
   const isFromMe = msgData.key?.fromMe === true;
-  const remoteJid = msgData.key?.remoteJid || msgData.remoteJid || "";
-  const messageId = msgData.key?.id || msgData.id || msgData.messageId || "";
+  
+  // =========================================================================
+  // EXTRAÇÃO DE remoteJid TOLERANTE - aceita múltiplos campos
+  // =========================================================================
+  const remoteJid = 
+    msgData.key?.remoteJid || 
+    msgData.remoteJid || 
+    msgData.chatId ||
+    msgData.chat_id ||
+    msgData.from ||
+    msgData.key?.chatId ||
+    msgData.message?.key?.remoteJid ||
+    "";
+    
+  const messageId = 
+    msgData.key?.id || 
+    msgData.id || 
+    msgData.messageId || 
+    msgData.message_id ||
+    msgData.message?.key?.id ||
+    "";
   
   // =========================================================================
   // GRUPO: Identificar por @g.us e extrair participant
+  // Tolerante a variações no formato do payload
   // =========================================================================
-  const isGroup = remoteJid.endsWith("@g.us") || msgData.isGroup === true;
-  const groupSubject = msgData.groupSubject || msgData.group?.name || msgData.groupName || "";
+  const isGroup = 
+    remoteJid.endsWith("@g.us") || 
+    msgData.isGroup === true ||
+    msgData.is_group === true ||
+    msgData.group === true ||
+    (msgData.chatId || "").endsWith("@g.us");
+    
+  const groupSubject = 
+    msgData.groupSubject || 
+    msgData.group?.name || 
+    msgData.groupName ||
+    msgData.group_name ||
+    msgData.chatName ||
+    msgData.chat_name ||
+    msgData.subject ||
+    "";
   
   // Em grupos, participant é quem enviou a mensagem
   let participantPhone: string | null = null;
   if (isGroup) {
-    const participantJid = msgData.key?.participant || msgData.participant || "";
+    const participantJid = 
+      msgData.key?.participant || 
+      msgData.participant ||
+      msgData.sender ||
+      msgData.from ||
+      msgData.author ||
+      "";
     participantPhone = participantJid
       .replace("@s.whatsapp.net", "")
       .replace("@c.us", "")
@@ -557,29 +597,31 @@ async function processWasenderMessage(instance: any, body: any) {
   
   const { conversationId: phoneForConv, sendablePhone } = extractPhoneFromWasenderPayload(msgData);
   
-  if (!phoneForConv && !sendablePhone && !isGroup) {
-    console.log("❌ No phone number in message");
+  // Para grupos, não exigimos phone - usamos remoteJid como identificador
+  if (!remoteJid && !phoneForConv && !sendablePhone) {
+    console.log("❌ No identifier found in message");
     return null;
   }
   
   let text = msgData.messageBody || msgData.body || msgData.text ||
              msgData.message?.conversation || msgData.message?.extendedTextMessage?.text ||
-             msgData.message?.imageMessage?.caption || msgData.message?.videoMessage?.caption || "";
+             msgData.message?.imageMessage?.caption || msgData.message?.videoMessage?.caption || 
+             msgData.caption || "";
   
-  const senderName = msgData.pushName || msgData.senderName || msgData.name || "";
+  const senderName = msgData.pushName || msgData.senderName || msgData.name || msgData.notifyName || "";
   
   let messageType = "text";
-  if (msgData.message?.imageMessage || msgData.type === "image") messageType = "image";
-  else if (msgData.message?.audioMessage || msgData.type === "audio" || msgData.type === "ptt") messageType = "audio";
-  else if (msgData.message?.videoMessage || msgData.type === "video") messageType = "video";
-  else if (msgData.message?.documentMessage || msgData.type === "document") messageType = "document";
-  else if (msgData.message?.stickerMessage) messageType = "sticker";
+  if (msgData.message?.imageMessage || msgData.type === "image" || msgData.messageType === "image") messageType = "image";
+  else if (msgData.message?.audioMessage || msgData.type === "audio" || msgData.type === "ptt" || msgData.messageType === "audio") messageType = "audio";
+  else if (msgData.message?.videoMessage || msgData.type === "video" || msgData.messageType === "video") messageType = "video";
+  else if (msgData.message?.documentMessage || msgData.type === "document" || msgData.messageType === "document") messageType = "document";
+  else if (msgData.message?.stickerMessage || msgData.type === "sticker") messageType = "sticker";
   
-  let mediaUrl = msgData.mediaUrl || msgData.message?.imageMessage?.url ||
+  let mediaUrl = msgData.mediaUrl || msgData.media_url || msgData.message?.imageMessage?.url ||
                  msgData.message?.audioMessage?.url || msgData.message?.videoMessage?.url ||
                  msgData.message?.documentMessage?.url || null;
                  
-  const mediaBase64 = msgData.base64 || msgData.data?.base64 || null;
+  const mediaBase64 = msgData.base64 || msgData.data?.base64 || msgData.media || null;
   
   // =========================================================================
   // LOG: Observabilidade detalhada
@@ -596,12 +638,15 @@ async function processWasenderMessage(instance: any, body: any) {
     sender_name: senderName
   });
   
+  // Usar remoteJid como chat_id estável (funciona para grupos e individuais)
+  const chatIdForDb = remoteJid || (isGroup ? `${phoneForConv}@g.us` : `${sendablePhone}@s.whatsapp.net`);
+  
   // Get or create conversation using stable chat_id
   const conversation = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
-    remoteJid, // CHAVE ESTÁVEL
-    phoneForConv,
+    chatIdForDb, // CHAVE ESTÁVEL
+    phoneForConv || remoteJid.replace("@g.us", "").replace("@s.whatsapp.net", ""),
     sendablePhone,
     isGroup,
     isGroup ? groupSubject : undefined,

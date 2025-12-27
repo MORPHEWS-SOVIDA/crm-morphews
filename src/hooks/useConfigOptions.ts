@@ -46,12 +46,15 @@ export function useLeadSources() {
 export function useCreateLeadSource() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
-  const { data: isOrgAdmin } = useOrgAdmin();
+  const { data: isOrgAdmin, isLoading: isLoadingAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (name: string) => {
-      // Guard: only admins can create
-      if (!isOrgAdmin) {
+      // Guard: block if loading or not admin
+      if (isLoadingAdmin) {
+        throw new Error('Aguarde, verificando permissões...');
+      }
+      if (isOrgAdmin !== true) {
         throw new Error('Sem permissão: apenas administradores podem alterar Origens de Lead.');
       }
       
@@ -79,12 +82,15 @@ export function useCreateLeadSource() {
 
 export function useDeleteLeadSource() {
   const queryClient = useQueryClient();
-  const { data: isOrgAdmin } = useOrgAdmin();
+  const { data: isOrgAdmin, isLoading: isLoadingAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Guard: only admins can delete
-      if (!isOrgAdmin) {
+      // Guard: block if loading or not admin
+      if (isLoadingAdmin) {
+        throw new Error('Aguarde, verificando permissões...');
+      }
+      if (isOrgAdmin !== true) {
         throw new Error('Sem permissão: apenas administradores podem alterar Origens de Lead.');
       }
       
@@ -127,12 +133,15 @@ export function useLeadProducts() {
 export function useCreateLeadProduct() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
-  const { data: isOrgAdmin } = useOrgAdmin();
+  const { data: isOrgAdmin, isLoading: isLoadingAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (name: string) => {
-      // Guard: only admins can create
-      if (!isOrgAdmin) {
+      // Guard: block if loading or not admin
+      if (isLoadingAdmin) {
+        throw new Error('Aguarde, verificando permissões...');
+      }
+      if (isOrgAdmin !== true) {
         throw new Error('Sem permissão: apenas administradores podem alterar Produtos.');
       }
       
@@ -160,12 +169,15 @@ export function useCreateLeadProduct() {
 
 export function useDeleteLeadProduct() {
   const queryClient = useQueryClient();
-  const { data: isOrgAdmin } = useOrgAdmin();
+  const { data: isOrgAdmin, isLoading: isLoadingAdmin } = useOrgAdmin();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Guard: only admins can delete
-      if (!isOrgAdmin) {
+      // Guard: block if loading or not admin
+      if (isLoadingAdmin) {
+        throw new Error('Aguarde, verificando permissões...');
+      }
+      if (isOrgAdmin !== true) {
         throw new Error('Sem permissão: apenas administradores podem alterar Produtos.');
       }
       

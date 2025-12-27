@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.whatsapp-media-proxy]
 verify_jwt = false
+
+[functions.whatsapp-create-upload-url]
+verify_jwt = true
