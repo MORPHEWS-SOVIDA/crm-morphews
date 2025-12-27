@@ -191,21 +191,42 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       if (!selectedConversation) throw new Error("No conversation selected");
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
+      console.log("[WhatsApp] Enviando mensagem de texto:", {
+        organization_id: profile.organization_id,
+        conversation_id: selectedConversation.id,
+        instance_id: selectedConversation.instance_id,
+        has_chat_id: !!selectedConversation.chat_id,
+      });
+
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
           conversationId: selectedConversation.id,
           instanceId: selectedConversation.instance_id,
-          chatId: selectedConversation.chat_id || null, // NOVO: ID estável
+          chatId: selectedConversation.chat_id || null,
           phone: selectedConversation.phone_number,
           content: text,
           messageType: "text",
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Melhorado tratamento de erro
+      if (error) {
+        console.error("[WhatsApp] Edge function error:", error);
+        throw new Error(error.message || "Erro na função de envio");
+      }
+      
+      if (data?.error) {
+        console.error("[WhatsApp] API error:", data.error);
+        throw new Error(data.error);
+      }
 
+      if (!data?.success) {
+        console.error("[WhatsApp] Send failed:", data);
+        throw new Error(data?.error || "Falha ao enviar mensagem para o WhatsApp");
+      }
+
+      console.log("[WhatsApp] Mensagem enviada com sucesso:", data?.providerMessageId);
       return data;
     },
     onSuccess: () => {
@@ -214,10 +235,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
     },
     onError: (error: any) => {
-      console.error("Error sending message:", error);
+      console.error("[WhatsApp] Error sending message:", error);
       toast({
-        title: "Erro ao enviar mensagem",
-        description: error.message,
+        title: "Erro ao enviar",
+        description: error.message || "Falha ao enviar mensagem",
         variant: "destructive",
       });
     },

@@ -43,6 +43,7 @@ interface Conversation {
   unread_count: number;
   lead_id: string | null;
   instance_id: string;
+  chat_id?: string | null;
 }
 
 interface Message {
@@ -336,9 +337,16 @@ export default function WhatsAppChat() {
     setMessages(prev => [...prev, optimisticMessage]);
     
     try {
+      if (!profile?.organization_id) {
+        throw new Error('Organização não encontrada');
+      }
+
       const body: any = {
+        organizationId: profile.organization_id,
         instanceId: selectedInstance,
         conversationId: selectedConversation.id,
+        chatId: selectedConversation.chat_id || null,
+        phone: selectedConversation.phone_number,
         messageType,
         content: messageText || '',
       };
@@ -350,11 +358,33 @@ export default function WhatsAppChat() {
         body.mediaCaption = messageText || '';
       }
 
+      console.log("[WhatsApp] Enviando mensagem:", {
+        organization_id: profile.organization_id,
+        instance_id: selectedInstance,
+        conversation_id: selectedConversation.id,
+        message_type: messageType,
+      });
+
       const { data, error } = await supabase.functions.invoke('whatsapp-send-message', {
         body
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[WhatsApp] Edge function error:", error);
+        throw new Error(error.message || 'Erro na função de envio');
+      }
+
+      if (data?.error) {
+        console.error("[WhatsApp] API error:", data.error);
+        throw new Error(data.error);
+      }
+
+      if (!data?.success) {
+        console.error("[WhatsApp] Send failed:", data);
+        throw new Error(data?.error || 'Falha ao enviar mensagem');
+      }
+
+      console.log("[WhatsApp] Mensagem enviada:", data?.providerMessageId);
       
       // Replace optimistic message with real one
       if (data?.message) {
@@ -365,6 +395,7 @@ export default function WhatsAppChat() {
       
       inputRef.current?.focus();
     } catch (error: any) {
+      console.error("[WhatsApp] Error:", error);
       setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
       toast.error('Erro ao enviar: ' + error.message);
     } finally {
