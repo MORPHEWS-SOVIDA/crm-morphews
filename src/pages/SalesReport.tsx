@@ -93,7 +93,7 @@ const DATE_FILTER_OPTIONS = [
 
 export default function SalesReport() {
   const navigate = useNavigate();
-  const { isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading, profile } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
   
@@ -127,10 +127,19 @@ export default function SalesReport() {
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
 
-  const isLoading = authLoading || salesLoading;
+  // Show loading state while auth is loading or no profile yet
+  if (authLoading || (!profile && !authLoading)) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
-  // Show loading state while auth or sales data is loading
-  if (isLoading) {
+  // Show loading while sales data is loading
+  if (salesLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -665,11 +674,7 @@ export default function SalesReport() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : filteredSales.length === 0 ? (
+            {filteredSales.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 Nenhuma venda encontrada com os filtros selecionados.
               </div>

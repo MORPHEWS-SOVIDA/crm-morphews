@@ -7,17 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { 
   Plus, 
   Search,
   ShoppingCart,
-  MoreVertical,
   Eye,
   Truck,
   CreditCard,
@@ -188,24 +181,27 @@ export default function Sales() {
                           )}
                         </div>
 
-                        {/* Actions */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/vendas/${sale.id}`)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Ver Detalhes
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/vendas/${sale.id}/romaneio`)}>
-                              <Printer className="w-4 h-4 mr-2" />
-                              Imprimir Romaneio
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/* Actions - Always visible */}
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/vendas/${sale.id}`)}
+                            className="gap-1"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden sm:inline">Ver</span>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/vendas/${sale.id}/romaneio`)}
+                            className="gap-1"
+                          >
+                            <Printer className="w-4 h-4" />
+                            <span className="hidden sm:inline">Imprimir</span>
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
