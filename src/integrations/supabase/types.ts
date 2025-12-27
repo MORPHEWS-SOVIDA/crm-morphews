@@ -244,6 +244,47 @@ export type Database = {
         }
         Relationships: []
       }
+      error_logs: {
+        Row: {
+          created_at: string
+          error_details: Json | null
+          error_message: string
+          error_type: string
+          id: string
+          organization_id: string | null
+          source: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_details?: Json | null
+          error_message: string
+          error_type: string
+          id?: string
+          organization_id?: string | null
+          source?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_details?: Json | null
+          error_message?: string
+          error_type?: string
+          id?: string
+          organization_id?: string | null
+          source?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "error_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_tokens: {
         Row: {
           access_token: string
