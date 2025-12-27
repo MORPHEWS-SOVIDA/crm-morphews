@@ -2,11 +2,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
  * Secure proxy edge function to serve media files from Supabase Storage.
- * Uses HMAC-signed tokens with short expiration for security.
+ * Uses HMAC-signed tokens with short expiration (5 minutes) for security.
  * 
- * Usage: GET /whatsapp-media-proxy?token=<hmac_signed_token>
+ * Usage: GET /whatsapp-media-proxy?path=<storage_path>&exp=<timestamp>&token=<hmac_signature>
  * 
- * Token format: base64(JSON.stringify({ bucket, path, exp })) + "." + hmac_signature
+ * Security:
+ * - Token is HMAC-SHA256(path:exp, WHATSAPP_MEDIA_TOKEN_SECRET)
+ * - Expires in 5 minutes (300 seconds)
+ * - Never exposes storage directly
  */
 
 const corsHeaders = {
@@ -18,8 +21,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") ?? "";
 
+const BUCKET_NAME = "whatsapp-media";
+
 // ============================================================================
-// HMAC TOKEN UTILITIES
+// HMAC TOKEN VERIFICATION
 // ============================================================================
 
 async function createHmacSignature(data: string, secret: string): Promise<string> {
@@ -36,109 +41,63 @@ async function createHmacSignature(data: string, secret: string): Promise<string
   );
   
   const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
-  return btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  // Convert to hex string
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-async function verifyHmacSignature(data: string, signature: string, secret: string): Promise<boolean> {
-  const expectedSignature = await createHmacSignature(data, secret);
-  
-  // Constant-time comparison
-  if (expectedSignature.length !== signature.length) return false;
-  
-  let result = 0;
-  for (let i = 0; i < expectedSignature.length; i++) {
-    result |= expectedSignature.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-  
-  return result === 0;
-}
-
-interface MediaTokenPayload {
-  bucket: string;
-  path: string;
-  exp: number; // Unix timestamp (seconds)
-  mime?: string;
-}
-
-/**
- * Generate a secure HMAC-signed token for media access
- * Token expires in 5 minutes by default
- */
-export async function generateMediaToken(
-  bucket: string, 
-  path: string, 
-  mimeType?: string,
-  expiresInSeconds = 300 // 5 minutes
-): Promise<string> {
-  if (!WHATSAPP_MEDIA_TOKEN_SECRET) {
-    throw new Error("WHATSAPP_MEDIA_TOKEN_SECRET not configured");
-  }
-  
-  const payload: MediaTokenPayload = {
-    bucket,
-    path,
-    exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
-    mime: mimeType,
-  };
-  
-  const payloadStr = btoa(JSON.stringify(payload));
-  const signature = await createHmacSignature(payloadStr, WHATSAPP_MEDIA_TOKEN_SECRET);
-  
-  return `${payloadStr}.${signature}`;
-}
-
-/**
- * Verify and decode a media token
- */
-async function verifyMediaToken(token: string): Promise<MediaTokenPayload | null> {
+async function verifyToken(path: string, exp: number, token: string): Promise<boolean> {
   if (!WHATSAPP_MEDIA_TOKEN_SECRET) {
     console.error("❌ WHATSAPP_MEDIA_TOKEN_SECRET not configured");
-    return null;
+    return false;
   }
   
-  const parts = token.split(".");
-  if (parts.length !== 2) {
-    console.error("❌ Invalid token format");
-    return null;
+  // Check expiration first
+  const now = Math.floor(Date.now() / 1000);
+  if (exp < now) {
+    console.error("❌ Token expired:", { exp: new Date(exp * 1000).toISOString(), now: new Date(now * 1000).toISOString() });
+    return false;
   }
-  
-  const [payloadStr, signature] = parts;
   
   // Verify signature
-  const isValid = await verifyHmacSignature(payloadStr, signature, WHATSAPP_MEDIA_TOKEN_SECRET);
-  if (!isValid) {
-    console.error("❌ Invalid token signature");
-    return null;
+  const dataToSign = `${path}:${exp}`;
+  const expectedToken = await createHmacSignature(dataToSign, WHATSAPP_MEDIA_TOKEN_SECRET);
+  
+  // Constant-time comparison to prevent timing attacks
+  if (expectedToken.length !== token.length) {
+    console.error("❌ Invalid token (length mismatch)");
+    return false;
   }
   
-  // Decode payload
-  try {
-    const payload = JSON.parse(atob(payloadStr)) as MediaTokenPayload;
-    
-    // Check expiration
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp < now) {
-      console.error("❌ Token expired:", new Date(payload.exp * 1000).toISOString());
-      return null;
-    }
-    
-    console.log("✅ Token validated:", { bucket: payload.bucket, path: payload.path });
-    return payload;
-  } catch (e) {
-    console.error("❌ Invalid token payload:", e);
-    return null;
+  let result = 0;
+  for (let i = 0; i < expectedToken.length; i++) {
+    result |= expectedToken.charCodeAt(i) ^ token.charCodeAt(i);
   }
+  
+  if (result !== 0) {
+    console.error("❌ Invalid token signature");
+    return false;
+  }
+  
+  console.log("✅ Token verified:", { path, expiresAt: new Date(exp * 1000).toISOString() });
+  return true;
 }
 
 // ============================================================================
-// LEGACY TOKEN SUPPORT (database-based tokens)
+// LEGACY TOKEN SUPPORT (database-based tokens for backwards compatibility)
 // ============================================================================
 
 async function verifyLegacyToken(token: string, supabaseAdmin: any): Promise<{
-  bucket_id: string;
   object_path: string;
   content_type: string;
 } | null> {
+  // Legacy tokens are UUIDs stored in whatsapp_media_tokens table
+  if (!token.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    return null;
+  }
+  
   const { data: tokenData, error: tokenError } = await supabaseAdmin
     .from("whatsapp_media_tokens")
     .select("*")
@@ -165,11 +124,40 @@ async function verifyLegacyToken(token: string, supabaseAdmin: any): Promise<{
     return null;
   }
 
+  console.log("✅ Legacy token verified:", tokenData.object_path);
   return {
-    bucket_id: tokenData.bucket_id,
     object_path: tokenData.object_path,
     content_type: tokenData.content_type,
   };
+}
+
+// ============================================================================
+// MIME TYPE DETECTION
+// ============================================================================
+
+function getMimeType(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  const mimeTypes: Record<string, string> = {
+    // Images
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    // Audio
+    'mp3': 'audio/mpeg',
+    'ogg': 'audio/ogg',
+    'wav': 'audio/wav',
+    'm4a': 'audio/mp4',
+    // Video
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    // Documents
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
 }
 
 // ============================================================================
@@ -182,38 +170,50 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const requestId = crypto.randomUUID().split('-')[0];
+  console.log(`\n========== [${requestId}] WHATSAPP MEDIA PROXY ==========`);
+
   try {
     const url = new URL(req.url);
+    
+    // New format: ?path=...&exp=...&token=...
+    const path = url.searchParams.get("path");
+    const expStr = url.searchParams.get("exp");
     const token = url.searchParams.get("token");
-
-    if (!token) {
-      console.error("❌ Missing token parameter");
-      return new Response(
-        JSON.stringify({ error: "Missing token" }), 
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    let bucket: string;
+    
     let objectPath: string;
-    let contentType: string | undefined;
+    let contentType: string;
 
-    // Try HMAC token first (new secure method)
-    if (token.includes(".")) {
-      const payload = await verifyMediaToken(token);
-      if (!payload) {
+    // Check if using new HMAC token format
+    if (path && expStr && token) {
+      console.log(`[${requestId}] Processing HMAC token request`);
+      
+      const exp = parseInt(expStr, 10);
+      if (isNaN(exp)) {
+        console.error(`[${requestId}] ❌ Invalid exp parameter`);
+        return new Response(
+          JSON.stringify({ error: "Invalid expiration" }), 
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const isValid = await verifyToken(path, exp, token);
+      if (!isValid) {
         return new Response(
           JSON.stringify({ error: "Invalid or expired token" }), 
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      bucket = payload.bucket;
-      objectPath = payload.path;
-      contentType = payload.mime;
-    } else {
-      // Fall back to legacy database token
+      
+      objectPath = path;
+      contentType = getMimeType(path);
+      
+    } else if (token && !path && !expStr) {
+      // Legacy format: ?token=<uuid> (database-based)
+      console.log(`[${requestId}] Processing legacy token request`);
+      
       const legacyData = await verifyLegacyToken(token, supabaseAdmin);
       if (!legacyData) {
         return new Response(
@@ -221,41 +221,52 @@ Deno.serve(async (req) => {
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      bucket = legacyData.bucket_id;
+      
       objectPath = legacyData.object_path;
       contentType = legacyData.content_type;
+      
+    } else {
+      console.error(`[${requestId}] ❌ Missing required parameters`);
+      return new Response(
+        JSON.stringify({ error: "Missing token parameters" }), 
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Download file from storage
+    console.log(`[${requestId}] Downloading from storage:`, { bucket: BUCKET_NAME, path: objectPath });
+    
     const { data: fileData, error: fileError } = await supabaseAdmin
       .storage
-      .from(bucket)
+      .from(BUCKET_NAME)
       .download(objectPath);
 
     if (fileError || !fileData) {
-      console.error("File download error:", fileError);
+      console.error(`[${requestId}] ❌ File download error:`, fileError);
       return new Response(
         JSON.stringify({ error: "File not found" }), 
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Return the file with appropriate content type
-    const finalContentType = contentType || "application/octet-stream";
-    
-    console.log("✅ Serving file:", { bucket, objectPath, contentType: finalContentType });
+    console.log(`[${requestId}] ✅ Serving file:`, { 
+      path: objectPath, 
+      contentType, 
+      size: fileData.size 
+    });
     
     return new Response(fileData, {
       status: 200,
       headers: {
         ...corsHeaders,
-        "Content-Type": finalContentType,
+        "Content-Type": contentType,
         "Cache-Control": "public, max-age=300", // Cache for 5 minutes (match token expiry)
+        "Content-Disposition": "inline",
       },
     });
 
   } catch (error: any) {
-    console.error("whatsapp-media-proxy error:", error);
+    console.error(`[${requestId}] ❌ Unexpected error:`, error);
     return new Response(
       JSON.stringify({ error: error.message || "Internal error" }), 
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
