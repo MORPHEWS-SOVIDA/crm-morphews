@@ -114,40 +114,53 @@ async function createHmacSignature(data: string, secret: string): Promise<string
     .join('');
 }
 
-async function verifyToken(path: string, exp: number, token: string): Promise<boolean> {
+async function verifyToken(
+  path: string,
+  exp: number,
+  token: string,
+  contentType?: string
+): Promise<boolean> {
   if (!WHATSAPP_MEDIA_TOKEN_SECRET) {
     console.error("❌ WHATSAPP_MEDIA_TOKEN_SECRET not configured");
     return false;
   }
-  
+
   // Check expiration first
   const now = Math.floor(Date.now() / 1000);
   if (exp < now) {
-    console.error("❌ Token expired:", { exp: new Date(exp * 1000).toISOString(), now: new Date(now * 1000).toISOString() });
+    console.error("❌ Token expired:", {
+      exp: new Date(exp * 1000).toISOString(),
+      now: new Date(now * 1000).toISOString(),
+    });
     return false;
   }
-  
-  // Verify signature
-  const dataToSign = `${path}:${exp}`;
+
+  // v2: if contentType is present, it MUST be part of the signature (prevents tampering)
+  const ct = contentType?.trim() || "";
+  const dataToSign = ct ? `${path}:${exp}:${ct}` : `${path}:${exp}`;
   const expectedToken = await createHmacSignature(dataToSign, WHATSAPP_MEDIA_TOKEN_SECRET);
-  
+
   // Constant-time comparison to prevent timing attacks
   if (expectedToken.length !== token.length) {
     console.error("❌ Invalid token (length mismatch)");
     return false;
   }
-  
+
   let result = 0;
   for (let i = 0; i < expectedToken.length; i++) {
     result |= expectedToken.charCodeAt(i) ^ token.charCodeAt(i);
   }
-  
+
   if (result !== 0) {
     console.error("❌ Invalid token signature");
     return false;
   }
-  
-  console.log("✅ Token verified:", { path, expiresAt: new Date(exp * 1000).toISOString() });
+
+  console.log("✅ Token verified:", {
+    path,
+    expiresAt: new Date(exp * 1000).toISOString(),
+    contentType: ct || undefined,
+  });
   return true;
 }
 
@@ -255,60 +268,76 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    
-    // New format: ?path=...&exp=...&token=...
+
+    // New format: ?path=...&exp=...&token=...&ct=...
     const path = url.searchParams.get("path");
     const expStr = url.searchParams.get("exp");
     const token = url.searchParams.get("token");
-    
+    const ctParam = url.searchParams.get("ct") || undefined;
+
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
+
     let objectPath: string;
     let contentType: string;
 
     // Check if using new HMAC token format
     if (path && expStr && token) {
       console.log(`[${requestId}] Processing HMAC token request`, { ip: clientIp });
-      
+
       // Validate path is not empty
       if (!path.trim()) {
         console.error(`[${requestId}] ❌ Empty path parameter`);
         return new Response(
-          JSON.stringify({ error: "Path cannot be empty" }), 
+          JSON.stringify({ error: "Path cannot be empty" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       // Security: validate path safety
       const pathCheck = isPathSafe(path);
       if (!pathCheck.safe) {
         console.error(`[${requestId}] ❌ Unsafe path rejected:`, pathCheck.reason);
         return new Response(
-          JSON.stringify({ error: "Invalid path" }), 
+          JSON.stringify({ error: "Invalid path" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
+      // Validate ct param (optional) - keep it strict (no parameters like "; codecs=")
+      if (ctParam) {
+        const ct = ctParam.trim();
+        const isValidCt =
+          ct.length <= 80 &&
+          /^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/.test(ct);
+        if (!isValidCt) {
+          console.error(`[${requestId}] ❌ Invalid ct parameter`);
+          return new Response(
+            JSON.stringify({ error: "Invalid content type" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       const exp = parseInt(expStr, 10);
       if (isNaN(exp)) {
         console.error(`[${requestId}] ❌ Invalid exp parameter`);
         return new Response(
-          JSON.stringify({ error: "Invalid expiration" }), 
+          JSON.stringify({ error: "Invalid expiration" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
-      const isValid = await verifyToken(path, exp, token);
+
+      const isValid = await verifyToken(path, exp, token, ctParam);
       if (!isValid) {
         return new Response(
-          JSON.stringify({ error: "Invalid or expired token" }), 
+          JSON.stringify({ error: "Invalid or expired token" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       objectPath = path;
-      contentType = getMimeType(path);
-      
+      contentType = ctParam || getMimeType(path);
+
     } else if (token && !path && !expStr) {
       // Legacy format: ?token=<uuid> (database-based)
       console.log(`[${requestId}] Processing legacy token request`, { ip: clientIp });

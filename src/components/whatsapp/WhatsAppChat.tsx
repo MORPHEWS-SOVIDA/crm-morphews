@@ -368,6 +368,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           content: "",
           messageType: "audio",
           mediaStoragePath: uploadUrlData.path,
+          mediaMimeType: mimeType,
         },
       });
 
@@ -503,6 +504,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           content: messageText || "",
           messageType: "image",
           mediaStoragePath: uploadUrlData.path,
+          mediaMimeType: file.type,
           mediaCaption: messageText || "",
         },
       });
