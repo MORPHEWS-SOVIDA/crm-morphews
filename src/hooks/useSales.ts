@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 
 export type SaleStatus = 
@@ -198,13 +199,19 @@ export function getDeliveryStatusLabel(status: DeliveryStatus): string {
   return labels[status] || status;
 }
 
-export function useSales(filters?: { status?: SaleStatus }) {
+function useOrganizationId() {
   const { profile } = useAuth();
+  const { data: tenantId } = useCurrentTenantId();
+  return profile?.organization_id ?? tenantId ?? null;
+}
+
+export function useSales(filters?: { status?: SaleStatus }) {
+  const organizationId = useOrganizationId();
 
   return useQuery({
-    queryKey: ['sales', profile?.organization_id, filters],
+    queryKey: ['sales', organizationId, filters],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
+      if (!organizationId) return [];
 
       let query = supabase
         .from('sales')
@@ -212,7 +219,7 @@ export function useSales(filters?: { status?: SaleStatus }) {
           *,
           lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep)
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (filters?.status) {
@@ -224,17 +231,17 @@ export function useSales(filters?: { status?: SaleStatus }) {
       if (error) throw error;
       return data as Sale[];
     },
-    enabled: !!profile?.organization_id,
+    enabled: !!organizationId,
   });
 }
 
 export function useSale(id: string | undefined) {
-  const { profile } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useQuery({
-    queryKey: ['sale', id],
+    queryKey: ['sale', id, organizationId],
     queryFn: async () => {
-      if (!id || !profile?.organization_id) return null;
+      if (!id || !organizationId) return null;
 
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -243,7 +250,7 @@ export function useSale(id: string | undefined) {
           lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep)
         `)
         .eq('id', id)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .maybeSingle();
 
       if (saleError) throw saleError;
@@ -259,17 +266,18 @@ export function useSale(id: string | undefined) {
 
       return { ...sale, items: items || [] } as Sale;
     },
-    enabled: !!id && !!profile?.organization_id,
+    enabled: !!id && !!organizationId,
   });
 }
 
 export function useCreateSale() {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useMutation({
     mutationFn: async (data: CreateSaleData) => {
-      if (!profile?.organization_id || !user?.id) {
+      if (!organizationId || !user?.id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -307,7 +315,7 @@ export function useCreateSale() {
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
-          organization_id: profile.organization_id,
+          organization_id: organizationId,
           lead_id: data.lead_id,
           created_by: user.id,
           seller_user_id: data.seller_user_id || user.id,
@@ -350,7 +358,7 @@ export function useCreateSale() {
       // Record status history
       await supabase.from('sale_status_history').insert({
         sale_id: sale.id,
-        organization_id: profile.organization_id,
+        organization_id: organizationId,
         new_status: 'draft',
         changed_by: user.id,
       });
@@ -370,7 +378,8 @@ export function useCreateSale() {
 
 export function useUpdateSale() {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateSaleData }) => {
@@ -399,14 +408,14 @@ export function useUpdateSale() {
       if (error) throw error;
 
       // Record status change if status was updated
-      if (data.status && profile?.organization_id) {
-        await supabase.from('sale_status_history').insert({
-          sale_id: id,
-          organization_id: profile.organization_id,
-          new_status: data.status,
-          changed_by: user?.id,
-        });
-      }
+       if (data.status && organizationId) {
+         await supabase.from('sale_status_history').insert({
+           sale_id: id,
+           organization_id: organizationId,
+           new_status: data.status,
+           changed_by: user?.id,
+         });
+       }
 
       return sale;
     },
@@ -473,23 +482,23 @@ export function useMyDeliveries() {
 
 // Hook to get sales for a specific lead
 export function useLeadSales(leadId: string | undefined) {
-  const { profile } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useQuery({
-    queryKey: ['lead-sales', leadId],
+    queryKey: ['lead-sales', leadId, organizationId],
     queryFn: async () => {
-      if (!leadId || !profile?.organization_id) return [];
+      if (!leadId || !organizationId) return [];
 
       const { data, error } = await supabase
         .from('sales')
         .select('*')
         .eq('lead_id', leadId)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as Sale[];
     },
-    enabled: !!leadId && !!profile?.organization_id,
+    enabled: !!leadId && !!organizationId,
   });
 }

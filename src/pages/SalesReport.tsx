@@ -32,6 +32,7 @@ import { useSales } from "@/hooks/useSales";
 import { useUsers } from "@/hooks/useUsers";
 import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConfig";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentTenantId } from "@/hooks/useTenant";
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos os Status" },
   { value: "draft", label: "Rascunho" },
@@ -94,6 +95,9 @@ const DATE_FILTER_OPTIONS = [
 export default function SalesReport() {
   const navigate = useNavigate();
   const { isLoading: authLoading, profile } = useAuth();
+  const { data: tenantId, isLoading: tenantLoading } = useCurrentTenantId();
+  const organizationId = profile?.organization_id ?? tenantId ?? null;
+
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
   
@@ -122,7 +126,7 @@ export default function SalesReport() {
   const [stateFilter, setStateFilter] = useState("");
 
   // Fetch data
-  const { data: sales, isLoading: salesLoading } = useSales();
+  const { data: sales, isLoading: salesLoading, error: salesError } = useSales();
   const { data: users } = useUsers();
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
@@ -273,12 +277,28 @@ export default function SalesReport() {
     setStateFilter("");
   };
 
-  // Show loading state while auth is loading or no profile yet
-  if (authLoading || (!profile && !authLoading)) {
+  // Show loading state while auth/tenant is loading
+  if (authLoading || tenantLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  // If user isn't linked to any organization/tenant, avoid blank screen
+  if (!organizationId) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px] px-4">
+          <div className="text-center max-w-md">
+            <h1 className="text-lg font-semibold text-foreground">Sem empresa vinculada</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Seu usuário não está vinculado a nenhuma organização. Peça para um administrador te adicionar em uma empresa.
+            </p>
+          </div>
         </div>
       </Layout>
     );
@@ -290,6 +310,21 @@ export default function SalesReport() {
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (salesError) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px] px-4">
+          <div className="text-center max-w-md">
+            <h1 className="text-lg font-semibold text-foreground">Erro ao carregar relatório</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Não foi possível carregar as vendas. Tente novamente em alguns instantes.
+            </p>
+          </div>
         </div>
       </Layout>
     );
