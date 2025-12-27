@@ -55,6 +55,8 @@ export interface Sale {
   payment_confirmed_at: string | null;
   payment_confirmed_by: string | null;
   payment_method: string | null;
+  payment_method_id: string | null;
+  payment_installments: number | null;
   payment_notes: string | null;
   payment_proof_url: string | null;
   invoice_pdf_url: string | null;
@@ -125,6 +127,9 @@ export interface CreateSaleData {
   scheduled_delivery_shift?: 'morning' | 'afternoon' | 'full_day' | null;
   shipping_carrier_id?: string | null;
   shipping_cost_cents?: number;
+  // Payment fields
+  payment_method_id?: string | null;
+  payment_installments?: number;
 }
 
 export interface UpdateSaleData {
@@ -133,6 +138,8 @@ export interface UpdateSaleData {
   delivery_notes?: string;
   assigned_delivery_user_id?: string | null;
   payment_method?: string;
+  payment_method_id?: string | null;
+  payment_installments?: number;
   payment_notes?: string;
   payment_proof_url?: string;
   invoice_pdf_url?: string;
@@ -332,6 +339,8 @@ export function useCreateSale() {
           shipping_carrier_id: data.shipping_carrier_id || null,
           shipping_cost_cents: shippingCost,
           assigned_delivery_user_id: assignedDeliveryUserId,
+          payment_method_id: data.payment_method_id || null,
+          payment_installments: data.payment_installments || 1,
         })
         .select()
         .single();
