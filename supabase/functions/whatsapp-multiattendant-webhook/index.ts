@@ -3,15 +3,53 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.86.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const WHATSAPP_WEBHOOK_SECRET = Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// ============================================================================
+// SECURITY - WEBHOOK VALIDATION
+// ============================================================================
+
+function validateWebhookSecret(req: Request): boolean {
+  // If no secret configured, allow (backwards compatibility during migration)
+  if (!WHATSAPP_WEBHOOK_SECRET) {
+    console.warn("⚠️ WHATSAPP_WEBHOOK_SECRET not configured - webhook validation disabled");
+    return true;
+  }
+  
+  const providedSecret = req.headers.get("x-webhook-secret");
+  if (!providedSecret) {
+    console.error("❌ Missing x-webhook-secret header");
+    return false;
+  }
+  
+  // Constant-time comparison to prevent timing attacks
+  if (providedSecret.length !== WHATSAPP_WEBHOOK_SECRET.length) {
+    console.error("❌ Invalid webhook secret (length mismatch)");
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < providedSecret.length; i++) {
+    result |= providedSecret.charCodeAt(i) ^ WHATSAPP_WEBHOOK_SECRET.charCodeAt(i);
+  }
+  
+  if (result !== 0) {
+    console.error("❌ Invalid webhook secret");
+    return false;
+  }
+  
+  console.log("✅ Webhook secret validated");
+  return true;
+}
 
 // ============================================================================
 // PHONE NUMBER UTILITIES
@@ -492,191 +530,151 @@ async function processWasenderMessage(instance: any, body: any) {
                  msgData.message?.audioMessage?.url || msgData.message?.videoMessage?.url ||
                  msgData.message?.documentMessage?.url || null;
                  
-  const caption = msgData.message?.imageMessage?.caption || msgData.message?.videoMessage?.caption || msgData.caption || null;
-  const base64Data = msgData.base64 || msgData.mediaBase64 || msgData.message?.imageMessage?.base64 ||
-                     msgData.message?.audioMessage?.base64 || msgData.message?.videoMessage?.base64 || null;
-
-  console.log("=== WasenderAPI message ===");
-  console.log("Phone:", sendablePhone, "Text:", text?.substring(0, 50), "Type:", messageType, "FromMe:", isFromMe, "IsGroup:", isGroup);
-
-  // STABLE: chat_id é o remoteJid original (ex: 5511999999999@s.whatsapp.net ou 123456@g.us)
-  const chatId = remoteJid; // stable key for upsert
-  const isGroupFinal = isGroup;
-
-  // group subject if provided by payload
-  const groupSubject =
-    msgData?.group?.subject ||
-    msgData?.group_subject ||
-    msgData?.groupSubject ||
-    msgData?.groupName ||
-    msgData?.chat?.name ||
-    null;
-
-  // GRUPOS: usar ID do grupo (sem @g.us) como phone_number e NÃO setar sendable_phone
-  let finalPhoneForConv = phoneForConv;
-  let finalSendablePhone = sendablePhone;
-
-  if (isGroupFinal) {
-    if (remoteJid.includes("@g.us")) {
-      finalPhoneForConv = remoteJid.replace("@g.us", "");
-    }
-    finalSendablePhone = "";
-    console.log("Group message:", { remoteJid, finalPhoneForConv, groupSubject });
-  }
-
-  // display_name: usar subject/nome de grupo quando houver, senão contactName
-  const displayName = isGroupFinal ? (groupSubject || "Grupo") : (senderName || null);
-
-  // Process media
-  let processedContent = text || caption || null;
-
-  if (!isFromMe && (mediaUrl || base64Data)) {
-    if (messageType === "image") {
-      const analysis = await analyzeImage(mediaUrl || "", base64Data);
-      if (analysis)
-        processedContent = processedContent
-          ? `${processedContent}\n\n📸 Análise:\n${analysis}`
-          : `📸 Análise:\n${analysis}`;
-    }
-    if (messageType === "audio") {
-      const transcription = await transcribeAudio(mediaUrl || "", base64Data);
-      if (transcription)
-        processedContent = processedContent
-          ? `${processedContent}\n\n🎤 Transcrição:\n${transcription}`
-          : `🎤 Transcrição:\n${transcription}`;
-    }
-  }
-
-  // Get or create conversation (NOVA LÓGICA: por org+chat_id estável, suporta grupos)
+  const mediaBase64 = msgData.base64 || msgData.data?.base64 || null;
+  const groupSubject = msgData.groupSubject || msgData.group?.name || "";
+  
+  // Get or create conversation using stable chat_id
   const conversation = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
-    chatId, // remoteJid original - chave estável
-    finalPhoneForConv,
-    finalSendablePhone,
-    isGroupFinal,
-    isGroupFinal ? groupSubject : undefined,
-    isGroupFinal ? undefined : senderName
+    remoteJid, // CHAVE ESTÁVEL
+    phoneForConv,
+    sendablePhone,
+    isGroup,
+    isGroup ? groupSubject : undefined,
+    senderName || undefined
   );
 
-  // Save message with provider_message_id
-  const direction = isFromMe ? "outbound" : "inbound";
+  // Process media (image analysis, audio transcription)
+  if (messageType === "audio" && (mediaUrl || mediaBase64)) {
+    const transcription = await transcribeAudio(mediaUrl || "", mediaBase64);
+    if (transcription) {
+      text = `[Áudio transcrito]: ${transcription}`;
+    }
+  }
+  
+  if (messageType === "image" && (mediaUrl || mediaBase64)) {
+    const analysis = await analyzeImage(mediaUrl || "", mediaBase64);
+    if (analysis && !text) {
+      text = `[Imagem analisada]: ${analysis}`;
+    }
+  }
+  
+  // Save message
   const savedMessage = await saveMessage(
     conversation.id,
     instance.id,
-    processedContent,
-    direction,
+    text || null,
+    isFromMe ? "outbound" : "inbound",
     messageType,
-    messageId, // provider_message_id
+    messageId,
     mediaUrl,
-    caption,
+    msgData.message?.imageMessage?.caption || msgData.message?.videoMessage?.caption || null,
     false,
-    conversation.contact_id,
-    "wasenderapi"
+    conversation.contact_id
   );
-
-  console.log("Processed:", conversation.id, direction, !!savedMessage);
-
-  // AI response for incoming messages if bot enabled
-  if (!isFromMe && savedMessage && processedContent) {
-    try {
-      const { data: botConfig } = await supabase
-        .from("whatsapp_bot_configs")
-        .select("is_enabled")
-        .eq("instance_id", instance.id)
-        .single();
-
-      if (botConfig?.is_enabled) {
-        const history = await getConversationHistory(conversation.id, 20);
-        let leadInfo = null;
-        if (conversation.lead_id) {
-          const { data: lead } = await supabase.from("leads").select("name, stage, products").eq("id", conversation.lead_id).single();
-          leadInfo = lead;
-        }
-
-        const aiResponse = await generateAIResponse(history, processedContent, leadInfo);
-        if (aiResponse) {
-          const phoneToSend = conversation.sendable_phone || sendablePhone;
-          const formattedPhone = phoneToSend.startsWith("+") ? phoneToSend : `+${phoneToSend}`;
-          
-          if (instance.wasender_api_key && phoneToSend) {
-            const sendResp = await fetch("https://www.wasenderapi.com/api/send-message", {
-              method: "POST",
-              headers: { "Authorization": `Bearer ${instance.wasender_api_key}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ to: formattedPhone, text: aiResponse }),
-            });
-
-            if (sendResp.ok) {
-              const sendData = await sendResp.json();
-              const botMsgId = sendData.data?.key?.id || sendData.data?.id;
-              await saveMessage(conversation.id, instance.id, aiResponse, "outbound", "text", botMsgId, undefined, undefined, true, conversation.contact_id, "wasenderapi");
-              console.log("AI response sent");
-            }
-          }
-        }
+  
+  if (!savedMessage) {
+    console.log("Message not saved (duplicate or error)");
+    return null;
+  }
+  
+  // Bot AI response (if enabled and inbound)
+  if (!isFromMe && !isGroup) {
+    const { data: botConfig } = await supabase
+      .from("whatsapp_bot_configs")
+      .select("*")
+      .eq("instance_id", instance.id)
+      .single();
+    
+    if (botConfig?.is_enabled) {
+      const history = await getConversationHistory(conversation.id);
+      const aiResponse = await generateAIResponse(history, text);
+      
+      if (aiResponse && botConfig.supervisor_mode === false) {
+        // TODO: Send AI response via Wasender API
+        console.log("AI response generated:", aiResponse.substring(0, 100));
       }
-    } catch (error) {
-      console.error("AI response error:", error);
     }
   }
-
-  return { conversationId: conversation.id, saved: !!savedMessage };
+  
+  console.log("Message processed successfully:", savedMessage.id);
+  return savedMessage;
 }
 
 async function processZapiMessage(instance: any, body: any) {
-  const phone = normalizePhoneE164(body.phone?.replace("@c.us", "").replace("@s.whatsapp.net", "") || "");
-  const text = body.text?.message || body.text || body.message || "";
-  const messageId = body.messageId || body.ids?.[0] || "";
-  const isFromMe = body.fromMe === true;
-  const senderName = body.senderName || body.pushName || "";
-  const isGroup = body.isGroup === true;
-
-  if (!phone || isGroup) return null;
-
-  // Z-API: usar phone como chat_id
-  const chatId = `${phone}@s.whatsapp.net`;
-  const conversation = await getOrCreateConversation(instance.id, instance.organization_id, chatId, phone, phone, false, undefined, senderName);
-  const direction = isFromMe ? "outbound" : "inbound";
-  const savedMessage = await saveMessage(conversation.id, instance.id, text, direction, "text", messageId, undefined, undefined, false, conversation.contact_id, "zapi");
-
-  return { conversationId: conversation.id, saved: !!savedMessage };
+  const msgData = body;
+  
+  const phone = msgData.phone || msgData.from || "";
+  const text = msgData.text?.message || msgData.text || msgData.body || "";
+  const messageId = msgData.messageId || msgData.id || "";
+  const isFromMe = msgData.isFromMe === true;
+  const isGroup = msgData.isGroup === true;
+  
+  if (!phone) {
+    console.log("No phone in Z-API message");
+    return null;
+  }
+  
+  const remoteJid = isGroup ? `${phone}@g.us` : `${phone}@s.whatsapp.net`;
+  
+  const conversation = await getOrCreateConversation(
+    instance.id,
+    instance.organization_id,
+    remoteJid,
+    phone,
+    phone,
+    isGroup,
+    msgData.chatName || undefined,
+    msgData.senderName || undefined
+  );
+  
+  let messageType = "text";
+  if (msgData.image) messageType = "image";
+  else if (msgData.audio) messageType = "audio";
+  else if (msgData.video) messageType = "video";
+  else if (msgData.document) messageType = "document";
+  
+  const mediaUrl = msgData.image?.imageUrl || msgData.audio?.audioUrl || 
+                   msgData.video?.videoUrl || msgData.document?.documentUrl || null;
+  
+  const savedMessage = await saveMessage(
+    conversation.id,
+    instance.id,
+    text || null,
+    isFromMe ? "outbound" : "inbound",
+    messageType,
+    messageId,
+    mediaUrl,
+    msgData.image?.caption || msgData.video?.caption || null,
+    false,
+    conversation.contact_id,
+    "zapi"
+  );
+  
+  console.log("Z-API message processed:", savedMessage?.id);
+  return savedMessage;
 }
 
-/**
- * NOVA LÓGICA: Atualizar status por provider_message_id (não apenas z_api_message_id)
- */
 async function handleMessageStatusUpdate(instance: any, body: any) {
-  let messageId = "";
-  let status = "";
-  let provider = instance.provider || "wasenderapi";
-
-  // WasenderAPI format
-  if (body.data?.key?.id) {
-    messageId = body.data.key.id;
-    const statusCode = body.data.status;
-    if (statusCode === 2) status = "sent";
-    else if (statusCode === 3) status = "delivered";
-    else if (statusCode === 4 || statusCode === 5) status = "read";
-  }
-  // Z-API format
-  else if (body.ids?.[0]) {
-    messageId = body.ids[0];
-    status = body.status || body.ack;
-    provider = "zapi";
-  }
-
-  if (!messageId || !status) {
-    console.log("Invalid status update");
-    return;
-  }
-
-  // Atualizar por provider_message_id OU z_api_message_id (compatibilidade)
-  const { error } = await supabase
-    .from("whatsapp_messages")
-    .update({ status })
-    .or(`provider_message_id.eq.${messageId},z_api_message_id.eq.${messageId}`);
-
-  if (!error) {
+  const updates = body.data?.updates || body.data || [];
+  const updateList = Array.isArray(updates) ? updates : [updates];
+  
+  for (const update of updateList) {
+    const messageId = update.key?.id || update.id || update.messageId;
+    if (!messageId) continue;
+    
+    let status = "sent";
+    const updateStatus = update.status || update.update?.status;
+    if (updateStatus === 2 || updateStatus === "DELIVERY_ACK") status = "delivered";
+    else if (updateStatus === 3 || updateStatus === "READ") status = "read";
+    else if (updateStatus === 4 || updateStatus === "PLAYED") status = "read";
+    
+    await supabase
+      .from("whatsapp_messages")
+      .update({ status })
+      .or(`provider_message_id.eq.${messageId},z_api_message_id.eq.${messageId}`);
+    
     console.log("Status updated:", messageId, status);
   }
 }
@@ -688,6 +686,16 @@ async function handleMessageStatusUpdate(instance: any, body: any) {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // =========================================================================
+  // SECURITY: Validate webhook secret
+  // =========================================================================
+  if (!validateWebhookSecret(req)) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized - Invalid webhook secret" }), 
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {

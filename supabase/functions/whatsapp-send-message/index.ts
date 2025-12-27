@@ -8,15 +8,67 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") ?? "";
+const PUBLIC_APP_URL = Deno.env.get("PUBLIC_APP_URL") ?? "";
 
 const WASENDER_BASE = "https://wasenderapi.com";
+
+// ============================================================================
+// HMAC TOKEN GENERATION (for secure media proxy URLs)
+// ============================================================================
+
+async function createHmacSignature(data: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(data);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+  return btoa(String.fromCharCode(...new Uint8Array(signature)));
+}
+
+interface MediaTokenPayload {
+  bucket: string;
+  path: string;
+  exp: number;
+  mime?: string;
+}
+
+async function generateMediaToken(
+  bucket: string, 
+  path: string, 
+  mimeType?: string,
+  expiresInSeconds = 300 // 5 minutes
+): Promise<string> {
+  const payload: MediaTokenPayload = {
+    bucket,
+    path,
+    exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
+    mime: mimeType,
+  };
+  
+  const payloadStr = btoa(JSON.stringify(payload));
+  const signature = await createHmacSignature(payloadStr, WHATSAPP_MEDIA_TOKEN_SECRET);
+  
+  return `${payloadStr}.${signature}`;
+}
+
+// ============================================================================
+// MEDIA UTILITIES
+// ============================================================================
 
 function isDataUrl(v: string) {
   return typeof v === "string" && v.startsWith("data:");
 }
 
 function parseDataUrl(dataUrl: string) {
-  // data:<mime>;base64,<payload>
   const m = dataUrl.match(/^data:(.+);base64,(.*)$/);
   if (!m) throw new Error("mediaUrl inválida (esperado data URL base64)");
   return { mime: m[1], base64: m[2] };
@@ -35,18 +87,23 @@ function extFromMime(mime: string) {
   return "bin";
 }
 
-async function uploadAndGetPublicUrl(
+/**
+ * Upload media to private storage and return secure proxy URL
+ * Uses HMAC-signed tokens with 5 minute expiry
+ */
+async function uploadAndGetSecureUrl(
   supabaseAdmin: any,
   organizationId: string,
   base64: string,
   mime: string,
   folder: string
-) {
+): Promise<string> {
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
   const ext = extFromMime(mime);
   const fileName = `${folder}/${organizationId}/${crypto.randomUUID()}.${ext}`;
   const bucket = "whatsapp-media";
 
+  // Upload to storage (bucket should be PRIVATE)
   const up = await supabaseAdmin.storage
     .from(bucket)
     .upload(fileName, bytes, {
@@ -58,16 +115,30 @@ async function uploadAndGetPublicUrl(
     throw new Error(`Falha ao subir mídia no storage: ${up.error.message}`);
   }
 
-  // Get public URL from the bucket
+  console.log("✅ Media uploaded:", fileName);
+
+  // Generate secure HMAC token for proxy access
+  if (WHATSAPP_MEDIA_TOKEN_SECRET) {
+    const token = await generateMediaToken(bucket, fileName, mime, 300); // 5 min expiry
+    
+    // Use PUBLIC_APP_URL or fallback to Supabase URL
+    const baseUrl = PUBLIC_APP_URL || SUPABASE_URL;
+    const proxyUrl = `${baseUrl.replace(/\/$/, "")}/functions/v1/whatsapp-media-proxy?token=${encodeURIComponent(token)}`;
+    
+    console.log("✅ Generated secure proxy URL (5 min expiry)");
+    return proxyUrl;
+  }
+
+  // Fallback: Try public URL (not recommended for production)
+  console.warn("⚠️ WHATSAPP_MEDIA_TOKEN_SECRET not configured - using public URL fallback");
   const pub = supabaseAdmin.storage.from(bucket).getPublicUrl(fileName);
   const publicUrl = pub?.data?.publicUrl;
 
   if (publicUrl) {
-    console.log("Using public URL:", publicUrl);
     return publicUrl;
   }
 
-  // Fallback: create a proxy token for the media
+  // Last resort: legacy database token (backwards compatibility)
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -86,11 +157,14 @@ async function uploadAndGetPublicUrl(
     throw new Error("Falha ao criar token de mídia.");
   }
 
-  // Return proxy URL
   const proxyUrl = `${SUPABASE_URL}/functions/v1/whatsapp-media-proxy?token=${token}`;
-  console.log("Using proxy URL:", proxyUrl);
+  console.log("Using legacy proxy URL:", proxyUrl);
   return proxyUrl;
 }
+
+// ============================================================================
+// WASENDER API
+// ============================================================================
 
 async function wasenderRequest(apiKey: string, path: string, payload: any) {
   const res = await fetch(`${WASENDER_BASE}${path}`, {
@@ -122,10 +196,6 @@ async function sendWithFallbacks(params: {
 }) {
   const { apiKey, to, type, text, mediaUrl } = params;
 
-  // Strategy:
-  // Try most common endpoint: /api/send-message
-  // Then try variants of field names (imageUrl/image, audioUrl/audio, documentUrl/document, videoUrl/video)
-  // Then try specialized endpoints if available.
   const attempts: Array<{ path: string; payload: any }> = [];
 
   if (type === "text") {
@@ -212,13 +282,16 @@ async function sendWithFallbacks(params: {
       return { success: true, providerMessageId, raw: r.json };
     }
 
-    // surface better error
     const msg = r.json?.message || r.json?.error || r.json?.raw || `HTTP ${r.status}`;
     lastErr = `${a.path}: ${msg}`;
   }
 
   return { success: false, providerMessageId: null, error: lastErr };
 }
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -233,7 +306,6 @@ Deno.serve(async (req) => {
       organizationId,
       instanceId,
       conversationId,
-      // IMPORTANT: use chatId when available (stable)
       chatId,
       phone,
       content,
@@ -261,7 +333,7 @@ Deno.serve(async (req) => {
     const to = (chatId || phone || "").toString().trim();
     if (!to) throw new Error("Destino inválido (chatId/phone vazio)");
 
-    // If mediaUrl is a data URL, upload and create signed URL
+    // If mediaUrl is a data URL, upload and create secure proxy URL
     let finalMediaUrl: string | null = null;
     let finalType: "text" | "image" | "audio" | "document" | "video" =
       (messageType as any) || "text";
@@ -278,7 +350,9 @@ Deno.serve(async (req) => {
           : finalType === "video"
           ? "videos"
           : "docs";
-      finalMediaUrl = await uploadAndGetPublicUrl(
+      
+      // Upload to private storage and get secure proxy URL
+      finalMediaUrl = await uploadAndGetSecureUrl(
         supabaseAdmin,
         organizationId,
         parsed.base64,
@@ -286,11 +360,10 @@ Deno.serve(async (req) => {
         folder
       );
     } else if (mediaUrl && typeof mediaUrl === "string") {
-      // Already a URL
       finalMediaUrl = mediaUrl;
     }
 
-    // Build send
+    // Send message
     const sendResult = await sendWithFallbacks({
       apiKey: instance.wasender_api_key,
       to,
@@ -299,7 +372,7 @@ Deno.serve(async (req) => {
       mediaUrl: finalMediaUrl ?? undefined,
     });
 
-    // Save message no matter what (so you never lose history)
+    // Save message (always, to preserve history)
     const { data: savedMessage, error: saveError } = await supabaseAdmin
       .from("whatsapp_messages")
       .insert({
@@ -320,10 +393,9 @@ Deno.serve(async (req) => {
 
     if (saveError) {
       console.error("Save error:", saveError);
-      // still return send result
     }
 
-    // Update conversation (never delete history; always keep last_message_at)
+    // Update conversation
     await supabaseAdmin
       .from("whatsapp_conversations")
       .update({
@@ -344,7 +416,6 @@ Deno.serve(async (req) => {
     );
   } catch (error: any) {
     console.error("whatsapp-send-message error:", error);
-    // Return 200 to not break UI, but include success=false
     return new Response(JSON.stringify({ success: false, error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
