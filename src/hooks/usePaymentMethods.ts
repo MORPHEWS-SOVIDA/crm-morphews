@@ -77,10 +77,17 @@ export function useCreatePaymentMethod() {
 
   return useMutation({
     mutationFn: async (input: CreatePaymentMethodInput) => {
-      // Get organization_id
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Get organization_id from user's profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
+        .eq('user_id', user.id)
         .single();
 
       if (!profile?.organization_id) {
