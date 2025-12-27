@@ -675,13 +675,16 @@ export default function SalesReport() {
                     
                     <div className="space-y-2">
                       <Label>Cidade</Label>
-                      <Select value={cityFilter} onValueChange={setCityFilter}>
+                      <Select
+                        value={cityFilter || "all"}
+                        onValueChange={(v) => setCityFilter(v === "all" ? "" : v)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Todas as cidades" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todas as Cidades</SelectItem>
-                          {uniqueCities.map(city => (
+                          <SelectItem value="all">Todas as Cidades</SelectItem>
+                          {uniqueCities.map((city) => (
                             <SelectItem key={city} value={city}>
                               {city}
                             </SelectItem>
@@ -689,16 +692,19 @@ export default function SalesReport() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label>Estado</Label>
-                      <Select value={stateFilter} onValueChange={setStateFilter}>
+                      <Select
+                        value={stateFilter || "all"}
+                        onValueChange={(v) => setStateFilter(v === "all" ? "" : v)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Todos os estados" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todos os Estados</SelectItem>
-                          {uniqueStates.map(state => (
+                          <SelectItem value="all">Todos os Estados</SelectItem>
+                          {uniqueStates.map((state) => (
                             <SelectItem key={state} value={state}>
                               {state}
                             </SelectItem>
