@@ -37,7 +37,10 @@ import {
   AlertTriangle,
   MapPin,
   Truck,
-  UserCheck
+  UserCheck,
+  CreditCard,
+  Banknote,
+  Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, Product } from '@/hooks/useProducts';
@@ -48,6 +51,7 @@ import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useActivePaymentMethods, PaymentMethod, PAYMENT_TIMING_LABELS } from '@/hooks/usePaymentMethods';
 
 interface SelectedItem {
   product_id: string;
@@ -88,6 +92,7 @@ export default function NewSale() {
   
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: paymentMethods = [] } = useActivePaymentMethods();
   const { user } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const createSale = useCreateSale();
@@ -133,6 +138,22 @@ export default function NewSale() {
     carrierId: null,
     shippingCost: 0,
   });
+
+  // Payment method selection
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [selectedInstallments, setSelectedInstallments] = useState<number>(1);
+
+  const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
+  
+  // Calculate available installments based on total and min_installment_value
+  const getAvailableInstallments = () => {
+    if (!selectedPaymentMethod || selectedPaymentMethod.payment_timing !== 'installments') return [1];
+    const maxByValue = selectedPaymentMethod.min_installment_value_cents > 0
+      ? Math.floor(total / selectedPaymentMethod.min_installment_value_cents)
+      : selectedPaymentMethod.max_installments;
+    const maxInstallments = Math.min(selectedPaymentMethod.max_installments, maxByValue);
+    return Array.from({ length: Math.max(1, maxInstallments) }, (_, i) => i + 1);
+  };
 
   // Calculate totals
   const subtotal = selectedItems.reduce((sum, item) => {
@@ -509,6 +530,110 @@ export default function NewSale() {
                 value={deliveryConfig}
                 onChange={setDeliveryConfig}
               />
+            )}
+
+            {/* Payment Method Selection */}
+            {selectedItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Forma de Pagamento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {paymentMethods.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhuma forma de pagamento cadastrada.</p>
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto" 
+                        onClick={() => navigate('/configuracoes')}
+                      >
+                        Cadastrar formas de pagamento
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {paymentMethods.map((pm) => (
+                          <Button
+                            key={pm.id}
+                            type="button"
+                            variant={selectedPaymentMethodId === pm.id ? 'default' : 'outline'}
+                            className="h-auto py-3 px-4 flex flex-col items-start gap-1"
+                            onClick={() => {
+                              setSelectedPaymentMethodId(pm.id);
+                              setSelectedInstallments(1);
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {pm.payment_timing === 'cash' && <Banknote className="w-4 h-4" />}
+                              {pm.payment_timing === 'term' && <Calendar className="w-4 h-4" />}
+                              {pm.payment_timing === 'installments' && <CreditCard className="w-4 h-4" />}
+                              <span className="font-medium">{pm.name}</span>
+                            </div>
+                            <span className="text-xs opacity-70">
+                              {PAYMENT_TIMING_LABELS[pm.payment_timing]}
+                              {pm.payment_timing === 'installments' && ` até ${pm.max_installments}x`}
+                            </span>
+                          </Button>
+                        ))}
+                      </div>
+
+                      {/* Installments selector */}
+                      {selectedPaymentMethod?.payment_timing === 'installments' && (
+                        <div className="pt-2 border-t">
+                          <Label>Número de Parcelas</Label>
+                          <Select
+                            value={String(selectedInstallments)}
+                            onValueChange={(value) => setSelectedInstallments(Number(value))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getAvailableInstallments().map((n) => (
+                                <SelectItem key={n} value={String(n)}>
+                                  {n}x de {formatCurrency(Math.ceil(total / n))}
+                                  {n === 1 ? ' (à vista)' : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {selectedPaymentMethod.min_installment_value_cents > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Parcela mínima: {formatCurrency(selectedPaymentMethod.min_installment_value_cents)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Payment method details */}
+                      {selectedPaymentMethod && (
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {selectedPaymentMethod.fee_percentage > 0 && (
+                            <Badge variant="outline">
+                              Taxa: {selectedPaymentMethod.fee_percentage}%
+                            </Badge>
+                          )}
+                          {selectedPaymentMethod.settlement_days > 0 && (
+                            <Badge variant="outline">
+                              Compensação: {selectedPaymentMethod.settlement_days} dias
+                            </Badge>
+                          )}
+                          {selectedPaymentMethod.requires_proof && (
+                            <Badge variant="outline">
+                              Exige comprovante
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
 
