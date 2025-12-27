@@ -104,7 +104,7 @@ export default function WhatsAppChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch instances user has access to
+  // Fetch instances user has access to (incluindo desconectadas)
   useEffect(() => {
     const fetchInstances = async () => {
       if (!user) return;
@@ -125,12 +125,14 @@ export default function WhatsAppChat() {
         .eq('can_view', true);
 
       if (!error && data) {
+        // IMPORTANTE: Não filtra por is_connected - mostra todas instâncias
         const instancesList = data
-          .map((d: any) => d.whatsapp_instances)
-          .filter((i: Instance) => i.is_connected);
+          .map((d: any) => d.whatsapp_instances);
         setInstances(instancesList);
         if (instancesList.length > 0 && !selectedInstance) {
-          setSelectedInstance(instancesList[0].id);
+          // Prioriza instância conectada, mas aceita desconectada
+          const connected = instancesList.find((i: Instance) => i.is_connected);
+          setSelectedInstance(connected?.id || instancesList[0].id);
         }
       }
     };

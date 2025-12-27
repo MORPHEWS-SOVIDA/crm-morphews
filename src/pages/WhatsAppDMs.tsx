@@ -1075,16 +1075,15 @@ export default function WhatsAppDMs() {
                       </Button>
                     </div>
 
-                    {instance.is_connected && (
-                      <Button 
-                        className="w-full gap-2" 
-                        variant="default"
-                        onClick={() => setSelectedInstance(instance)}
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        Abrir Conversas
-                      </Button>
-                    )}
+                    {/* Botão de conversas - sempre visível para manter histórico */}
+                    <Button 
+                      className="w-full gap-2" 
+                      variant={instance.is_connected ? "default" : "outline"}
+                      onClick={() => setSelectedInstance(instance)}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      {instance.is_connected ? "Abrir Conversas" : "Ver Histórico de Conversas"}
+                    </Button>
                   </CardContent>
 
                   {/* Price badge */}
