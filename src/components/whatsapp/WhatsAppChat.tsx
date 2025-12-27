@@ -78,6 +78,11 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [isSendingAudio, setIsSendingAudio] = useState(false);
   const [isSendingImage, setIsSendingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
+
+  // Wasender throttle: they enforce "1 message every ~5 seconds".
+  const SEND_COOLDOWN_MS = 5000;
+  const [lastSendAt, setLastSendAt] = useState<number>(0);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -265,6 +270,18 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
+
+    const now = Date.now();
+    if (now - lastSendAt < SEND_COOLDOWN_MS) {
+      toast({
+        title: "Aguarde um pouco",
+        description: "Para evitar bloqueio do WhatsApp, envie no máximo 1 mensagem a cada 5 segundos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLastSendAt(now);
     sendMessage.mutate(messageText);
   };
 
@@ -278,6 +295,17 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       });
       return;
     }
+
+    const now = Date.now();
+    if (now - lastSendAt < SEND_COOLDOWN_MS) {
+      toast({
+        title: "Aguarde um pouco",
+        description: "Para evitar bloqueio do WhatsApp, envie no máximo 1 mensagem a cada 5 segundos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLastSendAt(now);
 
     setIsSendingAudio(true);
     try {
@@ -410,6 +438,17 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       });
       return;
     }
+
+    const now = Date.now();
+    if (now - lastSendAt < SEND_COOLDOWN_MS) {
+      toast({
+        title: "Aguarde um pouco",
+        description: "Para evitar bloqueio do WhatsApp, envie no máximo 1 mensagem a cada 5 segundos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLastSendAt(now);
 
     setIsSendingImage(true);
     try {

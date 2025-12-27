@@ -49,20 +49,29 @@ async function generateMediaProxyUrl(
   if (!WHATSAPP_MEDIA_TOKEN_SECRET) {
     throw new Error("WHATSAPP_MEDIA_TOKEN_SECRET não configurado - impossível gerar URL segura");
   }
-  
-  if (!PUBLIC_APP_URL) {
-    throw new Error("PUBLIC_APP_URL não configurado - impossível gerar URL do proxy");
+
+  // Prefer calling the public backend function URL directly (works both for browser and WhatsApp recipients).
+  // Fallback to PUBLIC_APP_URL only if SUPABASE_URL is missing.
+  if (!SUPABASE_URL && !PUBLIC_APP_URL) {
+    throw new Error("SUPABASE_URL/PUBLIC_APP_URL não configurado - impossível gerar URL do proxy");
   }
-  
+
   const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
-  
+
   // Create signature: HMAC-SHA256(path + exp, secret)
   const dataToSign = `${storagePath}:${exp}`;
   const token = await createHmacSignature(dataToSign, WHATSAPP_MEDIA_TOKEN_SECRET);
-  
+
+  const supabaseBase = SUPABASE_URL ? SUPABASE_URL.replace(/\/$/, "") : "";
+  const publicBase = PUBLIC_APP_URL ? PUBLIC_APP_URL.replace(/\/$/, "") : "";
+
+  // Primary: public function endpoint
+  const proxyBaseUrl = supabaseBase
+    ? `${supabaseBase}/functions/v1/whatsapp-media-proxy`
+    : `${publicBase}/api/whatsapp/media`;
+
   // Build proxy URL with querystring
-  const baseUrl = PUBLIC_APP_URL.replace(/\/$/, "");
-  const proxyUrl = `${baseUrl}/api/whatsapp/media?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}`;
+  const proxyUrl = `${proxyBaseUrl}?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}`;
   
   console.log("✅ Generated secure proxy URL:", { 
     path: storagePath, 
