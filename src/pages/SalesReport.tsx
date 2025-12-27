@@ -127,29 +127,7 @@ export default function SalesReport() {
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
 
-  // Show loading state while auth is loading or no profile yet
-  if (authLoading || (!profile && !authLoading)) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
-  }
-
-  // Show loading while sales data is loading
-  if (salesLoading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
-  }
-
-  // Filter sales
+  // Filter sales - MUST be before any early returns to follow React hooks rules
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     
@@ -200,7 +178,7 @@ export default function SalesReport() {
     clientSearch, cityFilter, stateFilter
   ]);
 
-  // Calculate totals
+  // Calculate totals - MUST be before any early returns
   const totals = useMemo(() => {
     const totalSales = filteredSales.length;
     const totalValue = filteredSales.reduce((sum, s) => sum + (s.total_cents || 0), 0);
@@ -221,6 +199,24 @@ export default function SalesReport() {
     return { totalSales, totalValue, totalDiscount, totalShipping, avgTicket, byStatus, byDeliveryType };
   }, [filteredSales]);
 
+  // Get unique cities and states from sales - MUST be before any early returns
+  const uniqueCities = useMemo(() => {
+    const cities = new Set<string>();
+    sales?.forEach(s => {
+      if (s.lead?.city) cities.add(s.lead.city);
+    });
+    return Array.from(cities).sort();
+  }, [sales]);
+
+  const uniqueStates = useMemo(() => {
+    const states = new Set<string>();
+    sales?.forEach(s => {
+      if (s.lead?.state) states.add(s.lead.state);
+    });
+    return Array.from(states).sort();
+  }, [sales]);
+
+  // Helper functions
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -277,22 +273,27 @@ export default function SalesReport() {
     setStateFilter("");
   };
 
-  // Get unique cities and states from sales
-  const uniqueCities = useMemo(() => {
-    const cities = new Set<string>();
-    sales?.forEach(s => {
-      if (s.lead?.city) cities.add(s.lead.city);
-    });
-    return Array.from(cities).sort();
-  }, [sales]);
+  // Show loading state while auth is loading or no profile yet
+  if (authLoading || (!profile && !authLoading)) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
-  const uniqueStates = useMemo(() => {
-    const states = new Set<string>();
-    sales?.forEach(s => {
-      if (s.lead?.state) states.add(s.lead.state);
-    });
-    return Array.from(states).sort();
-  }, [sales]);
+  // Show loading while sales data is loading
+  if (salesLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
