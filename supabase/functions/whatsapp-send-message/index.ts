@@ -39,27 +39,35 @@ async function createHmacSignature(data: string, secret: string): Promise<string
 }
 
 /**
- * Generate a secure HMAC-signed token for media proxy access
- * Token expires in 5 minutes (300 seconds)
+ * Generate a secure HMAC-signed token for media proxy access.
+ *
+ * IMPORTANT: WhatsApp recipients may download media minutes/hours later, so we default to a longer
+ * expiration (7 days) to avoid "mídia não disponível".
  */
 async function generateMediaProxyUrl(
   storagePath: string,
-  expiresInSeconds = 300
+  expiresInSeconds = 60 * 60 * 24 * 7,
+  contentType?: string
 ): Promise<string> {
   if (!WHATSAPP_MEDIA_TOKEN_SECRET) {
-    throw new Error("WHATSAPP_MEDIA_TOKEN_SECRET não configurado - impossível gerar URL segura");
+    throw new Error(
+      "WHATSAPP_MEDIA_TOKEN_SECRET não configurado - impossível gerar URL segura"
+    );
   }
 
   // Prefer calling the public backend function URL directly (works both for browser and WhatsApp recipients).
   // Fallback to PUBLIC_APP_URL only if SUPABASE_URL is missing.
   if (!SUPABASE_URL && !PUBLIC_APP_URL) {
-    throw new Error("SUPABASE_URL/PUBLIC_APP_URL não configurado - impossível gerar URL do proxy");
+    throw new Error(
+      "SUPABASE_URL/PUBLIC_APP_URL não configurado - impossível gerar URL do proxy"
+    );
   }
 
   const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
 
-  // Create signature: HMAC-SHA256(path + exp, secret)
-  const dataToSign = `${storagePath}:${exp}`;
+  // v2 signature includes content-type (prevents tampering when we pass ct)
+  const ct = contentType?.trim() || "";
+  const dataToSign = ct ? `${storagePath}:${exp}:${ct}` : `${storagePath}:${exp}`;
   const token = await createHmacSignature(dataToSign, WHATSAPP_MEDIA_TOKEN_SECRET);
 
   const supabaseBase = SUPABASE_URL ? SUPABASE_URL.replace(/\/$/, "") : "";
@@ -70,15 +78,18 @@ async function generateMediaProxyUrl(
     ? `${supabaseBase}/functions/v1/whatsapp-media-proxy`
     : `${publicBase}/api/whatsapp/media`;
 
+  const ctParam = ct ? `&ct=${encodeURIComponent(ct)}` : "";
+
   // Build proxy URL with querystring
-  const proxyUrl = `${proxyBaseUrl}?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}`;
-  
-  console.log("✅ Generated secure proxy URL:", { 
-    path: storagePath, 
+  const proxyUrl = `${proxyBaseUrl}?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}${ctParam}`;
+
+  console.log("✅ Generated secure proxy URL:", {
+    path: storagePath,
     expiresAt: new Date(exp * 1000).toISOString(),
-    proxyUrl: proxyUrl.substring(0, 100) + "..." 
+    contentType: ct || undefined,
+    proxyUrl: proxyUrl.substring(0, 100) + "...",
   });
-  
+
   return proxyUrl;
 }
 
@@ -159,8 +170,9 @@ async function uploadMediaAndGetProxyUrl(
   console.log("✅ Media uploaded successfully:", storagePath);
 
   // Generate secure proxy URL (NEVER use getPublicUrl)
-  const proxyUrl = await generateMediaProxyUrl(storagePath);
-  
+  // Use original mime so the proxy serves the correct Content-Type (important for audio)
+  const proxyUrl = await generateMediaProxyUrl(storagePath, 60 * 60 * 24 * 7, mime);
+
   return proxyUrl;
 }
 
@@ -320,6 +332,7 @@ Deno.serve(async (req) => {
       messageType,
       mediaUrl,
       mediaCaption,
+      mediaMimeType,
       mediaStoragePath, // NOVO: path no storage (evita base64 grande)
     } = body;
 
@@ -420,7 +433,12 @@ Deno.serve(async (req) => {
       }
 
       // Gerar URL segura via proxy
-      finalMediaUrl = await generateMediaProxyUrl(mediaStoragePath);
+      // Se o client informar mediaMimeType, repassamos para servir Content-Type correto (especialmente áudio)
+      finalMediaUrl = await generateMediaProxyUrl(
+        mediaStoragePath,
+        60 * 60 * 24 * 7,
+        typeof mediaMimeType === "string" ? mediaMimeType : undefined
+      );
       console.log(`[${requestId}] ✅ Media ready for sending via storage path`);
     } else if (mediaUrl && isDataUrl(mediaUrl)) {
       console.log(`[${requestId}] 📎 Processing media attachment (data URL - legacy mode)`);
