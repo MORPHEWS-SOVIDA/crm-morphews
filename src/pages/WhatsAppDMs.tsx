@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw, Unplug, Globe, Phone, Smartphone, Clock } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, Tag, ArrowLeft, RefreshCw, Unplug, Globe, Phone, Smartphone, Clock, Pencil } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,11 @@ export default function WhatsAppDMs() {
   // Change phone number dialog
   const [changePhoneInstance, setChangePhoneInstance] = useState<WhatsAppInstance | null>(null);
   const [isChangingPhone, setIsChangingPhone] = useState(false);
+  
+  // Edit instance name dialog
+  const [editNameInstance, setEditNameInstance] = useState<WhatsAppInstance | null>(null);
+  const [newInstanceNameEdit, setNewInstanceNameEdit] = useState("");
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
 
   // Polling and auto-refresh state
   const [lastStatusCheck, setLastStatusCheck] = useState<Record<string, Date>>({});
@@ -546,6 +551,37 @@ export default function WhatsAppDMs() {
     }
   };
 
+  const handleUpdateInstanceName = async () => {
+    if (!editNameInstance || !newInstanceNameEdit.trim()) return;
+    
+    setIsUpdatingName(true);
+    
+    try {
+      await updateInstance.mutateAsync({
+        id: editNameInstance.id,
+        name: newInstanceNameEdit.trim(),
+      });
+
+      toast({ 
+        title: "Nome atualizado!", 
+        description: `Instância renomeada para "${newInstanceNameEdit.trim()}"`,
+      });
+
+      setEditNameInstance(null);
+      setNewInstanceNameEdit("");
+      refetch();
+    } catch (error: any) {
+      console.error("Error updating name:", error);
+      toast({
+        title: "Erro ao atualizar nome",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingName(false);
+    }
+  };
+
   const getStatusBadge = (instance: WhatsAppInstance) => {
     const internalStatus = mapStatusToInternal(instance.status, instance.is_connected);
     
@@ -882,6 +918,36 @@ export default function WhatsAppDMs() {
                                 Verificar Status
                               </Button>
                             </div>
+                            
+                            {/* Botões de Editar Nome e Trocar Número quando QR visível */}
+                            <div className="flex gap-2 justify-center flex-wrap mt-3 pt-3 border-t border-border/50">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditNameInstance(instance);
+                                  setNewInstanceNameEdit(instance.name);
+                                }}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Editar Nome
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setChangePhoneInstance(instance);
+                                  const existingPhone = instance.phone_number?.replace(/^\+?55/, '') || "";
+                                  setWasenderPhoneNumber(existingPhone);
+                                  setWasenderCountryCode("55");
+                                }}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <Phone className="h-4 w-4 mr-1" />
+                                Trocar Número
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <div className="space-y-2 py-4">
@@ -919,6 +985,36 @@ export default function WhatsAppDMs() {
                                   Gerar QR Code
                                 </Button>
                               )}
+                            </div>
+                            
+                            {/* Botões de Editar Nome e Trocar Número quando desconectado */}
+                            <div className="flex gap-2 justify-center flex-wrap mt-3 pt-3 border-t border-border/50">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditNameInstance(instance);
+                                  setNewInstanceNameEdit(instance.name);
+                                }}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Editar Nome
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setChangePhoneInstance(instance);
+                                  const existingPhone = instance.phone_number?.replace(/^\+?55/, '') || "";
+                                  setWasenderPhoneNumber(existingPhone);
+                                  setWasenderCountryCode("55");
+                                }}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <Phone className="h-4 w-4 mr-1" />
+                                Trocar Número
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -1247,6 +1343,51 @@ export default function WhatsAppDMs() {
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
                 Trocar e Gerar QR Code
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Instance Name Dialog */}
+        <Dialog open={!!editNameInstance} onOpenChange={(open) => !open && setEditNameInstance(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-primary" />
+                Editar Nome da Instância
+              </DialogTitle>
+              <DialogDescription>
+                Altere o nome de identificação desta instância do WhatsApp.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Nome da Instância *</Label>
+                <Input
+                  placeholder="Ex: Atendimento Principal"
+                  value={newInstanceNameEdit}
+                  onChange={(e) => setNewInstanceNameEdit(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditNameInstance(null)}
+                disabled={isUpdatingName}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleUpdateInstanceName}
+                disabled={!newInstanceNameEdit.trim() || isUpdatingName}
+              >
+                {isUpdatingName ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Salvar
               </Button>
             </div>
           </DialogContent>
