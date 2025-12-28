@@ -71,26 +71,47 @@ export default function Login() {
     }
 
     setIsLoading(true);
-    const { error } = await signIn(email.trim(), password);
+    
+    try {
+      const { error } = await signIn(email.trim(), password);
 
-    if (error) {
+      if (error) {
+        toast({
+          title: 'Erro ao fazer login',
+          description: error.message === 'Invalid login credentials' 
+            ? 'Email ou senha incorretos'
+            : error.message,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      toast({
+        title: 'Login realizado com sucesso!',
+        description: 'Bem-vindo ao Morphews CRM',
+      });
+      
+      // Small delay to ensure auth state is updated before redirecting
+      setTimeout(() => {
+        const redirect = searchParams.get('redirect');
+        const plan = searchParams.get('plan');
+        if (redirect) {
+          const url = plan ? `${redirect}?plan=${plan}` : redirect;
+          navigate(url, { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Login error:', err);
       toast({
         title: 'Erro ao fazer login',
-        description: error.message === 'Invalid login credentials' 
-          ? 'Email ou senha incorretos'
-          : error.message,
+        description: 'Ocorreu um erro inesperado. Tente novamente.',
         variant: 'destructive',
       });
       setIsLoading(false);
-      return;
     }
-
-    toast({
-      title: 'Login realizado com sucesso!',
-      description: 'Bem-vindo ao Morphews CRM',
-    });
-    
-    // Redirect will be handled by the useEffect above when user state changes
   };
 
   return (
