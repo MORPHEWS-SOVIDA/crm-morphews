@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
 import logoMorphews from '@/assets/logo-morphews.png';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
@@ -34,10 +35,12 @@ export function Sidebar() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
+  const { data: receptiveAccess } = useReceptiveModuleAccess();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
+  const canSeeReceptive = receptiveAccess?.hasAccess;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
@@ -52,7 +55,9 @@ export function Sidebar() {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' },
+    ...(canSeeReceptive ? [
+      { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' },
+    ] : []),
     { icon: Users, label: 'Todos os Leads', path: '/leads' },
     { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
     { icon: Package, label: 'Produtos', path: '/produtos' },

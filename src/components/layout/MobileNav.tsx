@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package, Truck, ShoppingCart as SalesIcon, FileText } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package, Truck, ShoppingCart as SalesIcon, FileText, Headphones } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
 import { Button } from '@/components/ui/button';
 import { LogOut, UserPlus, ShoppingCart, Crown, UsersRound, Instagram } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -18,9 +19,11 @@ export function MobileNav() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
+  const { data: receptiveAccess } = useReceptiveModuleAccess();
   const navigate = useNavigate();
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
+  const canSeeReceptive = receptiveAccess?.hasAccess;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
@@ -38,6 +41,9 @@ export function MobileNav() {
   ];
 
   const menuNavItems = [
+    ...(canSeeReceptive ? [
+      { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' },
+    ] : []),
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     { icon: Package, label: 'Produtos', path: '/produtos' },
     { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas' },
