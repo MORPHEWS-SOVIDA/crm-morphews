@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare, AlertTriangle } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare, AlertTriangle, Headphones } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -34,6 +34,7 @@ interface Organization {
   owner_email: string | null;
   phone: string | null;
   whatsapp_dms_enabled: boolean;
+  receptive_module_enabled: boolean;
 }
 
 interface Subscription {
@@ -472,6 +473,32 @@ export default function SuperAdmin() {
     },
   });
 
+  const toggleReceptiveModuleMutation = useMutation({
+    mutationFn: async ({ orgId, enabled }: { orgId: string; enabled: boolean }) => {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ receptive_module_enabled: enabled })
+        .eq("id", orgId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      toast({ 
+        title: variables.enabled 
+          ? "Módulo Receptivo habilitado!" 
+          : "Módulo Receptivo desabilitado!" 
+      });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-organizations"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const openEditDialog = (org: Organization) => {
     const subscription = getSubscriptionForOrg(org.id);
     setEditForm({
@@ -808,6 +835,7 @@ export default function SuperAdmin() {
                         <TableHead>Status</TableHead>
                         <TableHead>Usuários</TableHead>
                         <TableHead className="text-center">WhatsApp DMs</TableHead>
+                        <TableHead className="text-center">Receptivo</TableHead>
                         <TableHead>Criado em</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
@@ -863,6 +891,24 @@ export default function SuperAdmin() {
                               >
                                 {org.whatsapp_dms_enabled ? (
                                   <MessageSquare className="h-4 w-4" />
+                                ) : (
+                                  <span className="text-xs">Off</span>
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant={org.receptive_module_enabled ? "default" : "outline"}
+                                size="sm"
+                                className={org.receptive_module_enabled ? "bg-blue-500 hover:bg-blue-600" : ""}
+                                onClick={() => toggleReceptiveModuleMutation.mutate({ 
+                                  orgId: org.id, 
+                                  enabled: !org.receptive_module_enabled 
+                                })}
+                                disabled={toggleReceptiveModuleMutation.isPending}
+                              >
+                                {org.receptive_module_enabled ? (
+                                  <Headphones className="h-4 w-4" />
                                 ) : (
                                   <span className="text-xs">Off</span>
                                 )}
