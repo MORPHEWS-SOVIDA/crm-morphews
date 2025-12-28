@@ -794,6 +794,66 @@ export type Database = {
           },
         ]
       }
+      non_purchase_reasons: {
+        Row: {
+          created_at: string
+          followup_hours: number | null
+          followup_webhook_url: string | null
+          id: string
+          is_active: boolean
+          lead_visibility: string
+          name: string
+          organization_id: string
+          position: number
+          target_stage_id: string | null
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          followup_hours?: number | null
+          followup_webhook_url?: string | null
+          id?: string
+          is_active?: boolean
+          lead_visibility?: string
+          name: string
+          organization_id: string
+          position?: number
+          target_stage_id?: string | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          followup_hours?: number | null
+          followup_webhook_url?: string | null
+          id?: string
+          is_active?: boolean
+          lead_visibility?: string
+          name?: string
+          organization_id?: string
+          position?: number
+          target_stage_id?: string | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "non_purchase_reasons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "non_purchase_reasons_target_stage_id_fkey"
+            columns: ["target_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_data: {
         Row: {
           business_description: string | null
