@@ -6,9 +6,21 @@ import {
   useWhatsAppV2Messages,
   useSendWhatsAppV2Message,
   useMarkWhatsAppV2ChatAsRead,
+  useCreateWhatsAppV2Instance,
   type WhatsAppV2Chat,
   type WhatsAppV2Message 
 } from '@/hooks/useWhatsAppV2';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,7 +48,9 @@ import {
   Clock,
   AlertCircle,
   Settings,
-  Loader2
+  Loader2,
+  Plus,
+  Copy
 } from 'lucide-react';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -285,6 +299,12 @@ export default function WhatsAppV2() {
   const [messageInput, setMessageInput] = useState('');
   const [showChatList, setShowChatList] = useState(true);
   
+  // Modal state for new instance
+  const [showAddInstanceModal, setShowAddInstanceModal] = useState(false);
+  const [newInstanceName, setNewInstanceName] = useState('');
+  const [newInstanceApiKey, setNewInstanceApiKey] = useState('');
+  const [newInstanceApiUrl, setNewInstanceApiUrl] = useState('https://api.wasenderapi.com');
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: instances, isLoading: loadingInstances } = useWhatsAppV2Instances();
@@ -292,6 +312,7 @@ export default function WhatsAppV2() {
   const { data: messages, isLoading: loadingMessages } = useWhatsAppV2Messages(selectedChatId);
   const sendMessage = useSendWhatsAppV2Message();
   const markAsRead = useMarkWhatsAppV2ChatAsRead();
+  const createInstance = useCreateWhatsAppV2Instance();
   
   // Auto-select first instance
   useEffect(() => {
@@ -355,6 +376,43 @@ export default function WhatsAppV2() {
     setSelectedChatId(null);
   };
   
+  // Handle create instance
+  const handleCreateInstance = async () => {
+    if (!newInstanceName.trim() || !newInstanceApiKey.trim()) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    
+    try {
+      const instance = await createInstance.mutateAsync({
+        name: newInstanceName.trim(),
+        api_key: newInstanceApiKey.trim(),
+        api_url: newInstanceApiUrl.trim(),
+      });
+      
+      toast.success('Instância criada com sucesso!');
+      setShowAddInstanceModal(false);
+      setNewInstanceName('');
+      setNewInstanceApiKey('');
+      setNewInstanceApiUrl('https://api.wasenderapi.com');
+      setSelectedInstanceId(instance.id);
+    } catch (error) {
+      console.error('Erro ao criar instância:', error);
+      toast.error('Erro ao criar instância');
+    }
+  };
+  
+  // Generate webhook URL for instance
+  const getWebhookUrl = (instanceId: string) => {
+    return `https://hwbxvrewiapyhjceabvw.supabase.co/functions/v1/whatsapp-webhook?instance_id=${instanceId}`;
+  };
+  
+  // Copy webhook URL
+  const copyWebhookUrl = (instanceId: string) => {
+    navigator.clipboard.writeText(getWebhookUrl(instanceId));
+    toast.success('URL do webhook copiada!');
+  };
+  
   // Check if there's a group to show sender names
   const isGroupChat = selectedChat?.is_group;
   
@@ -394,6 +452,93 @@ export default function WhatsAppV2() {
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            
+            {/* Add Instance Button */}
+            <Dialog open={showAddInstanceModal} onOpenChange={setShowAddInstanceModal}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" title="Adicionar instância">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Nova Instância WhatsApp</DialogTitle>
+                  <DialogDescription>
+                    Conecte sua conta do WaSenderAPI para começar a enviar mensagens.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="instance-name">Nome da Instância *</Label>
+                    <Input
+                      id="instance-name"
+                      placeholder="Ex: WhatsApp Vendas"
+                      value={newInstanceName}
+                      onChange={(e) => setNewInstanceName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key">API Token do WaSender *</Label>
+                    <Input
+                      id="api-key"
+                      type="password"
+                      placeholder="Seu token de API"
+                      value={newInstanceApiKey}
+                      onChange={(e) => setNewInstanceApiKey(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Obtenha seu token em: wasenderapi.com
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="api-url">URL da API</Label>
+                    <Input
+                      id="api-url"
+                      placeholder="https://api.wasenderapi.com"
+                      value={newInstanceApiUrl}
+                      onChange={(e) => setNewInstanceApiUrl(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAddInstanceModal(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleCreateInstance}
+                    disabled={createInstance.isPending || !newInstanceName.trim() || !newInstanceApiKey.trim()}
+                  >
+                    {createInstance.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      'Criar Instância'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Copy Webhook URL Button */}
+            {selectedInstanceId && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                title="Copiar URL do Webhook"
+                onClick={() => copyWebhookUrl(selectedInstanceId)}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
             )}
             
             <Button variant="outline" size="icon">
