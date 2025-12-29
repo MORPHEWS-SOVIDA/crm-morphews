@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.whatsapp-create-upload-url]
 verify_jwt = true
+
+[functions.whatsapp-webhook]
+verify_jwt = false
