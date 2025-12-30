@@ -364,6 +364,16 @@ export function useCreateSale() {
 
       if (itemsError) throw itemsError;
 
+      // Reserve stock for sale items
+      const { error: stockError } = await supabase.rpc('reserve_stock_for_sale', {
+        _sale_id: sale.id,
+      });
+      
+      if (stockError) {
+        console.error('Erro ao reservar estoque:', stockError);
+        // Don't fail the sale, just log the error
+      }
+
       // Record status history
       await supabase.from('sale_status_history').insert({
         sale_id: sale.id,
@@ -376,6 +386,7 @@ export function useCreateSale() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Venda criada com sucesso!');
     },
     onError: (error: Error) => {
@@ -391,7 +402,7 @@ export function useUpdateSale() {
   const organizationId = useOrganizationId();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateSaleData }) => {
+    mutationFn: async ({ id, data, previousStatus }: { id: string; data: UpdateSaleData; previousStatus?: SaleStatus }) => {
       const updateData: Record<string, unknown> = { ...data };
       
       // Handle status-specific timestamps
@@ -416,6 +427,34 @@ export function useUpdateSale() {
 
       if (error) throw error;
 
+      // Handle stock movements based on status changes
+      if (data.status) {
+        // When sale is marked as delivered, deduct real stock
+        if (data.status === 'delivered') {
+          const { error: stockError } = await supabase.rpc('deduct_stock_for_delivered_sale', {
+            _sale_id: id,
+          });
+          if (stockError) console.error('Erro ao baixar estoque:', stockError);
+        }
+        
+        // When sale is cancelled
+        if (data.status === 'cancelled') {
+          // If it was already delivered, restore the stock
+          if (previousStatus === 'delivered' || previousStatus === 'payment_confirmed') {
+            const { error: restoreError } = await supabase.rpc('restore_stock_for_cancelled_delivered_sale', {
+              _sale_id: id,
+            });
+            if (restoreError) console.error('Erro ao restaurar estoque:', restoreError);
+          } else {
+            // If not delivered yet, just unreserve
+            const { error: unreserveError } = await supabase.rpc('unreserve_stock_for_sale', {
+              _sale_id: id,
+            });
+            if (unreserveError) console.error('Erro ao liberar reserva:', unreserveError);
+          }
+        }
+      }
+
       // Record status change if status was updated
        if (data.status && organizationId) {
          await supabase.from('sale_status_history').insert({
@@ -431,6 +470,8 @@ export function useUpdateSale() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['sale', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
       toast.success('Venda atualizada com sucesso!');
     },
     onError: (error: Error) => {

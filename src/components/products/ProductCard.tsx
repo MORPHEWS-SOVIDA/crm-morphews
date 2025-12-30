@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Eye, Package, AlertTriangle } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
+import { getAvailableStock } from '@/hooks/useProducts';
 
 interface ProductCardProps {
   product: Product;
@@ -20,7 +21,8 @@ function formatCurrency(cents: number): string {
 }
 
 export function ProductCard({ product, onView, onEdit, onDelete, canManage }: ProductCardProps) {
-  const isLowStock = product.track_stock && product.stock_quantity <= product.minimum_stock;
+  const availableStock = getAvailableStock(product);
+  const isLowStock = product.track_stock && availableStock <= product.minimum_stock;
   
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -83,7 +85,12 @@ export function ProductCard({ product, onView, onEdit, onDelete, canManage }: Pr
             )}
             {product.track_stock && (
               <span className={`px-2 py-1 rounded ${isLowStock ? 'bg-destructive/10 text-destructive' : 'bg-muted'}`}>
-                Estoque: {product.stock_quantity}
+                Disponível: {availableStock}
+                {product.stock_reserved > 0 && (
+                  <span className="text-muted-foreground ml-1">
+                    ({product.stock_reserved} reservado)
+                  </span>
+                )}
               </span>
             )}
             {product.minimum_price > 0 && (

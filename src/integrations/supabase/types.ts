@@ -554,6 +554,7 @@ export type Database = {
           price_6_units: number | null
           sales_script: string | null
           stock_quantity: number | null
+          stock_reserved: number | null
           track_stock: boolean | null
           updated_at: string | null
           usage_period_days: number | null
@@ -577,6 +578,7 @@ export type Database = {
           price_6_units?: number | null
           sales_script?: string | null
           stock_quantity?: number | null
+          stock_reserved?: number | null
           track_stock?: boolean | null
           updated_at?: string | null
           usage_period_days?: number | null
@@ -600,6 +602,7 @@ export type Database = {
           price_6_units?: number | null
           sales_script?: string | null
           stock_quantity?: number | null
+          stock_reserved?: number | null
           track_stock?: boolean | null
           updated_at?: string | null
           usage_period_days?: number | null
@@ -3114,6 +3117,10 @@ export type Database = {
         Returns: number
       }
       current_tenant_id: { Args: never; Returns: string }
+      deduct_stock_for_delivered_sale: {
+        Args: { _sale_id: string }
+        Returns: undefined
+      }
       find_contact_by_phone: {
         Args: { _organization_id: string; _phone: string }
         Returns: string
@@ -3215,6 +3222,11 @@ export type Database = {
         Returns: undefined
       }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
+      reserve_stock_for_sale: { Args: { _sale_id: string }; Returns: undefined }
+      restore_stock_for_cancelled_delivered_sale: {
+        Args: { _sale_id: string }
+        Returns: undefined
+      }
       save_onboarding_data: {
         Args: {
           _business_description?: string
@@ -3222,6 +3234,10 @@ export type Database = {
           _company_site?: string
           _crm_usage_intent?: string
         }
+        Returns: undefined
+      }
+      unreserve_stock_for_sale: {
+        Args: { _sale_id: string }
         Returns: undefined
       }
       user_belongs_to_org: {
