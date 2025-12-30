@@ -58,11 +58,14 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   sales_view: { label: 'Ver Vendas', description: 'Visualizar vendas', group: 'Vendas' },
   sales_create: { label: 'Criar Vendas', description: 'Criar novas vendas', group: 'Vendas' },
   sales_edit_draft: { label: 'Editar Rascunhos', description: 'Editar vendas em rascunho', group: 'Vendas' },
-  sales_confirm_payment: { label: 'Confirmar Pagamento', description: 'Marcar vendas como pagas', group: 'Vendas' },
   sales_validate_expedition: { label: 'Validar Expedição', description: 'Validar vendas para envio', group: 'Vendas' },
   sales_dispatch: { label: 'Despachar', description: 'Marcar como despachado/enviado', group: 'Vendas' },
   sales_mark_delivered: { label: 'Marcar Entregue', description: 'Confirmar entrega ao cliente', group: 'Vendas' },
   sales_cancel: { label: 'Cancelar Vendas', description: 'Cancelar vendas', group: 'Vendas' },
+  
+  // Financeiro - agrupado
+  reports_view: { label: 'Ver Financeiro', description: 'Acessar módulo financeiro e relatórios', group: 'Financeiro' },
+  sales_confirm_payment: { label: 'Confirmar Pagamento', description: 'Marcar recebimentos como pagos', group: 'Financeiro' },
   
   whatsapp_view: { label: 'Ver WhatsApp', description: 'Ver conversas do WhatsApp', group: 'WhatsApp' },
   whatsapp_send: { label: 'Enviar Mensagens', description: 'Enviar mensagens pelo WhatsApp', group: 'WhatsApp' },
@@ -73,15 +76,13 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   settings_view: { label: 'Ver Configurações', description: 'Acessar configurações', group: 'Configurações' },
   settings_manage: { label: 'Gerenciar Configurações', description: 'Alterar configurações', group: 'Configurações' },
   
-  reports_view: { label: 'Ver Relatórios', description: 'Acessar relatórios', group: 'Relatórios' },
-  
   deliveries_view_own: { label: 'Ver Minhas Entregas', description: 'Ver entregas atribuídas a mim', group: 'Entregas' },
   deliveries_view_all: { label: 'Ver Todas Entregas', description: 'Ver todas as entregas', group: 'Entregas' },
   
   receptive_module_access: { label: 'Módulo Receptivo', description: 'Acesso ao módulo de atendimento receptivo', group: 'Módulos' },
 };
 
-export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos'];
+export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Entregas', 'Módulos'];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {
