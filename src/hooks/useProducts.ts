@@ -21,6 +21,11 @@ export interface Product {
   organization_id: string;
   created_at: string;
   updated_at: string | null;
+  // New fields for cost and stock
+  cost_cents: number;
+  stock_quantity: number;
+  minimum_stock: number;
+  track_stock: boolean;
 }
 
 export interface ProductFormData {
@@ -37,6 +42,11 @@ export interface ProductFormData {
   minimum_price?: number;
   usage_period_days?: number;
   is_active?: boolean;
+  // New fields
+  cost_cents?: number;
+  stock_quantity?: number;
+  minimum_stock?: number;
+  track_stock?: boolean;
 }
 
 export function useProducts() {
@@ -101,6 +111,10 @@ export function useCreateProduct() {
           price_12_units: data.price_12_units || 0,
           minimum_price: data.minimum_price || 0,
           usage_period_days: data.usage_period_days || 0,
+          cost_cents: data.cost_cents || 0,
+          stock_quantity: data.stock_quantity || 0,
+          minimum_stock: data.minimum_stock || 0,
+          track_stock: data.track_stock || false,
         })
         .select()
         .single();
