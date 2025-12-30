@@ -1,5 +1,18 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, Settings, Menu, MessageSquare, Package, Truck, ShoppingCart as SalesIcon, FileText, Headphones } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Plus,
+  Settings,
+  Menu,
+  MessageSquare,
+  Package,
+  Truck,
+  ShoppingCart as SalesIcon,
+  FileText,
+  Headphones,
+  DollarSign,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -24,7 +37,8 @@ export function MobileNav() {
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeReceptive = receptiveAccess?.hasAccess;
-  
+  const canSeeFinanceiro = permissions?.reports_view || permissions?.sales_confirm_payment;
+
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
 
@@ -41,27 +55,26 @@ export function MobileNav() {
   ];
 
   const menuNavItems = [
-    ...(canSeeReceptive ? [
-      { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' },
-    ] : []),
+    ...(canSeeReceptive ? [{ icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' }] : []),
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
     { icon: Package, label: 'Produtos', path: '/produtos' },
+    ...(canSeeFinanceiro ? [{ icon: DollarSign, label: 'Financeiro', path: '/financeiro' }] : []),
     { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas' },
-    ...(canSeeDeliveries ? [
-      { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' },
-    ] : []),
-    ...(canSeeWhatsAppDMs ? [
-      { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
-      { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
-    ] : []),
+    ...(canSeeDeliveries ? [{ icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' }] : []),
+    ...(canSeeWhatsAppDMs
+      ? [
+          { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
+          { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
+        ]
+      : []),
     { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo' },
-    ...(isAdmin ? [
-      { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
-      { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
-    ] : []),
-    ...(isMasterAdmin ? [
-      { icon: Crown, label: 'Super Admin', path: '/super-admin' },
-    ] : []),
+    ...(isAdmin
+      ? [
+          { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
+          { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
+        ]
+      : []),
+    ...(isMasterAdmin ? [{ icon: Crown, label: 'Super Admin', path: '/super-admin' }] : []),
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];
