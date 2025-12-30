@@ -6,10 +6,12 @@ import {
   useWhatsAppV2Messages,
   useSendWhatsAppV2Message,
   useMarkWhatsAppV2ChatAsRead,
-  useCreateWhatsAppV2Instance,
+  useInitWhatsAppV2Session,
   type WhatsAppV2Chat,
-  type WhatsAppV2Message 
+  type WhatsAppV2Message,
+  type WhatsAppV2Instance
 } from '@/hooks/useWhatsAppV2';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -302,8 +304,8 @@ export default function WhatsAppV2() {
   // Modal state for new instance
   const [showAddInstanceModal, setShowAddInstanceModal] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState('');
-  const [newInstanceApiKey, setNewInstanceApiKey] = useState('');
-  const [newInstanceApiUrl, setNewInstanceApiUrl] = useState('https://api.wasenderapi.com');
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [pendingInstanceId, setPendingInstanceId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -312,7 +314,7 @@ export default function WhatsAppV2() {
   const { data: messages, isLoading: loadingMessages } = useWhatsAppV2Messages(selectedChatId);
   const sendMessage = useSendWhatsAppV2Message();
   const markAsRead = useMarkWhatsAppV2ChatAsRead();
-  const createInstance = useCreateWhatsAppV2Instance();
+  const initSession = useInitWhatsAppV2Session();
   
   // Auto-select first instance
   useEffect(() => {
@@ -383,31 +385,69 @@ export default function WhatsAppV2() {
     setSelectedChatId(null);
   };
   
-  // Handle create instance
-  const handleCreateInstance = async () => {
-    if (!newInstanceName.trim() || !newInstanceApiKey.trim()) {
-      toast.error('Preencha todos os campos obrigatórios');
+  // Handle generate QR Code for new instance
+  const handleGenerateQRCode = async () => {
+    if (!newInstanceName.trim()) {
+      toast.error('Digite um nome para a instância');
       return;
     }
     
     try {
-      const instance = await createInstance.mutateAsync({
-        name: newInstanceName.trim(),
-        api_key: newInstanceApiKey.trim(),
-        api_url: newInstanceApiUrl.trim(),
+      const result = await initSession.mutateAsync({
+        sessionName: newInstanceName.trim(),
       });
       
-      toast.success('Instância criada com sucesso!');
-      setShowAddInstanceModal(false);
-      setNewInstanceName('');
-      setNewInstanceApiKey('');
-      setNewInstanceApiUrl('https://api.wasenderapi.com');
-      setSelectedInstanceId(instance.id);
-    } catch (error) {
-      console.error('Erro ao criar instância:', error);
-      toast.error('Erro ao criar instância');
+      if (result.qrCode) {
+        setQrCodeData(result.qrCode);
+        setPendingInstanceId(result.instanceId);
+        toast.success('QR Code gerado! Escaneie com seu WhatsApp.');
+      } else {
+        toast.info('Sessão iniciada. Aguardando QR Code...');
+        setPendingInstanceId(result.instanceId);
+      }
+    } catch (error: any) {
+      console.error('Erro ao gerar QR Code:', error);
+      toast.error(error.message || 'Erro ao gerar QR Code');
     }
   };
+  
+  // Reset modal state
+  const handleCloseModal = () => {
+    setShowAddInstanceModal(false);
+    setNewInstanceName('');
+    setQrCodeData(null);
+    setPendingInstanceId(null);
+  };
+  
+  // Subscribe to instance status changes for pending instance
+  useEffect(() => {
+    if (!pendingInstanceId) return;
+    
+    const channel = supabase
+      .channel(`instance-status-${pendingInstanceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_v2_instances',
+          filter: `id=eq.${pendingInstanceId}`,
+        },
+        (payload) => {
+          const newStatus = (payload.new as any).status?.toLowerCase();
+          if (newStatus === 'connected') {
+            toast.success('WhatsApp conectado com sucesso!');
+            handleCloseModal();
+            setSelectedInstanceId(pendingInstanceId);
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pendingInstanceId]);
   
   // Generate webhook URL for instance
   const getWebhookUrl = (instanceId: string) => {
@@ -462,7 +502,10 @@ export default function WhatsAppV2() {
             )}
             
             {/* Add Instance Button */}
-            <Dialog open={showAddInstanceModal} onOpenChange={setShowAddInstanceModal}>
+            <Dialog open={showAddInstanceModal} onOpenChange={(open) => {
+              if (!open) handleCloseModal();
+              else setShowAddInstanceModal(true);
+            }}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="icon" title="Adicionar instância">
                   <Plus className="h-4 w-4" />
@@ -472,66 +515,69 @@ export default function WhatsAppV2() {
                 <DialogHeader>
                   <DialogTitle>Nova Instância WhatsApp</DialogTitle>
                   <DialogDescription>
-                    Conecte sua conta do WaSenderAPI para começar a enviar mensagens.
+                    {qrCodeData 
+                      ? 'Escaneie o QR Code abaixo com seu WhatsApp para conectar.'
+                      : 'Conecte uma nova conta do WhatsApp automaticamente.'}
                   </DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="instance-name">Nome da Instância *</Label>
-                    <Input
-                      id="instance-name"
-                      placeholder="Ex: WhatsApp Vendas"
-                      value={newInstanceName}
-                      onChange={(e) => setNewInstanceName(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="api-key">API Token do WaSender *</Label>
-                    <Input
-                      id="api-key"
-                      type="password"
-                      placeholder="Seu token de API"
-                      value={newInstanceApiKey}
-                      onChange={(e) => setNewInstanceApiKey(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Obtenha seu token em: wasenderapi.com
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="api-url">URL da API</Label>
-                    <Input
-                      id="api-url"
-                      placeholder="https://api.wasenderapi.com"
-                      value={newInstanceApiUrl}
-                      onChange={(e) => setNewInstanceApiUrl(e.target.value)}
-                    />
-                  </div>
+                  {!qrCodeData ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="instance-name">Nome da Instância</Label>
+                      <Input
+                        id="instance-name"
+                        placeholder="Ex: WhatsApp Vendas"
+                        value={newInstanceName}
+                        onChange={(e) => setNewInstanceName(e.target.value)}
+                        disabled={initSession.isPending}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Digite um nome para identificar esta conexão.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="bg-white p-4 rounded-lg">
+                        <img 
+                          src={qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`}
+                          alt="QR Code do WhatsApp"
+                          className="w-64 h-64"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Aguardando conexão...</span>
+                      </div>
+                      <p className="text-xs text-center text-muted-foreground">
+                        Abra o WhatsApp no seu celular → Configurações → Aparelhos conectados → Conectar aparelho
+                      </p>
+                    </div>
+                  )}
                 </div>
                 
                 <DialogFooter>
                   <Button 
                     variant="outline" 
-                    onClick={() => setShowAddInstanceModal(false)}
+                    onClick={handleCloseModal}
                   >
                     Cancelar
                   </Button>
-                  <Button 
-                    onClick={handleCreateInstance}
-                    disabled={createInstance.isPending || !newInstanceName.trim() || !newInstanceApiKey.trim()}
-                  >
-                    {createInstance.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Criando...
-                      </>
-                    ) : (
-                      'Criar Instância'
-                    )}
-                  </Button>
+                  {!qrCodeData && (
+                    <Button 
+                      onClick={handleGenerateQRCode}
+                      disabled={initSession.isPending || !newInstanceName.trim()}
+                    >
+                      {initSession.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Gerando QR...
+                        </>
+                      ) : (
+                        'Gerar QR Code'
+                      )}
+                    </Button>
+                  )}
                 </DialogFooter>
               </DialogContent>
             </Dialog>

@@ -105,6 +105,32 @@ export function useWhatsAppV2Instance(instanceId: string | null) {
   });
 }
 
+export function useInitWhatsAppV2Session() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  
+  return useMutation({
+    mutationFn: async (data: { sessionName: string }) => {
+      if (!profile?.organization_id) throw new Error('Organização não encontrada');
+      
+      const { data: response, error } = await supabase.functions.invoke('whatsapp-init-session', {
+        body: {
+          sessionName: data.sessionName,
+          tenantId: profile.organization_id,
+        },
+      });
+      
+      if (error) throw error;
+      if (response?.error) throw new Error(response.error);
+      
+      return response as { qrCode: string; instanceId: string; sessionKey?: string; message: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-v2-instances'] });
+    },
+  });
+}
+
 export function useCreateWhatsAppV2Instance() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
