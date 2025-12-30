@@ -7,6 +7,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertTriangle, Package, DollarSign } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
 
 interface ProductDetailDialogProps {
@@ -25,15 +26,26 @@ function formatCurrency(cents: number): string {
 export function ProductDetailDialog({ product, open, onOpenChange }: ProductDetailDialogProps) {
   if (!product) return null;
 
+  const isLowStock = product.track_stock && product.stock_quantity <= product.minimum_stock;
+  const profitMargin = product.price_1_unit > 0 && product.cost_cents > 0
+    ? ((product.price_1_unit - product.cost_cents) / product.price_1_unit * 100).toFixed(1)
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <DialogTitle className="text-xl">{product.name}</DialogTitle>
             <Badge variant={product.is_active ? 'default' : 'secondary'}>
               {product.is_active ? 'Ativo' : 'Inativo'}
             </Badge>
+            {isLowStock && (
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Estoque baixo
+              </Badge>
+            )}
           </div>
         </DialogHeader>
 
@@ -46,6 +58,51 @@ export function ProductDetailDialog({ product, open, onOpenChange }: ProductDeta
                 <p className="text-foreground">{product.description}</p>
               </div>
             )}
+
+            <Separator />
+
+            {/* Custo e Estoque */}
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Custo e Estoque
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 rounded-lg border text-center">
+                  <p className="text-xs text-muted-foreground">Custo</p>
+                  <p className="text-lg font-semibold">{formatCurrency(product.cost_cents)}</p>
+                </div>
+                {profitMargin && (
+                  <div className="p-3 rounded-lg border text-center bg-green-50 dark:bg-green-950">
+                    <p className="text-xs text-muted-foreground">Margem</p>
+                    <p className="text-lg font-semibold text-green-600">{profitMargin}%</p>
+                  </div>
+                )}
+                {product.track_stock && (
+                  <>
+                    <div className={`p-3 rounded-lg border text-center ${isLowStock ? 'bg-destructive/10' : ''}`}>
+                      <p className="text-xs text-muted-foreground">Em Estoque</p>
+                      <p className={`text-lg font-semibold ${isLowStock ? 'text-destructive' : ''}`}>
+                        {product.stock_quantity}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg border text-center">
+                      <p className="text-xs text-muted-foreground">Mínimo</p>
+                      <p className="text-lg font-semibold">{product.minimum_stock}</p>
+                    </div>
+                  </>
+                )}
+                {!product.track_stock && (
+                  <div className="p-3 rounded-lg border text-center col-span-2">
+                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                      <Package className="h-3 w-3" />
+                      Controle de Estoque
+                    </p>
+                    <p className="text-sm text-muted-foreground">Desativado</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <Separator />
 

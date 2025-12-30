@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Eye, Package } from 'lucide-react';
+import { Pencil, Trash2, Eye, Package, AlertTriangle } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
 
 interface ProductCardProps {
@@ -20,6 +20,8 @@ function formatCurrency(cents: number): string {
 }
 
 export function ProductCard({ product, onView, onEdit, onDelete, canManage }: ProductCardProps) {
+  const isLowStock = product.track_stock && product.stock_quantity <= product.minimum_stock;
+  
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -37,9 +39,17 @@ export function ProductCard({ product, onView, onEdit, onDelete, canManage }: Pr
               )}
             </div>
           </div>
-          <Badge variant={product.is_active ? 'default' : 'secondary'}>
-            {product.is_active ? 'Ativo' : 'Inativo'}
-          </Badge>
+          <div className="flex flex-col gap-1 items-end">
+            <Badge variant={product.is_active ? 'default' : 'secondary'}>
+              {product.is_active ? 'Ativo' : 'Inativo'}
+            </Badge>
+            {isLowStock && (
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Estoque baixo
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -65,12 +75,26 @@ export function ProductCard({ product, onView, onEdit, onDelete, canManage }: Pr
           </div>
 
           {/* Info adicional */}
-          <div className="flex gap-4 text-xs text-muted-foreground border-t pt-3">
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground border-t pt-3">
+            {product.cost_cents > 0 && (
+              <span className="bg-muted px-2 py-1 rounded">
+                Custo: {formatCurrency(product.cost_cents)}
+              </span>
+            )}
+            {product.track_stock && (
+              <span className={`px-2 py-1 rounded ${isLowStock ? 'bg-destructive/10 text-destructive' : 'bg-muted'}`}>
+                Estoque: {product.stock_quantity}
+              </span>
+            )}
             {product.minimum_price > 0 && (
-              <span>Mín: {formatCurrency(product.minimum_price)}</span>
+              <span className="bg-muted px-2 py-1 rounded">
+                Mín: {formatCurrency(product.minimum_price)}
+              </span>
             )}
             {product.usage_period_days > 0 && (
-              <span>{product.usage_period_days} dias de uso</span>
+              <span className="bg-muted px-2 py-1 rounded">
+                {product.usage_period_days} dias de uso
+              </span>
             )}
           </div>
 

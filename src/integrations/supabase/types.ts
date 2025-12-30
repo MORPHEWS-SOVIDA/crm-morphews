@@ -536,6 +536,7 @@ export type Database = {
       }
       lead_products: {
         Row: {
+          cost_cents: number | null
           created_at: string
           description: string | null
           id: string
@@ -544,6 +545,7 @@ export type Database = {
           key_question_2: string | null
           key_question_3: string | null
           minimum_price: number | null
+          minimum_stock: number | null
           name: string
           organization_id: string | null
           price_1_unit: number | null
@@ -551,10 +553,13 @@ export type Database = {
           price_3_units: number | null
           price_6_units: number | null
           sales_script: string | null
+          stock_quantity: number | null
+          track_stock: boolean | null
           updated_at: string | null
           usage_period_days: number | null
         }
         Insert: {
+          cost_cents?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -563,6 +568,7 @@ export type Database = {
           key_question_2?: string | null
           key_question_3?: string | null
           minimum_price?: number | null
+          minimum_stock?: number | null
           name: string
           organization_id?: string | null
           price_1_unit?: number | null
@@ -570,10 +576,13 @@ export type Database = {
           price_3_units?: number | null
           price_6_units?: number | null
           sales_script?: string | null
+          stock_quantity?: number | null
+          track_stock?: boolean | null
           updated_at?: string | null
           usage_period_days?: number | null
         }
         Update: {
+          cost_cents?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -582,6 +591,7 @@ export type Database = {
           key_question_2?: string | null
           key_question_3?: string | null
           minimum_price?: number | null
+          minimum_stock?: number | null
           name?: string
           organization_id?: string | null
           price_1_unit?: number | null
@@ -589,6 +599,8 @@ export type Database = {
           price_3_units?: number | null
           price_6_units?: number | null
           sales_script?: string | null
+          stock_quantity?: number | null
+          track_stock?: boolean | null
           updated_at?: string | null
           usage_period_days?: number | null
         }
@@ -1744,6 +1756,66 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          new_quantity: number
+          notes: string | null
+          organization_id: string
+          previous_quantity: number
+          product_id: string
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          new_quantity: number
+          notes?: string | null
+          organization_id: string
+          previous_quantity: number
+          product_id: string
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          new_quantity?: number
+          notes?: string | null
+          organization_id?: string
+          previous_quantity?: number
+          product_id?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
             referencedColumns: ["id"]
           },
         ]

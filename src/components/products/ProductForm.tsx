@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Package, DollarSign } from 'lucide-react';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 
 const formSchema = z.object({
@@ -33,6 +33,11 @@ const formSchema = z.object({
   minimum_price: z.coerce.number().min(0).optional(),
   usage_period_days: z.coerce.number().min(0).optional(),
   is_active: z.boolean().optional(),
+  // New fields
+  cost_cents: z.coerce.number().min(0).optional(),
+  stock_quantity: z.coerce.number().min(0).optional(),
+  minimum_stock: z.coerce.number().min(0).optional(),
+  track_stock: z.boolean().optional(),
 });
 
 interface ProductFormProps {
@@ -59,6 +64,11 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
       minimum_price: product?.minimum_price || 0,
       usage_period_days: product?.usage_period_days || 0,
       is_active: product?.is_active ?? true,
+      // New fields
+      cost_cents: product?.cost_cents || 0,
+      stock_quantity: product?.stock_quantity || 0,
+      minimum_stock: product?.minimum_stock || 0,
+      track_stock: product?.track_stock ?? false,
     },
   });
 
@@ -301,18 +311,41 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
           </CardContent>
         </Card>
 
-        {/* Configurações ERP */}
+        {/* Custo e Financeiro */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Configurações ERP</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Custo e Financeiro
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="cost_cents"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Custo do Produto</FormLabel>
+                  <FormControl>
+                    <CurrencyInput
+                      value={field.value || 0}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Custo de aquisição para cálculo de lucro
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="minimum_price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor Mínimo</FormLabel>
+                  <FormLabel>Valor Mínimo de Venda</FormLabel>
                   <FormControl>
                     <CurrencyInput
                       value={field.value || 0}
@@ -326,7 +359,83 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
 
+        {/* Controle de Estoque */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Controle de Estoque
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="track_stock"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Controlar Estoque</FormLabel>
+                    <FormDescription>
+                      Ativar controle de quantidade em estoque para este produto
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="stock_quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantidade em Estoque</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="0" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Quantidade inicial disponível
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="minimum_stock"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estoque Mínimo</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="0" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Alerta quando estoque ficar abaixo desse valor
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Configurações ERP */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Configurações ERP</CardTitle>
+          </CardHeader>
+          <CardContent>
             <FormField
               control={form.control}
               name="usage_period_days"
