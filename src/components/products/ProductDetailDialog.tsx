@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, Package, DollarSign } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
+import { getAvailableStock } from '@/hooks/useProducts';
 
 interface ProductDetailDialogProps {
   product: Product | null;
@@ -26,7 +27,8 @@ function formatCurrency(cents: number): string {
 export function ProductDetailDialog({ product, open, onOpenChange }: ProductDetailDialogProps) {
   if (!product) return null;
 
-  const isLowStock = product.track_stock && product.stock_quantity <= product.minimum_stock;
+  const availableStock = getAvailableStock(product);
+  const isLowStock = product.track_stock && availableStock <= product.minimum_stock;
   const profitMargin = product.price_1_unit > 0 && product.cost_cents > 0
     ? ((product.price_1_unit - product.cost_cents) / product.price_1_unit * 100).toFixed(1)
     : null;
@@ -80,10 +82,18 @@ export function ProductDetailDialog({ product, open, onOpenChange }: ProductDeta
                 )}
                 {product.track_stock && (
                   <>
-                    <div className={`p-3 rounded-lg border text-center ${isLowStock ? 'bg-destructive/10' : ''}`}>
-                      <p className="text-xs text-muted-foreground">Em Estoque</p>
-                      <p className={`text-lg font-semibold ${isLowStock ? 'text-destructive' : ''}`}>
-                        {product.stock_quantity}
+                    <div className="p-3 rounded-lg border text-center">
+                      <p className="text-xs text-muted-foreground">Estoque Físico</p>
+                      <p className="text-lg font-semibold">{product.stock_quantity}</p>
+                    </div>
+                    <div className="p-3 rounded-lg border text-center bg-amber-50 dark:bg-amber-950">
+                      <p className="text-xs text-muted-foreground">Reservado</p>
+                      <p className="text-lg font-semibold text-amber-600">{product.stock_reserved || 0}</p>
+                    </div>
+                    <div className={`p-3 rounded-lg border text-center ${isLowStock ? 'bg-destructive/10' : 'bg-blue-50 dark:bg-blue-950'}`}>
+                      <p className="text-xs text-muted-foreground">Disponível</p>
+                      <p className={`text-lg font-semibold ${isLowStock ? 'text-destructive' : 'text-blue-600'}`}>
+                        {availableStock}
                       </p>
                     </div>
                     <div className="p-3 rounded-lg border text-center">

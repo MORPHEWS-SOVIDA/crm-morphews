@@ -21,11 +21,17 @@ export interface Product {
   organization_id: string;
   created_at: string;
   updated_at: string | null;
-  // New fields for cost and stock
+  // Cost and stock fields
   cost_cents: number;
   stock_quantity: number;
+  stock_reserved: number;
   minimum_stock: number;
   track_stock: boolean;
+}
+
+// Computed property for available stock
+export function getAvailableStock(product: Product): number {
+  return Math.max(0, (product.stock_quantity || 0) - (product.stock_reserved || 0));
 }
 
 export interface ProductFormData {
