@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import {
   useInstallmentHistory,
   type SaleInstallment 
 } from '@/hooks/useFinancial';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { toast } from 'sonner';
 import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -166,9 +168,10 @@ interface KanbanColumnProps {
   color: string;
   onConfirm: (item: SaleInstallment) => void;
   onView: (item: SaleInstallment) => void;
+  canConfirmPayment: boolean;
 }
 
-function KanbanColumn({ title, items, color, onConfirm, onView }: KanbanColumnProps) {
+function KanbanColumn({ title, items, color, onConfirm, onView, canConfirmPayment }: KanbanColumnProps) {
   const total = items.reduce((sum, item) => sum + item.amount_cents, 0);
   
   return (
@@ -218,7 +221,7 @@ function KanbanColumn({ title, items, color, onConfirm, onView }: KanbanColumnPr
                     <Eye className="h-3 w-3 mr-1" />
                     Ver
                   </Button>
-                  {item.status === 'pending' && (
+                  {item.status === 'pending' && canConfirmPayment && (
                     <Button 
                       size="sm" 
                       className="flex-1 h-7 text-xs bg-green-500 hover:bg-green-600"
@@ -247,11 +250,13 @@ function KanbanColumn({ title, items, color, onConfirm, onView }: KanbanColumnPr
 function KanbanView({ 
   installments, 
   onConfirm, 
-  onView 
+  onView,
+  canConfirmPayment
 }: { 
   installments: SaleInstallment[]; 
   onConfirm: (item: SaleInstallment) => void;
   onView: (item: SaleInstallment) => void;
+  canConfirmPayment: boolean;
 }) {
   const today = startOfDay(new Date());
   
@@ -272,6 +277,7 @@ function KanbanView({
         color="bg-yellow-500" 
         onConfirm={onConfirm}
         onView={onView}
+        canConfirmPayment={canConfirmPayment}
       />
       <KanbanColumn 
         title="Em Atraso" 
@@ -279,6 +285,7 @@ function KanbanView({
         color="bg-destructive" 
         onConfirm={onConfirm}
         onView={onView}
+        canConfirmPayment={canConfirmPayment}
       />
       <KanbanColumn 
         title="Recebidos" 
@@ -286,6 +293,7 @@ function KanbanView({
         color="bg-green-500" 
         onConfirm={onConfirm}
         onView={onView}
+        canConfirmPayment={canConfirmPayment}
       />
     </div>
   );
@@ -298,11 +306,13 @@ function KanbanView({
 function ListView({ 
   installments, 
   onConfirm, 
-  onView 
+  onView,
+  canConfirmPayment
 }: { 
   installments: SaleInstallment[]; 
   onConfirm: (item: SaleInstallment) => void;
   onView: (item: SaleInstallment) => void;
+  canConfirmPayment: boolean;
 }) {
   return (
     <div className="border rounded-lg">
@@ -344,7 +354,7 @@ function ListView({
                   <Button size="sm" variant="ghost" onClick={() => onView(item)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  {item.status === 'pending' && (
+                  {item.status === 'pending' && canConfirmPayment && (
                     <Button 
                       size="sm" 
                       className="bg-green-500 hover:bg-green-600"
@@ -589,10 +599,19 @@ export default function FinancialReport() {
   const [confirmingInstallment, setConfirmingInstallment] = useState<SaleInstallment | null>(null);
   const [viewingInstallment, setViewingInstallment] = useState<SaleInstallment | null>(null);
   
+  const { data: permissions, isLoading: loadingPermissions } = useMyPermissions();
+  const canViewFinanceiro = permissions?.reports_view || permissions?.sales_confirm_payment;
+  const canConfirmPayment = permissions?.sales_confirm_payment ?? false;
+  
   const { data: installments, isLoading } = useInstallments({
     status: statusFilter !== 'all' ? statusFilter : undefined,
     search: searchQuery || undefined,
   });
+  
+  // Redirect if no permission
+  if (!loadingPermissions && !canViewFinanceiro) {
+    return <Navigate to="/" replace />;
+  }
   
   return (
     <Layout>
@@ -660,6 +679,7 @@ export default function FinancialReport() {
                   installments={installments || []}
                   onConfirm={setConfirmingInstallment}
                   onView={setViewingInstallment}
+                  canConfirmPayment={canConfirmPayment}
                 />
               </TabsContent>
               
@@ -668,6 +688,7 @@ export default function FinancialReport() {
                   installments={installments || []}
                   onConfirm={setConfirmingInstallment}
                   onView={setViewingInstallment}
+                  canConfirmPayment={canConfirmPayment}
                 />
               </TabsContent>
             </>
