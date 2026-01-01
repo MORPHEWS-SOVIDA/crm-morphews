@@ -40,7 +40,7 @@ import {
   useUpdateReceptiveAttendance,
   CONVERSATION_MODES 
 } from '@/hooks/useReceptiveModule';
-import { useLeadSources, useCreateLeadSource } from '@/hooks/useConfigOptions';
+import { useLeadSources } from '@/hooks/useConfigOptions';
 import { useProducts } from '@/hooks/useProducts';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
@@ -105,7 +105,6 @@ export default function AddReceptivo() {
   const { data: products = [] } = useProducts();
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
   const { data: funnelStages = [] } = useFunnelStages();
-  const createSource = useCreateLeadSource();
   const searchLead = useSearchLeadByPhone();
   const createAttendance = useCreateReceptiveAttendance();
   const updateAttendance = useUpdateReceptiveAttendance();
@@ -115,17 +114,48 @@ export default function AddReceptivo() {
   const [leadData, setLeadData] = useState<LeadData>(initialLeadData);
   const [conversationMode, setConversationMode] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState('');
-  const [newSourceName, setNewSourceName] = useState('');
-  const [showNewSourceInput, setShowNewSourceInput] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [productAnswers, setProductAnswers] = useState<Record<string, string>>({});
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
   const [isCreatingSale, setIsCreatingSale] = useState(false);
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [sourceHistory, setSourceHistory] = useState<Array<{
+    id: string;
+    source_name: string;
+    recorded_at: string;
+  }>>([]);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
   const selectedReason = nonPurchaseReasons.find(r => r.id === selectedReasonId);
+
+  // Load source history when lead is found
+  useEffect(() => {
+    if (leadData.id && tenantId) {
+      loadSourceHistory(leadData.id);
+    }
+  }, [leadData.id, tenantId]);
+
+  const loadSourceHistory = async (leadId: string) => {
+    const { data, error } = await supabase
+      .from('lead_source_history')
+      .select(`
+        id,
+        recorded_at,
+        lead_sources!inner(name)
+      `)
+      .eq('lead_id', leadId)
+      .order('recorded_at', { ascending: false })
+      .limit(5);
+    
+    if (!error && data) {
+      setSourceHistory(data.map((entry: any) => ({
+        id: entry.id,
+        source_name: entry.lead_sources?.name || 'Desconhecido',
+        recorded_at: entry.recorded_at,
+      })));
+    }
+  };
 
   // Check access
   if (loadingAccess) {
@@ -201,16 +231,6 @@ export default function AddReceptivo() {
     }
   };
 
-  const handleAddNewSource = async () => {
-    if (!newSourceName.trim()) return;
-    try {
-      await createSource.mutateAsync(newSourceName.trim());
-      setNewSourceName('');
-      setShowNewSourceInput(false);
-    } catch (error) {
-      // Error handled in hook
-    }
-  };
 
   const handleGoToConversation = () => {
     setCurrentStep('conversation');
@@ -352,6 +372,16 @@ export default function AddReceptivo() {
         }
       }
 
+      // Save source to history if a source was selected
+      if (leadId && selectedSourceId && tenantId && user) {
+        await supabase.from('lead_source_history').insert({
+          lead_id: leadId,
+          organization_id: tenantId,
+          source_id: selectedSourceId,
+          recorded_by: user.id,
+        });
+      }
+
       // Update attendance
       if (attendanceId) {
         await updateAttendance.mutateAsync({
@@ -426,7 +456,15 @@ export default function AddReceptivo() {
         }
       }
 
-      // If reason has target stage, update lead stage
+      // Save source to history if a source was selected
+      if (leadId && selectedSourceId && tenantId && user) {
+        await supabase.from('lead_source_history').insert({
+          lead_id: leadId,
+          organization_id: tenantId,
+          source_id: selectedSourceId,
+          recorded_by: user.id,
+        });
+      }
       if (reason?.target_stage_id && leadId) {
         const targetStage = funnelStages.find(s => s.id === reason.target_stage_id);
         if (targetStage) {
@@ -670,46 +708,43 @@ export default function AddReceptivo() {
 
               {/* Lead Source */}
               <div className="space-y-2">
-                <Label>Origem do Cliente</Label>
-                {leadData.lead_source && leadData.existed && (
-                  <p className="text-sm text-muted-foreground">
-                    Origem atual: <strong>{leadData.lead_source}</strong>
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione ou adicione origem" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {leadSources.map((source) => (
-                        <SelectItem key={source.id} value={source.id}>
-                          {source.name}
-                        </SelectItem>
+                <Label>Origem deste Atendimento</Label>
+                
+                {/* Show source history if lead existed */}
+                {leadData.existed && sourceHistory.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Histórico de origens:</p>
+                    <div className="space-y-1">
+                      {sourceHistory.map((entry, index) => (
+                        <div key={entry.id} className="flex items-center gap-2 text-sm">
+                          <Badge variant="outline" className="text-xs">
+                            {format(new Date(entry.recorded_at), "dd/MM/yy", { locale: ptBR })}
+                          </Badge>
+                          <span>{entry.source_name}</span>
+                          {index === 0 && (
+                            <Badge variant="secondary" className="text-xs">Mais recente</Badge>
+                          )}
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => setShowNewSourceInput(!showNewSourceInput)}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {showNewSourceInput && (
-                  <div className="flex gap-2">
-                    <Input
-                      value={newSourceName}
-                      onChange={(e) => setNewSourceName(e.target.value)}
-                      placeholder="Nova origem..."
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddNewSource()}
-                    />
-                    <Button onClick={handleAddNewSource} disabled={createSource.isPending}>
-                      {createSource.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
-                    </Button>
+                    </div>
                   </div>
                 )}
+
+                <p className="text-sm text-muted-foreground">
+                  Como o cliente nos encontrou <strong>desta vez</strong>?
+                </p>
+                <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a origem deste contato" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadSources.map((source) => (
+                      <SelectItem key={source.id} value={source.id}>
+                        {source.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex justify-between">

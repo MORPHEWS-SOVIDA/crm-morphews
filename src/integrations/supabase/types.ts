@@ -649,6 +649,58 @@ export type Database = {
           },
         ]
       }
+      lead_source_history: {
+        Row: {
+          id: string
+          lead_id: string
+          notes: string | null
+          organization_id: string
+          recorded_at: string
+          recorded_by: string | null
+          source_id: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          notes?: string | null
+          organization_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+          source_id: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          organization_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_source_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_source_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_source_history_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_sources: {
         Row: {
           created_at: string
