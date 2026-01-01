@@ -7,9 +7,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const supabase = createClient(
@@ -17,54 +15,39 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { sessionName, tenantId } = await req.json()
+    // Recebe os dados do front-end
+    const { sessionName, phoneNumber, tenantId } = await req.json()
     
-    // Usa o token master do WaSender configurado nos secrets
+    // 1. Validação e Segurança
     const adminToken = Deno.env.get('WASENDERAPI_TOKEN')
-    
-    if (!adminToken) {
-      throw new Error('CONFIG_ERROR: Secret WASENDERAPI_TOKEN não encontrada no Supabase.')
-    }
+    if (!adminToken) throw new Error('Token Mestre (WASENDERAPI_TOKEN) não configurado.')
+    if (!sessionName) throw new Error('Nome da instância é obrigatório.')
 
-    if (!sessionName) {
-      throw new Error('O Nome da Instância é obrigatório.')
-    }
-
-    if (!tenantId) {
-      throw new Error('O tenantId é obrigatório.')
-    }
-
-    // Prepara URL do Webhook dinamicamente
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const projectRef = supabaseUrl.match(/https:\/\/(.+)\.supabase\.co/)?.[1]
-
-    console.log(`Iniciando sessão WaSender: ${sessionName} para tenant: ${tenantId}`)
-
-    // 1. Cria a instância na tabela V2 primeiro (status: QRCODE)
+    // 2. Prepara a instância no Banco V2
+    // Status inicial QRCODE. O número será atualizado quando conectar de fato.
     const { data: newInstance, error: dbError } = await supabase
       .from('whatsapp_v2_instances')
       .insert({
         name: sessionName,
         tenant_id: tenantId,
-        api_url: 'https://api.wasenderapi.com',
-        api_key: 'pending',
+        api_url: 'https://api.wasenderapi.com', // URL Padrão
+        api_key: 'pending', 
         status: 'QRCODE'
       })
       .select()
       .single()
 
-    if (dbError) {
-      console.error('Erro DB:', dbError)
-      throw new Error('Falha ao criar registro no banco de dados.')
-    }
+    if (dbError) throw dbError
 
-    console.log('Instância criada no banco:', newInstance.id)
-
-    // URL do Webhook para o WaSender enviar as mensagens de volta
+    // 3. Monta a URL do Webhook Automaticamente
+    // O WaSender receberá esta URL e passará a enviar as mensagens para cá
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const projectRef = supabaseUrl.match(/https:\/\/(.+)\.supabase\.co/)?.[1]
     const webhookUrl = `https://${projectRef}.supabase.co/functions/v1/whatsapp-webhook?instance_id=${newInstance.id}`
-    console.log('Webhook URL:', webhookUrl)
 
-    // 2. Chama o WaSender para pegar o QR Code
+    console.log(`Automação: Criando sessão '${sessionName}' com webhook: ${webhookUrl}`)
+
+    // 4. Chama a API do WaSender para criar a sessão e pegar o QR
     const waResponse = await fetch('https://api.wasenderapi.com/api/sessions/start', {
       method: 'POST',
       headers: {
@@ -72,40 +55,34 @@ serve(async (req) => {
         'Authorization': `Bearer ${adminToken}`
       },
       body: JSON.stringify({
-        name: `${sessionName.trim().replace(/\s+/g, '_')}-${newInstance.id.slice(0, 4)}`,
-        webhookUrl: webhookUrl,
-        waitQrCode: true
+        name: `${sessionName}-${newInstance.id.slice(0,4)}`, // Garante nome único
+        webhookUrl: webhookUrl, // A MÁGICA: Configura o webhook automaticamente
+        waitQrCode: true,
+        number: phoneNumber // Envia o número se o usuário informou (opcional na API, mas bom para registro)
       })
     })
 
     const waData = await waResponse.json()
-    console.log('Resposta WaSender:', { status: waResponse.status, data: waData })
 
     if (!waResponse.ok) {
-      console.error('Erro WaSender:', waData)
-      // Se falhou, deleta a instância criada para não sujar o banco
+      // Limpeza: Se falhou na API, remove do banco para não ficar lixo
       await supabase.from('whatsapp_v2_instances').delete().eq('id', newInstance.id)
-      throw new Error(waData.message || waData.error || 'Erro ao comunicar com a API do WaSender.')
+      throw new Error(waData.message || waData.error || 'Erro na API WaSender')
     }
 
-    // 3. Salva a API Key retornada
+    // 5. Atualiza a instância com a Key retornada (se houver)
     const sessionKey = waData.key || waData.session?.key || waData.token
-    
     if (sessionKey) {
-      await supabase
-        .from('whatsapp_v2_instances')
-        .update({ api_key: sessionKey })
-        .eq('id', newInstance.id)
+        await supabase
+          .from('whatsapp_v2_instances')
+          .update({ api_key: sessionKey })
+          .eq('id', newInstance.id)
     }
 
-    // 4. Retorna o QR Code para o Front-end
-    const qrCode = waData.qrcode || waData.qr || waData.qrCode || waData.base64 || waData.image
-
+    // 6. Retorna o QR Code para o Front-end
     return new Response(JSON.stringify({ 
-      qrCode: qrCode,
-      instanceId: newInstance.id,
-      sessionKey: sessionKey,
-      message: 'Sessão criada. Escaneie o QR Code para conectar.'
+      qrCode: waData.qrcode || waData.qr || waData.base64, 
+      instanceId: newInstance.id 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
@@ -113,7 +90,7 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
-    console.error('Function Error:', errorMessage)
+    console.error('Erro na automação:', errorMessage)
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400
