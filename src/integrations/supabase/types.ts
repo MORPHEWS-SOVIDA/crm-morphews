@@ -1072,7 +1072,9 @@ export type Database = {
       organization_members: {
         Row: {
           can_see_all_leads: boolean
+          commission_percentage: number | null
           created_at: string
+          extension: string | null
           id: string
           organization_id: string
           role: Database["public"]["Enums"]["org_role"]
@@ -1080,7 +1082,9 @@ export type Database = {
         }
         Insert: {
           can_see_all_leads?: boolean
+          commission_percentage?: number | null
           created_at?: string
+          extension?: string | null
           id?: string
           organization_id: string
           role?: Database["public"]["Enums"]["org_role"]
@@ -1088,7 +1092,9 @@ export type Database = {
         }
         Update: {
           can_see_all_leads?: boolean
+          commission_percentage?: number | null
           created_at?: string
+          extension?: string | null
           id?: string
           organization_id?: string
           role?: Database["public"]["Enums"]["org_role"]
