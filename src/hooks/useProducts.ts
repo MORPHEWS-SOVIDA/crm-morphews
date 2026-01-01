@@ -3,6 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
+export const PRODUCT_CATEGORIES = [
+  { value: 'produto_pronto', label: 'Produto Pronto' },
+  { value: 'print_on_demand', label: 'Produto Print on Demand' },
+  { value: 'manipulado', label: 'Manipulado' },
+  { value: 'ebook', label: 'Ebook' },
+  { value: 'info_video_aula', label: 'Info/Vídeo Aula' },
+  { value: 'dropshipping', label: 'Dropshipping' },
+  { value: 'servico', label: 'Serviço' },
+  { value: 'outro', label: 'Outro' },
+] as const;
+
+export type ProductCategory = typeof PRODUCT_CATEGORIES[number]['value'];
+
 export interface Product {
   id: string;
   name: string;
@@ -19,6 +32,7 @@ export interface Product {
   usage_period_days: number;
   is_active: boolean;
   is_featured: boolean;
+  category: ProductCategory;
   organization_id: string;
   created_at: string;
   updated_at: string | null;
@@ -50,6 +64,7 @@ export interface ProductFormData {
   usage_period_days?: number;
   is_active?: boolean;
   is_featured?: boolean;
+  category?: ProductCategory;
   // New fields
   cost_cents?: number;
   stock_quantity?: number;
@@ -124,6 +139,7 @@ export function useCreateProduct() {
           minimum_stock: data.minimum_stock || 0,
           track_stock: data.track_stock || false,
           is_featured: data.is_featured || false,
+          category: data.category || 'produto_pronto',
         })
         .select()
         .single();

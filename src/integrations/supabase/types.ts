@@ -536,6 +536,7 @@ export type Database = {
       }
       lead_products: {
         Row: {
+          category: string
           cost_cents: number | null
           created_at: string
           description: string | null
@@ -561,6 +562,7 @@ export type Database = {
           usage_period_days: number | null
         }
         Insert: {
+          category?: string
           cost_cents?: number | null
           created_at?: string
           description?: string | null
@@ -586,6 +588,7 @@ export type Database = {
           usage_period_days?: number | null
         }
         Update: {
+          category?: string
           cost_cents?: number | null
           created_at?: string
           description?: string | null

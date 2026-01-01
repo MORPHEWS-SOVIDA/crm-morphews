@@ -15,13 +15,22 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Package, DollarSign } from 'lucide-react';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
+import { PRODUCT_CATEGORIES } from '@/hooks/useProducts';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().max(200, 'Máximo 200 caracteres').optional(),
+  category: z.string().min(1, 'Categoria é obrigatória'),
   sales_script: z.string().optional(),
   key_question_1: z.string().optional(),
   key_question_2: z.string().optional(),
@@ -54,6 +63,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
     defaultValues: {
       name: product?.name || '',
       description: product?.description || '',
+      category: product?.category || 'produto_pronto',
       sales_script: product?.sales_script || '',
       key_question_1: product?.key_question_1 || '',
       key_question_2: product?.key_question_2 || '',
@@ -96,6 +106,34 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
                   <FormControl>
                     <Input placeholder="Nome do produto" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PRODUCT_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Define o tipo de produto para organização e relatórios
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
