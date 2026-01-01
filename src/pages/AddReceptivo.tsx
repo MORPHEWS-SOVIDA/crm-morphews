@@ -547,6 +547,23 @@ export default function AddReceptivo() {
     );
   };
 
+  // Navigation buttons component
+  const renderNavButtons = (onBack?: () => void, onNext?: () => void, nextDisabled?: boolean, nextLabel?: string) => (
+    <div className="flex justify-between gap-2">
+      {onBack ? (
+        <Button variant="outline" onClick={onBack}>
+          Voltar
+        </Button>
+      ) : <div />}
+      {onNext && (
+        <Button onClick={onNext} disabled={nextDisabled}>
+          {nextLabel || 'Continuar'}
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -614,65 +631,168 @@ export default function AddReceptivo() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome *</Label>
-                  <Input
-                    value={leadData.name}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Nome do cliente"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>WhatsApp</Label>
-                  <Input
-                    value={leadData.whatsapp}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, whatsapp: e.target.value }))}
-                    disabled
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>E-mail</Label>
-                  <Input
-                    type="email"
-                    value={leadData.email}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Instagram</Label>
-                  <Input
-                    value={leadData.instagram}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, instagram: e.target.value }))}
-                    placeholder="@usuario"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Especialidade/Área</Label>
-                  <Input
-                    value={leadData.specialty}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, specialty: e.target.value }))}
-                    placeholder="Ex: Dermatologia"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>CPF/CNPJ</Label>
-                  <Input
-                    value={leadData.cpf_cnpj}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
-                    placeholder="000.000.000-00"
-                  />
+            <CardContent className="space-y-6">
+              {/* Top navigation */}
+              {renderNavButtons(undefined, handleGoToConversation)}
+
+              <Separator />
+
+              {/* Basic Info */}
+              <div>
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Informações Básicas
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nome *</Label>
+                    <Input
+                      value={leadData.name}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Nome do cliente"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>WhatsApp</Label>
+                    <Input
+                      value={leadData.whatsapp}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Telefone Secundário</Label>
+                    <Input
+                      value={leadData.secondary_phone}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, secondary_phone: e.target.value }))}
+                      placeholder="Outro telefone"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>E-mail</Label>
+                    <Input
+                      type="email"
+                      value={leadData.email}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="email@exemplo.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Instagram</Label>
+                    <Input
+                      value={leadData.instagram}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, instagram: e.target.value }))}
+                      placeholder="@usuario"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Especialidade/Área</Label>
+                    <Input
+                      value={leadData.specialty}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, specialty: e.target.value }))}
+                      placeholder="Ex: Dermatologia"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CPF/CNPJ</Label>
+                    <Input
+                      value={leadData.cpf_cnpj}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <Button onClick={handleGoToConversation}>
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
+              <Separator />
+
+              {/* Address */}
+              <div>
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Endereço
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>CEP</Label>
+                    <Input
+                      value={leadData.cep}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, cep: e.target.value }))}
+                      placeholder="00000-000"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Rua</Label>
+                    <Input
+                      value={leadData.street}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, street: e.target.value }))}
+                      placeholder="Nome da rua"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Número</Label>
+                    <Input
+                      value={leadData.street_number}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, street_number: e.target.value }))}
+                      placeholder="123"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Complemento</Label>
+                    <Input
+                      value={leadData.complement}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, complement: e.target.value }))}
+                      placeholder="Apto, sala, etc."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bairro</Label>
+                    <Input
+                      value={leadData.neighborhood}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                      placeholder="Bairro"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cidade</Label>
+                    <Input
+                      value={leadData.city}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, city: e.target.value }))}
+                      placeholder="Cidade"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Input
+                      value={leadData.state}
+                      onChange={(e) => setLeadData(prev => ({ ...prev, state: e.target.value }))}
+                      placeholder="UF"
+                      maxLength={2}
+                    />
+                  </div>
+                </div>
               </div>
+
+              <Separator />
+
+              {/* Observations */}
+              <div>
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Observações
+                </h3>
+                <Textarea
+                  value={leadData.observations}
+                  onChange={(e) => setLeadData(prev => ({ ...prev, observations: e.target.value }))}
+                  placeholder="Notas sobre o cliente..."
+                  rows={3}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Bottom navigation */}
+              {renderNavButtons(undefined, handleGoToConversation)}
             </CardContent>
           </Card>
         )}
@@ -687,6 +807,11 @@ export default function AddReceptivo() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Top navigation */}
+              {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
+
+              <Separator />
+
               {/* Conversation Mode */}
               <div className="space-y-2">
                 <Label>Como está conversando com o cliente? *</Label>
@@ -746,16 +871,10 @@ export default function AddReceptivo() {
                   </SelectContent>
                 </Select>
               </div>
+              <Separator />
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep('lead_info')}>
-                  Voltar
-                </Button>
-                <Button onClick={handleGoToProduct} disabled={!conversationMode}>
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              {/* Bottom navigation */}
+              {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
             </CardContent>
           </Card>
         )}
@@ -770,6 +889,10 @@ export default function AddReceptivo() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Top navigation */}
+              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToQuestions, !selectedProductId)}
+
+              <Separator />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {products.map((product) => (
                   <Button
@@ -794,15 +917,10 @@ export default function AddReceptivo() {
                 </p>
               )}
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep('conversation')}>
-                  Voltar
-                </Button>
-                <Button onClick={handleGoToQuestions} disabled={!selectedProductId}>
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              <Separator />
+
+              {/* Bottom navigation */}
+              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToQuestions, !selectedProductId)}
             </CardContent>
           </Card>
         )}
@@ -820,6 +938,10 @@ export default function AddReceptivo() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Top navigation */}
+              {renderNavButtons(() => setCurrentStep('product'), handleGoToScript)}
+
+              <Separator />
               {selectedProduct.key_question_1 && (
                 <div className="space-y-2">
                   <Label className="text-base font-medium">
@@ -868,15 +990,10 @@ export default function AddReceptivo() {
                 </p>
               )}
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep('product')}>
-                  Voltar
-                </Button>
-                <Button onClick={handleGoToScript}>
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              <Separator />
+
+              {/* Bottom navigation */}
+              {renderNavButtons(() => setCurrentStep('product'), handleGoToScript)}
             </CardContent>
           </Card>
         )}
@@ -891,6 +1008,10 @@ export default function AddReceptivo() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Top navigation */}
+              {renderNavButtons(() => setCurrentStep('questions'), handleGoToAddress)}
+
+              <Separator />
               {selectedProduct.sales_script ? (
                 <div className="p-4 rounded-lg bg-muted/50 border whitespace-pre-wrap">
                   {selectedProduct.sales_script}
@@ -958,15 +1079,10 @@ export default function AddReceptivo() {
                 />
               </div>
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep('questions')}>
-                  Voltar
-                </Button>
-                <Button onClick={handleGoToAddress}>
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              <Separator />
+
+              {/* Bottom navigation */}
+              {renderNavButtons(() => setCurrentStep('questions'), handleGoToAddress)}
             </CardContent>
           </Card>
         )}
@@ -984,6 +1100,11 @@ export default function AddReceptivo() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Top navigation */}
+              {renderNavButtons(() => setCurrentStep('script'), handleGoToSaleOrReason)}
+
+              <Separator />
+
               <AddressFields
                 cep={leadData.cep}
                 street={leadData.street}
@@ -1006,15 +1127,10 @@ export default function AddReceptivo() {
                 }}
               />
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep('script')}>
-                  Voltar
-                </Button>
-                <Button onClick={handleGoToSaleOrReason}>
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              <Separator />
+
+              {/* Bottom navigation */}
+              {renderNavButtons(() => setCurrentStep('script'), handleGoToSaleOrReason)}
             </CardContent>
           </Card>
         )}
