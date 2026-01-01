@@ -59,6 +59,8 @@ interface OrgMember {
   user_id: string;
   role: OrgRole;
   can_see_all_leads: boolean;
+  commission_percentage: number | null;
+  extension: string | null;
   created_at: string;
   profile?: {
     first_name: string;
@@ -92,6 +94,8 @@ export default function Team() {
     lastName: "",
     whatsapp: "",
     instagram: "",
+    commissionPercentage: 0,
+    extension: "",
   });
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
@@ -147,10 +151,10 @@ export default function Team() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      // Get members including can_see_all_leads
+      // Get members including can_see_all_leads, commission and extension
       const { data: membersData, error: membersError } = await supabase
         .from("organization_members")
-        .select("id, user_id, role, can_see_all_leads, created_at, organization_id")
+        .select("id, user_id, role, can_see_all_leads, commission_percentage, extension, created_at, organization_id")
         .eq("organization_id", profile.organization_id);
 
       if (membersError) throw membersError;
@@ -312,6 +316,8 @@ export default function Team() {
       lastName: member.profile?.last_name || "",
       whatsapp: member.profile?.whatsapp || "",
       instagram: member.profile?.instagram || "",
+      commissionPercentage: member.commission_percentage || 0,
+      extension: member.extension || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -362,6 +368,8 @@ export default function Team() {
         .update({ 
           role: editRole,
           can_see_all_leads: finalCanSeeAllLeads,
+          commission_percentage: editMemberData.commissionPercentage || 0,
+          extension: editMemberData.extension || null,
         })
         .eq("id", editingMember.id);
 
@@ -1137,6 +1145,41 @@ export default function Team() {
                     value={editMemberData.instagram}
                     onChange={(e) => setEditMemberData({ ...editMemberData, instagram: e.target.value })}
                   />
+                </div>
+
+                {/* Commission and Extension */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editCommission">Comissão (%)</Label>
+                    <Input
+                      id="editCommission"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={editMemberData.commissionPercentage || ""}
+                      onChange={(e) => setEditMemberData({ 
+                        ...editMemberData, 
+                        commissionPercentage: parseFloat(e.target.value) || 0 
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Percentual de comissão sobre vendas (0% a 100%)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editExtension">Ramal</Label>
+                    <Input
+                      id="editExtension"
+                      placeholder="Ex: 101, A1"
+                      value={editMemberData.extension}
+                      onChange={(e) => setEditMemberData({ ...editMemberData, extension: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Para integrações futuras (telefonia, etc.)
+                    </p>
+                  </div>
                 </div>
 
                 {/* Role */}
