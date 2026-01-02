@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, ChevronDown, ChevronUp, MessageSquare, Clock } from 'lucide-react';
+import { History, ChevronDown, ChevronUp, MessageSquare, Clock, User } from 'lucide-react';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useLeadStageHistory } from '@/hooks/useLeadStageHistory';
 import { format } from 'date-fns';
@@ -126,13 +126,21 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
                           </span>
                         </div>
 
-                        {/* Date and time */}
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
+                        {/* Date, time and user */}
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-2">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
                             {date}
                           </span>
                           <span className="text-xs">às {time}</span>
+                          {entry.changed_by_profile && (
+                            <span className="flex items-center gap-1 text-foreground">
+                              <User className="w-3.5 h-3.5" />
+                              <span className="font-medium">
+                                {entry.changed_by_profile.first_name} {entry.changed_by_profile.last_name}
+                              </span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Reason/observation */}

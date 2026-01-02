@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from './useTenant';
+import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export interface LeadProductAnswer {
@@ -13,6 +14,7 @@ export interface LeadProductAnswer {
   answer_3: string | null;
   created_at: string;
   updated_at: string;
+  updated_by: string | null;
 }
 
 export interface LeadProductAnswerWithProduct extends LeadProductAnswer {
@@ -23,6 +25,10 @@ export interface LeadProductAnswerWithProduct extends LeadProductAnswer {
     key_question_2: string | null;
     key_question_3: string | null;
   };
+  updated_by_profile?: {
+    first_name: string;
+    last_name: string;
+  } | null;
 }
 
 export interface AnswerFormData {
@@ -52,7 +58,33 @@ export function useLeadAnswers(leadId: string | undefined) {
         .eq('organization_id', tenantId);
 
       if (error) throw error;
-      return data as LeadProductAnswerWithProduct[];
+
+      // Fetch user profiles for updated_by
+      const updatedByIds = [...new Set((data || []).map(a => a.updated_by).filter(Boolean))] as string[];
+      
+      let profiles: Record<string, { first_name: string; last_name: string }> = {};
+      
+      if (updatedByIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', updatedByIds);
+        
+        if (profilesData) {
+          profiles = profilesData.reduce((acc, p) => {
+            acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+            return acc;
+          }, {} as Record<string, { first_name: string; last_name: string }>);
+        }
+      }
+
+      // Merge profiles into answers
+      const answersWithProfiles = (data || []).map(answer => ({
+        ...answer,
+        updated_by_profile: answer.updated_by ? profiles[answer.updated_by] : null,
+      }));
+
+      return answersWithProfiles as LeadProductAnswerWithProduct[];
     },
     enabled: !!leadId && !!tenantId,
   });
@@ -111,6 +143,7 @@ export function useProductAnswers(productId: string | undefined) {
 export function useUpsertLeadProductAnswer() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (formData: AnswerFormData) => {
@@ -125,6 +158,7 @@ export function useUpsertLeadProductAnswer() {
           answer_1: formData.answer_1 || null,
           answer_2: formData.answer_2 || null,
           answer_3: formData.answer_3 || null,
+          updated_by: user?.id || null,
         }, {
           onConflict: 'lead_id,product_id',
         })

@@ -487,6 +487,7 @@ export type Database = {
           organization_id: string
           product_id: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           answer_1?: string | null
@@ -498,6 +499,7 @@ export type Database = {
           organization_id: string
           product_id: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           answer_1?: string | null
@@ -509,6 +511,7 @@ export type Database = {
           organization_id?: string
           product_id?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -816,6 +819,7 @@ export type Database = {
           state: string | null
           street: string | null
           street_number: string | null
+          tiktok: string | null
           updated_at: string
           whatsapp: string
           whatsapp_group: string | null
@@ -855,6 +859,7 @@ export type Database = {
           state?: string | null
           street?: string | null
           street_number?: string | null
+          tiktok?: string | null
           updated_at?: string
           whatsapp: string
           whatsapp_group?: string | null
@@ -894,6 +899,7 @@ export type Database = {
           state?: string | null
           street?: string | null
           street_number?: string | null
+          tiktok?: string | null
           updated_at?: string
           whatsapp?: string
           whatsapp_group?: string | null

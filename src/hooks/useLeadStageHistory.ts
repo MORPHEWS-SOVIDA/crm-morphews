@@ -11,6 +11,10 @@ export interface LeadStageHistory {
   reason: string | null;
   changed_by: string | null;
   created_at: string;
+  changed_by_profile?: {
+    first_name: string;
+    last_name: string;
+  } | null;
 }
 
 export function useLeadStageHistory(leadId: string | undefined) {
@@ -30,7 +34,32 @@ export function useLeadStageHistory(leadId: string | undefined) {
         throw error;
       }
 
-      return data as LeadStageHistory[];
+      // Fetch user profiles for changed_by
+      const changedByIds = [...new Set((data || []).map(h => h.changed_by).filter(Boolean))] as string[];
+      
+      let profiles: Record<string, { first_name: string; last_name: string }> = {};
+      
+      if (changedByIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', changedByIds);
+        
+        if (profilesData) {
+          profiles = profilesData.reduce((acc, p) => {
+            acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+            return acc;
+          }, {} as Record<string, { first_name: string; last_name: string }>);
+        }
+      }
+
+      // Merge profiles into history
+      const historyWithProfiles = (data || []).map(entry => ({
+        ...entry,
+        changed_by_profile: entry.changed_by ? profiles[entry.changed_by] : null,
+      }));
+
+      return historyWithProfiles as LeadStageHistory[];
     },
     enabled: !!leadId,
   });
