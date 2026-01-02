@@ -322,11 +322,40 @@ export default function SaleDetail() {
       return null;
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('sales-documents')
-      .getPublicUrl(fileName);
+    // Return the file path (not public URL) since bucket is private
+    return fileName;
+  };
 
-    return publicUrl;
+  // Get signed URL for viewing private files
+  const getSignedUrl = async (filePath: string) => {
+    const { data, error } = await supabase.storage
+      .from('sales-documents')
+      .createSignedUrl(filePath, 3600); // 1 hour expiry
+    
+    if (error || !data?.signedUrl) {
+      toast.error('Erro ao gerar link do arquivo');
+      return null;
+    }
+    return data.signedUrl;
+  };
+
+  const handleViewFile = async (filePath: string) => {
+    const url = await getSignedUrl(filePath);
+    if (url) {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleDownloadFile = async (filePath: string) => {
+    const url = await getSignedUrl(filePath);
+    if (url) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filePath.split('/').pop() || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   // Validate expedition and send to delivery
@@ -845,14 +874,13 @@ export default function SaleDetail() {
                       onChange={handlePaymentProofUpload}
                     />
                     {sale.payment_proof_url && (
-                      <a 
-                        href={sale.payment_proof_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => handleViewFile(sale.payment_proof_url!)}
                         className="text-sm text-primary hover:underline"
                       >
                         Ver comprovante anexado
-                      </a>
+                      </button>
                     )}
                   </div>
                 </CardContent>
@@ -879,23 +907,22 @@ export default function SaleDetail() {
                     <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       <span className="text-sm text-green-700 dark:text-green-400 flex-1">Comprovante anexado</span>
-                      <a 
-                        href={sale.payment_proof_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => handleViewFile(sale.payment_proof_url!)}
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         <Eye className="w-4 h-4" />
                         Ver
-                      </a>
-                      <a 
-                        href={sale.payment_proof_url} 
-                        download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(sale.payment_proof_url!)}
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         <Download className="w-4 h-4" />
                         Baixar
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -952,23 +979,22 @@ export default function SaleDetail() {
                   />
                   {sale.invoice_pdf_url && (
                     <div className="flex items-center gap-2">
-                      <a 
-                        href={sale.invoice_pdf_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => handleViewFile(sale.invoice_pdf_url!)}
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         <Eye className="w-4 h-4" />
                         Ver NF PDF
-                      </a>
-                      <a 
-                        href={sale.invoice_pdf_url} 
-                        download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(sale.invoice_pdf_url!)}
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         <Download className="w-4 h-4" />
                         Baixar
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -982,23 +1008,22 @@ export default function SaleDetail() {
                   />
                   {sale.invoice_xml_url && (
                     <div className="flex items-center gap-2">
-                      <a 
-                        href={sale.invoice_xml_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => handleViewFile(sale.invoice_xml_url!)}
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         <Eye className="w-4 h-4" />
                         Ver NF XML
-                      </a>
-                      <a 
-                        href={sale.invoice_xml_url} 
-                        download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(sale.invoice_xml_url!)}
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         <Download className="w-4 h-4" />
                         Baixar
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
