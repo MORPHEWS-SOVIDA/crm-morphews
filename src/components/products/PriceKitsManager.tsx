@@ -28,6 +28,9 @@ const createEmptyKit = (quantity: number = 1): ProductPriceKitFormData => ({
   promotional_price_cents: null,
   promotional_use_default_commission: true,
   promotional_custom_commission: null,
+  promotional_price_2_cents: null,
+  promotional_2_use_default_commission: true,
+  promotional_2_custom_commission: null,
   minimum_price_cents: null,
   minimum_use_default_commission: true,
   minimum_custom_commission: null,
@@ -188,7 +191,7 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
                   {/* Promotional Price */}
                   <div className="space-y-3">
                     <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                      Valor Promocional
+                      Valor Promocional 1
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -223,6 +226,55 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
                               value={kit.promotional_custom_commission || ''}
                               onChange={(e) => handleUpdateKit(index, { 
                                 promotional_custom_commission: parseFloat(e.target.value) || 0 
+                              })}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Promotional Price 2 */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                      Valor Promocional 2
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Preço Promocional 2 ({kit.quantity} {kit.quantity === 1 ? 'un' : 'uns'})</Label>
+                        <CurrencyInput
+                          value={kit.promotional_price_2_cents || 0}
+                          onChange={(value) => handleUpdateKit(index, { promotional_price_2_cents: value || null })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id={`promo2-commission-${index}`}
+                            checked={kit.promotional_2_use_default_commission}
+                            onCheckedChange={(checked) => handleUpdateKit(index, { 
+                              promotional_2_use_default_commission: checked,
+                              promotional_2_custom_commission: checked ? null : 0
+                            })}
+                          />
+                          <Label htmlFor={`promo2-commission-${index}`}>
+                            Comissão Padrão
+                          </Label>
+                        </div>
+                        {!kit.promotional_2_use_default_commission && (
+                          <div>
+                            <Label className="text-xs">Comissão Personalizada (%)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={kit.promotional_2_custom_commission || ''}
+                              onChange={(e) => handleUpdateKit(index, { 
+                                promotional_2_custom_commission: parseFloat(e.target.value) || 0 
                               })}
                               placeholder="0.00"
                             />
