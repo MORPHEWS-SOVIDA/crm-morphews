@@ -17,6 +17,7 @@ export interface UserPermissions {
   
   // Sales
   sales_view: boolean;
+  sales_view_all: boolean;
   sales_create: boolean;
   sales_edit_draft: boolean;
   sales_confirm_payment: boolean;
@@ -61,6 +62,7 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   leads_delete: { label: 'Excluir Leads', description: 'Remover leads', group: 'Leads' },
   
   sales_view: { label: 'Ver Vendas', description: 'Visualizar vendas', group: 'Vendas' },
+  sales_view_all: { label: 'Ver Vendas de Todos', description: 'Ver vendas de todos os vendedores', group: 'Vendas' },
   sales_create: { label: 'Criar Vendas', description: 'Criar novas vendas', group: 'Vendas' },
   sales_edit_draft: { label: 'Editar Rascunhos', description: 'Editar vendas em rascunho', group: 'Vendas' },
   sales_validate_expedition: { label: 'Validar Expedição', description: 'Validar vendas para envio', group: 'Vendas' },
@@ -248,6 +250,7 @@ export function useApplyRoleDefaults() {
           leads_edit: permsObj.leads_edit ?? true,
           leads_delete: permsObj.leads_delete ?? false,
           sales_view: permsObj.sales_view ?? true,
+          sales_view_all: permsObj.sales_view_all ?? false,
           sales_create: permsObj.sales_create ?? false,
           sales_edit_draft: permsObj.sales_edit_draft ?? false,
           sales_confirm_payment: permsObj.sales_confirm_payment ?? false,

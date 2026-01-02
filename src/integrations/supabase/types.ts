@@ -2166,6 +2166,7 @@ export type Database = {
           sales_mark_delivered: boolean
           sales_validate_expedition: boolean
           sales_view: boolean
+          sales_view_all: boolean
           settings_manage: boolean
           settings_view: boolean
           team_view: boolean
@@ -2198,6 +2199,7 @@ export type Database = {
           sales_mark_delivered?: boolean
           sales_validate_expedition?: boolean
           sales_view?: boolean
+          sales_view_all?: boolean
           settings_manage?: boolean
           settings_view?: boolean
           team_view?: boolean
@@ -2230,6 +2232,7 @@ export type Database = {
           sales_mark_delivered?: boolean
           sales_validate_expedition?: boolean
           sales_view?: boolean
+          sales_view_all?: boolean
           settings_manage?: boolean
           settings_view?: boolean
           team_view?: boolean
