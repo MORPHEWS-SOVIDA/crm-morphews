@@ -598,7 +598,14 @@ export default function SaleDetail() {
                   <TableBody>
                     {sale.items?.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.product_name}</TableCell>
+                        <TableCell className="font-medium">
+                          {item.product_name}
+                          {item.requisition_number && (
+                            <span className="block text-xs text-amber-600 font-normal mt-1">
+                              Requisição: {item.requisition_number}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">{item.quantity}</TableCell>
                         <TableCell className="text-right">{formatCurrency(item.unit_price_cents)}</TableCell>
                         <TableCell className="text-right text-green-600">

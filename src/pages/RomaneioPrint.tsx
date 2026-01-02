@@ -280,6 +280,11 @@ export default function RomaneioPrint() {
                 <tr key={item.id} className={index < (sale.items?.length || 0) - 1 ? 'border-b border-black' : ''}>
                   <td className="p-2 border-r border-black">
                     {item.product_name}
+                    {item.requisition_number && (
+                      <span className="text-xs font-semibold block text-amber-700">
+                        Requisição: {item.requisition_number}
+                      </span>
+                    )}
                     {item.notes && <span className="text-xs text-gray-500 block">({item.notes})</span>}
                   </td>
                   <td className="p-2 text-center border-r border-black">{item.quantity}</td>
