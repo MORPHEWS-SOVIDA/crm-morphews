@@ -118,7 +118,7 @@ export default function RomaneioPrint() {
         <div className="border-2 border-black p-4 mb-4">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold">ROMANEIO: {sale.id.slice(0, 8).toUpperCase()}</h1>
+              <h1 className="text-2xl font-bold">ROMANEIO: #{sale.romaneio_number}</h1>
               <p className="text-sm mt-1">
                 <strong>VENDEDOR:</strong> {sellerName || profile?.first_name + ' ' + profile?.last_name}
               </p>

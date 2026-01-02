@@ -30,6 +30,7 @@ export type DeliveryStatus =
 
 export interface Sale {
   id: string;
+  romaneio_number: number;
   organization_id: string;
   lead_id: string;
   created_by: string;

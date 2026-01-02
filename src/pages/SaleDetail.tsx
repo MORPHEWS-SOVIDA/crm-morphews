@@ -268,7 +268,10 @@ export default function SaleDetail() {
             </Button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">Venda #{sale.id.slice(0, 8)}</h1>
+                <span className="font-mono text-lg bg-primary/10 text-primary px-3 py-1 rounded">
+                  #{sale.romaneio_number}
+                </span>
+                <h1 className="text-2xl font-bold">Venda</h1>
                 <Badge className={getStatusColor(sale.status)}>
                   {getStatusLabel(sale.status)}
                 </Badge>

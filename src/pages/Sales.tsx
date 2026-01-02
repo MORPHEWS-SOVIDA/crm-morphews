@@ -154,6 +154,9 @@ export default function Sales() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              #{sale.romaneio_number}
+                            </span>
                             <h3 className="font-medium truncate">{sale.lead?.name || 'Cliente'}</h3>
                             <Badge className={getStatusColor(sale.status)}>
                               {getStatusIcon(sale.status)}

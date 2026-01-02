@@ -1654,6 +1654,7 @@ export type Database = {
           payment_method_id: string | null
           payment_notes: string | null
           payment_proof_url: string | null
+          romaneio_number: number
           scheduled_delivery_date: string | null
           scheduled_delivery_shift:
             | Database["public"]["Enums"]["delivery_shift"]
@@ -1695,6 +1696,7 @@ export type Database = {
           payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
+          romaneio_number?: number
           scheduled_delivery_date?: string | null
           scheduled_delivery_shift?:
             | Database["public"]["Enums"]["delivery_shift"]
@@ -1736,6 +1738,7 @@ export type Database = {
           payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
+          romaneio_number?: number
           scheduled_delivery_date?: string | null
           scheduled_delivery_shift?:
             | Database["public"]["Enums"]["delivery_shift"]
