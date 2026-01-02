@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -69,6 +69,11 @@ interface ProductFormProps {
 
 export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPriceKits = [] }: ProductFormProps) {
   const [priceKits, setPriceKits] = useState<ProductPriceKitFormData[]>(initialPriceKits);
+  
+  // Sync priceKits when initialPriceKits changes (e.g., when editing a product)
+  useEffect(() => {
+    setPriceKits(initialPriceKits);
+  }, [initialPriceKits]);
   const { data: allProducts = [] } = useProducts();
   
   // Filter out current product from cross-sell options

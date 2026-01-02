@@ -31,7 +31,8 @@ import {
   CheckCircle,
   ArrowRight,
   Plus,
-  Calendar
+  Calendar,
+  Coins
 } from 'lucide-react';
 import { 
   useReceptiveModuleAccess, 
@@ -45,6 +46,7 @@ import { useProducts, Product } from '@/hooks/useProducts';
 import { ProductSelector } from '@/components/products/ProductSelector';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
+import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 import { useAuth } from '@/hooks/useAuth';
 import { useTenant } from '@/hooks/useTenant';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,6 +131,10 @@ export default function AddReceptivo() {
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
   const selectedReason = nonPurchaseReasons.find(r => r.id === selectedReasonId);
+  
+  // Fetch price kits for the selected product
+  const { data: productPriceKits = [] } = useProductPriceKits(selectedProductId || undefined);
+  const sortedKits = [...productPriceKits].sort((a, b) => a.position - b.position);
 
   // Load source history when lead is found
   useEffect(() => {
@@ -1008,46 +1014,102 @@ export default function AddReceptivo() {
 
               <Separator />
 
-              {/* Prices */}
+              {/* Prices - Show kits if available, else show legacy prices */}
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <DollarSign className="w-4 h-4" />
                   Valores e Kits
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {selectedProduct.price_1_unit > 0 && (
-                    <div className="p-3 rounded-lg bg-primary/10 text-center">
-                      <p className="text-xs text-muted-foreground">1 unidade</p>
-                      <p className="font-bold text-lg">
-                        R$ {(selectedProduct.price_1_unit / 100).toFixed(2)}
+                
+                {sortedKits.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {sortedKits.map((kit, index) => (
+                      <div key={kit.id} className={`p-4 rounded-lg border ${index === 0 ? 'border-primary bg-primary/5' : 'bg-muted/30'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant={index === 0 ? 'default' : 'secondary'} className="font-bold">
+                            {kit.quantity} {kit.quantity === 1 ? 'un' : 'uns'}
+                          </Badge>
+                          {index === 0 && (
+                            <Badge variant="outline" className="text-xs">Oferta Principal</Badge>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {/* Show promotional price first (Venda por) if available */}
+                          {kit.promotional_price_cents ? (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Venda por:</span>
+                              <span className="font-bold text-lg text-primary">
+                                R$ {(kit.promotional_price_cents / 100).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Valor:</span>
+                              <span className="font-bold text-lg text-primary">
+                                R$ {(kit.regular_price_cents / 100).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                          {kit.promotional_price_2_cents && (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">Promo 2:</span>
+                              <span className="font-medium">R$ {(kit.promotional_price_2_cents / 100).toFixed(2)}</span>
+                            </div>
+                          )}
+                          {kit.minimum_price_cents && (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground flex items-center gap-1">
+                                <Coins className="w-3 h-3" /> Mínimo:
+                              </span>
+                              <span className="font-medium text-amber-600">R$ {(kit.minimum_price_cents / 100).toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {selectedProduct.price_1_unit > 0 && (
+                      <div className="p-3 rounded-lg bg-primary/10 text-center">
+                        <p className="text-xs text-muted-foreground">1 unidade</p>
+                        <p className="font-bold text-lg">
+                          R$ {(selectedProduct.price_1_unit / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                    {selectedProduct.price_3_units > 0 && (
+                      <div className="p-3 rounded-lg bg-primary/10 text-center">
+                        <p className="text-xs text-muted-foreground">3 unidades</p>
+                        <p className="font-bold text-lg">
+                          R$ {(selectedProduct.price_3_units / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                    {selectedProduct.price_6_units > 0 && (
+                      <div className="p-3 rounded-lg bg-primary/10 text-center">
+                        <p className="text-xs text-muted-foreground">6 unidades</p>
+                        <p className="font-bold text-lg">
+                          R$ {(selectedProduct.price_6_units / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                    {selectedProduct.price_12_units > 0 && (
+                      <div className="p-3 rounded-lg bg-primary/10 text-center">
+                        <p className="text-xs text-muted-foreground">12 unidades</p>
+                        <p className="font-bold text-lg">
+                          R$ {(selectedProduct.price_12_units / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                    {selectedProduct.price_1_unit === 0 && selectedProduct.price_3_units === 0 && 
+                     selectedProduct.price_6_units === 0 && selectedProduct.price_12_units === 0 && (
+                      <p className="col-span-full text-center text-muted-foreground py-4">
+                        Nenhum kit de preço cadastrado para este produto.
                       </p>
-                    </div>
-                  )}
-                  {selectedProduct.price_3_units > 0 && (
-                    <div className="p-3 rounded-lg bg-primary/10 text-center">
-                      <p className="text-xs text-muted-foreground">3 unidades</p>
-                      <p className="font-bold text-lg">
-                        R$ {(selectedProduct.price_3_units / 100).toFixed(2)}
-                      </p>
-                    </div>
-                  )}
-                  {selectedProduct.price_6_units > 0 && (
-                    <div className="p-3 rounded-lg bg-primary/10 text-center">
-                      <p className="text-xs text-muted-foreground">6 unidades</p>
-                      <p className="font-bold text-lg">
-                        R$ {(selectedProduct.price_6_units / 100).toFixed(2)}
-                      </p>
-                    </div>
-                  )}
-                  {selectedProduct.price_12_units > 0 && (
-                    <div className="p-3 rounded-lg bg-primary/10 text-center">
-                      <p className="text-xs text-muted-foreground">12 unidades</p>
-                      <p className="font-bold text-lg">
-                        R$ {(selectedProduct.price_12_units / 100).toFixed(2)}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Separator />

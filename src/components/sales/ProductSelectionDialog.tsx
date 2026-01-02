@@ -285,15 +285,21 @@ export function ProductSelectionDialog({
   const commissionValue = calculateCommissionValue(total, commission);
   
   // Validation - check if below minimum (considering discounts)
+  // minimum_price_cents is the minimum for the TOTAL kit price, not per unit
   const minPriceForKit = selectedKit?.minimum_price_cents || 0;
-  const effectiveUnitPrice = quantity > 0 ? Math.round(total / quantity) : unitPrice;
   
-  // Check if below minimum: either custom price is below minimum, OR total after discount is below minimum
+  // Check if below minimum: 
+  // 1. Custom price is below kit minimum
+  // 2. Any discount that makes the total go below the minimum
+  // Note: minimum_price_cents is for the total kit, so we compare total (after discount) against it
   const isBelowMinimum = usesKitSystem && minPriceForKit > 0 && (
     (selectedPriceType === 'custom' && customPrice < minPriceForKit) ||
-    (discountCents > 0 && effectiveUnitPrice < minPriceForKit)
+    (total < minPriceForKit)
   );
   const needsAuthorization = isBelowMinimum && !authorizationId;
+  
+  // For display purposes, calculate the effective total for the kit
+  const effectiveKitPrice = total;
   
   const isValidPrice = isManipulado 
     ? manipuladoPrice > 0 
@@ -861,10 +867,10 @@ export function ProductSelectionDialog({
 
           {/* Warning for below minimum price */}
           {needsAuthorization && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-800 flex items-center gap-2">
+            <div className="p-3 bg-red-50 border border-red-300 rounded-lg">
+              <p className="text-sm text-red-800 flex items-center gap-2 font-medium">
                 <Shield className="w-4 h-4" />
-                ⚠️ O valor final ({formatPrice(effectiveUnitPrice)}/un) está abaixo do mínimo ({formatPrice(minPriceForKit)}/un) - requer autorização de gerente
+                ⚠️ O valor final ({formatPrice(effectiveKitPrice)}) está abaixo do mínimo ({formatPrice(minPriceForKit)}) - requer autorização de gerente
               </p>
               {authorizationId && authorizedBy && (
                 <Badge className="mt-2 bg-green-500 text-white">
@@ -917,7 +923,7 @@ export function ProductSelectionDialog({
         productName={product?.name || ''}
         productId={product?.id || ''}
         minimumPriceCents={minPriceForKit}
-        requestedPriceCents={effectiveUnitPrice}
+        requestedPriceCents={effectiveKitPrice}
         onAuthorized={handleAuthorizationSuccess}
       />
     </Dialog>
