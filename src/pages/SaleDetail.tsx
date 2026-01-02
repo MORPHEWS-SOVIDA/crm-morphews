@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,6 +68,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 
 
 // Hook to fetch delivery return reasons
@@ -223,6 +224,7 @@ export default function SaleDetail() {
   const { data: sale, isLoading } = useSale(id);
   const updateSale = useUpdateSale();
   const { data: members = [] } = useTenantMembers();
+  const { data: regions = [] } = useDeliveryRegions();
   const { profile } = useAuth();
   const { data: permissions } = useMyPermissions();
 
@@ -251,10 +253,22 @@ export default function SaleDetail() {
     }
   }, [sale?.payment_notes, sale?.tracking_code]);
 
-  // Filter users who can be delivery persons (any role that can deliver)
-  const deliveryUsers = members.filter(m => 
-    m.role === 'entregador' || m.role === 'delivery' || m.role === 'member' || m.role === 'seller' || m.role === 'manager' || m.role === 'admin' || m.role === 'owner'
-  );
+  // Filter delivery users based on the sale's delivery region
+  // Only show users assigned to that region, not all users
+  const deliveryUsers = useMemo(() => {
+    if (!sale?.delivery_region_id) return [];
+    
+    const region = regions.find(r => r.id === sale.delivery_region_id);
+    // Type assertion needed because useDeliveryRegions enriches the data with assigned_users
+    const assignedUsers = (region as any)?.assigned_users;
+    if (!assignedUsers || assignedUsers.length === 0) return [];
+    
+    // Get user IDs assigned to this region
+    const regionUserIds = assignedUsers.map((u: { user_id: string }) => u.user_id);
+    
+    // Filter members to only those assigned to this region
+    return members.filter(m => regionUserIds.includes(m.user_id));
+  }, [sale?.delivery_region_id, regions, members]);
 
   // Handle file upload for payment proof or invoice
   const handleFileUpload = async (file: File, type: 'payment_proof' | 'invoice_pdf' | 'invoice_xml') => {
