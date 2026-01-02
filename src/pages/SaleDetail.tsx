@@ -56,7 +56,8 @@ import {
   Bike,
   Building2,
   Store,
-  RotateCcw
+  RotateCcw,
+  Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -238,13 +239,17 @@ export default function SaleDetail() {
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState(sale?.payment_notes || '');
+  const [trackingCode, setTrackingCode] = useState(sale?.tracking_code || '');
 
-  // Initialize paymentNotes when sale loads
+  // Initialize paymentNotes and trackingCode when sale loads
   React.useEffect(() => {
     if (sale?.payment_notes) {
       setPaymentNotes(sale.payment_notes);
     }
-  }, [sale?.payment_notes]);
+    if (sale?.tracking_code) {
+      setTrackingCode(sale.tracking_code);
+    }
+  }, [sale?.payment_notes, sale?.tracking_code]);
 
   // Filter users who can be delivery persons (any role that can deliver)
   const deliveryUsers = members.filter(m => 
@@ -756,6 +761,67 @@ export default function SaleDetail() {
                       </Button>
                     </>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tracking Code for Carrier Sales */}
+            {sale.delivery_type === 'carrier' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-blue-600" />
+                    Código de Rastreio
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {sale.tracking_code ? (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">Código de Rastreio</p>
+                          <p className="font-mono text-lg font-medium text-blue-800 dark:text-blue-200">{sale.tracking_code}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(sale.tracking_code!);
+                            toast.success('Código copiado!');
+                          }}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nenhum código de rastreio adicionado ainda.</p>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label>Atualizar Código de Rastreio</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={trackingCode}
+                        onChange={(e) => setTrackingCode(e.target.value)}
+                        placeholder="Ex: BR123456789BR"
+                        className="font-mono"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          await updateSale.mutateAsync({
+                            id: sale.id,
+                            data: { tracking_code: trackingCode || null }
+                          });
+                          toast.success('Código de rastreio atualizado!');
+                        }}
+                        disabled={updateSale.isPending}
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

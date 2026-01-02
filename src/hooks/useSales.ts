@@ -50,6 +50,7 @@ export interface Sale {
   scheduled_delivery_shift: 'morning' | 'afternoon' | 'full_day' | null;
   shipping_carrier_id: string | null;
   shipping_cost_cents: number;
+  tracking_code: string | null;
   subtotal_cents: number;
   discount_type: 'percentage' | 'fixed' | null;
   discount_value: number;
@@ -170,6 +171,7 @@ export interface UpdateSaleData {
   scheduled_delivery_shift?: 'morning' | 'afternoon' | 'full_day' | null;
   shipping_carrier_id?: string | null;
   shipping_cost_cents?: number;
+  tracking_code?: string | null;
 }
 
 // Helper functions
