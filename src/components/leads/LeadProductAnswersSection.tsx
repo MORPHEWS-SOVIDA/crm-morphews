@@ -24,8 +24,11 @@ import {
   Edit2, 
   Trash2, 
   Package,
-  HelpCircle
+  HelpCircle,
+  Calendar
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useLeadAnswers, useUpsertLeadProductAnswer, useDeleteLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -245,7 +248,13 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                     <Package className="w-4 h-4 text-primary" />
                     <span className="font-medium">{answer.product?.name}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="w-3 h-3" />
+                      <span>
+                        {format(new Date(answer.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
                     <Button 
                       variant="ghost" 
                       size="icon"
