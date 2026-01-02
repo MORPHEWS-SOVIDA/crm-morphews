@@ -26,7 +26,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, normalizeText } from '@/lib/utils';
 import { EmojiPicker } from '@/components/whatsapp/EmojiPicker';
 import { ImageUpload } from '@/components/whatsapp/ImageUpload';
 import { AudioRecorder } from '@/components/whatsapp/AudioRecorder';
@@ -502,7 +502,7 @@ export default function WhatsAppChat() {
   };
 
   const filteredConversations = conversations.filter(c => 
-    (c.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
     c.phone_number.includes(searchTerm))
   );
 

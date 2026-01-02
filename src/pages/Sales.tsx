@@ -30,6 +30,7 @@ import {
 } from '@/hooks/useSales';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { normalizeText } from '@/lib/utils';
 
 const STATUS_TABS: { value: SaleStatus | 'all'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { value: 'all', label: 'Todas', icon: ShoppingCart },
@@ -53,10 +54,10 @@ export default function Sales() {
 
   const filteredSales = sales.filter(sale => {
     if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
+    const search = normalizeText(searchTerm);
     return (
-      sale.lead?.name?.toLowerCase().includes(search) ||
-      sale.lead?.whatsapp?.includes(search)
+      normalizeText(sale.lead?.name || '').includes(search) ||
+      sale.lead?.whatsapp?.includes(searchTerm)
     );
   });
 

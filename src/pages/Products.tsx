@@ -25,7 +25,7 @@ import {
   type Product,
   type ProductFormData,
 } from '@/hooks/useProducts';
-
+import { normalizeText } from '@/lib/utils';
 type ViewMode = 'list' | 'create' | 'edit';
 
 export default function Products() {
@@ -42,8 +42,8 @@ export default function Products() {
   const deleteProduct = useDeleteProduct();
 
   const filteredProducts = products?.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    normalizeText(p.name).includes(normalizeText(searchTerm)) ||
+    normalizeText(p.description || '').includes(normalizeText(searchTerm))
   );
 
   const handleCreate = async (data: ProductFormData) => {

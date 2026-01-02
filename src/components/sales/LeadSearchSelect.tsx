@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, normalizeText } from '@/lib/utils';
 import { useLeads } from '@/hooks/useLeads';
 import { useNavigate } from 'react-router-dom';
 
@@ -52,11 +52,11 @@ export function LeadSearchSelect({
   const filteredLeads = useMemo(() => {
     if (!searchTerm) return leads.slice(0, 50);
     
-    const search = searchTerm.toLowerCase();
+    const search = normalizeText(searchTerm);
     return leads.filter(lead => 
-      lead.name.toLowerCase().includes(search) ||
-      lead.whatsapp.includes(search) ||
-      lead.email?.toLowerCase().includes(search)
+      normalizeText(lead.name).includes(search) ||
+      lead.whatsapp.includes(searchTerm) ||
+      normalizeText(lead.email || '').includes(search)
     ).slice(0, 50);
   }, [leads, searchTerm]);
 

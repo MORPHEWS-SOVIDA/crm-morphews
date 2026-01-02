@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, normalizeText } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -614,7 +614,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
   const filteredConversations = conversations?.filter(
     (c) =>
-      c.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
       c.phone_number.includes(searchTerm)
   );
 
