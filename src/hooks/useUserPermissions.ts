@@ -32,6 +32,7 @@ export interface UserPermissions {
   // Products & Settings
   products_view: boolean;
   products_manage: boolean;
+  products_view_cost: boolean;
   settings_view: boolean;
   settings_manage: boolean;
   
@@ -76,6 +77,7 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
   products_manage: { label: 'Gerenciar Produtos', description: 'Criar/editar/excluir produtos', group: 'Produtos' },
+  products_view_cost: { label: 'Ver Custo', description: 'Visualizar custo dos produtos', group: 'Produtos' },
   
   settings_view: { label: 'Ver Configurações', description: 'Acessar configurações', group: 'Configurações' },
   settings_manage: { label: 'Gerenciar Configurações', description: 'Alterar configurações', group: 'Configurações' },
@@ -257,6 +259,7 @@ export function useApplyRoleDefaults() {
           whatsapp_send: permsObj.whatsapp_send ?? false,
           products_view: permsObj.products_view ?? true,
           products_manage: permsObj.products_manage ?? false,
+          products_view_cost: permsObj.products_view_cost ?? false,
           settings_view: permsObj.settings_view ?? false,
           settings_manage: permsObj.settings_manage ?? false,
           reports_view: permsObj.reports_view ?? false,

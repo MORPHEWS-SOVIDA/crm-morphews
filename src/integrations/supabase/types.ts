@@ -2083,6 +2083,7 @@ export type Database = {
           organization_id: string
           products_manage: boolean
           products_view: boolean
+          products_view_cost: boolean
           receptive_module_access: boolean
           reports_view: boolean
           sales_cancel: boolean
@@ -2114,6 +2115,7 @@ export type Database = {
           organization_id: string
           products_manage?: boolean
           products_view?: boolean
+          products_view_cost?: boolean
           receptive_module_access?: boolean
           reports_view?: boolean
           sales_cancel?: boolean
@@ -2145,6 +2147,7 @@ export type Database = {
           organization_id?: string
           products_manage?: boolean
           products_view?: boolean
+          products_view_cost?: boolean
           receptive_module_access?: boolean
           reports_view?: boolean
           sales_cancel?: boolean
