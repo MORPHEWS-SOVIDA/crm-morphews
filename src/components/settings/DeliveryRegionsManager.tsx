@@ -54,7 +54,7 @@ export function DeliveryRegionsManager() {
   const [dayShifts, setDayShifts] = useState<Record<number, ShiftType[]>>({});
 
   const userOptions = users.map(user => ({
-    value: user.id,
+    value: user.user_id,
     label: `${user.first_name} ${user.last_name}`,
   }));
 
