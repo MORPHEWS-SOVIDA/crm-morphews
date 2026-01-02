@@ -249,6 +249,80 @@ export type Database = {
           },
         ]
       }
+      discount_authorizations: {
+        Row: {
+          authorization_code: string
+          authorized_price_cents: number
+          authorizer_user_id: string
+          created_at: string
+          discount_amount_cents: number
+          id: string
+          minimum_price_cents: number
+          organization_id: string
+          product_id: string
+          sale_id: string | null
+          sale_item_id: string | null
+          seller_user_id: string
+        }
+        Insert: {
+          authorization_code: string
+          authorized_price_cents: number
+          authorizer_user_id: string
+          created_at?: string
+          discount_amount_cents: number
+          id?: string
+          minimum_price_cents: number
+          organization_id: string
+          product_id: string
+          sale_id?: string | null
+          sale_item_id?: string | null
+          seller_user_id: string
+        }
+        Update: {
+          authorization_code?: string
+          authorized_price_cents?: number
+          authorizer_user_id?: string
+          created_at?: string
+          discount_amount_cents?: number
+          id?: string
+          minimum_price_cents?: number
+          organization_id?: string
+          product_id?: string
+          sale_id?: string | null
+          sale_item_id?: string | null
+          seller_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_authorizations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_authorizations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_authorizations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_authorizations_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discount_coupons: {
         Row: {
           code: string

@@ -9,11 +9,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins } from 'lucide-react';
+import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { useLeadProductAnswer, useUpsertLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
 import { useProductPriceKits, ProductPriceKit } from '@/hooks/useProductPriceKits';
 import { useMyCommission, calculateCommissionValue, compareCommission, CommissionComparison } from '@/hooks/useSellerCommission';
+import { DiscountAuthorizationDialog } from './DiscountAuthorizationDialog';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectionDialogProps {
@@ -65,6 +66,12 @@ export function ProductSelectionDialog({
   const [answer1, setAnswer1] = useState('');
   const [answer2, setAnswer2] = useState('');
   const [answer3, setAnswer3] = useState('');
+  
+  // Authorization state for below-minimum prices
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [pendingBelowMinimum, setPendingBelowMinimum] = useState(false);
+  const [authorizedBy, setAuthorizedBy] = useState<string | null>(null);
+  const [authorizationId, setAuthorizationId] = useState<string | null>(null);
   const [answersModified, setAnswersModified] = useState(false);
 
   // Fetch data
@@ -123,6 +130,10 @@ export function ProductSelectionDialog({
     setManipuladoPrice(0);
     setManipuladoQuantity(1);
     setDiscountValue(0);
+    // Reset authorization state
+    setPendingBelowMinimum(false);
+    setAuthorizedBy(null);
+    setAuthorizationId(null);
   }, [product?.id]);
 
   if (!product) return null;
@@ -215,12 +226,15 @@ export function ProductSelectionDialog({
   const total = subtotal - discountCents;
   const commissionValue = calculateCommissionValue(total, commission);
   
-  // Validation
+  // Validation - check if below minimum
   const minPriceForKit = selectedKit?.minimum_price_cents || 0;
+  const isBelowMinimum = usesKitSystem && selectedPriceType === 'custom' && customPrice < minPriceForKit;
+  const needsAuthorization = isBelowMinimum && !authorizationId;
+  
   const isValidPrice = isManipulado 
     ? manipuladoPrice > 0 
     : usesKitSystem
-      ? (selectedPriceType === 'custom' ? customPrice >= minPriceForKit : true)
+      ? (selectedPriceType === 'custom' ? (customPrice >= minPriceForKit || authorizationId) : true)
       : (unitPrice >= (product.minimum_price || 0) || (product.minimum_price || 0) === 0);
 
   const formatPrice = (cents: number) => {
@@ -260,6 +274,12 @@ export function ProductSelectionDialog({
   };
 
   const handleConfirm = () => {
+    // If below minimum and not yet authorized, show authorization dialog
+    if (needsAuthorization) {
+      setShowAuthDialog(true);
+      return;
+    }
+
     // Save answers if they were modified and we have a lead
     if (leadId && answersModified && (answer1 || answer2 || answer3)) {
       upsertAnswer.mutate({
@@ -294,6 +314,15 @@ export function ProductSelectionDialog({
     setRequisitionNumber('');
     setManipuladoPrice(0);
     setManipuladoQuantity(1);
+    setPendingBelowMinimum(false);
+    setAuthorizedBy(null);
+    setAuthorizationId(null);
+  };
+
+  const handleAuthorizationSuccess = (authId: string, authorizedByName: string) => {
+    setAuthorizationId(authId);
+    setAuthorizedBy(authorizedByName);
+    setShowAuthDialog(false);
   };
 
   const handleSaveAnswers = () => {
@@ -670,9 +699,17 @@ export function ProductSelectionDialog({
                           <span>Máx: {formatPrice(selectedKit.regular_price_cents)}</span>
                         </div>
                         {customPrice < selectedKit.minimum_price_cents && (
-                          <p className="text-xs text-destructive">
-                            ⚠️ Valor abaixo do mínimo permitido
-                          </p>
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-sm text-amber-800 flex items-center gap-2">
+                              <Shield className="w-4 h-4" />
+                              ⚠️ Valor abaixo do mínimo - requer autorização de gerente
+                            </p>
+                            {authorizationId && authorizedBy && (
+                              <Badge className="mt-2 bg-green-500 text-white">
+                                ✓ Autorizado por {authorizedBy}
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -829,7 +866,7 @@ export function ProductSelectionDialog({
             </CardContent>
           </Card>
 
-          {!isValidPrice && (
+          {!isValidPrice && !needsAuthorization && (
             <p className="text-sm text-destructive text-center">
               ⚠️ Valor inválido ou abaixo do mínimo permitido
             </p>
@@ -847,14 +884,34 @@ export function ProductSelectionDialog({
             </Button>
             <Button 
               onClick={handleConfirm} 
-              disabled={!isValidPrice || total <= 0 || (isManipulado && !requisitionNumber)}
+              disabled={total <= 0 || (isManipulado && !requisitionNumber) || (!isValidPrice && !needsAuthorization)}
             >
-              <Check className="w-4 h-4 mr-2" />
-              Adicionar à Venda
+              {needsAuthorization ? (
+                <>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Solicitar Autorização
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Adicionar à Venda
+                </>
+              )}
             </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* Authorization Dialog */}
+      <DiscountAuthorizationDialog
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
+        productName={product?.name || ''}
+        productId={product?.id || ''}
+        minimumPriceCents={minPriceForKit}
+        requestedPriceCents={customPrice}
+        onAuthorized={handleAuthorizationSuccess}
+      />
     </Dialog>
   );
 }

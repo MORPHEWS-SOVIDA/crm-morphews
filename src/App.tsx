@@ -37,6 +37,7 @@ import FinancialReport from "./pages/FinancialReport";
 import SignupSuccess from "./pages/SignupSuccess";
 import AddReceptivo from "./pages/AddReceptivo";
 import WhatsAppV2 from "./pages/WhatsAppV2";
+import TwoFactorAuth from "./pages/TwoFactorAuth";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 
@@ -242,6 +243,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['deliveries_view_own', 'deliveries_view_all']}>
                     <MyDeliveries />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* 2FA - for managers only */}
+              <Route
+                path="/2fa"
+                element={
+                  <ProtectedRoute>
+                    <TwoFactorAuth />
                   </ProtectedRoute>
                 }
               />

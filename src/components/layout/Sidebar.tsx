@@ -17,6 +17,7 @@ import {
   Headphones,
   DollarSign,
   UserPlus,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
+import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import logoMorphews from '@/assets/logo-morphews.png';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
@@ -33,6 +35,7 @@ export function Sidebar() {
   const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
   const { data: receptiveAccess } = useReceptiveModuleAccess();
+  const { data: isManager } = useIsManager();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
@@ -95,6 +98,9 @@ export function Sidebar() {
     
     // Team (permission controlled)
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam },
+    
+    // 2FA for managers
+    { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
     
     // Admin only
     { icon: UserPlus, label: 'Nova Organização', path: '/cadastro', visible: isAdmin },
