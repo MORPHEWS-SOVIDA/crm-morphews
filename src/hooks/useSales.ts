@@ -298,7 +298,34 @@ export function useSale(id: string | undefined) {
 
       if (itemsError) throw itemsError;
 
-      return { ...sale, items: items || [] } as Sale;
+      // Fetch seller and created_by profiles
+      let seller_profile = null;
+      let created_by_profile = null;
+
+      if (sale.seller_user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.seller_user_id)
+          .maybeSingle();
+        seller_profile = profile;
+      }
+
+      if (sale.created_by) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.created_by)
+          .maybeSingle();
+        created_by_profile = profile;
+      }
+
+      return { 
+        ...sale, 
+        items: items || [],
+        seller_profile,
+        created_by_profile
+      } as Sale;
     },
     enabled: !!id && !!organizationId,
   });

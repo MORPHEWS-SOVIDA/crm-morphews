@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +50,12 @@ import {
   Clock,
   XCircle,
   Send,
-  AlertTriangle
+  AlertTriangle,
+  Download,
+  Eye,
+  Bike,
+  Building2,
+  Store
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -96,12 +101,21 @@ export default function SaleDetail() {
   
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState(sale?.payment_notes || '');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<DeliveryStatus>('delivered_normal');
 
-  // Filter users who can be delivery persons (entregador role)
-  const deliveryUsers = members.filter(m => m.role === 'entregador' || m.role === 'member');
+  // Initialize paymentNotes when sale loads
+  React.useEffect(() => {
+    if (sale?.payment_notes) {
+      setPaymentNotes(sale.payment_notes);
+    }
+  }, [sale?.payment_notes]);
+
+  // Filter users who can be delivery persons (any role that can deliver)
+  const deliveryUsers = members.filter(m => 
+    m.role === 'entregador' || m.role === 'member' || m.role === 'seller' || m.role === 'manager' || m.role === 'admin' || m.role === 'owner'
+  );
 
   // Handle file upload for payment proof or invoice
   const handleFileUpload = async (file: File, type: 'payment_proof' | 'invoice_pdf' | 'invoice_xml') => {
@@ -348,6 +362,38 @@ export default function SaleDetail() {
                     </div>
                   </div>
                 )}
+
+                {/* Delivery Method & Seller Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    {sale.delivery_type === 'motoboy' && <Bike className="w-4 h-4 text-primary" />}
+                    {sale.delivery_type === 'carrier' && <Truck className="w-4 h-4 text-blue-600" />}
+                    {sale.delivery_type === 'pickup' && <Store className="w-4 h-4 text-green-600" />}
+                    {!sale.delivery_type && <Truck className="w-4 h-4 text-muted-foreground" />}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Método de Entrega</p>
+                      <p className="font-medium">
+                        {sale.delivery_type === 'motoboy' && 'Motoboy'}
+                        {sale.delivery_type === 'carrier' && 'Transportadora'}
+                        {sale.delivery_type === 'pickup' && 'Retirada no Balcão'}
+                        {!sale.delivery_type && 'Não definido'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Vendido por</p>
+                      <p className="font-medium">
+                        {sale.seller_profile 
+                          ? `${sale.seller_profile.first_name} ${sale.seller_profile.last_name}`
+                          : sale.created_by_profile 
+                            ? `${sale.created_by_profile.first_name} ${sale.created_by_profile.last_name}`
+                            : 'Não identificado'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -606,6 +652,81 @@ export default function SaleDetail() {
               </Card>
             )}
 
+            {/* Payment Proof - Always visible */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Comprovante de Pagamento
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Anexar Comprovante</Label>
+                  <Input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handlePaymentProofUpload}
+                  />
+                  {sale.payment_proof_url && (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-green-700 dark:text-green-400 flex-1">Comprovante anexado</span>
+                      <a 
+                        href={sale.payment_proof_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Ver
+                      </a>
+                      <a 
+                        href={sale.payment_proof_url} 
+                        download
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Download className="w-4 h-4" />
+                        Baixar
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Observações do Pagamento</Label>
+                  <Textarea
+                    value={paymentNotes}
+                    onChange={(e) => setPaymentNotes(e.target.value)}
+                    placeholder="Ex: Pago via PIX, comprovante anexado..."
+                    className="mt-1"
+                    rows={2}
+                  />
+                  {paymentNotes && paymentNotes !== (sale.payment_notes || '') && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={async () => {
+                        await updateSale.mutateAsync({
+                          id: sale.id,
+                          data: { payment_notes: paymentNotes }
+                        });
+                        toast.success('Observação salva!');
+                      }}
+                      disabled={updateSale.isPending}
+                    >
+                      Salvar Observação
+                    </Button>
+                  )}
+                  {sale.payment_notes && (
+                    <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                      {sale.payment_notes}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Invoice Upload */}
             <Card>
               <CardHeader>
@@ -623,14 +744,25 @@ export default function SaleDetail() {
                     onChange={(e) => handleInvoiceUpload(e, 'pdf')}
                   />
                   {sale.invoice_pdf_url && (
-                    <a 
-                      href={sale.invoice_pdf_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Ver NF PDF
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={sale.invoice_pdf_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Ver NF PDF
+                      </a>
+                      <a 
+                        href={sale.invoice_pdf_url} 
+                        download
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Download className="w-4 h-4" />
+                        Baixar
+                      </a>
+                    </div>
                   )}
                 </div>
 
@@ -642,14 +774,25 @@ export default function SaleDetail() {
                     onChange={(e) => handleInvoiceUpload(e, 'xml')}
                   />
                   {sale.invoice_xml_url && (
-                    <a 
-                      href={sale.invoice_xml_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Ver NF XML
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={sale.invoice_xml_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Ver NF XML
+                      </a>
+                      <a 
+                        href={sale.invoice_xml_url} 
+                        download
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Download className="w-4 h-4" />
+                        Baixar
+                      </a>
+                    </div>
                   )}
                 </div>
               </CardContent>
