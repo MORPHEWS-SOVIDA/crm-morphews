@@ -40,7 +40,11 @@ import {
   UserCheck,
   CreditCard,
   Banknote,
-  Calendar
+  Calendar,
+  Upload,
+  CheckCircle,
+  Clock,
+  XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, Product } from '@/hooks/useProducts';
@@ -53,6 +57,7 @@ import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useActivePaymentMethods, PaymentMethod, PAYMENT_TIMING_LABELS } from '@/hooks/usePaymentMethods';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SelectedItem {
   product_id: string;
@@ -144,6 +149,11 @@ export default function NewSale() {
   // Payment method selection
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [selectedInstallments, setSelectedInstallments] = useState<number>(1);
+  
+  // Payment status at creation
+  const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
   
@@ -225,7 +235,36 @@ export default function NewSale() {
       return;
     }
 
+    // Validate payment proof if paid_now is selected
+    if (paymentStatus === 'paid_now' && !paymentProofFile) {
+      toast.error('Anexe o comprovante de pagamento');
+      return;
+    }
+
     try {
+      let uploadedProofUrl: string | null = null;
+      
+      // Upload payment proof if provided
+      if (paymentProofFile && paymentStatus === 'paid_now') {
+        setIsUploadingProof(true);
+        const fileExt = paymentProofFile.name.split('.').pop();
+        const fileName = `payment_proof_${Date.now()}.${fileExt}`;
+        const filePath = `temp/${fileName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('sales-documents')
+          .upload(filePath, paymentProofFile);
+        
+        if (uploadError) {
+          toast.error('Erro ao fazer upload do comprovante');
+          setIsUploadingProof(false);
+          return;
+        }
+        
+        uploadedProofUrl = filePath;
+        setIsUploadingProof(false);
+      }
+
       const sale = await createSale.mutateAsync({
         lead_id: selectedLead.id,
         seller_user_id: sellerUserId,
@@ -240,6 +279,8 @@ export default function NewSale() {
         shipping_cost_cents: deliveryConfig.shippingCost,
         payment_method_id: selectedPaymentMethodId,
         payment_installments: selectedInstallments,
+        payment_status: paymentStatus,
+        payment_proof_url: uploadedProofUrl,
       });
 
       navigate(`/vendas`);
@@ -626,6 +667,127 @@ export default function NewSale() {
                         </div>
                       )}
                     </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Payment Status at Creation */}
+            {selectedItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Venda está paga?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {/* Option 1: Not paid */}
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                      <input
+                        type="radio"
+                        name="paymentStatus"
+                        value="not_paid"
+                        checked={paymentStatus === 'not_paid'}
+                        onChange={() => {
+                          setPaymentStatus('not_paid');
+                          setPaymentProofFile(null);
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <XCircle className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">Não</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Cliente ainda não efetuou o pagamento
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Option 2: Will pay before receiving */}
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                      <input
+                        type="radio"
+                        name="paymentStatus"
+                        value="will_pay_before"
+                        checked={paymentStatus === 'will_pay_before'}
+                        onChange={() => {
+                          setPaymentStatus('will_pay_before');
+                          setPaymentProofFile(null);
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span className="font-medium">Cliente vai pagar antes de receber</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Expedição só poderá enviar após comprovante anexado
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Option 3: Paid now - attach proof */}
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                      <input
+                        type="radio"
+                        name="paymentStatus"
+                        value="paid_now"
+                        checked={paymentStatus === 'paid_now'}
+                        onChange={() => setPaymentStatus('paid_now')}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span className="font-medium">Sim, anexar comprovante agora</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Cliente já pagou - anexe o comprovante
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* File upload for paid_now option */}
+                  {paymentStatus === 'paid_now' && (
+                    <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                      <Label className="flex items-center gap-2 mb-2">
+                        <Upload className="w-4 h-4" />
+                        Comprovante de Pagamento *
+                      </Label>
+                      <Input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      {paymentProofFile && (
+                        <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" />
+                          {paymentProofFile.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Warning for will_pay_before */}
+                  {paymentStatus === 'will_pay_before' && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                          Atenção
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-500">
+                          A expedição não poderá despachar esta venda sem o comprovante de pagamento anexado.
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>

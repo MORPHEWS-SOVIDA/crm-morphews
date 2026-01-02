@@ -1954,6 +1954,7 @@ export type Database = {
           payment_method_id: string | null
           payment_notes: string | null
           payment_proof_url: string | null
+          payment_status: string | null
           return_notes: string | null
           return_reason_id: string | null
           returned_at: string | null
@@ -2002,6 +2003,7 @@ export type Database = {
           payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
+          payment_status?: string | null
           return_notes?: string | null
           return_reason_id?: string | null
           returned_at?: string | null
@@ -2050,6 +2052,7 @@ export type Database = {
           payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
+          payment_status?: string | null
           return_notes?: string | null
           return_reason_id?: string | null
           returned_at?: string | null

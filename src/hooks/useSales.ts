@@ -63,6 +63,7 @@ export interface Sale {
   payment_installments: number | null;
   payment_notes: string | null;
   payment_proof_url: string | null;
+  payment_status: 'not_paid' | 'will_pay_before' | 'paid_now' | null;
   invoice_pdf_url: string | null;
   invoice_xml_url: string | null;
   status: SaleStatus;
@@ -150,6 +151,9 @@ export interface CreateSaleData {
   // Payment fields
   payment_method_id?: string | null;
   payment_installments?: number;
+  // Payment status at creation
+  payment_status?: 'not_paid' | 'will_pay_before' | 'paid_now';
+  payment_proof_url?: string | null;
 }
 
 export interface UpdateSaleData {
@@ -427,6 +431,8 @@ export function useCreateSale() {
           assigned_delivery_user_id: assignedDeliveryUserId,
           payment_method_id: data.payment_method_id || null,
           payment_installments: data.payment_installments || 1,
+          payment_status: data.payment_status || 'not_paid',
+          payment_proof_url: data.payment_proof_url || null,
         })
         .select()
         .single();

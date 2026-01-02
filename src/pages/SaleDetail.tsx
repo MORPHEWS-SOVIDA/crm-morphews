@@ -237,6 +237,7 @@ export default function SaleDetail() {
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showPaymentProofRequiredDialog, setShowPaymentProofRequiredDialog] = useState(false);
   
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -343,6 +344,12 @@ export default function SaleDetail() {
   const handleValidateExpedition = async () => {
     if (!sale) return;
     
+    // Check if payment proof is required but not present
+    if (sale.payment_status === 'will_pay_before' && !sale.payment_proof_url) {
+      setShowPaymentProofRequiredDialog(true);
+      return;
+    }
+    
     await updateSale.mutateAsync({
       id: sale.id,
       data: {
@@ -352,9 +359,15 @@ export default function SaleDetail() {
     setShowExpeditionDialog(false);
   };
 
-  // Dispatch sale
+  // Check if dispatch is blocked due to missing payment proof
   const handleDispatch = async () => {
     if (!sale) return;
+    
+    // Check if payment proof is required but not present
+    if (sale.payment_status === 'will_pay_before' && !sale.payment_proof_url) {
+      setShowPaymentProofRequiredDialog(true);
+      return;
+    }
 
     await updateSale.mutateAsync({
       id: sale.id,
@@ -702,6 +715,34 @@ export default function SaleDetail() {
                     <span className="text-sm">Pagamento Confirmado</span>
                   </div>
                 </div>
+
+                {/* Payment Status Warning */}
+                {sale.payment_status === 'will_pay_before' && !sale.payment_proof_url && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                          Aguardando pagamento
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300">
+                          Cliente vai pagar antes de receber. Expedição bloqueada até comprovante ser anexado.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {sale.payment_status === 'paid_now' && sale.payment_proof_url && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Comprovante anexado na criação da venda
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {sale.status === 'returned' && (sale as any).returned_at && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
@@ -1139,6 +1180,44 @@ export default function SaleDetail() {
             >
               Sim, cancelar venda
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Payment Proof Required Dialog */}
+      <AlertDialog open={showPaymentProofRequiredDialog} onOpenChange={setShowPaymentProofRequiredDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Comprovante de Pagamento Obrigatório
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Esta venda foi marcada como <strong>"Cliente vai pagar antes de receber"</strong>.
+              </p>
+              <p>
+                Para prosseguir com a expedição, é necessário que o comprovante de pagamento seja anexado.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400">
+                Solicite ao vendedor que anexe o comprovante na seção "Comprovante de Pagamento" desta página, ou anexe você mesmo abaixo.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label className="flex items-center gap-2 mb-2">
+              <Upload className="w-4 h-4" />
+              Anexar Comprovante Agora
+            </Label>
+            <Input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handlePaymentProofUpload}
+              className="cursor-pointer"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Fechar</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
