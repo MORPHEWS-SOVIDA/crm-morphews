@@ -591,6 +591,74 @@ export type Database = {
           },
         ]
       }
+      lead_kit_rejections: {
+        Row: {
+          created_at: string
+          id: string
+          kit_id: string
+          kit_price_cents: number
+          kit_quantity: number
+          lead_id: string
+          organization_id: string
+          product_id: string
+          rejected_by: string
+          rejection_reason: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kit_id: string
+          kit_price_cents: number
+          kit_quantity: number
+          lead_id: string
+          organization_id: string
+          product_id: string
+          rejected_by: string
+          rejection_reason: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kit_id?: string
+          kit_price_cents?: number
+          kit_quantity?: number
+          lead_id?: string
+          organization_id?: string
+          product_id?: string
+          rejected_by?: string
+          rejection_reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_kit_rejections_kit_id_fkey"
+            columns: ["kit_id"]
+            isOneToOne: false
+            referencedRelation: "product_price_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_kit_rejections_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_kit_rejections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_kit_rejections_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_product_answers: {
         Row: {
           answer_1: string | null

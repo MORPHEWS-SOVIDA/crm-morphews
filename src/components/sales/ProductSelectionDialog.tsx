@@ -9,12 +9,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield } from 'lucide-react';
+import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { useLeadProductAnswer, useUpsertLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
 import { useProductPriceKits, ProductPriceKit } from '@/hooks/useProductPriceKits';
 import { useMyCommission, calculateCommissionValue, compareCommission, CommissionComparison } from '@/hooks/useSellerCommission';
+import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { DiscountAuthorizationDialog } from './DiscountAuthorizationDialog';
+import { ProgressiveKitSelector } from './ProgressiveKitSelector';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectionDialogProps {
@@ -73,12 +75,17 @@ export function ProductSelectionDialog({
   const [authorizedBy, setAuthorizedBy] = useState<string | null>(null);
   const [authorizationId, setAuthorizationId] = useState<string | null>(null);
   const [answersModified, setAnswersModified] = useState(false);
+  
+  // Progressive kit selection state
+  const [rejectedKitIds, setRejectedKitIds] = useState<string[]>([]);
 
   // Fetch data
   const { data: existingAnswer } = useLeadProductAnswer(leadId || undefined, product?.id);
   const upsertAnswer = useUpsertLeadProductAnswer();
   const { data: priceKits = [] } = useProductPriceKits(product?.id);
   const { data: sellerCommission } = useMyCommission();
+  const { data: existingRejections = [] } = useKitRejections(leadId || undefined, product?.id);
+  const createKitRejection = useCreateKitRejection();
 
   const sellerDefaultCommission = sellerCommission?.commissionPercentage || 0;
 
@@ -104,12 +111,20 @@ export function ProductSelectionDialog({
     }
   }, [existingAnswer, product?.id]);
 
-  // Auto-select first kit when loaded
+  // Auto-select first kit when loaded (sorted by position)
   useEffect(() => {
     if (priceKits.length > 0 && !selectedKitId) {
-      setSelectedKitId(priceKits[0].id);
+      const sortedKits = [...priceKits].sort((a, b) => a.position - b.position);
+      setSelectedKitId(sortedKits[0].id);
     }
   }, [priceKits, selectedKitId]);
+
+  // Load existing rejections into state
+  useEffect(() => {
+    if (existingRejections.length > 0) {
+      setRejectedKitIds(existingRejections.map(r => r.kit_id));
+    }
+  }, [existingRejections]);
 
   // Reset custom price when kit or price type changes
   useEffect(() => {
@@ -134,7 +149,43 @@ export function ProductSelectionDialog({
     setPendingBelowMinimum(false);
     setAuthorizedBy(null);
     setAuthorizationId(null);
+    // Reset rejection state
+    setRejectedKitIds([]);
   }, [product?.id]);
+
+  // Handler for kit rejection (progressive reveal)
+  const handleRejectKit = async (kitId: string, reason: string, quantity: number, priceCents: number) => {
+    if (!leadId || !product) return;
+
+    // Add to local rejected list
+    setRejectedKitIds(prev => [...prev, kitId]);
+
+    // Find the kit to get its ID
+    const kit = priceKits.find(k => k.id === kitId);
+    if (!kit) return;
+
+    // Save rejection to database
+    try {
+      await createKitRejection.mutateAsync({
+        lead_id: leadId,
+        product_id: product.id,
+        kit_id: kitId,
+        rejection_reason: reason,
+        kit_quantity: quantity,
+        kit_price_cents: priceCents,
+      });
+    } catch (error) {
+      console.error('Error saving kit rejection:', error);
+    }
+
+    // Auto-select next available kit
+    const sortedKits = [...priceKits].sort((a, b) => a.position - b.position);
+    const nextKit = sortedKits.find(k => !rejectedKitIds.includes(k.id) && k.id !== kitId);
+    if (nextKit) {
+      setSelectedKitId(nextKit.id);
+      setSelectedPriceType('promotional'); // Default to promotional (Venda por)
+    }
+  };
 
   if (!product) return null;
 
@@ -607,7 +658,7 @@ export function ProductSelectionDialog({
               </CardContent>
             </Card>
           ) : usesKitSystem && priceKits.length > 0 ? (
-            /* Kit System for produto_pronto, print_on_demand, dropshipping */
+            /* Progressive Kit System for produto_pronto, print_on_demand, dropshipping */
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -615,34 +666,62 @@ export function ProductSelectionDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Kit Selection */}
-                {priceKits.map((kit) => (
-                  <div key={kit.id} className="space-y-2">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Badge variant="outline" className="font-bold">
-                        {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-2 ml-2">
-                      {/* Regular Price */}
-                      {renderKitPriceOption(
-                        kit, 
-                        'regular', 
-                        'Preço Normal', 
-                        kit.regular_price_cents,
-                        kit.regular_use_default_commission,
-                        kit.regular_custom_commission
-                      )}
+                {leadId ? (
+                  /* Progressive selection for sales with lead */
+                  <ProgressiveKitSelector
+                    kits={priceKits}
+                    selectedKitId={selectedKitId}
+                    selectedPriceType={selectedPriceType}
+                    onSelectKit={(kitId, priceType) => {
+                      setSelectedKitId(kitId);
+                      setSelectedPriceType(priceType);
+                    }}
+                    rejectedKitIds={rejectedKitIds}
+                    onRejectKit={handleRejectKit}
+                    sellerDefaultCommission={sellerDefaultCommission}
+                  />
+                ) : (
+                  /* Standard kit selection without progressive reveal (no lead) */
+                  priceKits.sort((a, b) => a.position - b.position).map((kit) => (
+                    <div key={kit.id} className="space-y-2">
+                      <div className="flex items-center gap-2 pb-2 border-b">
+                        <Badge variant="outline" className="font-bold">
+                          {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
+                        </Badge>
+                      </div>
                       
-                      {/* Promotional Price */}
-                      {kit.promotional_price_cents && renderKitPriceOption(
-                        kit, 
-                        'promotional', 
-                        'Preço Promocional 1', 
-                        kit.promotional_price_cents,
-                        kit.promotional_use_default_commission,
-                        kit.promotional_custom_commission
+                      <div className="space-y-2 ml-2">
+                        {/* Promotional Price (Venda por:) */}
+                        {kit.promotional_price_cents && renderKitPriceOption(
+                          kit, 
+                          'promotional', 
+                          'Venda por:', 
+                          kit.promotional_price_cents,
+                          kit.promotional_use_default_commission,
+                          kit.promotional_custom_commission
+                        )}
+                        
+                        {/* Fallback to regular if no promotional */}
+                        {!kit.promotional_price_cents && renderKitPriceOption(
+                          kit, 
+                          'regular', 
+                          'Venda por:', 
+                          kit.regular_price_cents,
+                          kit.regular_use_default_commission,
+                          kit.regular_custom_commission
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                      
+                {/* Seller Commission Info */}
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Sua comissão padrão:</p>
+                  <p className="font-medium">{sellerDefaultCommission}%</p>
+                </div>
+              </CardContent>
+            </Card>
                       )}
                       
                       {/* Promotional Price 2 */}
