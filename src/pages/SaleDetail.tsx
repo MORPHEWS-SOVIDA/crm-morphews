@@ -68,20 +68,6 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
-const DELIVERY_STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
-  { value: 'delivered_normal', label: 'Normal' },
-  { value: 'delivered_missing_prescription', label: 'Falta receita' },
-  { value: 'delivered_no_money', label: 'Cliente sem dinheiro' },
-  { value: 'delivered_no_card_limit', label: 'Cliente sem limite cartão' },
-  { value: 'delivered_customer_absent', label: 'Cliente ausente' },
-  { value: 'delivered_customer_denied', label: 'Cliente disse que não pediu' },
-  { value: 'delivered_customer_gave_up', label: 'Cliente desistiu' },
-  { value: 'delivered_wrong_product', label: 'Produto enviado errado' },
-  { value: 'delivered_missing_product', label: 'Produto faltante' },
-  { value: 'delivered_insufficient_address', label: 'Endereço insuficiente' },
-  { value: 'delivered_wrong_time', label: 'Motoboy foi em horário errado' },
-  { value: 'delivered_other', label: 'Outros' },
-];
 
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
@@ -100,23 +86,15 @@ function useDeliveryReturnReasons() {
   });
 }
 
-// Delivery Actions Card Component
+// Delivery Actions Card Component - Simplified with just 2 buttons
 interface DeliveryActionsCardProps {
   sale: any;
-  selectedDeliveryStatus: DeliveryStatus;
-  setSelectedDeliveryStatus: (status: DeliveryStatus) => void;
-  deliveryNotes: string;
-  setDeliveryNotes: (notes: string) => void;
   handleMarkDelivered: () => void;
   updateSale: any;
 }
 
 function DeliveryActionsCard({
   sale,
-  selectedDeliveryStatus,
-  setSelectedDeliveryStatus,
-  deliveryNotes,
-  setDeliveryNotes,
   handleMarkDelivered,
   updateSale,
 }: DeliveryActionsCardProps) {
@@ -162,37 +140,6 @@ function DeliveryActionsCard({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label>Como foi a entrega?</Label>
-            <Select 
-              value={selectedDeliveryStatus} 
-              onValueChange={(v) => setSelectedDeliveryStatus(v as DeliveryStatus)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DELIVERY_STATUS_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedDeliveryStatus === 'delivered_other' && (
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={deliveryNotes}
-                onChange={(e) => setDeliveryNotes(e.target.value)}
-                placeholder="Descreva o que aconteceu..."
-                className="mt-1"
-              />
-            </div>
-          )}
-
           <div className="flex flex-col gap-2">
             <Button 
               className="w-full"
@@ -200,7 +147,7 @@ function DeliveryActionsCard({
               disabled={updateSale.isPending}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Marcar como Entregue
+              Entregue
             </Button>
             
             <Button 
@@ -210,19 +157,19 @@ function DeliveryActionsCard({
               disabled={updateSale.isPending}
             >
               <RotateCcw className="w-4 h-4 mr-2" />
-              Voltou / Reagendar
+              Não Entregue
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Return Dialog */}
+      {/* Return Dialog - Shows reasons after clicking "Não Entregue" */}
       <AlertDialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Marcar como Voltou</AlertDialogTitle>
+            <AlertDialogTitle>Marcar como Não Entregue</AlertDialogTitle>
             <AlertDialogDescription>
-              Informe o motivo pelo qual a entrega não foi concluída.
+              Selecione o motivo pelo qual a entrega não foi concluída.
             </AlertDialogDescription>
           </AlertDialogHeader>
           
@@ -291,8 +238,6 @@ export default function SaleDetail() {
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState(sale?.payment_notes || '');
-  const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<DeliveryStatus>('delivered_normal');
 
   // Initialize paymentNotes when sale loads
   React.useEffect(() => {
@@ -303,7 +248,7 @@ export default function SaleDetail() {
 
   // Filter users who can be delivery persons (any role that can deliver)
   const deliveryUsers = members.filter(m => 
-    m.role === 'entregador' || m.role === 'member' || m.role === 'seller' || m.role === 'manager' || m.role === 'admin' || m.role === 'owner'
+    m.role === 'entregador' || m.role === 'delivery' || m.role === 'member' || m.role === 'seller' || m.role === 'manager' || m.role === 'admin' || m.role === 'owner'
   );
 
   // Handle file upload for payment proof or invoice
@@ -402,7 +347,7 @@ export default function SaleDetail() {
     toast.success('Venda despachada!');
   };
 
-  // Mark as delivered
+  // Mark as delivered - simplified to always mark as normal delivery
   const handleMarkDelivered = async () => {
     if (!sale) return;
 
@@ -410,8 +355,7 @@ export default function SaleDetail() {
       id: sale.id,
       data: {
         status: 'delivered',
-        delivery_status: selectedDeliveryStatus,
-        delivery_notes: deliveryNotes || null,
+        delivery_status: 'delivered_normal' as DeliveryStatus,
       }
     });
     toast.success('Entrega registrada!');
@@ -813,10 +757,6 @@ export default function SaleDetail() {
             {sale.status === 'dispatched' && canMarkDelivered && (
               <DeliveryActionsCard 
                 sale={sale}
-                selectedDeliveryStatus={selectedDeliveryStatus}
-                setSelectedDeliveryStatus={setSelectedDeliveryStatus}
-                deliveryNotes={deliveryNotes}
-                setDeliveryNotes={setDeliveryNotes}
                 handleMarkDelivered={handleMarkDelivered}
                 updateSale={updateSale}
               />
