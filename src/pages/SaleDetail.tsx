@@ -326,29 +326,46 @@ export default function SaleDetail() {
     return fileName;
   };
 
+  // Extract file path from URL or return as-is if already a path
+  const extractFilePath = (urlOrPath: string): string => {
+    // If it's already just a path (no http), return as-is
+    if (!urlOrPath.startsWith('http')) {
+      return urlOrPath;
+    }
+    
+    // Extract path from full Supabase storage URL
+    // Format: https://xxx.supabase.co/storage/v1/object/public/sales-documents/SALE_ID/filename
+    const match = urlOrPath.match(/\/sales-documents\/(.+)$/);
+    return match ? match[1] : urlOrPath;
+  };
+
   // Get signed URL for viewing private files
-  const getSignedUrl = async (filePath: string) => {
+  const getSignedUrl = async (urlOrPath: string) => {
+    const filePath = extractFilePath(urlOrPath);
+    
     const { data, error } = await supabase.storage
       .from('sales-documents')
       .createSignedUrl(filePath, 3600); // 1 hour expiry
     
     if (error || !data?.signedUrl) {
+      console.error('Error creating signed URL:', error);
       toast.error('Erro ao gerar link do arquivo');
       return null;
     }
     return data.signedUrl;
   };
 
-  const handleViewFile = async (filePath: string) => {
-    const url = await getSignedUrl(filePath);
+  const handleViewFile = async (urlOrPath: string) => {
+    const url = await getSignedUrl(urlOrPath);
     if (url) {
       window.open(url, '_blank');
     }
   };
 
-  const handleDownloadFile = async (filePath: string) => {
-    const url = await getSignedUrl(filePath);
+  const handleDownloadFile = async (urlOrPath: string) => {
+    const url = await getSignedUrl(urlOrPath);
     if (url) {
+      const filePath = extractFilePath(urlOrPath);
       const link = document.createElement('a');
       link.href = url;
       link.download = filePath.split('/').pop() || 'download';
