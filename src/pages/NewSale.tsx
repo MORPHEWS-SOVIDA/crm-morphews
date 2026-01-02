@@ -60,6 +60,7 @@ interface SelectedItem {
   quantity: number;
   unit_price_cents: number;
   discount_cents: number;
+  requisition_number?: string | null;
 }
 
 interface SelectedLead {
@@ -427,7 +428,14 @@ export default function NewSale() {
                           const itemTotal = (item.unit_price_cents * item.quantity) - item.discount_cents;
                           return (
                             <TableRow key={item.product_id}>
-                              <TableCell className="font-medium">{item.product_name}</TableCell>
+                              <TableCell className="font-medium">
+                                {item.product_name}
+                                {item.requisition_number && (
+                                  <span className="block text-xs text-amber-600">
+                                    Req: {item.requisition_number}
+                                  </span>
+                                )}
+                              </TableCell>
                               <TableCell className="text-center">{item.quantity}</TableCell>
                               <TableCell className="text-right">{formatCurrency(item.unit_price_cents)}</TableCell>
                               <TableCell className="text-right text-green-600">

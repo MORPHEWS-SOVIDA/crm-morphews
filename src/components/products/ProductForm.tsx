@@ -84,6 +84,9 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
     },
   });
 
+  const watchedCategory = form.watch('category');
+  const isManipulado = watchedCategory === 'manipulado';
+
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     onSubmit(values as ProductFormData);
   };
@@ -91,6 +94,45 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        {/* Categoria - PRIMEIRO CAMPO */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tipo de Produto</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PRODUCT_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {isManipulado 
+                      ? 'Produtos manipulados têm preço definido pelo vendedor na hora da venda'
+                      : 'Define o tipo de produto para organização e relatórios'
+                    }
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
         {/* Informações Básicas */}
         <Card>
           <CardHeader>
@@ -106,34 +148,6 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
                   <FormControl>
                     <Input placeholder="Nome do produto" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {PRODUCT_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Define o tipo de produto para organização e relatórios
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -296,81 +310,83 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
           </CardContent>
         </Card>
 
-        {/* Tabela de Preços */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Tabela de Preços</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="price_1_unit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preço 1 Unidade</FormLabel>
-                  <FormControl>
-                    <CurrencyInput
-                      value={field.value || 0}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        {/* Tabela de Preços - Ocultar para MANIPULADO */}
+        {!isManipulado && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Tabela de Preços</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="price_1_unit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço 1 Unidade</FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        value={field.value || 0}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="price_3_units"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preço 3 Unidades</FormLabel>
-                  <FormControl>
-                    <CurrencyInput
-                      value={field.value || 0}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="price_3_units"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço 3 Unidades</FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        value={field.value || 0}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="price_6_units"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preço 6 Unidades</FormLabel>
-                  <FormControl>
-                    <CurrencyInput
-                      value={field.value || 0}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="price_6_units"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço 6 Unidades</FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        value={field.value || 0}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="price_12_units"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preço 12 Unidades</FormLabel>
-                  <FormControl>
-                    <CurrencyInput
-                      value={field.value || 0}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+              <FormField
+                control={form.control}
+                name="price_12_units"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço 12 Unidades</FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        value={field.value || 0}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Custo e Financeiro */}
         <Card>

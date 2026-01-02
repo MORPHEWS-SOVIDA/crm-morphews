@@ -118,6 +118,7 @@ export interface SaleItem {
   discount_cents: number;
   total_cents: number;
   notes: string | null;
+  requisition_number: string | null;
   created_at: string;
 }
 
@@ -132,6 +133,7 @@ export interface CreateSaleData {
     quantity: number;
     unit_price_cents: number;
     discount_cents?: number;
+    requisition_number?: string | null;
   }[];
   discount_type?: 'percentage' | 'fixed' | null;
   discount_value?: number;
@@ -436,6 +438,7 @@ export function useCreateSale() {
         unit_price_cents: item.unit_price_cents,
         discount_cents: item.discount_cents || 0,
         total_cents: (item.unit_price_cents * item.quantity) - (item.discount_cents || 0),
+        requisition_number: item.requisition_number || null,
       }));
 
       const { error: itemsError } = await supabase

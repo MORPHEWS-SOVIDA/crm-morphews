@@ -23,6 +23,7 @@ interface ProductSelectionDialogProps {
     quantity: number;
     unit_price_cents: number;
     discount_cents: number;
+    requisition_number?: string | null;
   }) => void;
 }
 
@@ -41,6 +42,11 @@ export function ProductSelectionDialog({
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState(0);
   
+  // Manipulado specific fields
+  const [requisitionNumber, setRequisitionNumber] = useState('');
+  const [manipuladoPrice, setManipuladoPrice] = useState(0);
+  const [manipuladoQuantity, setManipuladoQuantity] = useState(1);
+  
   // Key questions answers
   const [answer1, setAnswer1] = useState('');
   const [answer2, setAnswer2] = useState('');
@@ -50,6 +56,9 @@ export function ProductSelectionDialog({
   // Fetch existing answers for this lead-product combination
   const { data: existingAnswer } = useLeadProductAnswer(leadId || undefined, product?.id);
   const upsertAnswer = useUpsertLeadProductAnswer();
+
+  // Check if product is manipulado
+  const isManipulado = product?.category === 'manipulado';
 
   // Load existing answers when they're fetched
   useEffect(() => {
@@ -65,6 +74,13 @@ export function ProductSelectionDialog({
       setAnswersModified(false);
     }
   }, [existingAnswer, product?.id]);
+
+  // Reset manipulado fields when product changes
+  useEffect(() => {
+    setRequisitionNumber('');
+    setManipuladoPrice(0);
+    setManipuladoQuantity(1);
+  }, [product?.id]);
 
   if (!product) return null;
 
@@ -90,19 +106,24 @@ export function ProductSelectionDialog({
     }
   };
 
-  const unitPrice = getPriceForOption(selectedPriceOption);
-  const quantity = getQuantityForOption(selectedPriceOption);
+  // For manipulado, use the manual price and quantity
+  const unitPrice = isManipulado ? manipuladoPrice : getPriceForOption(selectedPriceOption);
+  const quantity = isManipulado ? manipuladoQuantity : getQuantityForOption(selectedPriceOption);
   const subtotal = unitPrice * quantity;
   
   let discountCents = 0;
-  if (discountType === 'percentage' && discountValue > 0) {
-    discountCents = Math.round(subtotal * (discountValue / 100));
-  } else if (discountType === 'fixed') {
-    discountCents = discountValue;
+  if (!isManipulado) {
+    if (discountType === 'percentage' && discountValue > 0) {
+      discountCents = Math.round(subtotal * (discountValue / 100));
+    } else if (discountType === 'fixed') {
+      discountCents = discountValue;
+    }
   }
   
   const total = subtotal - discountCents;
-  const isValidPrice = unitPrice >= product.minimum_price || product.minimum_price === 0;
+  const isValidPrice = isManipulado 
+    ? manipuladoPrice > 0 
+    : (unitPrice >= product.minimum_price || product.minimum_price === 0);
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -129,6 +150,7 @@ export function ProductSelectionDialog({
       quantity,
       unit_price_cents: unitPrice,
       discount_cents: discountCents,
+      requisition_number: isManipulado ? requisitionNumber : null,
     });
     onOpenChange(false);
     // Reset state
@@ -140,6 +162,9 @@ export function ProductSelectionDialog({
     setAnswer2('');
     setAnswer3('');
     setAnswersModified(false);
+    setRequisitionNumber('');
+    setManipuladoPrice(0);
+    setManipuladoQuantity(1);
   };
 
   const handleSaveAnswers = () => {
@@ -303,138 +328,213 @@ export function ProductSelectionDialog({
             </CardContent>
           </Card>
 
-          {/* Price Selection */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Selecione a Quantidade
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={selectedPriceOption} onValueChange={(v) => setSelectedPriceOption(v as PriceOption)}>
-                <TabsList className="w-full grid grid-cols-5 mb-4">
-                  {priceOptions.map(opt => (
-                    <TabsTrigger key={opt.key} value={opt.key} className="text-xs">
-                      {opt.label}
-                    </TabsTrigger>
-                  ))}
-                  <TabsTrigger value="custom" className="text-xs">
-                    Outro
-                  </TabsTrigger>
-                </TabsList>
+          {/* Manipulado: Requisição e Preço Manual */}
+          {isManipulado ? (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-amber-800">
+                  Dados do Manipulado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-amber-900">Número da Requisição *</Label>
+                  <Input
+                    value={requisitionNumber}
+                    onChange={(e) => setRequisitionNumber(e.target.value)}
+                    placeholder="Ex: REQ-12345"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-amber-700 mt-1">
+                    Informe o número da requisição da farmácia de manipulação
+                  </p>
+                </div>
 
-                {priceOptions.map(opt => (
-                  <TabsContent key={opt.key} value={opt.key} className="mt-0">
-                    <div className="text-center py-4">
-                      <p className="text-3xl font-bold text-primary">
-                        {formatPrice(opt.price)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        por unidade ({parseInt(opt.key)} {parseInt(opt.key) === 1 ? 'unidade' : 'unidades'})
-                      </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-amber-900">Quantidade</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setManipuladoQuantity(Math.max(1, manipuladoQuantity - 1))}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={manipuladoQuantity}
+                        onChange={(e) => setManipuladoQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="text-center"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setManipuladoQuantity(manipuladoQuantity + 1)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
                     </div>
-                  </TabsContent>
-                ))}
+                  </div>
+                  <div>
+                    <Label className="text-amber-900">Valor da Requisição *</Label>
+                    <CurrencyInput
+                      value={manipuladoPrice}
+                      onChange={setManipuladoPrice}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-amber-700 mt-1">
+                      Valor informado pela farmácia
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Price Selection for non-manipulado products */
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Selecione a Quantidade
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={selectedPriceOption} onValueChange={(v) => setSelectedPriceOption(v as PriceOption)}>
+                  <TabsList className="w-full grid grid-cols-5 mb-4">
+                    {priceOptions.map(opt => (
+                      <TabsTrigger key={opt.key} value={opt.key} className="text-xs">
+                        {opt.label}
+                      </TabsTrigger>
+                    ))}
+                    <TabsTrigger value="custom" className="text-xs">
+                      Outro
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="custom" className="mt-0">
-                  <div className="grid grid-cols-2 gap-4 py-4">
-                    <div>
-                      <Label>Quantidade</Label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setCustomQuantity(Math.max(1, customQuantity - 1))}
-                        >
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={customQuantity}
-                          onChange={(e) => setCustomQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="text-center"
+                  {priceOptions.map(opt => (
+                    <TabsContent key={opt.key} value={opt.key} className="mt-0">
+                      <div className="text-center py-4">
+                        <p className="text-3xl font-bold text-primary">
+                          {formatPrice(opt.price)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          por unidade ({parseInt(opt.key)} {parseInt(opt.key) === 1 ? 'unidade' : 'unidades'})
+                        </p>
+                      </div>
+                    </TabsContent>
+                  ))}
+
+                  <TabsContent value="custom" className="mt-0">
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                      <div>
+                        <Label>Quantidade</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setCustomQuantity(Math.max(1, customQuantity - 1))}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={customQuantity}
+                            onChange={(e) => setCustomQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="text-center"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setCustomQuantity(customQuantity + 1)}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Preço Unitário</Label>
+                        <CurrencyInput
+                          value={customUnitPrice}
+                          onChange={setCustomUnitPrice}
+                          className="mt-1"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setCustomQuantity(customQuantity + 1)}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
-                    <div>
-                      <Label>Preço Unitário</Label>
-                      <CurrencyInput
-                        value={customUnitPrice}
-                        onChange={setCustomUnitPrice}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Discount */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Desconto no Produto
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex gap-2 mb-2">
-                    <Button
-                      type="button"
-                      variant={discountType === 'fixed' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setDiscountType('fixed')}
-                    >
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      R$
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={discountType === 'percentage' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setDiscountType('percentage')}
-                    >
-                      <Percent className="w-4 h-4 mr-1" />
-                      %
-                    </Button>
+          {/* Discount - Hide for Manipulado */}
+          {!isManipulado && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Desconto no Produto
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex gap-2 mb-2">
+                      <Button
+                        type="button"
+                        variant={discountType === 'fixed' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setDiscountType('fixed')}
+                      >
+                        <DollarSign className="w-4 h-4 mr-1" />
+                        R$
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={discountType === 'percentage' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setDiscountType('percentage')}
+                      >
+                        <Percent className="w-4 h-4 mr-1" />
+                        %
+                      </Button>
+                    </div>
+                    {discountType === 'fixed' ? (
+                      <CurrencyInput
+                        value={discountValue}
+                        onChange={setDiscountValue}
+                        placeholder="Valor do desconto"
+                      />
+                    ) : (
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={discountValue}
+                        onChange={(e) => setDiscountValue(Math.min(100, parseInt(e.target.value) || 0))}
+                        placeholder="% de desconto"
+                      />
+                    )}
                   </div>
-                  {discountType === 'fixed' ? (
-                    <CurrencyInput
-                      value={discountValue}
-                      onChange={setDiscountValue}
-                      placeholder="Valor do desconto"
-                    />
-                  ) : (
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(Math.min(100, parseInt(e.target.value) || 0))}
-                      placeholder="% de desconto"
-                    />
-                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Summary */}
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="pt-4">
               <div className="space-y-2">
+                {isManipulado && requisitionNumber && (
+                  <div className="flex justify-between text-sm text-amber-700">
+                    <span>Requisição</span>
+                    <span className="font-medium">{requisitionNumber}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span>Subtotal ({quantity} x {formatPrice(unitPrice)})</span>
                   <span>{formatPrice(subtotal)}</span>
@@ -453,9 +553,15 @@ export function ProductSelectionDialog({
             </CardContent>
           </Card>
 
-          {!isValidPrice && product.minimum_price > 0 && (
+          {!isValidPrice && !isManipulado && product.minimum_price > 0 && (
             <p className="text-sm text-destructive text-center">
               ⚠️ O preço unitário está abaixo do mínimo permitido ({formatPrice(product.minimum_price)})
+            </p>
+          )}
+
+          {isManipulado && !requisitionNumber && (
+            <p className="text-sm text-amber-600 text-center">
+              ⚠️ Informe o número da requisição
             </p>
           )}
 
@@ -463,7 +569,10 @@ export function ProductSelectionDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleConfirm} disabled={!isValidPrice || total <= 0}>
+            <Button 
+              onClick={handleConfirm} 
+              disabled={!isValidPrice || total <= 0 || (isManipulado && !requisitionNumber)}
+            >
               <Check className="w-4 h-4 mr-2" />
               Adicionar à Venda
             </Button>

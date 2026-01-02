@@ -1593,6 +1593,7 @@ export type Database = {
           product_id: string
           product_name: string
           quantity: number
+          requisition_number: string | null
           sale_id: string
           total_cents: number
           unit_price_cents: number
@@ -1605,6 +1606,7 @@ export type Database = {
           product_id: string
           product_name: string
           quantity?: number
+          requisition_number?: string | null
           sale_id: string
           total_cents: number
           unit_price_cents: number
@@ -1617,6 +1619,7 @@ export type Database = {
           product_id?: string
           product_name?: string
           quantity?: number
+          requisition_number?: string | null
           sale_id?: string
           total_cents?: number
           unit_price_cents?: number
