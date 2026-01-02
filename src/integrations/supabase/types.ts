@@ -1969,6 +1969,7 @@ export type Database = {
           status: Database["public"]["Enums"]["sale_status"]
           subtotal_cents: number
           total_cents: number
+          tracking_code: string | null
           updated_at: string
         }
         Insert: {
@@ -2016,6 +2017,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal_cents?: number
           total_cents?: number
+          tracking_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -2063,6 +2065,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal_cents?: number
           total_cents?: number
+          tracking_code?: string | null
           updated_at?: string
         }
         Relationships: [
