@@ -51,7 +51,11 @@ const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPric
   minimum_price_cents: null,
   minimum_use_default_commission: true,
   minimum_custom_commission: null,
-  points: null,
+  points_regular: 0,
+  points_promotional: 0,
+  points_promotional_2: 0,
+  points_minimum: 0,
+  usage_period_days: null,
   position,
 });
 
@@ -323,24 +327,100 @@ function SortableKitItem({
 
           <Separator />
 
-          {/* Points */}
+          {/* Período de Uso do Tratamento */}
           <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+              📅 Período de Uso (ERP)
+            </h4>
+            <div>
+              <Label>Quantos dias dura esse kit?</Label>
+              <Input
+                type="number"
+                min="1"
+                value={kit.usage_period_days || ''}
+                onChange={(e) => onUpdate({ usage_period_days: parseInt(e.target.value) || null })}
+                placeholder="Ex: 30, 90, 180..."
+                className="mt-1 w-40"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Usado para relatórios de recompra e tratamento terminando
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Points per price type */}
+          <div className="space-y-4">
             <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
               🏆 Pontos de Campanha
             </h4>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Configure quantos pontos o vendedor ganha para cada tipo de preço vendido
+            </p>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Pontos que o vendedor ganha</Label>
+              {/* Points for Regular */}
+              <div className="p-3 rounded-lg border bg-muted/30">
+                <Label className="text-xs font-medium">Valor Normal</Label>
                 <Input
                   type="number"
                   min="0"
-                  value={kit.points || 0}
-                  onChange={(e) => onUpdate({ points: parseInt(e.target.value) || 0 })}
+                  value={kit.points_regular || 0}
+                  onChange={(e) => onUpdate({ points_regular: parseInt(e.target.value) || 0 })}
                   placeholder="0"
                   className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Deixe 0 se esse kit não gera pontos
+                  Pontua se vender pelo valor fixo normal
+                </p>
+              </div>
+              
+              {/* Points for Promotional (Venda por) */}
+              <div className="p-3 rounded-lg border bg-muted/30">
+                <Label className="text-xs font-medium">Venda Por</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={kit.points_promotional || 0}
+                  onChange={(e) => onUpdate({ points_promotional: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pontua se vender pelo valor fixo proposto
+                </p>
+              </div>
+              
+              {/* Points for Promotional 2 */}
+              <div className="p-3 rounded-lg border bg-muted/30">
+                <Label className="text-xs font-medium">Valor Promocional 2</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={kit.points_promotional_2 || 0}
+                  onChange={(e) => onUpdate({ points_promotional_2: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pontua se vender pelo valor fixo proposto
+                </p>
+              </div>
+              
+              {/* Points for Minimum */}
+              <div className="p-3 rounded-lg border bg-muted/30">
+                <Label className="text-xs font-medium">Valor Mínimo</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={kit.points_minimum || 0}
+                  onChange={(e) => onUpdate({ points_minimum: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Qualquer valor diferente dos acima pontua aqui
                 </p>
               </div>
             </div>

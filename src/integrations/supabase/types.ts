@@ -1504,7 +1504,10 @@ export type Database = {
           minimum_price_cents: number | null
           minimum_use_default_commission: boolean
           organization_id: string
-          points: number | null
+          points_minimum: number | null
+          points_promotional: number | null
+          points_promotional_2: number | null
+          points_regular: number | null
           position: number
           product_id: string
           promotional_2_custom_commission: number | null
@@ -1518,6 +1521,7 @@ export type Database = {
           regular_price_cents: number
           regular_use_default_commission: boolean
           updated_at: string
+          usage_period_days: number | null
         }
         Insert: {
           created_at?: string
@@ -1526,7 +1530,10 @@ export type Database = {
           minimum_price_cents?: number | null
           minimum_use_default_commission?: boolean
           organization_id: string
-          points?: number | null
+          points_minimum?: number | null
+          points_promotional?: number | null
+          points_promotional_2?: number | null
+          points_regular?: number | null
           position?: number
           product_id: string
           promotional_2_custom_commission?: number | null
@@ -1540,6 +1547,7 @@ export type Database = {
           regular_price_cents?: number
           regular_use_default_commission?: boolean
           updated_at?: string
+          usage_period_days?: number | null
         }
         Update: {
           created_at?: string
@@ -1548,7 +1556,10 @@ export type Database = {
           minimum_price_cents?: number | null
           minimum_use_default_commission?: boolean
           organization_id?: string
-          points?: number | null
+          points_minimum?: number | null
+          points_promotional?: number | null
+          points_promotional_2?: number | null
+          points_regular?: number | null
           position?: number
           product_id?: string
           promotional_2_custom_commission?: number | null
@@ -1562,6 +1573,7 @@ export type Database = {
           regular_price_cents?: number
           regular_use_default_commission?: boolean
           updated_at?: string
+          usage_period_days?: number | null
         }
         Relationships: [
           {

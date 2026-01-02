@@ -25,7 +25,14 @@ export interface ProductPriceKit {
   minimum_use_default_commission: boolean;
   minimum_custom_commission: number | null;
   
-  points: number | null;
+  // Pontos por tipo de preço
+  points_regular: number | null;
+  points_promotional: number | null;
+  points_promotional_2: number | null;
+  points_minimum: number | null;
+  
+  // Período de uso por kit
+  usage_period_days: number | null;
   
   position: number;
   created_at: string;
@@ -51,7 +58,14 @@ export interface ProductPriceKitFormData {
   minimum_use_default_commission: boolean;
   minimum_custom_commission?: number | null;
   
-  points?: number | null;
+  // Pontos por tipo de preço
+  points_regular?: number | null;
+  points_promotional?: number | null;
+  points_promotional_2?: number | null;
+  points_minimum?: number | null;
+  
+  // Período de uso por kit
+  usage_period_days?: number | null;
   
   position?: number;
 }
@@ -103,7 +117,11 @@ export function useCreateProductPriceKit() {
           minimum_price_cents: data.minimum_price_cents || null,
           minimum_use_default_commission: data.minimum_use_default_commission,
           minimum_custom_commission: data.minimum_use_default_commission ? null : data.minimum_custom_commission,
-          points: data.points || 0,
+          points_regular: data.points_regular || 0,
+          points_promotional: data.points_promotional || 0,
+          points_promotional_2: data.points_promotional_2 || 0,
+          points_minimum: data.points_minimum || 0,
+          usage_period_days: data.usage_period_days || null,
           position: data.position || 0,
         })
         .select()
@@ -234,7 +252,11 @@ export function useBulkSaveProductPriceKits() {
           minimum_price_cents: kit.minimum_price_cents || null,
           minimum_use_default_commission: kit.minimum_use_default_commission,
           minimum_custom_commission: kit.minimum_use_default_commission ? null : kit.minimum_custom_commission,
-          points: kit.points || 0,
+          points_regular: kit.points_regular || 0,
+          points_promotional: kit.points_promotional || 0,
+          points_promotional_2: kit.points_promotional_2 || 0,
+          points_minimum: kit.points_minimum || 0,
+          usage_period_days: kit.usage_period_days || null,
           position: index,
         }));
 
