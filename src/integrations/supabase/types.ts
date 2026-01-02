@@ -1496,6 +1496,91 @@ export type Database = {
           },
         ]
       }
+      post_sale_surveys: {
+        Row: {
+          attempted_at: string | null
+          completed_at: string | null
+          completed_by: string | null
+          continuous_medication_details: string | null
+          created_at: string
+          delivery_rating: number | null
+          delivery_type: string | null
+          id: string
+          knows_how_to_use: boolean | null
+          lead_id: string
+          notes: string | null
+          organization_id: string
+          received_order: boolean | null
+          sale_id: string
+          seller_rating: number | null
+          status: string
+          updated_at: string
+          uses_continuous_medication: boolean | null
+        }
+        Insert: {
+          attempted_at?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          continuous_medication_details?: string | null
+          created_at?: string
+          delivery_rating?: number | null
+          delivery_type?: string | null
+          id?: string
+          knows_how_to_use?: boolean | null
+          lead_id: string
+          notes?: string | null
+          organization_id: string
+          received_order?: boolean | null
+          sale_id: string
+          seller_rating?: number | null
+          status?: string
+          updated_at?: string
+          uses_continuous_medication?: boolean | null
+        }
+        Update: {
+          attempted_at?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          continuous_medication_details?: string | null
+          created_at?: string
+          delivery_rating?: number | null
+          delivery_type?: string | null
+          id?: string
+          knows_how_to_use?: boolean | null
+          lead_id?: string
+          notes?: string | null
+          organization_id?: string
+          received_order?: boolean | null
+          sale_id?: string
+          seller_rating?: number | null
+          status?: string
+          updated_at?: string
+          uses_continuous_medication?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_sale_surveys_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_sale_surveys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_sale_surveys_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_price_kits: {
         Row: {
           created_at: string
@@ -2432,6 +2517,8 @@ export type Database = {
           leads_edit: boolean
           leads_view: boolean
           organization_id: string
+          post_sale_manage: boolean
+          post_sale_view: boolean
           products_manage: boolean
           products_view: boolean
           products_view_cost: boolean
@@ -2465,6 +2552,8 @@ export type Database = {
           leads_edit?: boolean
           leads_view?: boolean
           organization_id: string
+          post_sale_manage?: boolean
+          post_sale_view?: boolean
           products_manage?: boolean
           products_view?: boolean
           products_view_cost?: boolean
@@ -2498,6 +2587,8 @@ export type Database = {
           leads_edit?: boolean
           leads_view?: boolean
           organization_id?: string
+          post_sale_manage?: boolean
+          post_sale_view?: boolean
           products_manage?: boolean
           products_view?: boolean
           products_view_cost?: boolean

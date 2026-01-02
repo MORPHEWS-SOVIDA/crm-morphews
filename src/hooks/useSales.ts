@@ -538,12 +538,28 @@ export function useUpdateSale() {
 
       // Handle stock movements based on status changes
       if (data.status) {
-        // When sale is marked as delivered, deduct real stock
+        // When sale is marked as delivered, deduct real stock and create post-sale survey
         if (data.status === 'delivered') {
           const { error: stockError } = await supabase.rpc('deduct_stock_for_delivered_sale', {
             _sale_id: id,
           });
           if (stockError) console.error('Erro ao baixar estoque:', stockError);
+          
+          // Create post-sale survey automatically
+          if (sale.lead_id && organizationId) {
+            const { error: surveyError } = await supabase
+              .from('post_sale_surveys')
+              .insert({
+                sale_id: id,
+                lead_id: sale.lead_id,
+                organization_id: organizationId,
+                delivery_type: sale.delivery_type || null,
+                status: 'pending',
+              });
+            if (surveyError && surveyError.code !== '23505') { // Ignore duplicate
+              console.error('Erro ao criar pesquisa pós-venda:', surveyError);
+            }
+          }
         }
         
         // When sale is cancelled

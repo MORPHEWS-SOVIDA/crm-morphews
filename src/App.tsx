@@ -39,6 +39,7 @@ import SignupSuccess from "./pages/SignupSuccess";
 import AddReceptivo from "./pages/AddReceptivo";
 import WhatsAppV2 from "./pages/WhatsAppV2";
 import TwoFactorAuth from "./pages/TwoFactorAuth";
+import PostSale from "./pages/PostSale";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 
@@ -152,6 +153,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['whatsapp_view']}>
                     <WhatsAppV2 />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Post-Sale - require post_sale_view */}
+              <Route
+                path="/pos-venda"
+                element={
+                  <ProtectedRoute requiredPermissions={['post_sale_view']}>
+                    <PostSale />
                   </ProtectedRoute>
                 }
               />

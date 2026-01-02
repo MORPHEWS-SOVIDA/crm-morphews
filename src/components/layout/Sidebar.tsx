@@ -18,6 +18,7 @@ import {
   DollarSign,
   UserPlus,
   Shield,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ export function Sidebar() {
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   const canSeeTeam = isAdmin || permissions?.team_view;
   const canSeeInstagram = isAdmin || permissions?.instagram_view;
+  const canSeePostSale = isAdmin || permissions?.post_sale_view;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
@@ -79,6 +81,9 @@ export function Sidebar() {
     
     // Sales
     { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales },
+    
+    // Post-Sale
+    { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale },
     
     // Financial
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },

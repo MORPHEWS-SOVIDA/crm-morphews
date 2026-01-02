@@ -51,6 +51,10 @@ export interface UserPermissions {
   team_view: boolean;
   instagram_view: boolean;
   
+  // Post-Sale
+  post_sale_view: boolean;
+  post_sale_manage: boolean;
+  
   created_at: string;
   updated_at: string;
 }
@@ -92,9 +96,13 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   // Equipe e Instagram
   team_view: { label: 'Ver Minha Equipe', description: 'Visualizar página Minha Equipe', group: 'Equipe' },
   instagram_view: { label: 'Ver Instagram DMs', description: 'Acessar Instagram DMs', group: 'Equipe' },
+  
+  // Pós-Venda
+  post_sale_view: { label: 'Ver Pós-Venda', description: 'Visualizar módulo de pós-venda', group: 'Pós-Venda' },
+  post_sale_manage: { label: 'Gerenciar Pós-Venda', description: 'Realizar pesquisas pós-venda', group: 'Pós-Venda' },
 };
 
-export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Entregas', 'Módulos', 'Equipe'];
+export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda'];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {
@@ -271,6 +279,8 @@ export function useApplyRoleDefaults() {
           receptive_module_access: permsObj.receptive_module_access ?? false,
           team_view: permsObj.team_view ?? false,
           instagram_view: permsObj.instagram_view ?? false,
+          post_sale_view: permsObj.post_sale_view ?? false,
+          post_sale_manage: permsObj.post_sale_manage ?? false,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'organization_id,user_id',

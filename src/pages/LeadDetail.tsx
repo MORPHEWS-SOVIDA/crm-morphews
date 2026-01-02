@@ -31,6 +31,7 @@ import { LeadStageTimeline } from '@/components/LeadStageTimeline';
 import { StageChangeDialog } from '@/components/StageChangeDialog';
 import { LeadProductAnswersSection } from '@/components/leads/LeadProductAnswersSection';
 import { LeadSalesSection } from '@/components/leads/LeadSalesSection';
+import { LeadPostSaleHistory } from '@/components/leads/LeadPostSaleHistory';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -641,6 +642,9 @@ export default function LeadDetail() {
 
             {/* Lead Product Answers - Key Questions */}
             <LeadProductAnswersSection leadId={id!} />
+
+            {/* Post-Sale History */}
+            <LeadPostSaleHistory leadId={id!} />
 
             {/* Stage History Timeline */}
             <LeadStageTimeline leadId={id!} currentStage={lead.stage} />
