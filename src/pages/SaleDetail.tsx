@@ -895,24 +895,6 @@ export default function SaleDetail() {
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Confirmar Pagamento
                   </Button>
-
-                  <div className="space-y-2">
-                    <Label>Anexar Comprovante</Label>
-                    <Input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={handlePaymentProofUpload}
-                    />
-                    {sale.payment_proof_url && (
-                      <button
-                        type="button"
-                        onClick={() => handleViewFile(sale.payment_proof_url!)}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Ver comprovante anexado
-                      </button>
-                    )}
-                  </div>
                 </CardContent>
               </Card>
             )}
