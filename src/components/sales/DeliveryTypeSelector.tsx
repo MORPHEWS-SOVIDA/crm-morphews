@@ -11,6 +11,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { AlertTriangle, Store, Bike, Truck, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -304,6 +305,20 @@ export function DeliveryTypeSelector({
                 )}
               </div>
             )}
+
+            {/* Delivery Cost for Motoboy */}
+            <div>
+              <Label>Custo de Entrega</Label>
+              <CurrencyInput
+                value={value.shippingCost}
+                onChange={(cents) => onChange({ ...value, shippingCost: cents })}
+                className="mt-1"
+                placeholder="0,00"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor a ser cobrado do cliente pela entrega
+              </p>
+            </div>
           </div>
         )}
 
@@ -341,10 +356,10 @@ export function DeliveryTypeSelector({
                 </div>
 
                 {selectedCarrier && (
-                  <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="p-3 bg-muted/50 rounded-lg mb-4">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Custo:</span>{' '}
+                        <span className="text-muted-foreground">Custo sugerido:</span>{' '}
                         <span className="font-medium">{formatCurrency(selectedCarrier.cost_cents)}</span>
                       </div>
                       <div>
@@ -356,6 +371,20 @@ export function DeliveryTypeSelector({
                     </div>
                   </div>
                 )}
+
+                {/* Editable shipping cost */}
+                <div>
+                  <Label>Custo de Frete Cobrado</Label>
+                  <CurrencyInput
+                    value={value.shippingCost}
+                    onChange={(cents) => onChange({ ...value, shippingCost: cents })}
+                    className="mt-1"
+                    placeholder="0,00"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Valor a ser cobrado do cliente pelo frete
+                  </p>
+                </div>
               </>
             )}
           </div>
