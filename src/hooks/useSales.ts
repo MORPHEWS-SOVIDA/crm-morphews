@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { toast } from 'sonner';
 
 export type SaleStatus = 
@@ -230,9 +231,11 @@ function useOrganizationId() {
 
 export function useSales(filters?: { status?: SaleStatus }) {
   const organizationId = useOrganizationId();
+  const { user } = useAuth();
+  const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
 
   return useQuery({
-    queryKey: ['sales', organizationId, filters],
+    queryKey: ['sales', organizationId, filters, user?.id, permissions?.sales_view_all],
     queryFn: async () => {
       if (!organizationId) return [];
 
@@ -247,6 +250,12 @@ export function useSales(filters?: { status?: SaleStatus }) {
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
+      }
+
+      // Filter by user if they don't have sales_view_all permission
+      if (!permissions?.sales_view_all && user?.id) {
+        // User can only see sales they created or are the seller of
+        query = query.or(`created_by.eq.${user.id},seller_user_id.eq.${user.id}`);
       }
 
       const { data, error } = await query;
@@ -280,7 +289,7 @@ export function useSales(filters?: { status?: SaleStatus }) {
 
       return salesWithProfiles as Sale[];
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && !permissionsLoading,
   });
 }
 
