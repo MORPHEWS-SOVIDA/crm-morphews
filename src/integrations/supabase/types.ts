@@ -1504,6 +1504,7 @@ export type Database = {
           minimum_price_cents: number | null
           minimum_use_default_commission: boolean
           organization_id: string
+          points: number | null
           position: number
           product_id: string
           promotional_2_custom_commission: number | null
@@ -1525,6 +1526,7 @@ export type Database = {
           minimum_price_cents?: number | null
           minimum_use_default_commission?: boolean
           organization_id: string
+          points?: number | null
           position?: number
           product_id: string
           promotional_2_custom_commission?: number | null
@@ -1546,6 +1548,7 @@ export type Database = {
           minimum_price_cents?: number | null
           minimum_use_default_commission?: boolean
           organization_id?: string
+          points?: number | null
           position?: number
           product_id?: string
           promotional_2_custom_commission?: number | null

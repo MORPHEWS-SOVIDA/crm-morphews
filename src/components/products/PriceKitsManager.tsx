@@ -51,6 +51,7 @@ const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPric
   minimum_price_cents: null,
   minimum_use_default_commission: true,
   minimum_custom_commission: null,
+  points: null,
   position,
 });
 
@@ -316,6 +317,31 @@ function SortableKitItem({
                     />
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Points */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+              🏆 Pontos de Campanha
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Pontos que o vendedor ganha</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={kit.points || 0}
+                  onChange={(e) => onUpdate({ points: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Deixe 0 se esse kit não gera pontos
+                </p>
               </div>
             </div>
           </div>

@@ -25,6 +25,8 @@ export interface ProductPriceKit {
   minimum_use_default_commission: boolean;
   minimum_custom_commission: number | null;
   
+  points: number | null;
+  
   position: number;
   created_at: string;
   updated_at: string;
@@ -48,6 +50,8 @@ export interface ProductPriceKitFormData {
   minimum_price_cents?: number | null;
   minimum_use_default_commission: boolean;
   minimum_custom_commission?: number | null;
+  
+  points?: number | null;
   
   position?: number;
 }
@@ -99,6 +103,7 @@ export function useCreateProductPriceKit() {
           minimum_price_cents: data.minimum_price_cents || null,
           minimum_use_default_commission: data.minimum_use_default_commission,
           minimum_custom_commission: data.minimum_use_default_commission ? null : data.minimum_custom_commission,
+          points: data.points || 0,
           position: data.position || 0,
         })
         .select()
@@ -229,6 +234,7 @@ export function useBulkSaveProductPriceKits() {
           minimum_price_cents: kit.minimum_price_cents || null,
           minimum_use_default_commission: kit.minimum_use_default_commission,
           minimum_custom_commission: kit.minimum_use_default_commission ? null : kit.minimum_custom_commission,
+          points: kit.points || 0,
           position: index,
         }));
 

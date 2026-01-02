@@ -1166,7 +1166,7 @@ export default function AddReceptivo() {
                 Oferta - {selectedProduct.name}
               </CardTitle>
               <CardDescription>
-                {selectedProduct.category === 'MANIPULADO' 
+                {selectedProduct.category === 'manipulado' 
                   ? 'Informe o valor e requisição' 
                   : 'Selecione o kit e preço para o cliente'}
               </CardDescription>
@@ -1176,7 +1176,7 @@ export default function AddReceptivo() {
               <Separator />
 
               {/* MANIPULADO */}
-              {selectedProduct.category === 'MANIPULADO' && (
+              {selectedProduct.category === 'manipulado' && (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Número da Requisição *</Label>
@@ -1211,7 +1211,7 @@ export default function AddReceptivo() {
               )}
 
               {/* Kit Selection with Progressive Reveal */}
-              {selectedProduct.category !== 'MANIPULADO' && sortedKits.length > 0 && currentVisibleKit && (
+              {selectedProduct.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && (
                 <div className="space-y-4">
                   {/* Current Kit */}
                   <div className={`p-5 rounded-lg border-2 ${selectedKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}>
@@ -1249,7 +1249,7 @@ export default function AddReceptivo() {
                             </div>
                             <CommissionBadge value={
                               currentVisibleKit.promotional_use_default_commission 
-                                ? (myCommission?.commission_percentage || 0)
+                                ? (myCommission?.commissionPercentage || 0)
                                 : (currentVisibleKit.promotional_custom_commission || 0)
                             } />
                           </div>
@@ -1276,7 +1276,7 @@ export default function AddReceptivo() {
                           </div>
                           <CommissionBadge value={
                             currentVisibleKit.regular_use_default_commission 
-                              ? (myCommission?.commission_percentage || 0)
+                              ? (myCommission?.commissionPercentage || 0)
                               : (currentVisibleKit.regular_custom_commission || 0)
                           } />
                         </div>
@@ -1316,7 +1316,7 @@ export default function AddReceptivo() {
                                 </div>
                                 <CommissionBadge value={
                                   currentVisibleKit.promotional_2_use_default_commission 
-                                    ? (myCommission?.commission_percentage || 0)
+                                    ? (myCommission?.commissionPercentage || 0)
                                     : (currentVisibleKit.promotional_2_custom_commission || 0)
                                 } />
                               </div>
@@ -1362,7 +1362,7 @@ export default function AddReceptivo() {
                                 </div>
                                 <CommissionBadge value={
                                   currentVisibleKit.minimum_use_default_commission 
-                                    ? (myCommission?.commission_percentage || 0)
+                                    ? (myCommission?.commissionPercentage || 0)
                                     : (currentVisibleKit.minimum_custom_commission || 0)
                                 } />
                               </div>
@@ -1423,7 +1423,7 @@ export default function AddReceptivo() {
               )}
 
               {/* All kits rejected */}
-              {selectedProduct.category !== 'MANIPULADO' && allKitsRejected && (
+              {selectedProduct.category !== 'manipulado' && allKitsRejected && (
                 <div className="p-6 border-2 border-dashed border-amber-500 rounded-lg text-center">
                   <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
                   <p className="font-semibold text-lg">Todas as ofertas foram rejeitadas</p>
