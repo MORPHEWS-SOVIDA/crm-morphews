@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +25,17 @@ import {
   type Product,
   type ProductFormData,
 } from '@/hooks/useProducts';
+import { 
+  useProductPriceKits, 
+  useBulkSaveProductPriceKits,
+  type ProductPriceKitFormData 
+} from '@/hooks/useProductPriceKits';
 import { normalizeText } from '@/lib/utils';
+
 type ViewMode = 'list' | 'create' | 'edit';
+
+// Categorias que usam kits dinâmicos
+const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
 
 export default function Products() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -34,28 +43,69 @@ export default function Products() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [initialKits, setInitialKits] = useState<ProductPriceKitFormData[]>([]);
 
   const { data: products, isLoading } = useProducts();
   const { data: isOwner } = useIsOwner();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+  const bulkSaveKits = useBulkSaveProductPriceKits();
+
+  // Load kits when editing a product
+  const { data: productKits } = useProductPriceKits(selectedProduct?.id);
+
+  useEffect(() => {
+    if (productKits) {
+      setInitialKits(productKits.map(kit => ({
+        quantity: kit.quantity,
+        regular_price_cents: kit.regular_price_cents,
+        regular_use_default_commission: kit.regular_use_default_commission,
+        regular_custom_commission: kit.regular_custom_commission,
+        promotional_price_cents: kit.promotional_price_cents,
+        promotional_use_default_commission: kit.promotional_use_default_commission,
+        promotional_custom_commission: kit.promotional_custom_commission,
+        minimum_price_cents: kit.minimum_price_cents,
+        minimum_use_default_commission: kit.minimum_use_default_commission,
+        minimum_custom_commission: kit.minimum_custom_commission,
+        position: kit.position,
+      })));
+    } else {
+      setInitialKits([]);
+    }
+  }, [productKits]);
 
   const filteredProducts = products?.filter((p) =>
     normalizeText(p.name).includes(normalizeText(searchTerm)) ||
     normalizeText(p.description || '').includes(normalizeText(searchTerm))
   );
 
-  const handleCreate = async (data: ProductFormData) => {
-    await createProduct.mutateAsync(data);
+  const handleCreate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[]) => {
+    const product = await createProduct.mutateAsync(data);
+    
+    // Save kits if provided
+    if (priceKits && priceKits.length > 0 && product?.id) {
+      await bulkSaveKits.mutateAsync({ productId: product.id, kits: priceKits });
+    }
+    
     setViewMode('list');
   };
 
-  const handleUpdate = async (data: ProductFormData) => {
+  const handleUpdate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[]) => {
     if (!selectedProduct) return;
     await updateProduct.mutateAsync({ id: selectedProduct.id, data });
+    
+    // Save kits if this category uses kits
+    if (CATEGORIES_WITH_KITS.includes(data.category || selectedProduct.category)) {
+      await bulkSaveKits.mutateAsync({ 
+        productId: selectedProduct.id, 
+        kits: priceKits || [] 
+      });
+    }
+    
     setViewMode('list');
     setSelectedProduct(null);
+    setInitialKits([]);
   };
 
   const handleDelete = async () => {
@@ -72,6 +122,7 @@ export default function Products() {
   const handleCancel = () => {
     setViewMode('list');
     setSelectedProduct(null);
+    setInitialKits([]);
   };
 
   if (viewMode === 'create') {
@@ -81,7 +132,7 @@ export default function Products() {
           <h1 className="text-2xl font-bold mb-6">Novo Produto</h1>
           <ProductForm
             onSubmit={handleCreate}
-            isLoading={createProduct.isPending}
+            isLoading={createProduct.isPending || bulkSaveKits.isPending}
             onCancel={handleCancel}
           />
         </div>
@@ -97,8 +148,9 @@ export default function Products() {
           <ProductForm
             product={selectedProduct}
             onSubmit={handleUpdate}
-            isLoading={updateProduct.isPending}
+            isLoading={updateProduct.isPending || bulkSaveKits.isPending}
             onCancel={handleCancel}
+            initialPriceKits={initialKits}
           />
         </div>
       </Layout>

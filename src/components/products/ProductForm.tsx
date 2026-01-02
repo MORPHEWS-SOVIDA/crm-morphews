@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -26,6 +27,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Package, DollarSign } from 'lucide-react';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES } from '@/hooks/useProducts';
+import { PriceKitsManager } from './PriceKitsManager';
+import type { ProductPriceKitFormData } from '@/hooks/useProductPriceKits';
+
+// Categorias que usam o sistema de kits dinâmicos
+const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
 
 const formSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -52,12 +58,15 @@ const formSchema = z.object({
 
 interface ProductFormProps {
   product?: Product | null;
-  onSubmit: (data: ProductFormData) => void;
+  onSubmit: (data: ProductFormData, priceKits?: ProductPriceKitFormData[]) => void;
   isLoading?: boolean;
   onCancel: () => void;
+  initialPriceKits?: ProductPriceKitFormData[];
 }
 
-export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductFormProps) {
+export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPriceKits = [] }: ProductFormProps) {
+  const [priceKits, setPriceKits] = useState<ProductPriceKitFormData[]>(initialPriceKits);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -86,9 +95,10 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
 
   const watchedCategory = form.watch('category');
   const isManipulado = watchedCategory === 'manipulado';
+  const usesKits = CATEGORIES_WITH_KITS.includes(watchedCategory);
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    onSubmit(values as ProductFormData);
+    onSubmit(values as ProductFormData, usesKits ? priceKits : undefined);
   };
 
   return (
@@ -310,79 +320,16 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
           </CardContent>
         </Card>
 
-        {/* Tabela de Preços - Ocultar para MANIPULADO */}
-        {!isManipulado && (
+        {/* Kits de Preço Dinâmicos - Para categorias específicas */}
+        {usesKits && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Tabela de Preços</CardTitle>
+              <CardTitle className="text-lg">Kits de Preço</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="price_1_unit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço 1 Unidade</FormLabel>
-                    <FormControl>
-                      <CurrencyInput
-                        value={field.value || 0}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price_3_units"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço 3 Unidades</FormLabel>
-                    <FormControl>
-                      <CurrencyInput
-                        value={field.value || 0}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price_6_units"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço 6 Unidades</FormLabel>
-                    <FormControl>
-                      <CurrencyInput
-                        value={field.value || 0}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price_12_units"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço 12 Unidades</FormLabel>
-                    <FormControl>
-                      <CurrencyInput
-                        value={field.value || 0}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <CardContent>
+              <PriceKitsManager
+                kits={priceKits}
+                onChange={setPriceKits}
               />
             </CardContent>
           </Card>
@@ -396,7 +343,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
               Custo e Financeiro
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent>
             <FormField
               control={form.control}
               name="cost_cents"
@@ -411,26 +358,6 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel }: ProductF
                   </FormControl>
                   <FormDescription>
                     Custo de aquisição para cálculo de lucro
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="minimum_price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Valor Mínimo de Venda</FormLabel>
-                  <FormControl>
-                    <CurrencyInput
-                      value={field.value || 0}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Abaixo desse valor, venda precisa de autorização
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

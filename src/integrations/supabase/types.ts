@@ -1334,6 +1334,78 @@ export type Database = {
           },
         ]
       }
+      product_price_kits: {
+        Row: {
+          created_at: string
+          id: string
+          minimum_custom_commission: number | null
+          minimum_price_cents: number | null
+          minimum_use_default_commission: boolean
+          organization_id: string
+          position: number
+          product_id: string
+          promotional_custom_commission: number | null
+          promotional_price_cents: number | null
+          promotional_use_default_commission: boolean
+          quantity: number
+          regular_custom_commission: number | null
+          regular_price_cents: number
+          regular_use_default_commission: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          minimum_custom_commission?: number | null
+          minimum_price_cents?: number | null
+          minimum_use_default_commission?: boolean
+          organization_id: string
+          position?: number
+          product_id: string
+          promotional_custom_commission?: number | null
+          promotional_price_cents?: number | null
+          promotional_use_default_commission?: boolean
+          quantity?: number
+          regular_custom_commission?: number | null
+          regular_price_cents?: number
+          regular_use_default_commission?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          minimum_custom_commission?: number | null
+          minimum_price_cents?: number | null
+          minimum_use_default_commission?: boolean
+          organization_id?: string
+          position?: number
+          product_id?: string
+          promotional_custom_commission?: number | null
+          promotional_price_cents?: number | null
+          promotional_use_default_commission?: boolean
+          quantity?: number
+          regular_custom_commission?: number | null
+          regular_price_cents?: number
+          regular_use_default_commission?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_kits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_kits_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
