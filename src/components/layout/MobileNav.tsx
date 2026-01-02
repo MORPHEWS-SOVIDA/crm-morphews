@@ -17,7 +17,8 @@ import {
   ShoppingCart,
   Crown,
   UsersRound,
-  Instagram
+  Instagram,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -26,6 +27,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
+import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import logoMorphews from '@/assets/logo-morphews.png';
@@ -38,6 +40,7 @@ export function MobileNav() {
   const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
   const { data: receptiveAccess } = useReceptiveModuleAccess();
+  const { data: isManager } = useIsManager();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
@@ -76,6 +79,7 @@ export function MobileNav() {
   const menuNavItems = [
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive },
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam },
+    { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
     { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts },
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },
     { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas', visible: canSeeReports },
