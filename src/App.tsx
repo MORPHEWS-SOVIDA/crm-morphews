@@ -32,6 +32,7 @@ import NewSale from "./pages/NewSale";
 import SaleDetail from "./pages/SaleDetail";
 import RomaneioPrint from "./pages/RomaneioPrint";
 import MyDeliveries from "./pages/MyDeliveries";
+import AllDeliveries from "./pages/AllDeliveries";
 import SalesReport from "./pages/SalesReport";
 import FinancialReport from "./pages/FinancialReport";
 import SignupSuccess from "./pages/SignupSuccess";
@@ -243,6 +244,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['deliveries_view_own', 'deliveries_view_all']}>
                     <MyDeliveries />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/todas-entregas"
+                element={
+                  <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                    <AllDeliveries />
                   </ProtectedRoute>
                 }
               />

@@ -649,6 +649,43 @@ export function useMyDeliveries() {
   });
 }
 
+// Hook for managers to see ALL deliveries (with deliveries_view_all permission)
+export function useAllDeliveries() {
+  const organizationId = useOrganizationId();
+
+  return useQuery({
+    queryKey: ['all-deliveries', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`
+          *,
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link)
+        `)
+        .eq('organization_id', organizationId)
+        .in('status', ['dispatched', 'delivered', 'returned'])
+        .not('assigned_delivery_user_id', 'is', null)
+        .order('scheduled_delivery_date', { ascending: true });
+
+      if (error) throw error;
+
+      // Fetch items for each sale
+      const salesWithItems = await Promise.all((data || []).map(async (sale) => {
+        const { data: items } = await supabase
+          .from('sale_items')
+          .select('*')
+          .eq('sale_id', sale.id);
+        return { ...sale, items: items || [] };
+      }));
+
+      return salesWithItems as Sale[];
+    },
+    enabled: !!organizationId,
+  });
+}
+
 // Hook to get sales for a specific lead
 export function useLeadSales(leadId: string | undefined) {
   const organizationId = useOrganizationId();

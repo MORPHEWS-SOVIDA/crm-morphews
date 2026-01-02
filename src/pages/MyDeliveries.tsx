@@ -437,11 +437,18 @@ function DeliveryCard({
     transition,
   } = useSortable({ id: sale.id });
 
+  const isCompleted = sale.status === 'delivered' || sale.status === 'returned';
+  const isDelivered = sale.status === 'delivered';
+  const isReturned = sale.status === 'returned';
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : isCompleted ? 0.85 : 1,
   };
+
+  // Completed items don't need drag
+  const dragHandleProps = isCompleted ? {} : { ...attributes, ...listeners };
 
   const getShiftIcon = (shift: string | null) => {
     switch(shift) {
@@ -466,17 +473,33 @@ function DeliveryCard({
       style={style}
       className={`bg-card border rounded-xl shadow-sm transition-all ${
         isDragging ? 'opacity-50 shadow-lg scale-105' : ''
+      } ${
+        isDelivered 
+          ? 'border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20' 
+          : isReturned 
+            ? 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20' 
+            : ''
       }`}
     >
       {/* Drag Handle + Header */}
       <div className="flex items-center gap-2 p-3 border-b bg-muted/30">
-        <button
-          {...attributes}
-          {...listeners}
-          className="touch-none p-1 hover:bg-muted rounded cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="w-5 h-5 text-muted-foreground" />
-        </button>
+        {!isCompleted && (
+          <button
+            {...dragHandleProps}
+            className="touch-none p-1 hover:bg-muted rounded cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="w-5 h-5 text-muted-foreground" />
+          </button>
+        )}
+        {isCompleted && (
+          <div className="p-1">
+            {isDelivered ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600" />
+            )}
+          </div>
+        )}
         
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-base truncate">{sale.lead?.name}</h3>
@@ -572,50 +595,66 @@ function DeliveryCard({
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="p-3 pt-0 grid grid-cols-2 gap-2">
-        {/* Top row: Maps and WhatsApp */}
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={onOpenMaps}
-          className="flex-1"
-          disabled={!sale.lead?.street && !sale.lead?.google_maps_link}
-        >
-          <Navigation className="w-4 h-4 mr-1.5" />
-          Mapa
-        </Button>
-        
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={onOpenWhatsApp}
-          className="flex-1"
-        >
-          <MessageCircle className="w-4 h-4 mr-1.5" />
-          WhatsApp
-        </Button>
+      {/* Action Buttons - Only show for pending deliveries */}
+      {!isCompleted && (
+        <div className="p-3 pt-0 grid grid-cols-2 gap-2">
+          {/* Top row: Maps and WhatsApp */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onOpenMaps}
+            className="flex-1"
+            disabled={!sale.lead?.street && !sale.lead?.google_maps_link}
+          >
+            <Navigation className="w-4 h-4 mr-1.5" />
+            Mapa
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onOpenWhatsApp}
+            className="flex-1"
+          >
+            <MessageCircle className="w-4 h-4 mr-1.5" />
+            WhatsApp
+          </Button>
 
-        {/* Bottom row: Delivery actions */}
-        <Button 
-          variant="destructive"
-          size="sm"
-          onClick={onMarkNotDelivered}
-          className="flex-1"
-        >
-          <XCircle className="w-4 h-4 mr-1.5" />
-          Não Entregue
-        </Button>
+          {/* Bottom row: Delivery actions */}
+          <Button 
+            variant="destructive"
+            size="sm"
+            onClick={onMarkNotDelivered}
+            className="flex-1"
+          >
+            <XCircle className="w-4 h-4 mr-1.5" />
+            Não Entregue
+          </Button>
 
-        <Button 
-          size="sm"
-          onClick={onMarkDelivered}
-          className="flex-1 bg-green-600 hover:bg-green-700"
-        >
-          <CheckCircle className="w-4 h-4 mr-1.5" />
-          Entregue
-        </Button>
-      </div>
+          <Button 
+            size="sm"
+            onClick={onMarkDelivered}
+            className="flex-1 bg-green-600 hover:bg-green-700"
+          >
+            <CheckCircle className="w-4 h-4 mr-1.5" />
+            Entregue
+          </Button>
+        </div>
+      )}
+
+      {/* Show status badge for completed items */}
+      {isCompleted && (
+        <div className="p-3 pt-0 flex items-center justify-between text-sm">
+          <Badge className={isDelivered ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}>
+            {isDelivered ? 'Entregue' : 'Voltou'}
+          </Badge>
+          {(sale.delivered_at || sale.returned_at) && (
+            <span className="text-muted-foreground text-xs">
+              às {format(new Date(sale.delivered_at || sale.returned_at!), "HH:mm")}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -716,12 +755,15 @@ export default function MyDeliveries() {
     })
   );
 
-  // Group deliveries by date and shift
+  // Group deliveries by date and shift - now includes delivered/returned for visibility
   const groupedDeliveries = useMemo(() => {
-    const pending = deliveries.filter(d => d.status === 'dispatched');
+    // Include all deliveries, not just pending
+    const allDeliveries = deliveries.filter(d => 
+      d.status === 'dispatched' || d.status === 'delivered' || d.status === 'returned'
+    );
     
     // Sort by date, then shift (morning first), then position
-    const sorted = [...pending].sort((a, b) => {
+    const sorted = [...allDeliveries].sort((a, b) => {
       // First by date
       const dateA = a.scheduled_delivery_date || '9999-12-31';
       const dateB = b.scheduled_delivery_date || '9999-12-31';
@@ -732,6 +774,12 @@ export default function MyDeliveries() {
       const shiftA = shiftOrder[a.scheduled_delivery_shift || 'full_day'] ?? 2;
       const shiftB = shiftOrder[b.scheduled_delivery_shift || 'full_day'] ?? 2;
       if (shiftA !== shiftB) return shiftA - shiftB;
+      
+      // Put pending first, then delivered, then returned
+      const statusOrder: Record<string, number> = { dispatched: 0, delivered: 1, returned: 2 };
+      const statusA = statusOrder[a.status] ?? 3;
+      const statusB = statusOrder[b.status] ?? 3;
+      if (statusA !== statusB) return statusA - statusB;
       
       // Then by position
       return (a.delivery_position || 0) - (b.delivery_position || 0);
@@ -747,28 +795,25 @@ export default function MyDeliveries() {
       groups[key].push(sale);
     });
 
-    // Apply local ordering if exists
+    // Apply local ordering if exists (only for pending items)
     Object.keys(groups).forEach(key => {
       if (localOrder[key]) {
-        groups[key].sort((a, b) => {
+        const pendingItems = groups[key].filter(s => s.status === 'dispatched');
+        const completedItems = groups[key].filter(s => s.status !== 'dispatched');
+        
+        pendingItems.sort((a, b) => {
           const indexA = localOrder[key].indexOf(a.id);
           const indexB = localOrder[key].indexOf(b.id);
           return indexA - indexB;
         });
+        
+        groups[key] = [...pendingItems, ...completedItems];
       }
     });
 
     return groups;
   }, [deliveries, localOrder]);
 
-  const completedToday = useMemo(() => {
-    return deliveries.filter(d => {
-      if (d.status !== 'delivered' && d.status !== 'returned') return false;
-      const deliveredAt = d.delivered_at || d.returned_at;
-      if (!deliveredAt) return false;
-      return isToday(new Date(deliveredAt));
-    });
-  }, [deliveries]);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent, groupKey: string) => {
     const { active, over } = event;
@@ -893,7 +938,9 @@ export default function MyDeliveries() {
     );
   }
 
-  const pendingCount = Object.values(groupedDeliveries).flat().length;
+  const allDeliveries = Object.values(groupedDeliveries).flat();
+  const pendingCount = allDeliveries.filter(d => d.status === 'dispatched').length;
+  const completedCount = allDeliveries.filter(d => d.status !== 'dispatched').length;
 
   return (
     <Layout>
@@ -907,22 +954,24 @@ export default function MyDeliveries() {
                 Minhas Entregas
               </h1>
               <p className="text-sm text-muted-foreground">
-                {pendingCount} pendente{pendingCount !== 1 ? 's' : ''} • Arraste para reordenar
+                {pendingCount} pendente{pendingCount !== 1 ? 's' : ''} 
+                {completedCount > 0 && ` • ${completedCount} concluída${completedCount !== 1 ? 's' : ''}`}
+                {pendingCount > 0 && ' • Arraste para reordenar'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Empty State */}
-        {pendingCount === 0 && (
+        {/* Empty State - only show when no deliveries at all */}
+        {allDeliveries.length === 0 && (
           <Card className="py-12">
             <CardContent className="flex flex-col items-center justify-center text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Truck className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Nenhuma entrega pendente</h3>
+              <h3 className="font-semibold text-lg mb-2">Nenhuma entrega</h3>
               <p className="text-muted-foreground text-sm">
-                Todas as entregas foram concluídas!
+                Você não possui entregas atribuídas
               </p>
             </CardContent>
           </Card>
@@ -971,44 +1020,6 @@ export default function MyDeliveries() {
             </div>
           );
         })}
-
-        {/* Completed Today */}
-        {completedToday.length > 0 && (
-          <div className="space-y-2 mt-8">
-            <div className="flex items-center gap-2 py-3">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span className="font-semibold">Concluídas hoje</span>
-              <Badge variant="secondary">{completedToday.length}</Badge>
-            </div>
-            
-            <div className="space-y-2">
-              {completedToday.map((sale) => (
-                <Card key={sale.id} className="opacity-75">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{sale.lead?.name}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {sale.status === 'returned' ? (
-                            <Badge variant="destructive" className="text-xs">Voltou</Badge>
-                          ) : (
-                            <Badge className="bg-green-100 text-green-800 text-xs">Entregue</Badge>
-                          )}
-                          {(sale.delivered_at || sale.returned_at) && (
-                            <span>
-                              às {format(new Date(sale.delivered_at || sale.returned_at!), "HH:mm")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span className="font-semibold">{formatCurrency(sale.total_cents)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Not Delivered Dialog */}
