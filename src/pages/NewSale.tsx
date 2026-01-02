@@ -598,17 +598,19 @@ export default function NewSale() {
                             key={pm.id}
                             type="button"
                             variant={selectedPaymentMethodId === pm.id ? 'default' : 'outline'}
-                            className="h-auto py-3 px-4 flex flex-col items-start gap-1"
+                            className="h-auto py-3 px-4 flex flex-col items-start gap-1 whitespace-normal text-left min-h-[72px]"
                             onClick={() => {
                               setSelectedPaymentMethodId(pm.id);
                               setSelectedInstallments(1);
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              {pm.payment_timing === 'cash' && <Banknote className="w-4 h-4" />}
-                              {pm.payment_timing === 'term' && <Calendar className="w-4 h-4" />}
-                              {pm.payment_timing === 'installments' && <CreditCard className="w-4 h-4" />}
-                              <span className="font-medium">{pm.name}</span>
+                            <div className="flex items-start gap-2">
+                              <div className="flex-shrink-0 mt-0.5">
+                                {pm.payment_timing === 'cash' && <Banknote className="w-4 h-4" />}
+                                {pm.payment_timing === 'term' && <Calendar className="w-4 h-4" />}
+                                {pm.payment_timing === 'installments' && <CreditCard className="w-4 h-4" />}
+                              </div>
+                              <span className="font-medium leading-tight break-words">{pm.name}</span>
                             </div>
                             <span className="text-xs opacity-70">
                               {PAYMENT_TIMING_LABELS[pm.payment_timing]}
@@ -841,6 +843,12 @@ export default function NewSale() {
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Desconto</span>
                       <span>- {formatCurrency(totalDiscount)}</span>
+                    </div>
+                  )}
+                  {shippingCost > 0 && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Frete</span>
+                      <span>+ {formatCurrency(shippingCost)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
