@@ -1932,6 +1932,7 @@ export type Database = {
           created_by: string
           delivered_at: string | null
           delivery_notes: string | null
+          delivery_position: number | null
           delivery_region_id: string | null
           delivery_status: Database["public"]["Enums"]["delivery_status"] | null
           delivery_type: Database["public"]["Enums"]["delivery_type"]
@@ -1976,6 +1977,7 @@ export type Database = {
           created_by: string
           delivered_at?: string | null
           delivery_notes?: string | null
+          delivery_position?: number | null
           delivery_region_id?: string | null
           delivery_status?:
             | Database["public"]["Enums"]["delivery_status"]
@@ -2022,6 +2024,7 @@ export type Database = {
           created_by?: string
           delivered_at?: string | null
           delivery_notes?: string | null
+          delivery_position?: number | null
           delivery_region_id?: string | null
           delivery_status?:
             | Database["public"]["Enums"]["delivery_status"]

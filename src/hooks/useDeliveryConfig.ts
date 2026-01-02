@@ -318,6 +318,41 @@ export function useDeleteDeliveryRegion() {
   });
 }
 
+// ============ DELIVERY RETURN REASONS ============
+
+export interface DeliveryReturnReason {
+  id: string;
+  organization_id: string;
+  name: string;
+  is_active: boolean;
+  is_system: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useDeliveryReturnReasons() {
+  const { tenantId } = useTenant();
+
+  return useQuery({
+    queryKey: ['delivery-return-reasons', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('delivery_return_reasons')
+        .select('*')
+        .eq('organization_id', tenantId)
+        .eq('is_active', true)
+        .order('position');
+
+      if (error) throw error;
+      return data as DeliveryReturnReason[];
+    },
+    enabled: !!tenantId,
+  });
+}
+
 // ============ SHIPPING CARRIERS ============
 
 export function useShippingCarriers() {

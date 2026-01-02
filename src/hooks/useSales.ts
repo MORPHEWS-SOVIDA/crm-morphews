@@ -72,6 +72,8 @@ export interface Sale {
   return_notes: string | null;
   returned_at: string | null;
   returned_by: string | null;
+  // Delivery position for route ordering
+  delivery_position: number;
   // Joined data
   lead?: {
     id: string;
