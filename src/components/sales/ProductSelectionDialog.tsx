@@ -5,12 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
-import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { useLeadProductAnswer, useUpsertLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
+import { useProductPriceKits, ProductPriceKit } from '@/hooks/useProductPriceKits';
+import { useMyCommission, calculateCommissionValue, compareCommission, CommissionComparison } from '@/hooks/useSellerCommission';
+import { cn } from '@/lib/utils';
 
 interface ProductSelectionDialogProps {
   open: boolean;
@@ -27,7 +31,10 @@ interface ProductSelectionDialogProps {
   }) => void;
 }
 
-type PriceOption = '1' | '3' | '6' | '12' | 'custom';
+// Categories that use the new kit system
+const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
+
+type PriceType = 'regular' | 'promotional' | 'minimum' | 'custom';
 
 export function ProductSelectionDialog({
   open,
@@ -36,9 +43,16 @@ export function ProductSelectionDialog({
   leadId,
   onConfirm,
 }: ProductSelectionDialogProps) {
-  const [selectedPriceOption, setSelectedPriceOption] = useState<PriceOption>('1');
-  const [customQuantity, setCustomQuantity] = useState(1);
-  const [customUnitPrice, setCustomUnitPrice] = useState(0);
+  // Kit selection state
+  const [selectedKitId, setSelectedKitId] = useState<string>('');
+  const [selectedPriceType, setSelectedPriceType] = useState<PriceType>('regular');
+  const [customPrice, setCustomPrice] = useState(0);
+  
+  // Legacy price selection (for categories without kits)
+  const [legacyQuantity, setLegacyQuantity] = useState(1);
+  const [legacyUnitPrice, setLegacyUnitPrice] = useState(0);
+  
+  // Discount
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState(0);
   
@@ -53,12 +67,20 @@ export function ProductSelectionDialog({
   const [answer3, setAnswer3] = useState('');
   const [answersModified, setAnswersModified] = useState(false);
 
-  // Fetch existing answers for this lead-product combination
+  // Fetch data
   const { data: existingAnswer } = useLeadProductAnswer(leadId || undefined, product?.id);
   const upsertAnswer = useUpsertLeadProductAnswer();
+  const { data: priceKits = [] } = useProductPriceKits(product?.id);
+  const { data: sellerCommission } = useMyCommission();
 
-  // Check if product is manipulado
+  const sellerDefaultCommission = sellerCommission?.commissionPercentage || 0;
+
+  // Check product category
   const isManipulado = product?.category === 'manipulado';
+  const usesKitSystem = product?.category && CATEGORIES_WITH_KITS.includes(product.category);
+
+  // Find selected kit
+  const selectedKit = priceKits.find(k => k.id === selectedKitId);
 
   // Load existing answers when they're fetched
   useEffect(() => {
@@ -75,40 +97,110 @@ export function ProductSelectionDialog({
     }
   }, [existingAnswer, product?.id]);
 
-  // Reset manipulado fields when product changes
+  // Auto-select first kit when loaded
   useEffect(() => {
+    if (priceKits.length > 0 && !selectedKitId) {
+      setSelectedKitId(priceKits[0].id);
+    }
+  }, [priceKits, selectedKitId]);
+
+  // Reset custom price when kit or price type changes
+  useEffect(() => {
+    if (selectedKit && selectedPriceType === 'custom') {
+      // Initialize custom price to regular price
+      setCustomPrice(selectedKit.regular_price_cents);
+    }
+  }, [selectedKit, selectedPriceType]);
+
+  // Reset state when product changes
+  useEffect(() => {
+    setSelectedKitId('');
+    setSelectedPriceType('regular');
+    setCustomPrice(0);
+    setLegacyQuantity(1);
+    setLegacyUnitPrice(product?.price_1_unit || 0);
     setRequisitionNumber('');
     setManipuladoPrice(0);
     setManipuladoQuantity(1);
+    setDiscountValue(0);
   }, [product?.id]);
 
   if (!product) return null;
 
-  const getPriceForOption = (option: PriceOption): number => {
-    switch (option) {
-      case '1': return product.price_1_unit;
-      case '3': return product.price_3_units;
-      case '6': return product.price_6_units;
-      case '12': return product.price_12_units;
-      case 'custom': return customUnitPrice;
-      default: return product.price_1_unit;
+  // Calculate current values based on selection
+  const getSelectedValues = () => {
+    if (isManipulado) {
+      return {
+        quantity: manipuladoQuantity,
+        unitPrice: manipuladoPrice,
+        commission: sellerDefaultCommission,
+        isCustomCommission: false,
+      };
     }
+
+    if (usesKitSystem && selectedKit) {
+      const quantity = selectedKit.quantity;
+      let unitPrice = 0;
+      let commission = sellerDefaultCommission;
+      let isCustomCommission = false;
+
+      switch (selectedPriceType) {
+        case 'regular':
+          unitPrice = selectedKit.regular_price_cents;
+          if (!selectedKit.regular_use_default_commission && selectedKit.regular_custom_commission !== null) {
+            commission = selectedKit.regular_custom_commission;
+            isCustomCommission = true;
+          }
+          break;
+        case 'promotional':
+          unitPrice = selectedKit.promotional_price_cents || selectedKit.regular_price_cents;
+          if (!selectedKit.promotional_use_default_commission && selectedKit.promotional_custom_commission !== null) {
+            commission = selectedKit.promotional_custom_commission;
+            isCustomCommission = true;
+          }
+          break;
+        case 'minimum':
+          unitPrice = selectedKit.minimum_price_cents || selectedKit.regular_price_cents;
+          if (!selectedKit.minimum_use_default_commission && selectedKit.minimum_custom_commission !== null) {
+            commission = selectedKit.minimum_custom_commission;
+            isCustomCommission = true;
+          }
+          break;
+        case 'custom':
+          unitPrice = customPrice;
+          // For custom price, calculate proportional commission based on where the price falls
+          const minPrice = selectedKit.minimum_price_cents || selectedKit.regular_price_cents;
+          const maxPrice = selectedKit.regular_price_cents;
+          const minCommission = selectedKit.minimum_use_default_commission 
+            ? sellerDefaultCommission 
+            : (selectedKit.minimum_custom_commission || sellerDefaultCommission);
+          const maxCommission = selectedKit.regular_use_default_commission 
+            ? sellerDefaultCommission 
+            : (selectedKit.regular_custom_commission || sellerDefaultCommission);
+          
+          if (maxPrice > minPrice) {
+            const ratio = Math.max(0, Math.min(1, (customPrice - minPrice) / (maxPrice - minPrice)));
+            commission = minCommission + (maxCommission - minCommission) * ratio;
+          } else {
+            commission = maxCommission;
+          }
+          isCustomCommission = commission !== sellerDefaultCommission;
+          break;
+      }
+
+      return { quantity, unitPrice, commission, isCustomCommission };
+    }
+
+    // Legacy system
+    return {
+      quantity: legacyQuantity,
+      unitPrice: legacyUnitPrice,
+      commission: sellerDefaultCommission,
+      isCustomCommission: false,
+    };
   };
 
-  const getQuantityForOption = (option: PriceOption): number => {
-    switch (option) {
-      case '1': return 1;
-      case '3': return 3;
-      case '6': return 6;
-      case '12': return 12;
-      case 'custom': return customQuantity;
-      default: return 1;
-    }
-  };
-
-  // For manipulado, use the manual price and quantity
-  const unitPrice = isManipulado ? manipuladoPrice : getPriceForOption(selectedPriceOption);
-  const quantity = isManipulado ? manipuladoQuantity : getQuantityForOption(selectedPriceOption);
+  const { quantity, unitPrice, commission, isCustomCommission } = getSelectedValues();
   const subtotal = unitPrice * quantity;
   
   let discountCents = 0;
@@ -121,15 +213,50 @@ export function ProductSelectionDialog({
   }
   
   const total = subtotal - discountCents;
+  const commissionValue = calculateCommissionValue(total, commission);
+  
+  // Validation
+  const minPriceForKit = selectedKit?.minimum_price_cents || 0;
   const isValidPrice = isManipulado 
     ? manipuladoPrice > 0 
-    : (unitPrice >= product.minimum_price || product.minimum_price === 0);
+    : usesKitSystem
+      ? (selectedPriceType === 'custom' ? customPrice >= minPriceForKit : true)
+      : (unitPrice >= (product.minimum_price || 0) || (product.minimum_price || 0) === 0);
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(cents / 100);
+  };
+
+  const getCommissionComparison = (): CommissionComparison => {
+    if (!isCustomCommission) return 'equal';
+    if (commission > sellerDefaultCommission) return 'higher';
+    if (commission < sellerDefaultCommission) return 'lower';
+    return 'equal';
+  };
+
+  const CommissionBadge = ({ comparison, value }: { comparison: CommissionComparison; value: number }) => {
+    if (comparison === 'higher') {
+      return (
+        <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1">
+          🤩 <TrendingUp className="w-3 h-3" /> {formatPrice(value)}
+        </Badge>
+      );
+    }
+    if (comparison === 'lower') {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          ☹️ <TrendingDown className="w-3 h-3" /> {formatPrice(value)}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="gap-1">
+        <Coins className="w-3 h-3" /> {formatPrice(value)}
+      </Badge>
+    );
   };
 
   const handleConfirm = () => {
@@ -154,9 +281,11 @@ export function ProductSelectionDialog({
     });
     onOpenChange(false);
     // Reset state
-    setSelectedPriceOption('1');
-    setCustomQuantity(1);
-    setCustomUnitPrice(0);
+    setSelectedKitId('');
+    setSelectedPriceType('regular');
+    setCustomPrice(0);
+    setLegacyQuantity(1);
+    setLegacyUnitPrice(0);
     setDiscountValue(0);
     setAnswer1('');
     setAnswer2('');
@@ -182,12 +311,60 @@ export function ProductSelectionDialog({
 
   const hasKeyQuestions = product.key_question_1 || product.key_question_2 || product.key_question_3;
 
-  const priceOptions = [
-    { key: '1' as PriceOption, label: '1 un', price: product.price_1_unit },
-    { key: '3' as PriceOption, label: '3 un', price: product.price_3_units },
-    { key: '6' as PriceOption, label: '6 un', price: product.price_6_units },
-    { key: '12' as PriceOption, label: '12 un', price: product.price_12_units },
-  ].filter(opt => opt.price > 0);
+  // Render kit option with commission info
+  const renderKitPriceOption = (
+    kit: ProductPriceKit,
+    type: 'regular' | 'promotional' | 'minimum',
+    label: string,
+    priceCents: number | null,
+    useDefault: boolean,
+    customCommission: number | null
+  ) => {
+    if (!priceCents) return null;
+
+    const effectiveCommission = useDefault ? sellerDefaultCommission : (customCommission || sellerDefaultCommission);
+    const commissionComparison = compareCommission(customCommission, sellerDefaultCommission, useDefault);
+    const commissionValueForPrice = calculateCommissionValue(priceCents * kit.quantity, effectiveCommission);
+
+    return (
+      <label 
+        key={`${kit.id}-${type}`}
+        className={cn(
+          "flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all",
+          selectedKitId === kit.id && selectedPriceType === type
+            ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+            : "hover:border-primary/50"
+        )}
+        onClick={() => {
+          setSelectedKitId(kit.id);
+          setSelectedPriceType(type);
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+            selectedKitId === kit.id && selectedPriceType === type
+              ? "border-primary"
+              : "border-muted-foreground"
+          )}>
+            {selectedKitId === kit.id && selectedPriceType === type && (
+              <div className="w-2 h-2 rounded-full bg-primary" />
+            )}
+          </div>
+          <div>
+            <p className="font-medium">{label}</p>
+            <p className="text-sm text-muted-foreground">
+              {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold text-primary">{formatPrice(priceCents)}</p>
+          <CommissionBadge comparison={commissionComparison} value={commissionValueForPrice} />
+        </div>
+      </label>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -319,12 +496,6 @@ export function ProductSelectionDialog({
                   Período de uso: {product.usage_period_days} dias
                 </Badge>
               )}
-
-              {product.minimum_price > 0 && (
-                <Badge variant="outline" className="text-orange-600">
-                  Preço mínimo: {formatPrice(product.minimum_price)}
-                </Badge>
-              )}
             </CardContent>
           </Card>
 
@@ -393,81 +564,180 @@ export function ProductSelectionDialog({
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            /* Price Selection for non-manipulado products */
+          ) : usesKitSystem && priceKits.length > 0 ? (
+            /* Kit System for produto_pronto, print_on_demand, dropshipping */
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Selecione a Quantidade
+                  Selecione o Kit e Valor
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Kit Selection */}
+                {priceKits.map((kit) => (
+                  <div key={kit.id} className="space-y-2">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Badge variant="outline" className="font-bold">
+                        {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2 ml-2">
+                      {/* Regular Price */}
+                      {renderKitPriceOption(
+                        kit, 
+                        'regular', 
+                        'Preço Normal', 
+                        kit.regular_price_cents,
+                        kit.regular_use_default_commission,
+                        kit.regular_custom_commission
+                      )}
+                      
+                      {/* Promotional Price */}
+                      {kit.promotional_price_cents && renderKitPriceOption(
+                        kit, 
+                        'promotional', 
+                        'Preço Promocional', 
+                        kit.promotional_price_cents,
+                        kit.promotional_use_default_commission,
+                        kit.promotional_custom_commission
+                      )}
+                      
+                      {/* Minimum Price */}
+                      {kit.minimum_price_cents && renderKitPriceOption(
+                        kit, 
+                        'minimum', 
+                        'Preço Mínimo', 
+                        kit.minimum_price_cents,
+                        kit.minimum_use_default_commission,
+                        kit.minimum_custom_commission
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Custom Value Option */}
+                {selectedKit && selectedKit.minimum_price_cents && (
+                  <div className="mt-4 pt-4 border-t">
+                    <label 
+                      className={cn(
+                        "flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all",
+                        selectedPriceType === 'custom'
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                          : "hover:border-primary/50"
+                      )}
+                      onClick={() => setSelectedPriceType('custom')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                          selectedPriceType === 'custom'
+                            ? "border-primary"
+                            : "border-muted-foreground"
+                        )}>
+                          {selectedPriceType === 'custom' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">Valor Personalizado</p>
+                          <p className="text-sm text-muted-foreground">
+                            Entre {formatPrice(selectedKit.minimum_price_cents)} e {formatPrice(selectedKit.regular_price_cents)}
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+                    
+                    {selectedPriceType === 'custom' && (
+                      <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-3">
+                        <div>
+                          <Label>Valor por unidade</Label>
+                          <CurrencyInput
+                            value={customPrice}
+                            onChange={setCustomPrice}
+                            className="mt-1"
+                          />
+                        </div>
+                        <Slider
+                          value={[customPrice]}
+                          min={selectedKit.minimum_price_cents}
+                          max={selectedKit.regular_price_cents}
+                          step={100}
+                          onValueChange={(value) => setCustomPrice(value[0])}
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Mín: {formatPrice(selectedKit.minimum_price_cents)}</span>
+                          <span>Máx: {formatPrice(selectedKit.regular_price_cents)}</span>
+                        </div>
+                        {customPrice < selectedKit.minimum_price_cents && (
+                          <p className="text-xs text-destructive">
+                            ⚠️ Valor abaixo do mínimo permitido
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Seller Commission Info */}
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Sua comissão padrão:</p>
+                  <p className="font-medium">{sellerDefaultCommission}%</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Legacy Price Selection - for other categories without kits */
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Quantidade e Preço
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Tabs value={selectedPriceOption} onValueChange={(v) => setSelectedPriceOption(v as PriceOption)}>
-                  <TabsList className="w-full grid grid-cols-5 mb-4">
-                    {priceOptions.map(opt => (
-                      <TabsTrigger key={opt.key} value={opt.key} className="text-xs">
-                        {opt.label}
-                      </TabsTrigger>
-                    ))}
-                    <TabsTrigger value="custom" className="text-xs">
-                      Outro
-                    </TabsTrigger>
-                  </TabsList>
-
-                  {priceOptions.map(opt => (
-                    <TabsContent key={opt.key} value={opt.key} className="mt-0">
-                      <div className="text-center py-4">
-                        <p className="text-3xl font-bold text-primary">
-                          {formatPrice(opt.price)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          por unidade ({parseInt(opt.key)} {parseInt(opt.key) === 1 ? 'unidade' : 'unidades'})
-                        </p>
-                      </div>
-                    </TabsContent>
-                  ))}
-
-                  <TabsContent value="custom" className="mt-0">
-                    <div className="grid grid-cols-2 gap-4 py-4">
-                      <div>
-                        <Label>Quantidade</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setCustomQuantity(Math.max(1, customQuantity - 1))}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={customQuantity}
-                            onChange={(e) => setCustomQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="text-center"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setCustomQuantity(customQuantity + 1)}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Preço Unitário</Label>
-                        <CurrencyInput
-                          value={customUnitPrice}
-                          onChange={setCustomUnitPrice}
-                          className="mt-1"
-                        />
-                      </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Quantidade</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setLegacyQuantity(Math.max(1, legacyQuantity - 1))}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={legacyQuantity}
+                        onChange={(e) => setLegacyQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="text-center"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setLegacyQuantity(legacyQuantity + 1)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                  <div>
+                    <Label>Preço Unitário</Label>
+                    <CurrencyInput
+                      value={legacyUnitPrice}
+                      onChange={setLegacyUnitPrice}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                {product.minimum_price > 0 && legacyUnitPrice < product.minimum_price && (
+                  <p className="text-xs text-destructive mt-2">
+                    ⚠️ Preço mínimo: {formatPrice(product.minimum_price)}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -549,13 +819,19 @@ export function ProductSelectionDialog({
                   <span>Total</span>
                   <span className="text-primary">{formatPrice(total)}</span>
                 </div>
+                
+                {/* Commission Display */}
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-sm text-muted-foreground">Sua comissão ({commission.toFixed(1)}%)</span>
+                  <CommissionBadge comparison={getCommissionComparison()} value={commissionValue} />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {!isValidPrice && !isManipulado && product.minimum_price > 0 && (
+          {!isValidPrice && (
             <p className="text-sm text-destructive text-center">
-              ⚠️ O preço unitário está abaixo do mínimo permitido ({formatPrice(product.minimum_price)})
+              ⚠️ Valor inválido ou abaixo do mínimo permitido
             </p>
           )}
 
