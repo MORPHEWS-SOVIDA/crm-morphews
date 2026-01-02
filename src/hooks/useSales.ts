@@ -237,7 +237,33 @@ export function useSales(filters?: { status?: SaleStatus }) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Sale[];
+
+      // Fetch seller profiles separately
+      const sellerUserIds = [...new Set((data || []).map(s => s.seller_user_id).filter(Boolean))] as string[];
+      
+      let sellerProfiles: Record<string, { first_name: string; last_name: string }> = {};
+      
+      if (sellerUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', sellerUserIds);
+        
+        if (profiles) {
+          sellerProfiles = profiles.reduce((acc, p) => {
+            acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+            return acc;
+          }, {} as Record<string, { first_name: string; last_name: string }>);
+        }
+      }
+
+      // Merge seller profiles into sales
+      const salesWithProfiles = (data || []).map(sale => ({
+        ...sale,
+        seller_profile: sale.seller_user_id ? sellerProfiles[sale.seller_user_id] : undefined,
+      }));
+
+      return salesWithProfiles as Sale[];
     },
     enabled: !!organizationId,
   });
