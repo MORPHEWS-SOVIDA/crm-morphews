@@ -64,11 +64,11 @@ const App = () => (
               {/* Home - shows landing for non-auth, dashboard for auth */}
               <Route path="/" element={<Home />} />
 
-              {/* Protected routes */}
+              {/* Leads - require leads_view permission */}
               <Route
                 path="/leads"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['leads_view']}>
                     <LeadsList />
                   </ProtectedRoute>
                 }
@@ -76,7 +76,7 @@ const App = () => (
               <Route
                 path="/leads/new"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['leads_create']}>
                     <NewLead />
                   </ProtectedRoute>
                 }
@@ -84,7 +84,7 @@ const App = () => (
               <Route
                 path="/leads/:id"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['leads_view']}>
                     <LeadDetail />
                   </ProtectedRoute>
                 }
@@ -92,11 +92,13 @@ const App = () => (
               <Route
                 path="/leads/:id/edit"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['leads_edit']}>
                     <EditLead />
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Admin only routes */}
               <Route
                 path="/cadastro"
                 element={
@@ -105,14 +107,18 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Settings - require settings_view */}
               <Route
                 path="/settings"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
                     <Settings />
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Instagram - available to all authenticated */}
               <Route
                 path="/instagram"
                 element={
@@ -121,10 +127,12 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* WhatsApp - require whatsapp_view */}
               <Route
                 path="/whatsapp"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['whatsapp_view']}>
                     <WhatsAppDMs />
                   </ProtectedRoute>
                 }
@@ -132,11 +140,21 @@ const App = () => (
               <Route
                 path="/whatsapp/chat"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['whatsapp_view']}>
                     <WhatsAppChat />
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/whatsapp-v2"
+                element={
+                  <ProtectedRoute requiredPermissions={['whatsapp_view']}>
+                    <WhatsAppV2 />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Admin only */}
               <Route
                 path="/interessados"
                 element={
@@ -153,6 +171,8 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Onboarding - any authenticated user */}
               <Route
                 path="/onboarding"
                 element={
@@ -161,6 +181,8 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Team - any authenticated user can view their team */}
               <Route
                 path="/equipe"
                 element={
@@ -169,18 +191,22 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Products - require products_view */}
               <Route
                 path="/produtos"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['products_view']}>
                     <Products />
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Sales - require sales_view */}
               <Route
                 path="/vendas"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
                     <Sales />
                   </ProtectedRoute>
                 }
@@ -188,7 +214,7 @@ const App = () => (
               <Route
                 path="/vendas/nova"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['sales_create']}>
                     <NewSale />
                   </ProtectedRoute>
                 }
@@ -196,7 +222,7 @@ const App = () => (
               <Route
                 path="/vendas/:id"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
                     <SaleDetail />
                   </ProtectedRoute>
                 }
@@ -204,50 +230,50 @@ const App = () => (
               <Route
                 path="/vendas/:id/romaneio"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
                     <RomaneioPrint />
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Deliveries - require deliveries_view_own or deliveries_view_all */}
               <Route
                 path="/minhas-entregas"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['deliveries_view_own', 'deliveries_view_all']}>
                     <MyDeliveries />
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Reports - require reports_view */}
               <Route
                 path="/relatorios/vendas"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['reports_view']}>
                     <ErrorBoundary title="Relatórios indisponíveis">
                       <SalesReport />
                     </ErrorBoundary>
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Financial - require reports_view or sales_confirm_payment */}
               <Route
                 path="/financeiro"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['reports_view', 'sales_confirm_payment']}>
                     <FinancialReport />
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Receptive - handled by its own module access hook but protected */}
               <Route
                 path="/add-receptivo"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredPermissions={['receptive_module_access']}>
                     <AddReceptivo />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/whatsapp-v2"
-                element={
-                  <ProtectedRoute>
-                    <WhatsAppV2 />
                   </ProtectedRoute>
                 }
               />
@@ -262,4 +288,3 @@ const App = () => (
 );
 
 export default App;
-

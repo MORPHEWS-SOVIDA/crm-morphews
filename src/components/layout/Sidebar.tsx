@@ -6,9 +6,6 @@ import {
   Settings, 
   Instagram,
   MessageSquare,
-  Menu,
-  X,
-  UserPlus,
   LogOut,
   ShoppingCart,
   Crown,
@@ -18,10 +15,10 @@ import {
   ShoppingCart as SalesIcon,
   Truck,
   Headphones,
-  DollarSign
+  DollarSign,
+  UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
@@ -32,7 +29,6 @@ import logoMorphews from '@/assets/logo-morphews.png';
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
 export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
   const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
@@ -40,53 +36,77 @@ export function Sidebar() {
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // Permission-based visibility
+  const canSeeLeads = isAdmin || permissions?.leads_view;
+  const canCreateLeads = isAdmin || permissions?.leads_create;
+  const canSeeSales = isAdmin || permissions?.sales_view;
+  const canSeeProducts = isAdmin || permissions?.products_view;
+  const canSeeSettings = isAdmin || permissions?.settings_view;
+  const canSeeReports = isAdmin || permissions?.reports_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeReceptive = receptiveAccess?.hasAccess;
-  const canSeeFinanceiro = permissions?.reports_view || permissions?.sales_confirm_payment;
+  const canSeeFinanceiro = isAdmin || permissions?.reports_view || permissions?.sales_confirm_payment;
+  const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
-  const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
+  const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
 
-  // Check if user is org admin (owner or admin role in organization_members)
-  const isOrgAdmin = isAdmin || profile?.organization_id;
-
+  // Build nav items based on permissions
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    ...(canSeeReceptive ? [
-      { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' },
-    ] : []),
-    { icon: Users, label: 'Todos os Leads', path: '/leads' },
-    { icon: Plus, label: 'Novo Lead', path: '/leads/new' },
-    { icon: Package, label: 'Produtos', path: '/produtos' },
-    { icon: SalesIcon, label: 'Vendas', path: '/vendas' },
-    ...(canSeeFinanceiro ? [
-      { icon: DollarSign, label: 'Financeiro', path: '/financeiro' },
-    ] : []),
-    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas' },
-    ...(canSeeDeliveries ? [
-      { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' },
-    ] : []),
-    ...(canSeeWhatsAppDMs ? [
-      { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
-      { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
-    ] : []),
-    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo' },
-    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
-    ...(isAdmin ? [
-      { icon: UserPlus, label: 'Nova Organização', path: '/cadastro' },
-      { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
-    ] : []),
-    ...(isMasterAdmin ? [
-      { icon: Crown, label: 'Super Admin', path: '/super-admin' },
-    ] : []),
-    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' },
-    { icon: Settings, label: 'Configurações', path: '/settings' },
-  ];
+    // Dashboard - everyone can see (but content will be filtered by permissions)
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: true },
+    
+    // Receptivo (special module)
+    { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive },
+    
+    // Leads
+    { icon: Users, label: 'Todos os Leads', path: '/leads', visible: canSeeLeads },
+    { icon: Plus, label: 'Novo Lead', path: '/leads/new', visible: canCreateLeads },
+    
+    // Products
+    { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts },
+    
+    // Sales
+    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales },
+    
+    // Financial
+    { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },
+    
+    // Reports
+    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas', visible: canSeeReports },
+    
+    // Deliveries
+    { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries },
+    
+    // WhatsApp
+    { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsAppDMs },
+    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsAppDMs && isAdmin },
+    
+    // WhatsApp 2.0
+    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsApp },
+    
+    // Team (everyone can view their team)
+    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: true },
+    
+    // Admin only
+    { icon: UserPlus, label: 'Nova Organização', path: '/cadastro', visible: isAdmin },
+    { icon: ShoppingCart, label: 'Interessados', path: '/interessados', visible: isAdmin },
+    
+    // Master admin only
+    { icon: Crown, label: 'Super Admin', path: '/super-admin', visible: isMasterAdmin },
+    
+    // Instagram (coming soon)
+    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: true },
+    
+    // Settings
+    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings },
+  ].filter(item => item.visible);
 
   return (
     <>
@@ -124,7 +144,6 @@ export function Sidebar() {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={() => setIsOpen(false)}
                 className={({ isActive }) => cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm',
                   isActive

@@ -13,11 +13,18 @@ import { OnboardingGuide } from '@/components/dashboard/OnboardingGuide';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useAuth } from '@/hooks/useAuth';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
-import { Loader2, Filter, Kanban } from 'lucide-react';
+import { Loader2, Filter, Kanban, Truck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
+  const { isAdmin } = useAuth();
+  const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const { data: leads = [], isLoading, error } = useLeads();
   const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
@@ -25,6 +32,11 @@ export default function Dashboard() {
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'funnel' | 'kanban'>('funnel');
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
+  // Check if user can see leads
+  const canSeeLeads = isAdmin || permissions?.leads_view;
+  const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
 
   const responsaveis = useMemo(() => {
     const uniqueResponsaveis = [...new Set(leads.map(lead => lead.assigned_to))];
@@ -53,7 +65,6 @@ export default function Dashboard() {
     const parts: string[] = [];
     
     if (selectedStage) {
-      // Try to get label from custom stages first
       const customStage = stages.find(s => {
         const positionToEnum: Record<number, string> = {
           0: 'cloud', 1: 'prospect', 2: 'contacted', 3: 'convincing',
@@ -81,16 +92,72 @@ export default function Dashboard() {
 
   const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null;
 
-  // Check if user has any stage updates (for onboarding)
   const hasStageUpdates = useMemo(() => {
     return leads.some(lead => lead.stage !== 'cloud' && lead.stage !== 'prospect');
   }, [leads]);
 
-  if (isLoading || loadingStages) {
+  if (isLoading || loadingStages || permissionsLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  // If user only has delivery permissions, show simplified dashboard
+  if (!canSeeLeads && canSeeDeliveries) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
+              Bem-vindo! Acesse suas entregas abaixo.
+            </p>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="w-5 h-5" />
+                Minhas Entregas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Visualize e gerencie as entregas atribuídas a você.
+              </p>
+              <Button onClick={() => navigate('/minhas-entregas')}>
+                Ver Minhas Entregas
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // If user has no relevant permissions at all
+  if (!canSeeLeads && !canSeeDeliveries) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
+              Bem-vindo ao sistema!
+            </p>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground text-center">
+                Você ainda não tem permissões atribuídas. Entre em contato com o administrador da sua organização.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </Layout>
     );

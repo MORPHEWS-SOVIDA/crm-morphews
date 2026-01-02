@@ -12,6 +12,12 @@ import {
   FileText,
   Headphones,
   DollarSign,
+  LogOut,
+  UserPlus,
+  ShoppingCart,
+  Crown,
+  UsersRound,
+  Instagram
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -21,7 +27,6 @@ import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
 import { Button } from '@/components/ui/button';
-import { LogOut, UserPlus, ShoppingCart, Crown, UsersRound, Instagram } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logoMorphews from '@/assets/logo-morphews.png';
 
@@ -34,50 +39,54 @@ export function MobileNav() {
   const { data: permissions } = useMyPermissions();
   const { data: receptiveAccess } = useReceptiveModuleAccess();
   const navigate = useNavigate();
+  
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // Permission-based visibility
+  const canSeeLeads = isAdmin || permissions?.leads_view;
+  const canCreateLeads = isAdmin || permissions?.leads_create;
+  const canSeeSales = isAdmin || permissions?.sales_view;
+  const canSeeProducts = isAdmin || permissions?.products_view;
+  const canSeeSettings = isAdmin || permissions?.settings_view;
+  const canSeeReports = isAdmin || permissions?.reports_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeReceptive = receptiveAccess?.hasAccess;
-  const canSeeFinanceiro = permissions?.reports_view || permissions?.sales_confirm_payment;
-
+  const canSeeFinanceiro = isAdmin || permissions?.reports_view || permissions?.sales_confirm_payment;
+  const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
+  
   // WhatsApp DMs is visible for master admin or if organization has it enabled
-  const canSeeWhatsAppDMs = isMasterAdmin || orgSettings?.whatsapp_dms_enabled;
+  const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
 
+  // Main bottom nav - show only what user can access
   const mainNavItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Users, label: 'Leads', path: '/leads' },
-    { icon: Plus, label: 'Novo', path: '/leads/new' },
-    { icon: SalesIcon, label: 'Vendas', path: '/vendas' },
-  ];
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: true },
+    { icon: Users, label: 'Leads', path: '/leads', visible: canSeeLeads },
+    { icon: Plus, label: 'Novo', path: '/leads/new', visible: canCreateLeads },
+    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales },
+  ].filter(item => item.visible).slice(0, 4); // Max 4 items in bottom nav
 
+  // Menu items - full menu
   const menuNavItems = [
-    ...(canSeeReceptive ? [{ icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' }] : []),
-    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe' },
-    { icon: Package, label: 'Produtos', path: '/produtos' },
-    ...(canSeeFinanceiro ? [{ icon: DollarSign, label: 'Financeiro', path: '/financeiro' }] : []),
-    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas' },
-    ...(canSeeDeliveries ? [{ icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' }] : []),
-    ...(canSeeWhatsAppDMs
-      ? [
-          { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' },
-          { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' },
-        ]
-      : []),
-    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo' },
-    ...(isAdmin
-      ? [
-          { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' },
-          { icon: ShoppingCart, label: 'Interessados', path: '/interessados' },
-        ]
-      : []),
-    ...(isMasterAdmin ? [{ icon: Crown, label: 'Super Admin', path: '/super-admin' }] : []),
-    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' },
-    { icon: Settings, label: 'Configurações', path: '/settings' },
-  ];
+    { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive },
+    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: true },
+    { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts },
+    { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },
+    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas', visible: canSeeReports },
+    { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries },
+    { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsAppDMs },
+    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsAppDMs && isAdmin },
+    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsApp },
+    { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro', visible: isAdmin },
+    { icon: ShoppingCart, label: 'Interessados', path: '/interessados', visible: isAdmin },
+    { icon: Crown, label: 'Super Admin', path: '/super-admin', visible: isMasterAdmin },
+    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: true },
+    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings },
+  ].filter(item => item.visible);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden safe-area-bottom">
