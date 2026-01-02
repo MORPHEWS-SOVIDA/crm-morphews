@@ -39,10 +39,11 @@ export default function LeadsList() {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(
         (lead) =>
-          lead.name.toLowerCase().includes(searchLower) ||
+          lead.name?.toLowerCase().includes(searchLower) ||
           lead.specialty?.toLowerCase().includes(searchLower) ||
-          lead.instagram.toLowerCase().includes(searchLower) ||
-          (lead.email && lead.email.toLowerCase().includes(searchLower))
+          lead.instagram?.toLowerCase().includes(searchLower) ||
+          lead.email?.toLowerCase().includes(searchLower) ||
+          lead.whatsapp?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -162,7 +163,15 @@ export default function LeadsList() {
         </div>
 
         {/* Table / List */}
-        {isMobile ? (
+        {filteredLeads.length === 0 && search ? (
+          <div className="bg-card rounded-xl p-8 shadow-card text-center">
+            <p className="text-muted-foreground mb-4">Nenhum lead encontrado para "{search}"</p>
+            <Button onClick={() => navigate('/leads/new')} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Cadastrar Lead
+            </Button>
+          </div>
+        ) : isMobile ? (
           <MobileLeadsList 
             leads={filteredLeads} 
             title={`${filteredLeads.length} leads encontrados`} 
