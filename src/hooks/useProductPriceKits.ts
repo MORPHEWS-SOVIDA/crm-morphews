@@ -17,6 +17,10 @@ export interface ProductPriceKit {
   promotional_use_default_commission: boolean;
   promotional_custom_commission: number | null;
   
+  promotional_price_2_cents: number | null;
+  promotional_2_use_default_commission: boolean;
+  promotional_2_custom_commission: number | null;
+  
   minimum_price_cents: number | null;
   minimum_use_default_commission: boolean;
   minimum_custom_commission: number | null;
@@ -36,6 +40,10 @@ export interface ProductPriceKitFormData {
   promotional_price_cents?: number | null;
   promotional_use_default_commission: boolean;
   promotional_custom_commission?: number | null;
+  
+  promotional_price_2_cents?: number | null;
+  promotional_2_use_default_commission: boolean;
+  promotional_2_custom_commission?: number | null;
   
   minimum_price_cents?: number | null;
   minimum_use_default_commission: boolean;
@@ -85,6 +93,9 @@ export function useCreateProductPriceKit() {
           promotional_price_cents: data.promotional_price_cents || null,
           promotional_use_default_commission: data.promotional_use_default_commission,
           promotional_custom_commission: data.promotional_use_default_commission ? null : data.promotional_custom_commission,
+          promotional_price_2_cents: data.promotional_price_2_cents || null,
+          promotional_2_use_default_commission: data.promotional_2_use_default_commission,
+          promotional_2_custom_commission: data.promotional_2_use_default_commission ? null : data.promotional_2_custom_commission,
           minimum_price_cents: data.minimum_price_cents || null,
           minimum_use_default_commission: data.minimum_use_default_commission,
           minimum_custom_commission: data.minimum_use_default_commission ? null : data.minimum_custom_commission,
@@ -128,6 +139,11 @@ export function useUpdateProductPriceKit() {
       if (data.promotional_use_default_commission !== undefined) {
         updateData.promotional_use_default_commission = data.promotional_use_default_commission;
         updateData.promotional_custom_commission = data.promotional_use_default_commission ? null : data.promotional_custom_commission;
+      }
+      if (data.promotional_price_2_cents !== undefined) updateData.promotional_price_2_cents = data.promotional_price_2_cents || null;
+      if (data.promotional_2_use_default_commission !== undefined) {
+        updateData.promotional_2_use_default_commission = data.promotional_2_use_default_commission;
+        updateData.promotional_2_custom_commission = data.promotional_2_use_default_commission ? null : data.promotional_2_custom_commission;
       }
       if (data.minimum_price_cents !== undefined) updateData.minimum_price_cents = data.minimum_price_cents || null;
       if (data.minimum_use_default_commission !== undefined) {
@@ -207,6 +223,9 @@ export function useBulkSaveProductPriceKits() {
           promotional_price_cents: kit.promotional_price_cents || null,
           promotional_use_default_commission: kit.promotional_use_default_commission,
           promotional_custom_commission: kit.promotional_use_default_commission ? null : kit.promotional_custom_commission,
+          promotional_price_2_cents: kit.promotional_price_2_cents || null,
+          promotional_2_use_default_commission: kit.promotional_2_use_default_commission,
+          promotional_2_custom_commission: kit.promotional_2_use_default_commission ? null : kit.promotional_2_custom_commission,
           minimum_price_cents: kit.minimum_price_cents || null,
           minimum_use_default_commission: kit.minimum_use_default_commission,
           minimum_custom_commission: kit.minimum_use_default_commission ? null : kit.minimum_custom_commission,

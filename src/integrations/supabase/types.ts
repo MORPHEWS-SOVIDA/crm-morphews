@@ -1418,7 +1418,10 @@ export type Database = {
           organization_id: string
           position: number
           product_id: string
+          promotional_2_custom_commission: number | null
+          promotional_2_use_default_commission: boolean
           promotional_custom_commission: number | null
+          promotional_price_2_cents: number | null
           promotional_price_cents: number | null
           promotional_use_default_commission: boolean
           quantity: number
@@ -1436,7 +1439,10 @@ export type Database = {
           organization_id: string
           position?: number
           product_id: string
+          promotional_2_custom_commission?: number | null
+          promotional_2_use_default_commission?: boolean
           promotional_custom_commission?: number | null
+          promotional_price_2_cents?: number | null
           promotional_price_cents?: number | null
           promotional_use_default_commission?: boolean
           quantity?: number
@@ -1454,7 +1460,10 @@ export type Database = {
           organization_id?: string
           position?: number
           product_id?: string
+          promotional_2_custom_commission?: number | null
+          promotional_2_use_default_commission?: boolean
           promotional_custom_commission?: number | null
+          promotional_price_2_cents?: number | null
           promotional_price_cents?: number | null
           promotional_use_default_commission?: boolean
           quantity?: number

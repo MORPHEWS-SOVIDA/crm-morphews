@@ -35,7 +35,7 @@ interface ProductSelectionDialogProps {
 // Categories that use the new kit system
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
 
-type PriceType = 'regular' | 'promotional' | 'minimum' | 'custom';
+type PriceType = 'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'custom';
 
 export function ProductSelectionDialog({
   open,
@@ -170,6 +170,13 @@ export function ProductSelectionDialog({
             isCustomCommission = true;
           }
           break;
+        case 'promotional_2':
+          unitPrice = selectedKit.promotional_price_2_cents || selectedKit.regular_price_cents;
+          if (!selectedKit.promotional_2_use_default_commission && selectedKit.promotional_2_custom_commission !== null) {
+            commission = selectedKit.promotional_2_custom_commission;
+            isCustomCommission = true;
+          }
+          break;
         case 'minimum':
           unitPrice = selectedKit.minimum_price_cents || selectedKit.regular_price_cents;
           if (!selectedKit.minimum_use_default_commission && selectedKit.minimum_custom_commission !== null) {
@@ -226,15 +233,21 @@ export function ProductSelectionDialog({
   const total = subtotal - discountCents;
   const commissionValue = calculateCommissionValue(total, commission);
   
-  // Validation - check if below minimum
+  // Validation - check if below minimum (considering discounts)
   const minPriceForKit = selectedKit?.minimum_price_cents || 0;
-  const isBelowMinimum = usesKitSystem && selectedPriceType === 'custom' && customPrice < minPriceForKit;
+  const effectiveUnitPrice = quantity > 0 ? Math.round(total / quantity) : unitPrice;
+  
+  // Check if below minimum: either custom price is below minimum, OR total after discount is below minimum
+  const isBelowMinimum = usesKitSystem && minPriceForKit > 0 && (
+    (selectedPriceType === 'custom' && customPrice < minPriceForKit) ||
+    (discountCents > 0 && effectiveUnitPrice < minPriceForKit)
+  );
   const needsAuthorization = isBelowMinimum && !authorizationId;
   
   const isValidPrice = isManipulado 
     ? manipuladoPrice > 0 
     : usesKitSystem
-      ? (selectedPriceType === 'custom' ? (customPrice >= minPriceForKit || authorizationId) : true)
+      ? (!isBelowMinimum || authorizationId)
       : (unitPrice >= (product.minimum_price || 0) || (product.minimum_price || 0) === 0);
 
   const formatPrice = (cents: number) => {
@@ -343,7 +356,7 @@ export function ProductSelectionDialog({
   // Render kit option with commission info
   const renderKitPriceOption = (
     kit: ProductPriceKit,
-    type: 'regular' | 'promotional' | 'minimum',
+    type: PriceType,
     label: string,
     priceCents: number | null,
     useDefault: boolean,
@@ -626,10 +639,20 @@ export function ProductSelectionDialog({
                       {kit.promotional_price_cents && renderKitPriceOption(
                         kit, 
                         'promotional', 
-                        'Preço Promocional', 
+                        'Preço Promocional 1', 
                         kit.promotional_price_cents,
                         kit.promotional_use_default_commission,
                         kit.promotional_custom_commission
+                      )}
+                      
+                      {/* Promotional Price 2 */}
+                      {kit.promotional_price_2_cents && renderKitPriceOption(
+                        kit, 
+                        'promotional_2', 
+                        'Preço Promocional 2', 
+                        kit.promotional_price_2_cents,
+                        kit.promotional_2_use_default_commission,
+                        kit.promotional_2_custom_commission
                       )}
                       
                       {/* Minimum Price */}
@@ -866,6 +889,21 @@ export function ProductSelectionDialog({
             </CardContent>
           </Card>
 
+          {/* Warning for below minimum price */}
+          {needsAuthorization && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                ⚠️ O valor final ({formatPrice(effectiveUnitPrice)}/un) está abaixo do mínimo ({formatPrice(minPriceForKit)}/un) - requer autorização de gerente
+              </p>
+              {authorizationId && authorizedBy && (
+                <Badge className="mt-2 bg-green-500 text-white">
+                  ✓ Autorizado por {authorizedBy}
+                </Badge>
+              )}
+            </div>
+          )}
+
           {!isValidPrice && !needsAuthorization && (
             <p className="text-sm text-destructive text-center">
               ⚠️ Valor inválido ou abaixo do mínimo permitido
@@ -909,7 +947,7 @@ export function ProductSelectionDialog({
         productName={product?.name || ''}
         productId={product?.id || ''}
         minimumPriceCents={minPriceForKit}
-        requestedPriceCents={customPrice}
+        requestedPriceCents={effectiveUnitPrice}
         onAuthorized={handleAuthorizationSuccess}
       />
     </Dialog>

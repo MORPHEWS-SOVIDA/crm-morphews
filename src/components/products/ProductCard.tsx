@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Eye, Package, AlertTriangle } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
 import { getAvailableStock } from '@/hooks/useProducts';
+import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +13,9 @@ interface ProductCardProps {
   onDelete: (product: Product) => void;
   canManage: boolean;
 }
+
+// Categories that use the new kit system
+const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -23,6 +27,22 @@ function formatCurrency(cents: number): string {
 export function ProductCard({ product, onView, onEdit, onDelete, canManage }: ProductCardProps) {
   const availableStock = getAvailableStock(product);
   const isLowStock = product.track_stock && availableStock <= product.minimum_stock;
+  
+  const usesKitSystem = CATEGORIES_WITH_KITS.includes(product.category);
+  const { data: priceKits = [] } = useProductPriceKits(usesKitSystem ? product.id : undefined);
+  
+  // For kit-based products, get prices from kits
+  const getKitPrices = () => {
+    if (!usesKitSystem || priceKits.length === 0) return null;
+    
+    // Get first 4 kits for display
+    return priceKits.slice(0, 4).map(kit => ({
+      quantity: kit.quantity,
+      price: kit.regular_price_cents,
+    }));
+  };
+  
+  const kitPrices = getKitPrices();
   
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -58,22 +78,35 @@ export function ProductCard({ product, onView, onEdit, onDelete, canManage }: Pr
         <div className="space-y-4">
           {/* Preços */}
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">1 un:</span>
-              <span className="font-medium">{formatCurrency(product.price_1_unit)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">3 un:</span>
-              <span className="font-medium">{formatCurrency(product.price_3_units)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">6 un:</span>
-              <span className="font-medium">{formatCurrency(product.price_6_units)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">12 un:</span>
-              <span className="font-medium">{formatCurrency(product.price_12_units)}</span>
-            </div>
+            {kitPrices ? (
+              // Show kit-based prices
+              kitPrices.map((kit, index) => (
+                <div key={index} className="flex justify-between">
+                  <span className="text-muted-foreground">{kit.quantity} un:</span>
+                  <span className="font-medium">{formatCurrency(kit.price)}</span>
+                </div>
+              ))
+            ) : (
+              // Show legacy prices for non-kit products
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">1 un:</span>
+                  <span className="font-medium">{formatCurrency(product.price_1_unit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">3 un:</span>
+                  <span className="font-medium">{formatCurrency(product.price_3_units)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">6 un:</span>
+                  <span className="font-medium">{formatCurrency(product.price_6_units)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">12 un:</span>
+                  <span className="font-medium">{formatCurrency(product.price_12_units)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Info adicional */}
