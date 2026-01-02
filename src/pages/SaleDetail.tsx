@@ -479,12 +479,15 @@ export default function SaleDetail() {
                     <>
                       <div>
                         <Label>Selecionar Entregador</Label>
-                        <Select value={selectedDeliveryUser} onValueChange={setSelectedDeliveryUser}>
+                      <Select 
+                        value={selectedDeliveryUser || "none"} 
+                        onValueChange={(v) => setSelectedDeliveryUser(v === "none" ? "" : v)}
+                      >
                           <SelectTrigger className="mt-1">
                             <SelectValue placeholder="Selecione o entregador..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Sem entregador definido</SelectItem>
+                            <SelectItem value="none">Sem entregador definido</SelectItem>
                             {deliveryUsers.map(member => (
                               <SelectItem key={member.user_id} value={member.user_id}>
                                 {member.profile?.first_name} {member.profile?.last_name}
