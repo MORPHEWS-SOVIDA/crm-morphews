@@ -11,7 +11,8 @@ export type SaleStatus =
   | 'delivered'
   | 'payment_pending'
   | 'payment_confirmed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'returned';
 
 export type DeliveryStatus =
   | 'pending'
@@ -65,6 +66,11 @@ export interface Sale {
   status: SaleStatus;
   created_at: string;
   updated_at: string;
+  // Return/reschedule fields
+  return_reason_id: string | null;
+  return_notes: string | null;
+  returned_at: string | null;
+  returned_by: string | null;
   // Joined data
   lead?: {
     id: string;
@@ -94,6 +100,10 @@ export interface Sale {
   delivery_user_profile?: {
     first_name: string;
     last_name: string;
+  };
+  return_reason?: {
+    id: string;
+    name: string;
   };
 }
 
@@ -174,6 +184,7 @@ export function getStatusLabel(status: SaleStatus): string {
     payment_pending: 'Aguardando Pagamento',
     payment_confirmed: 'Pagamento Confirmado',
     cancelled: 'Cancelado',
+    returned: 'Voltou / Reagendar',
   };
   return labels[status] || status;
 }
@@ -187,6 +198,7 @@ export function getStatusColor(status: SaleStatus): string {
     payment_pending: 'bg-yellow-100 text-yellow-700',
     payment_confirmed: 'bg-emerald-100 text-emerald-700',
     cancelled: 'bg-red-100 text-red-700',
+    returned: 'bg-amber-100 text-amber-700',
   };
   return colors[status] || 'bg-gray-100 text-gray-700';
 }
@@ -284,7 +296,8 @@ export function useSale(id: string | undefined) {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
+          return_reason:delivery_return_reasons(id, name)
         `)
         .eq('id', id)
         .eq('organization_id', organizationId)
@@ -327,7 +340,8 @@ export function useSale(id: string | undefined) {
         ...sale, 
         items: items || [],
         seller_profile,
-        created_by_profile
+        created_by_profile,
+        return_reason: sale.return_reason
       } as Sale;
     },
     enabled: !!id && !!organizationId,
@@ -473,6 +487,18 @@ export function useUpdateSale() {
       } else if (data.status === 'payment_confirmed') {
         updateData.payment_confirmed_at = new Date().toISOString();
         updateData.payment_confirmed_by = user?.id;
+      } else if (data.status === 'returned') {
+        updateData.returned_at = new Date().toISOString();
+        updateData.returned_by = user?.id;
+      } else if (data.status === 'draft' && previousStatus === 'returned') {
+        // When rescheduling from returned, clear delivery/return data for fresh start
+        updateData.dispatched_at = null;
+        updateData.delivered_at = null;
+        updateData.return_reason_id = null;
+        updateData.return_notes = null;
+        updateData.returned_at = null;
+        updateData.returned_by = null;
+        updateData.delivery_status = 'pending';
       }
 
       const { data: sale, error } = await supabase
@@ -574,10 +600,10 @@ export function useMyDeliveries() {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link)
         `)
         .eq('assigned_delivery_user_id', user.id)
-        .in('status', ['dispatched', 'delivered'])
+        .in('status', ['dispatched', 'delivered', 'returned'])
         .order('dispatched_at', { ascending: false });
 
       if (error) throw error;

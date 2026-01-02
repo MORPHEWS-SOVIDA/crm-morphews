@@ -208,6 +208,47 @@ export type Database = {
           },
         ]
       }
+      delivery_return_reasons: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          organization_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          organization_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_return_reasons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discount_coupons: {
         Row: {
           code: string
@@ -1666,6 +1707,10 @@ export type Database = {
           payment_method_id: string | null
           payment_notes: string | null
           payment_proof_url: string | null
+          return_notes: string | null
+          return_reason_id: string | null
+          returned_at: string | null
+          returned_by: string | null
           romaneio_number: number
           scheduled_delivery_date: string | null
           scheduled_delivery_shift:
@@ -1708,6 +1753,10 @@ export type Database = {
           payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
+          return_notes?: string | null
+          return_reason_id?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
           romaneio_number?: number
           scheduled_delivery_date?: string | null
           scheduled_delivery_shift?:
@@ -1750,6 +1799,10 @@ export type Database = {
           payment_method_id?: string | null
           payment_notes?: string | null
           payment_proof_url?: string | null
+          return_notes?: string | null
+          return_reason_id?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
           romaneio_number?: number
           scheduled_delivery_date?: string | null
           scheduled_delivery_shift?:
@@ -1790,6 +1843,13 @@ export type Database = {
             columns: ["payment_method_id"]
             isOneToOne: false
             referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_return_reason_id_fkey"
+            columns: ["return_reason_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_return_reasons"
             referencedColumns: ["id"]
           },
           {
@@ -3391,6 +3451,7 @@ export type Database = {
         | "payment_pending"
         | "payment_confirmed"
         | "cancelled"
+        | "returned"
       subscription_status:
         | "active"
         | "canceled"
@@ -3572,6 +3633,7 @@ export const Constants = {
         "payment_pending",
         "payment_confirmed",
         "cancelled",
+        "returned",
       ],
       subscription_status: [
         "active",

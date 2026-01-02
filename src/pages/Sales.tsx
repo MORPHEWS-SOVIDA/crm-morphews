@@ -31,6 +31,7 @@ import {
   Building2,
   Calendar,
   Filter,
+  RotateCcw,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -52,6 +53,7 @@ const STATUS_TABS: { value: SaleStatus | 'all'; label: string; icon: React.Compo
   { value: 'draft', label: 'Rascunho', icon: Clock },
   { value: 'pending_expedition', label: 'Expedição', icon: Package },
   { value: 'dispatched', label: 'Despachado', icon: Truck },
+  { value: 'returned', label: 'Voltou', icon: RotateCcw },
   { value: 'delivered', label: 'Entregue', icon: CheckCircle },
   { value: 'payment_pending', label: 'Pgto Pendente', icon: CreditCard },
   { value: 'payment_confirmed', label: 'Confirmado', icon: CheckCircle },

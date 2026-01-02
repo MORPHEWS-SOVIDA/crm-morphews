@@ -55,7 +55,8 @@ import {
   Eye,
   Bike,
   Building2,
-  Store
+  Store,
+  RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -65,6 +66,8 @@ import { useTenantMembers } from '@/hooks/multi-tenant';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+
 const DELIVERY_STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
   { value: 'delivered_normal', label: 'Normal' },
   { value: 'delivered_missing_prescription', label: 'Falta receita' },
@@ -79,6 +82,192 @@ const DELIVERY_STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
   { value: 'delivered_wrong_time', label: 'Motoboy foi em horário errado' },
   { value: 'delivered_other', label: 'Outros' },
 ];
+
+// Hook to fetch delivery return reasons
+function useDeliveryReturnReasons() {
+  return useQuery({
+    queryKey: ['delivery-return-reasons'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('delivery_return_reasons')
+        .select('*')
+        .eq('is_active', true)
+        .order('position', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+// Delivery Actions Card Component
+interface DeliveryActionsCardProps {
+  sale: any;
+  selectedDeliveryStatus: DeliveryStatus;
+  setSelectedDeliveryStatus: (status: DeliveryStatus) => void;
+  deliveryNotes: string;
+  setDeliveryNotes: (notes: string) => void;
+  handleMarkDelivered: () => void;
+  updateSale: any;
+}
+
+function DeliveryActionsCard({
+  sale,
+  selectedDeliveryStatus,
+  setSelectedDeliveryStatus,
+  deliveryNotes,
+  setDeliveryNotes,
+  handleMarkDelivered,
+  updateSale,
+}: DeliveryActionsCardProps) {
+  const [showReturnDialog, setShowReturnDialog] = React.useState(false);
+  const [selectedReturnReason, setSelectedReturnReason] = React.useState<string>('');
+  const [returnNotes, setReturnNotes] = React.useState('');
+  const { data: returnReasons = [] } = useDeliveryReturnReasons();
+
+  const handleMarkReturned = async () => {
+    if (!selectedReturnReason) {
+      toast.error('Selecione um motivo');
+      return;
+    }
+
+    await updateSale.mutateAsync({
+      id: sale.id,
+      data: {
+        status: 'returned' as any,
+      }
+    });
+
+    // Update the sale with return reason info via direct update
+    await supabase
+      .from('sales')
+      .update({
+        return_reason_id: selectedReturnReason,
+        return_notes: returnNotes || null,
+        returned_at: new Date().toISOString(),
+      })
+      .eq('id', sale.id);
+
+    setShowReturnDialog(false);
+    toast.success('Venda marcada como retornada');
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Truck className="w-5 h-5" />
+            Registrar Entrega
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Como foi a entrega?</Label>
+            <Select 
+              value={selectedDeliveryStatus} 
+              onValueChange={(v) => setSelectedDeliveryStatus(v as DeliveryStatus)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DELIVERY_STATUS_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedDeliveryStatus === 'delivered_other' && (
+            <div>
+              <Label>Observações</Label>
+              <Textarea
+                value={deliveryNotes}
+                onChange={(e) => setDeliveryNotes(e.target.value)}
+                placeholder="Descreva o que aconteceu..."
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <Button 
+              className="w-full"
+              onClick={handleMarkDelivered}
+              disabled={updateSale.isPending}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Marcar como Entregue
+            </Button>
+            
+            <Button 
+              variant="outline"
+              className="w-full border-amber-500 text-amber-600 hover:bg-amber-50"
+              onClick={() => setShowReturnDialog(true)}
+              disabled={updateSale.isPending}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Voltou / Reagendar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Return Dialog */}
+      <AlertDialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar como Voltou</AlertDialogTitle>
+            <AlertDialogDescription>
+              Informe o motivo pelo qual a entrega não foi concluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Motivo *</Label>
+              <Select value={selectedReturnReason} onValueChange={setSelectedReturnReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o motivo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {returnReasons.map((reason: any) => (
+                    <SelectItem key={reason.id} value={reason.id}>
+                      {reason.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea
+                value={returnNotes}
+                onChange={(e) => setReturnNotes(e.target.value)}
+                placeholder="Detalhes adicionais..."
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleMarkReturned}
+              disabled={!selectedReturnReason || updateSale.isPending}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
 
 export default function SaleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -482,6 +671,12 @@ export default function SaleDetail() {
                     <div className={`w-3 h-3 rounded-full ${sale.dispatched_at ? 'bg-green-500' : 'bg-muted'}`} />
                     <span className="text-sm">Despachado</span>
                   </div>
+                  {sale.status === 'returned' && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-amber-500" />
+                      <span className="text-sm text-amber-600 font-medium">Voltou / Reagendar</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${sale.delivered_at ? 'bg-green-500' : 'bg-muted'}`} />
                     <span className="text-sm">Entregue</span>
@@ -492,7 +687,16 @@ export default function SaleDetail() {
                   </div>
                 </div>
 
-                {sale.delivery_status && sale.delivery_status !== 'pending' && (
+                {sale.status === 'returned' && (sale as any).returned_at && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Esta entrega voltou</p>
+                    {(sale as any).return_notes && (
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{(sale as any).return_notes}</p>
+                    )}
+                  </div>
+                )}
+
+                {sale.delivery_status && sale.delivery_status !== 'pending' && sale.status !== 'returned' && (
                   <div className="p-3 bg-muted rounded-lg">
                     <p className="text-sm font-medium">Status da Entrega:</p>
                     <p className="text-sm">{getDeliveryStatusLabel(sale.delivery_status)}</p>
@@ -559,55 +763,58 @@ export default function SaleDetail() {
               </Card>
             )}
 
-            {/* Delivery Actions */}
+            {/* Delivery Actions - Mark as Delivered OR Mark as Returned */}
             {sale.status === 'dispatched' && canMarkDelivered && (
+              <DeliveryActionsCard 
+                sale={sale}
+                selectedDeliveryStatus={selectedDeliveryStatus}
+                setSelectedDeliveryStatus={setSelectedDeliveryStatus}
+                deliveryNotes={deliveryNotes}
+                setDeliveryNotes={setDeliveryNotes}
+                handleMarkDelivered={handleMarkDelivered}
+                updateSale={updateSale}
+              />
+            )}
+
+            {/* Returned Sale - Option to Reschedule */}
+            {sale.status === 'returned' && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="w-5 h-5" />
-                    Registrar Entrega
+                  <CardTitle className="flex items-center gap-2 text-amber-600">
+                    <RotateCcw className="w-5 h-5" />
+                    Venda Retornou
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label>Como foi a entrega?</Label>
-                    <Select 
-                      value={selectedDeliveryStatus} 
-                      onValueChange={(v) => setSelectedDeliveryStatus(v as DeliveryStatus)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DELIVERY_STATUS_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {selectedDeliveryStatus === 'delivered_other' && (
-                    <div>
-                      <Label>Observações</Label>
-                      <Textarea
-                        value={deliveryNotes}
-                        onChange={(e) => setDeliveryNotes(e.target.value)}
-                        placeholder="Descreva o que aconteceu..."
-                        className="mt-1"
-                      />
+                  {(sale as any).return_reason && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Motivo:</p>
+                      <p className="text-sm text-amber-700 dark:text-amber-300">{(sale as any).return_reason?.name}</p>
+                      {(sale as any).return_notes && (
+                        <p className="text-sm text-muted-foreground mt-1">{(sale as any).return_notes}</p>
+                      )}
                     </div>
                   )}
-
-                  <Button 
-                    className="w-full"
-                    onClick={handleMarkDelivered}
-                    disabled={updateSale.isPending}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Marcar como Entregue
-                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    Esta venda voltou e precisa ser reagendada. O vendedor deve remarcar a entrega.
+                  </p>
+                  {canValidateExpedition && (
+                    <Button 
+                      className="w-full"
+                      onClick={async () => {
+                        await updateSale.mutateAsync({
+                          id: sale.id,
+                          data: { status: 'draft' },
+                          previousStatus: sale.status
+                        });
+                        toast.success('Venda voltou para rascunho para reagendamento');
+                      }}
+                      disabled={updateSale.isPending}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Voltar para Rascunho (Reagendar)
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
