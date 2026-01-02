@@ -202,7 +202,7 @@ export default function LeadDetail() {
               value={lead.specialty}
               onSave={(value) => handleUpdate('specialty', value)}
               displayClassName="text-muted-foreground"
-              placeholder="Clique para adicionar especialidade"
+              placeholder="Especialidade do cliente"
             />
           </div>
         </div>
@@ -237,15 +237,6 @@ export default function LeadDetail() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <InlineEdit
-                    value={lead.followers}
-                    onSave={(value) => handleUpdate('followers', value ? parseInt(value) : null)}
-                    type="number"
-                    formatDisplay={(v) => `${formatFollowers(v as number | null)} seguidores`}
-                    displayClassName="bg-white/20 text-inherit border-0 text-lg px-4 py-2 rounded-full"
-                  />
-                </div>
               </div>
             </div>
 
@@ -253,6 +244,7 @@ export default function LeadDetail() {
             <div className="bg-card rounded-xl p-6 shadow-card">
               <h2 className="text-lg font-semibold text-foreground mb-4">Informações de Contato</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Instagram with followers */}
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
                   {instagramUrl ? (
                     <a
@@ -284,6 +276,44 @@ export default function LeadDetail() {
                           rel="noopener noreferrer"
                           className="text-pink-500 hover:text-pink-600"
                           aria-label={`Abrir Instagram de @${instagramHandle}`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                    {/* Followers inline with Instagram */}
+                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <InlineEdit
+                        value={lead.followers}
+                        onSave={(value) => handleUpdate('followers', value ? parseInt(value) : null)}
+                        type="number"
+                        formatDisplay={(v) => `${formatFollowers(v as number | null)} seguidores`}
+                        displayClassName="text-xs text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TikTok */}
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                  <div className="p-2 rounded-lg bg-slate-900/10 dark:bg-white/10">
+                    <Video className="w-5 h-5 text-slate-900 dark:text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">TikTok</p>
+                    <div className="flex items-center gap-2">
+                      <InlineEdit
+                        value={lead.tiktok}
+                        onSave={(value) => handleUpdate('tiktok', value || null)}
+                        displayClassName="font-medium"
+                        placeholder="@usuario"
+                      />
+                      {lead.tiktok && (
+                        <a
+                          href={`https://tiktok.com/@${lead.tiktok?.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-foreground hover:text-primary"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </a>
@@ -585,7 +615,7 @@ export default function LeadDetail() {
                       value={lead.observations}
                       onSave={(value) => handleUpdate('observations', value || null)}
                       type="textarea"
-                      placeholder="Anotações importantes sobre o lead..."
+                      placeholder="Observações sobre o cliente..."
                     />
                   </div>
                 </div>

@@ -25,7 +25,8 @@ import {
   Trash2, 
   Package,
   HelpCircle,
-  Calendar
+  Calendar,
+  User
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -249,11 +250,21 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                     <span className="font-medium">{answer.product?.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span>
-                        {format(new Date(answer.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </span>
+                    <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>
+                          {format(new Date(answer.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                      </div>
+                      {answer.updated_by_profile && (
+                        <div className="flex items-center gap-1 text-foreground">
+                          <User className="w-3 h-3" />
+                          <span className="font-medium">
+                            {answer.updated_by_profile.first_name} {answer.updated_by_profile.last_name}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <Button 
                       variant="ghost" 
