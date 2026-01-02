@@ -34,7 +34,7 @@ serve(async (req) => {
        throw new Error('Nome da sessão e ID da organização são obrigatórios.')
     }
 
-    // 4. Criação no Banco V2 (Status: QRCODE)
+    // 4. Criação no Banco V2 (Status: qrcode)
     const { data: newInstance, error: dbError } = await supabase
       .from('whatsapp_v2_instances')
       .insert({
@@ -42,7 +42,7 @@ serve(async (req) => {
         tenant_id: tenantId,
         api_url: 'https://api.wasenderapi.com',
         api_key: 'pending', 
-        status: 'QRCODE'
+        status: 'qrcode'
       })
       .select()
       .single()
