@@ -31,6 +31,7 @@ import {
   type ProductPriceKitFormData 
 } from '@/hooks/useProductPriceKits';
 import { normalizeText } from '@/lib/utils';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 
 type ViewMode = 'list' | 'create' | 'edit';
 
@@ -47,10 +48,14 @@ export default function Products() {
 
   const { data: products, isLoading } = useProducts();
   const { data: isOwner } = useIsOwner();
+  const { data: myPermissions } = useMyPermissions();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const bulkSaveKits = useBulkSaveProductPriceKits();
+  
+  // User can manage products if they are owner OR have products_manage permission
+  const canManageProducts = isOwner || myPermissions?.products_manage || false;
 
   // Load kits when editing a product
   const { data: productKits } = useProductPriceKits(selectedProduct?.id);
@@ -171,7 +176,7 @@ export default function Products() {
               Gerencie seu catálogo de produtos
             </p>
           </div>
-          {isOwner && (
+          {canManageProducts && (
             <Button onClick={() => setViewMode('create')}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Produto
@@ -204,7 +209,7 @@ export default function Products() {
                 ? 'Tente uma busca diferente'
                 : 'Comece adicionando seu primeiro produto'}
             </p>
-            {isOwner && !searchTerm && (
+            {canManageProducts && !searchTerm && (
               <Button onClick={() => setViewMode('create')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Produto
@@ -220,7 +225,7 @@ export default function Products() {
                 onView={setViewProduct}
                 onEdit={handleEdit}
                 onDelete={setProductToDelete}
-                canManage={isOwner || false}
+                canManage={canManageProducts}
               />
             ))}
           </div>
