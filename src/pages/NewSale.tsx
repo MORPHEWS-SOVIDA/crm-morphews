@@ -56,7 +56,7 @@ import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
-import { useActivePaymentMethods, PaymentMethod, PAYMENT_TIMING_LABELS } from '@/hooks/usePaymentMethods';
+import { useActivePaymentMethodsEnhanced, PaymentMethodEnhanced, PAYMENT_TIMING_LABELS, PAYMENT_CATEGORY_LABELS } from '@/hooks/usePaymentMethodsEnhanced';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SelectedItem {
@@ -99,7 +99,7 @@ export default function NewSale() {
   
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: users = [], isLoading: usersLoading } = useUsers();
-  const { data: paymentMethods = [] } = useActivePaymentMethods();
+  const { data: paymentMethods = [] } = useActivePaymentMethodsEnhanced();
   const { user } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const createSale = useCreateSale();
@@ -613,8 +613,8 @@ export default function NewSale() {
                               <span className="font-medium leading-tight break-words">{pm.name}</span>
                             </div>
                             <span className="text-xs opacity-70">
-                              {PAYMENT_TIMING_LABELS[pm.payment_timing]}
-                              {pm.payment_timing === 'installments' && ` até ${pm.max_installments}x`}
+                              {pm.category && PAYMENT_CATEGORY_LABELS[pm.category] ? PAYMENT_CATEGORY_LABELS[pm.category] : PAYMENT_TIMING_LABELS[pm.payment_timing]}
+                              {pm.payment_timing === 'installments' && ` • até ${pm.max_installments}x`}
                             </span>
                           </Button>
                         ))}

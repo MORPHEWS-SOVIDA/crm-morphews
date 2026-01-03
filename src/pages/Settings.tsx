@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { FunnelStagesManager } from '@/components/settings/FunnelStagesManager';
 import { DeliveryRegionsManager } from '@/components/settings/DeliveryRegionsManager';
 import { ShippingCarriersManager } from '@/components/settings/ShippingCarriersManager';
-import { PaymentMethodsManager } from '@/components/settings/PaymentMethodsManager';
+import { PaymentMethodsManagerEnhanced } from '@/components/settings/PaymentMethodsManagerEnhanced';
 import { NonPurchaseReasonsManager } from '@/components/settings/NonPurchaseReasonsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 export default function Settings() {
@@ -333,7 +333,7 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground">Configure as formas de pagamento disponíveis</p>
             </div>
           </div>
-          <PaymentMethodsManager />
+          <PaymentMethodsManagerEnhanced />
         </div>
 
         {/* Non-Purchase Reasons */}

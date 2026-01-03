@@ -1434,14 +1434,211 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_acquirers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          normalized_name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          normalized_name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          normalized_name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_acquirers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_bank_destinations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          normalized_name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          normalized_name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          normalized_name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_bank_destinations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_cnpj_destinations: {
+        Row: {
+          cnpj: string
+          created_at: string
+          id: string
+          normalized_cnpj: string
+          organization_id: string
+        }
+        Insert: {
+          cnpj: string
+          created_at?: string
+          id?: string
+          normalized_cnpj: string
+          organization_id: string
+        }
+        Update: {
+          cnpj?: string
+          created_at?: string
+          id?: string
+          normalized_cnpj?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_cnpj_destinations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_cost_centers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          normalized_name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          normalized_name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          normalized_name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_cost_centers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_method_transaction_fees: {
+        Row: {
+          created_at: string
+          fee_fixed_cents: number
+          fee_percentage: number
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          payment_method_id: string
+          settlement_days: number
+          transaction_type: Database["public"]["Enums"]["card_transaction_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fee_fixed_cents?: number
+          fee_percentage?: number
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          payment_method_id: string
+          settlement_days?: number
+          transaction_type: Database["public"]["Enums"]["card_transaction_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fee_fixed_cents?: number
+          fee_percentage?: number
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          payment_method_id?: string
+          settlement_days?: number
+          transaction_type?: Database["public"]["Enums"]["card_transaction_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_method_transaction_fees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_method_transaction_fees_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_methods: {
         Row: {
+          acquirer_id: string | null
+          bank_destination_id: string | null
+          category: Database["public"]["Enums"]["payment_category"] | null
+          cnpj_destination_id: string | null
+          cost_center_id: string | null
           created_at: string
           destination_bank: string | null
           destination_cnpj: string | null
           display_order: number | null
+          fee_fixed_cents: number | null
           fee_percentage: number | null
           id: string
+          installment_flow:
+            | Database["public"]["Enums"]["installment_flow"]
+            | null
           is_active: boolean | null
           max_installments: number | null
           min_installment_value_cents: number | null
@@ -1449,16 +1646,26 @@ export type Database = {
           organization_id: string
           payment_timing: string
           requires_proof: boolean | null
+          requires_transaction_data: boolean | null
           settlement_days: number | null
           updated_at: string
         }
         Insert: {
+          acquirer_id?: string | null
+          bank_destination_id?: string | null
+          category?: Database["public"]["Enums"]["payment_category"] | null
+          cnpj_destination_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           destination_bank?: string | null
           destination_cnpj?: string | null
           display_order?: number | null
+          fee_fixed_cents?: number | null
           fee_percentage?: number | null
           id?: string
+          installment_flow?:
+            | Database["public"]["Enums"]["installment_flow"]
+            | null
           is_active?: boolean | null
           max_installments?: number | null
           min_installment_value_cents?: number | null
@@ -1466,16 +1673,26 @@ export type Database = {
           organization_id: string
           payment_timing?: string
           requires_proof?: boolean | null
+          requires_transaction_data?: boolean | null
           settlement_days?: number | null
           updated_at?: string
         }
         Update: {
+          acquirer_id?: string | null
+          bank_destination_id?: string | null
+          category?: Database["public"]["Enums"]["payment_category"] | null
+          cnpj_destination_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           destination_bank?: string | null
           destination_cnpj?: string | null
           display_order?: number | null
+          fee_fixed_cents?: number | null
           fee_percentage?: number | null
           id?: string
+          installment_flow?:
+            | Database["public"]["Enums"]["installment_flow"]
+            | null
           is_active?: boolean | null
           max_installments?: number | null
           min_installment_value_cents?: number | null
@@ -1483,10 +1700,39 @@ export type Database = {
           organization_id?: string
           payment_timing?: string
           requires_proof?: boolean | null
+          requires_transaction_data?: boolean | null
           settlement_days?: number | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_methods_acquirer_id_fkey"
+            columns: ["acquirer_id"]
+            isOneToOne: false
+            referencedRelation: "payment_acquirers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_methods_bank_destination_id_fkey"
+            columns: ["bank_destination_id"]
+            isOneToOne: false
+            referencedRelation: "payment_bank_destinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_methods_cnpj_destination_id_fkey"
+            columns: ["cnpj_destination_id"]
+            isOneToOne: false
+            referencedRelation: "payment_cnpj_destinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_methods_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "payment_cost_centers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_methods_organization_id_fkey"
             columns: ["organization_id"]
@@ -1863,54 +2109,91 @@ export type Database = {
       }
       sale_installments: {
         Row: {
+          acquirer_id: string | null
           amount_cents: number
+          card_brand: Database["public"]["Enums"]["card_brand"] | null
           confirmed_at: string | null
           confirmed_by: string | null
           created_at: string
           due_date: string
+          fee_cents: number | null
+          fee_percentage: number | null
           id: string
           installment_number: number
+          net_amount_cents: number | null
           notes: string | null
+          nsu_cv: string | null
           organization_id: string
           payment_proof_url: string | null
           sale_id: string
           status: string
           total_installments: number
+          transaction_date: string | null
+          transaction_type:
+            | Database["public"]["Enums"]["card_transaction_type"]
+            | null
           updated_at: string
         }
         Insert: {
+          acquirer_id?: string | null
           amount_cents: number
+          card_brand?: Database["public"]["Enums"]["card_brand"] | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
           due_date: string
+          fee_cents?: number | null
+          fee_percentage?: number | null
           id?: string
           installment_number?: number
+          net_amount_cents?: number | null
           notes?: string | null
+          nsu_cv?: string | null
           organization_id: string
           payment_proof_url?: string | null
           sale_id: string
           status?: string
           total_installments?: number
+          transaction_date?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["card_transaction_type"]
+            | null
           updated_at?: string
         }
         Update: {
+          acquirer_id?: string | null
           amount_cents?: number
+          card_brand?: Database["public"]["Enums"]["card_brand"] | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
           due_date?: string
+          fee_cents?: number | null
+          fee_percentage?: number | null
           id?: string
           installment_number?: number
+          net_amount_cents?: number | null
           notes?: string | null
+          nsu_cv?: string | null
           organization_id?: string
           payment_proof_url?: string | null
           sale_id?: string
           status?: string
           total_installments?: number
+          transaction_date?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["card_transaction_type"]
+            | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_installments_acquirer_id_fkey"
+            columns: ["acquirer_id"]
+            isOneToOne: false
+            referencedRelation: "payment_acquirers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_installments_organization_id_fkey"
             columns: ["organization_id"]
@@ -3742,7 +4025,12 @@ export type Database = {
         Args: { _contact_id: string; _conversation_id: string }
         Returns: undefined
       }
+      normalize_cnpj: { Args: { input: string }; Returns: string }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
+      normalize_text_for_comparison: {
+        Args: { input: string }
+        Returns: string
+      }
       reserve_stock_for_sale: { Args: { _sale_id: string }; Returns: undefined }
       restore_stock_for_cancelled_delivered_sale: {
         Args: { _sale_id: string }
@@ -3780,6 +4068,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      card_brand: "visa" | "master" | "elo" | "amex" | "banricompras"
+      card_transaction_type:
+        | "debit"
+        | "credit_cash"
+        | "credit_installment"
+        | "credit_predate"
+        | "pix"
       delivery_shift: "morning" | "afternoon" | "full_day"
       delivery_status:
         | "pending"
@@ -3806,6 +4101,7 @@ export type Database = {
         | "success"
         | "trash"
         | "cloud"
+      installment_flow: "anticipation" | "receive_per_installment"
       org_role:
         | "owner"
         | "admin"
@@ -3816,6 +4112,16 @@ export type Database = {
         | "finance"
         | "entregador"
         | "delivery"
+      payment_category:
+        | "cash"
+        | "pix"
+        | "card_machine"
+        | "payment_link"
+        | "ecommerce"
+        | "boleto_prepaid"
+        | "boleto_postpaid"
+        | "boleto_installment"
+        | "gift"
       sale_status:
         | "draft"
         | "pending_expedition"
@@ -3959,6 +4265,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      card_brand: ["visa", "master", "elo", "amex", "banricompras"],
+      card_transaction_type: [
+        "debit",
+        "credit_cash",
+        "credit_installment",
+        "credit_predate",
+        "pix",
+      ],
       delivery_shift: ["morning", "afternoon", "full_day"],
       delivery_status: [
         "pending",
@@ -3987,6 +4301,7 @@ export const Constants = {
         "trash",
         "cloud",
       ],
+      installment_flow: ["anticipation", "receive_per_installment"],
       org_role: [
         "owner",
         "admin",
@@ -3997,6 +4312,17 @@ export const Constants = {
         "finance",
         "entregador",
         "delivery",
+      ],
+      payment_category: [
+        "cash",
+        "pix",
+        "card_machine",
+        "payment_link",
+        "ecommerce",
+        "boleto_prepaid",
+        "boleto_postpaid",
+        "boleto_installment",
+        "gift",
       ],
       sale_status: [
         "draft",

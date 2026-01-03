@@ -69,6 +69,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
+import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmationDialog';
 
 
 // Hook to fetch delivery return reasons
@@ -393,18 +394,44 @@ export default function SaleDetail() {
     toast.success('Entrega registrada!');
   };
 
-  // Confirm payment
-  const handleConfirmPayment = async () => {
+  // Confirm payment with conciliation data
+  const handleConfirmPayment = async (data: {
+    payment_method_id: string;
+    payment_method_name: string;
+    payment_notes?: string;
+    transaction_date?: Date;
+    card_brand?: string;
+    transaction_type?: string;
+    nsu_cv?: string;
+    acquirer_id?: string;
+    installments?: number;
+  }) => {
     if (!sale) return;
 
     await updateSale.mutateAsync({
       id: sale.id,
       data: {
         status: 'payment_confirmed',
-        payment_method: paymentMethod,
-        payment_notes: paymentNotes || null,
+        payment_method: data.payment_method_name,
+        payment_method_id: data.payment_method_id,
+        payment_notes: data.payment_notes || null,
       }
     });
+    
+    // If we have conciliation data, update installments with that info
+    if (data.nsu_cv || data.card_brand || data.transaction_type) {
+      await supabase
+        .from('sale_installments')
+        .update({
+          transaction_date: data.transaction_date?.toISOString() || null,
+          card_brand: (data.card_brand as any) || null,
+          transaction_type: (data.transaction_type as any) || null,
+          nsu_cv: data.nsu_cv || null,
+          acquirer_id: data.acquirer_id || null,
+        })
+        .eq('sale_id', sale.id);
+    }
+    
     setShowPaymentDialog(false);
     toast.success('Pagamento confirmado!');
   };
@@ -1145,49 +1172,13 @@ export default function SaleDetail() {
       </AlertDialog>
 
       {/* Payment Confirmation Dialog */}
-      <AlertDialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Pagamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Informe os detalhes do pagamento recebido.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Método de Pagamento</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pix">PIX</SelectItem>
-                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="boleto">Boleto</SelectItem>
-                  <SelectItem value="transferencia">Transferência</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Ex: Pago via PIX, comprovante anexado..."
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmPayment} disabled={!paymentMethod}>
-              Confirmar Pagamento
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PaymentConfirmationDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        onConfirm={handleConfirmPayment}
+        totalCents={sale?.total_cents || 0}
+        existingPaymentMethodId={sale?.payment_method_id}
+      />
 
       {/* Cancel Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
