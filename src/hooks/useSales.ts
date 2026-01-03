@@ -480,6 +480,81 @@ export function useCreateSale() {
         changed_by: user.id,
       });
 
+      // Create installments for receivables tracking
+      // This is important for financial conciliation and accounts receivable
+      if (data.payment_method_id) {
+        try {
+          // Get payment method details to determine installment flow and settlement days
+          const { data: paymentMethod } = await supabase
+            .from('payment_methods')
+            .select(`
+              *,
+              transaction_fees:payment_method_transaction_fees(*)
+            `)
+            .eq('id', data.payment_method_id)
+            .single();
+
+          if (paymentMethod) {
+            const installmentCount = data.payment_installments || 1;
+            const baseAmount = Math.floor(total_cents / installmentCount);
+            const remainder = total_cents - (baseAmount * installmentCount);
+            
+            // Determine if this is anticipation flow or regular flow
+            const isAnticipation = paymentMethod.installment_flow === 'anticipation';
+            const anticipationFee = paymentMethod.anticipation_fee_percentage || 0;
+            
+            // Get the settlement days - for credit installments, use method's settlement days
+            // Default to 30 days if not specified
+            const settlementDays = paymentMethod.settlement_days || 30;
+            
+            const installmentsToCreate = [];
+            
+            for (let i = 0; i < installmentCount; i++) {
+              const dueDate = new Date();
+              
+              if (isAnticipation) {
+                // All installments received on same date (anticipation)
+                dueDate.setDate(dueDate.getDate() + settlementDays);
+              } else {
+                // Regular flow - each installment received after N days apart
+                dueDate.setDate(dueDate.getDate() + (settlementDays * (i + 1)));
+              }
+              
+              let amount = baseAmount + (i === 0 ? remainder : 0);
+              let feeAmount = 0;
+              
+              // If anticipation, calculate and apply fee to each installment
+              if (isAnticipation && anticipationFee > 0) {
+                feeAmount = Math.round(amount * (anticipationFee / 100));
+              }
+              
+              installmentsToCreate.push({
+                sale_id: sale.id,
+                organization_id: organizationId,
+                installment_number: i + 1,
+                total_installments: installmentCount,
+                amount_cents: amount,
+                fee_cents: feeAmount,
+                fee_percentage: isAnticipation ? anticipationFee : (paymentMethod.fee_percentage || 0),
+                net_amount_cents: amount - feeAmount,
+                due_date: dueDate.toISOString().split('T')[0],
+                status: 'pending',
+                acquirer_id: paymentMethod.acquirer_id || null,
+              });
+            }
+            
+            if (installmentsToCreate.length > 0) {
+              await supabase
+                .from('sale_installments')
+                .insert(installmentsToCreate);
+            }
+          }
+        } catch (installmentError) {
+          console.error('Erro ao criar parcelas:', installmentError);
+          // Don't fail the sale, installments can be created manually later
+        }
+      }
+
       return sale;
     },
     onSuccess: () => {

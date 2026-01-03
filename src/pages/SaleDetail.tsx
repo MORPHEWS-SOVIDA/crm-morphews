@@ -531,16 +531,84 @@ export default function SaleDetail() {
       }
     });
     
-    // If we have conciliation data, update installments with that info
-    if (data.nsu_cv || data.card_brand || data.transaction_type) {
+    // Check if installments exist for this sale
+    const { data: existingInstallments } = await supabase
+      .from('sale_installments')
+      .select('id')
+      .eq('sale_id', sale.id);
+    
+    // If no installments exist, create them
+    if (!existingInstallments || existingInstallments.length === 0) {
+      // Get payment method details
+      const { data: paymentMethod } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('id', data.payment_method_id)
+        .single();
+      
+      if (paymentMethod) {
+        const installmentCount = data.installments || sale.payment_installments || 1;
+        const baseAmount = Math.floor(sale.total_cents / installmentCount);
+        const remainder = sale.total_cents - (baseAmount * installmentCount);
+        
+        const isAnticipation = paymentMethod.installment_flow === 'anticipation';
+        const anticipationFee = paymentMethod.anticipation_fee_percentage || 0;
+        const settlementDays = paymentMethod.settlement_days || 30;
+        
+        const installmentsToCreate = [];
+        
+        for (let i = 0; i < installmentCount; i++) {
+          const dueDate = new Date(data.transaction_date || new Date());
+          
+          if (isAnticipation) {
+            dueDate.setDate(dueDate.getDate() + settlementDays);
+          } else {
+            dueDate.setDate(dueDate.getDate() + (settlementDays * (i + 1)));
+          }
+          
+          let amount = baseAmount + (i === 0 ? remainder : 0);
+          let feeAmount = 0;
+          
+          if (isAnticipation && anticipationFee > 0) {
+            feeAmount = Math.round(amount * (anticipationFee / 100));
+          }
+          
+          installmentsToCreate.push({
+            sale_id: sale.id,
+            organization_id: sale.organization_id,
+            installment_number: i + 1,
+            total_installments: installmentCount,
+            amount_cents: amount,
+            fee_cents: feeAmount,
+            fee_percentage: isAnticipation ? anticipationFee : (paymentMethod.fee_percentage || 0),
+            net_amount_cents: amount - feeAmount,
+            due_date: dueDate.toISOString().split('T')[0],
+            status: 'confirmed',
+            acquirer_id: data.acquirer_id || paymentMethod.acquirer_id || null,
+            transaction_date: data.transaction_date?.toISOString() || null,
+            card_brand: (data.card_brand as any) || null,
+            transaction_type: (data.transaction_type as any) || null,
+            nsu_cv: data.nsu_cv || null,
+            confirmed_at: new Date().toISOString(),
+          });
+        }
+        
+        if (installmentsToCreate.length > 0) {
+          await supabase.from('sale_installments').insert(installmentsToCreate);
+        }
+      }
+    } else {
+      // If installments exist, update them with conciliation data and confirm
       await supabase
         .from('sale_installments')
         .update({
+          status: 'confirmed',
           transaction_date: data.transaction_date?.toISOString() || null,
           card_brand: (data.card_brand as any) || null,
           transaction_type: (data.transaction_type as any) || null,
           nsu_cv: data.nsu_cv || null,
           acquirer_id: data.acquirer_id || null,
+          confirmed_at: new Date().toISOString(),
         })
         .eq('sale_id', sale.id);
     }
