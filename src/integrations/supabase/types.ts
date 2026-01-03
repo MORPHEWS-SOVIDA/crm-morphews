@@ -1933,6 +1933,7 @@ export type Database = {
           avatar_horse_url: string | null
           avatar_url: string | null
           created_at: string
+          daily_goal_cents: number | null
           dream_prize: string | null
           email: string | null
           favorite_chocolate: string | null
@@ -1941,10 +1942,12 @@ export type Database = {
           id: string
           instagram: string | null
           last_name: string
+          monthly_goal_cents: number | null
           nickname: string | null
           organization_id: string | null
           updated_at: string
           user_id: string
+          weekly_goal_cents: number | null
           whatsapp: string | null
         }
         Insert: {
@@ -1953,6 +1956,7 @@ export type Database = {
           avatar_horse_url?: string | null
           avatar_url?: string | null
           created_at?: string
+          daily_goal_cents?: number | null
           dream_prize?: string | null
           email?: string | null
           favorite_chocolate?: string | null
@@ -1961,10 +1965,12 @@ export type Database = {
           id?: string
           instagram?: string | null
           last_name: string
+          monthly_goal_cents?: number | null
           nickname?: string | null
           organization_id?: string | null
           updated_at?: string
           user_id: string
+          weekly_goal_cents?: number | null
           whatsapp?: string | null
         }
         Update: {
@@ -1973,6 +1979,7 @@ export type Database = {
           avatar_horse_url?: string | null
           avatar_url?: string | null
           created_at?: string
+          daily_goal_cents?: number | null
           dream_prize?: string | null
           email?: string | null
           favorite_chocolate?: string | null
@@ -1981,10 +1988,12 @@ export type Database = {
           id?: string
           instagram?: string | null
           last_name?: string
+          monthly_goal_cents?: number | null
           nickname?: string | null
           organization_id?: string | null
           updated_at?: string
           user_id?: string
+          weekly_goal_cents?: number | null
           whatsapp?: string | null
         }
         Relationships: [

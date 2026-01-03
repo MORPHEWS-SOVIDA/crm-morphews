@@ -104,6 +104,10 @@ export default function Team() {
     favoriteChocolate: "",
     dreamPrize: "",
     nickname: "",
+    // Sales goals
+    dailyGoalCents: 0,
+    weeklyGoalCents: 0,
+    monthlyGoalCents: 0,
   });
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
@@ -131,6 +135,10 @@ export default function Team() {
     favoriteChocolate: "",
     dreamPrize: "",
     nickname: "",
+    // Sales goals
+    dailyGoalCents: 0,
+    weeklyGoalCents: 0,
+    monthlyGoalCents: 0,
   });
 
   // Fetch current user's full profile
@@ -164,6 +172,9 @@ export default function Team() {
         favoriteChocolate: myFullProfile.favorite_chocolate || "",
         dreamPrize: myFullProfile.dream_prize || "",
         nickname: myFullProfile.nickname || "",
+        dailyGoalCents: myFullProfile.daily_goal_cents || 0,
+        weeklyGoalCents: myFullProfile.weekly_goal_cents || 0,
+        monthlyGoalCents: myFullProfile.monthly_goal_cents || 0,
       });
     }
   });
@@ -186,7 +197,7 @@ export default function Team() {
       const memberIds = membersData.map(m => m.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("first_name, last_name, user_id, email, whatsapp, instagram, avatar_cartoon_url, avatar_fighter_url, avatar_horse_url, favorite_drink, favorite_chocolate, dream_prize, nickname")
+        .select("first_name, last_name, user_id, email, whatsapp, instagram, avatar_cartoon_url, avatar_fighter_url, avatar_horse_url, favorite_drink, favorite_chocolate, dream_prize, nickname, daily_goal_cents, weekly_goal_cents, monthly_goal_cents")
         .in("user_id", memberIds);
 
       if (profilesError) throw profilesError;
@@ -294,6 +305,9 @@ export default function Team() {
       favoriteChocolate: myFullProfile?.favorite_chocolate || "",
       dreamPrize: myFullProfile?.dream_prize || "",
       nickname: myFullProfile?.nickname || "",
+      dailyGoalCents: myFullProfile?.daily_goal_cents || 0,
+      weeklyGoalCents: myFullProfile?.weekly_goal_cents || 0,
+      monthlyGoalCents: myFullProfile?.monthly_goal_cents || 0,
     });
     setIsEditingMyProfile(true);
   };
@@ -318,6 +332,9 @@ export default function Team() {
           favorite_chocolate: myProfileData.favoriteChocolate || null,
           dream_prize: myProfileData.dreamPrize || null,
           nickname: myProfileData.nickname || null,
+          daily_goal_cents: myProfileData.dailyGoalCents || 0,
+          weekly_goal_cents: myProfileData.weeklyGoalCents || 0,
+          monthly_goal_cents: myProfileData.monthlyGoalCents || 0,
         })
         .eq("user_id", user.id);
 
@@ -362,6 +379,9 @@ export default function Team() {
       favoriteChocolate: (member.profile as any)?.favorite_chocolate || "",
       dreamPrize: (member.profile as any)?.dream_prize || "",
       nickname: (member.profile as any)?.nickname || "",
+      dailyGoalCents: (member.profile as any)?.daily_goal_cents || 0,
+      weeklyGoalCents: (member.profile as any)?.weekly_goal_cents || 0,
+      monthlyGoalCents: (member.profile as any)?.monthly_goal_cents || 0,
     });
     setIsEditDialogOpen(true);
   };
@@ -434,6 +454,9 @@ export default function Team() {
           favorite_chocolate: editMemberData.favoriteChocolate || null,
           dream_prize: editMemberData.dreamPrize || null,
           nickname: editMemberData.nickname || null,
+          daily_goal_cents: editMemberData.dailyGoalCents || 0,
+          weekly_goal_cents: editMemberData.weeklyGoalCents || 0,
+          monthly_goal_cents: editMemberData.monthlyGoalCents || 0,
         })
         .eq("user_id", editingMember.user_id);
 
@@ -985,6 +1008,59 @@ export default function Team() {
                   </div>
                 </div>
 
+                {/* Sales Goals Section */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-medium mb-4 text-primary">🎯 Metas de Vendas</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="myDailyGoal">Meta Diária (R$)</Label>
+                      <Input
+                        id="myDailyGoal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={(myProfileData.dailyGoalCents / 100) || ""}
+                        onChange={(e) => setMyProfileData({ 
+                          ...myProfileData, 
+                          dailyGoalCents: Math.round(parseFloat(e.target.value || "0") * 100) 
+                        })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="myWeeklyGoal">Meta Semanal (R$)</Label>
+                      <Input
+                        id="myWeeklyGoal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={(myProfileData.weeklyGoalCents / 100) || ""}
+                        onChange={(e) => setMyProfileData({ 
+                          ...myProfileData, 
+                          weeklyGoalCents: Math.round(parseFloat(e.target.value || "0") * 100) 
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground">Segunda a Domingo</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="myMonthlyGoal">Meta Mensal (R$)</Label>
+                      <Input
+                        id="myMonthlyGoal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={(myProfileData.monthlyGoalCents / 100) || ""}
+                        onChange={(e) => setMyProfileData({ 
+                          ...myProfileData, 
+                          monthlyGoalCents: Math.round(parseFloat(e.target.value || "0") * 100) 
+                        })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   <Button variant="outline" onClick={() => setIsEditingMyProfile(false)}>
                     Cancelar
@@ -1344,6 +1420,59 @@ export default function Team() {
                         placeholder="Ex: Viagem, iPhone..."
                         value={editMemberData.dreamPrize}
                         onChange={(e) => setEditMemberData({ ...editMemberData, dreamPrize: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sales Goals Section */}
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-4 text-primary">🎯 Metas de Vendas</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="editDailyGoal">Meta Diária (R$)</Label>
+                      <Input
+                        id="editDailyGoal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={(editMemberData.dailyGoalCents / 100) || ""}
+                        onChange={(e) => setEditMemberData({ 
+                          ...editMemberData, 
+                          dailyGoalCents: Math.round(parseFloat(e.target.value || "0") * 100) 
+                        })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editWeeklyGoal">Meta Semanal (R$)</Label>
+                      <Input
+                        id="editWeeklyGoal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={(editMemberData.weeklyGoalCents / 100) || ""}
+                        onChange={(e) => setEditMemberData({ 
+                          ...editMemberData, 
+                          weeklyGoalCents: Math.round(parseFloat(e.target.value || "0") * 100) 
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground">Segunda a Domingo</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editMonthlyGoal">Meta Mensal (R$)</Label>
+                      <Input
+                        id="editMonthlyGoal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={(editMemberData.monthlyGoalCents / 100) || ""}
+                        onChange={(e) => setEditMemberData({ 
+                          ...editMemberData, 
+                          monthlyGoalCents: Math.round(parseFloat(e.target.value || "0") * 100) 
+                        })}
                       />
                     </div>
                   </div>

@@ -17,6 +17,10 @@ export interface UserProfile {
   favorite_chocolate: string | null;
   dream_prize: string | null;
   nickname: string | null;
+  // Sales goals
+  daily_goal_cents: number | null;
+  weekly_goal_cents: number | null;
+  monthly_goal_cents: number | null;
 }
 
 export interface UserWithRole extends UserProfile {
@@ -129,7 +133,8 @@ export function useUpdateUserProfile() {
       data: Partial<Pick<UserProfile, 
         'first_name' | 'last_name' | 'instagram' | 'whatsapp' | 'avatar_url' |
         'avatar_cartoon_url' | 'avatar_fighter_url' | 'avatar_horse_url' |
-        'favorite_drink' | 'favorite_chocolate' | 'dream_prize' | 'nickname'
+        'favorite_drink' | 'favorite_chocolate' | 'dream_prize' | 'nickname' |
+        'daily_goal_cents' | 'weekly_goal_cents' | 'monthly_goal_cents'
       >>;
     }) => {
       const { error } = await supabase
