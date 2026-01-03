@@ -40,6 +40,7 @@ import AddReceptivo from "./pages/AddReceptivo";
 import WhatsAppV2 from "./pages/WhatsAppV2";
 import TwoFactorAuth from "./pages/TwoFactorAuth";
 import PostSale from "./pages/PostSale";
+import SalesDashboard from "./pages/SalesDashboard";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 
@@ -215,6 +216,16 @@ const App = () => (
                 }
               />
               
+              {/* Sales Dashboard - require sales_view */}
+              <Route
+                path="/dashboard-vendas"
+                element={
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
+                    <SalesDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Sales - require sales_view */}
               <Route
                 path="/vendas"

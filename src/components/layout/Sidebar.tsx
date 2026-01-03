@@ -19,6 +19,7 @@ import {
   UserPlus,
   Shield,
   ClipboardList,
+  Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,9 @@ export function Sidebar() {
     
     // Products
     { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts },
+    
+    // Sales Dashboard
+    { icon: Trophy, label: 'Dashboard Vendas', path: '/dashboard-vendas', visible: canSeeSales },
     
     // Sales
     { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales },
