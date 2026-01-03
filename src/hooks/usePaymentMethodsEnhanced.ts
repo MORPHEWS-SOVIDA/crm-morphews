@@ -142,6 +142,7 @@ export interface PaymentMethodEnhanced {
   fee_percentage: number;
   fee_fixed_cents: number;
   settlement_days: number;
+  anticipation_fee_percentage: number;
   requires_proof: boolean;
   requires_transaction_data: boolean;
   display_order: number;
@@ -493,6 +494,7 @@ export interface CreatePaymentMethodInput {
   fee_percentage?: number;
   fee_fixed_cents?: number;
   settlement_days?: number;
+  anticipation_fee_percentage?: number;
   requires_proof?: boolean;
   // Transaction fees for card-based methods
   transaction_fees?: {

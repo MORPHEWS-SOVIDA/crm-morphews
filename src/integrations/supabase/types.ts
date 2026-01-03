@@ -1625,6 +1625,7 @@ export type Database = {
       payment_methods: {
         Row: {
           acquirer_id: string | null
+          anticipation_fee_percentage: number | null
           bank_destination_id: string | null
           category: Database["public"]["Enums"]["payment_category"] | null
           cnpj_destination_id: string | null
@@ -1652,6 +1653,7 @@ export type Database = {
         }
         Insert: {
           acquirer_id?: string | null
+          anticipation_fee_percentage?: number | null
           bank_destination_id?: string | null
           category?: Database["public"]["Enums"]["payment_category"] | null
           cnpj_destination_id?: string | null
@@ -1679,6 +1681,7 @@ export type Database = {
         }
         Update: {
           acquirer_id?: string | null
+          anticipation_fee_percentage?: number | null
           bank_destination_id?: string | null
           category?: Database["public"]["Enums"]["payment_category"] | null
           cnpj_destination_id?: string | null

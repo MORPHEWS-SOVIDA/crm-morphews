@@ -104,6 +104,7 @@ interface FormData {
   fee_percentage: number;
   fee_fixed_cents: number;
   settlement_days: number;
+  anticipation_fee_percentage: number;
   requires_proof: boolean;
   transaction_fees: TransactionFeeFormData[];
 }
@@ -164,6 +165,7 @@ export function PaymentMethodsManagerEnhanced() {
     fee_percentage: 0,
     fee_fixed_cents: 0,
     settlement_days: 0,
+    anticipation_fee_percentage: 0,
     requires_proof: false,
     transaction_fees: getDefaultTransactionFees(),
   });
@@ -183,6 +185,7 @@ export function PaymentMethodsManagerEnhanced() {
       fee_percentage: 0,
       fee_fixed_cents: 0,
       settlement_days: 0,
+      anticipation_fee_percentage: 0,
       requires_proof: false,
       transaction_fees: getDefaultTransactionFees(),
     });
@@ -233,6 +236,7 @@ export function PaymentMethodsManagerEnhanced() {
       fee_percentage: method.fee_percentage,
       fee_fixed_cents: method.fee_fixed_cents || 0,
       settlement_days: method.settlement_days,
+      anticipation_fee_percentage: method.anticipation_fee_percentage || 0,
       requires_proof: method.requires_proof,
       transaction_fees: transactionFees,
     });
@@ -262,6 +266,7 @@ export function PaymentMethodsManagerEnhanced() {
       fee_percentage: formData.fee_percentage,
       fee_fixed_cents: formData.fee_fixed_cents,
       settlement_days: formData.settlement_days,
+      anticipation_fee_percentage: formData.installment_flow === 'anticipation' ? formData.anticipation_fee_percentage : 0,
       requires_proof: formData.requires_proof,
       transaction_fees: enabledFees,
     };
@@ -552,41 +557,43 @@ export function PaymentMethodsManagerEnhanced() {
                   />
                 </div>
 
-                {/* Payment Timing */}
-                <div className="space-y-2">
-                  <Label>Tipo de Pagamento *</Label>
-                  <Select
-                    value={formData.payment_timing}
-                    onValueChange={(value: PaymentTiming) => setFormData({ ...formData, payment_timing: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">
-                        <div className="flex items-center gap-2">
-                          <Banknote className="h-4 w-4" />
-                          À Vista
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="term">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          A Prazo
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="installments">
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
-                          Parcelado
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Payment Timing - Hide for card_machine since it's defined per transaction type */}
+                {formData.category !== 'card_machine' && (
+                  <div className="space-y-2">
+                    <Label>Tipo de Pagamento *</Label>
+                    <Select
+                      value={formData.payment_timing}
+                      onValueChange={(value: PaymentTiming) => setFormData({ ...formData, payment_timing: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">
+                          <div className="flex items-center gap-2">
+                            <Banknote className="h-4 w-4" />
+                            À Vista
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="term">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            A Prazo
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="installments">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            Parcelado
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-                {/* Installment options */}
-                {formData.payment_timing === 'installments' && (
+                {/* Installment options - Show for non-card_machine with installments timing */}
+                {formData.payment_timing === 'installments' && formData.category !== 'card_machine' && (
                   <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
                     <div className="space-y-2">
                       <Label>Fluxo de Recebimento *</Label>
@@ -599,7 +606,7 @@ export function PaymentMethodsManagerEnhanced() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="anticipation">
-                            Antecipação em 1x
+                            Antecipação automática
                           </SelectItem>
                           <SelectItem value="receive_per_installment">
                             Receber no fluxo de parcelas
@@ -608,10 +615,32 @@ export function PaymentMethodsManagerEnhanced() {
                       </Select>
                       <p className="text-xs text-muted-foreground">
                         {formData.installment_flow === 'receive_per_installment' 
-                          ? 'O sistema gerará X recebimentos conforme o número de parcelas'
+                          ? 'Ex: Venda em 6x → recebe em 30/60/90/120/150/180 dias'
                           : 'A operadora antecipa o valor total em uma única parcela'}
                       </p>
                     </div>
+                    
+                    {/* Anticipation fee - only show when anticipation is selected */}
+                    {formData.installment_flow === 'anticipation' && (
+                      <div className="space-y-2">
+                        <Label>Taxa de Antecipação (%)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={formData.anticipation_fee_percentage || 0}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            anticipation_fee_percentage: Number(e.target.value) 
+                          })}
+                          placeholder="0,00"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Esta taxa será somada à taxa da transação para calcular o valor líquido
+                        </p>
+                      </div>
+                    )}
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
