@@ -2329,6 +2329,7 @@ export type Database = {
           invoice_pdf_url: string | null
           invoice_xml_url: string | null
           lead_id: string
+          missing_payment_proof: boolean | null
           organization_id: string
           payment_confirmed_at: string | null
           payment_confirmed_by: string | null
@@ -2381,6 +2382,7 @@ export type Database = {
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
           lead_id: string
+          missing_payment_proof?: boolean | null
           organization_id: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null
@@ -2433,6 +2435,7 @@ export type Database = {
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
           lead_id?: string
+          missing_payment_proof?: boolean | null
           organization_id?: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null

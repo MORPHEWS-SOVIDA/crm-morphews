@@ -92,16 +92,19 @@ function useDeliveryReturnReasons() {
 // Delivery Actions Card Component - Simplified with just 2 buttons
 interface DeliveryActionsCardProps {
   sale: any;
-  handleMarkDelivered: () => void;
+  handleMarkDelivered: (skipProofCheck?: boolean) => void;
   updateSale: any;
+  paymentMethodRequiresProof: boolean;
 }
 
 function DeliveryActionsCard({
   sale,
   handleMarkDelivered,
   updateSale,
+  paymentMethodRequiresProof,
 }: DeliveryActionsCardProps) {
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
+  const [showDeliveryProofDialog, setShowDeliveryProofDialog] = React.useState(false);
   const [selectedReturnReason, setSelectedReturnReason] = React.useState<string>('');
   const [returnNotes, setReturnNotes] = React.useState('');
   const { data: returnReasons = [] } = useDeliveryReturnReasons();
@@ -133,6 +136,49 @@ function DeliveryActionsCard({
     toast.success('Venda marcada como retornada');
   };
 
+  const handleDeliveryClick = () => {
+    // Check if payment method requires proof and proof is missing
+    const needsProof = paymentMethodRequiresProof && !sale.payment_proof_url;
+    
+    if (needsProof) {
+      setShowDeliveryProofDialog(true);
+    } else {
+      handleMarkDelivered(false);
+    }
+  };
+
+  const handleProceedWithoutProof = async () => {
+    setShowDeliveryProofDialog(false);
+    handleMarkDelivered(true); // Flag as missing proof
+  };
+
+  // Handle payment proof upload in delivery dialog
+  const handleProofUploadInDialog = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${sale.id}/payment_proof_${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('sales-documents')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      toast.error('Erro ao fazer upload do arquivo');
+      return;
+    }
+
+    await updateSale.mutateAsync({
+      id: sale.id,
+      data: { payment_proof_url: fileName }
+    });
+    
+    setShowDeliveryProofDialog(false);
+    toast.success('Comprovante anexado!');
+    handleMarkDelivered(false); // Now can mark as delivered without flag
+  };
+
   return (
     <>
       <Card>
@@ -146,7 +192,7 @@ function DeliveryActionsCard({
           <div className="flex flex-col gap-2">
             <Button 
               className="w-full"
-              onClick={handleMarkDelivered}
+              onClick={handleDeliveryClick}
               disabled={updateSale.isPending}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -215,6 +261,48 @@ function DeliveryActionsCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delivery Proof Required Dialog */}
+      <AlertDialog open={showDeliveryProofDialog} onOpenChange={setShowDeliveryProofDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Comprovante de Pagamento
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                A forma de pagamento desta venda <strong>exige comprovante</strong>, mas ele ainda não foi anexado.
+              </p>
+              <p>
+                Você pode anexar o comprovante agora ou continuar sem ele. Se continuar sem, a venda será marcada como <strong>desconforme</strong> para posterior regularização.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label className="flex items-center gap-2 mb-2">
+              <Upload className="w-4 h-4" />
+              Anexar Comprovante Agora
+            </Label>
+            <Input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleProofUploadInDialog}
+              className="cursor-pointer"
+            />
+          </div>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button 
+              variant="outline" 
+              className="border-amber-500 text-amber-600 hover:bg-amber-50"
+              onClick={handleProceedWithoutProof}
+            >
+              Continuar sem comprovante
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -228,6 +316,25 @@ export default function SaleDetail() {
   const { data: regions = [] } = useDeliveryRegions();
   const { profile } = useAuth();
   const { data: permissions } = useMyPermissions();
+
+  // Fetch payment method to check if it requires proof
+  const { data: salePaymentMethod } = useQuery({
+    queryKey: ['payment-method', sale?.payment_method_id],
+    queryFn: async () => {
+      if (!sale?.payment_method_id) return null;
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('id', sale.payment_method_id)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!sale?.payment_method_id,
+  });
+
+  // Check if payment method requires proof
+  const paymentMethodRequiresProof = salePaymentMethod?.requires_proof || false;
 
   // Permission checks
   const canValidateExpedition = permissions?.sales_validate_expedition;
@@ -380,8 +487,8 @@ export default function SaleDetail() {
     toast.success('Venda despachada!');
   };
 
-  // Mark as delivered - simplified to always mark as normal delivery
-  const handleMarkDelivered = async () => {
+  // Mark as delivered - with optional missing proof flag
+  const handleMarkDelivered = async (markAsMissingProof: boolean = false) => {
     if (!sale) return;
 
     await updateSale.mutateAsync({
@@ -389,9 +496,15 @@ export default function SaleDetail() {
       data: {
         status: 'delivered',
         delivery_status: 'delivered_normal' as DeliveryStatus,
-      }
+        missing_payment_proof: markAsMissingProof,
+      } as any
     });
-    toast.success('Entrega registrada!');
+    
+    if (markAsMissingProof) {
+      toast.warning('Entrega registrada - Venda marcada como desconforme (sem comprovante)');
+    } else {
+      toast.success('Entrega registrada!');
+    }
   };
 
   // Confirm payment with conciliation data
@@ -467,18 +580,27 @@ export default function SaleDetail() {
     }
   };
 
-  // Handle payment proof upload
+  // Handle payment proof upload - also clears missing_payment_proof flag if it was set
   const handlePaymentProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !sale) return;
 
     const url = await handleFileUpload(file, 'payment_proof');
     if (url) {
+      // Update payment proof URL and clear missing_payment_proof flag if it was set
       await updateSale.mutateAsync({
         id: sale.id,
-        data: { payment_proof_url: url }
+        data: { 
+          payment_proof_url: url,
+          missing_payment_proof: false,
+        } as any
       });
-      toast.success('Comprovante anexado!');
+      
+      if ((sale as any).missing_payment_proof) {
+        toast.success('Comprovante anexado! Venda regularizada.');
+      } else {
+        toast.success('Comprovante anexado!');
+      }
     }
   };
 
@@ -519,7 +641,7 @@ export default function SaleDetail() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-mono text-lg bg-primary/10 text-primary px-3 py-1 rounded">
                   #{sale.romaneio_number}
                 </span>
@@ -527,6 +649,12 @@ export default function SaleDetail() {
                 <Badge className={getStatusColor(sale.status)}>
                   {getStatusLabel(sale.status)}
                 </Badge>
+                {(sale as any).missing_payment_proof && (
+                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    DESCONFORME
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground">
                 Criada em {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -771,6 +899,23 @@ export default function SaleDetail() {
                   </div>
                 )}
 
+                {/* Missing Payment Proof Alert - Non-conforming sale */}
+                {(sale as any).missing_payment_proof && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                          Venda Desconforme
+                        </p>
+                        <p className="text-xs text-red-700 dark:text-red-300">
+                          Entregue sem comprovante de pagamento anexado. Regularize esta venda.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {sale.status === 'returned' && (sale as any).returned_at && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 space-y-2">
                     <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Esta entrega voltou</p>
@@ -940,6 +1085,7 @@ export default function SaleDetail() {
                 sale={sale}
                 handleMarkDelivered={handleMarkDelivered}
                 updateSale={updateSale}
+                paymentMethodRequiresProof={paymentMethodRequiresProof}
               />
             )}
 
