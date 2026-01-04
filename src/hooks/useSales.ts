@@ -265,7 +265,7 @@ export function useSales(filters?: { status?: SaleStatus }) {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, lead_source)
         `)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
@@ -284,29 +284,32 @@ export function useSales(filters?: { status?: SaleStatus }) {
 
       if (error) throw error;
 
-      // Fetch seller profiles separately
+      // Fetch seller profiles and delivery user profiles separately
       const sellerUserIds = [...new Set((data || []).map(s => s.seller_user_id).filter(Boolean))] as string[];
+      const deliveryUserIds = [...new Set((data || []).map(s => s.assigned_delivery_user_id).filter(Boolean))] as string[];
+      const allUserIds = [...new Set([...sellerUserIds, ...deliveryUserIds])];
       
-      let sellerProfiles: Record<string, { first_name: string; last_name: string }> = {};
+      let userProfiles: Record<string, { first_name: string; last_name: string }> = {};
       
-      if (sellerUserIds.length > 0) {
+      if (allUserIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name')
-          .in('user_id', sellerUserIds);
+          .in('user_id', allUserIds);
         
         if (profiles) {
-          sellerProfiles = profiles.reduce((acc, p) => {
+          userProfiles = profiles.reduce((acc, p) => {
             acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
             return acc;
           }, {} as Record<string, { first_name: string; last_name: string }>);
         }
       }
 
-      // Merge seller profiles into sales
+      // Merge profiles into sales
       const salesWithProfiles = (data || []).map(sale => ({
         ...sale,
-        seller_profile: sale.seller_user_id ? sellerProfiles[sale.seller_user_id] : undefined,
+        seller_profile: sale.seller_user_id ? userProfiles[sale.seller_user_id] : undefined,
+        delivery_user_profile: sale.assigned_delivery_user_id ? userProfiles[sale.assigned_delivery_user_id] : undefined,
       }));
 
       return salesWithProfiles as Sale[];
