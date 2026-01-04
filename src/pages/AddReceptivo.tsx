@@ -33,21 +33,18 @@ import {
   Calendar,
   Coins,
   XCircle,
-  Eye,
-  EyeOff,
   AlertTriangle,
   UserCheck,
   CreditCard,
   Clock,
-  Upload,
   Truck,
-  Check,
-  ChevronDown,
-  ChevronUp,
   Star,
   Plus,
   Trash2,
-  Gift
+  Gift,
+  ExternalLink,
+  Eye,
+  History
 } from 'lucide-react';
 import { 
   useReceptiveModuleAccess, 
@@ -69,8 +66,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTenant } from '@/hooks/useTenant';
 import { useUsers } from '@/hooks/useUsers';
 import { useActivePaymentMethods, PAYMENT_TIMING_LABELS } from '@/hooks/usePaymentMethods';
-import { useCreateSale, DeliveryType } from '@/hooks/useSales';
+import { useCreateSale, DeliveryType, useLeadSales, formatCurrency, getStatusLabel, getStatusColor } from '@/hooks/useSales';
 import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
+import { LeadStageTimeline } from '@/components/LeadStageTimeline';
+import { LeadFollowupsSection } from '@/components/leads/LeadFollowupsSection';
+import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHistorySection';
+import { LeadSacSection } from '@/components/leads/LeadSacSection';
+import { LeadAddressesManager } from '@/components/leads/LeadAddressesManager';
+import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -100,6 +103,10 @@ interface LeadData {
   existed: boolean;
   created_at?: string;
   delivery_region_id?: string | null;
+  stage?: FunnelStage;
+  stars?: number;
+  negotiated_value?: number;
+  paid_value?: number;
 }
 
 interface DeliveryConfig {
@@ -111,7 +118,7 @@ interface DeliveryConfig {
   shippingCost: number;
 }
 
-interface CartItem {
+interface OfferItem {
   productId: string;
   productName: string;
   productCategory: string;
@@ -122,6 +129,7 @@ interface CartItem {
   commissionPercentage: number;
   commissionCents: number;
   requisitionNumber?: string;
+  answers: Record<string, string>;
 }
 
 const initialLeadData: LeadData = {
@@ -166,8 +174,6 @@ export default function AddReceptivo() {
   const [leadData, setLeadData] = useState<LeadData>(initialLeadData);
   const [conversationMode, setConversationMode] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [productAnswers, setProductAnswers] = useState<Record<string, string>>({});
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -177,28 +183,30 @@ export default function AddReceptivo() {
     recorded_at: string;
   }>>([]);
 
-  // Cart state (multiple products)
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [showAddProduct, setShowAddProduct] = useState(false);
+  // Multi-product offer items (inline, not cart)
+  const [offerItems, setOfferItems] = useState<OfferItem[]>([]);
+  const [showAddProduct, setShowAddProduct] = useState(true);
 
-  // Kit selection state
-  const [selectedKitId, setSelectedKitId] = useState<string | null>(null);
-  const [selectedPriceType, setSelectedPriceType] = useState<'regular' | 'promotional' | 'promotional_2' | 'minimum'>('promotional');
-  const [customPrice, setCustomPrice] = useState<number>(0);
-  const [rejectedKitIds, setRejectedKitIds] = useState<string[]>([]);
+  // Current product being configured
+  const [currentProductId, setCurrentProductId] = useState('');
+  const [currentKitId, setCurrentKitId] = useState<string | null>(null);
+  const [currentPriceType, setCurrentPriceType] = useState<'regular' | 'promotional' | 'promotional_2' | 'minimum'>('promotional');
+  const [currentCustomPrice, setCurrentCustomPrice] = useState<number>(0);
+  const [currentRejectedKitIds, setCurrentRejectedKitIds] = useState<string[]>([]);
   const [showPromo2, setShowPromo2] = useState(false);
   const [showMinimum, setShowMinimum] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionInput, setShowRejectionInput] = useState(false);
-  
-  // Discount
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
-  const [discountValue, setDiscountValue] = useState(0);
+  const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
   
   // Manipulado fields
   const [requisitionNumber, setRequisitionNumber] = useState('');
   const [manipuladoPrice, setManipuladoPrice] = useState<number>(0);
   const [manipuladoQuantity, setManipuladoQuantity] = useState<number>(1);
+
+  // Discount
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
+  const [discountValue, setDiscountValue] = useState(0);
 
   // Delivery config
   const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>({
@@ -217,19 +225,22 @@ export default function AddReceptivo() {
   const [sellerUserId, setSellerUserId] = useState<string | null>(null);
   const [purchasePotential, setPurchasePotential] = useState<number>(0);
 
-  const selectedProduct = products.find(p => p.id === selectedProductId);
+  const currentProduct = products.find(p => p.id === currentProductId);
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
   
-  // Fetch price kits for the selected product
-  const { data: productPriceKits = [] } = useProductPriceKits(selectedProductId || undefined);
+  // Fetch lead sales for history
+  const { data: leadSales = [] } = useLeadSales(leadData.id || '');
+  
+  // Fetch price kits for the current product
+  const { data: productPriceKits = [] } = useProductPriceKits(currentProductId || undefined);
   const sortedKits = useMemo(() => [...productPriceKits].sort((a, b) => a.position - b.position), [productPriceKits]);
 
   // Fetch kit rejections for this lead/product
-  const { data: existingRejections = [] } = useKitRejections(leadData.id, selectedProductId || undefined);
+  const { data: existingRejections = [] } = useKitRejections(leadData.id, currentProductId || undefined);
   const createKitRejection = useCreateKitRejection();
   
   // Fetch existing product answers
-  const { data: existingAnswers } = useLeadProductAnswer(leadData.id, selectedProductId || undefined);
+  const { data: existingAnswers } = useLeadProductAnswer(leadData.id, currentProductId || undefined);
 
   // Set default seller
   useEffect(() => {
@@ -241,38 +252,37 @@ export default function AddReceptivo() {
   // Load existing answers when product changes
   useEffect(() => {
     if (existingAnswers) {
-      setProductAnswers({
+      setCurrentAnswers({
         answer_1: existingAnswers.answer_1 || '',
         answer_2: existingAnswers.answer_2 || '',
         answer_3: existingAnswers.answer_3 || '',
       });
     } else {
-      setProductAnswers({});
+      setCurrentAnswers({});
     }
   }, [existingAnswers]);
 
   // Load existing rejections
   useEffect(() => {
     if (existingRejections.length > 0) {
-      setRejectedKitIds(existingRejections.map(r => r.kit_id));
+      setCurrentRejectedKitIds(existingRejections.map(r => r.kit_id));
     }
   }, [existingRejections]);
 
   // Auto-select first non-rejected kit
   useEffect(() => {
-    if (sortedKits.length > 0 && !selectedKitId) {
-      const firstAvailable = sortedKits.find(k => !rejectedKitIds.includes(k.id));
+    if (sortedKits.length > 0 && !currentKitId) {
+      const firstAvailable = sortedKits.find(k => !currentRejectedKitIds.includes(k.id));
       if (firstAvailable) {
-        setSelectedKitId(firstAvailable.id);
-        // Default to promotional if available, else regular
+        setCurrentKitId(firstAvailable.id);
         if (firstAvailable.promotional_price_cents) {
-          setSelectedPriceType('promotional');
+          setCurrentPriceType('promotional');
         } else {
-          setSelectedPriceType('regular');
+          setCurrentPriceType('regular');
         }
       }
     }
-  }, [sortedKits, rejectedKitIds, selectedKitId]);
+  }, [sortedKits, currentRejectedKitIds, currentKitId]);
 
   // Load source history when lead is found
   useEffect(() => {
@@ -327,9 +337,9 @@ export default function AddReceptivo() {
     );
   }
 
-  // Calculate selected values
-  const getSelectedValues = () => {
-    if (selectedProduct?.category === 'manipulado') {
+  // Calculate current product values
+  const getCurrentProductValues = () => {
+    if (currentProduct?.category === 'manipulado') {
       return {
         quantity: manipuladoQuantity,
         unitPrice: manipuladoPrice,
@@ -337,7 +347,7 @@ export default function AddReceptivo() {
       };
     }
 
-    const selectedKit = sortedKits.find(k => k.id === selectedKitId);
+    const selectedKit = sortedKits.find(k => k.id === currentKitId);
     if (!selectedKit) {
       return { quantity: 1, unitPrice: 0, commission: 0 };
     }
@@ -347,7 +357,7 @@ export default function AddReceptivo() {
     let useDefault = selectedKit.regular_use_default_commission;
     let customComm = selectedKit.regular_custom_commission;
 
-    switch (selectedPriceType) {
+    switch (currentPriceType) {
       case 'promotional':
         price = selectedKit.promotional_price_cents || selectedKit.regular_price_cents;
         useDefault = selectedKit.promotional_use_default_commission;
@@ -371,17 +381,17 @@ export default function AddReceptivo() {
 
     return {
       quantity: selectedKit.quantity,
-      unitPrice: customPrice > 0 ? customPrice : price,
+      unitPrice: currentCustomPrice > 0 ? currentCustomPrice : price,
       commission,
     };
   };
 
-  const { quantity, unitPrice, commission } = getSelectedValues();
+  const { quantity: currentQuantity, unitPrice: currentUnitPrice, commission: currentCommission } = getCurrentProductValues();
   
-  // Calculate cart totals
-  const cartSubtotal = cartItems.reduce((acc, item) => acc + (item.unitPriceCents * item.quantity), 0);
-  const currentItemSubtotal = unitPrice * quantity;
-  const subtotal = cartSubtotal + currentItemSubtotal;
+  // Calculate totals from offer items + current product
+  const offerItemsSubtotal = offerItems.reduce((acc, item) => acc + (item.unitPriceCents * item.quantity), 0);
+  const currentProductSubtotal = currentUnitPrice * currentQuantity;
+  const subtotal = offerItemsSubtotal + (currentProductId ? currentProductSubtotal : 0);
   
   let totalDiscount = 0;
   if (discountType === 'percentage' && discountValue > 0) {
@@ -393,10 +403,10 @@ export default function AddReceptivo() {
   const shippingCost = deliveryConfig.shippingCost;
   const total = subtotal - totalDiscount + shippingCost;
   
-  // Calculate total commission from cart + current item
-  const cartCommission = cartItems.reduce((acc, item) => acc + item.commissionCents, 0);
-  const currentCommissionValue = Math.round(currentItemSubtotal * (commission / 100));
-  const totalCommissionValue = cartCommission + currentCommissionValue;
+  // Calculate total commission
+  const offerItemsCommission = offerItems.reduce((acc, item) => acc + item.commissionCents, 0);
+  const currentCommissionValue = Math.round(currentProductSubtotal * (currentCommission / 100));
+  const totalCommissionValue = offerItemsCommission + (currentProductId ? currentCommissionValue : 0);
 
   // Get available installments
   const getAvailableInstallments = () => {
@@ -410,68 +420,73 @@ export default function AddReceptivo() {
 
   const formatPrice = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
 
-  // Add current product to cart
-  const handleAddToCart = () => {
-    if (!selectedProduct || !unitPrice) return;
+  // Add current product to offer items list
+  const handleAddProductToOffer = () => {
+    if (!currentProduct || !currentUnitPrice) return;
     
-    const newItem: CartItem = {
-      productId: selectedProductId,
-      productName: selectedProduct.name,
-      productCategory: selectedProduct.category,
-      kitId: selectedKitId,
-      priceType: customPrice > 0 ? 'custom' : selectedPriceType,
-      quantity: selectedProduct.category === 'manipulado' ? manipuladoQuantity : quantity,
-      unitPriceCents: unitPrice,
-      commissionPercentage: commission,
-      commissionCents: Math.round((unitPrice * quantity) * (commission / 100)),
-      requisitionNumber: selectedProduct.category === 'manipulado' ? requisitionNumber : undefined,
+    const newItem: OfferItem = {
+      productId: currentProductId,
+      productName: currentProduct.name,
+      productCategory: currentProduct.category,
+      kitId: currentKitId,
+      priceType: currentCustomPrice > 0 ? 'custom' : currentPriceType,
+      quantity: currentProduct.category === 'manipulado' ? manipuladoQuantity : currentQuantity,
+      unitPriceCents: currentUnitPrice,
+      commissionPercentage: currentCommission,
+      commissionCents: Math.round((currentUnitPrice * currentQuantity) * (currentCommission / 100)),
+      requisitionNumber: currentProduct.category === 'manipulado' ? requisitionNumber : undefined,
+      answers: { ...currentAnswers },
     };
     
-    setCartItems(prev => [...prev, newItem]);
+    setOfferItems(prev => [...prev, newItem]);
     
     // Reset for new product selection
-    setSelectedProductId('');
-    setSelectedKitId(null);
-    setRejectedKitIds([]);
+    resetCurrentProduct();
+    
+    toast({ title: 'Produto adicionado!' });
+  };
+
+  const resetCurrentProduct = () => {
+    setCurrentProductId('');
+    setCurrentKitId(null);
+    setCurrentRejectedKitIds([]);
     setShowPromo2(false);
     setShowMinimum(false);
-    setCustomPrice(0);
+    setCurrentCustomPrice(0);
     setRequisitionNumber('');
     setManipuladoPrice(0);
     setManipuladoQuantity(1);
-    setShowAddProduct(false);
-    
-    toast({ title: 'Produto adicionado ao carrinho!' });
+    setCurrentAnswers({});
+    setShowAddProduct(true);
   };
 
-  // Remove item from cart
-  const handleRemoveFromCart = (index: number) => {
-    setCartItems(prev => prev.filter((_, i) => i !== index));
+  // Remove item from offer
+  const handleRemoveFromOffer = (index: number) => {
+    setOfferItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Get cross-sell products for the selected product
+  // Get cross-sell products
   const getCrossSellProducts = () => {
-    if (!selectedProduct) return [];
-    const crossSellIds = [
-      selectedProduct.crosssell_product_1_id,
-      selectedProduct.crosssell_product_2_id
-    ].filter(Boolean);
+    const crossSellIds: string[] = [];
     
-    // Also include cross-sell from cart items
-    cartItems.forEach(item => {
-      const cartProduct = products.find(p => p.id === item.productId);
-      if (cartProduct) {
-        if (cartProduct.crosssell_product_1_id) crossSellIds.push(cartProduct.crosssell_product_1_id);
-        if (cartProduct.crosssell_product_2_id) crossSellIds.push(cartProduct.crosssell_product_2_id);
+    if (currentProduct) {
+      if (currentProduct.crosssell_product_1_id) crossSellIds.push(currentProduct.crosssell_product_1_id);
+      if (currentProduct.crosssell_product_2_id) crossSellIds.push(currentProduct.crosssell_product_2_id);
+    }
+    
+    offerItems.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      if (product) {
+        if (product.crosssell_product_1_id) crossSellIds.push(product.crosssell_product_1_id);
+        if (product.crosssell_product_2_id) crossSellIds.push(product.crosssell_product_2_id);
       }
     });
     
-    // Filter out products already in cart or currently selected
-    const inCartIds = cartItems.map(item => item.productId);
+    const inOfferIds = offerItems.map(item => item.productId);
     return products.filter(p => 
       crossSellIds.includes(p.id) && 
-      p.id !== selectedProductId && 
-      !inCartIds.includes(p.id) &&
+      p.id !== currentProductId && 
+      !inOfferIds.includes(p.id) &&
       p.is_active
     );
   };
@@ -506,6 +521,8 @@ export default function AddReceptivo() {
           cpf_cnpj: result.lead.cpf_cnpj || '',
           existed: true,
           created_at: result.lead.created_at,
+          stage: result.lead.stage as FunnelStage,
+          stars: result.lead.stars,
         });
         setSelectedSourceId(result.lead.lead_source || '');
         toast({ title: 'Lead encontrado!', description: result.lead.name });
@@ -532,7 +549,6 @@ export default function AddReceptivo() {
       return;
     }
 
-    // Create attendance record
     if (!attendanceId && tenantId && user) {
       try {
         const result = await createAttendance.mutateAsync({
@@ -558,18 +574,16 @@ export default function AddReceptivo() {
     setCurrentStep('product');
   };
 
-  const handleGoToQuestions = () => {
-    if (!selectedProductId) {
+  const handleGoToOffer = () => {
+    if (!currentProductId && offerItems.length === 0) {
       toast({ title: 'Selecione um produto', variant: 'destructive' });
       return;
     }
-    setCurrentStep('questions');
+    setCurrentStep('offer');
   };
 
-  const handleGoToOffer = () => setCurrentStep('offer');
   const handleGoToAddress = () => setCurrentStep('address');
   const handleGoToPayment = () => {
-    // Validate delivery config
     if (deliveryConfig.type === 'motoboy' && !deliveryConfig.regionId) {
       toast({ title: 'Selecione uma região de entrega', variant: 'destructive' });
       return;
@@ -592,23 +606,23 @@ export default function AddReceptivo() {
       return;
     }
 
-    const currentKit = sortedKits.find(k => k.id === selectedKitId);
+    const currentKit = sortedKits.find(k => k.id === currentKitId);
     if (!currentKit || !leadData.id) return;
 
     try {
       await createKitRejection.mutateAsync({
         lead_id: leadData.id,
-        product_id: selectedProductId,
+        product_id: currentProductId,
         kit_id: currentKit.id,
         kit_quantity: currentKit.quantity,
-        kit_price_cents: unitPrice,
+        kit_price_cents: currentUnitPrice,
         rejection_reason: rejectionReason,
       });
 
-      setRejectedKitIds(prev => [...prev, currentKit.id]);
+      setCurrentRejectedKitIds(prev => [...prev, currentKit.id]);
       setRejectionReason('');
       setShowRejectionInput(false);
-      setSelectedKitId(null);
+      setCurrentKitId(null);
       setShowPromo2(false);
       setShowMinimum(false);
       
@@ -653,7 +667,6 @@ export default function AddReceptivo() {
       leadId = newLead.id;
       setLeadData(prev => ({ ...prev, id: leadId }));
     } else if (leadId) {
-      // Update existing lead
       await supabase
         .from('leads')
         .update({
@@ -680,16 +693,36 @@ export default function AddReceptivo() {
   };
 
   const saveProductAnswers = async (leadId: string) => {
-    if (selectedProductId && tenantId && Object.values(productAnswers).some(v => v)) {
+    // Save answers for all offer items
+    for (const item of offerItems) {
+      if (Object.values(item.answers).some(v => v) && tenantId) {
+        await supabase
+          .from('lead_product_answers')
+          .upsert({
+            lead_id: leadId,
+            product_id: item.productId,
+            organization_id: tenantId,
+            answer_1: item.answers.answer_1 || null,
+            answer_2: item.answers.answer_2 || null,
+            answer_3: item.answers.answer_3 || null,
+            updated_by: user?.id || null,
+          }, {
+            onConflict: 'lead_id,product_id',
+          });
+      }
+    }
+    
+    // Save current product answers if any
+    if (currentProductId && Object.values(currentAnswers).some(v => v) && tenantId) {
       await supabase
         .from('lead_product_answers')
         .upsert({
           lead_id: leadId,
-          product_id: selectedProductId,
+          product_id: currentProductId,
           organization_id: tenantId,
-          answer_1: productAnswers.answer_1 || null,
-          answer_2: productAnswers.answer_2 || null,
-          answer_3: productAnswers.answer_3 || null,
+          answer_1: currentAnswers.answer_1 || null,
+          answer_2: currentAnswers.answer_2 || null,
+          answer_3: currentAnswers.answer_3 || null,
           updated_by: user?.id || null,
         }, {
           onConflict: 'lead_id,product_id',
@@ -706,7 +739,6 @@ export default function AddReceptivo() {
 
       await saveProductAnswers(leadId);
 
-      // Save source to history
       if (selectedSourceId && tenantId && user) {
         await supabase.from('lead_source_history').insert({
           lead_id: leadId,
@@ -716,33 +748,32 @@ export default function AddReceptivo() {
         });
       }
 
-      // Build all sale items from cart + current selection
+      // Build all sale items
       const allItems = [];
       
-      // Add cart items
-      for (const cartItem of cartItems) {
+      for (const item of offerItems) {
         allItems.push({
-          product_id: cartItem.productId,
-          product_name: cartItem.productName,
-          quantity: cartItem.quantity,
-          unit_price_cents: cartItem.unitPriceCents,
+          product_id: item.productId,
+          product_name: item.productName,
+          quantity: item.quantity,
+          unit_price_cents: item.unitPriceCents,
           discount_cents: 0,
-          requisition_number: cartItem.requisitionNumber || null,
-          commission_percentage: cartItem.commissionPercentage,
-          commission_cents: cartItem.commissionCents,
+          requisition_number: item.requisitionNumber || null,
+          commission_percentage: item.commissionPercentage,
+          commission_cents: item.commissionCents,
         });
       }
 
-      // Add current item if selected
-      if (selectedProductId && unitPrice > 0) {
+      // Add current product if valid
+      if (currentProductId && currentUnitPrice > 0) {
         allItems.push({
-          product_id: selectedProductId,
-          product_name: selectedProduct?.name || 'Produto',
-          quantity,
-          unit_price_cents: unitPrice,
-          discount_cents: allItems.length === 0 ? totalDiscount : 0, // Apply total discount to first item
-          requisition_number: selectedProduct?.category === 'manipulado' ? requisitionNumber : null,
-          commission_percentage: commission,
+          product_id: currentProductId,
+          product_name: currentProduct?.name || 'Produto',
+          quantity: currentQuantity,
+          unit_price_cents: currentUnitPrice,
+          discount_cents: allItems.length === 0 ? totalDiscount : 0,
+          requisition_number: currentProduct?.category === 'manipulado' ? requisitionNumber : null,
+          commission_percentage: currentCommission,
           commission_cents: currentCommissionValue,
         });
       }
@@ -769,14 +800,13 @@ export default function AddReceptivo() {
         payment_proof_url: null,
       });
 
-      // Update attendance
       if (attendanceId) {
         await updateAttendance.mutateAsync({
           id: attendanceId,
           updates: {
             lead_id: leadId,
-            product_id: selectedProductId || cartItems[0]?.productId || null,
-            product_answers: Object.keys(productAnswers).length > 0 ? productAnswers : null,
+            product_id: currentProductId || offerItems[0]?.productId || null,
+            product_answers: Object.keys(currentAnswers).length > 0 ? currentAnswers : null,
             sale_id: sale.id,
             completed: true,
           },
@@ -812,7 +842,6 @@ export default function AddReceptivo() {
       if (leadId) {
         await saveProductAnswers(leadId);
 
-        // Save source to history
         if (selectedSourceId && tenantId && user) {
           await supabase.from('lead_source_history').insert({
             lead_id: leadId,
@@ -822,7 +851,6 @@ export default function AddReceptivo() {
           });
         }
 
-        // Update lead's negotiated_value with purchase potential
         const { data: lead } = await supabase
           .from('leads')
           .select('negotiated_value')
@@ -837,7 +865,6 @@ export default function AddReceptivo() {
           .update({ negotiated_value: newNegotiated })
           .eq('id', leadId);
 
-        // Create follow-up if reason has followup_hours
         if (reason && reason.followup_hours > 0 && tenantId && user) {
           const followupDate = new Date();
           followupDate.setHours(followupDate.getHours() + reason.followup_hours);
@@ -854,14 +881,13 @@ export default function AddReceptivo() {
         }
       }
 
-      // Update attendance with purchase potential
       if (attendanceId) {
         await updateAttendance.mutateAsync({
           id: attendanceId,
           updates: {
             lead_id: leadId,
-            product_id: selectedProductId || null,
-            product_answers: Object.keys(productAnswers).length > 0 ? productAnswers : null,
+            product_id: currentProductId || null,
+            product_answers: Object.keys(currentAnswers).length > 0 ? currentAnswers : null,
             non_purchase_reason_id: reasonId,
             purchase_potential_cents: purchasePotential,
             completed: true,
@@ -883,9 +909,37 @@ export default function AddReceptivo() {
   };
 
   // Get the current visible kit (first non-rejected)
-  const currentVisibleKit = sortedKits.find(k => !rejectedKitIds.includes(k.id));
-  const hasMoreKits = sortedKits.filter(k => !rejectedKitIds.includes(k.id)).length > 1;
-  const allKitsRejected = sortedKits.every(k => rejectedKitIds.includes(k.id));
+  const currentVisibleKit = sortedKits.find(k => !currentRejectedKitIds.includes(k.id));
+  const hasMoreKits = sortedKits.filter(k => !currentRejectedKitIds.includes(k.id)).length > 1;
+  const allKitsRejected = sortedKits.every(k => currentRejectedKitIds.includes(k.id));
+
+  // Spy buttons component
+  const SpyButtons = () => {
+    if (!leadData.id) return null;
+    
+    return (
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
+        >
+          <Eye className="w-4 h-4 mr-1" />
+          Espiar Cliente
+        </Button>
+        {leadSales.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
+          >
+            <History className="w-4 h-4 mr-1" />
+            Espiar Vendas ({leadSales.length})
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   const renderStepIndicator = () => {
     const steps = [
@@ -893,7 +947,6 @@ export default function AddReceptivo() {
       { key: 'lead_info', label: 'Cliente', icon: User },
       { key: 'conversation', label: 'Conversa', icon: MessageSquare },
       { key: 'product', label: 'Produto', icon: Package },
-      { key: 'questions', label: 'Entrevista', icon: ClipboardList },
       { key: 'offer', label: 'Oferta', icon: DollarSign },
       { key: 'address', label: 'Entrega', icon: Truck },
       { key: 'payment', label: 'Pagamento', icon: CreditCard },
@@ -991,12 +1044,8 @@ export default function AddReceptivo() {
                   onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
                   onKeyDown={(e) => e.key === 'Enter' && handlePhoneSearch()}
                   className="text-lg font-mono"
-                  autoFocus
                 />
-                <Button 
-                  onClick={handlePhoneSearch} 
-                  disabled={searchLead.isPending || phoneInput.length < 12}
-                >
+                <Button onClick={handlePhoneSearch} disabled={searchLead.isPending}>
                   {searchLead.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 </Button>
               </div>
@@ -1007,117 +1056,226 @@ export default function AddReceptivo() {
           </Card>
         )}
 
-        {/* Lead Info Step */}
+        {/* Lead Info Step - COMPLETO COM HISTÓRICO */}
         {currentStep === 'lead_info' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Dados do Cliente
-                {leadData.existed && (
-                  <Badge variant="secondary">
-                    Cadastrado em {leadData.created_at && format(new Date(leadData.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {renderNavButtons(undefined, handleGoToConversation)}
-              <Separator />
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Dados do Cliente
+                    {leadData.existed && (
+                      <Badge variant="secondary">
+                        Cadastrado em {leadData.created_at && format(new Date(leadData.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {leadData.id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      Abrir Perfil Completo
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {renderNavButtons(undefined, handleGoToConversation)}
+                <Separator />
 
-              {/* Basic Info */}
-              <div>
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Informações Básicas
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nome *</Label>
-                    <Input
-                      value={leadData.name}
-                      onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Nome do cliente"
-                    />
+                {/* Stage & Stars for existing leads */}
+                {leadData.existed && leadData.stage && (
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <Badge className={FUNNEL_STAGES[leadData.stage]?.color}>
+                      {FUNNEL_STAGES[leadData.stage]?.label}
+                    </Badge>
+                    {leadData.stars !== undefined && leadData.stars > 0 && (
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: leadData.stars }).map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>WhatsApp</Label>
-                    <Input value={leadData.whatsapp} disabled className="bg-muted" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Telefone Secundário</Label>
-                    <Input
-                      value={leadData.secondary_phone}
-                      onChange={(e) => setLeadData(prev => ({ ...prev, secondary_phone: e.target.value }))}
-                      placeholder="Outro telefone"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>E-mail</Label>
-                    <Input
-                      type="email"
-                      value={leadData.email}
-                      onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="email@exemplo.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Instagram</Label>
-                    <Input
-                      value={leadData.instagram}
-                      onChange={(e) => setLeadData(prev => ({ ...prev, instagram: e.target.value }))}
-                      placeholder="@usuario"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Especialidade/Área</Label>
-                    <Input
-                      value={leadData.specialty}
-                      onChange={(e) => setLeadData(prev => ({ ...prev, specialty: e.target.value }))}
-                      placeholder="Ex: Dermatologia"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>CPF/CNPJ</Label>
-                    <Input
-                      value={leadData.cpf_cnpj}
-                      onChange={(e) => setLeadData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
-                      placeholder="000.000.000-00"
-                    />
+                )}
+
+                {/* Basic Info */}
+                <div>
+                  <h3 className="font-medium mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Informações Básicas
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome *</Label>
+                      <Input
+                        value={leadData.name}
+                        onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Nome do cliente"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>WhatsApp</Label>
+                      <Input value={leadData.whatsapp} disabled className="bg-muted" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Telefone Secundário</Label>
+                      <Input
+                        value={leadData.secondary_phone}
+                        onChange={(e) => setLeadData(prev => ({ ...prev, secondary_phone: e.target.value }))}
+                        placeholder="Outro telefone"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>E-mail</Label>
+                      <Input
+                        type="email"
+                        value={leadData.email}
+                        onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Instagram</Label>
+                      <Input
+                        value={leadData.instagram}
+                        onChange={(e) => setLeadData(prev => ({ ...prev, instagram: e.target.value }))}
+                        placeholder="@usuario"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Especialidade/Área</Label>
+                      <Input
+                        value={leadData.specialty}
+                        onChange={(e) => setLeadData(prev => ({ ...prev, specialty: e.target.value }))}
+                        placeholder="Ex: Dermatologia"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF/CNPJ</Label>
+                      <Input
+                        value={leadData.cpf_cnpj}
+                        onChange={(e) => setLeadData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+                        placeholder="000.000.000-00"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <Separator />
+                <Separator />
 
-              {/* Observations */}
-              <div>
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Observações
-                </h3>
-                <Textarea
-                  value={leadData.observations}
-                  onChange={(e) => setLeadData(prev => ({ ...prev, observations: e.target.value }))}
-                  placeholder="Notas sobre o cliente..."
-                  rows={3}
-                />
-              </div>
+                {/* Observations */}
+                <div>
+                  <h3 className="font-medium mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Observações
+                  </h3>
+                  <Textarea
+                    value={leadData.observations}
+                    onChange={(e) => setLeadData(prev => ({ ...prev, observations: e.target.value }))}
+                    placeholder="Notas sobre o cliente..."
+                    rows={3}
+                  />
+                </div>
 
-              <Separator />
-              {renderNavButtons(undefined, handleGoToConversation)}
-            </CardContent>
-          </Card>
+                <Separator />
+                {renderNavButtons(undefined, handleGoToConversation)}
+              </CardContent>
+            </Card>
+
+            {/* HISTÓRICO COMPLETO DO LEAD - só para leads existentes */}
+            {leadData.existed && leadData.id && (
+              <>
+                {/* Vendas Anteriores */}
+                {leadSales.length > 0 && (
+                  <Card className="border-green-500/30">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-green-600">
+                        <ShoppingCart className="w-5 h-5" />
+                        Vendas Anteriores ({leadSales.length})
+                      </CardTitle>
+                      <CardDescription>Histórico de compras do cliente</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {leadSales.slice(0, 5).map((sale) => (
+                          <div 
+                            key={sale.id} 
+                            className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between"
+                          >
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className={getStatusColor(sale.status)}>
+                                  {getStatusLabel(sale.status)}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {format(new Date(sale.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                                </span>
+                              </div>
+                              <p className="font-semibold text-primary mt-1">
+                                {formatCurrency(sale.total_cents)}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {leadSales.length > 5 && (
+                          <Button
+                            variant="ghost"
+                            className="w-full"
+                            onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
+                          >
+                            Ver todas as {leadSales.length} vendas
+                            <ExternalLink className="w-4 h-4 ml-2" />
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Endereços */}
+                <LeadAddressesManager leadId={leadData.id} />
+
+                {/* Follow-ups */}
+                <LeadFollowupsSection leadId={leadData.id} />
+
+                {/* SAC */}
+                <LeadSacSection leadId={leadData.id} />
+
+                {/* Histórico Receptivo */}
+                <LeadReceptiveHistorySection leadId={leadData.id} />
+
+                {/* Timeline de Etapas */}
+                {leadData.stage && (
+                  <LeadStageTimeline leadId={leadData.id} currentStage={leadData.stage} />
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {/* Conversation Step */}
         {currentStep === 'conversation' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                Modo de Conversa e Origem
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Modo de Conversa e Origem
+                </CardTitle>
+                <SpyButtons />
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
@@ -1186,554 +1344,512 @@ export default function AddReceptivo() {
         {currentStep === 'product' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Produto de Interesse
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Produto de Interesse
+                </CardTitle>
+                <SpyButtons />
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToQuestions, !selectedProductId)}
+              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToOffer, !currentProductId && offerItems.length === 0)}
               <Separator />
               
               <ProductSelectorForSale
                 products={products}
                 isLoading={false}
                 onSelect={(product) => {
-                  setSelectedProductId(product.id);
-                  // Reset kit selection
-                  setSelectedKitId(null);
-                  setRejectedKitIds([]);
+                  setCurrentProductId(product.id);
+                  setCurrentKitId(null);
+                  setCurrentRejectedKitIds([]);
                   setShowPromo2(false);
                   setShowMinimum(false);
                 }}
                 placeholder="Buscar produto por nome..."
               />
 
-              {selectedProduct && (
+              {currentProduct && (
                 <div className="mt-4 p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
-                    {selectedProduct.is_featured && <Star className="w-4 h-4 text-amber-500" />}
-                    <span className="font-medium">{selectedProduct.name}</span>
-                    <Badge variant="outline">{selectedProduct.category}</Badge>
+                    {currentProduct.is_featured && <Star className="w-4 h-4 text-amber-500" />}
+                    <span className="font-medium">{currentProduct.name}</span>
+                    <Badge variant="outline">{currentProduct.category}</Badge>
                   </div>
-                  {selectedProduct.description && (
-                    <p className="text-sm text-muted-foreground mt-2">{selectedProduct.description}</p>
+                  {currentProduct.description && (
+                    <p className="text-sm text-muted-foreground mt-2">{currentProduct.description}</p>
                   )}
                 </div>
               )}
 
               <Separator />
-              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToQuestions, !selectedProductId)}
+              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToOffer, !currentProductId && offerItems.length === 0)}
             </CardContent>
           </Card>
         )}
 
-        {/* Questions Step */}
-        {currentStep === 'questions' && selectedProduct && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5" />
-                Entrevista - {selectedProduct.name}
-              </CardTitle>
-              <CardDescription>
-                {existingAnswers ? (
-                  <Badge variant="secondary" className="mt-1">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Respostas já registradas - {format(new Date(existingAnswers.updated_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
-                  </Badge>
-                ) : (
-                  'Faça as perguntas-chave para entender a necessidade do cliente'
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {renderNavButtons(() => setCurrentStep('product'), handleGoToOffer)}
-              <Separator />
-              
-              {selectedProduct.key_question_1 && (
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">1. {selectedProduct.key_question_1}</Label>
-                  <Textarea
-                    value={productAnswers.answer_1 || ''}
-                    onChange={(e) => setProductAnswers(prev => ({ ...prev, answer_1: e.target.value }))}
-                    placeholder="Resposta do cliente..."
-                    rows={2}
-                  />
-                </div>
-              )}
+        {/* Offer Step - INLINE SEM CARRINHO */}
+        {currentStep === 'offer' && (
+          <div className="space-y-6">
+            {/* Spy Buttons */}
+            <div className="flex justify-end">
+              <SpyButtons />
+            </div>
 
-              {selectedProduct.key_question_2 && (
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">2. {selectedProduct.key_question_2}</Label>
-                  <Textarea
-                    value={productAnswers.answer_2 || ''}
-                    onChange={(e) => setProductAnswers(prev => ({ ...prev, answer_2: e.target.value }))}
-                    placeholder="Resposta do cliente..."
-                    rows={2}
-                  />
-                </div>
-              )}
-
-              {selectedProduct.key_question_3 && (
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">3. {selectedProduct.key_question_3}</Label>
-                  <Textarea
-                    value={productAnswers.answer_3 || ''}
-                    onChange={(e) => setProductAnswers(prev => ({ ...prev, answer_3: e.target.value }))}
-                    placeholder="Resposta do cliente..."
-                    rows={2}
-                  />
-                </div>
-              )}
-
-              {!selectedProduct.key_question_1 && !selectedProduct.key_question_2 && !selectedProduct.key_question_3 && (
-                <p className="text-muted-foreground text-center py-4">
-                  Este produto não tem perguntas-chave cadastradas.
-                </p>
-              )}
-
-              {/* Sales Script */}
-              {selectedProduct.sales_script && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Script de Vendas
-                    </h3>
-                    <div className="p-4 rounded-lg bg-primary/5 border whitespace-pre-wrap text-sm">
-                      {selectedProduct.sales_script}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <Separator />
-              {renderNavButtons(() => setCurrentStep('product'), handleGoToOffer)}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Offer Step - Progressive Kit Selection */}
-        {currentStep === 'offer' && selectedProduct && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                Oferta - {selectedProduct.name}
-              </CardTitle>
-              <CardDescription>
-                {selectedProduct.category === 'manipulado' 
-                  ? 'Informe o valor e requisição' 
-                  : 'Selecione o kit e preço para o cliente'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {renderNavButtons(() => setCurrentStep('questions'), handleGoToAddress, !unitPrice)}
-              <Separator />
-
-              {/* MANIPULADO */}
-              {selectedProduct.category === 'manipulado' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Número da Requisição *</Label>
-                    <Input
-                      value={requisitionNumber}
-                      onChange={(e) => setRequisitionNumber(e.target.value)}
-                      placeholder="Ex: REQ-12345"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Quantidade</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={manipuladoQuantity}
-                        onChange={(e) => setManipuladoQuantity(parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Valor Total (R$)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={(manipuladoPrice / 100).toFixed(2)}
-                        onChange={(e) => setManipuladoPrice(Math.round(parseFloat(e.target.value) * 100) || 0)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Kit Selection with Progressive Reveal */}
-              {selectedProduct.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && (
-                <div className="space-y-4">
-                  {/* Current Kit */}
-                  <div className={`p-5 rounded-lg border-2 ${selectedKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="default" className="text-lg px-3 py-1">
-                          {currentVisibleKit.quantity} {currentVisibleKit.quantity === 1 ? 'unidade' : 'unidades'}
-                        </Badge>
-                        <Badge variant="outline">Oferta {sortedKits.findIndex(k => k.id === currentVisibleKit.id) + 1}</Badge>
+            {/* Itens já adicionados */}
+            {offerItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Produtos Selecionados ({offerItems.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {offerItems.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <div>
+                        <p className="font-medium">{item.quantity}x {item.productName}</p>
+                        <p className="text-sm text-muted-foreground">{formatPrice(item.unitPriceCents * item.quantity)}</p>
+                        {item.requisitionNumber && (
+                          <Badge variant="outline" className="text-xs mt-1">Req: {item.requisitionNumber}</Badge>
+                        )}
                       </div>
-                    </div>
-
-                    {/* Price Options */}
-                    <div className="space-y-3">
-                      {/* Promotional (Venda por) - Main option */}
-                      {currentVisibleKit.promotional_price_cents && (
-                        <button
-                          onClick={() => {
-                            setSelectedKitId(currentVisibleKit.id);
-                            setSelectedPriceType('promotional');
-                            setCustomPrice(0);
-                          }}
-                          className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                            selectedKitId === currentVisibleKit.id && selectedPriceType === 'promotional'
-                              ? 'border-green-500 bg-green-50 dark:bg-green-950/30'
-                              : 'border-muted hover:border-muted-foreground/50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold text-lg">Venda por:</p>
-                              <p className="text-2xl font-bold text-green-600">
-                                {formatPrice(currentVisibleKit.promotional_price_cents)}
-                              </p>
-                            </div>
-                            <CommissionBadge value={
-                              currentVisibleKit.promotional_use_default_commission 
-                                ? (myCommission?.commissionPercentage || 0)
-                                : (currentVisibleKit.promotional_custom_commission || 0)
-                            } />
-                          </div>
-                        </button>
-                      )}
-
-                      {/* Regular */}
-                      <button
-                        onClick={() => {
-                          setSelectedKitId(currentVisibleKit.id);
-                          setSelectedPriceType('regular');
-                          setCustomPrice(0);
-                        }}
-                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                          selectedKitId === currentVisibleKit.id && selectedPriceType === 'regular'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                            : 'border-muted hover:border-muted-foreground/50'
-                        }`}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveFromOffer(index)}
+                        className="text-destructive hover:text-destructive"
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold">Valor Normal</p>
-                            <p className="text-xl font-bold">{formatPrice(currentVisibleKit.regular_price_cents)}</p>
-                          </div>
-                          <CommissionBadge value={
-                            currentVisibleKit.regular_use_default_commission 
-                              ? (myCommission?.commissionPercentage || 0)
-                              : (currentVisibleKit.regular_custom_commission || 0)
-                          } />
-                        </div>
-                      </button>
-
-                      {/* Promotional 2 - Hidden behind button */}
-                      {currentVisibleKit.promotional_price_2_cents && (
-                        <>
-                          {!showPromo2 ? (
-                            <Button 
-                              variant="ghost" 
-                              className="w-full text-muted-foreground"
-                              onClick={() => setShowPromo2(true)}
-                            >
-                              <EyeOff className="w-4 h-4 mr-2" />
-                              Ver Valor Promocional 2
-                            </Button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setSelectedKitId(currentVisibleKit.id);
-                                setSelectedPriceType('promotional_2');
-                                setCustomPrice(0);
-                              }}
-                              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                                selectedKitId === currentVisibleKit.id && selectedPriceType === 'promotional_2'
-                                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
-                                  : 'border-muted hover:border-muted-foreground/50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-amber-700">Promocional 2</p>
-                                  <p className="text-xl font-bold text-amber-600">
-                                    {formatPrice(currentVisibleKit.promotional_price_2_cents)}
-                                  </p>
-                                </div>
-                                <CommissionBadge value={
-                                  currentVisibleKit.promotional_2_use_default_commission 
-                                    ? (myCommission?.commissionPercentage || 0)
-                                    : (currentVisibleKit.promotional_2_custom_commission || 0)
-                                } />
-                              </div>
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {/* Minimum - Hidden behind button */}
-                      {currentVisibleKit.minimum_price_cents && (
-                        <>
-                          {!showMinimum ? (
-                            <Button 
-                              variant="ghost" 
-                              className="w-full text-muted-foreground"
-                              onClick={() => setShowMinimum(true)}
-                            >
-                              <EyeOff className="w-4 h-4 mr-2" />
-                              Ver Valor Mínimo
-                            </Button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setSelectedKitId(currentVisibleKit.id);
-                                setSelectedPriceType('minimum');
-                                setCustomPrice(0);
-                              }}
-                              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                                selectedKitId === currentVisibleKit.id && selectedPriceType === 'minimum'
-                                  ? 'border-red-500 bg-red-50 dark:bg-red-950/30'
-                                  : 'border-muted hover:border-muted-foreground/50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-semibold text-red-700">Valor Mínimo</p>
-                                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                                  </div>
-                                  <p className="text-xl font-bold text-red-600">
-                                    {formatPrice(currentVisibleKit.minimum_price_cents)}
-                                  </p>
-                                </div>
-                                <CommissionBadge value={
-                                  currentVisibleKit.minimum_use_default_commission 
-                                    ? (myCommission?.commissionPercentage || 0)
-                                    : (currentVisibleKit.minimum_custom_commission || 0)
-                                } />
-                              </div>
-                            </button>
-                          )}
-                        </>
-                      )}
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                  </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
-                  {/* Reject Kit Button */}
-                  {hasMoreKits && leadData.id && (
-                    <div className="space-y-2">
-                      {!showRejectionInput ? (
-                        <Button
-                          variant="outline"
-                          className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
-                          onClick={() => setShowRejectionInput(true)}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          NÃO CONSEGUI VENDER ESSE
-                        </Button>
-                      ) : (
-                        <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/30 space-y-3">
-                          <Label className="text-amber-700">Por que o cliente não aceitou?</Label>
-                          <Textarea
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            placeholder="Ex: Achou caro, quer menos quantidade..."
-                            rows={2}
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setShowRejectionInput(false);
-                                setRejectionReason('');
-                              }}
-                            >
-                              Cancelar
-                            </Button>
-                            <Button
-                              onClick={handleRejectKit}
-                              disabled={!rejectionReason.trim() || createKitRejection.isPending}
-                              className="bg-amber-600 hover:bg-amber-700"
-                            >
-                              {createKitRejection.isPending ? (
-                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                              ) : null}
-                              Ver Próxima Oferta
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+            {/* Adicionar/Editar Produto Atual */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  {currentProduct ? `Oferta - ${currentProduct.name}` : 'Adicionar Produto'}
+                </CardTitle>
+                {currentProduct && (
+                  <CardDescription>
+                    {currentProduct.category === 'manipulado' 
+                      ? 'Informe o valor e requisição' 
+                      : 'Selecione o kit e preço para o cliente'}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Seletor de Produto */}
+                {!currentProductId && (
+                  <ProductSelectorForSale
+                    products={products}
+                    isLoading={false}
+                    onSelect={(product) => {
+                      setCurrentProductId(product.id);
+                      setCurrentKitId(null);
+                      setCurrentRejectedKitIds([]);
+                      setShowPromo2(false);
+                      setShowMinimum(false);
+                    }}
+                    placeholder="Buscar produto..."
+                  />
+                )}
+
+                {/* Produto selecionado - mostrar info */}
+                {currentProduct && (
+                  <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {currentProduct.is_featured && <Star className="w-4 h-4 text-amber-500" />}
+                      <span className="font-medium">{currentProduct.name}</span>
+                      <Badge variant="outline">{currentProduct.category}</Badge>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* All kits rejected */}
-              {selectedProduct.category !== 'manipulado' && allKitsRejected && (
-                <div className="p-6 border-2 border-dashed border-amber-500 rounded-lg text-center">
-                  <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                  <p className="font-semibold text-lg">Todas as ofertas foram rejeitadas</p>
-                  <p className="text-muted-foreground mt-1">
-                    Finalize o atendimento selecionando um motivo de não compra
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => setCurrentStep('sale_or_reason')}
-                  >
-                    Ir para Motivos
-                  </Button>
-                </div>
-              )}
-
-              {/* Cart Items Display */}
-              {cartItems.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="space-y-2">
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4" />
-                      Itens no Carrinho ({cartItems.length})
-                    </h4>
-                    {cartItems.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div>
-                          <span className="font-medium">{item.quantity}x {item.productName}</span>
-                          <p className="text-sm text-muted-foreground">
-                            {formatPrice(item.unitPriceCents * item.quantity)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveFromCart(index)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Add more products button */}
-              {unitPrice > 0 && (
-                <>
-                  <Separator />
-                  <div className="flex gap-2">
                     <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={handleAddToCart}
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetCurrentProduct}
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar ao Carrinho e Selecionar Outro
+                      Trocar
                     </Button>
                   </div>
-                </>
-              )}
+                )}
 
-              {/* Cross-sell Products */}
-              {getCrossSellProducts().length > 0 && (
-                <>
-                  <Separator />
-                  <div className="p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800">
-                    <h4 className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-3">
-                      <Gift className="w-4 h-4" />
-                      Venda Casada - Sugira para o Cliente!
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {getCrossSellProducts().map((crossProduct) => (
-                        <Button
-                          key={crossProduct.id}
-                          variant="outline"
-                          className="justify-start h-auto p-3 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                          onClick={() => {
-                            // Add current to cart first if valid
-                            if (unitPrice > 0) {
-                              handleAddToCart();
-                            }
-                            // Select the cross-sell product
-                            setSelectedProductId(crossProduct.id);
-                            setSelectedKitId(null);
-                            setRejectedKitIds([]);
-                            setShowPromo2(false);
-                            setShowMinimum(false);
-                          }}
-                        >
-                          <div className="text-left">
-                            <p className="font-medium">{crossProduct.name}</p>
-                            <p className="text-xs text-muted-foreground">{crossProduct.category}</p>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Order Summary */}
-              {(unitPrice > 0 || cartItems.length > 0) && (
-                <>
-                  <Separator />
-                  <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-                    <h4 className="font-semibold">Resumo do Pedido</h4>
-                    
-                    {/* Cart items */}
-                    {cartItems.map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span>{item.quantity}x {item.productName}</span>
-                        <span>{formatPrice(item.unitPriceCents * item.quantity)}</span>
-                      </div>
-                    ))}
-                    
-                    {/* Current item */}
-                    {unitPrice > 0 && selectedProduct && (
-                      <div className="flex justify-between text-sm">
-                        <span>{quantity}x {selectedProduct.name}</span>
-                        <span>{formatPrice(currentItemSubtotal)}</span>
-                      </div>
-                    )}
-                    
-                    {totalDiscount > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Desconto</span>
-                        <span>-{formatPrice(totalDiscount)}</span>
-                      </div>
-                    )}
+                {/* Perguntas do Produto */}
+                {currentProduct && (currentProduct.key_question_1 || currentProduct.key_question_2 || currentProduct.key_question_3) && (
+                  <>
                     <Separator />
-                    <div className="flex justify-between font-bold text-lg">
-                      <span>Total</span>
-                      <span>{formatPrice(total)}</span>
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <ClipboardList className="w-4 h-4" />
+                        Perguntas-Chave
+                      </h4>
+                      {currentProduct.key_question_1 && (
+                        <div className="space-y-2">
+                          <Label className="text-sm">1. {currentProduct.key_question_1}</Label>
+                          <Textarea
+                            value={currentAnswers.answer_1 || ''}
+                            onChange={(e) => setCurrentAnswers(prev => ({ ...prev, answer_1: e.target.value }))}
+                            placeholder="Resposta..."
+                            rows={2}
+                          />
+                        </div>
+                      )}
+                      {currentProduct.key_question_2 && (
+                        <div className="space-y-2">
+                          <Label className="text-sm">2. {currentProduct.key_question_2}</Label>
+                          <Textarea
+                            value={currentAnswers.answer_2 || ''}
+                            onChange={(e) => setCurrentAnswers(prev => ({ ...prev, answer_2: e.target.value }))}
+                            placeholder="Resposta..."
+                            rows={2}
+                          />
+                        </div>
+                      )}
+                      {currentProduct.key_question_3 && (
+                        <div className="space-y-2">
+                          <Label className="text-sm">3. {currentProduct.key_question_3}</Label>
+                          <Textarea
+                            value={currentAnswers.answer_3 || ''}
+                            onChange={(e) => setCurrentAnswers(prev => ({ ...prev, answer_3: e.target.value }))}
+                            placeholder="Resposta..."
+                            rows={2}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Sua comissão total</span>
-                      <span>{formatPrice(totalCommissionValue)}</span>
-                    </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
 
-              {/* Non-Purchase Reasons in Offer step */}
-              <Separator />
-              <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20">
-                <h4 className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-3">
-                  <ThumbsDown className="w-4 h-4" />
-                  Não Fechou a Venda
-                </h4>
+                {/* MANIPULADO */}
+                {currentProduct?.category === 'manipulado' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Número da Requisição *</Label>
+                        <Input
+                          value={requisitionNumber}
+                          onChange={(e) => setRequisitionNumber(e.target.value)}
+                          placeholder="Ex: REQ-12345"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Quantidade</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={manipuladoQuantity}
+                            onChange={(e) => setManipuladoQuantity(parseInt(e.target.value) || 1)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Valor Total (R$)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={(manipuladoPrice / 100).toFixed(2)}
+                            onChange={(e) => setManipuladoPrice(Math.round(parseFloat(e.target.value) * 100) || 0)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Kit Selection with Progressive Reveal */}
+                {currentProduct && currentProduct.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      {/* Current Kit */}
+                      <div className={`p-5 rounded-lg border-2 ${currentKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="default" className="text-lg px-3 py-1">
+                              {currentVisibleKit.quantity} {currentVisibleKit.quantity === 1 ? 'unidade' : 'unidades'}
+                            </Badge>
+                            <Badge variant="outline">Oferta {sortedKits.findIndex(k => k.id === currentVisibleKit.id) + 1}</Badge>
+                          </div>
+                        </div>
+
+                        {/* Price Options */}
+                        <div className="space-y-3">
+                          {/* Promotional (Venda por) */}
+                          {currentVisibleKit.promotional_price_cents && (
+                            <button
+                              onClick={() => {
+                                setCurrentKitId(currentVisibleKit.id);
+                                setCurrentPriceType('promotional');
+                                setCurrentCustomPrice(0);
+                              }}
+                              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                                currentKitId === currentVisibleKit.id && currentPriceType === 'promotional'
+                                  ? 'border-green-500 bg-green-50 dark:bg-green-950/30'
+                                  : 'border-muted hover:border-muted-foreground/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Venda por</p>
+                                  <p className="text-2xl font-bold text-green-600">
+                                    {formatPrice(currentVisibleKit.promotional_price_cents)}
+                                  </p>
+                                </div>
+                                <CommissionBadge value={
+                                  currentVisibleKit.promotional_use_default_commission 
+                                    ? (myCommission?.commissionPercentage || 0)
+                                    : (currentVisibleKit.promotional_custom_commission || 0)
+                                } />
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Regular */}
+                          <button
+                            onClick={() => {
+                              setCurrentKitId(currentVisibleKit.id);
+                              setCurrentPriceType('regular');
+                              setCurrentCustomPrice(0);
+                            }}
+                            className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                              currentKitId === currentVisibleKit.id && currentPriceType === 'regular'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                                : 'border-muted hover:border-muted-foreground/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Preço Regular</p>
+                                <p className="text-xl font-bold">
+                                  {formatPrice(currentVisibleKit.regular_price_cents)}
+                                </p>
+                              </div>
+                              <CommissionBadge value={
+                                currentVisibleKit.regular_use_default_commission 
+                                  ? (myCommission?.commissionPercentage || 0)
+                                  : (currentVisibleKit.regular_custom_commission || 0)
+                              } />
+                            </div>
+                          </button>
+
+                          {/* Minimum - revealed on demand */}
+                          {currentVisibleKit.minimum_price_cents && (
+                            <>
+                              {!showMinimum ? (
+                                <Button
+                                  variant="ghost"
+                                  className="w-full text-amber-600"
+                                  onClick={() => setShowMinimum(true)}
+                                >
+                                  <AlertTriangle className="w-4 h-4 mr-2" />
+                                  Revelar Valor Mínimo
+                                </Button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setCurrentKitId(currentVisibleKit.id);
+                                    setCurrentPriceType('minimum');
+                                    setCurrentCustomPrice(0);
+                                  }}
+                                  className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                                    currentKitId === currentVisibleKit.id && currentPriceType === 'minimum'
+                                      ? 'border-red-500 bg-red-50 dark:bg-red-950/30'
+                                      : 'border-muted hover:border-muted-foreground/50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-semibold text-red-700">Valor Mínimo</p>
+                                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                                      </div>
+                                      <p className="text-xl font-bold text-red-600">
+                                        {formatPrice(currentVisibleKit.minimum_price_cents)}
+                                      </p>
+                                    </div>
+                                    <CommissionBadge value={
+                                      currentVisibleKit.minimum_use_default_commission 
+                                        ? (myCommission?.commissionPercentage || 0)
+                                        : (currentVisibleKit.minimum_custom_commission || 0)
+                                    } />
+                                  </div>
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Reject Kit Button */}
+                      {hasMoreKits && leadData.id && (
+                        <div className="space-y-2">
+                          {!showRejectionInput ? (
+                            <Button
+                              variant="outline"
+                              className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
+                              onClick={() => setShowRejectionInput(true)}
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              NÃO CONSEGUI VENDER ESSE
+                            </Button>
+                          ) : (
+                            <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/30 space-y-3">
+                              <Label className="text-amber-700">Por que o cliente não aceitou?</Label>
+                              <Textarea
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                                placeholder="Ex: Achou caro, quer menos quantidade..."
+                                rows={2}
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowRejectionInput(false);
+                                    setRejectionReason('');
+                                  }}
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  onClick={handleRejectKit}
+                                  disabled={!rejectionReason.trim() || createKitRejection.isPending}
+                                  className="bg-amber-600 hover:bg-amber-700"
+                                >
+                                  {createKitRejection.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                                  Ver Próxima Oferta
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* All kits rejected */}
+                {currentProduct && currentProduct.category !== 'manipulado' && allKitsRejected && (
+                  <div className="p-6 border-2 border-dashed border-amber-500 rounded-lg text-center">
+                    <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                    <p className="font-semibold text-lg">Todas as ofertas foram rejeitadas</p>
+                    <p className="text-muted-foreground mt-1">
+                      Finalize o atendimento selecionando um motivo de não compra
+                    </p>
+                  </div>
+                )}
+
+                {/* Add to offer button */}
+                {currentUnitPrice > 0 && (
+                  <>
+                    <Separator />
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={handleAddProductToOffer}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar e Escolher Outro Produto
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Cross-sell Products */}
+            {getCrossSellProducts().length > 0 && (
+              <Card className="border-amber-500/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-amber-700">
+                    <Gift className="w-5 h-5" />
+                    Venda Casada - Sugira para o Cliente!
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {getCrossSellProducts().map((crossProduct) => (
+                      <Button
+                        key={crossProduct.id}
+                        variant="outline"
+                        className="justify-start h-auto p-3 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                        onClick={() => {
+                          if (currentUnitPrice > 0) {
+                            handleAddProductToOffer();
+                          }
+                          setCurrentProductId(crossProduct.id);
+                          setCurrentKitId(null);
+                          setCurrentRejectedKitIds([]);
+                          setShowPromo2(false);
+                          setShowMinimum(false);
+                        }}
+                      >
+                        <div className="text-left">
+                          <p className="font-medium">{crossProduct.name}</p>
+                          <p className="text-xs text-muted-foreground">{crossProduct.category}</p>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Order Summary */}
+            {(currentUnitPrice > 0 || offerItems.length > 0) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumo do Pedido</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {offerItems.map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span>{item.quantity}x {item.productName}</span>
+                      <span>{formatPrice(item.unitPriceCents * item.quantity)}</span>
+                    </div>
+                  ))}
+                  
+                  {currentUnitPrice > 0 && currentProduct && (
+                    <div className="flex justify-between text-sm">
+                      <span>{currentQuantity}x {currentProduct.name}</span>
+                      <span>{formatPrice(currentProductSubtotal)}</span>
+                    </div>
+                  )}
+                  
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Desconto</span>
+                      <span>-{formatPrice(totalDiscount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Total</span>
+                    <span>{formatPrice(total)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Sua comissão total</span>
+                    <span>{formatPrice(totalCommissionValue)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Non-Purchase Reasons */}
+            <Card className="border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-600">
+                  <ThumbsDown className="w-5 h-5" />
+                  Não Fechou a Venda?
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">Selecione o motivo para acompanhamento futuro</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {nonPurchaseReasons.slice(0, 4).map((reason) => (
@@ -1772,22 +1888,31 @@ export default function AddReceptivo() {
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 )}
-              </div>
+              </CardContent>
+            </Card>
 
-              <Separator />
-              {renderNavButtons(() => setCurrentStep('questions'), handleGoToAddress, !(unitPrice > 0 || cartItems.length > 0))}
-            </CardContent>
-          </Card>
+            {/* Navigation */}
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={() => setCurrentStep('product')}>Voltar</Button>
+              <Button onClick={handleGoToAddress} disabled={!(currentUnitPrice > 0 || offerItems.length > 0)}>
+                Continuar para Entrega
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Address/Delivery Step */}
         {currentStep === 'address' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="w-5 h-5" />
-                Entrega
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Entrega
+                </CardTitle>
+                <SpyButtons />
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
@@ -1843,10 +1968,13 @@ export default function AddReceptivo() {
         {currentStep === 'payment' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Pagamento
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Pagamento
+                </CardTitle>
+                <SpyButtons />
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {renderNavButtons(() => setCurrentStep('address'), handleGoToSaleOrReason)}
@@ -1970,6 +2098,11 @@ export default function AddReceptivo() {
         {/* Sale or Reason Step */}
         {currentStep === 'sale_or_reason' && (
           <div className="space-y-6">
+            {/* Spy Buttons */}
+            <div className="flex justify-end">
+              <SpyButtons />
+            </div>
+
             {/* Create Sale */}
             <Card className="border-green-500/30">
               <CardHeader>
@@ -1978,25 +2111,23 @@ export default function AddReceptivo() {
                   Fechar Venda
                 </CardTitle>
                 <CardDescription>
-                  {formatPrice(total)} • {cartItems.length + (unitPrice > 0 ? 1 : 0)} produto(s)
+                  {formatPrice(total)} • {offerItems.length + (currentUnitPrice > 0 ? 1 : 0)} produto(s)
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Summary */}
                 <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/30 space-y-2 text-sm">
-                  {/* Cart items */}
-                  {cartItems.map((item, index) => (
+                  {offerItems.map((item, index) => (
                     <div key={index} className="flex justify-between">
                       <span>{item.quantity}x {item.productName}</span>
                       <span className="font-medium">{formatPrice(item.unitPriceCents * item.quantity)}</span>
                     </div>
                   ))}
                   
-                  {/* Current item */}
-                  {unitPrice > 0 && selectedProduct && (
+                  {currentUnitPrice > 0 && currentProduct && (
                     <div className="flex justify-between">
-                      <span>{quantity}x {selectedProduct.name}</span>
-                      <span className="font-medium">{formatPrice(currentItemSubtotal)}</span>
+                      <span>{currentQuantity}x {currentProduct.name}</span>
+                      <span className="font-medium">{formatPrice(currentProductSubtotal)}</span>
                     </div>
                   )}
                   
@@ -2035,7 +2166,7 @@ export default function AddReceptivo() {
                   size="lg" 
                   className="w-full bg-green-600 hover:bg-green-700"
                   onClick={handleCreateSale}
-                  disabled={isSaving || (cartItems.length === 0 && !unitPrice)}
+                  disabled={isSaving || (offerItems.length === 0 && !currentUnitPrice)}
                 >
                   {isSaving ? (
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
