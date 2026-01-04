@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Plus, Eye, Package, Printer } from 'lucide-react';
+import { ShoppingCart, Plus, Eye, Package, Printer, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLeadSales, formatCurrency, getStatusLabel, getStatusColor } from '@/hooks/useSales';
+import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -77,6 +78,12 @@ export function LeadSalesSection({ leadId, leadName }: LeadSalesSectionProps) {
                     <Badge className={getStatusColor(sale.status)}>
                       {getStatusLabel(sale.status)}
                     </Badge>
+                    {(sale as any).delivery_type === 'carrier' && (sale as any).carrier_tracking_status && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                        <Truck className="w-3 h-3" />
+                        {carrierTrackingLabels[(sale as any).carrier_tracking_status as keyof typeof carrierTrackingLabels]}
+                      </Badge>
+                    )}
                     <span className="text-sm text-muted-foreground">
                       {format(new Date(sale.created_at), "dd/MM/yyyy", { locale: ptBR })}
                     </span>

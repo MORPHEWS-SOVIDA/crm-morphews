@@ -2644,6 +2644,51 @@ export type Database = {
           },
         ]
       }
+      sale_carrier_tracking: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          sale_id: string
+          status: Database["public"]["Enums"]["carrier_tracking_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          sale_id: string
+          status: Database["public"]["Enums"]["carrier_tracking_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          sale_id?: string
+          status?: Database["public"]["Enums"]["carrier_tracking_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_carrier_tracking_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_carrier_tracking_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_changes_log: {
         Row: {
           change_type: string
@@ -2707,6 +2752,57 @@ export type Database = {
           },
           {
             foreignKeyName: "sale_changes_log_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_checkpoints: {
+        Row: {
+          checkpoint_type: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          sale_id: string
+          updated_at: string
+        }
+        Insert: {
+          checkpoint_type: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          sale_id: string
+          updated_at?: string
+        }
+        Update: {
+          checkpoint_type?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          sale_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_checkpoints_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_checkpoints_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
@@ -2924,6 +3020,9 @@ export type Database = {
       sales: {
         Row: {
           assigned_delivery_user_id: string | null
+          carrier_tracking_status:
+            | Database["public"]["Enums"]["carrier_tracking_status"]
+            | null
           created_at: string
           created_by: string
           delivered_at: string | null
@@ -2982,6 +3081,9 @@ export type Database = {
         }
         Insert: {
           assigned_delivery_user_id?: string | null
+          carrier_tracking_status?:
+            | Database["public"]["Enums"]["carrier_tracking_status"]
+            | null
           created_at?: string
           created_by: string
           delivered_at?: string | null
@@ -3042,6 +3144,9 @@ export type Database = {
         }
         Update: {
           assigned_delivery_user_id?: string | null
+          carrier_tracking_status?:
+            | Database["public"]["Enums"]["carrier_tracking_status"]
+            | null
           created_at?: string
           created_by?: string
           delivered_at?: string | null
@@ -4757,6 +4862,16 @@ export type Database = {
         | "credit_installment"
         | "credit_predate"
         | "pix"
+      carrier_tracking_status:
+        | "waiting_post"
+        | "posted"
+        | "in_destination_city"
+        | "attempt_1_failed"
+        | "attempt_2_failed"
+        | "attempt_3_failed"
+        | "waiting_pickup"
+        | "returning_to_sender"
+        | "delivered"
       delivery_shift: "morning" | "afternoon" | "full_day"
       delivery_status:
         | "pending"
@@ -4968,6 +5083,17 @@ export const Constants = {
         "credit_installment",
         "credit_predate",
         "pix",
+      ],
+      carrier_tracking_status: [
+        "waiting_post",
+        "posted",
+        "in_destination_city",
+        "attempt_1_failed",
+        "attempt_2_failed",
+        "attempt_3_failed",
+        "waiting_pickup",
+        "returning_to_sender",
+        "delivered",
       ],
       delivery_shift: ["morning", "afternoon", "full_day"],
       delivery_status: [
