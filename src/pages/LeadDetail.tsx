@@ -33,6 +33,7 @@ import { LeadProductAnswersSection } from '@/components/leads/LeadProductAnswers
 import { LeadSalesSection } from '@/components/leads/LeadSalesSection';
 import { LeadPostSaleHistory } from '@/components/leads/LeadPostSaleHistory';
 import { LeadSacSection } from '@/components/leads/LeadSacSection';
+import { LeadAddressesManager } from '@/components/leads/LeadAddressesManager';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -482,95 +483,8 @@ export default function LeadDetail() {
               </div>
             </div>
 
-            {/* Address */}
-            <div className="bg-card rounded-xl p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Home className="w-5 h-5 text-primary" />
-                Endereço
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">CEP</p>
-                    <InlineEdit
-                      value={lead.cep}
-                      onSave={(value) => handleUpdate('cep', value ? value.replace(/\D/g, '') : null)}
-                      displayClassName="font-medium"
-                      placeholder="00000-000"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Rua</p>
-                    <InlineEdit
-                      value={lead.street}
-                      onSave={(value) => handleUpdate('street', value || null)}
-                      displayClassName="font-medium"
-                      placeholder="Nome da rua"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Número</p>
-                    <InlineEdit
-                      value={lead.street_number}
-                      onSave={(value) => handleUpdate('street_number', value || null)}
-                      displayClassName="font-medium"
-                      placeholder="123"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Complemento</p>
-                    <InlineEdit
-                      value={lead.complement}
-                      onSave={(value) => handleUpdate('complement', value || null)}
-                      displayClassName="font-medium"
-                      placeholder="Apto, sala..."
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Bairro</p>
-                    <InlineEdit
-                      value={lead.neighborhood}
-                      onSave={(value) => handleUpdate('neighborhood', value || null)}
-                      displayClassName="font-medium"
-                      placeholder="Nome do bairro"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Cidade / Estado</p>
-                    <div className="flex gap-2">
-                      <InlineEdit
-                        value={lead.city}
-                        onSave={(value) => handleUpdate('city', value || null)}
-                        displayClassName="font-medium"
-                        placeholder="Cidade"
-                      />
-                      <span className="text-muted-foreground">/</span>
-                      <InlineEdit
-                        value={lead.state}
-                        onSave={(value) => handleUpdate('state', value || null)}
-                        displayClassName="font-medium"
-                        placeholder="UF"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Endereços */}
+            {id && <LeadAddressesManager leadId={id} />}
 
             {/* Produtos Negociados & Observações */}
             <div className="bg-card rounded-xl p-6 shadow-card">
