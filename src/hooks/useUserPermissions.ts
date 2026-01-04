@@ -115,15 +115,17 @@ export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', '
 // Hook to get current user's permissions
 export function useMyPermissions() {
   const { user } = useAuth();
+  const { tenantId } = useTenant();
   
   return useQuery({
-    queryKey: ['my-permissions', user?.id],
+    queryKey: ['my-permissions', tenantId, user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!user?.id || !tenantId) return null;
       
       const { data, error } = await supabase
         .from('user_permissions')
         .select('*')
+        .eq('organization_id', tenantId)
         .eq('user_id', user.id)
         .single();
       
@@ -137,7 +139,7 @@ export function useMyPermissions() {
       
       return data as UserPermissions;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!tenantId,
   });
 }
 
