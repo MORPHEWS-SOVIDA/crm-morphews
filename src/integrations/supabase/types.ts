@@ -1240,6 +1240,79 @@ export type Database = {
           },
         ]
       }
+      lead_standard_question_answers: {
+        Row: {
+          answered_by: string | null
+          created_at: string
+          id: string
+          imc_age: number | null
+          imc_category: string | null
+          imc_height: number | null
+          imc_result: number | null
+          imc_weight: number | null
+          lead_id: string
+          numeric_value: number | null
+          organization_id: string
+          question_id: string
+          selected_option_ids: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          answered_by?: string | null
+          created_at?: string
+          id?: string
+          imc_age?: number | null
+          imc_category?: string | null
+          imc_height?: number | null
+          imc_result?: number | null
+          imc_weight?: number | null
+          lead_id: string
+          numeric_value?: number | null
+          organization_id: string
+          question_id: string
+          selected_option_ids?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          answered_by?: string | null
+          created_at?: string
+          id?: string
+          imc_age?: number | null
+          imc_category?: string | null
+          imc_height?: number | null
+          imc_result?: number | null
+          imc_weight?: number | null
+          lead_id?: string
+          numeric_value?: number | null
+          organization_id?: string
+          question_id?: string
+          selected_option_ids?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_standard_question_answers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_standard_question_answers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_standard_question_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "standard_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           assigned_to: string
@@ -2333,6 +2406,45 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_standard_questions: {
+        Row: {
+          created_at: string
+          id: string
+          position: number
+          product_id: string
+          question_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: number
+          product_id: string
+          question_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: number
+          product_id?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_standard_questions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_standard_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "standard_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -3438,6 +3550,85 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "shipping_carriers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standard_question_options: {
+        Row: {
+          created_at: string
+          id: string
+          option_text: string
+          position: number
+          question_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_text: string
+          position?: number
+          question_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_text?: string
+          position?: number
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standard_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "standard_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standard_questions: {
+        Row: {
+          category: Database["public"]["Enums"]["standard_question_category"]
+          created_at: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          organization_id: string
+          position: number
+          question_text: string
+          question_type: Database["public"]["Enums"]["standard_question_type"]
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["standard_question_category"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          organization_id: string
+          position?: number
+          question_text: string
+          question_type?: Database["public"]["Enums"]["standard_question_type"]
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["standard_question_category"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          organization_id?: string
+          position?: number
+          question_text?: string
+          question_type?: Database["public"]["Enums"]["standard_question_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standard_questions_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -5098,6 +5289,16 @@ export type Database = {
         | "payment_confirmed"
         | "cancelled"
         | "returned"
+      standard_question_category:
+        | "dores_articulares"
+        | "emagrecimento"
+        | "diabetes"
+        | "saude_geral"
+      standard_question_type:
+        | "single_choice"
+        | "multiple_choice"
+        | "number"
+        | "imc_calculator"
       subscription_status:
         | "active"
         | "canceled"
@@ -5326,6 +5527,18 @@ export const Constants = {
         "payment_confirmed",
         "cancelled",
         "returned",
+      ],
+      standard_question_category: [
+        "dores_articulares",
+        "emagrecimento",
+        "diabetes",
+        "saude_geral",
+      ],
+      standard_question_type: [
+        "single_choice",
+        "multiple_choice",
+        "number",
+        "imc_calculator",
       ],
       subscription_status: [
         "active",
