@@ -506,7 +506,7 @@ export default function Team() {
       if (memberError) throw memberError;
 
       // Update profile data
-      const { error: profileError } = await supabase
+      const { error: profileError, count: profileCount } = await supabase
         .from("profiles")
         .update({
           first_name: editMemberData.firstName,
@@ -524,9 +524,12 @@ export default function Team() {
           weekly_goal_cents: editMemberData.weeklyGoalCents || 0,
           monthly_goal_cents: editMemberData.monthlyGoalCents || 0,
         })
-        .eq("user_id", editingMember.user_id);
+        .eq("user_id", editingMember.user_id)
+        .select();
 
       if (profileError) throw profileError;
+      
+      console.log("Profile update result:", { profileCount, userId: editingMember.user_id });
 
       // Handle sales manager team members
       if (editMemberData.isSalesManager && editMemberData.earnsTeamCommission) {
