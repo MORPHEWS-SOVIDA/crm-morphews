@@ -64,6 +64,7 @@ import { useActivePaymentMethodsEnhanced, PaymentMethodEnhanced, PAYMENT_TIMING_
 import { supabase } from '@/integrations/supabase/client';
 
 interface SelectedItem {
+  item_id: string; // Unique identifier for each item line
   product_id: string;
   product_name: string;
   quantity: number;
@@ -209,21 +210,17 @@ export default function NewSale() {
     setProductDialogOpen(true);
   };
 
-  const handleAddItem = (item: SelectedItem) => {
-    // Check if product already exists
-    const existingIndex = selectedItems.findIndex(i => i.product_id === item.product_id);
-    if (existingIndex >= 0) {
-      // Replace existing item
-      const newItems = [...selectedItems];
-      newItems[existingIndex] = item;
-      setSelectedItems(newItems);
-    } else {
-      setSelectedItems([...selectedItems, item]);
-    }
+  const handleAddItem = (item: Omit<SelectedItem, 'item_id'>) => {
+    // Always add as a new item with unique ID
+    const newItem: SelectedItem = {
+      ...item,
+      item_id: `${item.product_id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+    setSelectedItems([...selectedItems, newItem]);
   };
 
-  const handleRemoveItem = (productId: string) => {
-    setSelectedItems(selectedItems.filter(item => item.product_id !== productId));
+  const handleRemoveItem = (itemId: string) => {
+    setSelectedItems(selectedItems.filter(item => item.item_id !== itemId));
   };
 
   const handleSubmit = async () => {
@@ -488,7 +485,7 @@ export default function NewSale() {
                           const itemTotal = (item.unit_price_cents * item.quantity) - item.discount_cents;
                           const product = products.find(p => p.id === item.product_id);
                           return (
-                            <TableRow key={item.product_id}>
+                            <TableRow key={item.item_id}>
                               <TableCell>
                                 <div className="flex items-center gap-3">
                                   {product?.image_url ? (
@@ -531,7 +528,7 @@ export default function NewSale() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive"
-                                  onClick={() => handleRemoveItem(item.product_id)}
+                                  onClick={() => handleRemoveItem(item.item_id)}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
