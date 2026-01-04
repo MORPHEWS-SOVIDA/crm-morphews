@@ -5179,6 +5179,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      seed_standard_questions_for_org: {
+        Args: { _org_id: string }
+        Returns: undefined
+      }
       unreserve_stock_for_sale: {
         Args: { _sale_id: string }
         Returns: undefined
