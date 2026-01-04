@@ -48,6 +48,8 @@ export interface Product {
   // Image fields
   image_url: string | null;
   label_image_url: string | null;
+  // Visibility restriction
+  restrict_to_users: boolean;
 }
 
 // Computed property for available stock
@@ -82,6 +84,8 @@ export interface ProductFormData {
   // Image fields
   image_url?: string | null;
   label_image_url?: string | null;
+  // Visibility restriction
+  restrict_to_users?: boolean;
 }
 
 export function useProducts() {

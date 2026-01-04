@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import {
   Form,
@@ -24,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users } from 'lucide-react';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
 import { PriceKitsManager } from './PriceKitsManager';
@@ -33,6 +34,8 @@ import type { ProductPriceKitFormData } from '@/hooks/useProductPriceKits';
 import { ProductImageUpload } from './ProductImageUpload';
 import { ProductFaqManager, type ProductFaq } from './ProductFaqManager';
 import { ProductIngredientsManager, type ProductIngredient } from './ProductIngredientsManager';
+import { useUsers } from '@/hooks/useUsers';
+import { useProductVisibility } from '@/hooks/useProductVisibility';
 
 // Categorias que usam o sistema de kits dinâmicos
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
@@ -56,27 +59,31 @@ const formSchema = z.object({
   track_stock: z.boolean().optional(),
   crosssell_product_1_id: z.string().nullable().optional(),
   crosssell_product_2_id: z.string().nullable().optional(),
+  restrict_to_users: z.boolean().optional(),
 });
 
 interface ProductFormProps {
   product?: Product | null;
-  onSubmit: (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[]) => void;
+  onSubmit: (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[], selectedUserIds?: string[]) => void;
   isLoading?: boolean;
   onCancel: () => void;
   initialPriceKits?: ProductPriceKitFormData[];
   initialQuestions?: DynamicQuestion[];
   initialFaqs?: ProductFaq[];
   initialIngredients?: ProductIngredient[];
+  initialVisibleUserIds?: string[];
 }
 
-export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPriceKits = [], initialQuestions = [], initialFaqs = [], initialIngredients = [] }: ProductFormProps) {
+export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPriceKits = [], initialQuestions = [], initialFaqs = [], initialIngredients = [], initialVisibleUserIds = [] }: ProductFormProps) {
   const [priceKits, setPriceKits] = useState<ProductPriceKitFormData[]>(initialPriceKits);
   const [questions, setQuestions] = useState<DynamicQuestion[]>(initialQuestions);
   const [faqs, setFaqs] = useState<ProductFaq[]>(initialFaqs);
   const [ingredients, setIngredients] = useState<ProductIngredient[]>(initialIngredients);
   const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url || null);
   const [labelImageUrl, setLabelImageUrl] = useState<string | null>(product?.label_image_url || null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(initialVisibleUserIds);
   
+  const { data: users = [] } = useUsers();
   // Sync state when initial values change
   useEffect(() => {
     setPriceKits(initialPriceKits);
@@ -93,6 +100,11 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   useEffect(() => {
     setQuestions(initialQuestions);
   }, [initialQuestions]);
+
+  useEffect(() => {
+    setSelectedUserIds(initialVisibleUserIds);
+  }, [initialVisibleUserIds]);
+
   const { data: allProducts = [] } = useProducts();
   
   // Filter out current product from cross-sell options
@@ -119,6 +131,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       track_stock: product?.track_stock ?? false,
       crosssell_product_1_id: product?.crosssell_product_1_id || null,
       crosssell_product_2_id: product?.crosssell_product_2_id || null,
+      restrict_to_users: product?.restrict_to_users ?? false,
     },
   });
 
@@ -139,7 +152,19 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       label_image_url: labelImageUrl,
     } as ProductFormData;
     
-    onSubmit(dataWithImages, usesKits ? priceKits : undefined, validQuestions, validFaqs, validIngredients);
+    // Pass selectedUserIds only if restrict_to_users is true
+    const usersToSave = values.restrict_to_users ? selectedUserIds : [];
+    onSubmit(dataWithImages, usesKits ? priceKits : undefined, validQuestions, validFaqs, validIngredients, usersToSave);
+  };
+
+  const watchedRestrictToUsers = form.watch('restrict_to_users');
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   return (
@@ -297,6 +322,62 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="restrict_to_users"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Restringir a Usuários Específicos</FormLabel>
+                    <FormDescription>
+                      Quando ativado, apenas os usuários selecionados podem vender este produto
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {watchedRestrictToUsers && (
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Users className="h-4 w-4" />
+                  Selecione os usuários que podem vender este produto
+                </div>
+                {users.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum usuário encontrado</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.user_id}
+                        className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer"
+                        onClick={() => toggleUserSelection(user.user_id)}
+                      >
+                        <Checkbox 
+                          checked={selectedUserIds.includes(user.user_id)} 
+                          onCheckedChange={() => toggleUserSelection(user.user_id)}
+                        />
+                        <span className="text-sm">
+                          {user.first_name} {user.last_name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedUserIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedUserIds.length} usuário(s) selecionado(s)
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -13,12 +13,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { ChevronDown, Star, Search, Package, Plus, Image } from 'lucide-react';
+import { ChevronDown, Star, Search, Package, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/hooks/useProducts';
+import { useProductsForCurrentUser } from '@/hooks/useProductVisibility';
 
 interface ProductSelectorForSaleProps {
-  products: Product[];
+  products?: Product[]; // Optional - if not provided, will use visibility-filtered products
   isLoading?: boolean;
   onSelect: (product: Product) => void;
   placeholder?: string;
@@ -27,14 +28,20 @@ interface ProductSelectorForSaleProps {
 }
 
 export function ProductSelectorForSale({
-  products,
-  isLoading = false,
+  products: externalProducts,
+  isLoading: externalLoading = false,
   onSelect,
   placeholder = 'Buscar produto...',
   className,
   emptyAction,
 }: ProductSelectorForSaleProps) {
   const [open, setOpen] = useState(false);
+  
+  // Use visibility-filtered products if external products not provided
+  const { data: visibilityProducts = [], isLoading: visibilityLoading } = useProductsForCurrentUser();
+  
+  const products = externalProducts ?? visibilityProducts as Product[];
+  const isLoading = externalLoading || (!externalProducts && visibilityLoading);
 
   // Separate featured and non-featured products
   const { featuredProducts, allProducts } = useMemo(() => {

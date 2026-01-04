@@ -36,6 +36,7 @@ import {
 } from '@/hooks/useProductQuestions';
 import { useProductFaqs, useSaveProductFaqs } from '@/hooks/useProductFaqs';
 import { useProductIngredients, useSaveProductIngredients } from '@/hooks/useProductIngredients';
+import { useProductVisibility, useSaveProductVisibility } from '@/hooks/useProductVisibility';
 import { normalizeText } from '@/lib/utils';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import type { DynamicQuestion } from '@/components/products/DynamicQuestionsManager';
@@ -57,6 +58,7 @@ export default function Products() {
   const [initialQuestions, setInitialQuestions] = useState<DynamicQuestion[]>([]);
   const [initialFaqs, setInitialFaqs] = useState<ProductFaq[]>([]);
   const [initialIngredients, setInitialIngredients] = useState<ProductIngredient[]>([]);
+  const [initialVisibleUserIds, setInitialVisibleUserIds] = useState<string[]>([]);
 
   const { data: products, isLoading } = useProducts();
   const { data: isOwner } = useIsOwner();
@@ -68,6 +70,7 @@ export default function Products() {
   const saveQuestions = useSaveProductQuestions();
   const saveFaqs = useSaveProductFaqs();
   const saveIngredients = useSaveProductIngredients();
+  const saveProductVisibility = useSaveProductVisibility();
   
   // User can manage products if they are owner OR have products_manage permission
   const canManageProducts = isOwner || myPermissions?.products_manage || false;
@@ -77,6 +80,7 @@ export default function Products() {
   const { data: productQuestions } = useProductQuestions(selectedProduct?.id);
   const { data: productFaqs } = useProductFaqs(selectedProduct?.id);
   const { data: productIngredients } = useProductIngredients(selectedProduct?.id);
+  const { data: productVisibility } = useProductVisibility(selectedProduct?.id);
 
   useEffect(() => {
     if (productKits) {
@@ -139,12 +143,20 @@ export default function Products() {
     }
   }, [productIngredients]);
 
+  useEffect(() => {
+    if (productVisibility) {
+      setInitialVisibleUserIds(productVisibility.map(v => v.user_id));
+    } else {
+      setInitialVisibleUserIds([]);
+    }
+  }, [productVisibility]);
+
   const filteredProducts = products?.filter((p) =>
     normalizeText(p.name).includes(normalizeText(searchTerm)) ||
     normalizeText(p.description || '').includes(normalizeText(searchTerm))
   );
 
-  const handleCreate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[]) => {
+  const handleCreate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[], selectedUserIds?: string[]) => {
     const product = await createProduct.mutateAsync(data);
     
     // Save kits if provided
@@ -186,11 +198,19 @@ export default function Products() {
         }))
       });
     }
+
+    // Save visibility if product is restricted
+    if (data.restrict_to_users && selectedUserIds && selectedUserIds.length > 0 && product?.id) {
+      await saveProductVisibility.mutateAsync({
+        productId: product.id,
+        userIds: selectedUserIds,
+      });
+    }
     
     setViewMode('list');
   };
 
-  const handleUpdate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[]) => {
+  const handleUpdate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[], selectedUserIds?: string[]) => {
     if (!selectedProduct) return;
     await updateProduct.mutateAsync({ id: selectedProduct.id, data });
     
@@ -231,6 +251,12 @@ export default function Products() {
         position: i,
       }))
     });
+
+    // Always save visibility (will clear if not restricted)
+    await saveProductVisibility.mutateAsync({
+      productId: selectedProduct.id,
+      userIds: selectedUserIds || [],
+    });
     
     setViewMode('list');
     setSelectedProduct(null);
@@ -238,6 +264,7 @@ export default function Products() {
     setInitialQuestions([]);
     setInitialFaqs([]);
     setInitialIngredients([]);
+    setInitialVisibleUserIds([]);
   };
 
   const handleDelete = async () => {
@@ -258,6 +285,7 @@ export default function Products() {
     setInitialQuestions([]);
     setInitialFaqs([]);
     setInitialIngredients([]);
+    setInitialVisibleUserIds([]);
   };
 
   if (viewMode === 'create') {
@@ -267,7 +295,7 @@ export default function Products() {
           <h1 className="text-2xl font-bold mb-6">Novo Produto</h1>
           <ProductForm
             onSubmit={handleCreate}
-            isLoading={createProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending || saveFaqs.isPending || saveIngredients.isPending}
+            isLoading={createProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending || saveFaqs.isPending || saveIngredients.isPending || saveProductVisibility.isPending}
             onCancel={handleCancel}
           />
         </div>
@@ -283,12 +311,13 @@ export default function Products() {
           <ProductForm
             product={selectedProduct}
             onSubmit={handleUpdate}
-            isLoading={updateProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending || saveFaqs.isPending || saveIngredients.isPending}
+            isLoading={updateProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending || saveFaqs.isPending || saveIngredients.isPending || saveProductVisibility.isPending}
             onCancel={handleCancel}
             initialPriceKits={initialKits}
             initialQuestions={initialQuestions}
             initialFaqs={initialFaqs}
             initialIngredients={initialIngredients}
+            initialVisibleUserIds={initialVisibleUserIds}
           />
         </div>
       </Layout>

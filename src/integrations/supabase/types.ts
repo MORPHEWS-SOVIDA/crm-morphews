@@ -989,6 +989,7 @@ export type Database = {
           price_12_units: number | null
           price_3_units: number | null
           price_6_units: number | null
+          restrict_to_users: boolean
           sales_script: string | null
           stock_quantity: number | null
           stock_reserved: number | null
@@ -1019,6 +1020,7 @@ export type Database = {
           price_12_units?: number | null
           price_3_units?: number | null
           price_6_units?: number | null
+          restrict_to_users?: boolean
           sales_script?: string | null
           stock_quantity?: number | null
           stock_reserved?: number | null
@@ -1049,6 +1051,7 @@ export type Database = {
           price_12_units?: number | null
           price_3_units?: number | null
           price_6_units?: number | null
+          restrict_to_users?: boolean
           sales_script?: string | null
           stock_quantity?: number | null
           stock_reserved?: number | null
@@ -2327,6 +2330,45 @@ export type Database = {
           },
           {
             foreignKeyName: "product_questions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_user_visibility: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_user_visibility_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_user_visibility_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
