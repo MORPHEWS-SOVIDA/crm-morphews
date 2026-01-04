@@ -2644,6 +2644,76 @@ export type Database = {
           },
         ]
       }
+      sale_changes_log: {
+        Row: {
+          change_type: string
+          changed_at: string
+          changed_by: string
+          created_at: string
+          field_name: string | null
+          id: string
+          item_id: string | null
+          new_value: string | null
+          notes: string | null
+          old_value: string | null
+          organization_id: string
+          product_name: string | null
+          sale_id: string
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          changed_by: string
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          item_id?: string | null
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          organization_id: string
+          product_name?: string | null
+          sale_id: string
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          changed_by?: string
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          item_id?: string | null
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          organization_id?: string
+          product_name?: string | null
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_changes_log_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_changes_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_changes_log_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_installments: {
         Row: {
           acquirer_id: string | null
@@ -2908,6 +2978,7 @@ export type Database = {
           total_cents: number
           tracking_code: string | null
           updated_at: string
+          was_edited: boolean | null
         }
         Insert: {
           assigned_delivery_user_id?: string | null
@@ -2967,6 +3038,7 @@ export type Database = {
           total_cents?: number
           tracking_code?: string | null
           updated_at?: string
+          was_edited?: boolean | null
         }
         Update: {
           assigned_delivery_user_id?: string | null
@@ -3026,6 +3098,7 @@ export type Database = {
           total_cents?: number
           tracking_code?: string | null
           updated_at?: string
+          was_edited?: boolean | null
         }
         Relationships: [
           {

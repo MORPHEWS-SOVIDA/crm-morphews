@@ -57,7 +57,9 @@ import {
   Building2,
   Store,
   RotateCcw,
-  Copy
+  Copy,
+  Pencil,
+  History
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -72,6 +74,7 @@ import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmationDialog';
 import { useSalePostSaleSurvey, useCreatePostSaleSurvey, useUpdatePostSaleSurvey, PostSaleSurveyStatus } from '@/hooks/usePostSaleSurveys';
 import { MedicationAutocomplete } from '@/components/post-sale/MedicationAutocomplete';
+import { useSaleChangesLog, getChangeTypeLabel } from '@/hooks/useSaleChangesLog';
 
 
 // Hook to fetch delivery return reasons
@@ -510,6 +513,9 @@ export default function SaleDetail() {
   const { data: postSaleSurvey, isLoading: isLoadingSurvey } = useSalePostSaleSurvey(id);
   const createPostSaleSurvey = useCreatePostSaleSurvey();
   const updatePostSaleSurvey = useUpdatePostSaleSurvey();
+  
+  // Sale changes log (audit trail)
+  const { data: changesLog = [] } = useSaleChangesLog(id);
 
   // Fetch payment method to check if it requires proof
   const { data: salePaymentMethod } = useQuery({
@@ -536,6 +542,10 @@ export default function SaleDetail() {
   const canMarkDelivered = permissions?.sales_mark_delivered;
   const canConfirmPayment = permissions?.sales_confirm_payment;
   const canCancel = permissions?.sales_cancel;
+  const canEditDraft = permissions?.sales_edit_draft;
+  
+  // Can only edit if not payment_confirmed or cancelled
+  const isEditable = sale && !['payment_confirmed', 'cancelled'].includes(sale.status);
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -924,6 +934,17 @@ export default function SaleDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {canEditDraft && isEditable && (
+              <Button 
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => navigate(`/vendas/${sale.id}/editar`)}
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+            )}
             <Button 
               variant="outline"
               size="sm"
@@ -1653,6 +1674,66 @@ export default function SaleDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Changes History Log */}
+            {changesLog.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    Histórico de Alterações
+                    <Badge variant="secondary" className="ml-auto">{changesLog.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {changesLog.map((log) => (
+                      <div key={log.id} className="text-sm border-b last:border-0 pb-2 last:pb-0">
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                          <span>
+                            {format(new Date(log.changed_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {log.changed_by_profile 
+                              ? `${log.changed_by_profile.first_name} ${log.changed_by_profile.last_name}`
+                              : 'Usuário'}
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {getChangeTypeLabel(log.change_type as any)}
+                          </Badge>
+                          <div>
+                            {log.product_name && (
+                              <span className="font-medium">{log.product_name}: </span>
+                            )}
+                            {log.old_value && log.new_value && (
+                              <span className="text-muted-foreground">
+                                {log.old_value} → {log.new_value}
+                              </span>
+                            )}
+                            {log.notes && !log.old_value && (
+                              <span className="text-muted-foreground">{log.notes}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Was Edited Badge */}
+            {(sale as any).was_edited && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-amber-700 dark:text-amber-400">
+                  Esta venda foi editada após a criação
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

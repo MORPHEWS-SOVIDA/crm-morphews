@@ -29,6 +29,7 @@ import Team from "./pages/Team";
 import Products from "./pages/Products";
 import Sales from "./pages/Sales";
 import NewSale from "./pages/NewSale";
+import EditSale from "./pages/EditSale";
 import SaleDetail from "./pages/SaleDetail";
 import RomaneioPrint from "./pages/RomaneioPrint";
 import MyDeliveries from "./pages/MyDeliveries";
@@ -259,6 +260,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['sales_view']}>
                     <SaleDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vendas/:id/editar"
+                element={
+                  <ProtectedRoute requiredPermissions={['sales_edit_draft']}>
+                    <EditSale />
                   </ProtectedRoute>
                 }
               />
