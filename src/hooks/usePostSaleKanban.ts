@@ -20,6 +20,7 @@ export interface PostSaleSale {
   lead_id: string;
   total_cents: number;
   delivered_at: string | null;
+  created_at: string;
   seller_user_id: string | null;
   post_sale_contact_status: PostSaleContactStatus | null;
   romaneio_number: number | null;
@@ -119,6 +120,7 @@ export function usePostSaleSales() {
           lead_id,
           total_cents,
           delivered_at,
+          created_at,
           seller_user_id,
           post_sale_contact_status,
           romaneio_number,
@@ -135,11 +137,29 @@ export function usePostSaleSales() {
       
       if (error) throw error;
       
-      // Map sales that don't have a post_sale_contact_status to 'pending'
+      // Get seller profiles
+      const sellerIds = [...new Set((data || []).map(s => s.seller_user_id).filter(Boolean))];
+      let sellerProfiles: Record<string, { first_name: string; last_name: string }> = {};
+      
+      if (sellerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', sellerIds);
+        
+        if (profiles) {
+          sellerProfiles = profiles.reduce((acc, p) => {
+            acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+            return acc;
+          }, {} as Record<string, { first_name: string; last_name: string }>);
+        }
+      }
+      
+      // Map sales with seller info
       return (data || []).map(sale => ({
         ...sale,
         post_sale_contact_status: sale.post_sale_contact_status || 'pending',
-        seller: undefined
+        seller: sale.seller_user_id ? sellerProfiles[sale.seller_user_id] : undefined
       })) as PostSaleSale[];
     },
     enabled: !!tenantId,

@@ -325,7 +325,7 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
 
   const deliveryType = survey.sale?.delivery_type || survey.delivery_type;
 
-  const handleComplete = async () => {
+  const handleComplete = async (completionType: 'call' | 'whatsapp') => {
     await updateSurvey.mutateAsync({
       id: survey.id,
       received_order: receivedOrder ?? undefined,
@@ -336,6 +336,7 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
       delivery_rating: deliveryRating ?? undefined,
       notes: notes || undefined,
       status: 'completed',
+      completion_type: completionType,
     });
   };
 
@@ -456,24 +457,37 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button
-          onClick={handleComplete}
-          disabled={updateSurvey.isPending}
-          size="sm"
-          className="flex-1"
-        >
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Concluir
-        </Button>
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">Concluir pesquisa por:</p>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleComplete('call')}
+            disabled={updateSurvey.isPending}
+            size="sm"
+            className="flex-1"
+          >
+            <Phone className="w-3 h-3 mr-1" />
+            Ligação
+          </Button>
+          <Button
+            onClick={() => handleComplete('whatsapp')}
+            disabled={updateSurvey.isPending}
+            size="sm"
+            className="flex-1 bg-green-600 hover:bg-green-700"
+          >
+            <Send className="w-3 h-3 mr-1" />
+            WhatsApp
+          </Button>
+        </div>
         <Button
           variant="outline"
           onClick={handleAttempt}
           disabled={updateSurvey.isPending}
           size="sm"
+          className="w-full"
         >
-          <Phone className="w-3 h-3 mr-1" />
-          Tentativa
+          <Clock className="w-3 h-3 mr-1" />
+          Registrar Tentativa
         </Button>
       </div>
     </div>

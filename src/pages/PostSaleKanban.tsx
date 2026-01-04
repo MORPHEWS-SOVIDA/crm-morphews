@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { 
   usePostSaleSales, 
@@ -7,11 +7,19 @@ import {
   PostSaleContactStatus,
   PostSaleSale
 } from '@/hooks/usePostSaleKanban';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTenantMembers } from '@/hooks/multi-tenant';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   ClipboardList, 
   Loader2, 
@@ -20,9 +28,11 @@ import {
   Calendar,
   Search,
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  Filter,
+  X
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { useNavigate } from 'react-router-dom';
@@ -122,7 +132,7 @@ function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleCl
         </div>
       </div>
       
-      <ScrollArea className="h-[calc(100vh-280px)]">
+      <ScrollArea className="h-[calc(100vh-340px)]">
         <div className="p-2 space-y-2">
           {sales.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-xs">
@@ -147,21 +157,57 @@ function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleCl
 export default function PostSaleKanban() {
   const navigate = useNavigate();
   const { data: sales = [], isLoading } = usePostSaleSales();
+  const { data: members = [] } = useTenantMembers();
   const updateStatus = useUpdatePostSaleStatus();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedSale, setDraggedSale] = useState<PostSaleSale | null>(null);
+  
+  // Filter states - default to current month
+  const [startDate, setStartDate] = useState(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [selectedSeller, setSelectedSeller] = useState<string>('all');
 
-  // Filter sales by search
+  // Get unique sellers from members
+  const sellers = useMemo(() => {
+    return members.filter(m => m.profile).map(m => ({
+      id: m.user_id,
+      name: `${m.profile!.first_name} ${m.profile!.last_name}`.trim()
+    }));
+  }, [members]);
+
+  // Filter sales
   const filteredSales = useMemo(() => {
-    if (!searchTerm) return sales;
-    const term = searchTerm.toLowerCase();
-    return sales.filter(sale => 
-      sale.lead?.name.toLowerCase().includes(term) ||
-      sale.lead?.whatsapp.includes(term) ||
-      sale.lead?.specialty?.toLowerCase().includes(term)
-    );
-  }, [sales, searchTerm]);
+    return sales.filter(sale => {
+      // Search filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesSearch = 
+          sale.lead?.name.toLowerCase().includes(term) ||
+          sale.lead?.whatsapp.includes(term) ||
+          sale.lead?.specialty?.toLowerCase().includes(term) ||
+          sale.romaneio_number?.toString().includes(term);
+        if (!matchesSearch) return false;
+      }
+      
+      // Date filter (use created_at as the sale date)
+      if (startDate && sale.created_at) {
+        const saleDate = parseISO(sale.created_at);
+        const start = parseISO(startDate);
+        const end = endDate ? parseISO(endDate) : new Date();
+        end.setHours(23, 59, 59, 999);
+        
+        if (!isWithinInterval(saleDate, { start, end })) return false;
+      }
+      
+      // Seller filter
+      if (selectedSeller && selectedSeller !== 'all') {
+        if (sale.seller_user_id !== selectedSeller) return false;
+      }
+      
+      return true;
+    });
+  }, [sales, searchTerm, startDate, endDate, selectedSeller]);
 
   // Group sales by status
   const salesByStatus = useMemo(() => {
@@ -234,6 +280,15 @@ export default function PostSaleKanban() {
     navigate(`/vendas/${sale.id}`);
   };
 
+  const clearFilters = () => {
+    setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    setEndDate(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+    setSelectedSeller('all');
+    setSearchTerm('');
+  };
+
+  const hasActiveFilters = selectedSeller !== 'all' || searchTerm;
+
   if (isLoading) {
     return (
       <Layout>
@@ -258,17 +313,67 @@ export default function PostSaleKanban() {
               Acompanhe o contato com clientes após entrega
             </p>
           </div>
-          
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar cliente..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
         </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Filtros:</span>
+              </div>
+              
+              <div className="relative flex-1 min-w-[200px] max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar cliente ou romaneio..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Venda de:</span>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-9 w-36"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-9 w-36"
+                />
+              </div>
+              
+              <Select value={selectedSeller} onValueChange={setSelectedSeller}>
+                <SelectTrigger className="h-9 w-44">
+                  <SelectValue placeholder="Vendedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos vendedores</SelectItem>
+                  {sellers.map((seller) => (
+                    <SelectItem key={seller.id} value={seller.id}>
+                      {seller.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+                  <X className="w-4 h-4 mr-1" />
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

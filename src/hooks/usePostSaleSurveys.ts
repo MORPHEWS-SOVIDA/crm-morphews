@@ -73,6 +73,7 @@ export interface UpdatePostSaleSurveyData {
   delivery_rating?: number;
   notes?: string;
   status?: PostSaleSurveyStatus;
+  completion_type?: 'call' | 'whatsapp';
 }
 
 // Get all pending post-sale surveys
@@ -304,7 +305,7 @@ export function useUpdatePostSaleSurvey() {
   const { user } = useAuth();
   
   return useMutation({
-    mutationFn: async ({ id, ...data }: UpdatePostSaleSurveyData & { id: string }) => {
+    mutationFn: async ({ id, completion_type, ...data }: UpdatePostSaleSurveyData & { id: string }) => {
       const updateData: Record<string, unknown> = { ...data };
       
       // Set timestamps based on status
@@ -321,10 +322,29 @@ export function useUpdatePostSaleSurvey() {
         .eq('id', id);
       
       if (error) throw error;
+      
+      // If completed, also update the sale's post_sale_contact_status
+      if (data.status === 'completed' && completion_type) {
+        // Get the sale_id from the survey
+        const { data: survey } = await supabase
+          .from('post_sale_surveys')
+          .select('sale_id')
+          .eq('id', id)
+          .single();
+        
+        if (survey) {
+          const newStatus = completion_type === 'call' ? 'completed_call' : 'completed_whatsapp';
+          await supabase
+            .from('sales')
+            .update({ post_sale_contact_status: newStatus })
+            .eq('id', survey.sale_id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['post-sale-surveys'] });
       queryClient.invalidateQueries({ queryKey: ['post-sale-survey'] });
+      queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
       toast.success('Pesquisa atualizada!');
     },
     onError: (error: any) => {
