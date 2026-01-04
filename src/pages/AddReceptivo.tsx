@@ -44,7 +44,10 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Star
+  Star,
+  Plus,
+  Trash2,
+  Gift
 } from 'lucide-react';
 import { 
   useReceptiveModuleAccess, 
@@ -108,6 +111,19 @@ interface DeliveryConfig {
   shippingCost: number;
 }
 
+interface CartItem {
+  productId: string;
+  productName: string;
+  productCategory: string;
+  kitId: string | null;
+  priceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'custom';
+  quantity: number;
+  unitPriceCents: number;
+  commissionPercentage: number;
+  commissionCents: number;
+  requisitionNumber?: string;
+}
+
 const initialLeadData: LeadData = {
   name: '',
   whatsapp: '',
@@ -160,6 +176,10 @@ export default function AddReceptivo() {
     source_name: string;
     recorded_at: string;
   }>>([]);
+
+  // Cart state (multiple products)
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [showAddProduct, setShowAddProduct] = useState(false);
 
   // Kit selection state
   const [selectedKitId, setSelectedKitId] = useState<string | null>(null);
@@ -356,7 +376,11 @@ export default function AddReceptivo() {
   };
 
   const { quantity, unitPrice, commission } = getSelectedValues();
-  const subtotal = unitPrice * quantity;
+  
+  // Calculate cart totals
+  const cartSubtotal = cartItems.reduce((acc, item) => acc + (item.unitPriceCents * item.quantity), 0);
+  const currentItemSubtotal = unitPrice * quantity;
+  const subtotal = cartSubtotal + currentItemSubtotal;
   
   let totalDiscount = 0;
   if (discountType === 'percentage' && discountValue > 0) {
@@ -367,7 +391,11 @@ export default function AddReceptivo() {
 
   const shippingCost = deliveryConfig.shippingCost;
   const total = subtotal - totalDiscount + shippingCost;
-  const commissionValue = Math.round(total * (commission / 100));
+  
+  // Calculate total commission from cart + current item
+  const cartCommission = cartItems.reduce((acc, item) => acc + item.commissionCents, 0);
+  const currentCommissionValue = Math.round(currentItemSubtotal * (commission / 100));
+  const totalCommissionValue = cartCommission + currentCommissionValue;
 
   // Get available installments
   const getAvailableInstallments = () => {
@@ -380,6 +408,72 @@ export default function AddReceptivo() {
   };
 
   const formatPrice = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+
+  // Add current product to cart
+  const handleAddToCart = () => {
+    if (!selectedProduct || !unitPrice) return;
+    
+    const newItem: CartItem = {
+      productId: selectedProductId,
+      productName: selectedProduct.name,
+      productCategory: selectedProduct.category,
+      kitId: selectedKitId,
+      priceType: customPrice > 0 ? 'custom' : selectedPriceType,
+      quantity: selectedProduct.category === 'manipulado' ? manipuladoQuantity : quantity,
+      unitPriceCents: unitPrice,
+      commissionPercentage: commission,
+      commissionCents: Math.round((unitPrice * quantity) * (commission / 100)),
+      requisitionNumber: selectedProduct.category === 'manipulado' ? requisitionNumber : undefined,
+    };
+    
+    setCartItems(prev => [...prev, newItem]);
+    
+    // Reset for new product selection
+    setSelectedProductId('');
+    setSelectedKitId(null);
+    setRejectedKitIds([]);
+    setShowPromo2(false);
+    setShowMinimum(false);
+    setCustomPrice(0);
+    setRequisitionNumber('');
+    setManipuladoPrice(0);
+    setManipuladoQuantity(1);
+    setShowAddProduct(false);
+    
+    toast({ title: 'Produto adicionado ao carrinho!' });
+  };
+
+  // Remove item from cart
+  const handleRemoveFromCart = (index: number) => {
+    setCartItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Get cross-sell products for the selected product
+  const getCrossSellProducts = () => {
+    if (!selectedProduct) return [];
+    const crossSellIds = [
+      selectedProduct.crosssell_product_1_id,
+      selectedProduct.crosssell_product_2_id
+    ].filter(Boolean);
+    
+    // Also include cross-sell from cart items
+    cartItems.forEach(item => {
+      const cartProduct = products.find(p => p.id === item.productId);
+      if (cartProduct) {
+        if (cartProduct.crosssell_product_1_id) crossSellIds.push(cartProduct.crosssell_product_1_id);
+        if (cartProduct.crosssell_product_2_id) crossSellIds.push(cartProduct.crosssell_product_2_id);
+      }
+    });
+    
+    // Filter out products already in cart or currently selected
+    const inCartIds = cartItems.map(item => item.productId);
+    return products.filter(p => 
+      crossSellIds.includes(p.id) && 
+      p.id !== selectedProductId && 
+      !inCartIds.includes(p.id) &&
+      p.is_active
+    );
+  };
 
   const handlePhoneSearch = async () => {
     if (phoneInput.length < 12) {
@@ -620,22 +714,45 @@ export default function AddReceptivo() {
         });
       }
 
-      // Create sale
-      const saleItem = {
-        product_id: selectedProductId,
-        product_name: selectedProduct?.name || 'Produto',
-        quantity,
-        unit_price_cents: unitPrice,
-        discount_cents: totalDiscount,
-        requisition_number: selectedProduct?.category === 'manipulado' ? requisitionNumber : null,
-        commission_percentage: commission,
-        commission_cents: commissionValue,
-      };
+      // Build all sale items from cart + current selection
+      const allItems = [];
+      
+      // Add cart items
+      for (const cartItem of cartItems) {
+        allItems.push({
+          product_id: cartItem.productId,
+          product_name: cartItem.productName,
+          quantity: cartItem.quantity,
+          unit_price_cents: cartItem.unitPriceCents,
+          discount_cents: 0,
+          requisition_number: cartItem.requisitionNumber || null,
+          commission_percentage: cartItem.commissionPercentage,
+          commission_cents: cartItem.commissionCents,
+        });
+      }
+
+      // Add current item if selected
+      if (selectedProductId && unitPrice > 0) {
+        allItems.push({
+          product_id: selectedProductId,
+          product_name: selectedProduct?.name || 'Produto',
+          quantity,
+          unit_price_cents: unitPrice,
+          discount_cents: allItems.length === 0 ? totalDiscount : 0, // Apply total discount to first item
+          requisition_number: selectedProduct?.category === 'manipulado' ? requisitionNumber : null,
+          commission_percentage: commission,
+          commission_cents: currentCommissionValue,
+        });
+      }
+
+      if (allItems.length === 0) {
+        throw new Error('Nenhum produto selecionado');
+      }
 
       const sale = await createSale.mutateAsync({
         lead_id: leadId,
         seller_user_id: sellerUserId,
-        items: [saleItem],
+        items: allItems,
         discount_type: discountValue > 0 ? discountType : null,
         discount_value: discountValue,
         delivery_type: deliveryConfig.type,
@@ -656,7 +773,7 @@ export default function AddReceptivo() {
           id: attendanceId,
           updates: {
             lead_id: leadId,
-            product_id: selectedProductId || null,
+            product_id: selectedProductId || cartItems[0]?.productId || null,
             product_answers: Object.keys(productAnswers).length > 0 ? productAnswers : null,
             sale_id: sale.id,
             completed: true,
@@ -1442,16 +1559,116 @@ export default function AddReceptivo() {
                 </div>
               )}
 
-              {/* Order Summary */}
+              {/* Cart Items Display */}
+              {cartItems.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4" />
+                      Itens no Carrinho ({cartItems.length})
+                    </h4>
+                    {cartItems.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div>
+                          <span className="font-medium">{item.quantity}x {item.productName}</span>
+                          <p className="text-sm text-muted-foreground">
+                            {formatPrice(item.unitPriceCents * item.quantity)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveFromCart(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Add more products button */}
               {unitPrice > 0 && (
+                <>
+                  <Separator />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={handleAddToCart}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar ao Carrinho e Selecionar Outro
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* Cross-sell Products */}
+              {getCrossSellProducts().length > 0 && (
+                <>
+                  <Separator />
+                  <div className="p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800">
+                    <h4 className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-3">
+                      <Gift className="w-4 h-4" />
+                      Venda Casada - Sugira para o Cliente!
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {getCrossSellProducts().map((crossProduct) => (
+                        <Button
+                          key={crossProduct.id}
+                          variant="outline"
+                          className="justify-start h-auto p-3 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                          onClick={() => {
+                            // Add current to cart first if valid
+                            if (unitPrice > 0) {
+                              handleAddToCart();
+                            }
+                            // Select the cross-sell product
+                            setSelectedProductId(crossProduct.id);
+                            setSelectedKitId(null);
+                            setRejectedKitIds([]);
+                            setShowPromo2(false);
+                            setShowMinimum(false);
+                          }}
+                        >
+                          <div className="text-left">
+                            <p className="font-medium">{crossProduct.name}</p>
+                            <p className="text-xs text-muted-foreground">{crossProduct.category}</p>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Order Summary */}
+              {(unitPrice > 0 || cartItems.length > 0) && (
                 <>
                   <Separator />
                   <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                     <h4 className="font-semibold">Resumo do Pedido</h4>
-                    <div className="flex justify-between text-sm">
-                      <span>{quantity}x {selectedProduct.name}</span>
-                      <span>{formatPrice(subtotal)}</span>
-                    </div>
+                    
+                    {/* Cart items */}
+                    {cartItems.map((item, index) => (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span>{item.quantity}x {item.productName}</span>
+                        <span>{formatPrice(item.unitPriceCents * item.quantity)}</span>
+                      </div>
+                    ))}
+                    
+                    {/* Current item */}
+                    {unitPrice > 0 && selectedProduct && (
+                      <div className="flex justify-between text-sm">
+                        <span>{quantity}x {selectedProduct.name}</span>
+                        <span>{formatPrice(currentItemSubtotal)}</span>
+                      </div>
+                    )}
+                    
                     {totalDiscount > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Desconto</span>
@@ -1464,15 +1681,62 @@ export default function AddReceptivo() {
                       <span>{formatPrice(total)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Sua comissão ({commission}%)</span>
-                      <span>{formatPrice(commissionValue)}</span>
+                      <span>Sua comissão total</span>
+                      <span>{formatPrice(totalCommissionValue)}</span>
                     </div>
                   </div>
                 </>
               )}
 
+              {/* Non-Purchase Reasons in Offer step */}
               <Separator />
-              {renderNavButtons(() => setCurrentStep('questions'), handleGoToAddress, !unitPrice)}
+              <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20">
+                <h4 className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-3">
+                  <ThumbsDown className="w-4 h-4" />
+                  Não Fechou a Venda
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">Selecione o motivo para acompanhamento futuro</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {nonPurchaseReasons.slice(0, 4).map((reason) => (
+                    <Button
+                      key={reason.id}
+                      variant="outline"
+                      size="sm"
+                      className={`justify-start h-auto p-3 ${
+                        selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
+                      }`}
+                      onClick={() => handleSelectReason(reason.id)}
+                      disabled={isSaving}
+                    >
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-sm">{reason.name}</p>
+                        {reason.followup_hours > 0 && (
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            Follow-up: {reason.followup_hours}h
+                          </Badge>
+                        )}
+                      </div>
+                      {isSaving && selectedReasonId === reason.id && (
+                        <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                      )}
+                    </Button>
+                  ))}
+                </div>
+                {nonPurchaseReasons.length > 4 && (
+                  <Button
+                    variant="ghost"
+                    className="w-full mt-2 text-amber-700"
+                    onClick={() => setCurrentStep('sale_or_reason')}
+                  >
+                    Ver todos os motivos ({nonPurchaseReasons.length})
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
+
+              <Separator />
+              {renderNavButtons(() => setCurrentStep('questions'), handleGoToAddress, !(unitPrice > 0 || cartItems.length > 0))}
             </CardContent>
           </Card>
         )}
@@ -1675,20 +1939,28 @@ export default function AddReceptivo() {
                   Fechar Venda
                 </CardTitle>
                 <CardDescription>
-                  {formatPrice(total)} • {quantity}x {selectedProduct?.name}
+                  {formatPrice(total)} • {cartItems.length + (unitPrice > 0 ? 1 : 0)} produto(s)
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Summary */}
                 <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/30 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Produto</span>
-                    <span className="font-medium">{selectedProduct?.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Quantidade</span>
-                    <span className="font-medium">{quantity}</span>
-                  </div>
+                  {/* Cart items */}
+                  {cartItems.map((item, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{item.quantity}x {item.productName}</span>
+                      <span className="font-medium">{formatPrice(item.unitPriceCents * item.quantity)}</span>
+                    </div>
+                  ))}
+                  
+                  {/* Current item */}
+                  {unitPrice > 0 && selectedProduct && (
+                    <div className="flex justify-between">
+                      <span>{quantity}x {selectedProduct.name}</span>
+                      <span className="font-medium">{formatPrice(currentItemSubtotal)}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between">
                     <span>Entrega</span>
                     <span className="font-medium capitalize">{deliveryConfig.type}</span>
@@ -1697,10 +1969,26 @@ export default function AddReceptivo() {
                     <span>Pagamento</span>
                     <span className="font-medium">{selectedPaymentMethod?.name || 'Não selecionado'}</span>
                   </div>
+                  {shippingCost > 0 && (
+                    <div className="flex justify-between">
+                      <span>Frete</span>
+                      <span className="font-medium">+ {formatPrice(shippingCost)}</span>
+                    </div>
+                  )}
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Desconto</span>
+                      <span className="font-medium">- {formatPrice(totalDiscount)}</span>
+                    </div>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
                     <span className="text-green-600">{formatPrice(total)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Sua comissão</span>
+                    <span>{formatPrice(totalCommissionValue)}</span>
                   </div>
                 </div>
 
@@ -1708,7 +1996,7 @@ export default function AddReceptivo() {
                   size="lg" 
                   className="w-full bg-green-600 hover:bg-green-700"
                   onClick={handleCreateSale}
-                  disabled={isSaving || !unitPrice}
+                  disabled={isSaving || (cartItems.length === 0 && !unitPrice)}
                 >
                   {isSaving ? (
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
