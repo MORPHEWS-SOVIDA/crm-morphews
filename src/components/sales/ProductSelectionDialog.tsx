@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
-import { useLeadProductAnswer, useUpsertLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
+import { 
+  useProductQuestions, 
+  useLeadProductQuestionAnswers, 
+  useUpsertLeadQuestionAnswers 
+} from '@/hooks/useProductQuestions';
 import { useProductPriceKits, ProductPriceKit } from '@/hooks/useProductPriceKits';
 import { useMyCommission, calculateCommissionValue, compareCommission, CommissionComparison } from '@/hooks/useSellerCommission';
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
@@ -66,10 +70,8 @@ export function ProductSelectionDialog({
   const [manipuladoPrice, setManipuladoPrice] = useState(0);
   const [manipuladoQuantity, setManipuladoQuantity] = useState(1);
   
-  // Key questions answers
-  const [answer1, setAnswer1] = useState('');
-  const [answer2, setAnswer2] = useState('');
-  const [answer3, setAnswer3] = useState('');
+  // Key questions answers - dynamic
+  const [answerValues, setAnswerValues] = useState<Record<string, string>>({});
   
   // Authorization state for below-minimum prices
   const [showAuthDialog, setShowAuthDialog] = useState(false);
@@ -82,8 +84,9 @@ export function ProductSelectionDialog({
   const [rejectedKitIds, setRejectedKitIds] = useState<string[]>([]);
 
   // Fetch data
-  const { data: existingAnswer } = useLeadProductAnswer(leadId || undefined, product?.id);
-  const upsertAnswer = useUpsertLeadProductAnswer();
+  const { data: productQuestions = [] } = useProductQuestions(product?.id);
+  const { data: existingAnswers = [] } = useLeadProductQuestionAnswers(leadId || undefined, product?.id);
+  const upsertAnswers = useUpsertLeadQuestionAnswers();
   const { data: priceKits = [] } = useProductPriceKits(product?.id);
   const { data: sellerCommission } = useMyCommission();
   const { data: existingRejections = [] } = useKitRejections(leadId || undefined, product?.id);
@@ -95,23 +98,26 @@ export function ProductSelectionDialog({
   const isManipulado = product?.category === 'manipulado';
   const usesKitSystem = product?.category && CATEGORIES_WITH_KITS.includes(product.category);
 
+  // Check if has questions
+  const hasKeyQuestions = productQuestions.length > 0;
+
   // Find selected kit
   const selectedKit = priceKits.find(k => k.id === selectedKitId);
 
   // Load existing answers when they're fetched
   useEffect(() => {
-    if (existingAnswer) {
-      setAnswer1(existingAnswer.answer_1 || '');
-      setAnswer2(existingAnswer.answer_2 || '');
-      setAnswer3(existingAnswer.answer_3 || '');
+    if (existingAnswers.length > 0) {
+      const values: Record<string, string> = {};
+      existingAnswers.forEach(a => {
+        values[a.question_id] = a.answer_text || '';
+      });
+      setAnswerValues(values);
       setAnswersModified(false);
     } else {
-      setAnswer1('');
-      setAnswer2('');
-      setAnswer3('');
+      setAnswerValues({});
       setAnswersModified(false);
     }
-  }, [existingAnswer, product?.id]);
+  }, [existingAnswers, product?.id]);
 
   // Auto-select first kit when loaded (sorted by position)
   useEffect(() => {
@@ -353,13 +359,15 @@ export function ProductSelectionDialog({
     }
 
     // Save answers if they were modified and we have a lead
-    if (leadId && answersModified && (answer1 || answer2 || answer3)) {
-      upsertAnswer.mutate({
-        lead_id: leadId,
-        product_id: product.id,
-        answer_1: answer1 || null,
-        answer_2: answer2 || null,
-        answer_3: answer3 || null,
+    if (leadId && answersModified && productQuestions.length > 0) {
+      const answersToSave = productQuestions.map(q => ({
+        questionId: q.id,
+        answerText: answerValues[q.id] || null,
+      }));
+      upsertAnswers.mutate({
+        leadId,
+        productId: product.id,
+        answers: answersToSave,
       });
     }
 
@@ -381,9 +389,7 @@ export function ProductSelectionDialog({
     setLegacyQuantity(1);
     setLegacyUnitPrice(0);
     setDiscountValue(0);
-    setAnswer1('');
-    setAnswer2('');
-    setAnswer3('');
+    setAnswerValues({});
     setAnswersModified(false);
     setRequisitionNumber('');
     setManipuladoPrice(0);
@@ -400,19 +406,19 @@ export function ProductSelectionDialog({
   };
 
   const handleSaveAnswers = () => {
-    if (!leadId) return;
-    upsertAnswer.mutate({
-      lead_id: leadId,
-      product_id: product.id,
-      answer_1: answer1 || null,
-      answer_2: answer2 || null,
-      answer_3: answer3 || null,
+    if (!leadId || productQuestions.length === 0) return;
+    const answersToSave = productQuestions.map(q => ({
+      questionId: q.id,
+      answerText: answerValues[q.id] || null,
+    }));
+    upsertAnswers.mutate({
+      leadId,
+      productId: product.id,
+      answers: answersToSave,
     }, {
       onSuccess: () => setAnswersModified(false),
     });
   };
-
-  const hasKeyQuestions = product.key_question_1 || product.key_question_2 || product.key_question_3;
 
   // Render kit option with commission info
   const renderKitPriceOption = (
@@ -513,7 +519,7 @@ export function ProductSelectionDialog({
                         variant="ghost"
                         size="sm"
                         onClick={handleSaveAnswers}
-                        disabled={upsertAnswer.isPending}
+                        disabled={upsertAnswers.isPending}
                       >
                         <Save className="w-3 h-3 mr-1" />
                         Salvar
@@ -521,13 +527,13 @@ export function ProductSelectionDialog({
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {product.key_question_1 && (
-                      <div className="space-y-1">
-                        <Label className="text-xs">{product.key_question_1}</Label>
+                    {productQuestions.map((question) => (
+                      <div key={question.id} className="space-y-1">
+                        <Label className="text-xs">{question.question_text}</Label>
                         <Textarea
-                          value={answer1}
+                          value={answerValues[question.id] || ''}
                           onChange={(e) => {
-                            setAnswer1(e.target.value);
+                            setAnswerValues(prev => ({ ...prev, [question.id]: e.target.value }));
                             setAnswersModified(true);
                           }}
                           placeholder="Resposta do cliente..."
@@ -535,37 +541,7 @@ export function ProductSelectionDialog({
                           className="text-sm"
                         />
                       </div>
-                    )}
-                    {product.key_question_2 && (
-                      <div className="space-y-1">
-                        <Label className="text-xs">{product.key_question_2}</Label>
-                        <Textarea
-                          value={answer2}
-                          onChange={(e) => {
-                            setAnswer2(e.target.value);
-                            setAnswersModified(true);
-                          }}
-                          placeholder="Resposta do cliente..."
-                          rows={2}
-                          className="text-sm"
-                        />
-                      </div>
-                    )}
-                    {product.key_question_3 && (
-                      <div className="space-y-1">
-                        <Label className="text-xs">{product.key_question_3}</Label>
-                        <Textarea
-                          value={answer3}
-                          onChange={(e) => {
-                            setAnswer3(e.target.value);
-                            setAnswersModified(true);
-                          }}
-                          placeholder="Resposta do cliente..."
-                          rows={2}
-                          className="text-sm"
-                        />
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
@@ -573,24 +549,12 @@ export function ProductSelectionDialog({
               {/* Key Questions display-only (no lead selected) */}
               {hasKeyQuestions && !leadId && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {product.key_question_1 && (
-                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                      <p className="text-xs font-medium text-primary">Pergunta 1:</p>
-                      <p className="text-sm">{product.key_question_1}</p>
+                  {productQuestions.map((question, index) => (
+                    <div key={question.id} className="p-2 bg-primary/5 rounded border border-primary/10">
+                      <p className="text-xs font-medium text-primary">Pergunta {index + 1}:</p>
+                      <p className="text-sm">{question.question_text}</p>
                     </div>
-                  )}
-                  {product.key_question_2 && (
-                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                      <p className="text-xs font-medium text-primary">Pergunta 2:</p>
-                      <p className="text-sm">{product.key_question_2}</p>
-                    </div>
-                  )}
-                  {product.key_question_3 && (
-                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                      <p className="text-xs font-medium text-primary">Pergunta 3:</p>
-                      <p className="text-sm">{product.key_question_3}</p>
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
 

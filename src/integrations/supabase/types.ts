@@ -802,6 +802,71 @@ export type Database = {
           },
         ]
       }
+      lead_product_question_answers: {
+        Row: {
+          answer_text: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          organization_id: string
+          product_id: string
+          question_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          organization_id: string
+          product_id: string
+          question_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          product_id?: string
+          question_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_product_question_answers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_question_answers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_question_answers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_question_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "product_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_products: {
         Row: {
           category: string
@@ -2010,6 +2075,48 @@ export type Database = {
           },
           {
             foreignKeyName: "product_price_kits_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_questions: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          position: number
+          product_id: string
+          question_text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          position?: number
+          product_id: string
+          question_text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          position?: number
+          product_id?: string
+          question_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_questions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_questions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"

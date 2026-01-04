@@ -24,10 +24,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2 } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle } from 'lucide-react';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
 import { PriceKitsManager } from './PriceKitsManager';
+import { DynamicQuestionsManager, type DynamicQuestion } from './DynamicQuestionsManager';
 import type { ProductPriceKitFormData } from '@/hooks/useProductPriceKits';
 
 // Categorias que usam o sistema de kits dinâmicos
@@ -38,9 +39,6 @@ const formSchema = z.object({
   description: z.string().max(200, 'Máximo 200 caracteres').optional(),
   category: z.string().min(1, 'Categoria é obrigatória'),
   sales_script: z.string().optional(),
-  key_question_1: z.string().optional(),
-  key_question_2: z.string().optional(),
-  key_question_3: z.string().optional(),
   price_1_unit: z.coerce.number().min(0).optional(),
   price_3_units: z.coerce.number().min(0).optional(),
   price_6_units: z.coerce.number().min(0).optional(),
@@ -49,31 +47,35 @@ const formSchema = z.object({
   usage_period_days: z.coerce.number().min(0).optional(),
   is_active: z.boolean().optional(),
   is_featured: z.boolean().optional(),
-  // New fields
   cost_cents: z.coerce.number().min(0).optional(),
   stock_quantity: z.coerce.number().min(0).optional(),
   minimum_stock: z.coerce.number().min(0).optional(),
   track_stock: z.boolean().optional(),
-  // Cross-sell fields
   crosssell_product_1_id: z.string().nullable().optional(),
   crosssell_product_2_id: z.string().nullable().optional(),
 });
 
 interface ProductFormProps {
   product?: Product | null;
-  onSubmit: (data: ProductFormData, priceKits?: ProductPriceKitFormData[]) => void;
+  onSubmit: (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[]) => void;
   isLoading?: boolean;
   onCancel: () => void;
   initialPriceKits?: ProductPriceKitFormData[];
+  initialQuestions?: DynamicQuestion[];
 }
 
-export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPriceKits = [] }: ProductFormProps) {
+export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPriceKits = [], initialQuestions = [] }: ProductFormProps) {
   const [priceKits, setPriceKits] = useState<ProductPriceKitFormData[]>(initialPriceKits);
+  const [questions, setQuestions] = useState<DynamicQuestion[]>(initialQuestions);
   
-  // Sync priceKits when initialPriceKits changes (e.g., when editing a product)
+  // Sync priceKits and questions when initial values change
   useEffect(() => {
     setPriceKits(initialPriceKits);
   }, [initialPriceKits]);
+
+  useEffect(() => {
+    setQuestions(initialQuestions);
+  }, [initialQuestions]);
   const { data: allProducts = [] } = useProducts();
   
   // Filter out current product from cross-sell options
@@ -86,9 +88,6 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       description: product?.description || '',
       category: product?.category || 'produto_pronto',
       sales_script: product?.sales_script || '',
-      key_question_1: product?.key_question_1 || '',
-      key_question_2: product?.key_question_2 || '',
-      key_question_3: product?.key_question_3 || '',
       price_1_unit: product?.price_1_unit || 0,
       price_3_units: product?.price_3_units || 0,
       price_6_units: product?.price_6_units || 0,
@@ -97,12 +96,10 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       usage_period_days: product?.usage_period_days || 0,
       is_active: product?.is_active ?? true,
       is_featured: product?.is_featured ?? false,
-      // New fields
       cost_cents: product?.cost_cents || 0,
       stock_quantity: product?.stock_quantity || 0,
       minimum_stock: product?.minimum_stock || 0,
       track_stock: product?.track_stock ?? false,
-      // Cross-sell fields
       crosssell_product_1_id: product?.crosssell_product_1_id || null,
       crosssell_product_2_id: product?.crosssell_product_2_id || null,
     },
@@ -113,7 +110,9 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   const usesKits = CATEGORIES_WITH_KITS.includes(watchedCategory);
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    onSubmit(values as ProductFormData, usesKits ? priceKits : undefined);
+    // Filter out empty questions
+    const validQuestions = questions.filter(q => q.question_text.trim() !== '');
+    onSubmit(values as ProductFormData, usesKits ? priceKits : undefined, validQuestions);
   };
 
   return (
@@ -273,64 +272,18 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
           </CardContent>
         </Card>
 
-        {/* Perguntas Chave */}
+        {/* Perguntas Chave - Dinâmicas */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Perguntas Chave</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <HelpCircle className="h-5 w-5" />
+              Perguntas Chave
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="key_question_1"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pergunta Chave 1</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Primeira pergunta importante..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="key_question_2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pergunta Chave 2</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Segunda pergunta importante..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="key_question_3"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pergunta Chave 3</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Terceira pergunta importante..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <CardContent>
+            <DynamicQuestionsManager
+              questions={questions}
+              onChange={setQuestions}
             />
           </CardContent>
         </Card>

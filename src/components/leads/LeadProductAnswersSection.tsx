@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { 
   Dialog, 
   DialogContent, 
@@ -30,7 +29,14 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useLeadAnswers, useUpsertLeadProductAnswer, useDeleteLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
+import { 
+  useLeadQuestionAnswers, 
+  useProductQuestions,
+  useAllProductQuestions,
+  useUpsertLeadQuestionAnswers, 
+  useDeleteLeadProductQuestionAnswers,
+  type LeadQuestionAnswerWithDetails,
+} from '@/hooks/useProductQuestions';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -39,70 +45,89 @@ interface LeadProductAnswersSectionProps {
 }
 
 export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionProps) {
-  const { data: answers, isLoading: loadingAnswers } = useLeadAnswers(leadId);
+  const { data: answers, isLoading: loadingAnswers } = useLeadQuestionAnswers(leadId);
   const { data: products, isLoading: loadingProducts } = useProducts();
-  const upsertAnswer = useUpsertLeadProductAnswer();
-  const deleteAnswer = useDeleteLeadProductAnswer();
+  const upsertAnswers = useUpsertLeadQuestionAnswers();
+  const deleteAnswers = useDeleteLeadProductQuestionAnswers();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
-  const [answer1, setAnswer1] = useState('');
-  const [answer2, setAnswer2] = useState('');
-  const [answer3, setAnswer3] = useState('');
-  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [answerValues, setAnswerValues] = useState<Record<string, string>>({});
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
-  // Products that already have answers for this lead
-  const answeredProductIds = answers?.map(a => a.product_id) || [];
+  // Get all product IDs that have answers
+  const productIdsWithAnswers = useMemo(() => {
+    if (!answers) return [];
+    return [...new Set(answers.map(a => a.product_id))];
+  }, [answers]);
+
+  // Fetch questions for selected product in dialog
+  const { data: selectedProductQuestions } = useProductQuestions(selectedProductId || undefined);
   
-  // Available products for new answers (excluding already answered)
+  // Fetch all questions for products with answers
+  const { data: allQuestions } = useAllProductQuestions(productIdsWithAnswers);
+
+  // Group answers by product
+  const answersByProduct = useMemo(() => {
+    if (!answers) return {};
+    return answers.reduce((acc, answer) => {
+      if (!acc[answer.product_id]) acc[answer.product_id] = [];
+      acc[answer.product_id].push(answer);
+      return acc;
+    }, {} as Record<string, LeadQuestionAnswerWithDetails[]>);
+  }, [answers]);
+
+  // Available products for new answers
   const availableProducts = products?.filter(p => 
-    p.is_active && !answeredProductIds.includes(p.id)
+    p.is_active && !productIdsWithAnswers.includes(p.id)
   ) || [];
 
   const selectedProduct = products?.find(p => p.id === selectedProductId);
 
   const handleOpenNewAnswer = () => {
-    setEditingAnswerId(null);
+    setEditingProductId(null);
     setSelectedProductId('');
-    setAnswer1('');
-    setAnswer2('');
-    setAnswer3('');
+    setAnswerValues({});
     setIsDialogOpen(true);
   };
 
-  const handleEditAnswer = (answer: typeof answers extends (infer T)[] ? T : never) => {
-    setEditingAnswerId(answer.id);
-    setSelectedProductId(answer.product_id);
-    setAnswer1(answer.answer_1 || '');
-    setAnswer2(answer.answer_2 || '');
-    setAnswer3(answer.answer_3 || '');
+  const handleEditAnswer = (productId: string, productAnswers: LeadQuestionAnswerWithDetails[]) => {
+    setEditingProductId(productId);
+    setSelectedProductId(productId);
+    // Populate answer values
+    const values: Record<string, string> = {};
+    productAnswers.forEach(a => {
+      values[a.question_id] = a.answer_text || '';
+    });
+    setAnswerValues(values);
     setIsDialogOpen(true);
   };
 
   const handleSave = () => {
-    if (!selectedProductId) return;
+    if (!selectedProductId || !selectedProductQuestions) return;
 
-    upsertAnswer.mutate({
-      lead_id: leadId,
-      product_id: selectedProductId,
-      answer_1: answer1 || null,
-      answer_2: answer2 || null,
-      answer_3: answer3 || null,
+    const answersToSave = selectedProductQuestions.map(q => ({
+      questionId: q.id,
+      answerText: answerValues[q.id] || null,
+    }));
+
+    upsertAnswers.mutate({
+      leadId,
+      productId: selectedProductId,
+      answers: answersToSave,
     }, {
       onSuccess: () => {
         setIsDialogOpen(false);
         setSelectedProductId('');
-        setAnswer1('');
-        setAnswer2('');
-        setAnswer3('');
-        setEditingAnswerId(null);
+        setAnswerValues({});
+        setEditingProductId(null);
       },
     });
   };
 
   const handleDelete = (productId: string) => {
     if (confirm('Tem certeza que deseja remover as respostas deste produto?')) {
-      deleteAnswer.mutate({ leadId, productId });
+      deleteAnswers.mutate({ leadId, productId });
     }
   };
 
@@ -125,6 +150,11 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
     );
   }
 
+  // Get questions for a product from allQuestions
+  const getQuestionsForProduct = (productId: string) => {
+    return allQuestions?.filter(q => q.product_id === productId).sort((a, b) => a.position - b.position) || [];
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -140,14 +170,14 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                 Adicionar
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {editingAnswerId ? 'Editar Respostas' : 'Adicionar Respostas'}
+                  {editingProductId ? 'Editar Respostas' : 'Adicionar Respostas'}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                {!editingAnswerId && (
+                {!editingProductId && (
                   <div className="space-y-2">
                     <Label>Produto</Label>
                     <Select value={selectedProductId} onValueChange={setSelectedProductId}>
@@ -165,60 +195,31 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                   </div>
                 )}
 
-                {selectedProduct && (
-                  <>
-                    {selectedProduct.key_question_1 && (
-                      <div className="space-y-2">
+                {selectedProductQuestions && selectedProductQuestions.length > 0 ? (
+                  <div className="space-y-4">
+                    {selectedProductQuestions.map((question) => (
+                      <div key={question.id} className="space-y-2">
                         <Label className="flex items-center gap-2">
                           <HelpCircle className="w-4 h-4 text-muted-foreground" />
-                          {selectedProduct.key_question_1}
+                          {question.question_text}
                         </Label>
                         <Textarea
-                          value={answer1}
-                          onChange={(e) => setAnswer1(e.target.value)}
+                          value={answerValues[question.id] || ''}
+                          onChange={(e) => setAnswerValues(prev => ({ 
+                            ...prev, 
+                            [question.id]: e.target.value 
+                          }))}
                           placeholder="Resposta do cliente..."
                           rows={2}
                         />
                       </div>
-                    )}
-
-                    {selectedProduct.key_question_2 && (
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <HelpCircle className="w-4 h-4 text-muted-foreground" />
-                          {selectedProduct.key_question_2}
-                        </Label>
-                        <Textarea
-                          value={answer2}
-                          onChange={(e) => setAnswer2(e.target.value)}
-                          placeholder="Resposta do cliente..."
-                          rows={2}
-                        />
-                      </div>
-                    )}
-
-                    {selectedProduct.key_question_3 && (
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <HelpCircle className="w-4 h-4 text-muted-foreground" />
-                          {selectedProduct.key_question_3}
-                        </Label>
-                        <Textarea
-                          value={answer3}
-                          onChange={(e) => setAnswer3(e.target.value)}
-                          placeholder="Resposta do cliente..."
-                          rows={2}
-                        />
-                      </div>
-                    )}
-
-                    {!selectedProduct.key_question_1 && !selectedProduct.key_question_2 && !selectedProduct.key_question_3 && (
-                      <p className="text-muted-foreground text-sm">
-                        Este produto não tem perguntas chave configuradas.
-                      </p>
-                    )}
-                  </>
-                )}
+                    ))}
+                  </div>
+                ) : selectedProductId ? (
+                  <p className="text-muted-foreground text-sm">
+                    Este produto não tem perguntas chave configuradas.
+                  </p>
+                ) : null}
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -226,9 +227,9 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                   </Button>
                   <Button 
                     onClick={handleSave} 
-                    disabled={!selectedProductId || upsertAnswer.isPending}
+                    disabled={!selectedProductId || !selectedProductQuestions?.length || upsertAnswers.isPending}
                   >
-                    {upsertAnswer.isPending ? 'Salvando...' : 'Salvar'}
+                    {upsertAnswers.isPending ? 'Salvando...' : 'Salvar'}
                   </Button>
                 </div>
               </div>
@@ -237,80 +238,81 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
         )}
       </CardHeader>
       <CardContent>
-        {answers && answers.length > 0 ? (
+        {productIdsWithAnswers.length > 0 ? (
           <div className="space-y-4">
-            {answers.map((answer) => (
-              <div 
-                key={answer.id} 
-                className="border rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-primary" />
-                    <span className="font-medium">{answer.product?.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          {format(new Date(answer.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </span>
-                      </div>
-                      {answer.updated_by_profile && (
-                        <div className="flex items-center gap-1 text-foreground">
-                          <User className="w-3 h-3" />
-                          <span className="font-medium">
-                            {answer.updated_by_profile.first_name} {answer.updated_by_profile.last_name}
-                          </span>
+            {productIdsWithAnswers.map((productId) => {
+              const product = products?.find(p => p.id === productId);
+              const productAnswers = answersByProduct[productId] || [];
+              const productQuestions = getQuestionsForProduct(productId);
+              
+              // Get latest update info
+              const latestAnswer = productAnswers.reduce((latest, curr) => {
+                if (!latest) return curr;
+                return new Date(curr.updated_at) > new Date(latest.updated_at) ? curr : latest;
+              }, productAnswers[0]);
+
+              return (
+                <div 
+                  key={productId} 
+                  className="border rounded-lg p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-primary" />
+                      <span className="font-medium">{product?.name || 'Produto'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {latestAnswer && (
+                        <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>
+                              {format(new Date(latestAnswer.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          {latestAnswer.updated_by_profile && (
+                            <div className="flex items-center gap-1 text-foreground">
+                              <User className="w-3 h-3" />
+                              <span className="font-medium">
+                                {latestAnswer.updated_by_profile.first_name} {latestAnswer.updated_by_profile.last_name}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleEditAnswer(productId, productAnswers)}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleDelete(productId)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleEditAnswer(answer)}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleDelete(answer.product_id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    {productQuestions.map((question) => {
+                      const answer = productAnswers.find(a => a.question_id === question.id);
+                      return (
+                        <div key={question.id}>
+                          <p className="text-muted-foreground">{question.question_text}</p>
+                          <p className="font-medium">
+                            {answer?.answer_text || <span className="text-muted-foreground italic">Sem resposta</span>}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-
-                <div className="space-y-2 text-sm">
-                  {answer.product?.key_question_1 && (
-                    <div>
-                      <p className="text-muted-foreground">{answer.product.key_question_1}</p>
-                      <p className="font-medium">
-                        {answer.answer_1 || <span className="text-muted-foreground italic">Sem resposta</span>}
-                      </p>
-                    </div>
-                  )}
-                  {answer.product?.key_question_2 && (
-                    <div>
-                      <p className="text-muted-foreground">{answer.product.key_question_2}</p>
-                      <p className="font-medium">
-                        {answer.answer_2 || <span className="text-muted-foreground italic">Sem resposta</span>}
-                      </p>
-                    </div>
-                  )}
-                  {answer.product?.key_question_3 && (
-                    <div>
-                      <p className="text-muted-foreground">{answer.product.key_question_3}</p>
-                      <p className="font-medium">
-                        {answer.answer_3 || <span className="text-muted-foreground italic">Sem resposta</span>}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-6 text-muted-foreground">

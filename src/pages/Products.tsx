@@ -30,8 +30,13 @@ import {
   useBulkSaveProductPriceKits,
   type ProductPriceKitFormData 
 } from '@/hooks/useProductPriceKits';
+import { 
+  useProductQuestions, 
+  useSaveProductQuestions,
+} from '@/hooks/useProductQuestions';
 import { normalizeText } from '@/lib/utils';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import type { DynamicQuestion } from '@/components/products/DynamicQuestionsManager';
 
 type ViewMode = 'list' | 'create' | 'edit';
 
@@ -45,6 +50,7 @@ export default function Products() {
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [initialKits, setInitialKits] = useState<ProductPriceKitFormData[]>([]);
+  const [initialQuestions, setInitialQuestions] = useState<DynamicQuestion[]>([]);
 
   const { data: products, isLoading } = useProducts();
   const { data: isOwner } = useIsOwner();
@@ -53,12 +59,14 @@ export default function Products() {
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const bulkSaveKits = useBulkSaveProductPriceKits();
+  const saveQuestions = useSaveProductQuestions();
   
   // User can manage products if they are owner OR have products_manage permission
   const canManageProducts = isOwner || myPermissions?.products_manage || false;
 
   // Load kits when editing a product
   const { data: productKits } = useProductPriceKits(selectedProduct?.id);
+  const { data: productQuestions } = useProductQuestions(selectedProduct?.id);
 
   useEffect(() => {
     if (productKits) {
@@ -83,23 +91,46 @@ export default function Products() {
     }
   }, [productKits]);
 
+  useEffect(() => {
+    if (productQuestions) {
+      setInitialQuestions(productQuestions.map(q => ({
+        id: q.id,
+        question_text: q.question_text,
+        position: q.position,
+      })));
+    } else {
+      setInitialQuestions([]);
+    }
+  }, [productQuestions]);
+
   const filteredProducts = products?.filter((p) =>
     normalizeText(p.name).includes(normalizeText(searchTerm)) ||
     normalizeText(p.description || '').includes(normalizeText(searchTerm))
   );
 
-  const handleCreate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[]) => {
+  const handleCreate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[]) => {
     const product = await createProduct.mutateAsync(data);
     
     // Save kits if provided
     if (priceKits && priceKits.length > 0 && product?.id) {
       await bulkSaveKits.mutateAsync({ productId: product.id, kits: priceKits });
     }
+
+    // Save questions if provided
+    if (questions && questions.length > 0 && product?.id) {
+      await saveQuestions.mutateAsync({ 
+        productId: product.id, 
+        questions: questions.map((q, i) => ({ 
+          question_text: q.question_text, 
+          position: i 
+        }))
+      });
+    }
     
     setViewMode('list');
   };
 
-  const handleUpdate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[]) => {
+  const handleUpdate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[]) => {
     if (!selectedProduct) return;
     await updateProduct.mutateAsync({ id: selectedProduct.id, data });
     
@@ -110,10 +141,21 @@ export default function Products() {
         kits: priceKits || [] 
       });
     }
+
+    // Always save questions
+    await saveQuestions.mutateAsync({
+      productId: selectedProduct.id,
+      questions: (questions || []).map((q, i) => ({
+        id: q.id,
+        question_text: q.question_text,
+        position: i,
+      }))
+    });
     
     setViewMode('list');
     setSelectedProduct(null);
     setInitialKits([]);
+    setInitialQuestions([]);
   };
 
   const handleDelete = async () => {
@@ -131,6 +173,7 @@ export default function Products() {
     setViewMode('list');
     setSelectedProduct(null);
     setInitialKits([]);
+    setInitialQuestions([]);
   };
 
   if (viewMode === 'create') {
@@ -140,7 +183,7 @@ export default function Products() {
           <h1 className="text-2xl font-bold mb-6">Novo Produto</h1>
           <ProductForm
             onSubmit={handleCreate}
-            isLoading={createProduct.isPending || bulkSaveKits.isPending}
+            isLoading={createProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending}
             onCancel={handleCancel}
           />
         </div>
@@ -156,9 +199,10 @@ export default function Products() {
           <ProductForm
             product={selectedProduct}
             onSubmit={handleUpdate}
-            isLoading={updateProduct.isPending || bulkSaveKits.isPending}
+            isLoading={updateProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending}
             onCancel={handleCancel}
             initialPriceKits={initialKits}
+            initialQuestions={initialQuestions}
           />
         </div>
       </Layout>
