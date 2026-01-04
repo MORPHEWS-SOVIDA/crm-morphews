@@ -144,12 +144,15 @@ export function SacTicketForm({ onSuccess, preselectedLeadId }: SacTicketFormPro
       {leadId && leadSales.length > 0 && (
         <div className="space-y-2">
           <Label>Venda relacionada (opcional)</Label>
-          <Select value={saleId} onValueChange={setSaleId}>
+          <Select 
+            value={saleId || "none"} 
+            onValueChange={(v) => setSaleId(v === "none" ? "" : v)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Selecione uma venda..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhuma venda específica</SelectItem>
+              <SelectItem value="none">Nenhuma venda específica</SelectItem>
               {leadSales.map((sale) => (
                 <SelectItem key={sale.id} value={sale.id}>
                   {new Date(sale.created_at).toLocaleDateString('pt-BR')} - 
