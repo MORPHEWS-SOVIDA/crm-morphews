@@ -525,6 +525,88 @@ export type Database = {
           },
         ]
       }
+      lead_addresses: {
+        Row: {
+          cep: string | null
+          city: string | null
+          complement: string | null
+          created_at: string
+          delivery_notes: string | null
+          delivery_region_id: string | null
+          google_maps_link: string | null
+          id: string
+          is_primary: boolean
+          label: string
+          lead_id: string
+          neighborhood: string | null
+          organization_id: string
+          state: string | null
+          street: string | null
+          street_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          cep?: string | null
+          city?: string | null
+          complement?: string | null
+          created_at?: string
+          delivery_notes?: string | null
+          delivery_region_id?: string | null
+          google_maps_link?: string | null
+          id?: string
+          is_primary?: boolean
+          label?: string
+          lead_id: string
+          neighborhood?: string | null
+          organization_id: string
+          state?: string | null
+          street?: string | null
+          street_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cep?: string | null
+          city?: string | null
+          complement?: string | null
+          created_at?: string
+          delivery_notes?: string | null
+          delivery_region_id?: string | null
+          google_maps_link?: string | null
+          id?: string
+          is_primary?: boolean
+          label?: string
+          lead_id?: string
+          neighborhood?: string | null
+          organization_id?: string
+          state?: string | null
+          street?: string | null
+          street_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_addresses_delivery_region_id_fkey"
+            columns: ["delivery_region_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_regions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_addresses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_addresses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_events: {
         Row: {
           created_at: string
@@ -2551,6 +2633,7 @@ export type Database = {
             | Database["public"]["Enums"]["delivery_shift"]
             | null
           seller_user_id: string | null
+          shipping_address_id: string | null
           shipping_carrier_id: string | null
           shipping_cost_cents: number | null
           status: Database["public"]["Enums"]["sale_status"]
@@ -2604,6 +2687,7 @@ export type Database = {
             | Database["public"]["Enums"]["delivery_shift"]
             | null
           seller_user_id?: string | null
+          shipping_address_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
           status?: Database["public"]["Enums"]["sale_status"]
@@ -2657,6 +2741,7 @@ export type Database = {
             | Database["public"]["Enums"]["delivery_shift"]
             | null
           seller_user_id?: string | null
+          shipping_address_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
           status?: Database["public"]["Enums"]["sale_status"]
@@ -2699,6 +2784,13 @@ export type Database = {
             columns: ["return_reason_id"]
             isOneToOne: false
             referencedRelation: "delivery_return_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_shipping_address_id_fkey"
+            columns: ["shipping_address_id"]
+            isOneToOne: false
+            referencedRelation: "lead_addresses"
             referencedColumns: ["id"]
           },
           {

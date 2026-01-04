@@ -53,6 +53,8 @@ import { LeadSearchSelect } from '@/components/sales/LeadSearchSelect';
 import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialog';
 import { ProductSelectorForSale } from '@/components/products/ProductSelectorForSale';
 import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
+import { AddressSelector } from '@/components/sales/AddressSelector';
+import { LeadAddress } from '@/hooks/useLeadAddresses';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
@@ -146,6 +148,10 @@ export default function NewSale() {
     shippingCost: 0,
   });
 
+  // Selected shipping address
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<LeadAddress | null>(null);
+
   // Payment method selection
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [selectedInstallments, setSelectedInstallments] = useState<number>(1);
@@ -184,6 +190,14 @@ export default function NewSale() {
 
   const handleLeadChange = (leadId: string | null, lead: SelectedLead | null) => {
     setSelectedLead(lead);
+    // Reset address selection when lead changes
+    setSelectedAddressId(null);
+    setSelectedAddress(null);
+  };
+
+  const handleAddressChange = (addressId: string | null, address: LeadAddress | null) => {
+    setSelectedAddressId(addressId);
+    setSelectedAddress(address);
   };
 
   const handleOpenProductDialog = (product: Product) => {
@@ -277,6 +291,7 @@ export default function NewSale() {
         scheduled_delivery_shift: deliveryConfig.scheduledShift,
         shipping_carrier_id: deliveryConfig.carrierId,
         shipping_cost_cents: deliveryConfig.shippingCost,
+        shipping_address_id: selectedAddressId,
         payment_method_id: selectedPaymentMethodId,
         payment_installments: selectedInstallments,
         payment_status: paymentStatus,
@@ -559,10 +574,23 @@ export default function NewSale() {
               </Card>
             )}
 
+            {/* Address Selection - show for delivery types that need shipping */}
+            {selectedItems.length > 0 && selectedLead && deliveryConfig.type !== 'pickup' && (
+              <Card>
+                <CardContent className="pt-6">
+                  <AddressSelector
+                    leadId={selectedLead.id}
+                    value={selectedAddressId}
+                    onChange={handleAddressChange}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Delivery Type Selection */}
             {selectedItems.length > 0 && (
               <DeliveryTypeSelector
-                leadRegionId={selectedLead?.delivery_region_id || null}
+                leadRegionId={selectedAddress?.delivery_region_id || selectedLead?.delivery_region_id || null}
                 value={deliveryConfig}
                 onChange={setDeliveryConfig}
               />
