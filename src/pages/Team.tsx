@@ -36,6 +36,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
 import { useApplyRoleDefaults } from "@/hooks/useUserPermissions";
+import { AvatarUpload } from "@/components/team/AvatarUpload";
 
 // All organization roles from org_role enum
 type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
@@ -988,6 +989,9 @@ export default function Team() {
                       value={myProfileData.instagram}
                       onChange={(e) => setMyProfileData({ ...myProfileData, instagram: e.target.value })}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Coloque o endereço completo: https://instagram.com/usuario
+                    </p>
                   </div>
                 </div>
 
@@ -1005,34 +1009,28 @@ export default function Team() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="myAvatarCartoon">Foto Cartoon (URL)</Label>
-                      <Input
-                        id="myAvatarCartoon"
-                        placeholder="https://..."
-                        value={myProfileData.avatarCartoonUrl}
-                        onChange={(e) => setMyProfileData({ ...myProfileData, avatarCartoonUrl: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="myAvatarFighter">Foto Lutador/Street Fighter (URL)</Label>
-                      <Input
-                        id="myAvatarFighter"
-                        placeholder="https://..."
-                        value={myProfileData.avatarFighterUrl}
-                        onChange={(e) => setMyProfileData({ ...myProfileData, avatarFighterUrl: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="myAvatarHorse">Foto no Cavalo (URL)</Label>
-                      <Input
-                        id="myAvatarHorse"
-                        placeholder="https://..."
-                        value={myProfileData.avatarHorseUrl}
-                        onChange={(e) => setMyProfileData({ ...myProfileData, avatarHorseUrl: e.target.value })}
-                      />
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <AvatarUpload
+                      currentUrl={myProfileData.avatarCartoonUrl}
+                      onUploadComplete={(url) => setMyProfileData({ ...myProfileData, avatarCartoonUrl: url })}
+                      userId={user?.id || ''}
+                      avatarType="cartoon"
+                      label="Foto Cartoon"
+                    />
+                    <AvatarUpload
+                      currentUrl={myProfileData.avatarFighterUrl}
+                      onUploadComplete={(url) => setMyProfileData({ ...myProfileData, avatarFighterUrl: url })}
+                      userId={user?.id || ''}
+                      avatarType="fighter"
+                      label="Foto Lutador/Street Fighter"
+                    />
+                    <AvatarUpload
+                      currentUrl={myProfileData.avatarHorseUrl}
+                      onUploadComplete={(url) => setMyProfileData({ ...myProfileData, avatarHorseUrl: url })}
+                      userId={user?.id || ''}
+                      avatarType="horse"
+                      label="Foto no Cavalo"
+                    />
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
@@ -1412,10 +1410,13 @@ export default function Team() {
                   <Label htmlFor="editInstagram">Instagram</Label>
                   <Input
                     id="editInstagram"
-                    placeholder="seu_usuario"
+                    placeholder="@usuario"
                     value={editMemberData.instagram}
                     onChange={(e) => setEditMemberData({ ...editMemberData, instagram: e.target.value })}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Coloque o endereço completo: https://instagram.com/usuario
+                  </p>
                 </div>
 
                 {/* Gamification Section */}
@@ -1432,34 +1433,28 @@ export default function Team() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="editAvatarCartoon">Foto Cartoon (URL)</Label>
-                      <Input
-                        id="editAvatarCartoon"
-                        placeholder="https://..."
-                        value={editMemberData.avatarCartoonUrl}
-                        onChange={(e) => setEditMemberData({ ...editMemberData, avatarCartoonUrl: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="editAvatarFighter">Foto Lutador/Street Fighter (URL)</Label>
-                      <Input
-                        id="editAvatarFighter"
-                        placeholder="https://..."
-                        value={editMemberData.avatarFighterUrl}
-                        onChange={(e) => setEditMemberData({ ...editMemberData, avatarFighterUrl: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="editAvatarHorse">Foto no Cavalo (URL)</Label>
-                      <Input
-                        id="editAvatarHorse"
-                        placeholder="https://..."
-                        value={editMemberData.avatarHorseUrl}
-                        onChange={(e) => setEditMemberData({ ...editMemberData, avatarHorseUrl: e.target.value })}
-                      />
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <AvatarUpload
+                      currentUrl={editMemberData.avatarCartoonUrl}
+                      onUploadComplete={(url) => setEditMemberData({ ...editMemberData, avatarCartoonUrl: url })}
+                      userId={editingMember?.user_id || ''}
+                      avatarType="cartoon"
+                      label="Foto Cartoon"
+                    />
+                    <AvatarUpload
+                      currentUrl={editMemberData.avatarFighterUrl}
+                      onUploadComplete={(url) => setEditMemberData({ ...editMemberData, avatarFighterUrl: url })}
+                      userId={editingMember?.user_id || ''}
+                      avatarType="fighter"
+                      label="Foto Lutador/Street Fighter"
+                    />
+                    <AvatarUpload
+                      currentUrl={editMemberData.avatarHorseUrl}
+                      onUploadComplete={(url) => setEditMemberData({ ...editMemberData, avatarHorseUrl: url })}
+                      userId={editingMember?.user_id || ''}
+                      avatarType="horse"
+                      label="Foto no Cavalo"
+                    />
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
