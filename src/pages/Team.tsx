@@ -75,6 +75,16 @@ interface OrgMember {
     email?: string;
     whatsapp?: string;
     instagram?: string;
+    avatar_cartoon_url?: string;
+    avatar_fighter_url?: string;
+    avatar_horse_url?: string;
+    favorite_drink?: string;
+    favorite_chocolate?: string;
+    dream_prize?: string;
+    nickname?: string;
+    daily_goal_cents?: number;
+    weekly_goal_cents?: number;
+    monthly_goal_cents?: number;
   } | null;
   team?: {
     id: string;
@@ -408,16 +418,16 @@ export default function Team() {
       commissionPercentage: member.commission_percentage || 0,
       extension: member.extension || "",
       teamId: member.team_id || null,
-      avatarCartoonUrl: (member.profile as any)?.avatar_cartoon_url || "",
-      avatarFighterUrl: (member.profile as any)?.avatar_fighter_url || "",
-      avatarHorseUrl: (member.profile as any)?.avatar_horse_url || "",
-      favoriteDrink: (member.profile as any)?.favorite_drink || "",
-      favoriteChocolate: (member.profile as any)?.favorite_chocolate || "",
-      dreamPrize: (member.profile as any)?.dream_prize || "",
-      nickname: (member.profile as any)?.nickname || "",
-      dailyGoalCents: (member.profile as any)?.daily_goal_cents || 0,
-      weeklyGoalCents: (member.profile as any)?.weekly_goal_cents || 0,
-      monthlyGoalCents: (member.profile as any)?.monthly_goal_cents || 0,
+      avatarCartoonUrl: member.profile?.avatar_cartoon_url || "",
+      avatarFighterUrl: member.profile?.avatar_fighter_url || "",
+      avatarHorseUrl: member.profile?.avatar_horse_url || "",
+      favoriteDrink: member.profile?.favorite_drink || "",
+      favoriteChocolate: member.profile?.favorite_chocolate || "",
+      dreamPrize: member.profile?.dream_prize || "",
+      nickname: member.profile?.nickname || "",
+      dailyGoalCents: member.profile?.daily_goal_cents || 0,
+      weeklyGoalCents: member.profile?.weekly_goal_cents || 0,
+      monthlyGoalCents: member.profile?.monthly_goal_cents || 0,
       isSalesManager: member.is_sales_manager ?? false,
       earnsTeamCommission: member.earns_team_commission ?? false,
       teamCommissionPercentage: member.team_commission_percentage || 0,
