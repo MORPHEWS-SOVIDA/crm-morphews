@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,12 +8,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { Check, ChevronsUpDown, AlertCircle, MessageCircle, RefreshCw, DollarSign, X, User } from 'lucide-react';
+import { Check, ChevronsUpDown, AlertCircle, MessageCircle, RefreshCw, DollarSign, X, User, Package, Calendar, Truck, CreditCard, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCreateSacTicket, SAC_CATEGORIES, SacCategory, SacTicketPriority } from '@/hooks/useSacTickets';
 import { useLeads } from '@/hooks/useLeads';
 import { useSales } from '@/hooks/useSales';
 import { useUsers } from '@/hooks/useUsers';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const CATEGORY_ICONS = {
   complaint: AlertCircle,
@@ -52,6 +54,19 @@ export function SacTicketForm({ onSuccess, preselectedLeadId }: SacTicketFormPro
   const leadSales = sales?.filter(s => s.lead_id === leadId) || [];
   
   const selectedLead = leads.find(l => l.id === leadId);
+  const selectedSale = useMemo(() => leadSales.find(s => s.id === saleId), [leadSales, saleId]);
+  
+  // Get seller name for selected sale
+  const sellerName = useMemo(() => {
+    // First try to use the joined seller_profile
+    if (selectedSale?.seller_profile) {
+      return `${selectedSale.seller_profile.first_name} ${selectedSale.seller_profile.last_name}`;
+    }
+    // Fallback to looking up in users list
+    if (!selectedSale?.seller_user_id) return null;
+    const seller = users.find(u => u.user_id === selectedSale.seller_user_id);
+    return seller ? `${seller.first_name} ${seller.last_name}` : null;
+  }, [selectedSale, users]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +100,26 @@ export function SacTicketForm({ onSuccess, preselectedLeadId }: SacTicketFormPro
   
   const removeUser = (userId: string) => {
     setInvolvedUserIds(prev => prev.filter(id => id !== userId));
+  };
+  
+  // Format delivery type for display
+  const formatDeliveryType = (type: string | null) => {
+    if (!type) return 'Não informado';
+    const types: Record<string, string> = {
+      delivery: 'Entrega',
+      pickup: 'Retirada',
+      shipping: 'Correios/Transportadora',
+    };
+    return types[type] || type;
+  };
+  
+  // Get product names from sale items
+  const getProductNames = (sale: typeof selectedSale) => {
+    if (!sale?.items || sale.items.length === 0) return [];
+    return sale.items.map(item => {
+      const productName = item.product_name || 'Produto';
+      return `${productName} (${item.quantity}x)`;
+    });
   };
   
   return (
@@ -155,12 +190,84 @@ export function SacTicketForm({ onSuccess, preselectedLeadId }: SacTicketFormPro
               <SelectItem value="none">Nenhuma venda específica</SelectItem>
               {leadSales.map((sale) => (
                 <SelectItem key={sale.id} value={sale.id}>
-                  {new Date(sale.created_at).toLocaleDateString('pt-BR')} - 
-                  R$ {(sale.total_cents / 100).toFixed(2)}
+                  #{sale.romaneio_number || '—'} • {format(new Date(sale.created_at), 'dd/MM/yyyy', { locale: ptBR })} • R$ {(sale.total_cents / 100).toFixed(2)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          
+          {/* Sale Summary Card */}
+          {selectedSale && (
+            <Card className="mt-3 border-primary/20 bg-primary/5">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    Resumo da Venda #{selectedSale.romaneio_number || '—'}
+                  </h4>
+                  <Badge variant="outline" className="text-xs">
+                    {selectedSale.status === 'delivered' ? 'Entregue' : 
+                     selectedSale.status === 'pending_expedition' ? 'Aguardando Expedição' :
+                     selectedSale.status === 'dispatched' ? 'Despachado' :
+                     selectedSale.status === 'payment_confirmed' ? 'Pago' :
+                     selectedSale.status === 'payment_pending' ? 'Aguardando Pagamento' :
+                     selectedSale.status === 'cancelled' ? 'Cancelado' : 
+                     selectedSale.status}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-muted-foreground text-xs">Data da Venda</p>
+                      <p className="font-medium">{format(new Date(selectedSale.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-2">
+                    <CreditCard className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-muted-foreground text-xs">Valor Total</p>
+                      <p className="font-medium">R$ {(selectedSale.total_cents / 100).toFixed(2)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-2">
+                    <UserCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-muted-foreground text-xs">Vendedor</p>
+                      <p className="font-medium">{sellerName || 'Não informado'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-2">
+                    <Truck className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-muted-foreground text-xs">Tipo de Entrega</p>
+                      <p className="font-medium">{formatDeliveryType(selectedSale.delivery_type)}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Products */}
+                <div className="pt-2 border-t">
+                  <p className="text-xs text-muted-foreground mb-1">Produtos</p>
+                  <div className="flex flex-wrap gap-1">
+                    {getProductNames(selectedSale).length > 0 ? (
+                      getProductNames(selectedSale).map((name, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {name}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Nenhum produto</span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
       
