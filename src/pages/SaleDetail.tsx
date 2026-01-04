@@ -67,9 +67,10 @@ import { useTenantMembers } from '@/hooks/multi-tenant';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmationDialog';
+import { useSalePostSaleSurvey, useCreatePostSaleSurvey, useUpdatePostSaleSurvey, PostSaleSurveyStatus } from '@/hooks/usePostSaleSurveys';
 
 
 // Hook to fetch delivery return reasons
@@ -307,15 +308,193 @@ function DeliveryActionsCard({
   );
 }
 
+// Inline Post-Sale Survey Form Component
+interface PostSaleSurveyInlineFormProps {
+  survey: any;
+  updateSurvey: any;
+}
+
+function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInlineFormProps) {
+  const [receivedOrder, setReceivedOrder] = useState<boolean | null>(survey.received_order);
+  const [knowsHowToUse, setKnowsHowToUse] = useState<boolean | null>(survey.knows_how_to_use);
+  const [sellerRating, setSellerRating] = useState<number | null>(survey.seller_rating);
+  const [usesContinuousMedication, setUsesContinuousMedication] = useState<boolean | null>(survey.uses_continuous_medication);
+  const [continuousMedicationDetails, setContinuousMedicationDetails] = useState(survey.continuous_medication_details || '');
+  const [deliveryRating, setDeliveryRating] = useState<number | null>(survey.delivery_rating);
+  const [notes, setNotes] = useState(survey.notes || '');
+
+  const deliveryType = survey.sale?.delivery_type || survey.delivery_type;
+
+  const handleComplete = async () => {
+    await updateSurvey.mutateAsync({
+      id: survey.id,
+      received_order: receivedOrder ?? undefined,
+      knows_how_to_use: knowsHowToUse ?? undefined,
+      seller_rating: sellerRating ?? undefined,
+      uses_continuous_medication: usesContinuousMedication ?? undefined,
+      continuous_medication_details: continuousMedicationDetails || undefined,
+      delivery_rating: deliveryRating ?? undefined,
+      notes: notes || undefined,
+      status: 'completed',
+    });
+  };
+
+  const handleAttempt = async () => {
+    await updateSurvey.mutateAsync({
+      id: survey.id,
+      notes: notes || undefined,
+      status: 'attempted',
+    });
+  };
+
+  const YesNoButton = ({ value, selected, onClick, children }: { value: boolean; selected: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <Button
+      type="button"
+      variant={selected ? (value ? 'default' : 'destructive') : 'outline'}
+      size="sm"
+      className="flex-1"
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+
+  const RatingButtons = ({ value, onChange }: { value: number | null; onChange: (v: number) => void }) => (
+    <div className="flex flex-wrap gap-1">
+      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+        <Button
+          key={n}
+          type="button"
+          variant={value === n ? 'default' : 'outline'}
+          size="sm"
+          className="w-8 h-8 p-0"
+          onClick={() => onChange(n)}
+        >
+          {n}
+        </Button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {survey.status === 'attempted' && (
+        <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded text-xs text-amber-700 dark:text-amber-400">
+          Tentativa registrada - continue a pesquisa quando conseguir contato
+        </div>
+      )}
+      
+      <div className="space-y-3">
+        <div>
+          <Label className="text-xs">Recebeu seu pedido?</Label>
+          <div className="flex gap-2 mt-1">
+            <YesNoButton value={true} selected={receivedOrder === true} onClick={() => setReceivedOrder(true)}>
+              <CheckCircle className="w-3 h-3 mr-1" /> Sim
+            </YesNoButton>
+            <YesNoButton value={false} selected={receivedOrder === false} onClick={() => setReceivedOrder(false)}>
+              <XCircle className="w-3 h-3 mr-1" /> Não
+            </YesNoButton>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs">Sabe como usar?</Label>
+          <div className="flex gap-2 mt-1">
+            <YesNoButton value={true} selected={knowsHowToUse === true} onClick={() => setKnowsHowToUse(true)}>
+              <CheckCircle className="w-3 h-3 mr-1" /> Sim
+            </YesNoButton>
+            <YesNoButton value={false} selected={knowsHowToUse === false} onClick={() => setKnowsHowToUse(false)}>
+              <XCircle className="w-3 h-3 mr-1" /> Não
+            </YesNoButton>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs">Nota para o vendedor (0-10)</Label>
+          <RatingButtons value={sellerRating} onChange={setSellerRating} />
+        </div>
+
+        <div>
+          <Label className="text-xs">Usa remédio de uso contínuo?</Label>
+          <div className="flex gap-2 mt-1">
+            <YesNoButton value={true} selected={usesContinuousMedication === true} onClick={() => setUsesContinuousMedication(true)}>
+              Sim
+            </YesNoButton>
+            <YesNoButton value={false} selected={usesContinuousMedication === false} onClick={() => setUsesContinuousMedication(false)}>
+              Não
+            </YesNoButton>
+          </div>
+          {usesContinuousMedication && (
+            <Textarea
+              value={continuousMedicationDetails}
+              onChange={(e) => setContinuousMedicationDetails(e.target.value)}
+              placeholder="Citar medicamentos..."
+              className="mt-2 text-sm"
+              rows={2}
+            />
+          )}
+        </div>
+
+        {deliveryType && (
+          <div>
+            <Label className="text-xs">
+              Nota para {deliveryType === 'motoboy' ? 'o motoboy' : deliveryType === 'carrier' ? 'a transportadora' : 'o atendimento'} (0-10)
+            </Label>
+            <RatingButtons value={deliveryRating} onChange={setDeliveryRating} />
+          </div>
+        )}
+
+        <div>
+          <Label className="text-xs">Observações</Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anotações..."
+            className="mt-1 text-sm"
+            rows={2}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          onClick={handleComplete}
+          disabled={updateSurvey.isPending}
+          size="sm"
+          className="flex-1"
+        >
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Concluir
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleAttempt}
+          disabled={updateSurvey.isPending}
+          size="sm"
+        >
+          <Phone className="w-3 h-3 mr-1" />
+          Tentativa
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function SaleDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: sale, isLoading } = useSale(id);
   const updateSale = useUpdateSale();
   const { data: members = [] } = useTenantMembers();
   const { data: regions = [] } = useDeliveryRegions();
   const { profile } = useAuth();
   const { data: permissions } = useMyPermissions();
+  
+  // Post-sale survey hooks
+  const { data: postSaleSurvey, isLoading: isLoadingSurvey } = useSalePostSaleSurvey(id);
+  const createPostSaleSurvey = useCreatePostSaleSurvey();
+  const updatePostSaleSurvey = useUpdatePostSaleSurvey();
 
   // Fetch payment method to check if it requires proof
   const { data: salePaymentMethod } = useQuery({
@@ -1217,6 +1396,102 @@ export default function SaleDetail() {
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Confirmar Pagamento
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Post-Sale Survey Section */}
+            {(sale.status === 'delivered' || sale.status === 'payment_confirmed') && permissions?.post_sale_view && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-primary">
+                    <Phone className="w-5 h-5" />
+                    Pesquisa Pós-Venda
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isLoadingSurvey ? (
+                    <div className="flex justify-center py-4">
+                      <Skeleton className="h-24 w-full" />
+                    </div>
+                  ) : postSaleSurvey ? (
+                    // Survey exists - show form or completed status
+                    postSaleSurvey.status === 'completed' ? (
+                      <div className="space-y-4">
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                              Pesquisa concluída
+                            </span>
+                          </div>
+                          {postSaleSurvey.completed_at && (
+                            <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                              Em {format(new Date(postSaleSurvey.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Show survey results summary */}
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {postSaleSurvey.received_order !== null && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Recebeu pedido?</p>
+                              <p className="font-medium">{postSaleSurvey.received_order ? 'Sim' : 'Não'}</p>
+                            </div>
+                          )}
+                          {postSaleSurvey.knows_how_to_use !== null && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Sabe usar?</p>
+                              <p className="font-medium">{postSaleSurvey.knows_how_to_use ? 'Sim' : 'Não'}</p>
+                            </div>
+                          )}
+                          {postSaleSurvey.seller_rating !== null && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Nota vendedor</p>
+                              <p className="font-medium">{postSaleSurvey.seller_rating}/10</p>
+                            </div>
+                          )}
+                          {postSaleSurvey.delivery_rating !== null && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Nota entrega</p>
+                              <p className="font-medium">{postSaleSurvey.delivery_rating}/10</p>
+                            </div>
+                          )}
+                        </div>
+                        {postSaleSurvey.notes && (
+                          <div className="p-2 bg-muted rounded text-sm">
+                            <p className="text-xs text-muted-foreground mb-1">Observações:</p>
+                            {postSaleSurvey.notes}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      // Survey pending or attempted - show inline form
+                      <PostSaleSurveyInlineForm 
+                        survey={postSaleSurvey} 
+                        updateSurvey={updatePostSaleSurvey}
+                      />
+                    )
+                  ) : (
+                    // No survey yet - create button (only for post_sale_manage permission)
+                    permissions?.post_sale_manage && (
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          createPostSaleSurvey.mutate({
+                            sale_id: sale.id,
+                            lead_id: sale.lead_id,
+                            delivery_type: (sale.delivery_type === 'motoboy' ? 'motoboy' : sale.delivery_type === 'carrier' ? 'carrier' : 'counter') as any,
+                          });
+                        }}
+                        disabled={createPostSaleSurvey.isPending}
+                      >
+                        <Phone className="w-4 h-4 mr-2" />
+                        Iniciar Pesquisa Pós-Venda
+                      </Button>
+                    )
+                  )}
                 </CardContent>
               </Card>
             )}

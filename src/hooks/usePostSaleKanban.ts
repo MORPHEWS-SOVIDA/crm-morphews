@@ -22,6 +22,7 @@ export interface PostSaleSale {
   delivered_at: string | null;
   seller_user_id: string | null;
   post_sale_contact_status: PostSaleContactStatus | null;
+  romaneio_number: number | null;
   lead?: {
     id: string;
     name: string;
@@ -42,7 +43,7 @@ export const POST_SALE_COLUMNS: {
 }[] = [
   { 
     id: 'pending', 
-    label: 'Vendas Entregues', 
+    label: 'Prontas p/ Pós-Venda', 
     color: 'text-blue-700', 
     bgColor: 'bg-blue-50 dark:bg-blue-900/20' 
   },
@@ -110,6 +111,7 @@ export function usePostSaleSales() {
     queryFn: async () => {
       if (!tenantId) return [];
       
+      // Fetch sales that are delivered OR payment_confirmed
       const { data, error } = await supabase
         .from('sales')
         .select(`
@@ -119,6 +121,7 @@ export function usePostSaleSales() {
           delivered_at,
           seller_user_id,
           post_sale_contact_status,
+          romaneio_number,
           lead:leads!lead_id(
             id,
             name,
@@ -127,8 +130,8 @@ export function usePostSaleSales() {
           )
         `)
         .eq('organization_id', tenantId)
-        .eq('status', 'delivered')
-        .order('delivered_at', { ascending: false });
+        .in('status', ['delivered', 'payment_confirmed'])
+        .order('delivered_at', { ascending: false, nullsFirst: false });
       
       if (error) throw error;
       

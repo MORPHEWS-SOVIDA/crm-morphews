@@ -57,8 +57,8 @@ function SaleCard({ sale, onDragStart, onClick }: SaleCardProps) {
             </div>
             <div className="min-w-0">
               <p className="font-medium text-sm truncate">{sale.lead?.name}</p>
-              {sale.lead?.specialty && (
-                <p className="text-xs text-muted-foreground truncate">{sale.lead.specialty}</p>
+              {sale.romaneio_number && (
+                <p className="text-xs font-mono text-primary">#{sale.romaneio_number}</p>
               )}
             </div>
           </div>
