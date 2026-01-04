@@ -15,7 +15,9 @@ import { ShippingCarriersManager } from '@/components/settings/ShippingCarriersM
 import { PaymentMethodsManagerEnhanced } from '@/components/settings/PaymentMethodsManagerEnhanced';
 import { NonPurchaseReasonsManager } from '@/components/settings/NonPurchaseReasonsManager';
 import { TeamsManager } from '@/components/settings/TeamsManager';
+import { StandardQuestionsManager } from '@/components/settings/StandardQuestionsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
+import { HelpCircle } from 'lucide-react';
 export default function Settings() {
   const { profile, updatePassword, user } = useAuth();
   const { data: isOrgAdmin, isLoading: loadingPermissions } = useOrgAdmin();
@@ -349,6 +351,20 @@ export default function Settings() {
             </div>
           </div>
           <NonPurchaseReasonsManager />
+        </div>
+
+        {/* Standard Questions */}
+        <div className="bg-card rounded-xl p-6 shadow-card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-lg bg-cyan-500/10">
+              <HelpCircle className="w-6 h-6 text-cyan-500" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Perguntas Padrão</h2>
+              <p className="text-sm text-muted-foreground">Perguntas pré-definidas para produtos</p>
+            </div>
+          </div>
+          <StandardQuestionsManager />
         </div>
 
         {/* Teams Management */}
