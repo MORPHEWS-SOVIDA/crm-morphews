@@ -71,6 +71,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmationDialog';
 import { useSalePostSaleSurvey, useCreatePostSaleSurvey, useUpdatePostSaleSurvey, PostSaleSurveyStatus } from '@/hooks/usePostSaleSurveys';
+import { MedicationAutocomplete } from '@/components/post-sale/MedicationAutocomplete';
 
 
 // Hook to fetch delivery return reasons
@@ -426,13 +427,13 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
             </YesNoButton>
           </div>
           {usesContinuousMedication && (
-            <Textarea
-              value={continuousMedicationDetails}
-              onChange={(e) => setContinuousMedicationDetails(e.target.value)}
-              placeholder="Citar medicamentos..."
-              className="mt-2 text-sm"
-              rows={2}
-            />
+            <div className="mt-2">
+              <MedicationAutocomplete
+                value={continuousMedicationDetails}
+                onChange={setContinuousMedicationDetails}
+                placeholder="Digite o nome do medicamento..."
+              />
+            </div>
           )}
         </div>
 
