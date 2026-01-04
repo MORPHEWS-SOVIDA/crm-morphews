@@ -185,6 +185,45 @@ export function useLeadPostSaleSurveys(leadId: string | undefined) {
   });
 }
 
+// Get post-sale survey for a specific sale
+export function useSalePostSaleSurvey(saleId: string | undefined) {
+  const { tenantId } = useTenant();
+  
+  return useQuery({
+    queryKey: ['post-sale-survey', 'sale', saleId, tenantId],
+    queryFn: async () => {
+      if (!tenantId || !saleId) return null;
+      
+      const { data, error } = await supabase
+        .from('post_sale_surveys')
+        .select(`
+          *,
+          sale:sales!sale_id(
+            id,
+            total_cents,
+            delivered_at,
+            seller_user_id,
+            delivery_type,
+            created_at
+          ),
+          lead:leads!lead_id(
+            id,
+            name,
+            whatsapp,
+            instagram
+          )
+        `)
+        .eq('organization_id', tenantId)
+        .eq('sale_id', saleId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as PostSaleSurvey | null;
+    },
+    enabled: !!tenantId && !!saleId,
+  });
+}
+
 // Get a single post-sale survey
 export function usePostSaleSurvey(surveyId: string | undefined) {
   const { tenantId } = useTenant();
