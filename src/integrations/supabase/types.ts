@@ -1487,6 +1487,7 @@ export type Database = {
           organization_id: string
           role: Database["public"]["Enums"]["org_role"]
           team_commission_percentage: number | null
+          team_id: string | null
           user_id: string
         }
         Insert: {
@@ -1500,6 +1501,7 @@ export type Database = {
           organization_id: string
           role?: Database["public"]["Enums"]["org_role"]
           team_commission_percentage?: number | null
+          team_id?: string | null
           user_id: string
         }
         Update: {
@@ -1513,6 +1515,7 @@ export type Database = {
           organization_id?: string
           role?: Database["public"]["Enums"]["org_role"]
           team_commission_percentage?: number | null
+          team_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1521,6 +1524,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -3479,6 +3489,47 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

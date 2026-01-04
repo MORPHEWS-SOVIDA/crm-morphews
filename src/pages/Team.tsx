@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
 import { useApplyRoleDefaults } from "@/hooks/useUserPermissions";
 import { AvatarUpload } from "@/components/team/AvatarUpload";
+import { useTeams } from "@/hooks/useTeams";
 
 // All organization roles from org_role enum
 type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
@@ -65,6 +66,7 @@ interface OrgMember {
   is_sales_manager: boolean;
   earns_team_commission: boolean;
   team_commission_percentage: number | null;
+  team_id: string | null;
   created_at: string;
   profile?: {
     first_name: string;
@@ -74,11 +76,17 @@ interface OrgMember {
     whatsapp?: string;
     instagram?: string;
   } | null;
+  team?: {
+    id: string;
+    name: string;
+    color: string;
+  } | null;
 }
 
 export default function Team() {
   const { profile, user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: teams = [] } = useTeams();
   const { data: subscription, isLoading: loadingSubscription } = useCurrentSubscription();
   const { data: allPlans = [], isLoading: loadingPlans } = useSubscriptionPlans();
   const customerPortal = useCustomerPortal();
@@ -100,6 +108,7 @@ export default function Team() {
     instagram: "",
     commissionPercentage: 0,
     extension: "",
+    teamId: null as string | null,
     // Gamification fields
     avatarCartoonUrl: "",
     avatarFighterUrl: "",
@@ -194,10 +203,10 @@ export default function Team() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      // Get members including can_see_all_leads, commission, extension and sales manager fields
+      // Get members including can_see_all_leads, commission, extension, team_id and sales manager fields
       const { data: membersData, error: membersError } = await supabase
         .from("organization_members")
-        .select("id, user_id, role, can_see_all_leads, commission_percentage, extension, is_sales_manager, earns_team_commission, team_commission_percentage, created_at, organization_id")
+        .select("id, user_id, role, can_see_all_leads, commission_percentage, extension, is_sales_manager, earns_team_commission, team_commission_percentage, team_id, created_at, organization_id")
         .eq("organization_id", profile.organization_id);
 
       if (membersError) throw membersError;
@@ -211,9 +220,26 @@ export default function Team() {
 
       if (profilesError) throw profilesError;
 
+      // Get teams for members that have team_id
+      const teamIds = membersData.filter(m => m.team_id).map(m => m.team_id);
+      let teamsMap: Record<string, { id: string; name: string; color: string }> = {};
+      if (teamIds.length > 0) {
+        const { data: teams, error: teamsError } = await supabase
+          .from("teams")
+          .select("id, name, color")
+          .in("id", teamIds);
+        
+        if (!teamsError && teams) {
+          teams.forEach(t => {
+            teamsMap[t.id] = t;
+          });
+        }
+      }
+
       const membersWithProfiles = membersData.map(member => ({
         ...member,
         profile: profiles?.find(p => p.user_id === member.user_id) || null,
+        team: member.team_id ? teamsMap[member.team_id] || null : null,
       }));
 
       return membersWithProfiles as OrgMember[];
@@ -381,6 +407,7 @@ export default function Team() {
       instagram: member.profile?.instagram || "",
       commissionPercentage: member.commission_percentage || 0,
       extension: member.extension || "",
+      teamId: member.team_id || null,
       avatarCartoonUrl: (member.profile as any)?.avatar_cartoon_url || "",
       avatarFighterUrl: (member.profile as any)?.avatar_fighter_url || "",
       avatarHorseUrl: (member.profile as any)?.avatar_horse_url || "",
@@ -459,6 +486,7 @@ export default function Team() {
           can_see_all_leads: finalCanSeeAllLeads,
           commission_percentage: editMemberData.commissionPercentage || 0,
           extension: editMemberData.extension || null,
+          team_id: editMemberData.teamId || null,
           is_sales_manager: editMemberData.isSalesManager,
           earns_team_commission: editMemberData.earnsTeamCommission,
           team_commission_percentage: editMemberData.teamCommissionPercentage || 0,
@@ -1277,8 +1305,23 @@ export default function Team() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     {getRoleBadge(member.role)}
+                    {/* Team badge */}
+                    {member.team && (
+                      <Badge 
+                        variant="outline" 
+                        className="border-opacity-30"
+                        style={{ 
+                          backgroundColor: `${member.team.color}20`,
+                          color: member.team.color,
+                          borderColor: `${member.team.color}50`,
+                        }}
+                      >
+                        <Users className="w-3 h-3 mr-1" />
+                        {member.team.name}
+                      </Badge>
+                    )}
                     {/* Sales Manager badge */}
                     {member.is_sales_manager && (
                       <Badge 
@@ -1682,6 +1725,38 @@ export default function Team() {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Team */}
+                <div className="space-y-2">
+                  <Label>Time</Label>
+                  <Select 
+                    value={editMemberData.teamId || "none"} 
+                    onValueChange={(v) => setEditMemberData({ ...editMemberData, teamId: v === "none" ? null : v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <span className="text-muted-foreground">Sem time</span>
+                      </SelectItem>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: team.color || '#6366f1' }} 
+                            />
+                            <span>{team.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Agrupe usuários por time para organização. Cadastre times em Configurações.
+                  </p>
                 </div>
 
                 {/* Role */}

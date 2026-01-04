@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,6 +14,7 @@ import { DeliveryRegionsManager } from '@/components/settings/DeliveryRegionsMan
 import { ShippingCarriersManager } from '@/components/settings/ShippingCarriersManager';
 import { PaymentMethodsManagerEnhanced } from '@/components/settings/PaymentMethodsManagerEnhanced';
 import { NonPurchaseReasonsManager } from '@/components/settings/NonPurchaseReasonsManager';
+import { TeamsManager } from '@/components/settings/TeamsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 export default function Settings() {
   const { profile, updatePassword, user } = useAuth();
@@ -349,6 +350,9 @@ export default function Settings() {
           </div>
           <NonPurchaseReasonsManager />
         </div>
+
+        {/* Teams Management */}
+        <TeamsManager />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Lead Sources Configuration */}
