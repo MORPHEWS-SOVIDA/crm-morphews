@@ -75,6 +75,8 @@ import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmatio
 import { useSalePostSaleSurvey, useCreatePostSaleSurvey, useUpdatePostSaleSurvey, PostSaleSurveyStatus } from '@/hooks/usePostSaleSurveys';
 import { MedicationAutocomplete } from '@/components/post-sale/MedicationAutocomplete';
 import { useSaleChangesLog, getChangeTypeLabel } from '@/hooks/useSaleChangesLog';
+import { SaleCheckpointsCard } from '@/components/sales/SaleCheckpointsCard';
+import { CarrierTrackingCard } from '@/components/sales/CarrierTrackingCard';
 
 
 // Hook to fetch delivery return reasons
@@ -1116,42 +1118,58 @@ export default function SaleDetail() {
 
           {/* Right Column - Actions & Status */}
           <div className="space-y-6">
-            {/* Timeline / Status */}
+            {/* NEW: Sale Checkpoints Card - Independent Tasks */}
+            <SaleCheckpointsCard 
+              saleId={sale.id} 
+              isCancelled={sale.status === 'cancelled'} 
+            />
+
+            {/* NEW: Carrier Tracking Card - only for carrier delivery */}
+            {sale.delivery_type === 'carrier' && (
+              <CarrierTrackingCard
+                saleId={sale.id}
+                currentStatus={(sale as any).carrier_tracking_status}
+                trackingCode={sale.tracking_code}
+                isCancelled={sale.status === 'cancelled'}
+              />
+            )}
+
+            {/* Legacy Status Timeline - kept for reference */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="w-5 h-5" />
-                  Status
+                  Timeline
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${sale.status !== 'cancelled' ? 'bg-green-500' : 'bg-muted'}`} />
-                    <span className="text-sm">Venda Criada</span>
+                    <div className="flex-1">
+                      <span className="text-sm">Venda Criada</span>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(sale.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${sale.expedition_validated_at ? 'bg-green-500' : 'bg-muted'}`} />
-                    <span className="text-sm">Expedição Validada</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${sale.dispatched_at ? 'bg-green-500' : 'bg-muted'}`} />
-                    <span className="text-sm">Despachado</span>
-                  </div>
+                  {sale.expedition_validated_at && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <div className="flex-1">
+                        <span className="text-sm">Expedição Validada</span>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(sale.expedition_validated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {sale.status === 'returned' && (
                     <div className="flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full bg-amber-500" />
                       <span className="text-sm text-amber-600 font-medium">Voltou / Reagendar</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${sale.delivered_at ? 'bg-green-500' : 'bg-muted'}`} />
-                    <span className="text-sm">Entregue</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${sale.payment_confirmed_at ? 'bg-green-500' : 'bg-muted'}`} />
-                    <span className="text-sm">Pagamento Confirmado</span>
-                  </div>
                 </div>
 
                 {/* Payment Status Warning */}
@@ -1301,66 +1319,7 @@ export default function SaleDetail() {
               </Card>
             )}
 
-            {/* Tracking Code for Carrier Sales */}
-            {sale.delivery_type === 'carrier' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-blue-600" />
-                    Código de Rastreio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {sale.tracking_code ? (
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">Código de Rastreio</p>
-                          <p className="font-mono text-lg font-medium text-blue-800 dark:text-blue-200">{sale.tracking_code}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(sale.tracking_code!);
-                            toast.success('Código copiado!');
-                          }}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Nenhum código de rastreio adicionado ainda.</p>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Label>Atualizar Código de Rastreio</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={trackingCode}
-                        onChange={(e) => setTrackingCode(e.target.value)}
-                        placeholder="Ex: BR123456789BR"
-                        className="font-mono"
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={async () => {
-                          await updateSale.mutateAsync({
-                            id: sale.id,
-                            data: { tracking_code: trackingCode || null }
-                          });
-                          toast.success('Código de rastreio atualizado!');
-                        }}
-                        disabled={updateSale.isPending}
-                      >
-                        Salvar
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Tracking Code Card removed - now included in CarrierTrackingCard above */}
 
             {/* Delivery Actions - Mark as Delivered OR Mark as Returned */}
             {sale.status === 'dispatched' && canMarkDelivered && (
