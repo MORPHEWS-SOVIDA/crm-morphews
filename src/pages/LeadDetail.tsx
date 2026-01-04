@@ -36,6 +36,7 @@ import { LeadSacSection } from '@/components/leads/LeadSacSection';
 import { LeadAddressesManager } from '@/components/leads/LeadAddressesManager';
 import { LeadFollowupsSection } from '@/components/leads/LeadFollowupsSection';
 import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHistorySection';
+import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -556,6 +557,9 @@ export default function LeadDetail() {
 
             {/* Lead Sales */}
             <LeadSalesSection leadId={id!} leadName={lead.name} />
+
+            {/* Standard Questions - Perguntas Padrão */}
+            <LeadStandardQuestionsSection leadId={id!} />
 
             {/* Lead Product Answers - Key Questions */}
             <LeadProductAnswersSection leadId={id!} />
