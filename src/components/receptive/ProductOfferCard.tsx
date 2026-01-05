@@ -17,9 +17,11 @@ import {
   Eye,
   EyeOff,
   FileText,
-  Coins
+  Coins,
+  HelpCircle
 } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
+import { useProductQuestions } from '@/hooks/useProductQuestions';
 
 interface ProductPriceKit {
   id: string;
@@ -48,6 +50,7 @@ interface ProductOfferCardProps {
   showPromo2: boolean;
   showMinimum: boolean;
   currentAnswers: Record<string, string>;
+  dynamicAnswers: Record<string, string>; // For dynamic product questions
   defaultCommission: number;
   requisitionNumber?: string;
   manipuladoPrice?: number;
@@ -60,6 +63,7 @@ interface ProductOfferCardProps {
   onRevealPromo2: () => void;
   onRevealMinimum: () => void;
   onAnswersChange: (answers: Record<string, string>) => void;
+  onDynamicAnswersChange: (answers: Record<string, string>) => void; // For dynamic product questions
   onRequisitionChange?: (value: string) => void;
   onManipuladoPriceChange?: (value: number) => void;
   onManipuladoQuantityChange?: (value: number) => void;
@@ -95,6 +99,7 @@ export function ProductOfferCard({
   showPromo2,
   showMinimum,
   currentAnswers,
+  dynamicAnswers,
   defaultCommission,
   requisitionNumber = '',
   manipuladoPrice = 0,
@@ -107,6 +112,7 @@ export function ProductOfferCard({
   onRevealPromo2,
   onRevealMinimum,
   onAnswersChange,
+  onDynamicAnswersChange,
   onRequisitionChange,
   onManipuladoPriceChange,
   onManipuladoQuantityChange,
@@ -119,6 +125,12 @@ export function ProductOfferCard({
   currentQuantity,
   currentCommission,
 }: ProductOfferCardProps) {
+  
+  // Fetch dynamic questions for this product
+  const { data: productQuestions = [], isLoading: loadingQuestions } = useProductQuestions(product.id);
+  
+  // State to control whether script/questions have been completed
+  const [questionsCompleted, setQuestionsCompleted] = useState(false);
   
   // Find current visible kit (first non-rejected)
   const currentVisibleKit = useMemo(() => {
@@ -275,8 +287,59 @@ export function ProductOfferCard({
           </>
         )}
 
-        {/* Product Questions */}
-        {(product.key_question_1 || product.key_question_2 || product.key_question_3) && (
+        {/* Dynamic Product Questions (from product_questions table) */}
+        {loadingQuestions ? (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : productQuestions.length > 0 ? (
+          <>
+            <Separator />
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+              <h4 className="font-medium flex items-center gap-2 text-amber-800 dark:text-amber-200 mb-4">
+                <HelpCircle className="w-4 h-4" />
+                Perguntas do Produto ({productQuestions.length})
+              </h4>
+              <div className="space-y-4">
+                {productQuestions.map((question, index) => (
+                  <div key={question.id} className="space-y-2">
+                    <Label className="text-sm font-medium">{index + 1}. {question.question_text}</Label>
+                    <Textarea
+                      value={dynamicAnswers[question.id] || ''}
+                      onChange={(e) => onDynamicAnswersChange({ 
+                        ...dynamicAnswers, 
+                        [question.id]: e.target.value 
+                      })}
+                      placeholder="Resposta do cliente..."
+                      rows={2}
+                      className="bg-white dark:bg-background"
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              {!questionsCompleted && (
+                <div className="mt-4">
+                  <Button 
+                    onClick={() => setQuestionsCompleted(true)}
+                    className="w-full"
+                    disabled={productQuestions.some(q => !dynamicAnswers[q.id]?.trim())}
+                  >
+                    Perguntas Respondidas - Ver Preços
+                  </Button>
+                  {productQuestions.some(q => !dynamicAnswers[q.id]?.trim()) && (
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      Responda todas as perguntas para ver os preços
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+
+        {/* Legacy Product Questions (key_question_1/2/3) - only show if no dynamic questions */}
+        {productQuestions.length === 0 && (product.key_question_1 || product.key_question_2 || product.key_question_3) && (
           <>
             <Separator />
             <div className="space-y-4">
@@ -359,8 +422,9 @@ export function ProductOfferCard({
           </>
         )}
 
-        {/* Kit Selection with Progressive Reveal */}
-        {product.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && !allKitsRejected && (
+        {/* Kit Selection with Progressive Reveal - Only show after questions are completed */}
+        {product.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && !allKitsRejected && 
+         (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Separator />
             <div className="space-y-4">
@@ -514,8 +578,8 @@ export function ProductOfferCard({
           </div>
         )}
 
-        {/* Summary for current selection */}
-        {currentUnitPrice > 0 && (
+        {/* Summary for current selection - only when questions answered */}
+        {currentUnitPrice > 0 && (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Separator />
             <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
@@ -540,8 +604,8 @@ export function ProductOfferCard({
           </>
         )}
 
-        {/* Add to offer button */}
-        {currentUnitPrice > 0 && (
+        {/* Add to offer button - only when questions answered */}
+        {currentUnitPrice > 0 && (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Button
               className="w-full"
