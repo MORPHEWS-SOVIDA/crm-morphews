@@ -92,14 +92,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setProfile(profileData);
 
-      // Fetch role
+      // Fetch global role (master admin)
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
 
-      setIsAdmin(roleData?.role === 'admin');
+      // Check if user is org owner/admin via RPC
+      const { data: isOrgAdmin } = await supabase.rpc('is_current_user_org_admin');
+
+      // User is admin if they have global admin role OR are org owner/admin
+      setIsAdmin(roleData?.role === 'admin' || Boolean(isOrgAdmin));
     } catch (error) {
       console.error('Error fetching user data:', error);
     } finally {
