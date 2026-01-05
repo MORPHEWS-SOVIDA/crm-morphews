@@ -285,36 +285,24 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Update profile with organization_id and email
+    // Upsert profile with organization_id and email - guarantees profile exists
     const normalizedPhone = normalizeWhatsApp(ownerPhone);
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
-      .update({
+      .upsert({
+        user_id: userId,
         organization_id: organizationId,
         first_name: firstName,
         last_name: lastName,
         whatsapp: normalizedPhone,
         email: ownerEmail,
-      })
-      .eq("user_id", userId);
+      }, {
+        onConflict: 'user_id',
+      });
 
     if (profileError) {
-      console.error("Error updating profile:", profileError);
-      // Profile might be created by trigger, try insert if update fails
-      const { error: insertError } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          user_id: userId,
-          first_name: firstName,
-          last_name: lastName,
-          organization_id: organizationId,
-          whatsapp: normalizedPhone,
-          email: ownerEmail,
-        });
-
-      if (insertError) {
-        console.error("Error inserting profile:", insertError);
-      }
+      console.error("Error upserting profile:", profileError);
+      // This should not happen with upsert, but log for debugging
     }
 
     // Add user to organization_members
