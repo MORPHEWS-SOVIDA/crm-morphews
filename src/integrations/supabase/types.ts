@@ -3946,7 +3946,15 @@ export type Database = {
           sales_validate_expedition: boolean
           sales_view: boolean
           sales_view_all: boolean
+          settings_carriers: boolean
+          settings_delivery_regions: boolean
+          settings_funnel_stages: boolean
+          settings_lead_sources: boolean
           settings_manage: boolean
+          settings_non_purchase_reasons: boolean
+          settings_payment_methods: boolean
+          settings_standard_questions: boolean
+          settings_teams: boolean
           settings_view: boolean
           team_view: boolean
           updated_at: string
@@ -3983,7 +3991,15 @@ export type Database = {
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
+          settings_carriers?: boolean
+          settings_delivery_regions?: boolean
+          settings_funnel_stages?: boolean
+          settings_lead_sources?: boolean
           settings_manage?: boolean
+          settings_non_purchase_reasons?: boolean
+          settings_payment_methods?: boolean
+          settings_standard_questions?: boolean
+          settings_teams?: boolean
           settings_view?: boolean
           team_view?: boolean
           updated_at?: string
@@ -4020,7 +4036,15 @@ export type Database = {
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
+          settings_carriers?: boolean
+          settings_delivery_regions?: boolean
+          settings_funnel_stages?: boolean
+          settings_lead_sources?: boolean
           settings_manage?: boolean
+          settings_non_purchase_reasons?: boolean
+          settings_payment_methods?: boolean
+          settings_standard_questions?: boolean
+          settings_teams?: boolean
           settings_view?: boolean
           team_view?: boolean
           updated_at?: string
