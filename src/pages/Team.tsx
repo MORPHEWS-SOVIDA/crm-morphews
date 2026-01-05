@@ -304,7 +304,7 @@ export default function Team() {
       // Call backend function to create user (explicitly pass JWT)
       const { data, error } = await supabase.functions.invoke("create-org-user", {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          authorization: `Bearer ${accessToken}`,
         },
         body: {
           organizationId: profile.organization_id,
@@ -313,6 +313,7 @@ export default function Team() {
           ownerPhone: newUserData.whatsapp.replace(/\D/g, ''),
           planName: plan?.name || "Morphews CRM",
           isAdditionalUser: true,
+          accessToken,
         },
       });
 

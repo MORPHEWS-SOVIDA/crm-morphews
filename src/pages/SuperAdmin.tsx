@@ -259,13 +259,18 @@ export default function SuperAdmin() {
 
       // If owner email is provided, create user and send credentials
       if (newOrg.ownerEmail && newOrg.ownerName) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+
         const { data, error } = await supabase.functions.invoke("create-org-user", {
+          headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
           body: {
             organizationId: org.id,
             ownerName: newOrg.ownerName,
             ownerEmail: newOrg.ownerEmail,
             ownerPhone: newOrg.ownerPhone,
             planName: planName,
+            accessToken,
           },
         });
 
@@ -319,13 +324,18 @@ export default function SuperAdmin() {
       const subscription = subscriptions?.find(s => s.organization_id === org.id);
       const planName = subscription?.subscription_plans?.name || "Morphews CRM";
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
       const { data, error } = await supabase.functions.invoke("create-org-user", {
+        headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
         body: {
           organizationId: org.id,
           ownerName: org.owner_name,
           ownerEmail: org.owner_email,
           ownerPhone: org.phone || "",
           planName: planName,
+          accessToken,
         },
       });
 
