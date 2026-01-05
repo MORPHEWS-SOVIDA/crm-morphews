@@ -1,1 +1,4 @@
 project_id = "rriizlxqfpfpdflgxjtj"
+
+[functions.create-org-user]
+verify_jwt = false

@@ -127,11 +127,25 @@ const handler = async (req: Request): Promise<Response> => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+  // Read body once (so we can optionally accept the access token in the payload)
+  let parsedBody: Record<string, unknown> = {};
+  try {
+    const rawBody = await req.text();
+    parsedBody = rawBody ? JSON.parse(rawBody) : {};
+  } catch (_e) {
+    return new Response(
+      JSON.stringify({ error: "JSON inválido no body" }),
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
+    );
+  }
+
   try {
     // Check authentication: either x-internal-secret OR valid JWT from authorized user
     const internalSecret = req.headers.get("x-internal-secret");
-    const authHeader = req.headers.get("authorization");
-    
+
+    const accessTokenFromBody = typeof parsedBody.accessToken === "string" ? parsedBody.accessToken : null;
+    const authHeader = req.headers.get("authorization") ?? (accessTokenFromBody ? `Bearer ${accessTokenFromBody}` : null);
+
     let isAuthorized = false;
     let callerUserId: string | null = null;
 
@@ -146,19 +160,19 @@ const handler = async (req: Request): Promise<Response> => {
         global: { headers: { Authorization: authHeader } },
         auth: { autoRefreshToken: false, persistSession: false },
       });
-      
+
       const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-      
+
       if (user && !userError) {
         callerUserId = user.id;
-        
+
         // Check if user is master admin
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
           auth: { autoRefreshToken: false, persistSession: false },
         });
-        
-        const { data: isMasterAdmin } = await supabaseAdmin.rpc('is_master_admin', { _user_id: user.id });
-        
+
+        const { data: isMasterAdmin } = await supabaseAdmin.rpc("is_master_admin", { _user_id: user.id });
+
         if (isMasterAdmin) {
           isAuthorized = true;
           console.log("Authorized as master admin:", user.email);
@@ -166,16 +180,16 @@ const handler = async (req: Request): Promise<Response> => {
           // Check if user is org admin for ANY organization (will verify specific org membership later)
           // Using limit(1) instead of single() to avoid error when user is admin in multiple orgs
           const { data: orgMembers, error: orgMemberError } = await supabaseAdmin
-            .from('organization_members')
-            .select('role, organization_id')
-            .eq('user_id', user.id)
-            .in('role', ['owner', 'admin'])
+            .from("organization_members")
+            .select("role, organization_id")
+            .eq("user_id", user.id)
+            .in("role", ["owner", "admin"])
             .limit(1);
-          
+
           if (orgMemberError) {
             console.error("Error checking org membership:", orgMemberError);
           }
-          
+
           if (orgMembers && orgMembers.length > 0) {
             isAuthorized = true;
             console.log("Authorized as org admin:", user.email, "org:", orgMembers[0].organization_id);
@@ -188,11 +202,11 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Unauthorized: No valid authentication provided");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
 
-    const { organizationId, ownerName, ownerEmail, ownerPhone, planName, isAdditionalUser }: CreateOrgUserRequest = await req.json();
+    const { organizationId, ownerName, ownerEmail, ownerPhone, planName, isAdditionalUser }: CreateOrgUserRequest = parsedBody as any;
 
     console.log("Creating user for organization:", organizationId, "Email:", ownerEmail, "isAdditionalUser:", isAdditionalUser);
 
