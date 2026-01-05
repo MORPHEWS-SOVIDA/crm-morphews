@@ -29,19 +29,24 @@ import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
+import { useTenant } from '@/hooks/useTenant';
 import logoMorphews from '@/assets/logo-morphews.png';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
 export function Sidebar() {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin: isGlobalAdmin, signOut } = useAuth();
   const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
   const { data: receptiveAccess } = useReceptiveModuleAccess();
   const { data: isManager } = useIsManager();
+  const { isAdmin: isTenantAdmin, isOwner } = useTenant();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // User is admin if they have global admin role OR are org owner/admin
+  const isAdmin = isGlobalAdmin || isTenantAdmin || isOwner;
   
   // Permission-based visibility
   const canSeeLeads = isAdmin || permissions?.leads_view;
