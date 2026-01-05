@@ -294,8 +294,18 @@ export default function Team() {
     setIsAddingUser(true);
 
     try {
-      // Call edge function to create user
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
+      // Call backend function to create user (explicitly pass JWT)
       const { data, error } = await supabase.functions.invoke("create-org-user", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: {
           organizationId: profile.organization_id,
           ownerName: `${newUserData.firstName} ${newUserData.lastName}`,
