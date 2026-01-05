@@ -131,6 +131,7 @@ interface OfferItem {
   commissionCents: number;
   requisitionNumber?: string;
   answers: Record<string, string>;
+  dynamicAnswers: Record<string, string>; // Answers for product_questions
 }
 
 const initialLeadData: LeadData = {
@@ -199,6 +200,7 @@ export default function AddReceptivo() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionInput, setShowRejectionInput] = useState(false);
   const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
+  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
   
   // Manipulado fields
   const [requisitionNumber, setRequisitionNumber] = useState('');
@@ -437,6 +439,7 @@ export default function AddReceptivo() {
       commissionCents: Math.round((currentUnitPrice * currentQuantity) * (currentCommission / 100)),
       requisitionNumber: currentProduct.category === 'manipulado' ? requisitionNumber : undefined,
       answers: { ...currentAnswers },
+      dynamicAnswers: { ...dynamicAnswers },
     };
     
     setOfferItems(prev => [...prev, newItem]);
@@ -458,6 +461,7 @@ export default function AddReceptivo() {
     setManipuladoPrice(0);
     setManipuladoQuantity(1);
     setCurrentAnswers({});
+    setDynamicAnswers({});
     setShowAddProduct(true);
   };
 
@@ -696,6 +700,7 @@ export default function AddReceptivo() {
   const saveProductAnswers = async (leadId: string) => {
     // Save answers for all offer items
     for (const item of offerItems) {
+      // Save legacy answers (key_question_1/2/3)
       if (Object.values(item.answers).some(v => v) && tenantId) {
         await supabase
           .from('lead_product_answers')
@@ -710,6 +715,26 @@ export default function AddReceptivo() {
           }, {
             onConflict: 'lead_id,product_id',
           });
+      }
+      
+      // Save dynamic answers (product_questions)
+      if (Object.keys(item.dynamicAnswers).length > 0 && tenantId) {
+        for (const [questionId, answerText] of Object.entries(item.dynamicAnswers)) {
+          if (answerText) {
+            await supabase
+              .from('lead_product_question_answers')
+              .upsert({
+                lead_id: leadId,
+                product_id: item.productId,
+                question_id: questionId,
+                organization_id: tenantId,
+                answer_text: answerText,
+                updated_by: user?.id || null,
+              }, {
+                onConflict: 'lead_id,question_id',
+              });
+          }
+        }
       }
     }
     
@@ -728,6 +753,26 @@ export default function AddReceptivo() {
         }, {
           onConflict: 'lead_id,product_id',
         });
+    }
+    
+    // Save current product dynamic answers if any
+    if (currentProductId && Object.keys(dynamicAnswers).length > 0 && tenantId) {
+      for (const [questionId, answerText] of Object.entries(dynamicAnswers)) {
+        if (answerText) {
+          await supabase
+            .from('lead_product_question_answers')
+            .upsert({
+              lead_id: leadId,
+              product_id: currentProductId,
+              question_id: questionId,
+              organization_id: tenantId,
+              answer_text: answerText,
+              updated_by: user?.id || null,
+            }, {
+              onConflict: 'lead_id,question_id',
+            });
+        }
+      }
     }
   };
 
@@ -1461,6 +1506,7 @@ export default function AddReceptivo() {
                 showPromo2={showPromo2}
                 showMinimum={showMinimum}
                 currentAnswers={currentAnswers}
+                dynamicAnswers={dynamicAnswers}
                 defaultCommission={myCommission?.commissionPercentage || 0}
                 requisitionNumber={requisitionNumber}
                 manipuladoPrice={manipuladoPrice}
@@ -1477,6 +1523,7 @@ export default function AddReceptivo() {
                 onRevealPromo2={() => setShowPromo2(true)}
                 onRevealMinimum={() => setShowMinimum(true)}
                 onAnswersChange={setCurrentAnswers}
+                onDynamicAnswersChange={setDynamicAnswers}
                 onRequisitionChange={setRequisitionNumber}
                 onManipuladoPriceChange={setManipuladoPrice}
                 onManipuladoQuantityChange={setManipuladoQuantity}
