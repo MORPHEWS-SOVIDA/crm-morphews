@@ -84,26 +84,38 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(initialVisibleUserIds);
   
   const { data: users = [] } = useUsers();
-  // Sync state when initial values change
+  
+  // Sync state when initial values change - only sync if content actually changed
+  // This prevents resetting state when empty arrays are recreated on parent re-renders
   useEffect(() => {
-    setPriceKits(initialPriceKits);
-  }, [initialPriceKits]);
+    if (initialPriceKits.length > 0 || (initialPriceKits.length === 0 && priceKits.length === 0 && product)) {
+      setPriceKits(initialPriceKits);
+    }
+  }, [JSON.stringify(initialPriceKits)]);
 
   useEffect(() => {
-    setFaqs(initialFaqs);
-  }, [initialFaqs]);
+    if (initialFaqs.length > 0 || (initialFaqs.length === 0 && faqs.length === 0 && product)) {
+      setFaqs(initialFaqs);
+    }
+  }, [JSON.stringify(initialFaqs)]);
 
   useEffect(() => {
-    setIngredients(initialIngredients);
-  }, [initialIngredients]);
+    if (initialIngredients.length > 0 || (initialIngredients.length === 0 && ingredients.length === 0 && product)) {
+      setIngredients(initialIngredients);
+    }
+  }, [JSON.stringify(initialIngredients)]);
 
   useEffect(() => {
-    setQuestions(initialQuestions);
-  }, [initialQuestions]);
+    if (initialQuestions.length > 0 || (initialQuestions.length === 0 && questions.length === 0 && product)) {
+      setQuestions(initialQuestions);
+    }
+  }, [JSON.stringify(initialQuestions)]);
 
   useEffect(() => {
-    setSelectedUserIds(initialVisibleUserIds);
-  }, [initialVisibleUserIds]);
+    if (initialVisibleUserIds.length > 0 || (initialVisibleUserIds.length === 0 && selectedUserIds.length === 0 && product)) {
+      setSelectedUserIds(initialVisibleUserIds);
+    }
+  }, [JSON.stringify(initialVisibleUserIds)]);
 
   const { data: allProducts = [] } = useProducts();
   
