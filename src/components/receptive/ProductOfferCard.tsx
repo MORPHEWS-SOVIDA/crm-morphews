@@ -1,0 +1,559 @@
+import { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Star, 
+  DollarSign, 
+  ClipboardList, 
+  AlertTriangle, 
+  XCircle, 
+  Loader2, 
+  Plus,
+  Eye,
+  EyeOff,
+  FileText,
+  Coins
+} from 'lucide-react';
+import { Product } from '@/hooks/useProducts';
+
+interface ProductPriceKit {
+  id: string;
+  quantity: number;
+  regular_price_cents: number;
+  promotional_price_cents: number | null;
+  promotional_price_2_cents: number | null;
+  minimum_price_cents: number | null;
+  regular_use_default_commission: boolean;
+  regular_custom_commission: number | null;
+  promotional_use_default_commission: boolean;
+  promotional_custom_commission: number | null;
+  promotional_2_use_default_commission: boolean;
+  promotional_2_custom_commission: number | null;
+  minimum_use_default_commission: boolean;
+  minimum_custom_commission: number | null;
+  position: number;
+}
+
+interface ProductOfferCardProps {
+  product: Product;
+  sortedKits: ProductPriceKit[];
+  currentKitId: string | null;
+  currentPriceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum';
+  currentRejectedKitIds: string[];
+  showPromo2: boolean;
+  showMinimum: boolean;
+  currentAnswers: Record<string, string>;
+  defaultCommission: number;
+  requisitionNumber?: string;
+  manipuladoPrice?: number;
+  manipuladoQuantity?: number;
+  leadId?: string;
+  showRejectionInput: boolean;
+  rejectionReason: string;
+  isRejecting: boolean;
+  onKitSelect: (kitId: string, priceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum') => void;
+  onRevealPromo2: () => void;
+  onRevealMinimum: () => void;
+  onAnswersChange: (answers: Record<string, string>) => void;
+  onRequisitionChange?: (value: string) => void;
+  onManipuladoPriceChange?: (value: number) => void;
+  onManipuladoQuantityChange?: (value: number) => void;
+  onShowRejectionInput: (show: boolean) => void;
+  onRejectionReasonChange: (value: string) => void;
+  onRejectKit: () => void;
+  onAddProduct: () => void;
+  onResetProduct: () => void;
+  currentUnitPrice: number;
+  currentQuantity: number;
+  currentCommission: number;
+}
+
+const formatPrice = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+
+// Format as installment - divide by 10, show as 12x
+const formatInstallment = (cents: number) => {
+  const installmentValue = Math.round(cents / 10);
+  return `12x de ${formatPrice(installmentValue)}`;
+};
+
+// Calculate actual commission value in cents
+const calculateCommissionValue = (priceCents: number, quantity: number, commissionPercentage: number) => {
+  return Math.round((priceCents * quantity) * (commissionPercentage / 100));
+};
+
+export function ProductOfferCard({
+  product,
+  sortedKits,
+  currentKitId,
+  currentPriceType,
+  currentRejectedKitIds,
+  showPromo2,
+  showMinimum,
+  currentAnswers,
+  defaultCommission,
+  requisitionNumber = '',
+  manipuladoPrice = 0,
+  manipuladoQuantity = 1,
+  leadId,
+  showRejectionInput,
+  rejectionReason,
+  isRejecting,
+  onKitSelect,
+  onRevealPromo2,
+  onRevealMinimum,
+  onAnswersChange,
+  onRequisitionChange,
+  onManipuladoPriceChange,
+  onManipuladoQuantityChange,
+  onShowRejectionInput,
+  onRejectionReasonChange,
+  onRejectKit,
+  onAddProduct,
+  onResetProduct,
+  currentUnitPrice,
+  currentQuantity,
+  currentCommission,
+}: ProductOfferCardProps) {
+  
+  // Find current visible kit (first non-rejected)
+  const currentVisibleKit = useMemo(() => {
+    return sortedKits.find(k => !currentRejectedKitIds.includes(k.id));
+  }, [sortedKits, currentRejectedKitIds]);
+
+  const hasMoreKits = useMemo(() => {
+    const visibleIndex = sortedKits.findIndex(k => k.id === currentVisibleKit?.id);
+    return visibleIndex < sortedKits.length - 1;
+  }, [sortedKits, currentVisibleKit]);
+
+  const allKitsRejected = useMemo(() => {
+    return sortedKits.length > 0 && sortedKits.every(k => currentRejectedKitIds.includes(k.id));
+  }, [sortedKits, currentRejectedKitIds]);
+
+  const getCommissionForType = (kit: ProductPriceKit, type: 'regular' | 'promotional' | 'promotional_2' | 'minimum') => {
+    switch (type) {
+      case 'regular':
+        return kit.regular_use_default_commission ? defaultCommission : (kit.regular_custom_commission || 0);
+      case 'promotional':
+        return kit.promotional_use_default_commission ? defaultCommission : (kit.promotional_custom_commission || 0);
+      case 'promotional_2':
+        return kit.promotional_2_use_default_commission ? defaultCommission : (kit.promotional_2_custom_commission || 0);
+      case 'minimum':
+        return kit.minimum_use_default_commission ? defaultCommission : (kit.minimum_custom_commission || 0);
+    }
+  };
+
+  const getPriceForType = (kit: ProductPriceKit, type: 'regular' | 'promotional' | 'promotional_2' | 'minimum') => {
+    switch (type) {
+      case 'regular':
+        return kit.regular_price_cents;
+      case 'promotional':
+        return kit.promotional_price_cents || kit.regular_price_cents;
+      case 'promotional_2':
+        return kit.promotional_price_2_cents || kit.regular_price_cents;
+      case 'minimum':
+        return kit.minimum_price_cents || kit.regular_price_cents;
+    }
+  };
+
+  // Commission badge with value in R$
+  const CommissionDisplay = ({ price, quantity, commissionPercentage }: { price: number; quantity: number; commissionPercentage: number }) => {
+    const commissionValue = calculateCommissionValue(price, quantity, commissionPercentage);
+    const isGood = commissionPercentage >= defaultCommission;
+    
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <Badge variant="outline" className={`text-xs ${isGood ? 'text-green-600 border-green-600' : 'text-amber-600 border-amber-600'}`}>
+          {isGood ? '🤩' : '☹️'} {commissionPercentage}%
+        </Badge>
+        <span className={`text-xs font-medium ${isGood ? 'text-green-600' : 'text-amber-600'}`}>
+          Ganhe {formatPrice(commissionValue)}
+        </span>
+      </div>
+    );
+  };
+
+  // Price option card
+  const PriceOption = ({ 
+    type, 
+    label, 
+    price, 
+    commission, 
+    isSelected, 
+    kit,
+    variant = 'default'
+  }: { 
+    type: 'regular' | 'promotional' | 'promotional_2' | 'minimum';
+    label: string;
+    price: number;
+    commission: number;
+    isSelected: boolean;
+    kit: ProductPriceKit;
+    variant?: 'default' | 'success' | 'warning' | 'danger';
+  }) => {
+    const variantClasses = {
+      default: isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-muted hover:border-muted-foreground/50',
+      success: isSelected ? 'border-green-500 bg-green-50 dark:bg-green-950/30' : 'border-muted hover:border-muted-foreground/50',
+      warning: isSelected ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-muted hover:border-muted-foreground/50',
+      danger: isSelected ? 'border-red-500 bg-red-50 dark:bg-red-950/30' : 'border-muted hover:border-muted-foreground/50',
+    };
+
+    const priceClasses = {
+      default: '',
+      success: 'text-green-600',
+      warning: 'text-amber-600',
+      danger: 'text-red-600',
+    };
+
+    return (
+      <button
+        onClick={() => onKitSelect(kit.id, type)}
+        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${variantClasses[variant]}`}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className={`text-sm font-medium ${variant === 'danger' ? 'text-red-700' : 'text-muted-foreground'}`}>
+                {label}
+                {variant === 'danger' && <AlertTriangle className="w-4 h-4 inline ml-1 text-red-500" />}
+              </p>
+            </div>
+            <p className={`text-2xl font-bold ${priceClasses[variant]}`}>
+              {formatPrice(price)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              ou {formatInstallment(price)}
+            </p>
+          </div>
+          <CommissionDisplay price={price} quantity={kit.quantity} commissionPercentage={commission} />
+        </div>
+      </button>
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="w-5 h-5" />
+          Oferta - {product.name}
+        </CardTitle>
+        <CardDescription>
+          {product.category === 'manipulado' 
+            ? 'Informe o valor e requisição' 
+            : 'Selecione o kit e preço para o cliente'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Product Header */}
+        <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {product.is_featured && <Star className="w-4 h-4 text-amber-500" />}
+            <span className="font-medium">{product.name}</span>
+            <Badge variant="outline">{product.category}</Badge>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onResetProduct}>
+            Trocar
+          </Button>
+        </div>
+
+        {/* Sales Script */}
+        {product.sales_script && (
+          <>
+            <Separator />
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <h4 className="font-medium flex items-center gap-2 text-primary mb-2">
+                <FileText className="w-4 h-4" />
+                Script de Vendas
+              </h4>
+              <p className="text-sm whitespace-pre-wrap">{product.sales_script}</p>
+            </div>
+          </>
+        )}
+
+        {/* Product Questions */}
+        {(product.key_question_1 || product.key_question_2 || product.key_question_3) && (
+          <>
+            <Separator />
+            <div className="space-y-4">
+              <h4 className="font-medium flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" />
+                Perguntas-Chave
+              </h4>
+              {product.key_question_1 && (
+                <div className="space-y-2">
+                  <Label className="text-sm">1. {product.key_question_1}</Label>
+                  <Textarea
+                    value={currentAnswers.answer_1 || ''}
+                    onChange={(e) => onAnswersChange({ ...currentAnswers, answer_1: e.target.value })}
+                    placeholder="Resposta..."
+                    rows={2}
+                  />
+                </div>
+              )}
+              {product.key_question_2 && (
+                <div className="space-y-2">
+                  <Label className="text-sm">2. {product.key_question_2}</Label>
+                  <Textarea
+                    value={currentAnswers.answer_2 || ''}
+                    onChange={(e) => onAnswersChange({ ...currentAnswers, answer_2: e.target.value })}
+                    placeholder="Resposta..."
+                    rows={2}
+                  />
+                </div>
+              )}
+              {product.key_question_3 && (
+                <div className="space-y-2">
+                  <Label className="text-sm">3. {product.key_question_3}</Label>
+                  <Textarea
+                    value={currentAnswers.answer_3 || ''}
+                    onChange={(e) => onAnswersChange({ ...currentAnswers, answer_3: e.target.value })}
+                    placeholder="Resposta..."
+                    rows={2}
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Manipulado Product */}
+        {product.category === 'manipulado' && (
+          <>
+            <Separator />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Número da Requisição *</Label>
+                <Input
+                  value={requisitionNumber}
+                  onChange={(e) => onRequisitionChange?.(e.target.value)}
+                  placeholder="Ex: REQ-12345"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quantidade</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={manipuladoQuantity}
+                    onChange={(e) => onManipuladoQuantityChange?.(parseInt(e.target.value) || 1)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Valor Total (R$)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={(manipuladoPrice / 100).toFixed(2)}
+                    onChange={(e) => onManipuladoPriceChange?.(Math.round(parseFloat(e.target.value) * 100) || 0)}
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Kit Selection with Progressive Reveal */}
+        {product.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && !allKitsRejected && (
+          <>
+            <Separator />
+            <div className="space-y-4">
+              {/* Current Kit */}
+              <div className={`p-5 rounded-lg border-2 ${currentKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" className="text-lg px-3 py-1">
+                      {currentVisibleKit.quantity} {currentVisibleKit.quantity === 1 ? 'unidade' : 'unidades'}
+                    </Badge>
+                    <Badge variant="outline">Oferta {sortedKits.findIndex(k => k.id === currentVisibleKit.id) + 1}</Badge>
+                  </div>
+                </div>
+
+                {/* Price Options - CORRECTED ORDER */}
+                <div className="space-y-3">
+                  {/* 1. PREÇO REGULAR (always visible, on top) */}
+                  <PriceOption
+                    type="regular"
+                    label="Preço Regular"
+                    price={currentVisibleKit.regular_price_cents}
+                    commission={getCommissionForType(currentVisibleKit, 'regular')}
+                    isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'regular'}
+                    kit={currentVisibleKit}
+                    variant="default"
+                  />
+
+                  {/* 2. VENDA POR / Promotional (always visible if exists) */}
+                  {currentVisibleKit.promotional_price_cents && (
+                    <PriceOption
+                      type="promotional"
+                      label="Venda Por"
+                      price={currentVisibleKit.promotional_price_cents}
+                      commission={getCommissionForType(currentVisibleKit, 'promotional')}
+                      isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'promotional'}
+                      kit={currentVisibleKit}
+                      variant="success"
+                    />
+                  )}
+
+                  {/* 3. PREÇO PROMOCIONAL (revealed without justification) */}
+                  {currentVisibleKit.promotional_price_2_cents && (
+                    <>
+                      {!showPromo2 ? (
+                        <Button
+                          variant="ghost"
+                          className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={onRevealPromo2}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Preço Promocional
+                        </Button>
+                      ) : (
+                        <PriceOption
+                          type="promotional_2"
+                          label="Preço Promocional"
+                          price={currentVisibleKit.promotional_price_2_cents}
+                          commission={getCommissionForType(currentVisibleKit, 'promotional_2')}
+                          isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'promotional_2'}
+                          kit={currentVisibleKit}
+                          variant="warning"
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {/* 4. VALOR MÍNIMO (revealed with request/justification) */}
+                  {currentVisibleKit.minimum_price_cents && (
+                    <>
+                      {!showMinimum ? (
+                        <Button
+                          variant="ghost"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={onRevealMinimum}
+                        >
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          Solicitar Valor Mínimo
+                        </Button>
+                      ) : (
+                        <PriceOption
+                          type="minimum"
+                          label="Valor Mínimo"
+                          price={currentVisibleKit.minimum_price_cents}
+                          commission={getCommissionForType(currentVisibleKit, 'minimum')}
+                          isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'minimum'}
+                          kit={currentVisibleKit}
+                          variant="danger"
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Reject Kit Button */}
+              {hasMoreKits && leadId && (
+                <div className="space-y-2">
+                  {!showRejectionInput ? (
+                    <Button
+                      variant="outline"
+                      className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
+                      onClick={() => onShowRejectionInput(true)}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      NÃO CONSEGUI VENDER ESSE
+                    </Button>
+                  ) : (
+                    <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/30 space-y-3">
+                      <Label className="text-amber-700">Por que o cliente não aceitou?</Label>
+                      <Textarea
+                        value={rejectionReason}
+                        onChange={(e) => onRejectionReasonChange(e.target.value)}
+                        placeholder="Ex: Achou caro, quer menos quantidade..."
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            onShowRejectionInput(false);
+                            onRejectionReasonChange('');
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          onClick={onRejectKit}
+                          disabled={!rejectionReason.trim() || isRejecting}
+                          className="bg-amber-600 hover:bg-amber-700"
+                        >
+                          {isRejecting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                          Ver Próxima Oferta
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* All kits rejected */}
+        {product.category !== 'manipulado' && allKitsRejected && (
+          <div className="p-6 border-2 border-dashed border-amber-500 rounded-lg text-center">
+            <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+            <p className="font-semibold text-lg">Todas as ofertas foram rejeitadas</p>
+            <p className="text-muted-foreground mt-1">
+              Finalize o atendimento selecionando um motivo de não compra
+            </p>
+          </div>
+        )}
+
+        {/* Summary for current selection */}
+        {currentUnitPrice > 0 && (
+          <>
+            <Separator />
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">Valor selecionado:</span>
+                <span className="text-xl font-bold">{formatPrice(currentUnitPrice * currentQuantity)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>ou {formatInstallment(currentUnitPrice * currentQuantity)}</span>
+              </div>
+              <Separator className="my-3" />
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm">
+                  <Coins className="w-4 h-4" />
+                  Sua comissão ({currentCommission}%):
+                </span>
+                <span className="font-bold text-green-600">
+                  Ganhe {formatPrice(calculateCommissionValue(currentUnitPrice, currentQuantity, currentCommission))}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Add to offer button */}
+        {currentUnitPrice > 0 && (
+          <>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={onAddProduct}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar e Escolher Outro Produto
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
