@@ -37,6 +37,16 @@ export interface UserPermissions {
   settings_view: boolean;
   settings_manage: boolean;
   
+  // Granular Settings Permissions
+  settings_funnel_stages: boolean;
+  settings_delivery_regions: boolean;
+  settings_carriers: boolean;
+  settings_payment_methods: boolean;
+  settings_non_purchase_reasons: boolean;
+  settings_standard_questions: boolean;
+  settings_teams: boolean;
+  settings_lead_sources: boolean;
+  
   // Reports
   reports_view: boolean;
   
@@ -89,8 +99,16 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   products_manage: { label: 'Gerenciar Produtos', description: 'Criar/editar/excluir produtos', group: 'Produtos' },
   products_view_cost: { label: 'Ver Custo', description: 'Visualizar custo dos produtos', group: 'Produtos' },
   
-  settings_view: { label: 'Ver Configurações', description: 'Acessar configurações', group: 'Configurações' },
-  settings_manage: { label: 'Gerenciar Configurações', description: 'Alterar configurações', group: 'Configurações' },
+  settings_view: { label: 'Ver Configurações', description: 'Acessar página de configurações', group: 'Configurações' },
+  settings_manage: { label: 'Gerenciar Configurações', description: 'Alterar configurações gerais', group: 'Configurações' },
+  settings_funnel_stages: { label: 'Etapas do Funil', description: 'Gerenciar etapas do funil de vendas', group: 'Configurações' },
+  settings_delivery_regions: { label: 'Regiões de Entrega', description: 'Gerenciar regiões de entrega motoboy', group: 'Configurações' },
+  settings_carriers: { label: 'Transportadoras', description: 'Gerenciar transportadoras', group: 'Configurações' },
+  settings_payment_methods: { label: 'Formas de Pagamento', description: 'Gerenciar métodos de pagamento', group: 'Configurações' },
+  settings_non_purchase_reasons: { label: 'Motivos de Não Compra', description: 'Gerenciar motivos de não compra', group: 'Configurações' },
+  settings_standard_questions: { label: 'Perguntas Padrão', description: 'Gerenciar perguntas padrão', group: 'Configurações' },
+  settings_teams: { label: 'Times', description: 'Gerenciar times da organização', group: 'Configurações' },
+  settings_lead_sources: { label: 'Origens de Lead', description: 'Gerenciar origens de lead', group: 'Configurações' },
   
   deliveries_view_own: { label: 'Ver Minhas Entregas', description: 'Ver entregas atribuídas a mim', group: 'Entregas' },
   deliveries_view_all: { label: 'Ver Todas Entregas', description: 'Ver todas as entregas', group: 'Entregas' },
@@ -283,6 +301,14 @@ export function useApplyRoleDefaults() {
           products_view_cost: permsObj.products_view_cost ?? false,
           settings_view: permsObj.settings_view ?? false,
           settings_manage: permsObj.settings_manage ?? false,
+          settings_funnel_stages: permsObj.settings_funnel_stages ?? false,
+          settings_delivery_regions: permsObj.settings_delivery_regions ?? false,
+          settings_carriers: permsObj.settings_carriers ?? false,
+          settings_payment_methods: permsObj.settings_payment_methods ?? false,
+          settings_non_purchase_reasons: permsObj.settings_non_purchase_reasons ?? false,
+          settings_standard_questions: permsObj.settings_standard_questions ?? false,
+          settings_teams: permsObj.settings_teams ?? false,
+          settings_lead_sources: permsObj.settings_lead_sources ?? false,
           reports_view: permsObj.reports_view ?? false,
           deliveries_view_own: permsObj.deliveries_view_own ?? false,
           deliveries_view_all: permsObj.deliveries_view_all ?? false,

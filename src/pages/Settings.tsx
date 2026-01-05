@@ -17,10 +17,13 @@ import { NonPurchaseReasonsManager } from '@/components/settings/NonPurchaseReas
 import { TeamsManager } from '@/components/settings/TeamsManager';
 import { StandardQuestionsManager } from '@/components/settings/StandardQuestionsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { HelpCircle } from 'lucide-react';
+
 export default function Settings() {
-  const { profile, updatePassword, user } = useAuth();
+  const { profile, updatePassword, user, isAdmin } = useAuth();
   const { data: isOrgAdmin, isLoading: loadingPermissions } = useOrgAdmin();
+  const { data: permissions, isLoading: loadingMyPermissions } = useMyPermissions();
   const { data: leadSources = [], isLoading: loadingSources } = useLeadSources();
   const createSource = useCreateLeadSource();
   const deleteSource = useDeleteLeadSource();
@@ -165,7 +168,7 @@ export default function Settings() {
   };
 
   // Loading permissions
-  if (loadingPermissions) {
+  if (loadingPermissions || loadingMyPermissions) {
     return (
       <Layout>
         <div className="flex items-center justify-center p-8">
@@ -176,8 +179,25 @@ export default function Settings() {
     );
   }
 
-  // Access denied for non-admins
-  if (!isOrgAdmin) {
+  // Check if user has any settings permission (admin bypass or granular permissions)
+  const hasAnySettingsPermission = isAdmin || isOrgAdmin || 
+    permissions?.settings_funnel_stages || 
+    permissions?.settings_delivery_regions ||
+    permissions?.settings_carriers ||
+    permissions?.settings_payment_methods ||
+    permissions?.settings_non_purchase_reasons ||
+    permissions?.settings_standard_questions ||
+    permissions?.settings_teams ||
+    permissions?.settings_lead_sources;
+
+  // Helper to check if user can access a specific settings section
+  const canAccess = (permission: keyof typeof permissions) => {
+    if (!permissions) return isAdmin || isOrgAdmin;
+    return isAdmin || isOrgAdmin || permissions[permission];
+  };
+
+  // Access denied - no settings permission at all
+  if (!hasAnySettingsPermission) {
     return (
       <Layout>
         <div className="space-y-6">
@@ -284,143 +304,159 @@ export default function Settings() {
         </div>
 
         {/* Funnel Stages Configuration */}
-        <div className="bg-card rounded-xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Filter className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Etapas do Funil</h2>
-              <p className="text-sm text-muted-foreground">Personalize seu funil de vendas</p>
-            </div>
-          </div>
-          <FunnelStagesManager />
-        </div>
-
-        {/* Delivery Regions */}
-        <div className="bg-card rounded-xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-blue-500/10">
-              <MapPin className="w-6 h-6 text-blue-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Regiões de Entrega</h2>
-              <p className="text-sm text-muted-foreground">Configure as regiões atendidas por motoboy</p>
-            </div>
-          </div>
-          <DeliveryRegionsManager />
-        </div>
-
-        {/* Shipping Carriers */}
-        <div className="bg-card rounded-xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-green-500/10">
-              <Truck className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Transportadoras</h2>
-              <p className="text-sm text-muted-foreground">Configure as transportadoras para envios</p>
-            </div>
-          </div>
-          <ShippingCarriersManager />
-        </div>
-
-        {/* Payment Methods */}
-        <div className="bg-card rounded-xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-purple-500/10">
-              <CreditCard className="w-6 h-6 text-purple-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Formas de Pagamento</h2>
-              <p className="text-sm text-muted-foreground">Configure as formas de pagamento disponíveis</p>
-            </div>
-          </div>
-          <PaymentMethodsManagerEnhanced />
-        </div>
-
-        {/* Non-Purchase Reasons */}
-        <div className="bg-card rounded-xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-red-500/10">
-              <ThumbsDown className="w-6 h-6 text-red-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Motivos de Não Compra</h2>
-              <p className="text-sm text-muted-foreground">Classifique por que leads não compraram</p>
-            </div>
-          </div>
-          <NonPurchaseReasonsManager />
-        </div>
-
-        {/* Standard Questions */}
-        <div className="bg-card rounded-xl p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-lg bg-cyan-500/10">
-              <HelpCircle className="w-6 h-6 text-cyan-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Perguntas Padrão</h2>
-              <p className="text-sm text-muted-foreground">Perguntas pré-definidas para produtos</p>
-            </div>
-          </div>
-          <StandardQuestionsManager />
-        </div>
-
-        {/* Teams Management */}
-        <TeamsManager />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Lead Sources Configuration */}
+        {canAccess('settings_funnel_stages') && (
           <div className="bg-card rounded-xl p-6 shadow-card">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-lg bg-primary/10">
-                <Tag className="w-6 h-6 text-primary" />
+                <Filter className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Origens de Lead</h2>
-                <p className="text-sm text-muted-foreground">Canais de aquisição</p>
+                <h2 className="text-lg font-semibold text-foreground">Etapas do Funil</h2>
+                <p className="text-sm text-muted-foreground">Personalize seu funil de vendas</p>
               </div>
             </div>
-            
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nova origem..."
-                  value={newSource}
-                  onChange={(e) => setNewSource(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddSource()}
-                />
-                <Button onClick={handleAddSource} disabled={createSource.isPending}>
-                  {createSource.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                </Button>
-              </div>
+            <FunnelStagesManager />
+          </div>
+        )}
 
-              <div className="space-y-2 max-h-60 overflow-auto">
-                {loadingSources ? (
-                  <div className="flex justify-center p-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : (
-                  leadSources.map((source) => (
-                    <div key={source.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <span className="font-medium">{source.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteSource(source.id)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+        {/* Delivery Regions */}
+        {canAccess('settings_delivery_regions') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-blue-500/10">
+                <MapPin className="w-6 h-6 text-blue-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Regiões de Entrega</h2>
+                <p className="text-sm text-muted-foreground">Configure as regiões atendidas por motoboy</p>
+              </div>
+            </div>
+            <DeliveryRegionsManager />
+          </div>
+        )}
+
+        {/* Shipping Carriers */}
+        {canAccess('settings_carriers') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-green-500/10">
+                <Truck className="w-6 h-6 text-green-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Transportadoras</h2>
+                <p className="text-sm text-muted-foreground">Configure as transportadoras para envios</p>
+              </div>
+            </div>
+            <ShippingCarriersManager />
+          </div>
+        )}
+
+        {/* Payment Methods */}
+        {canAccess('settings_payment_methods') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-purple-500/10">
+                <CreditCard className="w-6 h-6 text-purple-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Formas de Pagamento</h2>
+                <p className="text-sm text-muted-foreground">Configure as formas de pagamento disponíveis</p>
+              </div>
+            </div>
+            <PaymentMethodsManagerEnhanced />
+          </div>
+        )}
+
+        {/* Non-Purchase Reasons */}
+        {canAccess('settings_non_purchase_reasons') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-red-500/10">
+                <ThumbsDown className="w-6 h-6 text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Motivos de Não Compra</h2>
+                <p className="text-sm text-muted-foreground">Classifique por que leads não compraram</p>
+              </div>
+            </div>
+            <NonPurchaseReasonsManager />
+          </div>
+        )}
+
+        {/* Standard Questions */}
+        {canAccess('settings_standard_questions') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-cyan-500/10">
+                <HelpCircle className="w-6 h-6 text-cyan-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Perguntas Padrão</h2>
+                <p className="text-sm text-muted-foreground">Perguntas pré-definidas para produtos</p>
+              </div>
+            </div>
+            <StandardQuestionsManager />
+          </div>
+        )}
+
+        {/* Teams Management */}
+        {canAccess('settings_teams') && <TeamsManager />}
+
+        {canAccess('settings_lead_sources') && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Lead Sources Configuration */}
+            <div className="bg-card rounded-xl p-6 shadow-card">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Tag className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Origens de Lead</h2>
+                  <p className="text-sm text-muted-foreground">Canais de aquisição</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nova origem..."
+                    value={newSource}
+                    onChange={(e) => setNewSource(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddSource()}
+                  />
+                  <Button onClick={handleAddSource} disabled={createSource.isPending}>
+                    {createSource.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-auto">
+                  {loadingSources ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
-                  ))
-                )}
+                  ) : (
+                    leadSources.map((source) => (
+                      <div key={source.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <span className="font-medium">{source.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteSource(source.id)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
+        )}
 
-
+        {/* Other Settings Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Instagram Integration */}
           <div className="bg-card rounded-xl p-6 shadow-card">
             <div className="flex items-center gap-3 mb-4">
@@ -542,7 +578,6 @@ export default function Settings() {
               </Button>
             </div>
           </div>
-
         </div>
       </div>
     </Layout>
