@@ -79,6 +79,7 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddressFields } from '@/components/AddressFields';
+import { ProductOfferCard } from '@/components/receptive/ProductOfferCard';
 
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
@@ -1396,57 +1397,107 @@ export default function AddReceptivo() {
               <SpyButtons />
             </div>
 
-            {/* Itens já adicionados */}
+            {/* Itens já adicionados - EXPANDIDO com detalhes completos */}
             {offerItems.length > 0 && (
-              <Card>
+              <Card className="border-green-500/30">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-green-700">
                     <Package className="w-5 h-5" />
-                    Produtos Selecionados ({offerItems.length})
+                    Produtos Confirmados ({offerItems.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {offerItems.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                      <div>
-                        <p className="font-medium">{item.quantity}x {item.productName}</p>
-                        <p className="text-sm text-muted-foreground">{formatPrice(item.unitPriceCents * item.quantity)}</p>
-                        {item.requisitionNumber && (
-                          <Badge variant="outline" className="text-xs mt-1">Req: {item.requisitionNumber}</Badge>
-                        )}
+                <CardContent className="space-y-4">
+                  {offerItems.map((item, index) => {
+                    const itemTotal = item.unitPriceCents * item.quantity;
+                    const installmentValue = Math.round(itemTotal / 10);
+                    return (
+                      <div key={index} className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold text-lg">{item.productName}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline">{item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}</Badge>
+                              {item.requisitionNumber && (
+                                <Badge variant="secondary" className="text-xs">Req: {item.requisitionNumber}</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveFromOffer(index)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <Separator className="my-3" />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Valor</p>
+                            <p className="text-xl font-bold">{formatPrice(itemTotal)}</p>
+                            <p className="text-xs text-muted-foreground">ou 12x de {formatPrice(installmentValue)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Sua comissão ({item.commissionPercentage}%)</p>
+                            <p className="text-lg font-bold text-green-600">Ganhe {formatPrice(item.commissionCents)}</p>
+                          </div>
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveFromOffer(index)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
 
             {/* Adicionar/Editar Produto Atual */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  {currentProduct ? `Oferta - ${currentProduct.name}` : 'Adicionar Produto'}
-                </CardTitle>
-                {currentProduct && (
-                  <CardDescription>
-                    {currentProduct.category === 'manipulado' 
-                      ? 'Informe o valor e requisição' 
-                      : 'Selecione o kit e preço para o cliente'}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Seletor de Produto */}
-                {!currentProductId && (
+            {currentProduct ? (
+              <ProductOfferCard
+                product={currentProduct}
+                sortedKits={sortedKits}
+                currentKitId={currentKitId}
+                currentPriceType={currentPriceType}
+                currentRejectedKitIds={currentRejectedKitIds}
+                showPromo2={showPromo2}
+                showMinimum={showMinimum}
+                currentAnswers={currentAnswers}
+                defaultCommission={myCommission?.commissionPercentage || 0}
+                requisitionNumber={requisitionNumber}
+                manipuladoPrice={manipuladoPrice}
+                manipuladoQuantity={manipuladoQuantity}
+                leadId={leadData.id}
+                showRejectionInput={showRejectionInput}
+                rejectionReason={rejectionReason}
+                isRejecting={createKitRejection.isPending}
+                onKitSelect={(kitId, priceType) => {
+                  setCurrentKitId(kitId);
+                  setCurrentPriceType(priceType);
+                  setCurrentCustomPrice(0);
+                }}
+                onRevealPromo2={() => setShowPromo2(true)}
+                onRevealMinimum={() => setShowMinimum(true)}
+                onAnswersChange={setCurrentAnswers}
+                onRequisitionChange={setRequisitionNumber}
+                onManipuladoPriceChange={setManipuladoPrice}
+                onManipuladoQuantityChange={setManipuladoQuantity}
+                onShowRejectionInput={setShowRejectionInput}
+                onRejectionReasonChange={setRejectionReason}
+                onRejectKit={handleRejectKit}
+                onAddProduct={handleAddProductToOffer}
+                onResetProduct={resetCurrentProduct}
+                currentUnitPrice={currentUnitPrice}
+                currentQuantity={currentQuantity}
+                currentCommission={currentCommission}
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5" />
+                    Adicionar Produto
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
                   <ProductSelectorForSale
                     products={products}
                     isLoading={false}
@@ -1459,309 +1510,9 @@ export default function AddReceptivo() {
                     }}
                     placeholder="Buscar produto..."
                   />
-                )}
-
-                {/* Produto selecionado - mostrar info */}
-                {currentProduct && (
-                  <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {currentProduct.is_featured && <Star className="w-4 h-4 text-amber-500" />}
-                      <span className="font-medium">{currentProduct.name}</span>
-                      <Badge variant="outline">{currentProduct.category}</Badge>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={resetCurrentProduct}
-                    >
-                      Trocar
-                    </Button>
-                  </div>
-                )}
-
-                {/* Perguntas do Produto */}
-                {currentProduct && (currentProduct.key_question_1 || currentProduct.key_question_2 || currentProduct.key_question_3) && (
-                  <>
-                    <Separator />
-                    <div className="space-y-4">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <ClipboardList className="w-4 h-4" />
-                        Perguntas-Chave
-                      </h4>
-                      {currentProduct.key_question_1 && (
-                        <div className="space-y-2">
-                          <Label className="text-sm">1. {currentProduct.key_question_1}</Label>
-                          <Textarea
-                            value={currentAnswers.answer_1 || ''}
-                            onChange={(e) => setCurrentAnswers(prev => ({ ...prev, answer_1: e.target.value }))}
-                            placeholder="Resposta..."
-                            rows={2}
-                          />
-                        </div>
-                      )}
-                      {currentProduct.key_question_2 && (
-                        <div className="space-y-2">
-                          <Label className="text-sm">2. {currentProduct.key_question_2}</Label>
-                          <Textarea
-                            value={currentAnswers.answer_2 || ''}
-                            onChange={(e) => setCurrentAnswers(prev => ({ ...prev, answer_2: e.target.value }))}
-                            placeholder="Resposta..."
-                            rows={2}
-                          />
-                        </div>
-                      )}
-                      {currentProduct.key_question_3 && (
-                        <div className="space-y-2">
-                          <Label className="text-sm">3. {currentProduct.key_question_3}</Label>
-                          <Textarea
-                            value={currentAnswers.answer_3 || ''}
-                            onChange={(e) => setCurrentAnswers(prev => ({ ...prev, answer_3: e.target.value }))}
-                            placeholder="Resposta..."
-                            rows={2}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* MANIPULADO */}
-                {currentProduct?.category === 'manipulado' && (
-                  <>
-                    <Separator />
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Número da Requisição *</Label>
-                        <Input
-                          value={requisitionNumber}
-                          onChange={(e) => setRequisitionNumber(e.target.value)}
-                          placeholder="Ex: REQ-12345"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Quantidade</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={manipuladoQuantity}
-                            onChange={(e) => setManipuladoQuantity(parseInt(e.target.value) || 1)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Valor Total (R$)</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={(manipuladoPrice / 100).toFixed(2)}
-                            onChange={(e) => setManipuladoPrice(Math.round(parseFloat(e.target.value) * 100) || 0)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Kit Selection with Progressive Reveal */}
-                {currentProduct && currentProduct.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && (
-                  <>
-                    <Separator />
-                    <div className="space-y-4">
-                      {/* Current Kit */}
-                      <div className={`p-5 rounded-lg border-2 ${currentKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}>
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="default" className="text-lg px-3 py-1">
-                              {currentVisibleKit.quantity} {currentVisibleKit.quantity === 1 ? 'unidade' : 'unidades'}
-                            </Badge>
-                            <Badge variant="outline">Oferta {sortedKits.findIndex(k => k.id === currentVisibleKit.id) + 1}</Badge>
-                          </div>
-                        </div>
-
-                        {/* Price Options */}
-                        <div className="space-y-3">
-                          {/* Promotional (Venda por) */}
-                          {currentVisibleKit.promotional_price_cents && (
-                            <button
-                              onClick={() => {
-                                setCurrentKitId(currentVisibleKit.id);
-                                setCurrentPriceType('promotional');
-                                setCurrentCustomPrice(0);
-                              }}
-                              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                                currentKitId === currentVisibleKit.id && currentPriceType === 'promotional'
-                                  ? 'border-green-500 bg-green-50 dark:bg-green-950/30'
-                                  : 'border-muted hover:border-muted-foreground/50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Venda por</p>
-                                  <p className="text-2xl font-bold text-green-600">
-                                    {formatPrice(currentVisibleKit.promotional_price_cents)}
-                                  </p>
-                                </div>
-                                <CommissionBadge value={
-                                  currentVisibleKit.promotional_use_default_commission 
-                                    ? (myCommission?.commissionPercentage || 0)
-                                    : (currentVisibleKit.promotional_custom_commission || 0)
-                                } />
-                              </div>
-                            </button>
-                          )}
-
-                          {/* Regular */}
-                          <button
-                            onClick={() => {
-                              setCurrentKitId(currentVisibleKit.id);
-                              setCurrentPriceType('regular');
-                              setCurrentCustomPrice(0);
-                            }}
-                            className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                              currentKitId === currentVisibleKit.id && currentPriceType === 'regular'
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                                : 'border-muted hover:border-muted-foreground/50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Preço Regular</p>
-                                <p className="text-xl font-bold">
-                                  {formatPrice(currentVisibleKit.regular_price_cents)}
-                                </p>
-                              </div>
-                              <CommissionBadge value={
-                                currentVisibleKit.regular_use_default_commission 
-                                  ? (myCommission?.commissionPercentage || 0)
-                                  : (currentVisibleKit.regular_custom_commission || 0)
-                              } />
-                            </div>
-                          </button>
-
-                          {/* Minimum - revealed on demand */}
-                          {currentVisibleKit.minimum_price_cents && (
-                            <>
-                              {!showMinimum ? (
-                                <Button
-                                  variant="ghost"
-                                  className="w-full text-amber-600"
-                                  onClick={() => setShowMinimum(true)}
-                                >
-                                  <AlertTriangle className="w-4 h-4 mr-2" />
-                                  Revelar Valor Mínimo
-                                </Button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setCurrentKitId(currentVisibleKit.id);
-                                    setCurrentPriceType('minimum');
-                                    setCurrentCustomPrice(0);
-                                  }}
-                                  className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                                    currentKitId === currentVisibleKit.id && currentPriceType === 'minimum'
-                                      ? 'border-red-500 bg-red-50 dark:bg-red-950/30'
-                                      : 'border-muted hover:border-muted-foreground/50'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <p className="font-semibold text-red-700">Valor Mínimo</p>
-                                        <AlertTriangle className="w-4 h-4 text-red-500" />
-                                      </div>
-                                      <p className="text-xl font-bold text-red-600">
-                                        {formatPrice(currentVisibleKit.minimum_price_cents)}
-                                      </p>
-                                    </div>
-                                    <CommissionBadge value={
-                                      currentVisibleKit.minimum_use_default_commission 
-                                        ? (myCommission?.commissionPercentage || 0)
-                                        : (currentVisibleKit.minimum_custom_commission || 0)
-                                    } />
-                                  </div>
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Reject Kit Button */}
-                      {hasMoreKits && leadData.id && (
-                        <div className="space-y-2">
-                          {!showRejectionInput ? (
-                            <Button
-                              variant="outline"
-                              className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
-                              onClick={() => setShowRejectionInput(true)}
-                            >
-                              <XCircle className="w-4 h-4 mr-2" />
-                              NÃO CONSEGUI VENDER ESSE
-                            </Button>
-                          ) : (
-                            <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/30 space-y-3">
-                              <Label className="text-amber-700">Por que o cliente não aceitou?</Label>
-                              <Textarea
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                placeholder="Ex: Achou caro, quer menos quantidade..."
-                                rows={2}
-                              />
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    setShowRejectionInput(false);
-                                    setRejectionReason('');
-                                  }}
-                                >
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  onClick={handleRejectKit}
-                                  disabled={!rejectionReason.trim() || createKitRejection.isPending}
-                                  className="bg-amber-600 hover:bg-amber-700"
-                                >
-                                  {createKitRejection.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                                  Ver Próxima Oferta
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* All kits rejected */}
-                {currentProduct && currentProduct.category !== 'manipulado' && allKitsRejected && (
-                  <div className="p-6 border-2 border-dashed border-amber-500 rounded-lg text-center">
-                    <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                    <p className="font-semibold text-lg">Todas as ofertas foram rejeitadas</p>
-                    <p className="text-muted-foreground mt-1">
-                      Finalize o atendimento selecionando um motivo de não compra
-                    </p>
-                  </div>
-                )}
-
-                {/* Add to offer button */}
-                {currentUnitPrice > 0 && (
-                  <>
-                    <Separator />
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={handleAddProductToOffer}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar e Escolher Outro Produto
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Cross-sell Products */}
             {getCrossSellProducts().length > 0 && (
@@ -1807,18 +1558,34 @@ export default function AddReceptivo() {
                 <CardHeader>
                   <CardTitle>Resumo do Pedido</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  {offerItems.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span>{item.quantity}x {item.productName}</span>
-                      <span>{formatPrice(item.unitPriceCents * item.quantity)}</span>
-                    </div>
-                  ))}
+                <CardContent className="space-y-3">
+                  {offerItems.map((item, index) => {
+                    const itemTotal = item.unitPriceCents * item.quantity;
+                    const installmentValue = Math.round(itemTotal / 10);
+                    return (
+                      <div key={index} className="p-3 bg-muted/30 rounded-lg">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{item.quantity}x {item.productName}</span>
+                          <span className="font-bold">{formatPrice(itemTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>ou 12x de {formatPrice(installmentValue)}</span>
+                          <span className="text-green-600">Ganhe {formatPrice(item.commissionCents)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                   
                   {currentUnitPrice > 0 && currentProduct && (
-                    <div className="flex justify-between text-sm">
-                      <span>{currentQuantity}x {currentProduct.name}</span>
-                      <span>{formatPrice(currentProductSubtotal)}</span>
+                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{currentQuantity}x {currentProduct.name}</span>
+                        <span className="font-bold">{formatPrice(currentProductSubtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>ou 12x de {formatPrice(Math.round(currentProductSubtotal / 10))}</span>
+                        <span className="text-green-600">Ganhe {formatPrice(currentCommissionValue)}</span>
+                      </div>
                     </div>
                   )}
                   
@@ -1829,13 +1596,25 @@ export default function AddReceptivo() {
                     </div>
                   )}
                   <Separator />
-                  <div className="flex justify-between font-bold text-lg">
+                  <div className="flex justify-between font-bold text-xl">
                     <span>Total</span>
-                    <span>{formatPrice(total)}</span>
+                    <div className="text-right">
+                      <span>{formatPrice(total)}</span>
+                      <p className="text-sm font-normal text-muted-foreground">
+                        ou 12x de {formatPrice(Math.round(total / 10))}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Sua comissão total</span>
-                    <span>{formatPrice(totalCommissionValue)}</span>
+                  <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm">
+                        <Coins className="w-4 h-4 text-green-600" />
+                        Sua comissão total:
+                      </span>
+                      <span className="font-bold text-lg text-green-600">
+                        Ganhe {formatPrice(totalCommissionValue)}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
