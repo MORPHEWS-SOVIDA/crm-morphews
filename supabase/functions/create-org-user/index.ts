@@ -163,17 +163,22 @@ const handler = async (req: Request): Promise<Response> => {
           isAuthorized = true;
           console.log("Authorized as master admin:", user.email);
         } else {
-          // Check if user is org admin (will verify org membership later with organizationId)
-          const { data: orgMember } = await supabaseAdmin
+          // Check if user is org admin for ANY organization (will verify specific org membership later)
+          // Using limit(1) instead of single() to avoid error when user is admin in multiple orgs
+          const { data: orgMembers, error: orgMemberError } = await supabaseAdmin
             .from('organization_members')
             .select('role, organization_id')
             .eq('user_id', user.id)
             .in('role', ['owner', 'admin'])
-            .single();
+            .limit(1);
           
-          if (orgMember) {
+          if (orgMemberError) {
+            console.error("Error checking org membership:", orgMemberError);
+          }
+          
+          if (orgMembers && orgMembers.length > 0) {
             isAuthorized = true;
-            console.log("Authorized as org admin:", user.email, "org:", orgMember.organization_id);
+            console.log("Authorized as org admin:", user.email, "org:", orgMembers[0].organization_id);
           }
         }
       }
