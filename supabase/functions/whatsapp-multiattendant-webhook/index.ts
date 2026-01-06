@@ -71,8 +71,10 @@ function normalizePhoneE164(phone: string): string {
   return clean;
 }
 
-function extFromContentType(contentType: string | null): string {
+function extFromContentType(contentType: string | null, messageType?: string): string {
   const ct = (contentType || "").toLowerCase();
+  
+  // First, try to detect from content-type header
   if (ct.includes("image/jpeg")) return "jpg";
   if (ct.includes("image/png")) return "png";
   if (ct.includes("image/webp")) return "webp";
@@ -84,7 +86,39 @@ function extFromContentType(contentType: string | null): string {
   if (ct.includes("video/mp4")) return "mp4";
   if (ct.includes("video/webm")) return "webm";
   if (ct.includes("application/pdf")) return "pdf";
+  
+  // If content-type is generic (octet-stream) or empty, infer from message type
+  if (!ct || ct.includes("octet-stream")) {
+    switch (messageType) {
+      case "image": return "jpg"; // Default to jpg for images
+      case "audio": return "ogg"; // WhatsApp audio is usually ogg
+      case "video": return "mp4"; // Default to mp4 for videos
+      case "document": return "pdf"; // Default to pdf for documents
+      case "sticker": return "webp"; // Stickers are usually webp
+    }
+  }
+  
   return "bin";
+}
+
+// Infer content-type from message type when server doesn't provide valid type
+function inferContentType(serverContentType: string | null, messageType?: string): string {
+  const ct = (serverContentType || "").toLowerCase();
+  
+  // If server gave us a valid specific type, use it
+  if (ct && !ct.includes("octet-stream") && ct.includes("/")) {
+    return serverContentType || "application/octet-stream";
+  }
+  
+  // Otherwise, infer from message type
+  switch (messageType) {
+    case "image": return "image/jpeg";
+    case "audio": return "audio/ogg";
+    case "video": return "video/mp4";
+    case "document": return "application/pdf";
+    case "sticker": return "image/webp";
+    default: return "application/octet-stream";
+  }
 }
 
 async function createHmacSignature(data: string, secret: string): Promise<string> {
@@ -149,8 +183,9 @@ async function downloadAndStoreInboundMedia(params: {
   instanceId: string;
   conversationId: string;
   mediaUrl: string;
+  messageType?: string; // NEW: to infer content-type when server doesn't provide
 }): Promise<StoredInboundMedia | null> {
-  const { organizationId, instanceId, conversationId, mediaUrl } = params;
+  const { organizationId, instanceId, conversationId, mediaUrl, messageType } = params;
 
   try {
     const resp = await fetch(mediaUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
@@ -159,17 +194,28 @@ async function downloadAndStoreInboundMedia(params: {
       return null;
     }
 
-    const contentType = resp.headers.get("content-type");
+    const serverContentType = resp.headers.get("content-type");
     const bytes = new Uint8Array(await resp.arrayBuffer());
 
-    const ext = extFromContentType(contentType);
+    // Infer better content-type if server returned generic type
+    const finalContentType = inferContentType(serverContentType, messageType);
+    const ext = extFromContentType(finalContentType, messageType);
+    
+    console.log("📎 Storing inbound media:", {
+      serverContentType,
+      inferredContentType: finalContentType,
+      extension: ext,
+      messageType,
+      size: bytes.length
+    });
+
     const random = crypto.randomUUID().split("-")[0];
     const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/in_${Date.now()}_${random}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(WHATSAPP_MEDIA_BUCKET)
       .upload(storagePath, bytes, {
-        contentType: contentType || "application/octet-stream",
+        contentType: finalContentType,
         upsert: true,
       });
 
@@ -178,10 +224,10 @@ async function downloadAndStoreInboundMedia(params: {
       return null;
     }
 
-    const proxyUrl = await generateMediaProxyUrl(storagePath, contentType || undefined);
+    const proxyUrl = await generateMediaProxyUrl(storagePath, finalContentType);
     const signedUrl = await createSignedUrlForStoragePath(storagePath);
 
-    return { proxyUrl, signedUrl, storagePath, contentType };
+    return { proxyUrl, signedUrl, storagePath, contentType: finalContentType };
   } catch (e) {
     console.warn("⚠️ Media store exception:", e);
     return null;
@@ -194,8 +240,9 @@ async function storeInboundBase64Media(params: {
   conversationId: string;
   base64: string;
   contentType: string | null;
+  messageType?: string; // NEW: to infer content-type when not provided
 }): Promise<StoredInboundMedia | null> {
-  const { organizationId, instanceId, conversationId, base64, contentType } = params;
+  const { organizationId, instanceId, conversationId, base64, contentType, messageType } = params;
 
   try {
     const base64Data = base64.startsWith("data:")
@@ -206,24 +253,34 @@ async function storeInboundBase64Media(params: {
 
     const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
-    const ct = contentType || "application/octet-stream";
-    const ext = extFromContentType(ct);
+    // Infer better content-type if not provided or generic
+    const finalContentType = inferContentType(contentType, messageType);
+    const ext = extFromContentType(finalContentType, messageType);
+    
+    console.log("📎 Storing base64 media:", {
+      providedContentType: contentType,
+      inferredContentType: finalContentType,
+      extension: ext,
+      messageType,
+      size: bytes.length
+    });
+
     const random = crypto.randomUUID().split("-")[0];
     const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/in_${Date.now()}_${random}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(WHATSAPP_MEDIA_BUCKET)
-      .upload(storagePath, bytes, { contentType: ct, upsert: true });
+      .upload(storagePath, bytes, { contentType: finalContentType, upsert: true });
 
     if (uploadError) {
       console.warn("⚠️ Base64 media upload failed:", uploadError);
       return null;
     }
 
-    const proxyUrl = await generateMediaProxyUrl(storagePath, ct);
+    const proxyUrl = await generateMediaProxyUrl(storagePath, finalContentType);
     const signedUrl = await createSignedUrlForStoragePath(storagePath);
 
-    return { proxyUrl, signedUrl, storagePath, contentType: ct };
+    return { proxyUrl, signedUrl, storagePath, contentType: finalContentType };
   } catch (e) {
     console.warn("⚠️ Base64 media store exception:", e);
     return null;
@@ -856,6 +913,7 @@ async function processWasenderMessage(instance: any, body: any) {
         instanceId: instance.id,
         conversationId: conversation.id,
         mediaUrl,
+        messageType, // Pass message type for content-type inference
       });
     } else if (typeof mediaBase64 === "string" && mediaBase64.length > 50) {
       stored = await storeInboundBase64Media({
@@ -864,6 +922,7 @@ async function processWasenderMessage(instance: any, body: any) {
         conversationId: conversation.id,
         base64: mediaBase64,
         contentType: payloadMime,
+        messageType, // Pass message type for content-type inference
       });
     }
 

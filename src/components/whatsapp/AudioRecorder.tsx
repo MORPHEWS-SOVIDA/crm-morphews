@@ -9,18 +9,39 @@ interface AudioRecorderProps {
   setIsRecording: (val: boolean) => void;
 }
 
-// Check if OGG is supported (required for WhatsApp)
-function isOggSupported(): boolean {
-  if (typeof MediaRecorder === 'undefined') return false;
-  // Chrome/Edge/Firefox support OGG with opus
-  return MediaRecorder.isTypeSupported('audio/ogg; codecs=opus') || 
-         MediaRecorder.isTypeSupported('audio/ogg');
+// Get the best supported audio format for recording
+function getBestAudioFormat(): { mimeType: string; supported: boolean } {
+  if (typeof MediaRecorder === 'undefined') {
+    console.log('[AudioRecorder] MediaRecorder not available');
+    return { mimeType: '', supported: false };
+  }
+
+  // Try formats in order of preference for WhatsApp compatibility
+  const formats = [
+    'audio/ogg; codecs=opus',
+    'audio/ogg',
+    'audio/webm; codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/mpeg',
+  ];
+
+  for (const format of formats) {
+    if (MediaRecorder.isTypeSupported(format)) {
+      console.log('[AudioRecorder] Supported format found:', format);
+      return { mimeType: format, supported: true };
+    }
+  }
+
+  console.log('[AudioRecorder] No supported audio format found');
+  return { mimeType: '', supported: false };
 }
 
 export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: AudioRecorderProps) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
+  const [supportedFormat, setSupportedFormat] = useState<string>('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -28,28 +49,33 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
 
   useEffect(() => {
     // Check browser support on mount
-    setIsSupported(isOggSupported());
+    const formatInfo = getBestAudioFormat();
+    setIsSupported(formatInfo.supported);
+    setSupportedFormat(formatInfo.mimeType);
+    
+    console.log('[AudioRecorder] Browser support check:', {
+      supported: formatInfo.supported,
+      format: formatInfo.mimeType,
+      userAgent: navigator.userAgent
+    });
   }, []);
 
   const startRecording = async () => {
-    if (!isOggSupported()) {
-      toast.error('Seu navegador não suporta gravação de áudio no formato OGG. Use Chrome, Edge ou Firefox.');
+    const formatInfo = getBestAudioFormat();
+    
+    if (!formatInfo.supported) {
+      toast.error('Seu navegador não suporta gravação de áudio. Use Chrome, Edge ou Firefox.');
       return;
     }
 
     try {
+      console.log('[AudioRecorder] Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // Force OGG format for WhatsApp compatibility
-      let mimeType = 'audio/ogg; codecs=opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/ogg';
-      }
+      console.log('[AudioRecorder] Starting recording with mimeType:', formatInfo.mimeType);
       
-      console.log('[AudioRecorder] Starting recording with mimeType:', mimeType);
-      
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: formatInfo.mimeType });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -71,20 +97,23 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
         
         setIsProcessing(true);
         
-        // Always use audio/ogg for the blob (WhatsApp compatibility)
-        const blob = new Blob(chunksRef.current, { type: 'audio/ogg' });
+        // Use the format we recorded in
+        const recordedMimeType = formatInfo.mimeType.split(';')[0]; // Get base mime type
+        const blob = new Blob(chunksRef.current, { type: recordedMimeType });
         
         console.log('[AudioRecorder] Created blob:', {
           size: blob.size,
-          type: blob.type
+          type: blob.type,
+          recordedFormat: formatInfo.mimeType
         });
         
         // Convert to base64
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          console.log('[AudioRecorder] Audio ready, sending with mimeType: audio/ogg');
-          onAudioReady(base64, 'audio/ogg');
+          // Send with the actual recorded mime type - server will handle conversion if needed
+          console.log('[AudioRecorder] Audio ready, sending with mimeType:', recordedMimeType);
+          onAudioReady(base64, recordedMimeType);
           setIsProcessing(false);
         };
         reader.onerror = () => {
@@ -105,7 +134,7 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
       }, 1000);
     } catch (error) {
       console.error('[AudioRecorder] Error starting recording:', error);
-      toast.error('Erro ao acessar microfone. Verifique as permissões.');
+      toast.error('Erro ao acessar microfone. Verifique as permissões do navegador.');
     }
   };
 
@@ -185,7 +214,7 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
     );
   }
 
-  // Show disabled state if OGG not supported
+  // Show disabled state if no audio format is supported
   if (!isSupported) {
     return (
       <Button
