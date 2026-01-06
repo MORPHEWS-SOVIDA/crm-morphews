@@ -11,8 +11,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const WHATSAPP_WEBHOOK_SECRET = Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
+const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET");
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const WHATSAPP_MEDIA_BUCKET = "whatsapp-media";
+const MEDIA_URL_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 // ============================================================================
 // SECURITY - WEBHOOK VALIDATION
@@ -62,6 +64,93 @@ function normalizePhoneE164(phone: string): string {
     clean = "55" + clean;
   }
   return clean;
+}
+
+function extFromContentType(contentType: string | null): string {
+  const ct = (contentType || "").toLowerCase();
+  if (ct.includes("image/jpeg")) return "jpg";
+  if (ct.includes("image/png")) return "png";
+  if (ct.includes("image/webp")) return "webp";
+  if (ct.includes("image/gif")) return "gif";
+  if (ct.includes("audio/ogg")) return "ogg";
+  if (ct.includes("audio/mpeg") || ct.includes("audio/mp3")) return "mp3";
+  if (ct.includes("audio/wav")) return "wav";
+  if (ct.includes("audio/mp4") || ct.includes("audio/m4a")) return "m4a";
+  if (ct.includes("video/mp4")) return "mp4";
+  if (ct.includes("video/webm")) return "webm";
+  if (ct.includes("application/pdf")) return "pdf";
+  return "bin";
+}
+
+async function createHmacSignature(data: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(data);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function generateMediaProxyUrl(storagePath: string, contentType?: string): Promise<string | null> {
+  if (!WHATSAPP_MEDIA_TOKEN_SECRET) return null;
+
+  const exp = Math.floor(Date.now() / 1000) + MEDIA_URL_EXPIRES_IN_SECONDS;
+  const ct = (contentType || "").trim();
+  const dataToSign = ct ? `${storagePath}:${exp}:${ct}` : `${storagePath}:${exp}`;
+  const token = await createHmacSignature(dataToSign, WHATSAPP_MEDIA_TOKEN_SECRET);
+  const base = SUPABASE_URL.replace(/\/$/, "");
+  const ctParam = ct ? `&ct=${encodeURIComponent(ct)}` : "";
+  return `${base}/functions/v1/whatsapp-media-proxy?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}${ctParam}`;
+}
+
+async function downloadAndStoreInboundMedia(params: {
+  organizationId: string;
+  instanceId: string;
+  conversationId: string;
+  mediaUrl: string;
+}): Promise<{ proxyUrl: string | null; storagePath: string; contentType: string | null } | null> {
+  const { organizationId, instanceId, conversationId, mediaUrl } = params;
+
+  try {
+    const resp = await fetch(mediaUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!resp.ok) {
+      console.warn("⚠️ Media download failed:", { status: resp.status, mediaUrl });
+      return null;
+    }
+
+    const contentType = resp.headers.get("content-type");
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+
+    const ext = extFromContentType(contentType);
+    const random = crypto.randomUUID().split("-")[0];
+    const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/in_${Date.now()}_${random}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(WHATSAPP_MEDIA_BUCKET)
+      .upload(storagePath, bytes, { contentType: contentType || "application/octet-stream", upsert: true });
+
+    if (uploadError) {
+      console.warn("⚠️ Media upload failed:", uploadError);
+      return null;
+    }
+
+    const proxyUrl = await generateMediaProxyUrl(storagePath, contentType || undefined);
+    return { proxyUrl, storagePath, contentType };
+  } catch (e) {
+    console.warn("⚠️ Media store exception:", e);
+    return null;
+  }
 }
 
 function extractPhoneFromWasenderPayload(msgData: any): { conversationId: string; sendablePhone: string } {
@@ -640,7 +729,7 @@ async function processWasenderMessage(instance: any, body: any) {
   
   // Usar remoteJid como chat_id estável (funciona para grupos e individuais)
   const chatIdForDb = remoteJid || (isGroup ? `${phoneForConv}@g.us` : `${sendablePhone}@s.whatsapp.net`);
-  
+
   // Get or create conversation using stable chat_id
   const conversation = await getOrCreateConversation(
     instance.id,
@@ -653,21 +742,21 @@ async function processWasenderMessage(instance: any, body: any) {
     senderName || undefined
   );
 
-  // Process media (image analysis, audio transcription)
-  if (messageType === "audio" && (mediaUrl || mediaBase64)) {
-    const transcription = await transcribeAudio(mediaUrl || "", mediaBase64);
-    if (transcription) {
-      text = `[Áudio transcrito]: ${transcription}`;
+  // ✅ IMPORTANT: Wasender media URLs often expire / require auth.
+  // To make the CRM reliably display images/audios, we download and store the media in our own storage
+  // and save a signed proxy URL in the DB.
+  if (mediaUrl && typeof mediaUrl === "string" && mediaUrl.startsWith("http") && messageType !== "text") {
+    const stored = await downloadAndStoreInboundMedia({
+      organizationId: instance.organization_id,
+      instanceId: instance.id,
+      conversationId: conversation.id,
+      mediaUrl,
+    });
+    if (stored?.proxyUrl) {
+      mediaUrl = stored.proxyUrl;
     }
   }
-  
-  if (messageType === "image" && (mediaUrl || mediaBase64)) {
-    const analysis = await analyzeImage(mediaUrl || "", mediaBase64);
-    if (analysis && !text) {
-      text = `[Imagem analisada]: ${analysis}`;
-    }
-  }
-  
+
   // =========================================================================
   // IDEMPOTÊNCIA: Upsert message (não duplica)
   // =========================================================================
