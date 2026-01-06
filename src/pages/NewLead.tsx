@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, MapPin, Info } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { MultiSelect } from '@/components/MultiSelect';
-import { AddressFields } from '@/components/AddressFields';
 import { DuplicateWhatsAppDialog } from '@/components/DuplicateWhatsAppDialog';
+import { LeadAddressForm } from '@/components/leads/LeadAddressForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -23,7 +25,7 @@ import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
-import { useDeliveryRegions, useActiveShippingCarriers, DELIVERY_TYPES, DeliveryType } from '@/hooks/useDeliveryConfig';
+import { useCreateLeadAddress, LeadAddress } from '@/hooks/useLeadAddresses';
 import { leadSchema } from '@/lib/validations';
 import { toast } from '@/hooks/use-toast';
 import { checkDuplicateWhatsApp, DuplicateLeadInfo } from '@/hooks/useCheckDuplicateWhatsApp';
@@ -37,11 +39,14 @@ export default function NewLead() {
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
-  const { data: deliveryRegions = [] } = useDeliveryRegions();
-  const shippingCarriers = useActiveShippingCarriers();
+  const createAddress = useCreateLeadAddress();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [duplicateLead, setDuplicateLead] = useState<DuplicateLeadInfo | null>(null);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  
+  // Address management state
+  const [pendingAddresses, setPendingAddresses] = useState<Omit<LeadAddress, 'id' | 'lead_id' | 'organization_id' | 'created_at' | 'updated_at'>[]>([]);
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
   
   // Permission check
   const canCreateLead = permissions?.leads_create;
@@ -90,20 +95,6 @@ export default function NewLead() {
     site: '',
     lead_source: '',
     products: [] as string[],
-    // Address fields
-    cep: '',
-    street: '',
-    street_number: '',
-    complement: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    delivery_region_id: '',
-    preferred_delivery_type: '' as DeliveryType | '',
-    preferred_carrier_id: '',
-    // Delivery info
-    delivery_notes: '',
-    google_maps_link: '',
   });
 
   // Update formData when URL params or profile changes
@@ -116,21 +107,45 @@ export default function NewLead() {
     }));
   }, [urlWhatsapp, urlName, profile]);
 
+  const handleAddAddress = (addressData: any) => {
+    setPendingAddresses(prev => [...prev, {
+      ...addressData,
+      is_primary: prev.length === 0 // First address is primary
+    }]);
+    setIsAddressFormOpen(false);
+    toast({
+      title: 'Endereço adicionado',
+      description: 'O endereço será salvo junto com o lead.',
+    });
+  };
+
+  const handleRemoveAddress = (index: number) => {
+    setPendingAddresses(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      // If we removed the primary, make first one primary
+      if (updated.length > 0 && !updated.some(a => a.is_primary)) {
+        updated[0].is_primary = true;
+      }
+      return updated;
+    });
+  };
+
+  const formatAddressDisplay = (addr: typeof pendingAddresses[0]) => {
+    const parts = [
+      addr.street,
+      addr.street_number,
+      addr.neighborhood,
+      addr.city,
+      addr.state
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : 'Endereço incompleto';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    // Build validation data including address fields
-    const validationData = {
-      ...formData,
-      cep: formData.cep,
-      street: formData.street,
-      street_number: formData.street_number,
-      complement: formData.complement,
-      neighborhood: formData.neighborhood,
-      city: formData.city,
-      state: formData.state,
-    };
+    const validationData = { ...formData };
 
     const result = leadSchema.safeParse(validationData);
     if (!result.success) {
@@ -160,7 +175,7 @@ export default function NewLead() {
     }
     
     try {
-      await createLead.mutateAsync({
+      const newLead = await createLead.mutateAsync({
         name: formData.name.trim(),
         specialty: formData.specialty.trim() || null,
         instagram: formData.instagram.trim() || '',
@@ -184,20 +199,35 @@ export default function NewLead() {
         site: formData.site || null,
         lead_source: formData.lead_source || null,
         products: formData.products.length > 0 ? formData.products : null,
-        // Address fields
-        cep: formData.cep.replace(/\D/g, '') || null,
-        street: formData.street || null,
-        street_number: formData.street_number || null,
-        complement: formData.complement || null,
-        neighborhood: formData.neighborhood || null,
-        city: formData.city || null,
-        state: formData.state || null,
-        delivery_region_id: formData.delivery_region_id || null,
-        delivery_notes: formData.delivery_notes || null,
-        google_maps_link: formData.google_maps_link || null,
       } as any);
       
-      navigate('/leads');
+      // Create addresses for the new lead
+      if (pendingAddresses.length > 0 && newLead?.id) {
+        for (const addr of pendingAddresses) {
+          await createAddress.mutateAsync({
+            lead_id: newLead.id,
+            label: addr.label || 'Principal',
+            is_primary: addr.is_primary,
+            cep: addr.cep || null,
+            street: addr.street || null,
+            street_number: addr.street_number || null,
+            complement: addr.complement || null,
+            neighborhood: addr.neighborhood || null,
+            city: addr.city || null,
+            state: addr.state || null,
+            delivery_notes: addr.delivery_notes || null,
+            google_maps_link: addr.google_maps_link || null,
+            delivery_region_id: addr.delivery_region_id || null,
+          });
+        }
+      }
+      
+      // Navigate to lead detail page
+      if (newLead?.id) {
+        navigate(`/leads/${newLead.id}`);
+      } else {
+        navigate('/leads');
+      }
     } catch (error) {
       // Error already handled by mutation
       console.error('Lead creation failed:', error);
@@ -365,121 +395,86 @@ export default function NewLead() {
             </div>
           </div>
 
+          {/* Addresses Section */}
           <div className="bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Endereço</h2>
-            <AddressFields
-              cep={formData.cep}
-              street={formData.street}
-              streetNumber={formData.street_number}
-              complement={formData.complement}
-              neighborhood={formData.neighborhood}
-              city={formData.city}
-              state={formData.state}
-              onFieldChange={updateField}
-            />
-            
-            {/* Delivery Preference */}
-            <div className="space-y-4 pt-4 border-t">
-              <div className="space-y-2">
-                <Label>Método de Entrega Preferencial</Label>
-                <Select
-                  value={formData.preferred_delivery_type || ''}
-                  onValueChange={(value) => {
-                    updateField('preferred_delivery_type', value);
-                    // Clear related fields when changing delivery type
-                    if (value !== 'motoboy') {
-                      updateField('delivery_region_id', '');
-                    }
-                    if (value !== 'carrier') {
-                      updateField('preferred_carrier_id', '');
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o método de entrega" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DELIVERY_TYPES).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Show region selector only for motoboy */}
-              {formData.preferred_delivery_type === 'motoboy' && (
-                <div className="space-y-2">
-                  <Label htmlFor="delivery_region">Região de Entrega</Label>
-                  <Select
-                    value={formData.delivery_region_id}
-                    onValueChange={(value) => updateField('delivery_region_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a região" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {deliveryRegions.filter(r => r.is_active).map((region) => (
-                        <SelectItem key={region.id} value={region.id}>
-                          {region.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Define as datas disponíveis para entrega por motoboy</p>
-                </div>
-              )}
-
-              {/* Show carrier selector only for carrier */}
-              {formData.preferred_delivery_type === 'carrier' && (
-                <div className="space-y-2">
-                  <Label htmlFor="preferred_carrier">Transportadora Preferencial</Label>
-                  <Select
-                    value={formData.preferred_carrier_id || ''}
-                    onValueChange={(value) => updateField('preferred_carrier_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a transportadora" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shippingCarriers.map((carrier) => (
-                        <SelectItem key={carrier.id} value={carrier.id}>
-                          {carrier.name} - R$ {(carrier.cost_cents / 100).toFixed(2)} ({carrier.estimated_days} dias)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Endereços
+              </h2>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddressFormOpen(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Adicionar Endereço
+              </Button>
             </div>
 
-            {/* Delivery Notes Section */}
-            <div className="space-y-4 pt-4 border-t">
-              <div className="space-y-2">
-                <Label htmlFor="delivery_notes">Observação de Entrega</Label>
-                <Textarea
-                  id="delivery_notes"
-                  value={formData.delivery_notes}
-                  onChange={(e) => updateField('delivery_notes', e.target.value)}
-                  placeholder="Referências para entrega: portão verde, casa de esquina, etc."
-                  rows={2}
-                />
-                <p className="text-xs text-muted-foreground">Informações importantes para o entregador localizar o endereço</p>
-              </div>
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Adicione os endereços do lead clicando no botão acima. Você pode adicionar múltiplos endereços e gerenciá-los na página do lead.
+              </AlertDescription>
+            </Alert>
 
-              <div className="space-y-2">
-                <Label htmlFor="google_maps_link">Link do Google Maps</Label>
-                <Input
-                  id="google_maps_link"
-                  value={formData.google_maps_link}
-                  onChange={(e) => updateField('google_maps_link', e.target.value)}
-                  placeholder="https://maps.google.com/..."
-                />
-                <p className="text-xs text-muted-foreground">Cole o link do Google Maps para gerar QR Code no romaneio</p>
+            {pendingAddresses.length > 0 ? (
+              <div className="space-y-3">
+                {pendingAddresses.map((addr, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-start justify-between p-4 rounded-lg bg-muted/50 border"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{addr.label || 'Endereço'}</span>
+                        {addr.is_primary && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                            Principal
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{formatAddressDisplay(addr)}</p>
+                      {addr.cep && <p className="text-xs text-muted-foreground">CEP: {addr.cep}</p>}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAddress(index)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                <MapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhum endereço adicionado ainda</p>
+                <p className="text-sm">Clique em "Adicionar Endereço" para cadastrar</p>
+              </div>
+            )}
           </div>
+
+          {/* Address Form Dialog */}
+          <Dialog open={isAddressFormOpen} onOpenChange={setIsAddressFormOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Adicionar Endereço</DialogTitle>
+              </DialogHeader>
+              <LeadAddressForm
+                leadId=""
+                onSuccess={handleAddAddress}
+                onCancel={() => setIsAddressFormOpen(false)}
+                isNewLeadMode={true}
+              />
+            </DialogContent>
+          </Dialog>
 
           {/* Status & Classification */}
           <div className="bg-card rounded-xl p-4 lg:p-6 shadow-card space-y-4">

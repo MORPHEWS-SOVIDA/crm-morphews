@@ -15,11 +15,12 @@ import {
 interface LeadAddressFormProps {
   leadId: string;
   address?: LeadAddress | null;
-  onSuccess: () => void;
+  onSuccess: ((addressData?: any) => void);
   onCancel: () => void;
+  isNewLeadMode?: boolean;
 }
 
-export function LeadAddressForm({ leadId, address, onSuccess, onCancel }: LeadAddressFormProps) {
+export function LeadAddressForm({ leadId, address, onSuccess, onCancel, isNewLeadMode = false }: LeadAddressFormProps) {
   const createAddress = useCreateLeadAddress();
   const updateAddress = useUpdateLeadAddress();
   const isEditing = !!address;
@@ -73,6 +74,12 @@ export function LeadAddressForm({ leadId, address, onSuccess, onCancel }: LeadAd
       google_maps_link: formData.google_maps_link || undefined,
       delivery_notes: formData.delivery_notes || undefined,
     };
+
+    // In new lead mode, just return the data without saving
+    if (isNewLeadMode) {
+      onSuccess(dataToSave);
+      return;
+    }
 
     if (isEditing && address) {
       await updateAddress.mutateAsync({ id: address.id, ...dataToSave });
