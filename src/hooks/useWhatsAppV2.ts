@@ -66,24 +66,47 @@ export interface WhatsAppV2Message {
 // =====================================================
 
 export function useWhatsAppV2Instances() {
-  const { profile } = useAuth();
-  
+  const { user, profile } = useAuth();
+
   return useQuery({
-    queryKey: ['whatsapp-v2-instances', profile?.organization_id],
+    queryKey: ['whatsapp-v2-instances', user?.id, profile?.organization_id],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
-      
+      if (!user) return [];
+
+      // Use the same access rule as the "WhatsApp normal" screen (whatsapp_instance_users)
+      // NOTE: do NOT select "*" to avoid permission issues with sensitive columns.
       const { data, error } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .eq('organization_id', profile.organization_id)
-        .eq('provider', 'wasenderapi')
-        .order('created_at', { ascending: true });
-      
+        .from('whatsapp_instance_users')
+        .select(
+          `
+          instance_id,
+          whatsapp_instances!inner (
+            id,
+            created_at,
+            updated_at,
+            organization_id,
+            name,
+            phone_number,
+            status,
+            is_connected,
+            qr_code_base64,
+            wasender_session_id
+          )
+        `
+        )
+        .eq('user_id', user.id)
+        .eq('can_view', true);
+
       if (error) throw error;
-      
+
+      const instances = (data || []).map((d: any) => d.whatsapp_instances);
+      instances.sort(
+        (a: any, b: any) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+
       // Map to V2 format
-      return (data || []).map(inst => ({
+      return (instances || []).map((inst: any) => ({
         id: inst.id,
         created_at: inst.created_at,
         updated_at: inst.updated_at,
@@ -94,10 +117,10 @@ export function useWhatsAppV2Instances() {
         is_connected: inst.is_connected,
         qr_code_base64: inst.qr_code_base64,
         wasender_session_id: inst.wasender_session_id,
-        wasender_api_key: inst.wasender_api_key,
+        wasender_api_key: null,
       })) as WhatsAppV2Instance[];
     },
-    enabled: !!profile?.organization_id,
+    enabled: !!user,
   });
 }
 
@@ -235,7 +258,7 @@ export function useWhatsAppV2Chats(instanceId: string | null) {
   // Realtime subscription
   useEffect(() => {
     if (!profile?.organization_id) return;
-    
+
     const channel = supabase
       .channel('whatsapp-v2-chats-realtime')
       .on(
@@ -244,38 +267,39 @@ export function useWhatsAppV2Chats(instanceId: string | null) {
           event: '*',
           schema: 'public',
           table: 'whatsapp_conversations',
-          filter: instanceId ? `instance_id=eq.${instanceId}` : undefined,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['whatsapp-v2-chats', instanceId] });
+          // Invalidate the whole list (covers instance changes too)
+          queryClient.invalidateQueries({ queryKey: ['whatsapp-v2-chats'] });
         }
       )
       .subscribe();
-    
+
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [instanceId, profile?.organization_id, queryClient]);
-  
+  }, [profile?.organization_id, queryClient]);
+
   return useQuery({
     queryKey: ['whatsapp-v2-chats', instanceId],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-      
+
       let query = supabase
         .from('whatsapp_conversations')
         .select('*')
         .eq('organization_id', profile.organization_id)
         .order('last_message_at', { ascending: false, nullsFirst: false });
-      
+
+      // IMPORTANT: same behavior as WhatsApp normal (instance_id OR current_instance_id)
       if (instanceId) {
-        query = query.eq('instance_id', instanceId);
+        query = query.or(`instance_id.eq.${instanceId},current_instance_id.eq.${instanceId}`);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) throw error;
-      
+
       // Map to V2 Chat format
       return (data || []).map(conv => ({
         id: conv.id,
