@@ -13,6 +13,11 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const WHATSAPP_WEBHOOK_SECRET = Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
 const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET");
 
+// Service role client (used across helpers)
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
+
 const WHATSAPP_MEDIA_BUCKET = "whatsapp-media";
 const MEDIA_URL_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
@@ -114,12 +119,37 @@ async function generateMediaProxyUrl(storagePath: string, contentType?: string):
   return `${base}/functions/v1/whatsapp-media-proxy?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}${ctParam}`;
 }
 
+type StoredInboundMedia = {
+  proxyUrl: string | null;
+  signedUrl: string | null;
+  storagePath: string;
+  contentType: string | null;
+};
+
+async function createSignedUrlForStoragePath(storagePath: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(WHATSAPP_MEDIA_BUCKET)
+      .createSignedUrl(storagePath, MEDIA_URL_EXPIRES_IN_SECONDS);
+
+    if (error) {
+      console.warn("⚠️ Signed URL generation failed:", error);
+      return null;
+    }
+
+    return data?.signedUrl ?? null;
+  } catch (e) {
+    console.warn("⚠️ Signed URL exception:", e);
+    return null;
+  }
+}
+
 async function downloadAndStoreInboundMedia(params: {
   organizationId: string;
   instanceId: string;
   conversationId: string;
   mediaUrl: string;
-}): Promise<{ proxyUrl: string | null; storagePath: string; contentType: string | null } | null> {
+}): Promise<StoredInboundMedia | null> {
   const { organizationId, instanceId, conversationId, mediaUrl } = params;
 
   try {
@@ -138,7 +168,10 @@ async function downloadAndStoreInboundMedia(params: {
 
     const { error: uploadError } = await supabase.storage
       .from(WHATSAPP_MEDIA_BUCKET)
-      .upload(storagePath, bytes, { contentType: contentType || "application/octet-stream", upsert: true });
+      .upload(storagePath, bytes, {
+        contentType: contentType || "application/octet-stream",
+        upsert: true,
+      });
 
     if (uploadError) {
       console.warn("⚠️ Media upload failed:", uploadError);
@@ -146,9 +179,53 @@ async function downloadAndStoreInboundMedia(params: {
     }
 
     const proxyUrl = await generateMediaProxyUrl(storagePath, contentType || undefined);
-    return { proxyUrl, storagePath, contentType };
+    const signedUrl = await createSignedUrlForStoragePath(storagePath);
+
+    return { proxyUrl, signedUrl, storagePath, contentType };
   } catch (e) {
     console.warn("⚠️ Media store exception:", e);
+    return null;
+  }
+}
+
+async function storeInboundBase64Media(params: {
+  organizationId: string;
+  instanceId: string;
+  conversationId: string;
+  base64: string;
+  contentType: string | null;
+}): Promise<StoredInboundMedia | null> {
+  const { organizationId, instanceId, conversationId, base64, contentType } = params;
+
+  try {
+    const base64Data = base64.startsWith("data:")
+      ? base64.split(",")[1] || ""
+      : base64;
+
+    if (!base64Data) return null;
+
+    const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+    const ct = contentType || "application/octet-stream";
+    const ext = extFromContentType(ct);
+    const random = crypto.randomUUID().split("-")[0];
+    const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/in_${Date.now()}_${random}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(WHATSAPP_MEDIA_BUCKET)
+      .upload(storagePath, bytes, { contentType: ct, upsert: true });
+
+    if (uploadError) {
+      console.warn("⚠️ Base64 media upload failed:", uploadError);
+      return null;
+    }
+
+    const proxyUrl = await generateMediaProxyUrl(storagePath, ct);
+    const signedUrl = await createSignedUrlForStoragePath(storagePath);
+
+    return { proxyUrl, signedUrl, storagePath, contentType: ct };
+  } catch (e) {
+    console.warn("⚠️ Base64 media store exception:", e);
     return null;
   }
 }
@@ -193,7 +270,20 @@ function extractPhoneFromWasenderPayload(msgData: any): { conversationId: string
 // AI FUNCTIONS
 // ============================================================================
 
-async function getConversationHistory(conversationId: string, limit = 20): Promise<Array<{ role: string; content: string }>> {
+type ConversationHistoryMessage = { role: string; content: string };
+
+type WhatsAppMessageRow = {
+  content: string | null;
+  media_caption: string | null;
+  direction: string | null;
+  created_at: string | null;
+  message_type: string | null;
+};
+
+async function getConversationHistory(
+  conversationId: string,
+  limit = 20
+): Promise<ConversationHistoryMessage[]> {
   const { data: messages } = await supabase
     .from("whatsapp_messages")
     .select("content, direction, created_at, message_type, media_caption")
@@ -201,12 +291,16 @@ async function getConversationHistory(conversationId: string, limit = 20): Promi
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (!messages || messages.length === 0) return [];
+  const rows = (messages ?? []) as WhatsAppMessageRow[];
+  if (rows.length === 0) return [];
 
-  return messages.reverse().map((msg) => ({
-    role: msg.direction === "inbound" ? "user" : "assistant",
-    content: msg.content || msg.media_caption || "[mídia sem texto]",
-  })).filter(m => m.content);
+  return rows
+    .reverse()
+    .map((msg: WhatsAppMessageRow) => ({
+      role: msg.direction === "inbound" ? "user" : "assistant",
+      content: msg.content || msg.media_caption || "[mídia sem texto]",
+    }))
+    .filter((m: ConversationHistoryMessage) => !!m.content);
 }
 
 async function generateAIResponse(
@@ -744,16 +838,37 @@ async function processWasenderMessage(instance: any, body: any) {
 
   // ✅ IMPORTANT: Wasender media URLs often expire / require auth.
   // To make the CRM reliably display images/audios, we download and store the media in our own storage
-  // and save a signed proxy URL in the DB.
-  if (mediaUrl && typeof mediaUrl === "string" && mediaUrl.startsWith("http") && messageType !== "text") {
-    const stored = await downloadAndStoreInboundMedia({
-      organizationId: instance.organization_id,
-      instanceId: instance.id,
-      conversationId: conversation.id,
-      mediaUrl,
-    });
-    if (stored?.proxyUrl) {
-      mediaUrl = stored.proxyUrl;
+  // and save a signed URL (proxy preferred, signed-url fallback) in the DB.
+  if (messageType !== "text") {
+    const payloadMime: string | null =
+      msgData.message?.imageMessage?.mimetype ||
+      msgData.message?.audioMessage?.mimetype ||
+      msgData.message?.videoMessage?.mimetype ||
+      msgData.message?.documentMessage?.mimetype ||
+      msgData.mimetype ||
+      null;
+
+    let stored: StoredInboundMedia | null = null;
+
+    if (mediaUrl && typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
+      stored = await downloadAndStoreInboundMedia({
+        organizationId: instance.organization_id,
+        instanceId: instance.id,
+        conversationId: conversation.id,
+        mediaUrl,
+      });
+    } else if (typeof mediaBase64 === "string" && mediaBase64.length > 50) {
+      stored = await storeInboundBase64Media({
+        organizationId: instance.organization_id,
+        instanceId: instance.id,
+        conversationId: conversation.id,
+        base64: mediaBase64,
+        contentType: payloadMime,
+      });
+    }
+
+    if (stored?.proxyUrl || stored?.signedUrl) {
+      mediaUrl = stored.proxyUrl || stored.signedUrl;
     }
   }
 

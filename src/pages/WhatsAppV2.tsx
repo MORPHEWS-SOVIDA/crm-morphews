@@ -569,7 +569,7 @@ export default function WhatsAppV2() {
                     <Button variant="ghost" size="icon" className="flex-shrink-0">
                       <Paperclip className="h-5 w-5" />
                     </Button>
-                    
+
                     <Input
                       placeholder="Digite uma mensagem..."
                       value={messageInput}
@@ -581,13 +581,12 @@ export default function WhatsAppV2() {
                         }
                       }}
                       className="flex-1"
-                      disabled={!isInstanceConnected}
                     />
-                    
-                    <Button 
+
+                    <Button
                       size="icon"
                       onClick={handleSendMessage}
-                      disabled={!messageInput.trim() || sendMessage.isPending || !isInstanceConnected}
+                      disabled={!messageInput.trim() || sendMessage.isPending}
                     >
                       {sendMessage.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -596,10 +595,10 @@ export default function WhatsAppV2() {
                       )}
                     </Button>
                   </div>
-                  
+
                   {!isInstanceConnected && (
                     <p className="text-xs text-destructive mt-2 text-center">
-                      WhatsApp desconectado. Conecte a instância para enviar mensagens.
+                      WhatsApp desconectado (ou status desatualizado). Vamos tentar enviar mesmo assim; se falhar, reconecte a instância.
                     </p>
                   )}
                 </div>
