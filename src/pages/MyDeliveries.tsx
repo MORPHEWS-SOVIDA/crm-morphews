@@ -59,6 +59,12 @@ import {
   Sale
 } from '@/hooks/useSales';
 import { useDeliveryReturnReasons } from '@/hooks/useDeliveryConfig';
+import { 
+  useMotoboyTrackingStatuses, 
+  useUpdateMotoboyTracking,
+  getMotoboyStatusLabel,
+  type MotoboyTrackingStatus 
+} from '@/hooks/useMotoboyTracking';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -362,7 +368,9 @@ function DeliveryCard({
   onOpenWhatsApp,
   onUploadPaymentProof,
   isDragging,
-  isUploadingProof
+  isUploadingProof,
+  motoboyStatuses,
+  onUpdateMotoboyStatus
 }: { 
   sale: Sale; 
   onMarkDelivered: () => void;
@@ -372,6 +380,8 @@ function DeliveryCard({
   onUploadPaymentProof: (file: File) => Promise<void>;
   isDragging?: boolean;
   isUploadingProof?: boolean;
+  motoboyStatuses?: { status_key: string; label: string; is_active: boolean }[];
+  onUpdateMotoboyStatus?: (status: MotoboyTrackingStatus) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -591,6 +601,27 @@ function DeliveryCard({
               <Upload className="w-3.5 h-3.5 mr-1.5" />
               {isUploadingProof ? 'Enviando...' : 'Anexar comprovante de pagamento'}
             </Button>
+          </div>
+        )}
+
+        {/* Motoboy Quick Status Selector - only for motoboy deliveries */}
+        {sale.delivery_type === 'motoboy' && motoboyStatuses && motoboyStatuses.length > 0 && onUpdateMotoboyStatus && !isCompleted && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Status do Motoboy:</Label>
+            <div className="flex flex-wrap gap-1">
+              {motoboyStatuses
+                .filter(s => s.is_active && s.status_key !== 'delivered' && s.status_key !== 'returned')
+                .map(status => (
+                  <Badge
+                    key={status.status_key}
+                    variant={(sale as any).motoboy_tracking_status === status.status_key ? 'default' : 'outline'}
+                    className="cursor-pointer text-xs py-1"
+                    onClick={() => onUpdateMotoboyStatus(status.status_key as MotoboyTrackingStatus)}
+                  >
+                    {status.label}
+                  </Badge>
+                ))}
+            </div>
           </div>
         )}
       </div>

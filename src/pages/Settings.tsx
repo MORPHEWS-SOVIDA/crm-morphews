@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users, Bike } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ import { PaymentMethodsManagerEnhanced } from '@/components/settings/PaymentMeth
 import { NonPurchaseReasonsManager } from '@/components/settings/NonPurchaseReasonsManager';
 import { TeamsManager } from '@/components/settings/TeamsManager';
 import { StandardQuestionsManager } from '@/components/settings/StandardQuestionsManager';
+import { MotoboyTrackingStatusesManager } from '@/components/settings/MotoboyTrackingStatusesManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { HelpCircle } from 'lucide-react';
@@ -348,6 +349,22 @@ export default function Settings() {
               </div>
             </div>
             <ShippingCarriersManager />
+          </div>
+        )}
+
+        {/* Motoboy Tracking Statuses */}
+        {canAccess('settings_carriers') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-cyan-500/10">
+                <Bike className="w-6 h-6 text-cyan-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Rastreio de Motoboy</h2>
+                <p className="text-sm text-muted-foreground">Configure os status de entrega e webhooks para motoboy</p>
+              </div>
+            </div>
+            <MotoboyTrackingStatusesManager />
           </div>
         )}
 
