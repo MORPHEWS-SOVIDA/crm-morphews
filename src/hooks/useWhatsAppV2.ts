@@ -458,41 +458,50 @@ export function useWhatsAppV2Messages(chatId: string | null) {
 
 export function useSendWhatsAppV2Message() {
   const queryClient = useQueryClient();
-  
+  const { profile } = useAuth();
+
   return useMutation({
     mutationFn: async (data: {
       chat_id: string;
       instance_id: string;
       content: string;
     }) => {
-      // First get the conversation to find the phone number
+      if (!profile?.organization_id) throw new Error('Organização não encontrada');
+
+      // First get the conversation to find destination identifiers
       const { data: conversation, error: convError } = await supabase
         .from('whatsapp_conversations')
         .select('phone_number, sendable_phone, chat_id')
         .eq('id', data.chat_id)
         .single();
-      
+
       if (convError) throw convError;
-      
+
       const phone = conversation.sendable_phone || conversation.phone_number;
       const chatIdValue = conversation.chat_id;
-      
-      // Use whatsapp-send-message edge function
+
+      if (!phone && !chatIdValue) {
+        throw new Error('Conversa sem telefone/chat_id para envio');
+      }
+
       const { data: response, error } = await supabase.functions.invoke('whatsapp-send-message', {
         body: {
+          organizationId: profile.organization_id,
           instanceId: data.instance_id,
-          to: phone,
-          chatId: chatIdValue,
-          content: data.content,
           conversationId: data.chat_id,
+          chatId: chatIdValue,
+          phone,
+          content: data.content,
+          messageType: 'text',
         },
       });
-      
+
       if (error) throw error;
       if (response?.error) throw new Error(response.error);
-      
+      if (response?.success === false) throw new Error(response.error || 'Falha ao enviar mensagem');
+
       return {
-        id: response.messageId || crypto.randomUUID(),
+        id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
         chat_id: data.chat_id,
         tenant_id: '',
@@ -503,7 +512,7 @@ export function useSendWhatsAppV2Message() {
         media_filename: null,
         is_from_me: true,
         status: 'sent' as const,
-        wa_message_id: response.providerMessageId,
+        wa_message_id: response?.providerMessageId || null,
         sender_name: null,
         sender_phone: null,
         quoted_message_id: null,

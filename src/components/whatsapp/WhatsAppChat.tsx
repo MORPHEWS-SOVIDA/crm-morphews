@@ -929,122 +929,122 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               "border-t bg-card shrink-0",
               isMobile ? "safe-area-bottom" : ""
             )}>
-              {!isInstanceConnected ? (
+              {!isInstanceConnected && (
                 /* Aviso quando instância desconectada */
                 <div className="p-4 text-center bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800">
                   <p className="text-amber-700 dark:text-amber-300 text-sm font-medium">
                     ⚠️ WhatsApp desconectado
                   </p>
                   <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
-                    Reconecte a instância para enviar novas mensagens. O histórico está preservado.
+                    Se falhar ao enviar, reconecte a instância. (O status pode estar desatualizado.)
                   </p>
                 </div>
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    ref={imageInputRef}
-                    onChange={handleImageSelect}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  
-                  <div className={cn(
-                    "flex items-end gap-2",
-                    isMobile ? "p-2" : "p-3 max-w-3xl mx-auto"
-                  )}>
-                    {isRecordingAudio ? (
-                      <div className="flex-1 flex items-center justify-center py-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                        <AudioRecorder
-                          onAudioReady={handleSendAudio}
-                          isRecording={isRecordingAudio}
-                          setIsRecording={setIsRecordingAudio}
-                        />
-                        {isSendingAudio && (
-                          <div className="flex items-center gap-2 text-muted-foreground ml-3">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">Enviando...</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        {/* Media buttons - Compact on mobile */}
-                        <div className="flex items-center shrink-0">
-                          <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10"
-                            onClick={() => imageInputRef.current?.click()}
-                            disabled={isSendingImage}
-                          >
-                            {isSendingImage ? (
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-10 w-10"
-                            onClick={() => setIsRecordingAudio(true)}
-                          >
-                            <Mic className="h-5 w-5 text-muted-foreground" />
-                          </Button>
+              )}
+
+              <>
+                <input
+                  type="file"
+                  ref={imageInputRef}
+                  onChange={handleImageSelect}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                <div className={cn(
+                  "flex items-end gap-2",
+                  isMobile ? "p-2" : "p-3 max-w-3xl mx-auto"
+                )}>
+                  {isRecordingAudio ? (
+                    <div className="flex-1 flex items-center justify-center py-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                      <AudioRecorder
+                        onAudioReady={handleSendAudio}
+                        isRecording={isRecordingAudio}
+                        setIsRecording={setIsRecordingAudio}
+                      />
+                      {isSendingAudio && (
+                        <div className="flex items-center gap-2 text-muted-foreground ml-3">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm">Enviando...</span>
                         </div>
-
-                        {/* Text Input - Larger on mobile */}
-                        <Textarea
-                          ref={textareaRef}
-                          placeholder="Digite uma mensagem..."
-                          value={messageText}
-                          onChange={(e) => setMessageText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              if (selectedImage) {
-                                handleSendImage();
-                              } else {
-                                handleSendMessage();
-                              }
-                            }
-                          }}
-                          className={cn(
-                            "flex-1 resize-none rounded-2xl border-2 focus-visible:ring-1",
-                            isMobile 
-                              ? "min-h-[48px] max-h-[120px] py-3 px-4 text-base" 
-                              : "min-h-[44px] max-h-[144px] py-2.5 px-3"
-                          )}
-                          disabled={sendMessage.isPending || isSendingImage}
-                          rows={1}
-                        />
-
-                        {/* Send Button - Always visible on mobile */}
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {/* Media buttons - Compact on mobile */}
+                      <div className="flex items-center shrink-0">
+                        <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                         <Button
+                          variant="ghost"
                           size="icon"
-                          className={cn(
-                            "shrink-0 rounded-full transition-all",
-                            (selectedImage || messageText.trim())
-                              ? "bg-green-500 hover:bg-green-600"
-                              : "bg-muted text-muted-foreground",
-                            isMobile ? "h-12 w-12" : "h-10 w-10"
-                          )}
-                          onClick={selectedImage ? handleSendImage : handleSendMessage}
-                          disabled={sendMessage.isPending || isSendingImage || (!selectedImage && !messageText.trim())}
+                          className="h-10 w-10"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={isSendingImage}
                         >
-                          {sendMessage.isPending || isSendingImage ? (
-                            <Loader2 className={cn("animate-spin", isMobile ? "h-6 w-6" : "h-5 w-5")} />
+                          {isSendingImage ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
-                            <Send className={cn(isMobile ? "h-6 w-6" : "h-5 w-5")} />
+                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
                           )}
                         </Button>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-10 w-10"
+                          onClick={() => setIsRecordingAudio(true)}
+                        >
+                          <Mic className="h-5 w-5 text-muted-foreground" />
+                        </Button>
+                      </div>
+
+                      {/* Text Input - Larger on mobile */}
+                      <Textarea
+                        ref={textareaRef}
+                        placeholder="Digite uma mensagem..."
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            if (selectedImage) {
+                              handleSendImage();
+                            } else {
+                              handleSendMessage();
+                            }
+                          }
+                        }}
+                        className={cn(
+                          "flex-1 resize-none rounded-2xl border-2 focus-visible:ring-1",
+                          isMobile
+                            ? "min-h-[48px] max-h-[120px] py-3 px-4 text-base"
+                            : "min-h-[44px] max-h-[144px] py-2.5 px-3"
+                        )}
+                        disabled={sendMessage.isPending || isSendingImage}
+                        rows={1}
+                      />
+
+                      {/* Send Button - Always visible on mobile */}
+                      <Button
+                        size="icon"
+                        className={cn(
+                          "shrink-0 rounded-full transition-all",
+                          (selectedImage || messageText.trim())
+                            ? "bg-green-500 hover:bg-green-600"
+                            : "bg-muted text-muted-foreground",
+                          isMobile ? "h-12 w-12" : "h-10 w-10"
+                        )}
+                        onClick={selectedImage ? handleSendImage : handleSendMessage}
+                        disabled={sendMessage.isPending || isSendingImage || (!selectedImage && !messageText.trim())}
+                      >
+                        {sendMessage.isPending || isSendingImage ? (
+                          <Loader2 className={cn("animate-spin", isMobile ? "h-6 w-6" : "h-5 w-5")} />
+                        ) : (
+                          <Send className={cn(isMobile ? "h-6 w-6" : "h-5 w-5")} />
+                        )}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </>
             </div>
           </>
         ) : (
