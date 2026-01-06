@@ -6,22 +6,9 @@ import {
   useWhatsAppV2Messages,
   useSendWhatsAppV2Message,
   useMarkWhatsAppV2ChatAsRead,
-  useInitWhatsAppV2Session,
   type WhatsAppV2Chat,
   type WhatsAppV2Message,
-  type WhatsAppV2Instance
 } from '@/hooks/useWhatsAppV2';
-import { supabase } from '@/integrations/supabase/client';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,7 +38,6 @@ import {
   AlertCircle,
   Settings,
   Loader2,
-  Plus,
   Copy
 } from 'lucide-react';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
@@ -301,13 +287,6 @@ export default function WhatsAppV2() {
   const [messageInput, setMessageInput] = useState('');
   const [showChatList, setShowChatList] = useState(true);
   
-  // Modal state for new instance
-  const [showAddInstanceModal, setShowAddInstanceModal] = useState(false);
-  const [newInstanceName, setNewInstanceName] = useState('');
-  const [newInstancePhone, setNewInstancePhone] = useState('');
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
-  const [pendingInstanceId, setPendingInstanceId] = useState<string | null>(null);
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: instances, isLoading: loadingInstances } = useWhatsAppV2Instances();
@@ -315,7 +294,6 @@ export default function WhatsAppV2() {
   const { data: messages, isLoading: loadingMessages } = useWhatsAppV2Messages(selectedChatId);
   const sendMessage = useSendWhatsAppV2Message();
   const markAsRead = useMarkWhatsAppV2ChatAsRead();
-  const initSession = useInitWhatsAppV2Session();
   
   // Auto-select first instance
   useEffect(() => {
@@ -386,75 +364,10 @@ export default function WhatsAppV2() {
     setSelectedChatId(null);
   };
   
-  // Handle generate QR Code for new instance
-  const handleGenerateQRCode = async () => {
-    if (!newInstanceName.trim()) {
-      toast.error('Digite um nome para a instância');
-      return;
-    }
-    
-    try {
-      const result = await initSession.mutateAsync({
-        sessionName: newInstanceName.trim(),
-        phoneNumber: newInstancePhone.trim() || undefined,
-      });
-      
-      if (result.qrCode) {
-        setQrCodeData(result.qrCode);
-        setPendingInstanceId(result.instanceId);
-        toast.success('QR Code gerado! Escaneie com seu WhatsApp.');
-      } else {
-        toast.info('Sessão iniciada. Aguardando QR Code...');
-        setPendingInstanceId(result.instanceId);
-      }
-    } catch (error: any) {
-      console.error('Erro ao gerar QR Code:', error);
-      toast.error(error.message || 'Erro ao gerar QR Code');
-    }
-  };
-  
-  // Reset modal state
-  const handleCloseModal = () => {
-    setShowAddInstanceModal(false);
-    setNewInstanceName('');
-    setNewInstancePhone('');
-    setQrCodeData(null);
-    setPendingInstanceId(null);
-  };
-  
-  // Subscribe to instance status changes for pending instance
-  useEffect(() => {
-    if (!pendingInstanceId) return;
-    
-    const channel = supabase
-      .channel(`instance-status-${pendingInstanceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'whatsapp_v2_instances',
-          filter: `id=eq.${pendingInstanceId}`,
-        },
-        (payload) => {
-          const newStatus = (payload.new as any).status?.toLowerCase();
-          if (newStatus === 'connected') {
-            toast.success('WhatsApp conectado com sucesso!');
-            handleCloseModal();
-            setSelectedInstanceId(pendingInstanceId);
-          }
-        }
-      )
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [pendingInstanceId]);
   
   // Generate webhook URL for instance
   const getWebhookUrl = (instanceId: string) => {
-    return `https://hwbxvrewiapyhjceabvw.supabase.co/functions/v1/whatsapp-webhook?instance_id=${instanceId}`;
+    return `https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/whatsapp-webhook?instance_id=${instanceId}`;
   };
   
   // Copy webhook URL
@@ -494,7 +407,7 @@ export default function WhatsAppV2() {
                       <div className="flex items-center gap-2">
                         <div className={cn(
                           "w-2 h-2 rounded-full",
-                          instance.status === 'connected' ? 'bg-green-500' : 'bg-muted'
+                          instance.is_connected ? 'bg-green-500' : 'bg-muted'
                         )} />
                         {instance.name}
                       </div>
@@ -503,103 +416,6 @@ export default function WhatsAppV2() {
                 </SelectContent>
               </Select>
             )}
-            
-            {/* Add Instance Button */}
-            <Dialog open={showAddInstanceModal} onOpenChange={(open) => {
-              if (!open) handleCloseModal();
-              else setShowAddInstanceModal(true);
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="icon" title="Adicionar instância">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Nova Instância WhatsApp</DialogTitle>
-                  <DialogDescription>
-                    {qrCodeData 
-                      ? 'Escaneie o QR Code abaixo com seu WhatsApp para conectar.'
-                      : 'Conecte uma nova conta do WhatsApp automaticamente.'}
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  {!qrCodeData ? (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="instance-name">Nome da Instância</Label>
-                        <Input
-                          id="instance-name"
-                          placeholder="Ex: Vendas"
-                          value={newInstanceName}
-                          onChange={(e) => setNewInstanceName(e.target.value)}
-                          disabled={initSession.isPending}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Nome para identificar esta conexão.
-                        </p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="instance-phone">Número do WhatsApp</Label>
-                        <Input
-                          id="instance-phone"
-                          placeholder="Ex: 551199999999"
-                          value={newInstancePhone}
-                          onChange={(e) => setNewInstancePhone(e.target.value.replace(/\D/g, ''))}
-                          disabled={initSession.isPending}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Número com código do país (opcional, será detectado ao escanear).
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="bg-white p-4 rounded-lg">
-                        <img 
-                          src={qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`}
-                          alt="QR Code do WhatsApp"
-                          className="w-64 h-64"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Aguardando conexão...</span>
-                      </div>
-                      <p className="text-xs text-center text-muted-foreground">
-                        Abra o WhatsApp no seu celular → Configurações → Aparelhos conectados → Conectar aparelho
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleCloseModal}
-                  >
-                    Cancelar
-                  </Button>
-                  {!qrCodeData && (
-                    <Button 
-                      onClick={handleGenerateQRCode}
-                      disabled={initSession.isPending || !newInstanceName.trim()}
-                    >
-                      {initSession.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Gerando QR...
-                        </>
-                      ) : (
-                        'Gerar QR Code'
-                      )}
-                    </Button>
-                  )}
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
             
             {/* Copy Webhook URL Button */}
             {selectedInstanceId && (
