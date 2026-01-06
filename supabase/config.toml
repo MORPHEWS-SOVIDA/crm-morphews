@@ -2,3 +2,12 @@ project_id = "rriizlxqfpfpdflgxjtj"
 
 [functions.create-org-user]
 verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-multiattendant-webhook]
+verify_jwt = false
+
+[functions.zapi-assistant-webhook]
+verify_jwt = false
