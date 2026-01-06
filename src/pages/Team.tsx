@@ -38,6 +38,7 @@ import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
 import { useApplyRoleDefaults } from "@/hooks/useUserPermissions";
 import { AvatarUpload } from "@/components/team/AvatarUpload";
 import { useTeams } from "@/hooks/useTeams";
+import { checkDuplicateUserWhatsApp } from "@/hooks/useCheckDuplicateUserWhatsApp";
 
 // All organization roles from org_role enum
 type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
@@ -374,6 +375,14 @@ export default function Team() {
     setIsSavingMyProfile(true);
     
     try {
+      // Check for duplicate WhatsApp across all tenants (excluding current user)
+      if (myProfileData.whatsapp) {
+        const duplicate = await checkDuplicateUserWhatsApp(myProfileData.whatsapp, user.id);
+        if (duplicate) {
+          throw new Error("Este WhatsApp já está sendo usado em outra empresa no CRM da Morphews. Por favor, procure SUPORTE DA MORPHEWS e informe esse erro.");
+        }
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -496,6 +505,14 @@ export default function Team() {
     setIsUpdatingRole(true);
     
     try {
+      // Check for duplicate WhatsApp across all tenants (excluding member being edited)
+      if (editMemberData.whatsapp) {
+        const duplicate = await checkDuplicateUserWhatsApp(editMemberData.whatsapp, editingMember.user_id);
+        if (duplicate) {
+          throw new Error("Este WhatsApp já está sendo usado em outra empresa no CRM da Morphews. Por favor, procure SUPORTE DA MORPHEWS e informe esse erro.");
+        }
+      }
+
       // Admins always see all leads
       const finalCanSeeAllLeads = editRole === "admin" ? true : editCanSeeAllLeads;
       

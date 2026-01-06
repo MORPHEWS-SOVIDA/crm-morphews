@@ -258,7 +258,7 @@ const handler = async (req: Request): Promise<Response> => {
           .maybeSingle();
 
         if (existingWhatsApp) {
-          throw new Error("Este WhatsApp já está cadastrado em outra empresa. Por favor, use outro número.");
+          throw new Error("Este WhatsApp já está sendo usado em outra empresa no CRM da Morphews. Por favor, procure SUPORTE DA MORPHEWS e informe esse erro.");
         }
       }
     }
