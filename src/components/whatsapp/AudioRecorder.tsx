@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Square, Loader2, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Mic, Square, Loader2, X, MicOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AudioRecorderProps {
   onAudioReady: (base64: string, mimeType: string) => void;
@@ -9,25 +9,45 @@ interface AudioRecorderProps {
   setIsRecording: (val: boolean) => void;
 }
 
+// Check if OGG is supported (required for WhatsApp)
+function isOggSupported(): boolean {
+  if (typeof MediaRecorder === 'undefined') return false;
+  // Chrome/Edge/Firefox support OGG with opus
+  return MediaRecorder.isTypeSupported('audio/ogg; codecs=opus') || 
+         MediaRecorder.isTypeSupported('audio/ogg');
+}
+
 export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: AudioRecorderProps) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSupported, setIsSupported] = useState(true);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    // Check browser support on mount
+    setIsSupported(isOggSupported());
+  }, []);
 
   const startRecording = async () => {
+    if (!isOggSupported()) {
+      toast.error('Seu navegador não suporta gravação de áudio no formato OGG. Use Chrome, Edge ou Firefox.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       
-      // Try OGG first (better WhatsApp compatibility), fallback to webm
+      // Force OGG format for WhatsApp compatibility
       let mimeType = 'audio/ogg; codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm; codecs=opus';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'audio/webm';
-        }
+        mimeType = 'audio/ogg';
       }
+      
+      console.log('[AudioRecorder] Starting recording with mimeType:', mimeType);
       
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
@@ -40,23 +60,39 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
       };
 
       mediaRecorder.onstop = async () => {
+        console.log('[AudioRecorder] Recording stopped, processing...');
+        
+        // Check if recording was cancelled (empty chunks)
+        if (chunksRef.current.length === 0) {
+          console.log('[AudioRecorder] Recording was cancelled, no data to process');
+          setIsProcessing(false);
+          return;
+        }
+        
         setIsProcessing(true);
-        const actualMimeType = mediaRecorder.mimeType || 'audio/ogg';
-        const blob = new Blob(chunksRef.current, { type: actualMimeType });
+        
+        // Always use audio/ogg for the blob (WhatsApp compatibility)
+        const blob = new Blob(chunksRef.current, { type: 'audio/ogg' });
+        
+        console.log('[AudioRecorder] Created blob:', {
+          size: blob.size,
+          type: blob.type
+        });
         
         // Convert to base64
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          // Use OGG mime type for better WhatsApp compatibility
-          const mimeForUpload = actualMimeType.includes('ogg') ? 'audio/ogg' : 'audio/webm';
-          onAudioReady(base64, mimeForUpload);
+          console.log('[AudioRecorder] Audio ready, sending with mimeType: audio/ogg');
+          onAudioReady(base64, 'audio/ogg');
+          setIsProcessing(false);
+        };
+        reader.onerror = () => {
+          console.error('[AudioRecorder] Error reading audio blob');
+          toast.error('Erro ao processar áudio');
           setIsProcessing(false);
         };
         reader.readAsDataURL(blob);
-
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
@@ -68,29 +104,41 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (error) {
-      console.error('Error starting recording:', error);
+      console.error('[AudioRecorder] Error starting recording:', error);
+      toast.error('Erro ao acessar microfone. Verifique as permissões.');
     }
   };
 
   const stopRecording = () => {
+    console.log('[AudioRecorder] Stopping recording...');
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      // Stop all tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
     }
   };
 
   const cancelRecording = () => {
-    if (mediaRecorderRef.current) {
+    console.log('[AudioRecorder] Cancelling recording...');
+    // Clear chunks BEFORE stopping so onstop handler knows it was cancelled
+    chunksRef.current = [];
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
-      // Clear chunks so nothing is sent
-      chunksRef.current = [];
     }
     setIsRecording(false);
     if (timerRef.current) {
       clearInterval(timerRef.current);
+    }
+    // Stop all tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
     }
   };
 
@@ -134,6 +182,22 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
           <Square className="h-4 w-4 fill-current" />
         </Button>
       </div>
+    );
+  }
+
+  // Show disabled state if OGG not supported
+  if (!isSupported) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        disabled
+        className="h-9 w-9"
+        title="Gravação de áudio não suportada neste navegador"
+      >
+        <MicOff className="h-5 w-5 text-muted-foreground" />
+      </Button>
     );
   }
 
