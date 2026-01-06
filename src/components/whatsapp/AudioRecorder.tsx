@@ -19,7 +19,17 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      
+      // Try OGG first (better WhatsApp compatibility), fallback to webm
+      let mimeType = 'audio/ogg; codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm; codecs=opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/webm';
+        }
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -31,13 +41,16 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
 
       mediaRecorder.onstop = async () => {
         setIsProcessing(true);
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const actualMimeType = mediaRecorder.mimeType || 'audio/ogg';
+        const blob = new Blob(chunksRef.current, { type: actualMimeType });
         
         // Convert to base64
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          onAudioReady(base64, 'audio/webm');
+          // Use OGG mime type for better WhatsApp compatibility
+          const mimeForUpload = actualMimeType.includes('ogg') ? 'audio/ogg' : 'audio/webm';
+          onAudioReady(base64, mimeForUpload);
           setIsProcessing(false);
         };
         reader.readAsDataURL(blob);

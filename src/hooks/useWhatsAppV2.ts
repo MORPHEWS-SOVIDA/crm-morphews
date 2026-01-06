@@ -417,7 +417,7 @@ export function useWhatsAppV2Messages(chatId: string | null) {
         media_type: (msg.message_type || 'text') as WhatsAppV2Message['media_type'],
         media_mime_type: null,
         media_filename: null,
-        is_from_me: msg.direction === 'outgoing',
+        is_from_me: msg.direction === 'outbound',
         status: (msg.status || 'sent') as WhatsAppV2Message['status'],
         wa_message_id: msg.provider_message_id || msg.z_api_message_id,
         sender_name: null,
