@@ -9,5 +9,14 @@ verify_jwt = false
 [functions.whatsapp-multiattendant-webhook]
 verify_jwt = false
 
+[functions.whatsapp-send-message]
+verify_jwt = false
+
+[functions.whatsapp-create-upload-url]
+verify_jwt = false
+
+[functions.whatsapp-media-proxy]
+verify_jwt = false
+
 [functions.zapi-assistant-webhook]
 verify_jwt = false
