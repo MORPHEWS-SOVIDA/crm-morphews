@@ -321,9 +321,10 @@ export default function WhatsAppV2() {
     chat.whatsapp_id.includes(searchQuery)
   ) || [];
   
-  // Get selected chat info
+  // Get selected chat / instance info
   const selectedChat = chats?.find(c => c.id === selectedChatId);
   const selectedInstance = instances?.find(i => i.id === selectedInstanceId);
+  const isInstanceConnected = selectedInstance?.is_connected ?? true;
   
   // Handle send message
   const handleSendMessage = async () => {
@@ -519,7 +520,7 @@ export default function WhatsAppV2() {
                       {selectedChat.name || selectedChat.whatsapp_id.split('@')[0]}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      {selectedInstance?.status === 'connected' ? 'Online' : 'Offline'}
+                      {selectedInstance?.is_connected ? 'Online' : 'Offline'}
                     </p>
                   </div>
                   
@@ -580,13 +581,13 @@ export default function WhatsAppV2() {
                         }
                       }}
                       className="flex-1"
-                      disabled={selectedInstance?.status !== 'connected'}
+                      disabled={!isInstanceConnected}
                     />
                     
                     <Button 
                       size="icon"
                       onClick={handleSendMessage}
-                      disabled={!messageInput.trim() || sendMessage.isPending || selectedInstance?.status !== 'connected'}
+                      disabled={!messageInput.trim() || sendMessage.isPending || !isInstanceConnected}
                     >
                       {sendMessage.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -596,7 +597,7 @@ export default function WhatsAppV2() {
                     </Button>
                   </div>
                   
-                  {selectedInstance?.status !== 'connected' && (
+                  {!isInstanceConnected && (
                     <p className="text-xs text-destructive mt-2 text-center">
                       WhatsApp desconectado. Conecte a instância para enviar mensagens.
                     </p>
