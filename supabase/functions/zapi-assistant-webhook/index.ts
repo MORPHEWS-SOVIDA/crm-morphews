@@ -27,7 +27,10 @@ function normalizeWhatsApp(phone: string): string {
   return clean;
 }
 
-async function sendZapiText(toPhone: string, message: string): Promise<{ ok: boolean; error?: string; raw?: any }> {
+async function sendZapiText(
+  toPhone: string,
+  message: string
+): Promise<{ ok: boolean; error?: string; raw?: any }> {
   if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN) {
     return { ok: false, error: "Z-API credentials not configured" };
   }
@@ -52,7 +55,11 @@ async function sendZapiText(toPhone: string, message: string): Promise<{ ok: boo
     const raw = await resp.json().catch(() => ({}));
 
     if (!resp.ok) {
-      return { ok: false, error: raw?.message || raw?.error || `HTTP ${resp.status}`, raw };
+      return {
+        ok: false,
+        error: raw?.message || raw?.error || `HTTP ${resp.status}`,
+        raw,
+      };
     }
 
     return { ok: true, raw };
@@ -60,6 +67,18 @@ async function sendZapiText(toPhone: string, message: string): Promise<{ ok: boo
     const msg = e instanceof Error ? e.message : "Unknown error";
     return { ok: false, error: msg };
   }
+}
+
+async function reply(toPhone: string, message: string) {
+  const res = await sendZapiText(toPhone, message);
+  if (!res.ok) {
+    console.error("Z-API send error:", {
+      toPhone,
+      error: res.error,
+      raw: res.raw,
+    });
+  }
+  return res;
 }
 
 type ParsedCommand =
@@ -195,6 +214,60 @@ async function findLeadByPhone(organizationId: string, phone: string) {
   return null;
 }
 
+function pickFirstString(...values: any[]): string {
+  for (const v of values) {
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return "";
+}
+
+function extractIncoming(body: any): { event: string; fromPhoneRaw: string; text: string; isFromMe: boolean } {
+  const event = String(
+    pickFirstString(
+      body?.event,
+      body?.type,
+      body?.data?.event,
+      body?.callbackType,
+      body?.data?.type
+    )
+  );
+
+  const msg0 = body?.messages?.[0] ?? body?.data?.messages?.[0] ?? body?.data?.message ?? body?.message;
+
+  const fromPhoneRaw = pickFirstString(
+    body?.phone,
+    body?.from,
+    body?.sender,
+    body?.data?.phone,
+    body?.data?.from,
+    body?.data?.sender,
+    msg0?.phone,
+    msg0?.from,
+    msg0?.sender
+  );
+
+  const text = pickFirstString(
+    body?.text?.message,
+    body?.text,
+    body?.body,
+    body?.message,
+    body?.data?.text,
+    msg0?.text?.message,
+    msg0?.text,
+    msg0?.body,
+    msg0?.message,
+    msg0?.data?.text
+  );
+
+  const isFromMe =
+    body?.isFromMe === true ||
+    body?.data?.isFromMe === true ||
+    msg0?.isFromMe === true ||
+    msg0?.fromMe === true;
+
+  return { event, fromPhoneRaw, text, isFromMe };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -203,28 +276,26 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
 
-    // Z-API envia diferentes formatos; vamos aceitar os principais
-    const event = body.event || body.type || "";
+    const { event, fromPhoneRaw, text, isFromMe } = extractIncoming(body);
 
-    // Se for evento de status/ack, só retornar ok
-    const isStatusOnly = /(StatusCallback|MessageStatusCallback|messages\.update)/i.test(String(event));
-    if (isStatusOnly) {
+    // Sempre logar (ajuda a entender quando o provedor muda o formato do payload)
+    console.log("Z-API assistant webhook received:", {
+      event,
+      fromPhoneRaw,
+      textPreview: String(text || "").substring(0, 160),
+      isFromMe,
+      topLevelKeys: Object.keys(body || {}).slice(0, 40),
+      dataKeys: body?.data ? Object.keys(body.data).slice(0, 40) : [],
+    });
+
+    // Se for evento de status/ack sem conteúdo de mensagem, só retornar ok
+    const isStatusOnly = /(StatusCallback|MessageStatusCallback)/i.test(String(event));
+    const hasContent = Boolean(String(fromPhoneRaw || "").trim()) || Boolean(String(text || "").trim());
+    if (isStatusOnly && !hasContent) {
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Extrair remetente e texto
-    const fromPhoneRaw = body.phone || body.from || body.sender || body.data?.phone || body.data?.from || "";
-    const text = body.text?.message || body.text || body.body || body.message || body.data?.text || "";
-    const isFromMe = body.isFromMe === true;
-
-    console.log("Z-API assistant webhook received:", {
-      event,
-      fromPhoneRaw,
-      textPreview: String(text || "").substring(0, 120),
-      isFromMe,
-    });
 
     if (isFromMe) {
       return new Response(JSON.stringify({ success: true }), {
@@ -249,7 +320,7 @@ serve(async (req) => {
     if (profileError) console.error("Profile lookup error:", profileError);
 
     if (!profile?.user_id || !profile?.organization_id) {
-      await sendZapiText(
+      await reply(
         fromPhone,
         "Não consegui vincular seu número a uma empresa no Morphews. Por favor, procure o SUPORTE DA MORPHEWS para validar seu WhatsApp no cadastro."
       );
@@ -273,7 +344,7 @@ serve(async (req) => {
     const parsed = aiParsed || parseCommandFallback(rawText);
 
     if (parsed.action !== "create_lead") {
-      await sendZapiText(
+      await reply(
         fromPhone,
         parsed.action === "unknown" && parsed.reply
           ? parsed.reply
@@ -286,7 +357,7 @@ serve(async (req) => {
 
     const leadPhoneNorm = normalizeWhatsApp(parsed.lead_phone || "");
     if (!leadPhoneNorm) {
-      await sendZapiText(fromPhone, "Não encontrei o WhatsApp do lead. Exemplo: Cadastrar lead 51999998888 nome João");
+      await reply(fromPhone, "Não encontrei o WhatsApp do lead. Exemplo: Cadastrar lead 51999998888 nome João");
       return new Response(JSON.stringify({ success: true, error: "missing_lead_phone" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -295,7 +366,7 @@ serve(async (req) => {
     // Evitar duplicar lead
     const existing = await findLeadByPhone(organizationId, leadPhoneNorm);
     if (existing) {
-      await sendZapiText(fromPhone, `✅ Lead já existe: *${existing.name}* (${existing.whatsapp}).`);
+      await reply(fromPhone, `✅ Lead já existe: *${existing.name}* (${existing.whatsapp}).`);
       return new Response(JSON.stringify({ success: true, action: "exists", lead_id: existing.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -321,7 +392,7 @@ serve(async (req) => {
 
     if (leadError) {
       console.error("Lead create error:", leadError);
-      await sendZapiText(fromPhone, "❌ Não consegui cadastrar o lead agora. Tente novamente em alguns minutos.");
+      await reply(fromPhone, "❌ Não consegui cadastrar o lead agora. Tente novamente em alguns minutos.");
       return new Response(JSON.stringify({ success: false, error: leadError.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -329,7 +400,7 @@ serve(async (req) => {
     }
 
     const confirm = `✅ Lead cadastrado com sucesso!\n\n• Nome: *${newLead.name}*\n• WhatsApp: ${newLead.whatsapp}${stars ? `\n• Estrelas: ${stars}` : ""}${cep ? `\n• CEP: ${cep}` : ""}`;
-    await sendZapiText(fromPhone, confirm);
+    await reply(fromPhone, confirm);
 
     return new Response(JSON.stringify({ success: true, action: "create_lead", lead_id: newLead.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
