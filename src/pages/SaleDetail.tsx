@@ -77,6 +77,7 @@ import { MedicationAutocomplete } from '@/components/post-sale/MedicationAutocom
 import { useSaleChangesLog, getChangeTypeLabel } from '@/hooks/useSaleChangesLog';
 import { SaleCheckpointsCard } from '@/components/sales/SaleCheckpointsCard';
 import { CarrierTrackingCard } from '@/components/sales/CarrierTrackingCard';
+import { MotoboyTrackingCard } from '@/components/sales/MotoboyTrackingCard';
 
 
 // Hook to fetch delivery return reasons
@@ -1124,12 +1125,21 @@ export default function SaleDetail() {
               isCancelled={sale.status === 'cancelled'} 
             />
 
-            {/* NEW: Carrier Tracking Card - only for carrier delivery */}
+            {/* Carrier Tracking Card - only for carrier delivery */}
             {sale.delivery_type === 'carrier' && (
               <CarrierTrackingCard
                 saleId={sale.id}
                 currentStatus={(sale as any).carrier_tracking_status}
                 trackingCode={sale.tracking_code}
+                isCancelled={sale.status === 'cancelled'}
+              />
+            )}
+
+            {/* Motoboy Tracking Card - only for motoboy delivery */}
+            {sale.delivery_type === 'motoboy' && (
+              <MotoboyTrackingCard
+                saleId={sale.id}
+                currentStatus={(sale as any).motoboy_tracking_status}
                 isCancelled={sale.status === 'cancelled'}
               />
             )}

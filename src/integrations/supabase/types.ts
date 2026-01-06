@@ -1457,6 +1457,50 @@ export type Database = {
           },
         ]
       }
+      motoboy_tracking_statuses: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          organization_id: string
+          position: number
+          status_key: string
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          organization_id: string
+          position?: number
+          status_key: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          organization_id?: string
+          position?: number
+          status_key?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "motoboy_tracking_statuses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       non_purchase_reasons: {
         Row: {
           created_at: string
@@ -3203,6 +3247,51 @@ export type Database = {
           },
         ]
       }
+      sale_motoboy_tracking: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          sale_id: string
+          status: Database["public"]["Enums"]["motoboy_tracking_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          sale_id: string
+          status: Database["public"]["Enums"]["motoboy_tracking_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          sale_id?: string
+          status?: Database["public"]["Enums"]["motoboy_tracking_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_motoboy_tracking_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_motoboy_tracking_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_status_history: {
         Row: {
           changed_by: string | null
@@ -3269,6 +3358,9 @@ export type Database = {
           invoice_xml_url: string | null
           lead_id: string
           missing_payment_proof: boolean | null
+          motoboy_tracking_status:
+            | Database["public"]["Enums"]["motoboy_tracking_status"]
+            | null
           organization_id: string
           payment_confirmed_at: string | null
           payment_confirmed_by: string | null
@@ -3332,6 +3424,9 @@ export type Database = {
           invoice_xml_url?: string | null
           lead_id: string
           missing_payment_proof?: boolean | null
+          motoboy_tracking_status?:
+            | Database["public"]["Enums"]["motoboy_tracking_status"]
+            | null
           organization_id: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null
@@ -3395,6 +3490,9 @@ export type Database = {
           invoice_xml_url?: string | null
           lead_id?: string
           missing_payment_proof?: boolean | null
+          motoboy_tracking_status?:
+            | Database["public"]["Enums"]["motoboy_tracking_status"]
+            | null
           organization_id?: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null
@@ -5278,6 +5376,15 @@ export type Database = {
         | "trash"
         | "cloud"
       installment_flow: "anticipation" | "receive_per_installment"
+      motoboy_tracking_status:
+        | "waiting_expedition"
+        | "expedition_ready"
+        | "handed_to_motoboy"
+        | "next_delivery"
+        | "special_delay"
+        | "call_motoboy"
+        | "delivered"
+        | "returned"
       org_role:
         | "owner"
         | "admin"
@@ -5513,6 +5620,16 @@ export const Constants = {
         "cloud",
       ],
       installment_flow: ["anticipation", "receive_per_installment"],
+      motoboy_tracking_status: [
+        "waiting_expedition",
+        "expedition_ready",
+        "handed_to_motoboy",
+        "next_delivery",
+        "special_delay",
+        "call_motoboy",
+        "delivered",
+        "returned",
+      ],
       org_role: [
         "owner",
         "admin",
