@@ -4422,6 +4422,9 @@ export type Database = {
           applied_coupon_id: string | null
           created_at: string
           discount_applied_cents: number | null
+          evolution_api_token: string | null
+          evolution_instance_id: string | null
+          evolution_webhook_configured: boolean | null
           id: string
           is_connected: boolean
           monthly_price_cents: number
@@ -4444,6 +4447,9 @@ export type Database = {
           applied_coupon_id?: string | null
           created_at?: string
           discount_applied_cents?: number | null
+          evolution_api_token?: string | null
+          evolution_instance_id?: string | null
+          evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
           monthly_price_cents?: number
@@ -4466,6 +4472,9 @@ export type Database = {
           applied_coupon_id?: string | null
           created_at?: string
           discount_applied_cents?: number | null
+          evolution_api_token?: string | null
+          evolution_instance_id?: string | null
+          evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
           monthly_price_cents?: number
