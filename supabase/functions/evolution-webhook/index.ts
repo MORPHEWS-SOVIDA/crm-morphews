@@ -425,20 +425,21 @@ serve(async (req) => {
         const waMessageId = key?.id || null;
         const messageId = crypto.randomUUID(); // Sempre gerar UUID válido
 
+        // NOTA: A tabela whatsapp_messages NÃO tem colunas organization_id e is_from_me
+        // Usar apenas as colunas que existem na tabela
         const { error: msgError } = await supabase
           .from("whatsapp_messages")
           .insert({
             id: messageId,
-            organization_id: organizationId,
             instance_id: instance.id,
             conversation_id: conversation.id,
             message_type: msgData.type,
             content: msgData.content,
             media_url: savedMediaUrl,
             media_caption: msgData.mediaCaption,
-            is_from_me: false,
             direction: "inbound",
             status: "received",
+            is_from_bot: false,
             provider: "evolution",
             provider_message_id: waMessageId,
           });
@@ -453,13 +454,6 @@ serve(async (req) => {
             hasMedia: !!savedMediaUrl
           });
         }
-
-        console.log("Message saved:", { 
-          messageId, 
-          conversationId: conversation.id,
-          type: msgData.type,
-          hasMedia: !!savedMediaUrl
-        });
       }
 
       return new Response(JSON.stringify({ success: true }), {

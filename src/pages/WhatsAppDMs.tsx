@@ -66,6 +66,9 @@ export default function WhatsAppDMs() {
   const [editNameInstance, setEditNameInstance] = useState<EvolutionInstance | null>(null);
   const [newInstanceNameEdit, setNewInstanceNameEdit] = useState("");
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+  
+  // Ver todas as conversas (todas as instâncias)
+  const [viewAllConversations, setViewAllConversations] = useState(false);
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -327,6 +330,31 @@ export default function WhatsAppDMs() {
     }
   };
 
+  // If viewing all conversations (todas as instâncias)
+  if (viewAllConversations) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setViewAllConversations(false)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <MessageSquare className="h-6 w-6 text-green-500" />
+                Todas as Conversas
+              </h1>
+              <p className="text-muted-foreground">
+                Visualizando conversas de todas as instâncias
+              </p>
+            </div>
+          </div>
+          <WhatsAppChat onBack={() => setViewAllConversations(false)} />
+        </div>
+      </Layout>
+    );
+  }
+
   // If viewing chat for a specific instance
   if (selectedInstance) {
     return (
@@ -367,13 +395,24 @@ export default function WhatsAppDMs() {
             </p>
           </div>
 
-          <Button 
-            onClick={() => setShowCreateDialog(true)}
-            className="gap-2 bg-green-600 hover:bg-green-700"
-          >
-            <Plus className="h-4 w-4" />
-            Nova Instância
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setViewAllConversations(true)}
+              variant="outline"
+              className="gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Ver Todas as Conversas
+            </Button>
+
+            <Button 
+              onClick={() => setShowCreateDialog(true)}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4" />
+              Nova Instância
+            </Button>
+          </div>
         </div>
 
         {/* Create Dialog */}
