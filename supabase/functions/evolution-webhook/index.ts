@@ -246,10 +246,10 @@ serve(async (req) => {
           .single();
 
         if (instance) {
-          // Atualizar status
+          // Atualizar status - usar valores válidos do constraint: pending, active, disconnected, canceled
           const updateData: any = {
             is_connected: isConnected,
-            status: isConnected ? "connected" : state,
+            status: isConnected ? "active" : "disconnected",
             updated_at: new Date().toISOString(),
           };
 
@@ -281,11 +281,14 @@ serve(async (req) => {
       console.log("QR Code update:", { instanceName, hasQr: !!qrBase64 });
 
       if (instanceName && qrBase64) {
+        // Status válidos: pending, active, disconnected, canceled
+        // Usar 'pending' quando aguardando QR code
         await supabase
           .from("whatsapp_instances")
           .update({
             qr_code_base64: qrBase64,
-            status: "waiting_qr",
+            status: "pending",
+            is_connected: false,
             updated_at: new Date().toISOString(),
           })
           .eq("evolution_instance_id", instanceName);
