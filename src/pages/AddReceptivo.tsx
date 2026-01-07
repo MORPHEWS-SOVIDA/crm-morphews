@@ -61,6 +61,7 @@ import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { useLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
+import { useLeadProductQuestionAnswers } from '@/hooks/useProductQuestions';
 import { useMyCommission } from '@/hooks/useSellerCommission';
 import { useAuth } from '@/hooks/useAuth';
 import { useTenant } from '@/hooks/useTenant';
@@ -242,8 +243,11 @@ export default function AddReceptivo() {
   const { data: existingRejections = [] } = useKitRejections(leadData.id, currentProductId || undefined);
   const createKitRejection = useCreateKitRejection();
   
-  // Fetch existing product answers
+  // Fetch existing product answers (legacy key_question_1/2/3)
   const { data: existingAnswers } = useLeadProductAnswer(leadData.id, currentProductId || undefined);
+  
+  // Fetch existing dynamic product question answers
+  const { data: existingDynamicAnswers = [] } = useLeadProductQuestionAnswers(leadData.id, currentProductId || undefined);
 
   // Set default seller
   useEffect(() => {
@@ -252,7 +256,7 @@ export default function AddReceptivo() {
     }
   }, [user?.id, sellerUserId]);
 
-  // Load existing answers when product changes
+  // Load existing legacy answers when product changes
   useEffect(() => {
     if (existingAnswers) {
       setCurrentAnswers({
@@ -263,7 +267,22 @@ export default function AddReceptivo() {
     } else {
       setCurrentAnswers({});
     }
-  }, [existingAnswers]);
+  }, [existingAnswers, currentProductId]);
+
+  // Load existing dynamic answers when product changes
+  useEffect(() => {
+    if (existingDynamicAnswers.length > 0) {
+      const answersMap: Record<string, string> = {};
+      existingDynamicAnswers.forEach(answer => {
+        if (answer.question_id && answer.answer_text) {
+          answersMap[answer.question_id] = answer.answer_text;
+        }
+      });
+      setDynamicAnswers(answersMap);
+    } else {
+      setDynamicAnswers({});
+    }
+  }, [existingDynamicAnswers, currentProductId]);
 
   // Load existing rejections
   useEffect(() => {
@@ -1705,9 +1724,35 @@ export default function AddReceptivo() {
                   <ThumbsDown className="w-5 h-5" />
                   Não Fechou a Venda?
                 </CardTitle>
+                <CardDescription>Informe o potencial de compra e selecione o motivo</CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">Selecione o motivo para acompanhamento futuro</p>
+              <CardContent className="space-y-4">
+                {/* Purchase Potential Input */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-amber-500" />
+                    Potencial de Compra *
+                  </Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d,]/g, '').replace(',', '.');
+                      const parsed = parseFloat(value) || 0;
+                      setPurchasePotential(Math.round(parsed * 100));
+                    }}
+                    className="text-left"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Este valor será adicionado ao "Valor Negociado" do lead
+                  </p>
+                </div>
+
+                <Separator />
+
+                <p className="text-sm text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {nonPurchaseReasons.slice(0, 4).map((reason) => (
                     <Button
@@ -1718,7 +1763,7 @@ export default function AddReceptivo() {
                         selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
                       }`}
                       onClick={() => handleSelectReason(reason.id)}
-                      disabled={isSaving}
+                      disabled={isSaving || purchasePotential <= 0}
                     >
                       <div className="flex-1 text-left">
                         <p className="font-medium text-sm">{reason.name}</p>
@@ -1735,6 +1780,9 @@ export default function AddReceptivo() {
                     </Button>
                   ))}
                 </div>
+                {purchasePotential <= 0 && (
+                  <p className="text-xs text-red-500 text-center">Informe o potencial de compra para selecionar um motivo</p>
+                )}
                 {nonPurchaseReasons.length > 4 && (
                   <Button
                     variant="ghost"
@@ -2051,21 +2099,18 @@ export default function AddReceptivo() {
                     <Coins className="w-4 h-4 text-amber-500" />
                     Potencial de Compra *
                   </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0,00"
-                      className="pl-10"
-                      value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2) : ''}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setPurchasePotential(Math.round(value * 100));
-                      }}
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d,]/g, '').replace(',', '.');
+                      const parsed = parseFloat(value) || 0;
+                      setPurchasePotential(Math.round(parsed * 100));
+                    }}
+                    className="text-left"
+                  />
                   <p className="text-xs text-muted-foreground">
                     Este valor será adicionado ao "Valor Negociado" do lead
                   </p>

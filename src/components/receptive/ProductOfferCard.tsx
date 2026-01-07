@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -132,6 +132,21 @@ export function ProductOfferCard({
   // State to control whether script/questions have been completed
   const [questionsCompleted, setQuestionsCompleted] = useState(false);
   
+  // Auto-complete questions step if answers already exist
+  useEffect(() => {
+    if (productQuestions.length > 0 && Object.keys(dynamicAnswers).length > 0) {
+      const allAnswered = productQuestions.every(q => dynamicAnswers[q.id]?.trim());
+      if (allAnswered) {
+        setQuestionsCompleted(true);
+      }
+    }
+  }, [productQuestions, dynamicAnswers]);
+
+  // Get all available (non-rejected) kits
+  const availableKits = useMemo(() => {
+    return sortedKits.filter(k => !currentRejectedKitIds.includes(k.id));
+  }, [sortedKits, currentRejectedKitIds]);
+
   // Find current visible kit (first non-rejected)
   const currentVisibleKit = useMemo(() => {
     return sortedKits.find(k => !currentRejectedKitIds.includes(k.id));
@@ -422,147 +437,116 @@ export function ProductOfferCard({
           </>
         )}
 
-        {/* Kit Selection with Progressive Reveal - Only show after questions are completed */}
-        {product.category !== 'manipulado' && sortedKits.length > 0 && currentVisibleKit && !allKitsRejected && 
+        {/* Kit Selection - Show ALL available kits - Only show after questions are completed */}
+        {product.category !== 'manipulado' && availableKits.length > 0 && !allKitsRejected && 
          (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Separator />
             <div className="space-y-4">
-              {/* Current Kit */}
-              <div className={`p-5 rounded-lg border-2 ${currentKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default" className="text-lg px-3 py-1">
-                      {currentVisibleKit.quantity} {currentVisibleKit.quantity === 1 ? 'unidade' : 'unidades'}
-                    </Badge>
-                    <Badge variant="outline">Oferta {sortedKits.findIndex(k => k.id === currentVisibleKit.id) + 1}</Badge>
+              <h4 className="font-medium text-sm text-muted-foreground">
+                Selecione a quantidade e o preço:
+              </h4>
+              
+              {/* Show ALL available kits */}
+              {availableKits.map((kit, index) => (
+                <div 
+                  key={kit.id}
+                  className={`p-5 rounded-lg border-2 ${currentKitId === kit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={currentKitId === kit.id ? "default" : "secondary"} className="text-lg px-3 py-1">
+                        {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Price Options */}
+                  <div className="space-y-3">
+                    {/* 1. PREÇO REGULAR (always visible) */}
+                    <PriceOption
+                      type="regular"
+                      label="Preço Regular"
+                      price={kit.regular_price_cents}
+                      commission={getCommissionForType(kit, 'regular')}
+                      isSelected={currentKitId === kit.id && currentPriceType === 'regular'}
+                      kit={kit}
+                      variant="default"
+                    />
+
+                    {/* 2. VENDA POR / Promotional (always visible if exists) */}
+                    {kit.promotional_price_cents && (
+                      <PriceOption
+                        type="promotional"
+                        label="Venda Por"
+                        price={kit.promotional_price_cents}
+                        commission={getCommissionForType(kit, 'promotional')}
+                        isSelected={currentKitId === kit.id && currentPriceType === 'promotional'}
+                        kit={kit}
+                        variant="success"
+                      />
+                    )}
+
+                    {/* 3. PREÇO PROMOCIONAL (revealed without justification) */}
+                    {kit.promotional_price_2_cents && (
+                      <>
+                        {!showPromo2 && currentKitId !== kit.id ? (
+                          <Button
+                            variant="ghost"
+                            className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            onClick={() => {
+                              onKitSelect(kit.id, 'promotional_2');
+                              onRevealPromo2();
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver Preço Promocional
+                          </Button>
+                        ) : (
+                          <PriceOption
+                            type="promotional_2"
+                            label="Preço Promocional"
+                            price={kit.promotional_price_2_cents}
+                            commission={getCommissionForType(kit, 'promotional_2')}
+                            isSelected={currentKitId === kit.id && currentPriceType === 'promotional_2'}
+                            kit={kit}
+                            variant="warning"
+                          />
+                        )}
+                      </>
+                    )}
+
+                    {/* 4. VALOR MÍNIMO (revealed with request/justification) */}
+                    {kit.minimum_price_cents && (
+                      <>
+                        {!showMinimum && currentKitId !== kit.id ? (
+                          <Button
+                            variant="ghost"
+                            className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              onKitSelect(kit.id, 'minimum');
+                              onRevealMinimum();
+                            }}
+                          >
+                            <AlertTriangle className="w-4 h-4 mr-2" />
+                            Solicitar Valor Mínimo
+                          </Button>
+                        ) : (
+                          <PriceOption
+                            type="minimum"
+                            label="Valor Mínimo"
+                            price={kit.minimum_price_cents}
+                            commission={getCommissionForType(kit, 'minimum')}
+                            isSelected={currentKitId === kit.id && currentPriceType === 'minimum'}
+                            kit={kit}
+                            variant="danger"
+                          />
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-
-                {/* Price Options - CORRECTED ORDER */}
-                <div className="space-y-3">
-                  {/* 1. PREÇO REGULAR (always visible, on top) */}
-                  <PriceOption
-                    type="regular"
-                    label="Preço Regular"
-                    price={currentVisibleKit.regular_price_cents}
-                    commission={getCommissionForType(currentVisibleKit, 'regular')}
-                    isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'regular'}
-                    kit={currentVisibleKit}
-                    variant="default"
-                  />
-
-                  {/* 2. VENDA POR / Promotional (always visible if exists) */}
-                  {currentVisibleKit.promotional_price_cents && (
-                    <PriceOption
-                      type="promotional"
-                      label="Venda Por"
-                      price={currentVisibleKit.promotional_price_cents}
-                      commission={getCommissionForType(currentVisibleKit, 'promotional')}
-                      isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'promotional'}
-                      kit={currentVisibleKit}
-                      variant="success"
-                    />
-                  )}
-
-                  {/* 3. PREÇO PROMOCIONAL (revealed without justification) */}
-                  {currentVisibleKit.promotional_price_2_cents && (
-                    <>
-                      {!showPromo2 ? (
-                        <Button
-                          variant="ghost"
-                          className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                          onClick={onRevealPromo2}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Ver Preço Promocional
-                        </Button>
-                      ) : (
-                        <PriceOption
-                          type="promotional_2"
-                          label="Preço Promocional"
-                          price={currentVisibleKit.promotional_price_2_cents}
-                          commission={getCommissionForType(currentVisibleKit, 'promotional_2')}
-                          isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'promotional_2'}
-                          kit={currentVisibleKit}
-                          variant="warning"
-                        />
-                      )}
-                    </>
-                  )}
-
-                  {/* 4. VALOR MÍNIMO (revealed with request/justification) */}
-                  {currentVisibleKit.minimum_price_cents && (
-                    <>
-                      {!showMinimum ? (
-                        <Button
-                          variant="ghost"
-                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={onRevealMinimum}
-                        >
-                          <AlertTriangle className="w-4 h-4 mr-2" />
-                          Solicitar Valor Mínimo
-                        </Button>
-                      ) : (
-                        <PriceOption
-                          type="minimum"
-                          label="Valor Mínimo"
-                          price={currentVisibleKit.minimum_price_cents}
-                          commission={getCommissionForType(currentVisibleKit, 'minimum')}
-                          isSelected={currentKitId === currentVisibleKit.id && currentPriceType === 'minimum'}
-                          kit={currentVisibleKit}
-                          variant="danger"
-                        />
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Reject Kit Button */}
-              {hasMoreKits && leadId && (
-                <div className="space-y-2">
-                  {!showRejectionInput ? (
-                    <Button
-                      variant="outline"
-                      className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
-                      onClick={() => onShowRejectionInput(true)}
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      NÃO CONSEGUI VENDER ESSE
-                    </Button>
-                  ) : (
-                    <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/30 space-y-3">
-                      <Label className="text-amber-700">Por que o cliente não aceitou?</Label>
-                      <Textarea
-                        value={rejectionReason}
-                        onChange={(e) => onRejectionReasonChange(e.target.value)}
-                        placeholder="Ex: Achou caro, quer menos quantidade..."
-                        rows={2}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            onShowRejectionInput(false);
-                            onRejectionReasonChange('');
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          onClick={onRejectKit}
-                          disabled={!rejectionReason.trim() || isRejecting}
-                          className="bg-amber-600 hover:bg-amber-700"
-                        >
-                          {isRejecting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                          Ver Próxima Oferta
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              ))}
             </div>
           </>
         )}
