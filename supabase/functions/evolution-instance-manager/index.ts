@@ -150,7 +150,7 @@ serve(async (req) => {
         throw new Error("Erro ao salvar instância no banco");
       }
 
-      // 3. Buscar QR Code
+      // 3. Buscar QR Code (NÃO salvar no banco - apenas retornar)
       const qrResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${evolutionInstanceName}`, {
         method: "GET",
         headers: { "apikey": EVOLUTION_API_KEY },
@@ -159,19 +159,14 @@ serve(async (req) => {
       const qrResult = await qrResponse.json().catch(() => ({}));
       console.log("QR Code response:", { status: qrResponse.status, hasBase64: !!qrResult?.base64 });
 
-      if (qrResult?.base64) {
-        await supabase
-          .from("whatsapp_instances")
-          .update({ qr_code_base64: qrResult.base64 })
-          .eq("id", instance.id);
-      }
-
+      // Retornar QR code diretamente na resposta (não salva no banco para evitar "Data too long")
       return new Response(JSON.stringify({
         success: true,
         instance: {
           ...instance,
-          qr_code_base64: qrResult?.base64 || null,
+          qr_code_base64: null, // Não incluir no objeto da instância
         },
+        qr_code_base64: qrResult?.base64 || null, // Retornar separado
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -210,14 +205,7 @@ serve(async (req) => {
       const qrResult = await qrResponse.json().catch(() => ({}));
       console.log("QR Code response:", { status: qrResponse.status, hasBase64: !!qrResult?.base64, hasPairingCode: !!qrResult?.pairingCode });
 
-      // Atualizar no banco
-      if (qrResult?.base64) {
-        await supabase
-          .from("whatsapp_instances")
-          .update({ qr_code_base64: qrResult.base64 })
-          .eq("id", instanceId);
-      }
-
+      // NÃO salvar QR code no banco - apenas retornar diretamente
       return new Response(JSON.stringify({
         success: true,
         qr_code_base64: qrResult?.base64 || null,

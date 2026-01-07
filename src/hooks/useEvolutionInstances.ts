@@ -57,13 +57,18 @@ export function useEvolutionInstances() {
         throw new Error(response.data.error);
       }
 
-      return response.data?.instance as EvolutionInstance;
+      return {
+        instance: response.data?.instance as EvolutionInstance,
+        qr_code_base64: response.data?.qr_code_base64 as string | null,
+      };
     },
-    onSuccess: (instance) => {
-      toast.success(`Instância "${instance.name}" criada!`);
-      queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
-      // Iniciar polling para verificar conexão
-      setPollingInstanceId(instance.id);
+    onSuccess: (result) => {
+      if (result?.instance) {
+        toast.success(`Instância "${result.instance.name}" criada!`);
+        queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
+        // Iniciar polling para verificar conexão
+        setPollingInstanceId(result.instance.id);
+      }
     },
     onError: (error: Error) => {
       toast.error(`Erro ao criar instância: ${error.message}`);
