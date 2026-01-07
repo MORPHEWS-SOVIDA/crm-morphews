@@ -295,12 +295,8 @@ export default function WhatsAppV2() {
   const sendMessage = useSendWhatsAppV2Message();
   const markAsRead = useMarkWhatsAppV2ChatAsRead();
   
-  // Auto-select first instance
-  useEffect(() => {
-    if (instances?.length && !selectedInstanceId) {
-      setSelectedInstanceId(instances[0].id);
-    }
-  }, [instances, selectedInstanceId]);
+  
+  // Não auto-selecionar instância - deixar em "Todas" por padrão
   
   // Mark as read when chat is selected
   useEffect(() => {
@@ -396,13 +392,19 @@ export default function WhatsAppV2() {
           <div className="flex items-center gap-2">
             {instances && instances.length > 0 && (
               <Select 
-                value={selectedInstanceId || undefined} 
-                onValueChange={setSelectedInstanceId}
+                value={selectedInstanceId || "all"} 
+                onValueChange={(val) => setSelectedInstanceId(val === "all" ? null : val)}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Selecione instância" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      Todas as instâncias
+                    </div>
+                  </SelectItem>
                   {instances.map(instance => (
                     <SelectItem key={instance.id} value={instance.id}>
                       <div className="flex items-center gap-2">
