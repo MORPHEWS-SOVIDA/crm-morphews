@@ -1,16 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.21.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import Stripe from "https://esm.sh/stripe@17.7.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Z-API configuration for WhatsApp
-const ZAPI_INSTANCE_ID = Deno.env.get('ZAPI_INSTANCE_ID');
-const ZAPI_TOKEN = Deno.env.get('ZAPI_TOKEN');
-const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN');
+// Evolution API configuration for WhatsApp
+const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
+const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
+const EVOLUTION_INSTANCE_NAME = Deno.env.get('EVOLUTION_INSTANCE_NAME');
 
 // Generate temporary password
 function generateTempPassword(): string {
@@ -22,14 +22,14 @@ function generateTempPassword(): string {
   return password;
 }
 
-// Send WhatsApp welcome message
+// Send WhatsApp welcome message via Evolution API
 async function sendWhatsAppWelcome(phone: string, customerName: string, tempPassword: string) {
-  if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN) {
-    console.log('Z-API not configured, skipping WhatsApp message');
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE_NAME) {
+    console.log('Evolution API not configured, skipping WhatsApp message');
     return;
   }
   
-  const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
+  const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`;
   
   const welcomeMessage = `🎉 *Bem-vindo ao Morphews CRM, ${customerName}!*
 
@@ -68,16 +68,16 @@ Qualquer dúvida, estou por aqui! 💚`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Client-Token': ZAPI_CLIENT_TOKEN || ''
+        'apikey': EVOLUTION_API_KEY
       },
       body: JSON.stringify({
-        phone: phone,
-        message: welcomeMessage
+        number: phone,
+        text: welcomeMessage
       })
     });
     
     const result = await response.text();
-    console.log('WhatsApp welcome sent:', response.status, result);
+    console.log('WhatsApp welcome sent via Evolution:', response.status, result);
   } catch (error) {
     console.error('Error sending WhatsApp welcome:', error);
   }

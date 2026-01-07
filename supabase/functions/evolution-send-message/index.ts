@@ -1,13 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 const EVOLUTION_INSTANCE_NAME = Deno.env.get("EVOLUTION_INSTANCE_NAME") ?? "";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
@@ -25,13 +30,25 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message } = await req.json();
+    const { 
+      phone, 
+      message, 
+      instanceId,           // UUID da instância no banco
+      evolutionInstanceId,  // Nome da instância no Evolution (alternativo)
+      mediaUrl,
+      mediaType,
+      fileName,
+    } = await req.json();
 
-    if (!phone || !message) {
-      throw new Error("phone e message são obrigatórios");
+    if (!phone) {
+      throw new Error("phone é obrigatório");
     }
 
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE_NAME) {
+    if (!message && !mediaUrl) {
+      throw new Error("message ou mediaUrl é obrigatório");
+    }
+
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
       throw new Error("Evolution API credentials not configured");
     }
 
@@ -40,9 +57,52 @@ serve(async (req) => {
       throw new Error("Telefone inválido");
     }
 
-    const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`;
+    // Determinar qual instância usar
+    let targetInstanceName = evolutionInstanceId || EVOLUTION_INSTANCE_NAME;
 
-    console.log("Enviando mensagem Evolution:", { phone: normalizedPhone, url });
+    // Se passou instanceId (UUID), buscar o nome da instância no banco
+    if (instanceId && !evolutionInstanceId) {
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("evolution_instance_id")
+        .eq("id", instanceId)
+        .single();
+
+      if (instance?.evolution_instance_id) {
+        targetInstanceName = instance.evolution_instance_id;
+      }
+    }
+
+    if (!targetInstanceName) {
+      throw new Error("Nenhuma instância Evolution configurada");
+    }
+
+    console.log("Enviando mensagem Evolution:", { 
+      phone: normalizedPhone, 
+      instanceName: targetInstanceName,
+      hasMedia: !!mediaUrl,
+    });
+
+    let url: string;
+    let body: Record<string, any>;
+
+    // Enviar texto ou mídia
+    if (mediaUrl) {
+      url = `${EVOLUTION_API_URL}/message/sendMedia/${targetInstanceName}`;
+      body = {
+        number: normalizedPhone,
+        mediatype: mediaType || "image",
+        media: mediaUrl,
+        caption: message || "",
+        fileName: fileName || undefined,
+      };
+    } else {
+      url = `${EVOLUTION_API_URL}/message/sendText/${targetInstanceName}`;
+      body = {
+        number: normalizedPhone,
+        text: message,
+      };
+    }
 
     const resp = await fetch(url, {
       method: "POST",
@@ -50,10 +110,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "apikey": EVOLUTION_API_KEY,
       },
-      body: JSON.stringify({
-        number: normalizedPhone,
-        text: message,
-      }),
+      body: JSON.stringify(body),
     });
 
     const raw = await resp.json().catch(() => ({}));
