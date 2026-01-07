@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.zapi-assistant-webhook]
 verify_jwt = false
+
+[functions.evolution-assistant-webhook]
+verify_jwt = false
