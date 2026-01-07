@@ -76,15 +76,16 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     }
 
     try {
-      const instance = await createInstance.mutateAsync(newInstanceName.trim());
+      const result = await createInstance.mutateAsync(newInstanceName.trim());
       setNewInstanceName("");
       setCreateDialogOpen(false);
       
       // Abrir QR code automaticamente
-      if (instance) {
-        setSelectedQrInstance(instance);
-        setCurrentQrCode(instance.qr_code_base64);
+      if (result?.instance) {
+        setSelectedQrInstance(result.instance);
+        setCurrentQrCode(result.qr_code_base64);
         setQrDialogOpen(true);
+        setPollingInstanceId(result.instance.id);
       }
     } catch (e) {
       // Erro já tratado no hook
