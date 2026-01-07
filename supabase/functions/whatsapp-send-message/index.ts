@@ -333,6 +333,7 @@ Deno.serve(async (req) => {
       mediaCaption,
       mediaMimeType,
       mediaStoragePath,
+      senderUserId, // ID do usuário que está enviando (para multi-atendimento)
     } = body;
 
     console.log(`[${requestId}] Request params:`, {
@@ -473,6 +474,7 @@ Deno.serve(async (req) => {
         provider_message_id: sendResult.providerMessageId,
         status: sendResult.success ? "sent" : "failed",
         is_from_bot: false,
+        sent_by_user_id: senderUserId || null, // Quem enviou (multi-atendimento)
       })
       .select()
       .single();

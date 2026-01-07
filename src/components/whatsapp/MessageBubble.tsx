@@ -16,6 +16,8 @@ interface Message {
   is_from_bot: boolean;
   status: string | null;
   error_details?: string | null;
+  sent_by_user_id?: string | null;
+  sender_name?: string | null; // Nome do remetente (preenchido via join)
 }
 
 interface MessageBubbleProps {
@@ -200,6 +202,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           message.status === 'failed' && "border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30"
         )}
       >
+        {/* Sender name for multi-attendant teams */}
+        {isOutbound && message.sender_name && (
+          <div className="text-xs font-medium text-primary/80 mb-1">
+            {message.sender_name}
+          </div>
+        )}
+
         {/* Bot indicator */}
         {message.is_from_bot && (
           <div className="flex items-center gap-1 text-xs text-blue-500 mb-1">
