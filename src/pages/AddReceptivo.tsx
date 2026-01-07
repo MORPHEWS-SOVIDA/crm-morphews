@@ -899,7 +899,7 @@ export default function AddReceptivo() {
 
         const { data: lead } = await supabase
           .from('leads')
-          .select('negotiated_value')
+          .select('*')
           .eq('id', leadId)
           .single();
         
@@ -924,6 +924,37 @@ export default function AddReceptivo() {
             source_type: 'receptive',
             source_id: attendanceId,
           });
+        }
+
+        // Fire webhook if configured
+        if (reason?.webhook_url) {
+          console.log('Firing non-purchase webhook:', reason.webhook_url);
+          try {
+            await fetch(reason.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              mode: 'no-cors',
+              body: JSON.stringify({
+                event: 'non_purchase',
+                reason_id: reason.id,
+                reason_name: reason.name,
+                lead_id: leadId,
+                lead_name: lead?.name || leadData.name,
+                lead_whatsapp: lead?.whatsapp || leadData.whatsapp,
+                lead_email: lead?.email || leadData.email,
+                purchase_potential_cents: purchasePotential,
+                seller_user_id: sellerUserId,
+                seller_name: user?.user_metadata?.name || user?.email,
+                product_id: currentProductId,
+                product_name: currentProduct?.name,
+                followup_hours: reason.followup_hours,
+                timestamp: new Date().toISOString(),
+              }),
+            });
+            console.log('Non-purchase webhook sent successfully');
+          } catch (webhookError) {
+            console.error('Error sending non-purchase webhook:', webhookError);
+          }
         }
       }
 
