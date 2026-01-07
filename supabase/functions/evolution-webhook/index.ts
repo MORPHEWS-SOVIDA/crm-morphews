@@ -21,6 +21,195 @@ function normalizeWhatsApp(phone: string): string {
   return clean;
 }
 
+// Detectar tipo de mensagem baseado no conteúdo
+function detectMessageType(message: any): { type: string; content: string; mediaUrl: string | null; mediaCaption: string | null; mediaMimeType: string | null } {
+  // Texto simples
+  if (message?.conversation) {
+    return { type: "text", content: message.conversation, mediaUrl: null, mediaCaption: null, mediaMimeType: null };
+  }
+  
+  // Texto estendido
+  if (message?.extendedTextMessage?.text) {
+    return { type: "text", content: message.extendedTextMessage.text, mediaUrl: null, mediaCaption: null, mediaMimeType: null };
+  }
+
+  // Imagem
+  if (message?.imageMessage) {
+    const img = message.imageMessage;
+    const mediaUrl = img.url || img.directPath || null;
+    const base64 = img.base64 || null;
+    const caption = img.caption || "";
+    const mimeType = img.mimetype || "image/jpeg";
+    
+    return { 
+      type: "image", 
+      content: caption, 
+      mediaUrl: base64 ? `data:${mimeType};base64,${base64}` : mediaUrl,
+      mediaCaption: caption,
+      mediaMimeType: mimeType
+    };
+  }
+
+  // Áudio
+  if (message?.audioMessage) {
+    const audio = message.audioMessage;
+    const mediaUrl = audio.url || audio.directPath || null;
+    const base64 = audio.base64 || null;
+    const mimeType = audio.mimetype || "audio/ogg";
+    
+    return { 
+      type: "audio", 
+      content: "", 
+      mediaUrl: base64 ? `data:${mimeType};base64,${base64}` : mediaUrl,
+      mediaCaption: null,
+      mediaMimeType: mimeType
+    };
+  }
+
+  // Vídeo
+  if (message?.videoMessage) {
+    const video = message.videoMessage;
+    const mediaUrl = video.url || video.directPath || null;
+    const base64 = video.base64 || null;
+    const caption = video.caption || "";
+    const mimeType = video.mimetype || "video/mp4";
+    
+    return { 
+      type: "video", 
+      content: caption, 
+      mediaUrl: base64 ? `data:${mimeType};base64,${base64}` : mediaUrl,
+      mediaCaption: caption,
+      mediaMimeType: mimeType
+    };
+  }
+
+  // Documento
+  if (message?.documentMessage) {
+    const doc = message.documentMessage;
+    const mediaUrl = doc.url || doc.directPath || null;
+    const base64 = doc.base64 || null;
+    const caption = doc.caption || doc.fileName || "";
+    const mimeType = doc.mimetype || "application/octet-stream";
+    
+    return { 
+      type: "document", 
+      content: caption, 
+      mediaUrl: base64 ? `data:${mimeType};base64,${base64}` : mediaUrl,
+      mediaCaption: caption,
+      mediaMimeType: mimeType
+    };
+  }
+
+  // Sticker
+  if (message?.stickerMessage) {
+    const sticker = message.stickerMessage;
+    const base64 = sticker.base64 || null;
+    const mimeType = sticker.mimetype || "image/webp";
+    
+    return { 
+      type: "sticker", 
+      content: "", 
+      mediaUrl: base64 ? `data:${mimeType};base64,${base64}` : null,
+      mediaCaption: null,
+      mediaMimeType: mimeType
+    };
+  }
+
+  // Localização
+  if (message?.locationMessage) {
+    const loc = message.locationMessage;
+    const coords = `${loc.degreesLatitude},${loc.degreesLongitude}`;
+    const content = loc.name ? `📍 ${loc.name}\n${coords}` : `📍 Localização: ${coords}`;
+    
+    return { type: "location", content, mediaUrl: null, mediaCaption: null, mediaMimeType: null };
+  }
+
+  // Contato
+  if (message?.contactMessage) {
+    const contact = message.contactMessage;
+    const content = `👤 Contato: ${contact.displayName || "Sem nome"}`;
+    
+    return { type: "contact", content, mediaUrl: null, mediaCaption: null, mediaMimeType: null };
+  }
+
+  // Reação
+  if (message?.reactionMessage) {
+    return { type: "reaction", content: message.reactionMessage.text || "👍", mediaUrl: null, mediaCaption: null, mediaMimeType: null };
+  }
+
+  // Fallback
+  return { type: "text", content: "[Mensagem não suportada]", mediaUrl: null, mediaCaption: null, mediaMimeType: null };
+}
+
+// Salvar mídia no storage se vier como base64
+async function saveMediaToStorage(
+  organizationId: string,
+  instanceId: string,
+  conversationId: string,
+  mediaUrl: string | null,
+  mimeType: string | null
+): Promise<string | null> {
+  if (!mediaUrl) return null;
+  
+  // Se não for base64, retorna a URL direta
+  if (!mediaUrl.startsWith("data:")) {
+    return mediaUrl;
+  }
+
+  try {
+    // Parse base64
+    const matches = mediaUrl.match(/^data:(.+);base64,(.*)$/);
+    if (!matches) return mediaUrl;
+
+    const mime = matches[1];
+    const base64Data = matches[2];
+    const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+    // Determinar extensão
+    let ext = "bin";
+    if (mime.includes("jpeg") || mime.includes("jpg")) ext = "jpg";
+    else if (mime.includes("png")) ext = "png";
+    else if (mime.includes("webp")) ext = "webp";
+    else if (mime.includes("gif")) ext = "gif";
+    else if (mime.includes("ogg")) ext = "ogg";
+    else if (mime.includes("mp3") || mime.includes("mpeg")) ext = "mp3";
+    else if (mime.includes("mp4")) ext = "mp4";
+    else if (mime.includes("pdf")) ext = "pdf";
+    else if (mime.includes("wav")) ext = "wav";
+    else if (mime.includes("m4a")) ext = "m4a";
+    else if (mime.includes("webm")) ext = "webm";
+
+    const timestamp = Date.now();
+    const random = crypto.randomUUID().split("-")[0];
+    const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/${timestamp}_${random}.${ext}`;
+
+    console.log("📤 Saving inbound media to storage:", { storagePath, size: bytes.length });
+
+    const { error: uploadError } = await supabase.storage
+      .from("whatsapp-media")
+      .upload(storagePath, bytes, {
+        contentType: mime,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("❌ Media upload failed:", uploadError);
+      return null;
+    }
+
+    // Gerar URL pública assinada
+    const { data: signedData } = await supabase.storage
+      .from("whatsapp-media")
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 365); // 1 ano
+
+    console.log("✅ Media saved:", signedData?.signedUrl?.substring(0, 60));
+    return signedData?.signedUrl || null;
+  } catch (error) {
+    console.error("❌ Error saving media:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,13 +246,21 @@ serve(async (req) => {
           .single();
 
         if (instance) {
+          // Atualizar status
+          const updateData: any = {
+            is_connected: isConnected,
+            status: isConnected ? "connected" : state,
+            updated_at: new Date().toISOString(),
+          };
+
+          // Se desconectou, limpar QR code
+          if (!isConnected) {
+            updateData.qr_code_base64 = null;
+          }
+
           await supabase
             .from("whatsapp_instances")
-            .update({
-              is_connected: isConnected,
-              status: isConnected ? "connected" : state,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq("id", instance.id);
 
           console.log("Instance status updated:", { instanceId: instance.id, isConnected });
@@ -113,7 +310,7 @@ serve(async (req) => {
       const isFromMe = key?.fromMe === true;
       const isGroup = remoteJid.includes("@g.us");
 
-      // Ignorar mensagens próprias e de grupos
+      // Ignorar mensagens próprias e de grupos (por enquanto)
       if (isFromMe || isGroup) {
         return new Response(JSON.stringify({ success: true, ignored: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -123,17 +320,16 @@ serve(async (req) => {
       const fromPhoneRaw = remoteJid.split("@")[0] || "";
       const fromPhone = normalizeWhatsApp(fromPhoneRaw);
 
-      // Extrair texto da mensagem
-      const text = message?.conversation || 
-                   message?.extendedTextMessage?.text || 
-                   message?.text || 
-                   "";
+      // Detectar tipo de mensagem e extrair conteúdo
+      const msgData = detectMessageType(message);
 
       console.log("Message received:", {
         instanceName,
         fromPhone,
         pushName,
-        textPreview: String(text).substring(0, 100),
+        type: msgData.type,
+        hasMedia: !!msgData.mediaUrl,
+        contentPreview: msgData.content.substring(0, 100),
       });
 
       // Buscar a instância para saber a organização
@@ -182,6 +378,7 @@ serve(async (req) => {
             sendable_phone: fromPhone,
             customer_phone_e164: fromPhone,
             contact_name: pushName || `+${fromPhone}`,
+            chat_id: remoteJid, // Salvar JID para envio
             last_message_at: new Date().toISOString(),
             unread_count: 1,
           })
@@ -194,18 +391,37 @@ serve(async (req) => {
           conversation = newConvo;
         }
       } else {
-        // Atualizar conversa existente
+        // Atualizar conversa existente - incrementar unread_count
+        const { data: currentConvo } = await supabase
+          .from("whatsapp_conversations")
+          .select("unread_count")
+          .eq("id", conversation.id)
+          .single();
+
         await supabase
           .from("whatsapp_conversations")
           .update({
             last_message_at: new Date().toISOString(),
-            unread_count: supabase.rpc("increment", { x: 1 }),
+            unread_count: (currentConvo?.unread_count || 0) + 1,
+            chat_id: remoteJid,
           })
           .eq("id", conversation.id);
       }
 
+      // Processar mídia se houver
+      let savedMediaUrl: string | null = null;
+      if (conversation && msgData.mediaUrl) {
+        savedMediaUrl = await saveMediaToStorage(
+          organizationId,
+          instance.id,
+          conversation.id,
+          msgData.mediaUrl,
+          msgData.mediaMimeType
+        );
+      }
+
       // Salvar mensagem
-      if (conversation && text) {
+      if (conversation) {
         const messageId = key?.id || crypto.randomUUID();
 
         await supabase
@@ -217,17 +433,26 @@ serve(async (req) => {
             conversation_id: conversation.id,
             sender_phone: fromPhone,
             sender_name: pushName || null,
-            message_type: "text",
-            content: text,
+            message_type: msgData.type,
+            content: msgData.content,
+            media_url: savedMediaUrl,
+            media_caption: msgData.mediaCaption,
             is_from_me: false,
+            direction: "inbound",
             status: "received",
             timestamp: new Date().toISOString(),
+            provider: "evolution",
             raw_payload: body,
           }, {
             onConflict: "id",
           });
 
-        console.log("Message saved:", { messageId, conversationId: conversation.id });
+        console.log("Message saved:", { 
+          messageId, 
+          conversationId: conversation.id,
+          type: msgData.type,
+          hasMedia: !!savedMediaUrl
+        });
       }
 
       return new Response(JSON.stringify({ success: true }), {

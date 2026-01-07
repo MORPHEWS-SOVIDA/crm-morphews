@@ -9,7 +9,8 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") ?? "";
-const PUBLIC_APP_URL = Deno.env.get("PUBLIC_APP_URL") ?? "";
+const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
+const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 
 const WASENDER_BASE = "https://www.wasenderapi.com";
 
@@ -32,19 +33,11 @@ async function createHmacSignature(data: string, secret: string): Promise<string
   
   const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
   
-  // Convert to hex string for URL safety
   return Array.from(new Uint8Array(signature))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
-/**
- * Generate a PUBLIC SIGNED URL directly from Supabase Storage.
- * This is more reliable for WhatsApp delivery as it bypasses the proxy.
- *
- * IMPORTANT: WhatsApp recipients may download media minutes/hours later, so we default to a longer
- * expiration (7 days) to avoid "mídia não disponível".
- */
 async function generateSignedStorageUrl(
   supabaseAdmin: any,
   storagePath: string,
@@ -52,71 +45,36 @@ async function generateSignedStorageUrl(
 ): Promise<string> {
   const bucket = "whatsapp-media";
   
-  console.log("🔗 Generating signed URL:", { path: storagePath, expiresIn: expiresInSeconds });
-  
   const { data, error } = await supabaseAdmin.storage
     .from(bucket)
     .createSignedUrl(storagePath, expiresInSeconds);
     
   if (error) {
-    console.error("❌ Failed to generate signed URL:", error);
     throw new Error(`Falha ao gerar URL assinada: ${error.message}`);
   }
-  
-  console.log("✅ Generated signed URL:", {
-    path: storagePath,
-    expiresIn: expiresInSeconds,
-    url: data.signedUrl.substring(0, 80) + "..."
-  });
   
   return data.signedUrl;
 }
 
-/**
- * Generate a secure HMAC-signed token for media proxy access (fallback).
- * Used for internal display in the CRM UI.
- */
 async function generateMediaProxyUrl(
   storagePath: string,
   expiresInSeconds = 60 * 60 * 24 * 7,
   contentType?: string
 ): Promise<string> {
   if (!WHATSAPP_MEDIA_TOKEN_SECRET) {
-    throw new Error(
-      "WHATSAPP_MEDIA_TOKEN_SECRET não configurado - impossível gerar URL segura"
-    );
-  }
-
-  if (!SUPABASE_URL && !PUBLIC_APP_URL) {
-    throw new Error(
-      "SUPABASE_URL/PUBLIC_APP_URL não configurado - impossível gerar URL do proxy"
-    );
+    throw new Error("WHATSAPP_MEDIA_TOKEN_SECRET não configurado");
   }
 
   const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
-
   const ct = contentType?.trim() || "";
   const dataToSign = ct ? `${storagePath}:${exp}:${ct}` : `${storagePath}:${exp}`;
   const token = await createHmacSignature(dataToSign, WHATSAPP_MEDIA_TOKEN_SECRET);
 
-  const supabaseBase = SUPABASE_URL ? SUPABASE_URL.replace(/\/$/, "") : "";
-  const publicBase = PUBLIC_APP_URL ? PUBLIC_APP_URL.replace(/\/$/, "") : "";
-
-  const proxyBaseUrl = supabaseBase
-    ? `${supabaseBase}/functions/v1/whatsapp-media-proxy`
-    : `${publicBase}/api/whatsapp/media`;
-
+  const supabaseBase = SUPABASE_URL.replace(/\/$/, "");
+  const proxyBaseUrl = `${supabaseBase}/functions/v1/whatsapp-media-proxy`;
   const ctParam = ct ? `&ct=${encodeURIComponent(ct)}` : "";
 
-  const proxyUrl = `${proxyBaseUrl}?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}${ctParam}`;
-
-  console.log("✅ Generated proxy URL:", {
-    path: storagePath,
-    expiresAt: new Date(exp * 1000).toISOString(),
-    contentType: ct || undefined,
-  });
-
-  return proxyUrl;
+  return `${proxyBaseUrl}?path=${encodeURIComponent(storagePath)}&exp=${exp}&token=${token}${ctParam}`;
 }
 
 // ============================================================================
@@ -149,10 +107,6 @@ function extFromMime(mime: string): string {
   return "bin";
 }
 
-/**
- * Upload media to storage and return both signed URL (for Wasender) and proxy URL (for UI)
- * Path structure: orgs/{organization_id}/instances/{instance_id}/{conversation_id}/{timestamp}_{random}.{ext}
- */
 async function uploadMediaAndGetUrls(
   supabaseAdmin: any,
   organizationId: string,
@@ -169,15 +123,6 @@ async function uploadMediaAndGetUrls(
   const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/${timestamp}_${random}.${ext}`;
   const bucket = "whatsapp-media";
 
-  console.log("📤 Uploading media to storage:", {
-    organization_id: organizationId,
-    instance_id: instanceId,
-    conversation_id: conversationId,
-    media_path: storagePath,
-    mime_type: mime,
-    size_bytes: bytes.length
-  });
-
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)
     .upload(storagePath, bytes, {
@@ -186,37 +131,155 @@ async function uploadMediaAndGetUrls(
     });
 
   if (uploadError) {
-    console.error("❌ Storage upload failed:", uploadError);
     throw new Error(`Falha ao subir mídia no storage: ${uploadError.message}`);
   }
 
-  console.log("✅ Media uploaded successfully:", storagePath);
-
-  // Generate SIGNED URL for WhatsApp delivery (works better with Wasender)
   const signedUrl = await generateSignedStorageUrl(supabaseAdmin, storagePath, 60 * 60 * 24 * 7);
-  
-  // Generate proxy URL for UI display
   const proxyUrl = await generateMediaProxyUrl(storagePath, 60 * 60 * 24 * 7, mime);
 
   return { signedUrl, proxyUrl, storagePath };
 }
 
 // ============================================================================
-// WASENDER API
+// EVOLUTION API
 // ============================================================================
 
-async function wasenderRequest(apiKey: string, path: string, payload: any) {
-  console.log("📡 Wasender request:", { 
-    path, 
-    to: payload.to, 
-    hasText: !!payload.text,
-    hasImageUrl: !!payload.imageUrl,
-    hasAudioUrl: !!payload.audioUrl,
-    hasVideoUrl: !!payload.videoUrl,
-    hasDocumentUrl: !!payload.documentUrl
+async function sendEvolutionMessage(params: {
+  instanceName: string;
+  to: string;
+  type: "text" | "image" | "audio" | "document" | "video";
+  text?: string;
+  mediaUrl?: string;
+  mediaMimeType?: string;
+  fileName?: string;
+}) {
+  const { instanceName, to, type, text, mediaUrl, mediaMimeType, fileName } = params;
+
+  // Formatar número para JID se necessário
+  const number = to.includes("@") ? to : to.replace(/\D/g, "");
+
+  console.log("📡 Evolution API request:", {
+    instance: instanceName,
+    type,
+    to: number.substring(0, 15) + "...",
+    hasMedia: !!mediaUrl,
   });
-  
-  const res = await fetch(`${WASENDER_BASE}${path}`, {
+
+  let endpoint = "";
+  let payload: any = {};
+
+  switch (type) {
+    case "text":
+      endpoint = `/message/sendText/${instanceName}`;
+      payload = {
+        number,
+        text: text || "",
+      };
+      break;
+
+    case "image":
+      endpoint = `/message/sendMedia/${instanceName}`;
+      payload = {
+        number,
+        mediatype: "image",
+        media: mediaUrl,
+        caption: text || "",
+      };
+      break;
+
+    case "audio":
+      endpoint = `/message/sendWhatsAppAudio/${instanceName}`;
+      payload = {
+        number,
+        audio: mediaUrl,
+      };
+      break;
+
+    case "video":
+      endpoint = `/message/sendMedia/${instanceName}`;
+      payload = {
+        number,
+        mediatype: "video",
+        media: mediaUrl,
+        caption: text || "",
+      };
+      break;
+
+    case "document":
+      endpoint = `/message/sendMedia/${instanceName}`;
+      payload = {
+        number,
+        mediatype: "document",
+        media: mediaUrl,
+        caption: text || "",
+        fileName: fileName || "documento",
+      };
+      break;
+  }
+
+  const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": EVOLUTION_API_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  console.log("📡 Evolution response:", {
+    status: response.status,
+    ok: response.ok,
+    hasKey: !!result?.key,
+    error: result?.error || result?.message,
+  });
+
+  if (response.ok && result?.key?.id) {
+    return { success: true, providerMessageId: result.key.id, raw: result };
+  }
+
+  const errorMsg = result?.message || result?.error || `HTTP ${response.status}`;
+  return { success: false, providerMessageId: null, error: errorMsg };
+}
+
+// ============================================================================
+// WASENDER API (LEGACY)
+// ============================================================================
+
+async function sendWasenderMessage(params: {
+  apiKey: string;
+  to: string;
+  type: "text" | "image" | "audio" | "document" | "video";
+  text?: string;
+  mediaUrl?: string;
+}): Promise<{ success: boolean; providerMessageId: string | null; error?: string; raw?: any }> {
+  const { apiKey, to, type, text, mediaUrl } = params;
+
+  const payload: Record<string, any> = { to };
+
+  switch (type) {
+    case "text":
+      payload.text = text ?? "";
+      break;
+    case "image":
+      payload.imageUrl = mediaUrl;
+      if (text) payload.text = text;
+      break;
+    case "audio":
+      payload.audioUrl = mediaUrl;
+      break;
+    case "video":
+      payload.videoUrl = mediaUrl;
+      if (text) payload.text = text;
+      break;
+    case "document":
+      payload.documentUrl = mediaUrl;
+      if (text) payload.text = text;
+      break;
+  }
+
+  const res = await fetch(`${WASENDER_BASE}/api/send-message`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -225,109 +288,20 @@ async function wasenderRequest(apiKey: string, path: string, payload: any) {
     body: JSON.stringify(payload),
   });
 
-  const text = await res.text();
-  let json: any = null;
+  let json: any;
   try {
-    json = JSON.parse(text);
+    json = await res.json();
   } catch {
-    json = { raw: text };
+    const rawText = await res.text();
+    json = { raw: rawText };
   }
 
-  console.log("📡 Wasender response:", { 
-    path, 
-    status: res.status, 
-    ok: res.ok, 
-    success: json?.success,
-    error: json?.error || json?.message,
-    data: json?.data
-  });
-
-  return { ok: res.ok, status: res.status, json };
-}
-
-/**
- * Send message via Wasender API following their official documentation
- * All message types use POST /api/send-message with specific parameters
- * 
- * Documentation: https://wasenderapi.com/api-docs/messages/
- * 
- * Parameters:
- * - to: Recipient phone number in E.164 format, Group JID (xxx@g.us), or Community Channel JID
- * - text: Text content (required for text messages, optional caption for media)
- * - imageUrl: URL of image (JPEG, PNG) - max 5MB
- * - audioUrl: URL of audio (AAC, MP3, OGG, AMR) - max 16MB - sent as voice note
- * - videoUrl: URL of video (MP4) - max 16MB
- * - documentUrl: URL of document (PDF, etc) - max 16MB
- */
-async function sendWasenderMessage(params: {
-  apiKey: string;
-  to: string;
-  type: "text" | "image" | "audio" | "document" | "video";
-  text?: string;
-  mediaUrl?: string;
-}) {
-  const { apiKey, to, type, text, mediaUrl } = params;
-
-  // Build payload following Wasender official documentation
-  // All types use the same endpoint: POST /api/send-message
-  const payload: Record<string, any> = { to };
-
-  switch (type) {
-    case "text":
-      // Text message: requires "text" field
-      payload.text = text ?? "";
-      break;
-      
-    case "image":
-      // Image message: requires "imageUrl", optional "text" as caption
-      payload.imageUrl = mediaUrl;
-      if (text) payload.text = text;
-      break;
-      
-    case "audio":
-      // Audio message: requires "audioUrl" (sent as voice note)
-      payload.audioUrl = mediaUrl;
-      break;
-      
-    case "video":
-      // Video message: requires "videoUrl", optional "text" as caption  
-      payload.videoUrl = mediaUrl;
-      if (text) payload.text = text;
-      break;
-      
-    case "document":
-      // Document message: requires "documentUrl", optional "text" as caption
-      payload.documentUrl = mediaUrl;
-      if (text) payload.text = text;
-      break;
+  if (res.ok && json?.success) {
+    const providerMessageId = json?.data?.msgId?.toString() || json?.data?.id || null;
+    return { success: true, providerMessageId, raw: json };
   }
 
-  console.log("📤 Sending to Wasender:", {
-    type,
-    to: to.substring(0, 20) + "...",
-    hasText: !!payload.text,
-    hasMedia: !!mediaUrl,
-    payload_keys: Object.keys(payload)
-  });
-
-  const result = await wasenderRequest(apiKey, "/api/send-message", payload);
-  
-  if (result.ok && result.json?.success) {
-    // Extract message ID from response
-    const providerMessageId = 
-      result.json?.data?.msgId?.toString() || 
-      result.json?.data?.id || 
-      result.json?.data?.messageId || 
-      result.json?.data?.key?.id || 
-      null;
-      
-    console.log("✅ Wasender success:", { providerMessageId });
-    return { success: true, providerMessageId, raw: result.json };
-  }
-
-  // Handle error
-  const errorMsg = result.json?.message || result.json?.error || result.json?.raw || `HTTP ${result.status}`;
-  console.error("❌ Wasender error:", errorMsg);
+  const errorMsg = json?.message || json?.error || `HTTP ${res.status}`;
   return { success: false, providerMessageId: null, error: errorMsg };
 }
 
@@ -358,7 +332,7 @@ Deno.serve(async (req) => {
       mediaUrl,
       mediaCaption,
       mediaMimeType,
-      mediaStoragePath, // NOVO: path no storage (evita base64 grande)
+      mediaStoragePath,
     } = body;
 
     console.log(`[${requestId}] Request params:`, {
@@ -366,28 +340,12 @@ Deno.serve(async (req) => {
       instance_id: instanceId,
       conversation_id: conversationId,
       message_type: messageType || "text",
-      has_media: !!mediaUrl,
-      chat_id: chatId ? chatId.substring(0, 20) + "..." : null,
+      has_media: !!mediaUrl || !!mediaStoragePath,
     });
 
-    if (!organizationId) {
-      console.error(`[${requestId}] ❌ Missing organizationId`);
+    if (!organizationId || !instanceId || !conversationId) {
       return new Response(
-        JSON.stringify({ success: false, error: "organizationId é obrigatório" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!instanceId) {
-      console.error(`[${requestId}] ❌ Missing instanceId`);
-      return new Response(
-        JSON.stringify({ success: false, error: "instanceId é obrigatório" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!conversationId) {
-      console.error(`[${requestId}] ❌ Missing conversationId`);
-      return new Response(
-        JSON.stringify({ success: false, error: "conversationId é obrigatório" }),
+        JSON.stringify({ success: false, error: "Parâmetros obrigatórios faltando" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -400,80 +358,57 @@ Deno.serve(async (req) => {
       .single();
 
     if (instErr || !instance) {
-      console.error(`[${requestId}] ❌ Instance not found:`, instanceId, instErr);
       return new Response(
         JSON.stringify({ success: false, error: "Instância não encontrada" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    if (!instance.wasender_api_key) {
-      console.error(`[${requestId}] ❌ Instance not configured (no API key)`);
+
+    // Determinar qual provider usar
+    const isEvolution = instance.provider === "evolution" && instance.evolution_instance_id;
+    const isWasender = instance.wasender_api_key;
+
+    if (!isEvolution && !isWasender) {
       return new Response(
-        JSON.stringify({ success: false, error: "Instância Wasender não configurada" }),
+        JSON.stringify({ success: false, error: "Instância não configurada" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // NÃO bloquear envio por is_connected (pode estar desatualizado). Se estiver desconectado,
-    // o Wasender vai retornar erro e a UI mostrará o motivo real.
-    if (!instance.is_connected) {
-      console.warn(`[${requestId}] ⚠️ Instance marked as not connected in DB (continuing anyway)`, {
-        instance_id: instanceId,
-      });
-    }
-
-    // Destination: prefer chatId (stable JID), fallback to phone
+    // Destination
     const toRaw = (chatId || phone || "").toString().trim();
-
-    // Wasender docs use E.164 with "+" for individual numbers; keep JIDs as-is (e.g. @g.us)
     const to = toRaw.includes("@")
       ? toRaw
       : (toRaw.startsWith("+") ? toRaw : `+${toRaw.replace(/[^0-9]/g, "")}`);
 
     if (!to || to === "+") {
-      console.error(`[${requestId}] ❌ No destination (chatId/phone)`);
       return new Response(
-        JSON.stringify({ success: false, error: "Destino inválido (chatId/phone vazio)" }),
+        JSON.stringify({ success: false, error: "Destino inválido" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Process media if present
+    // Process media
     let finalMediaUrl: string | null = null;
-    let finalMediaUrlForDb: string | null = null; // URL for saving in DB (proxy URL for UI display)
-    let finalType: "text" | "image" | "audio" | "document" | "video" =
-      (messageType as any) || "text";
+    let finalMediaUrlForDb: string | null = null;
+    let finalType: "text" | "image" | "audio" | "document" | "video" = (messageType as any) || "text";
     let text = (content ?? "").toString();
 
-    // NOVO MODO: mediaStoragePath (arquivo já no storage, evita base64 grande)
+    // Media from storage path
     if (mediaStoragePath && typeof mediaStoragePath === "string") {
-      console.log(`[${requestId}] 📎 Processing media from storage path:`, mediaStoragePath);
-
-      // Validar que o path pertence à org (segurança contra cross-tenant)
       if (!mediaStoragePath.startsWith(`orgs/${organizationId}/`)) {
-        console.error(`[${requestId}] ❌ Invalid storage path (cross-tenant attempt)`);
         return new Response(
           JSON.stringify({ success: false, error: "Caminho de mídia inválido" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Generate SIGNED URL for WhatsApp delivery (more reliable than proxy)
       finalMediaUrl = await generateSignedStorageUrl(supabaseAdmin, mediaStoragePath, 60 * 60 * 24 * 7);
-      
-      // Generate proxy URL for UI display
-      finalMediaUrlForDb = await generateMediaProxyUrl(
-        mediaStoragePath,
-        60 * 60 * 24 * 7,
-        typeof mediaMimeType === "string" ? mediaMimeType : undefined
-      );
-      console.log(`[${requestId}] ✅ Media ready for sending via storage path`);
-    } else if (mediaUrl && isDataUrl(mediaUrl)) {
-      console.log(`[${requestId}] 📎 Processing media attachment (data URL)`);
-
+      finalMediaUrlForDb = await generateMediaProxyUrl(mediaStoragePath, 60 * 60 * 24 * 7, mediaMimeType);
+    } 
+    // Media from data URL
+    else if (mediaUrl && isDataUrl(mediaUrl)) {
       const parsed = parseDataUrl(mediaUrl);
-
-      // Upload to storage and get both signed URL (for Wasender) and proxy URL (for UI)
       const { signedUrl, proxyUrl } = await uploadMediaAndGetUrls(
         supabaseAdmin,
         organizationId,
@@ -483,41 +418,47 @@ Deno.serve(async (req) => {
         parsed.mime
       );
       
-      // Use signed URL for Wasender (more reliable for WhatsApp delivery)
       finalMediaUrl = signedUrl;
-      // Use proxy URL for DB storage (for UI display)
       finalMediaUrlForDb = proxyUrl;
-
-      console.log(`[${requestId}] ✅ Media ready for sending via signed URL`);
-    } else if (mediaUrl && typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
-      // External URL - use as-is (user's responsibility)
-      console.log(`[${requestId}] 📎 Using external media URL`);
+    } 
+    // External URL
+    else if (mediaUrl && typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
       finalMediaUrl = mediaUrl;
       finalMediaUrlForDb = mediaUrl;
     }
 
-    // Send message via Wasender
-    console.log(`[${requestId}] 📤 Sending ${finalType} message to Wasender...`, {
-      to: to.substring(0, 20) + "...",
-      mediaUrl: finalMediaUrl ? finalMediaUrl.substring(0, 60) + "..." : null
-    });
+    // Send message
+    let sendResult: { success: boolean; providerMessageId: string | null; error?: string; raw?: any };
 
-    const sendResult = await sendWasenderMessage({
-      apiKey: instance.wasender_api_key,
-      to,
-      type: finalType,
-      text: finalType === "text" ? text : (mediaCaption ?? text ?? ""),
-      mediaUrl: finalMediaUrl ?? undefined,
-    });
+    if (isEvolution) {
+      console.log(`[${requestId}] 📤 Sending via Evolution API...`);
+      sendResult = await sendEvolutionMessage({
+        instanceName: instance.evolution_instance_id,
+        to,
+        type: finalType,
+        text: finalType === "text" ? text : (mediaCaption ?? text ?? ""),
+        mediaUrl: finalMediaUrl ?? undefined,
+        mediaMimeType: mediaMimeType,
+      });
+    } else {
+      console.log(`[${requestId}] 📤 Sending via Wasender API...`);
+      sendResult = await sendWasenderMessage({
+        apiKey: instance.wasender_api_key,
+        to,
+        type: finalType,
+        text: finalType === "text" ? text : (mediaCaption ?? text ?? ""),
+        mediaUrl: finalMediaUrl ?? undefined,
+      });
+    }
 
-    console.log(`[${requestId}] Wasender result:`, {
+    console.log(`[${requestId}] Send result:`, {
       success: sendResult.success,
+      provider: isEvolution ? "evolution" : "wasender",
       provider_message_id: sendResult.providerMessageId,
       error: sendResult.error,
     });
 
-    // Save message to database (always, to preserve history)
-    // Use proxy URL for database so UI can display it
+    // Save message to database
     const { data: savedMessage, error: saveError } = await supabaseAdmin
       .from("whatsapp_messages")
       .insert({
@@ -528,7 +469,7 @@ Deno.serve(async (req) => {
         message_type: finalType,
         media_url: finalMediaUrlForDb || finalMediaUrl,
         media_caption: mediaCaption ?? null,
-        provider: "wasenderapi",
+        provider: isEvolution ? "evolution" : "wasenderapi",
         provider_message_id: sendResult.providerMessageId,
         status: sendResult.success ? "sent" : "failed",
         is_from_bot: false,
@@ -538,8 +479,6 @@ Deno.serve(async (req) => {
 
     if (saveError) {
       console.error(`[${requestId}] ⚠️ Failed to save message to DB:`, saveError);
-    } else {
-      console.log(`[${requestId}] ✅ Message saved to DB:`, savedMessage?.id);
     }
 
     // Update conversation
@@ -552,11 +491,8 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversationId);
 
-    // IMPORTANTE: sempre responder 200 para não “esconder” o JSON de erro no frontend.
     if (!sendResult.success) {
-      console.error(`[${requestId}] ❌ Failed to send message:`, sendResult.error);
-      
-      // Log error to database for super admin monitoring
+      // Log error
       try {
         await supabaseAdmin.from("error_logs").insert({
           organization_id: organizationId,
@@ -566,20 +502,18 @@ Deno.serve(async (req) => {
             instance_id: instanceId,
             conversation_id: conversationId,
             message_type: finalType,
-            to: to.substring(0, 20),
-            provider_response: sendResult.raw
+            provider: isEvolution ? "evolution" : "wasender",
           },
           source: "whatsapp",
         });
-      } catch (logErr) {
-        console.error(`[${requestId}] ⚠️ Failed to log error:`, logErr);
+      } catch {
+        // Ignore log errors
       }
       
       return new Response(
         JSON.stringify({
           success: false,
           message: savedMessage ?? null,
-          providerMessageId: null,
           error: sendResult.error,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -593,7 +527,6 @@ Deno.serve(async (req) => {
         success: true,
         message: savedMessage ?? null,
         providerMessageId: sendResult.providerMessageId,
-        error: null,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -601,21 +534,6 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error(`[${requestId}] ❌ Unexpected error:`, error);
     
-    // Log unexpected errors too
-    try {
-      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await supabaseAdmin.from("error_logs").insert({
-        organization_id: null,
-        error_type: "WHATSAPP_SEND_UNEXPECTED",
-        error_message: error?.message || "Erro inesperado",
-        error_details: { stack: error?.stack },
-        source: "whatsapp",
-      });
-    } catch (logErr) {
-      console.error("⚠️ Failed to log unexpected error:", logErr);
-    }
-
-    // Também retornar 200 para expor a mensagem real no frontend.
     return new Response(
       JSON.stringify({ success: false, error: error?.message || "Erro inesperado" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
