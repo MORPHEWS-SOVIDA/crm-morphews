@@ -422,17 +422,16 @@ serve(async (req) => {
 
       // Salvar mensagem
       if (conversation) {
-        const messageId = key?.id || crypto.randomUUID();
+        const waMessageId = key?.id || null;
+        const messageId = crypto.randomUUID(); // Sempre gerar UUID válido
 
-        await supabase
+        const { error: msgError } = await supabase
           .from("whatsapp_messages")
-          .upsert({
+          .insert({
             id: messageId,
             organization_id: organizationId,
             instance_id: instance.id,
             conversation_id: conversation.id,
-            sender_phone: fromPhone,
-            sender_name: pushName || null,
             message_type: msgData.type,
             content: msgData.content,
             media_url: savedMediaUrl,
@@ -440,12 +439,20 @@ serve(async (req) => {
             is_from_me: false,
             direction: "inbound",
             status: "received",
-            timestamp: new Date().toISOString(),
             provider: "evolution",
-            raw_payload: body,
-          }, {
-            onConflict: "id",
+            provider_message_id: waMessageId,
           });
+
+        if (msgError) {
+          console.error("Error saving message:", msgError);
+        } else {
+          console.log("Message saved:", { 
+            messageId, 
+            conversationId: conversation.id,
+            type: msgData.type,
+            hasMedia: !!savedMediaUrl
+          });
+        }
 
         console.log("Message saved:", { 
           messageId, 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +58,9 @@ export default function WhatsAppDMs() {
   const [permissionsInstance, setPermissionsInstance] = useState<EvolutionInstance | null>(null);
   const [deleteInstance, setDeleteInstance] = useState<EvolutionInstance | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // QR Codes em memória (não salvar no banco por ser muito grande)
+  const [qrCodesMap, setQrCodesMap] = useState<Record<string, string>>({});
   
   // Edit instance name dialog
   const [editNameInstance, setEditNameInstance] = useState<EvolutionInstance | null>(null);
@@ -161,6 +163,14 @@ export default function WhatsAppDMs() {
         throw new Error(data?.error || "Erro ao criar instância");
       }
 
+      // Salvar QR code em memória se retornou
+      if (data?.qr_code_base64 && data?.instance?.id) {
+        setQrCodesMap(prev => ({
+          ...prev,
+          [data.instance.id]: data.qr_code_base64
+        }));
+      }
+
       toast({ 
         title: "Instância criada!", 
         description: "Escaneie o QR Code para conectar",
@@ -195,6 +205,11 @@ export default function WhatsAppDMs() {
       if (error) throw error;
 
       if (data?.qr_code_base64) {
+        // Salvar QR code em memória (não no banco)
+        setQrCodesMap(prev => ({
+          ...prev,
+          [instance.id]: data.qr_code_base64
+        }));
         toast({ title: "QR Code atualizado!", description: "Escaneie com seu WhatsApp" });
       } else {
         toast({ 
@@ -460,14 +475,17 @@ export default function WhatsAppDMs() {
                     {/* QR Code Area - só mostra se NÃO conectado */}
                     {!instance.is_connected && (
                       <div className="bg-muted/50 rounded-lg p-4 text-center">
-                        {instance.qr_code_base64 ? (
+                        {(qrCodesMap[instance.id] || instance.qr_code_base64) ? (
                           <div className="space-y-3">
                             <div className="bg-white p-3 rounded-lg inline-block mx-auto">
-                              <QRCodeSVG 
-                                value={instance.qr_code_base64} 
-                                size={192}
-                                level="M"
-                                includeMargin={false}
+                              <img 
+                                src={(() => {
+                                  const qr = qrCodesMap[instance.id] || instance.qr_code_base64;
+                                  if (!qr) return '';
+                                  return qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`;
+                                })()}
+                                alt="QR Code"
+                                className="w-48 h-48"
                               />
                             </div>
                             <p className="text-sm text-muted-foreground">
