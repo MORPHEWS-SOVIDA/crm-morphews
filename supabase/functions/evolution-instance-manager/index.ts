@@ -135,7 +135,7 @@ serve(async (req) => {
           status: "pending",
           is_connected: false,
           monthly_price_cents: 0,
-          payment_source: "free",
+          payment_source: "admin_grant", // Instâncias Evolution são gratuitas (concedidas pelo admin)
         })
         .select()
         .single();
