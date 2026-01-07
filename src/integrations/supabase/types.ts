@@ -4555,6 +4555,7 @@ export type Database = {
           message_type: string
           provider: string | null
           provider_message_id: string | null
+          sent_by_user_id: string | null
           status: string | null
           z_api_message_id: string | null
         }
@@ -4572,6 +4573,7 @@ export type Database = {
           message_type?: string
           provider?: string | null
           provider_message_id?: string | null
+          sent_by_user_id?: string | null
           status?: string | null
           z_api_message_id?: string | null
         }
@@ -4589,6 +4591,7 @@ export type Database = {
           message_type?: string
           provider?: string | null
           provider_message_id?: string | null
+          sent_by_user_id?: string | null
           status?: string | null
           z_api_message_id?: string | null
         }

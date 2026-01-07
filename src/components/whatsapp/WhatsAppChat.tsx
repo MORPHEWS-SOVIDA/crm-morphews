@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,7 @@ interface Message {
   media_caption: string | null;
   status: string | null;
   contact_id: string | null;
+  sent_by_user_id: string | null;
 }
 
 export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
@@ -77,13 +78,16 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isSendingAudio, setIsSendingAudio] = useState(false);
   const [isSendingImage, setIsSendingImage] = useState(false);
+  const [isSendingDocument, setIsSendingDocument] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
 
   // Wasender throttle: they enforce "1 message every ~5 seconds".
   const SEND_COOLDOWN_MS = 5000;
   const [lastSendAt, setLastSendAt] = useState<number>(0);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -135,13 +139,25 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     queryFn: async () => {
       if (!selectedConversation) return [];
       
+      // Buscar mensagens com nome do remetente
       const { data, error } = await supabase
         .from("whatsapp_messages")
-        .select("*")
+        .select(`
+          *,
+          profiles:sent_by_user_id (first_name, last_name)
+        `)
         .eq("conversation_id", selectedConversation.id)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
+      
+      // Mapear para incluir sender_name
+      const messagesWithSender = (data || []).map((msg: any) => ({
+        ...msg,
+        sender_name: msg.profiles 
+          ? `${msg.profiles.first_name || ''} ${msg.profiles.last_name || ''}`.trim()
+          : null,
+      }));
       
       // Mark as read
       if (selectedConversation.unread_count > 0) {
@@ -153,7 +169,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
       }
       
-      return data as Message[];
+      return messagesWithSender as Message[];
     },
     enabled: !!selectedConversation?.id,
     refetchInterval: 3000, // Poll every 3 seconds
@@ -231,6 +247,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           phone: selectedConversation.phone_number,
           content: text,
           messageType: "text",
+          senderUserId: profile.user_id, // Para identificar quem enviou
         },
       });
 
@@ -369,6 +386,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           messageType: "audio",
           mediaStoragePath: uploadUrlData.path,
           mediaMimeType: mimeType,
+          senderUserId: profile.user_id,
         },
       });
 
@@ -506,6 +524,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           mediaStoragePath: uploadUrlData.path,
           mediaMimeType: file.type,
           mediaCaption: messageText || "",
+          senderUserId: profile.user_id,
         },
       });
 
@@ -543,6 +562,152 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       });
     } finally {
       setIsSendingImage(false);
+    }
+  };
+
+  const handleDocumentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Aceitar PDF, DOC, DOCX, XLS, XLSX, etc.
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'text/csv',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Arquivo inválido", description: "Selecione um documento (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV)", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Máximo 20MB", variant: "destructive" });
+      return;
+    }
+
+    setSelectedDocument(file);
+
+    if (documentInputRef.current) {
+      documentInputRef.current.value = '';
+    }
+  };
+
+  const handleSendDocument = async () => {
+    if (!selectedConversation || !selectedDocument) return;
+    if (!profile?.organization_id) {
+      toast({
+        title: "Erro ao enviar documento",
+        description: "Organização não encontrada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSendAt < SEND_COOLDOWN_MS) {
+      toast({
+        title: "Aguarde um pouco",
+        description: "Para evitar bloqueio do WhatsApp, envie no máximo 1 mensagem a cada 5 segundos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLastSendAt(now);
+
+    setIsSendingDocument(true);
+    try {
+      const file = selectedDocument;
+
+      console.log("[WhatsApp] Criando URL de upload para documento:", {
+        conversation_id: selectedConversation.id,
+        size_bytes: file.size,
+        mime_type: file.type,
+        file_name: file.name,
+      });
+
+      // 1. Obter signed upload URL
+      const { data: uploadUrlData, error: uploadUrlError } = await supabase.functions.invoke(
+        "whatsapp-create-upload-url",
+        {
+          body: {
+            organizationId: profile.organization_id,
+            conversationId: selectedConversation.id,
+            mimeType: file.type,
+            kind: "document",
+          },
+        }
+      );
+
+      if (uploadUrlError || !uploadUrlData?.success) {
+        throw new Error(uploadUrlData?.error || uploadUrlError?.message || "Falha ao criar URL de upload");
+      }
+
+      console.log("[WhatsApp] Upload URL obtida, fazendo upload direto...");
+
+      // 2. Upload direto para storage
+      const uploadResponse = await fetch(uploadUrlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Falha no upload: ${uploadResponse.status}`);
+      }
+
+      console.log("[WhatsApp] Upload concluído, enviando mensagem...");
+
+      // 3. Enviar mensagem com path do storage
+      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          organizationId: profile.organization_id,
+          conversationId: selectedConversation.id,
+          instanceId: selectedConversation.instance_id,
+          chatId: selectedConversation.chat_id || null,
+          phone: selectedConversation.phone_number,
+          content: file.name,
+          messageType: "document",
+          mediaStoragePath: uploadUrlData.path,
+          mediaMimeType: file.type,
+          mediaCaption: file.name,
+          senderUserId: profile.user_id,
+        },
+      });
+
+      if (error) {
+        console.error("[WhatsApp] Edge function error:", error);
+        throw new Error(error.message || "Erro na função de envio");
+      }
+
+      if (data?.error) {
+        console.error("[WhatsApp] API error:", data.error);
+        throw new Error(data.error);
+      }
+
+      if (!data?.success) {
+        console.error("[WhatsApp] Send failed:", data);
+        throw new Error(data?.error || "Falha ao enviar documento para o WhatsApp");
+      }
+
+      console.log("[WhatsApp] Documento enviado com sucesso:", data?.providerMessageId);
+      setSelectedDocument(null);
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+      toast({ title: "Documento enviado!" });
+    } catch (error: any) {
+      console.error("[WhatsApp] Error sending document:", error);
+      toast({
+        title: "Erro ao enviar documento",
+        description: error.message || "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingDocument(false);
     }
   };
 
@@ -894,6 +1059,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
 
             {/* Image preview - improved for mobile */}
+            {/* Preview de imagem selecionada */}
             {selectedImage && (
               <div className="border-t bg-card shrink-0 p-2">
                 <div className={cn(
@@ -917,6 +1083,47 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                       if (selectedImage) URL.revokeObjectURL(selectedImage.preview);
                       setSelectedImage(null);
                     }}
+                  >
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Preview de documento selecionado */}
+            {selectedDocument && (
+              <div className="border-t bg-card shrink-0 p-2">
+                <div className={cn(
+                  "flex items-center gap-3 p-2 bg-muted/50 rounded-lg",
+                  isMobile ? "" : "max-w-3xl mx-auto"
+                )}>
+                  <div className="h-14 w-14 flex items-center justify-center bg-primary/10 rounded-lg border">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{selectedDocument.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedDocument.size / 1024 / 1024).toFixed(2)} MB - Pronto para enviar
+                    </p>
+                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={handleSendDocument}
+                    disabled={isSendingDocument}
+                  >
+                    {isSendingDocument ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Enviar"
+                    )}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => setSelectedDocument(null)}
                   >
                     Remover
                   </Button>
@@ -949,6 +1156,13 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   accept="image/*"
                   className="hidden"
                 />
+                <input
+                  type="file"
+                  ref={documentInputRef}
+                  onChange={handleDocumentSelect}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+                  className="hidden"
+                />
 
                 <div className={cn(
                   "flex items-end gap-2",
@@ -979,6 +1193,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           className="h-10 w-10"
                           onClick={() => imageInputRef.current?.click()}
                           disabled={isSendingImage}
+                          title="Enviar imagem"
                         >
                           {isSendingImage ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -987,10 +1202,25 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           )}
                         </Button>
                         <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10"
+                          onClick={() => documentInputRef.current?.click()}
+                          disabled={isSendingDocument}
+                          title="Enviar documento"
+                        >
+                          {isSendingDocument ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </Button>
+                        <Button
                           size="icon"
                           variant="ghost"
                           className="h-10 w-10"
                           onClick={() => setIsRecordingAudio(true)}
+                          title="Gravar áudio"
                         >
                           <Mic className="h-5 w-5 text-muted-foreground" />
                         </Button>
