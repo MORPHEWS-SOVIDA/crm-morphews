@@ -14,14 +14,33 @@ const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Normaliza telefone brasileiro para SEMPRE ter 55 + DD + 9 + 8 dígitos (para celular)
 function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
   if (!clean) return "";
   if (!clean.startsWith("55")) clean = `55${clean}`;
+  // Se tem 12 dígitos (55 + DD + 8), adiciona o 9 (celular)
   if (clean.length === 12 && clean.startsWith("55")) {
     clean = clean.slice(0, 4) + "9" + clean.slice(4);
   }
   return clean;
+}
+
+// Gera variações de um telefone brasileiro (com e sem o 9)
+// Útil para buscar conversas onde o número pode ter sido salvo de forma diferente
+function getBrazilPhoneVariations(phone: string): string[] {
+  const normalized = normalizeWhatsApp(phone);
+  if (!normalized) return [];
+  
+  const variations: string[] = [normalized];
+  
+  // Se tem 13 dígitos (55 + DD + 9 + 8), criar versão sem o 9
+  if (normalized.length === 13 && normalized.startsWith("55")) {
+    const without9 = normalized.slice(0, 4) + normalized.slice(5);
+    variations.push(without9);
+  }
+  
+  return variations;
 }
 
 // ============================================================================
@@ -512,26 +531,33 @@ serve(async (req) => {
       const organizationId = instance.organization_id;
 
       // Buscar conversa existente - PRIMEIRO por chat_id (mais confiável)
-      // Depois tentar por phone_number normalizado
+      // Depois tentar por phone_number com variações brasileiras (com/sem 9)
       let { data: conversation } = await supabase
         .from("whatsapp_conversations")
-        .select("id, unread_count, instance_id")
+        .select("id, unread_count, instance_id, phone_number")
         .eq("organization_id", organizationId)
         .eq("chat_id", remoteJid)
         .maybeSingle();
 
       // Se não encontrou por chat_id, tentar por phone_number (para conversas criadas pelo frontend)
+      // Usa variações do número brasileiro (com e sem o dígito 9)
       if (!conversation && !isGroup) {
-        const { data: convByPhone } = await supabase
-          .from("whatsapp_conversations")
-          .select("id, unread_count, instance_id")
-          .eq("organization_id", organizationId)
-          .eq("phone_number", fromPhone)
-          .maybeSingle();
+        const phoneVariations = getBrazilPhoneVariations(fromPhone);
+        console.log("Searching conversation by phone variations:", phoneVariations);
         
-        if (convByPhone) {
-          conversation = convByPhone;
-          console.log("Found conversation by phone_number:", fromPhone);
+        for (const phoneVar of phoneVariations) {
+          const { data: convByPhone } = await supabase
+            .from("whatsapp_conversations")
+            .select("id, unread_count, instance_id, phone_number")
+            .eq("organization_id", organizationId)
+            .eq("phone_number", phoneVar)
+            .maybeSingle();
+          
+          if (convByPhone) {
+            conversation = convByPhone;
+            console.log("Found conversation by phone variation:", phoneVar, "original:", fromPhone);
+            break;
+          }
         }
       }
 
@@ -558,7 +584,7 @@ serve(async (req) => {
             last_message_at: new Date().toISOString(),
             unread_count: 1,
           })
-          .select("id, unread_count, instance_id")
+          .select("id, unread_count, instance_id, phone_number")
           .single();
 
         if (convoError) {
@@ -575,6 +601,14 @@ serve(async (req) => {
           chat_id: remoteJid,
           current_instance_id: instance.id,
         };
+        
+        // Atualizar phone_number se diferente (normalização brasileira)
+        if (!isGroup && conversation.phone_number !== fromPhone) {
+          updateData.phone_number = fromPhone;
+          updateData.sendable_phone = fromPhone;
+          updateData.customer_phone_e164 = fromPhone;
+          console.log("Updating phone_number from", conversation.phone_number, "to", fromPhone);
+        }
         
         if (isGroup && groupSubject) {
           updateData.group_subject = groupSubject;
