@@ -44,6 +44,7 @@ import PostSaleKanban from "./pages/PostSaleKanban";
 import SalesDashboard from "./pages/SalesDashboard";
 import SAC from "./pages/SAC";
 import ScheduledMessages from "./pages/ScheduledMessages";
+import ExpeditionReport from "./pages/ExpeditionReport";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 
@@ -347,6 +348,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['scheduled_messages_view']}>
                     <ScheduledMessages />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Expedition Report - require sales_view */}
+              <Route
+                path="/relatorios/expedicao"
+                element={
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
+                    <ExpeditionReport />
                   </ProtectedRoute>
                 }
               />
