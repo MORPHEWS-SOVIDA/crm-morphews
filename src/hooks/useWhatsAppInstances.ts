@@ -45,7 +45,7 @@ export function useWhatsAppInstances() {
         .from("whatsapp_instances")
         .select("*")
         .eq("organization_id", profile.organization_id)
-        .eq("provider", "wasenderapi")
+        .in("status", ["active", "connected"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
