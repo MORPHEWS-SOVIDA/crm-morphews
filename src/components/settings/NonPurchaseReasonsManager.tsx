@@ -38,6 +38,7 @@ import {
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useTenant } from '@/hooks/useTenant';
 import { toast } from '@/hooks/use-toast';
+import { MessageTemplatesManager } from './MessageTemplatesManager';
 
 interface ReasonFormData {
   name: string;
@@ -202,78 +203,88 @@ export function NonPurchaseReasonsManager() {
           {reasons.map((reason) => (
             <div 
               key={reason.id} 
-              className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 border"
+              className="rounded-lg bg-muted/50 border overflow-hidden"
             >
-              <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
-              
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{reason.name}</div>
-                <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
-                  {reason.target_stage_id && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary">
-                      → {getStageLabel(reason.target_stage_id)}
+              <div className="flex items-center gap-3 p-4">
+                <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
+                
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{reason.name}</div>
+                  <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                    {reason.target_stage_id && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary">
+                        → {getStageLabel(reason.target_stage_id)}
+                      </span>
+                    )}
+                    {reason.followup_hours > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-600">
+                        <Clock className="w-3 h-3" />
+                        {reason.followup_hours}h
+                      </span>
+                    )}
+                    {reason.webhook_url && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 text-green-600">
+                        <Webhook className="w-3 h-3" />
+                        Webhook
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600">
+                      <Users className="w-3 h-3" />
+                      {reason.lead_visibility === 'all_sellers' ? 'Todos' : 'Vendedor'}
                     </span>
-                  )}
-                  {reason.followup_hours > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-600">
-                      <Clock className="w-3 h-3" />
-                      {reason.followup_hours}h
-                    </span>
-                  )}
-                  {reason.webhook_url && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 text-green-600">
-                      <Webhook className="w-3 h-3" />
-                      Webhook
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600">
-                    <Users className="w-3 h-3" />
-                    {reason.lead_visibility === 'all_sellers' ? 'Todos' : 'Vendedor'}
-                  </span>
+                  </div>
                 </div>
+
+                {/* Edit Dialog */}
+                <Dialog open={editingReason === reason.id} onOpenChange={(open) => !open && setEditingReason(null)}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={() => openEditDialog(reason)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Editar Motivo</DialogTitle>
+                    </DialogHeader>
+                    <ReasonForm 
+                      formData={formData} 
+                      setFormData={setFormData} 
+                      stages={stages} 
+                    />
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">Cancelar</Button>
+                      </DialogClose>
+                      <Button onClick={() => handleUpdate(reason.id)} disabled={updateReason.isPending}>
+                        {updateReason.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                        Salvar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => setDeleteConfirmId(reason.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
 
-              {/* Edit Dialog */}
-              <Dialog open={editingReason === reason.id} onOpenChange={(open) => !open && setEditingReason(null)}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    onClick={() => openEditDialog(reason)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Editar Motivo</DialogTitle>
-                  </DialogHeader>
-                  <ReasonForm 
-                    formData={formData} 
-                    setFormData={setFormData} 
-                    stages={stages} 
-                  />
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancelar</Button>
-                    </DialogClose>
-                    <Button onClick={() => handleUpdate(reason.id)} disabled={updateReason.isPending}>
-                      {updateReason.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                      Salvar
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => setDeleteConfirmId(reason.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {/* Message Templates Section */}
+              <div className="px-4 pb-3 border-t bg-muted/30">
+                <MessageTemplatesManager 
+                  reasonId={reason.id} 
+                  reasonName={reason.name} 
+                />
+              </div>
             </div>
           ))}
         </div>
