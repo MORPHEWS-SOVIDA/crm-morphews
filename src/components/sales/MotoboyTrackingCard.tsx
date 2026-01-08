@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bike, Clock, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bike, Clock, User, ChevronDown, ChevronUp, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -16,6 +16,7 @@ import {
   type MotoboyTrackingStatus,
 } from '@/hooks/useMotoboyTracking';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { toast } from 'sonner';
 import {
   Collapsible,
@@ -27,6 +28,9 @@ interface MotoboyTrackingCardProps {
   saleId: string;
   currentStatus: MotoboyTrackingStatus | null;
   isCancelled?: boolean;
+  deliveryRegionId?: string | null;
+  assignedMotoboyId?: string | null;
+  assignedMotoboyName?: string | null;
 }
 
 const statusColors: Record<MotoboyTrackingStatus, string> = {
@@ -44,16 +48,34 @@ export function MotoboyTrackingCard({
   saleId,
   currentStatus,
   isCancelled,
+  deliveryRegionId,
+  assignedMotoboyId,
+  assignedMotoboyName,
 }: MotoboyTrackingCardProps) {
   const { data: history = [], isLoading } = useMotoboyTrackingHistory(saleId);
   const { data: statusConfigs = [] } = useMotoboyTrackingStatuses();
+  const { data: regions = [] } = useDeliveryRegions();
   const updateMutation = useUpdateMotoboyTracking();
   const { data: permissions } = useMyPermissions();
   const [selectedStatus, setSelectedStatus] = useState<MotoboyTrackingStatus | ''>('');
+  const [selectedMotoboy, setSelectedMotoboy] = useState<string>(assignedMotoboyId || '');
   const [notes, setNotes] = useState('');
   const [showHistory, setShowHistory] = useState(false);
 
   const canUpdate = permissions?.sales_dispatch || permissions?.sales_view_all || permissions?.deliveries_view_own;
+
+  // Get motoboys from the delivery region
+  const availableMotoboys = useMemo(() => {
+    if (!deliveryRegionId) return [];
+    const region = regions.find(r => r.id === deliveryRegionId);
+    // assigned_users is added by the hook but may not be in base type
+    const assignedUsers = (region as { assigned_users?: Array<{ user_id: string; user?: { first_name: string; last_name: string } }> })?.assigned_users;
+    if (!assignedUsers) return [];
+    return assignedUsers.filter(au => au.user).map(au => ({
+      id: au.user_id,
+      name: `${au.user?.first_name || ''} ${au.user?.last_name || ''}`.trim() || 'Usuário',
+    }));
+  }, [deliveryRegionId, regions]);
 
   // Filter active statuses from config
   const activeStatuses = statusConfigs.filter(s => s.is_active);
@@ -74,12 +96,35 @@ export function MotoboyTrackingCard({
         saleId,
         status: selectedStatus,
         notes: notes || undefined,
+        assignedMotoboyId: selectedMotoboy || null,
       });
       toast.success('Status de entrega atualizado');
       setSelectedStatus('');
       setNotes('');
     } catch (error) {
       toast.error('Erro ao atualizar status');
+    }
+  };
+
+  // Allow assigning motoboy without changing status
+  const handleAssignMotoboy = async () => {
+    if (!selectedMotoboy) {
+      toast.error('Selecione um motoboy');
+      return;
+    }
+
+    try {
+      // We need to use the current status or default to waiting_expedition
+      const statusToUse = currentStatus || 'waiting_expedition';
+      await updateMutation.mutateAsync({
+        saleId,
+        status: statusToUse,
+        notes: `Motoboy atribuído`,
+        assignedMotoboyId: selectedMotoboy,
+      });
+      toast.success('Motoboy atribuído com sucesso');
+    } catch (error) {
+      toast.error('Erro ao atribuir motoboy');
     }
   };
 
@@ -119,9 +164,63 @@ export function MotoboyTrackingCard({
           )}
         </div>
 
+        {/* Assigned Motoboy */}
+        <div className="space-y-2">
+          <span className="text-sm text-muted-foreground flex items-center gap-1">
+            <UserCheck className="w-4 h-4" />
+            Motoboy responsável:
+          </span>
+          {assignedMotoboyId && assignedMotoboyName ? (
+            <Badge variant="secondary" className="text-sm px-3 py-1">
+              {assignedMotoboyName}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              Nenhum motoboy atribuído
+            </Badge>
+          )}
+        </div>
+
         {/* Update Form */}
         {canUpdate && !isCancelled && (
           <div className="space-y-3 pt-3 border-t">
+            {/* Motoboy Selector */}
+            {availableMotoboys.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-sm text-muted-foreground">Atribuir motoboy:</span>
+                <div className="flex gap-2">
+                  <Select value={selectedMotoboy} onValueChange={setSelectedMotoboy}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione o motoboy..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableMotoboys.map(motoboy => (
+                        <SelectItem key={motoboy.id} value={motoboy.id}>
+                          {motoboy.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedMotoboy && selectedMotoboy !== assignedMotoboyId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAssignMotoboy}
+                      disabled={updateMutation.isPending}
+                    >
+                      Atribuir
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {availableMotoboys.length === 0 && deliveryRegionId && (
+              <p className="text-xs text-muted-foreground">
+                Nenhum motoboy cadastrado para esta região de entrega.
+              </p>
+            )}
+
             <Select value={selectedStatus} onValueChange={(v) => setSelectedStatus(v as MotoboyTrackingStatus)}>
               <SelectTrigger>
                 <SelectValue placeholder="Atualizar status..." />

@@ -1141,6 +1141,13 @@ export default function SaleDetail() {
                 saleId={sale.id}
                 currentStatus={(sale as any).motoboy_tracking_status}
                 isCancelled={sale.status === 'cancelled'}
+                deliveryRegionId={sale.delivery_region_id}
+                assignedMotoboyId={sale.assigned_delivery_user_id}
+                assignedMotoboyName={
+                  (sale as any).assigned_delivery_user_profile
+                    ? `${(sale as any).assigned_delivery_user_profile.first_name || ''} ${(sale as any).assigned_delivery_user_profile.last_name || ''}`.trim()
+                    : null
+                }
               />
             )}
 

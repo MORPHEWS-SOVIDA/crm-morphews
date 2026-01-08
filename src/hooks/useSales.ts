@@ -351,6 +351,7 @@ export function useSale(id: string | undefined) {
       // Fetch seller and created_by profiles
       let seller_profile = null;
       let created_by_profile = null;
+      let assigned_delivery_user_profile = null;
 
       if (sale.seller_user_id) {
         const { data: profile } = await supabase
@@ -370,11 +371,21 @@ export function useSale(id: string | undefined) {
         created_by_profile = profile;
       }
 
+      if (sale.assigned_delivery_user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.assigned_delivery_user_id)
+          .maybeSingle();
+        assigned_delivery_user_profile = profile;
+      }
+
       return { 
         ...sale, 
         items: items || [],
         seller_profile,
         created_by_profile,
+        assigned_delivery_user_profile,
         return_reason: sale.return_reason
       } as Sale;
     },
