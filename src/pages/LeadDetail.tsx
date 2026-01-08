@@ -43,7 +43,8 @@ import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
-import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
+import { useFunnelStages, FunnelStageCustom } from '@/hooks/useFunnelStages';
+import { FunnelStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -64,6 +65,7 @@ export default function LeadDetail() {
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
+  const { data: funnelStages = [] } = useFunnelStages();
   const { user, isAdmin } = useAuth();
   const { data: permissions } = useMyPermissions();
   const updateLead = useUpdateLead();
@@ -163,9 +165,32 @@ export default function LeadDetail() {
     );
   }
 
-  const stageInfo = FUNNEL_STAGES[lead.stage];
+  // Find current stage from custom stages
+  const currentStage = funnelStages.find(s => s.name === lead.stage) || 
+    funnelStages.find(s => s.position === mapStageToPosition(lead.stage));
+  
+  const stageColor = currentStage?.color || '#9b87f5';
+  const stageTextColor = currentStage?.text_color || '#ffffff';
+  const stageName = currentStage?.name || lead.stage;
+  
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
   const instagramHandle = normalizeInstagramHandle(lead.instagram);
+  
+  // Map legacy stage enum to position
+  function mapStageToPosition(stage: string): number {
+    const positionMap: Record<string, number> = {
+      'cloud': 0,
+      'prospect': 1,
+      'contacted': 2,
+      'convincing': 3,
+      'scheduled': 4,
+      'positive': 5,
+      'waiting_payment': 6,
+      'success': 7,
+      'trash': 99,
+    };
+    return positionMap[stage] ?? 1;
+  }
 
   const formatFollowers = (num: number | null) => {
     if (!num) return '0';
@@ -218,26 +243,37 @@ export default function LeadDetail() {
           {/* Left Column - Main Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Stage Card */}
-            <div className={cn(
-              'rounded-xl p-6 shadow-card',
-              stageInfo.color
-            )}>
+            <div 
+              className="rounded-xl p-6 shadow-card"
+              style={{ backgroundColor: stageColor }}
+            >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className={cn('text-sm font-medium opacity-80', stageInfo.textColor)}>
+                  <p className="text-sm font-medium opacity-80" style={{ color: stageTextColor }}>
                     Etapa atual
                   </p>
                   <Select
                     value={lead.stage}
                     onValueChange={(value) => handleUpdate('stage', value as FunnelStage)}
                   >
-                    <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto text-2xl font-bold hover:bg-white/10 rounded">
-                      <SelectValue />
+                    <SelectTrigger 
+                      className="w-auto border-0 bg-transparent p-0 h-auto text-2xl font-bold hover:bg-white/10 rounded"
+                      style={{ color: stageTextColor }}
+                    >
+                      <SelectValue>{stageName}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(FUNNEL_STAGES).map(([key, value]) => (
-                        <SelectItem key={key} value={key}>
-                          {value.label}
+                      {funnelStages.map((stage) => (
+                        <SelectItem 
+                          key={stage.id} 
+                          value={stage.name}
+                          className="flex items-center gap-2"
+                        >
+                          <span 
+                            className="w-3 h-3 rounded-full inline-block mr-2"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
