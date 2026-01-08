@@ -111,6 +111,8 @@ export default function Products() {
         id: q.id,
         question_text: q.question_text,
         position: q.position,
+        is_standard: q.is_standard,
+        standard_question_id: q.standard_question_id || undefined,
       })));
     } else {
       setInitialQuestions([]);
@@ -170,7 +172,9 @@ export default function Products() {
         productId: product.id, 
         questions: questions.map((q, i) => ({ 
           question_text: q.question_text, 
-          position: i 
+          position: i,
+          is_standard: q.is_standard,
+          standard_question_id: q.standard_question_id,
         }))
       });
     }
@@ -229,6 +233,8 @@ export default function Products() {
         id: q.id,
         question_text: q.question_text,
         position: i,
+        is_standard: q.is_standard,
+        standard_question_id: q.standard_question_id,
       }))
     });
 

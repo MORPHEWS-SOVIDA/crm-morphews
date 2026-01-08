@@ -10,6 +10,8 @@ export interface ProductQuestion {
   organization_id: string;
   question_text: string;
   position: number;
+  is_standard: boolean;
+  standard_question_id: string | null;
   created_at: string;
 }
 
@@ -170,7 +172,13 @@ export function useSaveProductQuestions() {
       questions 
     }: { 
       productId: string; 
-      questions: { id?: string; question_text: string; position: number }[] 
+      questions: { 
+        id?: string; 
+        question_text: string; 
+        position: number;
+        is_standard?: boolean;
+        standard_question_id?: string;
+      }[] 
     }) => {
       if (!tenantId) throw new Error('Organização não encontrada');
 
@@ -201,6 +209,8 @@ export function useSaveProductQuestions() {
             .update({
               question_text: question.question_text,
               position: question.position,
+              is_standard: question.is_standard || false,
+              standard_question_id: question.standard_question_id || null,
             })
             .eq('id', question.id);
         } else {
@@ -212,6 +222,8 @@ export function useSaveProductQuestions() {
               organization_id: tenantId,
               question_text: question.question_text,
               position: question.position,
+              is_standard: question.is_standard || false,
+              standard_question_id: question.standard_question_id || null,
             });
         }
       }
