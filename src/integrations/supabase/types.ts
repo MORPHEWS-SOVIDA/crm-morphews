@@ -1872,6 +1872,47 @@ export type Database = {
           },
         ]
       }
+      organization_feature_overrides: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          overridden_by: string | null
+          override_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          is_enabled: boolean
+          organization_id: string
+          overridden_by?: string | null
+          override_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          overridden_by?: string | null
+          override_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_feature_overrides_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_funnel_stages: {
         Row: {
           color: string
@@ -2395,6 +2436,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_features: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          is_enabled: boolean
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          is_enabled?: boolean
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          is_enabled?: boolean
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -5686,6 +5762,10 @@ export type Database = {
       normalize_text_for_comparison: {
         Args: { input: string }
         Returns: string
+      }
+      org_has_feature: {
+        Args: { _feature_key: string; _org_id: string }
+        Returns: boolean
       }
       reserve_stock_for_sale: { Args: { _sale_id: string }; Returns: undefined }
       restore_stock_for_cancelled_delivered_sale: {

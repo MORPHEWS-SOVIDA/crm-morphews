@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare, AlertTriangle, Headphones } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare, AlertTriangle, Headphones, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -22,6 +22,8 @@ import { WhatsAppCreditsTab } from "@/components/super-admin/WhatsAppCreditsTab"
 import { WhatsAppProvidersTab } from "@/components/super-admin/WhatsAppProvidersTab";
 import { AllUsersTab } from "@/components/super-admin/AllUsersTab";
 import { ErrorLogsTab } from "@/components/super-admin/ErrorLogsTab";
+import { PlanFeaturesEditor } from "@/components/super-admin/PlanFeaturesEditor";
+import { OrgFeatureOverridesEditor } from "@/components/super-admin/OrgFeatureOverridesEditor";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -812,6 +814,10 @@ export default function SuperAdmin() {
               WhatsApp Providers
             </TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
+            <TabsTrigger value="plan-features" className="gap-1">
+              <Package className="h-3 w-3" />
+              Features
+            </TabsTrigger>
             <TabsTrigger value="users">Usuários sem Org</TabsTrigger>
             <TabsTrigger value="all-users" className="gap-1">
               <Users className="h-3 w-3" />
@@ -1246,6 +1252,11 @@ export default function SuperAdmin() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="plan-features" className="space-y-6">
+            <PlanFeaturesEditor />
+            <OrgFeatureOverridesEditor />
           </TabsContent>
 
           <TabsContent value="users">
