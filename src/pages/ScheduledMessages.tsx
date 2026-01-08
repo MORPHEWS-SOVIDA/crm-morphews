@@ -275,12 +275,12 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
 
           <div className="space-y-2">
             <Label>Instância WhatsApp (opcional)</Label>
-            <Select value={instanceId} onValueChange={setInstanceId}>
+            <Select value={instanceId || "__auto__"} onValueChange={(v) => setInstanceId(v === "__auto__" ? "" : v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar instância..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Automática</SelectItem>
+                <SelectItem value="__auto__">Automática</SelectItem>
                 {instances.map((inst) => (
                   <SelectItem key={inst.id} value={inst.id}>
                     {inst.name}
@@ -323,7 +323,7 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
 export default function ScheduledMessages() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showOnlyMine, setShowOnlyMine] = useState(true);
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
   const [createdByFilter, setCreatedByFilter] = useState('');
   const [scheduledFrom, setScheduledFrom] = useState('');
   const [scheduledTo, setScheduledTo] = useState('');
