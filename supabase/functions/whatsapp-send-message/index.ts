@@ -207,13 +207,19 @@ async function sendEvolutionMessage(params: {
 
     case "document":
       endpoint = `/message/sendMedia/${instanceName}`;
+      // Extrair nome real do arquivo da caption ou fileName
+      const docFileName = fileName || text || "documento";
+      // Garantir que mimetype está correto
+      const docMimeType = mediaMimeType || "application/octet-stream";
       payload = {
         number,
         mediatype: "document",
+        mimetype: docMimeType,
         media: mediaUrl,
-        caption: text || "",
-        fileName: fileName || "documento",
+        caption: text || docFileName,
+        fileName: docFileName,
       };
+      console.log("📄 Document payload:", { fileName: docFileName, mimetype: docMimeType });
       break;
   }
 
@@ -433,6 +439,11 @@ Deno.serve(async (req) => {
 
     if (isEvolution) {
       console.log(`[${requestId}] 📤 Sending via Evolution API...`);
+      // Para documentos, extrair nome do arquivo da caption
+      const docFileName = finalType === "document" 
+        ? (mediaCaption || body.fileName || "documento")
+        : undefined;
+      
       sendResult = await sendEvolutionMessage({
         instanceName: instance.evolution_instance_id,
         to,
@@ -440,6 +451,7 @@ Deno.serve(async (req) => {
         text: finalType === "text" ? text : (mediaCaption ?? text ?? ""),
         mediaUrl: finalMediaUrl ?? undefined,
         mediaMimeType: mediaMimeType,
+        fileName: docFileName,
       });
     } else {
       console.log(`[${requestId}] 📤 Sending via Wasender API...`);
