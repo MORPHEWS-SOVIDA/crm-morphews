@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, GripVertical, List, PenLine } from 'lucide-react';
-import { useStandardQuestions, CATEGORY_LABELS } from '@/hooks/useStandardQuestions';
+import { Input } from '@/components/ui/input';
+import { Trash2, GripVertical, List, PenLine } from 'lucide-react';
+import { useStandardQuestions, CATEGORY_LABELS, type StandardQuestion } from '@/hooks/useStandardQuestions';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 export interface DynamicQuestion {
   id?: string;
@@ -25,54 +28,109 @@ interface DynamicQuestionsManagerProps {
   onChange: (questions: DynamicQuestion[]) => void;
 }
 
+function StandardQuestionAnswerPreview({ question }: { question?: StandardQuestion }) {
+  if (!question) return null;
+
+  const options = (question.options || []).slice().sort((a, b) => a.position - b.position);
+
+  if (question.question_type === 'multiple_choice') {
+    if (options.length === 0) {
+      return <p className="text-xs text-muted-foreground">Sem opções cadastradas.</p>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {options.map((opt) => (
+          <div key={opt.id} className="flex items-center gap-2">
+            <Checkbox checked={false} disabled />
+            <span className="text-sm">{opt.option_text}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (question.question_type === 'single_choice') {
+    if (options.length === 0) {
+      return <p className="text-xs text-muted-foreground">Sem opções cadastradas.</p>;
+    }
+
+    return (
+      <RadioGroup value="" className="space-y-2">
+        {options.map((opt) => (
+          <div key={opt.id} className="flex items-center gap-2">
+            <RadioGroupItem value={opt.id} disabled />
+            <Label className="text-sm font-normal">{opt.option_text}</Label>
+          </div>
+        ))}
+      </RadioGroup>
+    );
+  }
+
+  if (question.question_type === 'number') {
+    return <Input disabled inputMode="numeric" placeholder="Digite um número..." />;
+  }
+
+  if (question.question_type === 'text') {
+    return <Textarea disabled rows={2} className="resize-none" placeholder="Digite a resposta..." />;
+  }
+
+  // imc_calculator
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <Input disabled inputMode="numeric" placeholder="Peso (kg)" />
+      <Input disabled inputMode="numeric" placeholder="Altura (cm)" />
+      <Input disabled inputMode="numeric" placeholder="Idade" />
+    </div>
+  );
+}
+
 export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestionsManagerProps) {
   const [showStandardDialog, setShowStandardDialog] = useState(false);
   const [selectedStandardIds, setSelectedStandardIds] = useState<string[]>([]);
   const { data: standardQuestions = [], isLoading } = useStandardQuestions();
 
+  const standardById = useMemo(() => {
+    const map = new Map<string, StandardQuestion>();
+    for (const q of standardQuestions) map.set(q.id, q);
+    return map;
+  }, [standardQuestions]);
+
   const addCustomQuestion = () => {
     const newPosition = questions.length;
-    onChange([
-      ...questions,
-      { question_text: '', position: newPosition, is_standard: false }
-    ]);
+    onChange([...questions, { question_text: '', position: newPosition, is_standard: false }]);
   };
 
   const openStandardDialog = () => {
     // Pre-select already added standard questions
     const alreadyAdded = questions
-      .filter(q => q.is_standard && q.standard_question_id)
-      .map(q => q.standard_question_id!);
+      .filter((q) => q.is_standard && q.standard_question_id)
+      .map((q) => q.standard_question_id!);
     setSelectedStandardIds(alreadyAdded);
     setShowStandardDialog(true);
   };
 
   const handleToggleStandard = (id: string) => {
-    setSelectedStandardIds(prev => 
-      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
-    );
+    setSelectedStandardIds((prev) => (prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]));
   };
 
   const handleConfirmStandard = () => {
     // Remove old standard questions that are no longer selected
-    const customQuestions = questions.filter(q => !q.is_standard);
-    
+    const customQuestions = questions.filter((q) => !q.is_standard);
+
     // Add selected standard questions
     const newStandardQuestions: DynamicQuestion[] = selectedStandardIds.map((sid, index) => {
-      const sq = standardQuestions.find(s => s.id === sid);
+      const sq = standardById.get(sid);
       return {
         question_text: sq?.question_text || '',
         position: customQuestions.length + index,
         is_standard: true,
-        standard_question_id: sid
+        standard_question_id: sid,
       };
     });
 
     // Merge: custom first, then standard
-    const merged = [...customQuestions, ...newStandardQuestions].map((q, i) => ({
-      ...q,
-      position: i
-    }));
+    const merged = [...customQuestions, ...newStandardQuestions].map((q, i) => ({ ...q, position: i }));
 
     onChange(merged);
     setShowStandardDialog(false);
@@ -91,7 +149,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
 
   const moveQuestion = (fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= questions.length) return;
-    
+
     const updated = [...questions];
     const [moved] = updated.splice(fromIndex, 1);
     updated.splice(toIndex, 0, moved);
@@ -127,58 +185,64 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
         </div>
       ) : (
         <div className="space-y-3">
-          {questions.map((question, index) => (
-            <div key={question.id || `q-${index}`} className="flex gap-2 items-start">
-              <div className="flex flex-col gap-1 pt-2">
+          {questions.map((question, index) => {
+            const sq = question.is_standard && question.standard_question_id
+              ? standardById.get(question.standard_question_id)
+              : undefined;
+
+            return (
+              <div key={question.id || `q-${index}`} className="flex gap-2 items-start">
+                <div className="flex flex-col gap-1 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 cursor-grab"
+                    onClick={() => moveQuestion(index, index - 1)}
+                    disabled={index === 0}
+                  >
+                    <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </div>
+
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Pergunta {index + 1}</span>
+                    {question.is_standard && (
+                      <Badge variant="secondary" className="text-xs">
+                        Padrão
+                      </Badge>
+                    )}
+                  </div>
+
+                  {question.is_standard ? (
+                    <div className="p-3 bg-muted/50 rounded-md space-y-3">
+                      <div className="text-sm">{sq?.question_text || question.question_text}</div>
+                      <StandardQuestionAnswerPreview question={sq} />
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={question.question_text}
+                      onChange={(e) => updateQuestion(index, e.target.value)}
+                      placeholder="Digite a pergunta..."
+                      rows={2}
+                      className="resize-none"
+                    />
+                  )}
+                </div>
+
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 cursor-grab"
-                  onClick={() => moveQuestion(index, index - 1)}
-                  disabled={index === 0}
+                  className="text-destructive hover:text-destructive mt-6"
+                  onClick={() => removeQuestion(index)}
                 >
-                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
-              
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Pergunta {index + 1}
-                  </span>
-                  {question.is_standard && (
-                    <Badge variant="secondary" className="text-xs">
-                      Padrão
-                    </Badge>
-                  )}
-                </div>
-                {question.is_standard ? (
-                  <div className="p-3 bg-muted/50 rounded-md text-sm">
-                    {question.question_text}
-                  </div>
-                ) : (
-                  <Textarea
-                    value={question.question_text}
-                    onChange={(e) => updateQuestion(index, e.target.value)}
-                    placeholder="Digite a pergunta..."
-                    rows={2}
-                    className="resize-none"
-                  />
-                )}
-              </div>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-destructive hover:text-destructive mt-6"
-                onClick={() => removeQuestion(index)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -201,7 +265,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
           <DialogHeader>
             <DialogTitle>Selecionar Perguntas Padrão</DialogTitle>
           </DialogHeader>
-          
+
           {isLoading ? (
             <p className="text-muted-foreground text-center py-4">Carregando...</p>
           ) : standardQuestions.length === 0 ? (
@@ -212,9 +276,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
             <div className="space-y-4">
               {Object.entries(groupedStandard).map(([category, catQuestions]) => (
                 <div key={category}>
-                  <h4 className="font-medium text-sm mb-2">
-                    {CATEGORY_LABELS[category] || category}
-                  </h4>
+                  <h4 className="font-medium text-sm mb-2">{CATEGORY_LABELS[category] || category}</h4>
                   <div className="space-y-2">
                     {catQuestions.map((sq) => (
                       <div
@@ -226,7 +288,10 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
                           checked={selectedStandardIds.includes(sq.id)}
                           onCheckedChange={() => handleToggleStandard(sq.id)}
                         />
-                        <span className="text-sm">{sq.question_text}</span>
+                        <div className="space-y-2">
+                          <span className="text-sm">{sq.question_text}</span>
+                          <StandardQuestionAnswerPreview question={sq} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -239,12 +304,11 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
             <Button variant="outline" onClick={() => setShowStandardDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleConfirmStandard}>
-              Confirmar ({selectedStandardIds.length})
-            </Button>
+            <Button onClick={handleConfirmStandard}>Confirmar ({selectedStandardIds.length})</Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
