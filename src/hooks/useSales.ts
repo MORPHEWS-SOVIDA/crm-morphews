@@ -79,6 +79,8 @@ export interface Sale {
   return_photo_url: string | null;
   return_latitude: number | null;
   return_longitude: number | null;
+  // Motoboy tracking status
+  motoboy_tracking_status: string | null;
   // Delivery position for route ordering
   delivery_position: number;
   // Joined data
@@ -837,7 +839,7 @@ export function useAllDeliveries() {
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at)
         `)
         .eq('organization_id', organizationId)
-        .eq('delivery_type', 'motoboy')
+        .in('status', ['dispatched', 'delivered', 'returned'])
         .order('scheduled_delivery_date', { ascending: true });
 
       if (error) throw error;

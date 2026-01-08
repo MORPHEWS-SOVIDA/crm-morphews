@@ -13,24 +13,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Truck, 
   MapPin, 
   Package,
-  CheckCircle,
   Clock,
-  Navigation,
   User,
   Calendar,
   Sun,
   Sunset,
-  XCircle,
   MessageCircle,
   Filter,
   Search,
   Phone,
+  Eye,
+  Map,
 } from 'lucide-react';
-import { format, isToday, isTomorrow, parseISO, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
+import { format, isToday, isTomorrow, parseISO, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   useAllDeliveries, 
@@ -38,10 +45,29 @@ import {
   Sale
 } from '@/hooks/useSales';
 import { useUsers } from '@/hooks/useUsers';
+import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
+import { 
+  useMotoboyTrackingStatuses, 
+  useUpdateMotoboyTracking,
+  getMotoboyStatusLabel,
+  motoboyTrackingOrder,
+  MotoboyTrackingStatus 
+} from '@/hooks/useMotoboyTracking';
+import { useNavigate } from 'react-router-dom';
+import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function AllDeliveries() {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const { data: deliveries = [], isLoading } = useAllDeliveries();
   const { data: users = [] } = useUsers();
+  const { data: whatsappInstances = [] } = useWhatsAppInstances();
+  const { data: motoboyStatuses = [] } = useMotoboyTrackingStatuses();
+  const updateMotoboyTracking = useUpdateMotoboyTracking();
   
   // Filters
   const [dateFilter, setDateFilter] = useState<string>('today');
@@ -50,6 +76,17 @@ export default function AllDeliveries() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // WhatsApp dialog state
+  const [whatsappDialog, setWhatsappDialog] = useState<{ open: boolean; sale: Sale | null }>({ open: false, sale: null });
+  const [selectedInstance, setSelectedInstance] = useState<string>('');
+  const [whatsappMessage, setWhatsappMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  // Get all users for motoboy assignment
+  const allDeliveryUsers = useMemo(() => {
+    return users.filter(u => u.user_id);
+  }, [users]);
+
   // Get delivery users (motoboys) - all users who have been assigned deliveries
   const deliveryUsers = useMemo(() => {
     const userIdsWithDeliveries = new Set(
@@ -57,6 +94,11 @@ export default function AllDeliveries() {
     );
     return users.filter(u => userIdsWithDeliveries.has(u.user_id));
   }, [users, deliveries]);
+
+  // Active whatsapp instances
+  const activeInstances = useMemo(() => {
+    return whatsappInstances.filter(i => i.is_connected);
+  }, [whatsappInstances]);
 
   // Filter deliveries
   const filteredDeliveries = useMemo(() => {
@@ -93,7 +135,6 @@ export default function AllDeliveries() {
           });
         }
         break;
-      // 'all' shows everything
     }
 
     // Motoboy filter
@@ -197,16 +238,80 @@ export default function AllDeliveries() {
     window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
   };
 
-  const openWhatsApp = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    window.open(`https://wa.me/${formattedPhone}`, '_blank');
+  const openWhatsAppDialog = (sale: Sale) => {
+    const leadName = sale.lead?.name?.split(' ')[0] || 'Cliente';
+    setWhatsappMessage(`Olá ${leadName}, tudo bem?`);
+    setSelectedInstance(activeInstances[0]?.id || '');
+    setWhatsappDialog({ open: true, sale });
+  };
+
+  const handleSendWhatsApp = async () => {
+    if (!whatsappDialog.sale?.lead?.whatsapp || !selectedInstance || !whatsappMessage.trim()) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          organizationId: profile?.organization_id,
+          instanceId: selectedInstance,
+          phone: whatsappDialog.sale.lead.whatsapp,
+          content: whatsappMessage.trim(),
+          messageType: "text",
+          senderUserId: profile?.user_id,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: "Mensagem enviada!" });
+      setWhatsappDialog({ open: false, sale: null });
+      setWhatsappMessage('');
+    } catch (error: any) {
+      toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const getMotoName = (userId: string | null) => {
     if (!userId) return 'Não atribuído';
-    const user = deliveryUsers.find(u => u.user_id === userId);
+    const user = allDeliveryUsers.find(u => u.user_id === userId);
     return user ? `${user.first_name} ${user.last_name}` : 'Desconhecido';
+  };
+
+  const handleAssignMotoboy = async (saleId: string, userId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('sales')
+        .update({ assigned_delivery_user_id: userId || null })
+        .eq('id', saleId);
+
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['all-deliveries'] });
+      toast({ title: "Motoboy atribuído!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao atribuir", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleUpdateMotoboyStatus = (saleId: string, status: MotoboyTrackingStatus) => {
+    updateMotoboyTracking.mutate(
+      { saleId, status },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['all-deliveries'] });
+          toast({ title: "Status atualizado!" });
+        },
+        onError: (error: any) => {
+          toast({ title: "Erro", description: error.message, variant: "destructive" });
+        }
+      }
+    );
   };
 
   if (isLoading) {
@@ -389,10 +494,11 @@ export default function AllDeliveries() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filteredDeliveries.map((sale) => {
               const isDelivered = sale.status === 'delivered';
               const isReturned = sale.status === 'returned';
+              const isMotoboy = sale.delivery_type === 'motoboy';
               
               return (
                 <Card 
@@ -405,9 +511,9 @@ export default function AllDeliveries() {
                         : ''
                   }`}
                 >
-                  <CardContent className="p-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      {/* Main Info */}
+                  <CardContent className="p-4">
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold truncate">{sale.lead?.name}</h3>
@@ -415,13 +521,12 @@ export default function AllDeliveries() {
                             #{sale.romaneio_number?.toString().padStart(5, '0')}
                           </Badge>
                           {getStatusBadge(sale.status)}
+                          {isMotoboy && (
+                            <Badge variant="secondary" className="text-xs">Motoboy</Badge>
+                          )}
                         </div>
                         
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <User className="w-3.5 h-3.5" />
-                            {getMotoName(sale.assigned_delivery_user_id)}
-                          </span>
                           {sale.scheduled_delivery_date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5" />
@@ -436,62 +541,147 @@ export default function AllDeliveries() {
                             {formatCurrency(sale.total_cents)}
                           </span>
                         </div>
+                      </div>
 
-                        {/* Address */}
-                        {sale.lead?.street && (
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            <MapPin className="w-3 h-3 inline mr-1" />
-                            {sale.lead.street}, {sale.lead.street_number} - {sale.lead.neighborhood}, {sale.lead.city}
-                          </p>
+                      {/* View Sale Button */}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/vendas/${sale.id}`)}
+                        className="shrink-0"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        Ver Venda
+                      </Button>
+                    </div>
+
+                    {/* Address */}
+                    {sale.lead?.street && (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        <MapPin className="w-3 h-3 inline mr-1" />
+                        {sale.lead.street}, {sale.lead.street_number} - {sale.lead.neighborhood}, {sale.lead.city}
+                      </p>
+                    )}
+
+                    {/* Products */}
+                    {sale.items && sale.items.length > 0 && (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        <Package className="w-3 h-3 inline mr-1" />
+                        {sale.items.map(i => `${i.quantity}x ${i.product_name}`).join(', ')}
+                      </p>
+                    )}
+
+                    {/* Return info */}
+                    {isReturned && sale.return_notes && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mb-3 italic">
+                        "{sale.return_notes}"
+                      </p>
+                    )}
+
+                    {/* Delivery time */}
+                    {(sale.delivered_at || sale.returned_at) && (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {isDelivered ? 'Entregue' : 'Retornou'} às {format(new Date(sale.delivered_at || sale.returned_at!), "HH:mm 'de' dd/MM")}
+                      </p>
+                    )}
+
+                    {/* Quick Actions Row */}
+                    <div className="border-t pt-3 mt-3">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {/* Motoboy Assignment */}
+                        {isMotoboy && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Motoboy</Label>
+                            <Select 
+                              value={sale.assigned_delivery_user_id || 'none'}
+                              onValueChange={(value) => handleAssignMotoboy(sale.id, value === 'none' ? null : value)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Selecionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Não atribuído</SelectItem>
+                                {allDeliveryUsers.map(user => (
+                                  <SelectItem key={user.user_id} value={user.user_id}>
+                                    {user.first_name} {user.last_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         )}
 
-                        {/* Products */}
-                        {sale.items && sale.items.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            <Package className="w-3 h-3 inline mr-1" />
-                            {sale.items.map(i => `${i.quantity}x ${i.product_name}`).join(', ')}
-                          </p>
+                        {/* Motoboy Tracking Status */}
+                        {isMotoboy && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Status Entrega</Label>
+                            <Select 
+                              value={sale.motoboy_tracking_status || ''}
+                              onValueChange={(value) => handleUpdateMotoboyStatus(sale.id, value as MotoboyTrackingStatus)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Selecionar status..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {motoboyTrackingOrder.map(status => {
+                                  const config = motoboyStatuses.find(s => s.status_key === status);
+                                  if (config && !config.is_active) return null;
+                                  return (
+                                    <SelectItem key={status} value={status}>
+                                      {getMotoboyStatusLabel(status, motoboyStatuses)}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         )}
 
-                        {/* Return info */}
-                        {isReturned && sale.return_notes && (
-                          <p className="text-xs text-red-600 dark:text-red-400 mt-1 italic">
-                            "{sale.return_notes}"
-                          </p>
-                        )}
-
-                        {/* Delivery time */}
-                        {(sale.delivered_at || sale.returned_at) && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {isDelivered ? 'Entregue' : 'Retornou'} às {format(new Date(sale.delivered_at || sale.returned_at!), "HH:mm 'de' dd/MM")}
-                          </p>
+                        {/* Current Motoboy Display (non-motoboy deliveries) */}
+                        {!isMotoboy && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Responsável</Label>
+                            <p className="text-sm font-medium flex items-center gap-1">
+                              <User className="w-3.5 h-3.5" />
+                              {getMotoName(sale.assigned_delivery_user_id)}
+                            </p>
+                          </div>
                         )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex gap-2 shrink-0">
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap gap-2 mt-3">
                         <Button 
                           variant="outline" 
                           size="sm"
                           onClick={() => openMaps(sale)}
                           disabled={!sale.lead?.street && !sale.lead?.google_maps_link}
+                          className="text-xs"
                         >
-                          <Navigation className="w-4 h-4" />
+                          <Map className="w-4 h-4 mr-1" />
+                          Ir para mapa
                         </Button>
+                        
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => openWhatsApp(sale.lead?.whatsapp || '')}
+                          onClick={() => openWhatsAppDialog(sale)}
+                          disabled={!sale.lead?.whatsapp || activeInstances.length === 0}
+                          className="text-xs"
                         >
-                          <MessageCircle className="w-4 h-4" />
+                          <MessageCircle className="w-4 h-4 mr-1" />
+                          WhatsApp
                         </Button>
+                        
                         {sale.lead?.whatsapp && (
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => window.open(`tel:${sale.lead?.whatsapp}`, '_blank')}
+                            className="text-xs"
                           >
-                            <Phone className="w-4 h-4" />
+                            <Phone className="w-4 h-4 mr-1" />
+                            Ligar
                           </Button>
                         )}
                       </div>
@@ -503,6 +693,66 @@ export default function AllDeliveries() {
           </div>
         )}
       </div>
+
+      {/* WhatsApp Dialog */}
+      <Dialog open={whatsappDialog.open} onOpenChange={(open) => setWhatsappDialog({ open, sale: open ? whatsappDialog.sale : null })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-500" />
+              Enviar WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Destinatário</Label>
+              <p className="text-sm text-muted-foreground">
+                {whatsappDialog.sale?.lead?.name} - {whatsappDialog.sale?.lead?.whatsapp}
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Instância WhatsApp</Label>
+              <Select value={selectedInstance} onValueChange={setSelectedInstance}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma instância..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeInstances.map(instance => (
+                    <SelectItem key={instance.id} value={instance.id}>
+                      {instance.name} {instance.phone_number && `(${instance.phone_number})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Mensagem</Label>
+              <Textarea
+                value={whatsappMessage}
+                onChange={(e) => setWhatsappMessage(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWhatsappDialog({ open: false, sale: null })}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSendWhatsApp}
+              disabled={isSendingMessage || !selectedInstance || !whatsappMessage.trim()}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSendingMessage ? "Enviando..." : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
