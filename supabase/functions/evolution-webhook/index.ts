@@ -290,6 +290,14 @@ function extFromMime(mime: string): string {
   return "bin";
 }
 
+// Limpa o content-type removendo parâmetros como "; codecs=opus"
+function cleanContentType(mime: string): string {
+  const baseMime = mime.split(";")[0].trim();
+  // Normalizar audio/ogg para ser compatível com browsers
+  if (baseMime === "audio/ogg") return "audio/ogg";
+  return baseMime;
+}
+
 async function saveMediaToStorage(
   organizationId: string,
   instanceId: string,
@@ -309,12 +317,15 @@ async function saveMediaToStorage(
     const random = crypto.randomUUID().split("-")[0];
     const storagePath = `orgs/${organizationId}/instances/${instanceId}/${conversationId}/${timestamp}_${random}.${ext}`;
 
-    console.log("📤 Saving inbound media to storage:", { storagePath, size: bytes.length, mimeType });
+    // Limpar o mimeType para evitar problemas com "; codecs=opus"
+    const cleanMimeType = cleanContentType(mimeType);
+    
+    console.log("📤 Saving inbound media to storage:", { storagePath, size: bytes.length, mimeType: cleanMimeType });
 
     const { error: uploadError } = await supabase.storage
       .from("whatsapp-media")
       .upload(storagePath, bytes, {
-        contentType: mimeType,
+        contentType: cleanMimeType,
         upsert: true,
       });
 
@@ -323,8 +334,8 @@ async function saveMediaToStorage(
       return null;
     }
 
-    // Generate proxy URL (more secure than signed URL)
-    const proxyUrl = await generateMediaProxyUrl(storagePath, 60 * 60 * 24 * 365, mimeType);
+    // Generate proxy URL (more secure than signed URL) - usar o mimeType limpo
+    const proxyUrl = await generateMediaProxyUrl(storagePath, 60 * 60 * 24 * 365, cleanMimeType);
     console.log("✅ Media saved:", proxyUrl.substring(0, 80) + "...");
     return proxyUrl;
   } catch (error) {

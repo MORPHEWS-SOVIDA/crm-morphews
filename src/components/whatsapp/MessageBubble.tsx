@@ -100,9 +100,17 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               <audio 
                 controls 
                 className="w-full h-10"
-                onError={() => setAudioError(true)}
+                onError={(e) => {
+                  console.error("Audio load error:", message.media_url);
+                  setAudioError(true);
+                }}
+                preload="metadata"
               >
-                <source src={message.media_url} />
+                {/* Múltiplos formatos para compatibilidade */}
+                <source src={message.media_url} type="audio/ogg" />
+                <source src={message.media_url} type="audio/mpeg" />
+                <source src={message.media_url} type="audio/webm" />
+                <source src={message.media_url} type="audio/mp4" />
                 Seu navegador não suporta áudio.
               </audio>
             ) : (
