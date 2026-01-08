@@ -214,12 +214,16 @@ export default function AllDeliveries() {
 
   const getStatusBadge = (status: string) => {
     switch(status) {
+      case 'draft':
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Rascunho</Badge>;
       case 'dispatched':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Pendente</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Despachado</Badge>;
       case 'delivered':
         return <Badge className="bg-green-500 text-white">Entregue</Badge>;
       case 'returned':
         return <Badge variant="destructive">Voltou</Badge>;
+      case 'payment_confirmed':
+        return <Badge className="bg-purple-500 text-white">Pago</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -332,7 +336,8 @@ export default function AllDeliveries() {
     );
   }
 
-  const pendingCount = filteredDeliveries.filter(d => d.status === 'dispatched').length;
+  const draftCount = filteredDeliveries.filter(d => d.status === 'draft').length;
+  const dispatchedCount = filteredDeliveries.filter(d => d.status === 'dispatched').length;
   const deliveredCount = filteredDeliveries.filter(d => d.status === 'delivered').length;
   const returnedCount = filteredDeliveries.filter(d => d.status === 'returned').length;
 
@@ -361,22 +366,28 @@ export default function AllDeliveries() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2">
+          <Card className="bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800">
+            <CardContent className="p-3 text-center">
+              <p className="text-xl font-bold text-gray-700 dark:text-gray-300">{draftCount}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Rascunho</p>
+            </CardContent>
+          </Card>
           <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
             <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{pendingCount}</p>
-              <p className="text-xs text-blue-600 dark:text-blue-400">Pendentes</p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{dispatchedCount}</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400">Despachado</p>
             </CardContent>
           </Card>
           <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
             <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-green-700 dark:text-green-300">{deliveredCount}</p>
+              <p className="text-xl font-bold text-green-700 dark:text-green-300">{deliveredCount}</p>
               <p className="text-xs text-green-600 dark:text-green-400">Entregues</p>
             </CardContent>
           </Card>
           <Card className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
             <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-red-700 dark:text-red-300">{returnedCount}</p>
+              <p className="text-xl font-bold text-red-700 dark:text-red-300">{returnedCount}</p>
               <p className="text-xs text-red-600 dark:text-red-400">Voltaram</p>
             </CardContent>
           </Card>
@@ -443,7 +454,8 @@ export default function AllDeliveries() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="dispatched">Pendente</SelectItem>
+                    <SelectItem value="draft">Rascunho</SelectItem>
+                    <SelectItem value="dispatched">Despachado</SelectItem>
                     <SelectItem value="delivered">Entregue</SelectItem>
                     <SelectItem value="returned">Voltou</SelectItem>
                   </SelectContent>
