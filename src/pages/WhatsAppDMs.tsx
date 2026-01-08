@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
 import { InstancePermissions } from "@/components/whatsapp/InstancePermissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
 
 // Status mapping for human-readable display
 type InstanceStatus = "connected" | "waiting_qr" | "disconnected" | "error";
@@ -48,6 +49,9 @@ interface EvolutionInstance {
 export default function WhatsAppDMs() {
   const { profile, isAdmin, user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Hook para adicionar instância manual
+  const { addManualInstance } = useEvolutionInstances();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState("");
@@ -69,6 +73,13 @@ export default function WhatsAppDMs() {
   
   // Ver todas as conversas (todas as instâncias)
   const [viewAllConversations, setViewAllConversations] = useState(false);
+  
+  // Dialog para adicionar instância manualmente
+  const [showManualDialog, setShowManualDialog] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualInstanceId, setManualInstanceId] = useState("");
+  const [manualToken, setManualToken] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -395,7 +406,7 @@ export default function WhatsAppDMs() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               onClick={() => setViewAllConversations(true)}
               variant="outline"
@@ -403,6 +414,15 @@ export default function WhatsAppDMs() {
             >
               <MessageSquare className="h-4 w-4" />
               Ver Todas as Conversas
+            </Button>
+            
+            <Button 
+              onClick={() => setShowManualDialog(true)}
+              variant="outline"
+              className="gap-2"
+            >
+              <Settings2 className="h-4 w-4" />
+              Adicionar Manualmente
             </Button>
 
             <Button 
@@ -451,6 +471,102 @@ export default function WhatsAppDMs() {
               >
                 {isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Criar Instância
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manual Instance Dialog */}
+        <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-primary" />
+                Adicionar Instância Existente
+              </DialogTitle>
+              <DialogDescription>
+                Adicione uma instância que já existe no Evolution API. Útil para conectar instâncias já configuradas em outros sistemas.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="manual-name">Nome de Exibição</Label>
+                <Input
+                  id="manual-name"
+                  placeholder="Ex: Vendas, Suporte..."
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Nome amigável para identificar a instância</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="manual-instance-id">ID da Instância (Evolution) *</Label>
+                <Input
+                  id="manual-instance-id"
+                  placeholder="Ex: minhainstancia123"
+                  value={manualInstanceId}
+                  onChange={(e) => setManualInstanceId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">O nome/ID da instância no Evolution API (campo instanceName)</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="manual-token">Token da API (opcional)</Label>
+                <Input
+                  id="manual-token"
+                  placeholder="Token da instância"
+                  value={manualToken}
+                  onChange={(e) => setManualToken(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Token específico da instância, se houver</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="manual-phone">Número do WhatsApp (opcional)</Label>
+                <Input
+                  id="manual-phone"
+                  placeholder="Ex: 5511999999999"
+                  value={manualPhone}
+                  onChange={(e) => setManualPhone(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Número conectado (sem @s.whatsapp.net)</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowManualDialog(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={async () => {
+                  if (!manualInstanceId.trim()) {
+                    toast({ title: "O ID da instância é obrigatório", variant: "destructive" });
+                    return;
+                  }
+                  try {
+                    await addManualInstance.mutateAsync({
+                      name: manualName.trim() || manualInstanceId.trim(),
+                      evolution_instance_id: manualInstanceId.trim(),
+                      evolution_api_token: manualToken.trim() || undefined,
+                      phone_number: manualPhone.trim() || undefined,
+                    });
+                    setManualName("");
+                    setManualInstanceId("");
+                    setManualToken("");
+                    setManualPhone("");
+                    setShowManualDialog(false);
+                    refetch();
+                  } catch (e: any) {
+                    toast({ title: "Erro ao adicionar", description: e.message, variant: "destructive" });
+                  }
+                }}
+                disabled={!manualInstanceId.trim() || addManualInstance.isPending}
+              >
+                {addManualInstance.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Adicionar Instância
               </Button>
             </div>
           </DialogContent>
