@@ -362,53 +362,59 @@ serve(async (req) => {
 
       const organizationId = instance.organization_id;
 
-      // Buscar ou criar conversa
+      // Buscar conversa existente pelo phone_number + organization_id (constraint única)
+      // NÃO filtrar por instance_id pois a constraint é (org_id + phone_number)
       let { data: conversation } = await supabase
         .from("whatsapp_conversations")
-        .select("id")
+        .select("id, unread_count, instance_id")
         .eq("organization_id", organizationId)
-        .eq("instance_id", instance.id)
         .eq("phone_number", fromPhone)
         .single();
 
       if (!conversation) {
+        // Criar nova conversa
         const { data: newConvo, error: convoError } = await supabase
           .from("whatsapp_conversations")
           .insert({
             organization_id: organizationId,
             instance_id: instance.id,
+            current_instance_id: instance.id,
             phone_number: fromPhone,
             sendable_phone: fromPhone,
             customer_phone_e164: fromPhone,
             contact_name: pushName || `+${fromPhone}`,
-            chat_id: remoteJid, // Salvar JID para envio
+            chat_id: remoteJid,
             last_message_at: new Date().toISOString(),
             unread_count: 1,
           })
-          .select()
+          .select("id, unread_count, instance_id")
           .single();
 
         if (convoError) {
           console.error("Error creating conversation:", convoError);
         } else {
           conversation = newConvo;
+          console.log("Created new conversation:", conversation?.id);
         }
       } else {
-        // Atualizar conversa existente - incrementar unread_count
-        const { data: currentConvo } = await supabase
-          .from("whatsapp_conversations")
-          .select("unread_count")
-          .eq("id", conversation.id)
-          .single();
+        // Atualizar conversa existente
+        // Se a mensagem veio de outra instância, atualizar current_instance_id
+        const updateData: any = {
+          last_message_at: new Date().toISOString(),
+          unread_count: (conversation.unread_count || 0) + 1,
+          chat_id: remoteJid,
+          current_instance_id: instance.id, // Atualizar instância atual
+        };
 
+        // Se a conversa foi criada em outra instância, manter a original mas usar current
+        // Isso permite que o cliente responda pela instância mais recente
+        
         await supabase
           .from("whatsapp_conversations")
-          .update({
-            last_message_at: new Date().toISOString(),
-            unread_count: (currentConvo?.unread_count || 0) + 1,
-            chat_id: remoteJid,
-          })
+          .update(updateData)
           .eq("id", conversation.id);
+        
+        console.log("Updated conversation:", conversation.id, "from instance:", instance.id);
       }
 
       // Processar mídia se houver
