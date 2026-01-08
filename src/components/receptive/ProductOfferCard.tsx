@@ -333,22 +333,6 @@ export function ProductOfferCard({
                 ))}
               </div>
               
-              {!questionsCompleted && (
-                <div className="mt-4">
-                  <Button 
-                    onClick={() => setQuestionsCompleted(true)}
-                    className="w-full"
-                    disabled={productQuestions.some(q => !dynamicAnswers[q.id]?.trim())}
-                  >
-                    Perguntas Respondidas - Ver Preços
-                  </Button>
-                  {productQuestions.some(q => !dynamicAnswers[q.id]?.trim()) && (
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                      Responda todas as perguntas para ver os preços
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
           </>
         ) : null}
@@ -437,9 +421,8 @@ export function ProductOfferCard({
           </>
         )}
 
-        {/* Kit Selection - Show ALL available kits - Only show after questions are completed */}
-        {product.category !== 'manipulado' && availableKits.length > 0 && !allKitsRejected && 
-         (productQuestions.length === 0 || questionsCompleted) && (
+        {/* Kit Selection - Show ALL available kits - Always visible alongside questions */}
+        {product.category !== 'manipulado' && availableKits.length > 0 && !allKitsRejected && (
           <>
             <Separator />
             <div className="space-y-4">
