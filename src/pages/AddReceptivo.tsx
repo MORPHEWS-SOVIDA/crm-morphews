@@ -228,6 +228,7 @@ export default function AddReceptivo() {
   const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
   const [sellerUserId, setSellerUserId] = useState<string | null>(null);
   const [purchasePotential, setPurchasePotential] = useState<number>(0);
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
 
   const currentProduct = products.find(p => p.id === currentProductId);
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
@@ -1979,6 +1980,36 @@ export default function AddReceptivo() {
                   </Button>
                 </div>
               </div>
+
+              {/* Payment Proof Upload - Only when "Já pagou" */}
+              {paymentStatus === 'paid_now' && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Comprovante de Pagamento
+                  </Label>
+                  <Input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPaymentProofFile(file);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  />
+                  {paymentProofFile && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      {paymentProofFile.name}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Anexe uma foto ou PDF do comprovante (opcional)
+                  </p>
+                </div>
+              )}
 
               {/* Order Summary */}
               <div className="p-4 rounded-lg bg-primary/10 space-y-2">
