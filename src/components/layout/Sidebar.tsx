@@ -108,7 +108,8 @@ export function Sidebar() {
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },
     
     // Reports
-    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas', visible: canSeeReports },
+    { icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas', visible: canSeeReports },
+    { icon: FileText, label: 'Relatório Expedição', path: '/relatorios/expedicao', visible: canSeeSales },
     
     // Deliveries
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries },

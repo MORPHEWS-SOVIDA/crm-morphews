@@ -350,6 +350,14 @@ export default function AllDeliveries() {
               Acompanhe todas as entregas em tempo real
             </p>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/relatorios/expedicao')}
+            className="hidden sm:flex"
+          >
+            <Package className="w-4 h-4 mr-2" />
+            Relatório Expedição
+          </Button>
         </div>
 
         {/* Summary Cards */}
