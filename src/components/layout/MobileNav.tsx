@@ -53,16 +53,18 @@ export function MobileNav() {
   const canSeeSales = isAdmin || permissions?.sales_view;
   const canSeeProducts = isAdmin || permissions?.products_view;
   const canSeeSettings = isAdmin || permissions?.settings_view;
-  const canSeeReports = isAdmin || permissions?.reports_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeAllDeliveries = permissions?.deliveries_view_all;
   const canSeeReceptive = receptiveAccess?.hasAccess;
   const canSeeFinanceiro = isAdmin || permissions?.reports_view || permissions?.sales_confirm_payment;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
+  const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
   const canSeeTeam = isAdmin || permissions?.team_view;
   const canSeeInstagram = isAdmin || permissions?.instagram_view;
   const canSeePostSale = isAdmin || permissions?.post_sale_view;
   const canSeeSac = isAdmin || permissions?.sac_view;
+  const canSeeSalesReport = isAdmin || permissions?.sales_report_view;
+  const canSeeExpeditionReport = isAdmin || permissions?.expedition_report_view;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
@@ -89,12 +91,13 @@ export function MobileNav() {
     { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale },
     { icon: TicketCheck, label: 'SAC', path: '/sac', visible: canSeeSac },
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },
-    { icon: FileText, label: 'Relatórios', path: '/relatorios/vendas', visible: canSeeReports },
+    { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport },
+    { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport },
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries },
     { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries },
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsAppDMs },
     { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsAppDMs && isAdmin },
-    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsApp },
+    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsAppV2 },
     { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro', visible: isAdmin },
     { icon: ShoppingCart, label: 'Interessados', path: '/interessados', visible: isAdmin },
     { icon: Crown, label: 'Super Admin', path: '/super-admin', visible: isMasterAdmin },

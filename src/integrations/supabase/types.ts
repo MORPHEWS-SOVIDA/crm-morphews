@@ -4338,6 +4338,7 @@ export type Database = {
           created_at: string
           deliveries_view_all: boolean
           deliveries_view_own: boolean
+          expedition_report_view: boolean | null
           id: string
           instagram_view: boolean
           leads_create: boolean
@@ -4360,6 +4361,7 @@ export type Database = {
           sales_dispatch: boolean
           sales_edit_draft: boolean
           sales_mark_delivered: boolean
+          sales_report_view: boolean | null
           sales_validate_expedition: boolean
           sales_view: boolean
           sales_view_all: boolean
@@ -4379,12 +4381,14 @@ export type Database = {
           updated_at: string
           user_id: string
           whatsapp_send: boolean
+          whatsapp_v2_view: boolean | null
           whatsapp_view: boolean
         }
         Insert: {
           created_at?: string
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
+          expedition_report_view?: boolean | null
           id?: string
           instagram_view?: boolean
           leads_create?: boolean
@@ -4407,6 +4411,7 @@ export type Database = {
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
           sales_mark_delivered?: boolean
+          sales_report_view?: boolean | null
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
@@ -4426,12 +4431,14 @@ export type Database = {
           updated_at?: string
           user_id: string
           whatsapp_send?: boolean
+          whatsapp_v2_view?: boolean | null
           whatsapp_view?: boolean
         }
         Update: {
           created_at?: string
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
+          expedition_report_view?: boolean | null
           id?: string
           instagram_view?: boolean
           leads_create?: boolean
@@ -4454,6 +4461,7 @@ export type Database = {
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
           sales_mark_delivered?: boolean
+          sales_report_view?: boolean | null
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
@@ -4473,6 +4481,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           whatsapp_send?: boolean
+          whatsapp_v2_view?: boolean | null
           whatsapp_view?: boolean
         }
         Relationships: [

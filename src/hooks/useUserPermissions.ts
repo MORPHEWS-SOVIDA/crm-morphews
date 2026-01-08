@@ -29,6 +29,7 @@ export interface UserPermissions {
   // WhatsApp
   whatsapp_view: boolean;
   whatsapp_send: boolean;
+  whatsapp_v2_view: boolean;
   
   // Products & Settings
   products_view: boolean;
@@ -49,6 +50,8 @@ export interface UserPermissions {
   
   // Reports
   reports_view: boolean;
+  sales_report_view: boolean;
+  expedition_report_view: boolean;
   
   // Deliveries
   deliveries_view_own: boolean;
@@ -96,8 +99,10 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   reports_view: { label: 'Ver Financeiro', description: 'Acessar módulo financeiro e relatórios', group: 'Financeiro' },
   sales_confirm_payment: { label: 'Confirmar Pagamento', description: 'Marcar recebimentos como pagos', group: 'Financeiro' },
   
-  whatsapp_view: { label: 'Ver WhatsApp', description: 'Ver conversas do WhatsApp', group: 'WhatsApp' },
+  // WhatsApp - separado 1.0 e 2.0
+  whatsapp_view: { label: 'WhatsApp 1.0 (DMs)', description: 'Acessar Chat WhatsApp 1.0', group: 'WhatsApp' },
   whatsapp_send: { label: 'Enviar Mensagens', description: 'Enviar mensagens pelo WhatsApp', group: 'WhatsApp' },
+  whatsapp_v2_view: { label: 'WhatsApp 2.0', description: 'Acessar WhatsApp 2.0 (novo)', group: 'WhatsApp' },
   
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
   products_manage: { label: 'Gerenciar Produtos', description: 'Criar/editar/excluir produtos', group: 'Produtos' },
@@ -113,6 +118,10 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   settings_standard_questions: { label: 'Perguntas Padrão', description: 'Gerenciar perguntas padrão', group: 'Configurações' },
   settings_teams: { label: 'Times', description: 'Gerenciar times da organização', group: 'Configurações' },
   settings_lead_sources: { label: 'Origens de Lead', description: 'Gerenciar origens de lead', group: 'Configurações' },
+  
+  // Relatórios separados
+  sales_report_view: { label: 'Relatório de Vendas', description: 'Ver relatório de vendas', group: 'Relatórios' },
+  expedition_report_view: { label: 'Relatório de Expedição', description: 'Ver relatório de expedição/romaneio', group: 'Relatórios' },
   
   deliveries_view_own: { label: 'Ver Minhas Entregas', description: 'Ver entregas atribuídas a mim', group: 'Entregas' },
   deliveries_view_all: { label: 'Ver Todas Entregas', description: 'Ver todas as entregas', group: 'Entregas' },
@@ -136,7 +145,7 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   scheduled_messages_manage: { label: 'Gerenciar Mensagens Agendadas', description: 'Cancelar e reagendar mensagens', group: 'Mensagens' },
 };
 
-export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens'];
+export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens'];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {
@@ -304,6 +313,7 @@ export function useApplyRoleDefaults() {
           sales_cancel: permsObj.sales_cancel ?? false,
           whatsapp_view: permsObj.whatsapp_view ?? true,
           whatsapp_send: permsObj.whatsapp_send ?? false,
+          whatsapp_v2_view: permsObj.whatsapp_v2_view ?? false,
           products_view: permsObj.products_view ?? true,
           products_manage: permsObj.products_manage ?? false,
           products_view_cost: permsObj.products_view_cost ?? false,
@@ -318,6 +328,8 @@ export function useApplyRoleDefaults() {
           settings_teams: permsObj.settings_teams ?? false,
           settings_lead_sources: permsObj.settings_lead_sources ?? false,
           reports_view: permsObj.reports_view ?? false,
+          sales_report_view: permsObj.sales_report_view ?? false,
+          expedition_report_view: permsObj.expedition_report_view ?? false,
           deliveries_view_own: permsObj.deliveries_view_own ?? false,
           deliveries_view_all: permsObj.deliveries_view_all ?? false,
           receptive_module_access: permsObj.receptive_module_access ?? false,
@@ -327,6 +339,8 @@ export function useApplyRoleDefaults() {
           post_sale_manage: permsObj.post_sale_manage ?? false,
           sac_view: permsObj.sac_view ?? false,
           sac_manage: permsObj.sac_manage ?? false,
+          scheduled_messages_view: permsObj.scheduled_messages_view ?? false,
+          scheduled_messages_manage: permsObj.scheduled_messages_manage ?? false,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'organization_id,user_id',
