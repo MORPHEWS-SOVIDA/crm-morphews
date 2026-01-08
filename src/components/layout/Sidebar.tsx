@@ -22,6 +22,7 @@ import {
   Trophy,
   TicketCheck,
   Send,
+  Scale,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -200,7 +201,14 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-sidebar-border space-y-3">
+          <div className="p-4 border-t border-sidebar-border space-y-2">
+            <NavLink
+              to="/legal"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent/50 transition-colors"
+            >
+              <Scale className="w-4 h-4" />
+              Termos e Privacidade
+            </NavLink>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
