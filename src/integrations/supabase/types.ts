@@ -1158,6 +1158,102 @@ export type Database = {
           },
         ]
       }
+      lead_scheduled_messages: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          failure_reason: string | null
+          final_message: string
+          id: string
+          lead_id: string
+          organization_id: string
+          original_scheduled_at: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+          whatsapp_instance_id: string | null
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          failure_reason?: string | null
+          final_message: string
+          id?: string
+          lead_id: string
+          organization_id: string
+          original_scheduled_at: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          whatsapp_instance_id?: string | null
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          failure_reason?: string | null
+          final_message?: string
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          original_scheduled_at?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          whatsapp_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_scheduled_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scheduled_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scheduled_messages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "non_purchase_message_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scheduled_messages_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scheduled_messages_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_source_history: {
         Row: {
           id: string
@@ -1540,6 +1636,80 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      non_purchase_message_templates: {
+        Row: {
+          created_at: string
+          delay_minutes: number
+          id: string
+          is_active: boolean
+          message_template: string
+          non_purchase_reason_id: string
+          organization_id: string
+          position: number
+          send_end_hour: number | null
+          send_start_hour: number | null
+          updated_at: string
+          whatsapp_instance_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          is_active?: boolean
+          message_template: string
+          non_purchase_reason_id: string
+          organization_id: string
+          position?: number
+          send_end_hour?: number | null
+          send_start_hour?: number | null
+          updated_at?: string
+          whatsapp_instance_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          is_active?: boolean
+          message_template?: string
+          non_purchase_reason_id?: string
+          organization_id?: string
+          position?: number
+          send_end_hour?: number | null
+          send_start_hour?: number | null
+          updated_at?: string
+          whatsapp_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "non_purchase_message_templates_non_purchase_reason_id_fkey"
+            columns: ["non_purchase_reason_id"]
+            isOneToOne: false
+            referencedRelation: "non_purchase_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "non_purchase_message_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "non_purchase_message_templates_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "non_purchase_message_templates_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
         ]
@@ -4122,6 +4292,8 @@ export type Database = {
           sales_validate_expedition: boolean
           sales_view: boolean
           sales_view_all: boolean
+          scheduled_messages_manage: boolean
+          scheduled_messages_view: boolean
           settings_carriers: boolean
           settings_delivery_regions: boolean
           settings_funnel_stages: boolean
@@ -4167,6 +4339,8 @@ export type Database = {
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
+          scheduled_messages_manage?: boolean
+          scheduled_messages_view?: boolean
           settings_carriers?: boolean
           settings_delivery_regions?: boolean
           settings_funnel_stages?: boolean
@@ -4212,6 +4386,8 @@ export type Database = {
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
+          scheduled_messages_manage?: boolean
+          scheduled_messages_view?: boolean
           settings_carriers?: boolean
           settings_delivery_regions?: boolean
           settings_funnel_stages?: boolean
