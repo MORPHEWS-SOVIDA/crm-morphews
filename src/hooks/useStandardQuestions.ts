@@ -159,8 +159,14 @@ export function useUpsertLeadStandardAnswers() {
       toast.success('Respostas salvas com sucesso');
     },
     onError: (error) => {
+      const message =
+        (error as any)?.message ||
+        (error as any)?.error_description ||
+        (error as any)?.details ||
+        'Erro ao salvar respostas';
+
       console.error('Error upserting answers:', error);
-      toast.error('Erro ao salvar respostas');
+      toast.error(message);
     }
   });
 }
