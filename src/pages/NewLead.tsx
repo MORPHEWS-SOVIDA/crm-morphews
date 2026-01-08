@@ -4,7 +4,7 @@ import { ArrowLeft, Save, Loader2, Plus, MapPin, Info } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { MultiSelect } from '@/components/MultiSelect';
-import { DuplicateWhatsAppDialog } from '@/components/DuplicateWhatsAppDialog';
+import { LeadTransferDialog } from '@/components/LeadTransferDialog';
 import { LeadAddressForm } from '@/components/leads/LeadAddressForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,7 @@ import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useCreateLeadAddress, LeadAddress } from '@/hooks/useLeadAddresses';
 import { leadSchema } from '@/lib/validations';
 import { toast } from '@/hooks/use-toast';
-import { checkDuplicateWhatsApp, DuplicateLeadInfo } from '@/hooks/useCheckDuplicateWhatsApp';
+import { checkLeadExistsForOtherUser, ExistingLeadWithOwner } from '@/hooks/useLeadOwnership';
 
 export default function NewLead() {
   const navigate = useNavigate();
@@ -41,8 +41,8 @@ export default function NewLead() {
   const { data: leadProducts = [] } = useLeadProducts();
   const createAddress = useCreateLeadAddress();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [duplicateLead, setDuplicateLead] = useState<DuplicateLeadInfo | null>(null);
-  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [existingLeadForTransfer, setExistingLeadForTransfer] = useState<ExistingLeadWithOwner | null>(null);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
   
   // Address management state
   const [pendingAddresses, setPendingAddresses] = useState<Omit<LeadAddress, 'id' | 'lead_id' | 'organization_id' | 'created_at' | 'updated_at'>[]>([]);
@@ -166,11 +166,11 @@ export default function NewLead() {
       return;
     }
 
-    // Check for duplicate WhatsApp in the same organization
-    const duplicate = await checkDuplicateWhatsApp(formData.whatsapp.trim());
-    if (duplicate) {
-      setDuplicateLead(duplicate);
-      setShowDuplicateDialog(true);
+    // Check if lead exists for another user (for transfer option)
+    const existingLead = await checkLeadExistsForOtherUser(formData.whatsapp.trim());
+    if (existingLead) {
+      setExistingLeadForTransfer(existingLead);
+      setShowTransferDialog(true);
       return;
     }
     
@@ -240,10 +240,11 @@ export default function NewLead() {
 
   return (
     <Layout>
-      <DuplicateWhatsAppDialog
-        open={showDuplicateDialog}
-        onOpenChange={setShowDuplicateDialog}
-        duplicateLead={duplicateLead}
+      <LeadTransferDialog
+        open={showTransferDialog}
+        onOpenChange={setShowTransferDialog}
+        existingLead={existingLeadForTransfer}
+        reason="cadastro"
       />
       <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
         {/* Header */}

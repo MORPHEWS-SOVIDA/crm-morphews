@@ -38,6 +38,7 @@ import { LeadFollowupsSection } from '@/components/leads/LeadFollowupsSection';
 import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHistorySection';
 import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
 import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMessagesSection';
+import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -618,6 +619,15 @@ export default function LeadDetail() {
 
             {/* Stage History Timeline */}
             <LeadStageTimeline leadId={id!} currentStage={lead.stage} />
+
+            {/* Ownership History */}
+            <div className="bg-card rounded-xl p-6 shadow-card">
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-muted-foreground" />
+                Histórico de Responsáveis
+              </h2>
+              <LeadOwnershipHistory leadId={id!} />
+            </div>
           </div>
 
           {/* Right Column - Financial & Actions */}
