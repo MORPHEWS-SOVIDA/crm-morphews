@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,11 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Send, 
-  Search, 
-  MessageSquare, 
-  User, 
+import {
+  Send,
+  Search,
+  MessageSquare,
+  User,
   Phone,
   Star,
   ExternalLink,
@@ -21,7 +21,8 @@ import {
   ArrowLeft,
   RefreshCw,
   Link,
-  Settings
+  Settings,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -97,12 +98,14 @@ export default function WhatsAppChat() {
   const [selectedImageMime, setSelectedImageMime] = useState<string | null>(null);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [pendingAudio, setPendingAudio] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [pendingDocument, setPendingDocument] = useState<{ base64: string; mimeType: string; fileName: string } | null>(null);
   
   // Dialog state
   const [showLeadDialog, setShowLeadDialog] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch instances user has access to (incluindo desconectadas)
   useEffect(() => {
@@ -314,24 +317,29 @@ export default function WhatsAppChat() {
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !selectedImage && !pendingAudio) || !selectedConversation || !selectedInstance) return;
+    if ((!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument) || !selectedConversation || !selectedInstance) return;
     
     const messageText = newMessage.trim();
     const imageToSend = selectedImage;
     const audioToSend = pendingAudio;
+    const documentToSend = pendingDocument;
     
     // Clear inputs
     setNewMessage('');
     setSelectedImage(null);
     setSelectedImageMime(null);
     setPendingAudio(null);
+    setPendingDocument(null);
     setIsSending(true);
     
     // Determine message type
     let messageType = 'text';
-    let mediaUrl = null;
+    let mediaUrl: string | null = null;
     
-    if (audioToSend) {
+    if (documentToSend) {
+      messageType = 'document';
+      mediaUrl = documentToSend.base64;
+    } else if (audioToSend) {
       messageType = 'audio';
       mediaUrl = audioToSend.base64;
     } else if (imageToSend) {
@@ -368,7 +376,11 @@ export default function WhatsAppChat() {
         content: messageText || '',
       };
 
-      if (audioToSend) {
+      if (documentToSend) {
+        body.mediaUrl = documentToSend.base64;
+        body.mediaCaption = messageText || documentToSend.fileName;
+        body.mediaMimeType = documentToSend.mimeType;
+      } else if (audioToSend) {
         body.mediaUrl = audioToSend.base64;
       } else if (imageToSend) {
         body.mediaUrl = imageToSend;
@@ -434,6 +446,43 @@ export default function WhatsAppChat() {
     setPendingAudio({ base64, mimeType });
   };
 
+  const handleDocumentSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'text/csv',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Arquivo inválido. Envie PDF, DOC/DOCX, XLS/XLSX, TXT ou CSV.');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 20MB.');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setPendingDocument({ base64, mimeType: file.type, fileName: file.name });
+    };
+    reader.onerror = () => toast.error('Erro ao ler o arquivo.');
+    reader.readAsDataURL(file);
+
+    e.target.value = '';
+  };
+
   const clearSelectedImage = () => {
     setSelectedImage(null);
     setSelectedImageMime(null);
@@ -441,6 +490,10 @@ export default function WhatsAppChat() {
 
   const clearPendingAudio = () => {
     setPendingAudio(null);
+  };
+
+  const clearPendingDocument = () => {
+    setPendingDocument(null);
   };
 
   // Lead management
@@ -639,7 +692,7 @@ export default function WhatsAppChat() {
               </ScrollArea>
 
               {/* Media Preview */}
-              {(selectedImage || pendingAudio) && (
+              {(selectedImage || pendingAudio || pendingDocument) && (
                 <div className="px-4 py-2 border-t border-border bg-card">
                   <div className="flex items-center gap-3">
                     {selectedImage && (
@@ -676,6 +729,22 @@ export default function WhatsAppChat() {
                         </Button>
                       </>
                     )}
+                    {pendingDocument && (
+                      <>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm truncate max-w-[220px]">{pendingDocument.fileName}</span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={clearPendingDocument}
+                          className="ml-auto"
+                        >
+                          Remover
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -689,6 +758,21 @@ export default function WhatsAppChat() {
                     isUploading={false}
                     selectedImage={null}
                     onClear={clearSelectedImage}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => documentInputRef.current?.click()}
+                    className="inline-flex items-center justify-center rounded-md h-9 w-9 border border-border bg-background hover:bg-accent"
+                    title="Enviar documento"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
+                  <input
+                    ref={documentInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+                    onChange={handleDocumentSelect}
                   />
                   <AudioRecorder 
                     onAudioReady={handleAudioReady}
@@ -711,7 +795,7 @@ export default function WhatsAppChat() {
                   />
                   <Button 
                     onClick={sendMessage} 
-                    disabled={isSending || isRecordingAudio || (!newMessage.trim() && !selectedImage && !pendingAudio)}
+                    disabled={isSending || isRecordingAudio || (!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument)}
                     size="icon"
                     className="bg-green-600 hover:bg-green-700 h-9 w-9"
                   >

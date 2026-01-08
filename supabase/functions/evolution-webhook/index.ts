@@ -447,7 +447,9 @@ serve(async (req) => {
             media_url: savedMediaUrl,
             media_caption: msgData.mediaCaption,
             direction: "inbound",
-            status: "received",
+            // A constraint só permite: sent, delivered, read, failed
+            // Para mensagens recebidas, usamos "delivered".
+            status: "delivered",
             is_from_bot: false,
             provider: "evolution",
             provider_message_id: waMessageId,
