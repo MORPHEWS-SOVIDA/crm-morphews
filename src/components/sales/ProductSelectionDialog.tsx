@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { 
@@ -530,16 +531,77 @@ export function ProductSelectionDialog({
                     {productQuestions.map((question) => (
                       <div key={question.id} className="space-y-1">
                         <Label className="text-xs">{question.question_text}</Label>
-                        <Textarea
-                          value={answerValues[question.id] || ''}
-                          onChange={(e) => {
-                            setAnswerValues(prev => ({ ...prev, [question.id]: e.target.value }));
-                            setAnswersModified(true);
-                          }}
-                          placeholder="Resposta do cliente..."
-                          rows={2}
-                          className="text-sm"
-                        />
+                        
+                        {/* Render based on question type */}
+                        {question.question_type === 'multiple_choice' && question.options && question.options.length > 0 ? (
+                          <div className="space-y-2 pl-2">
+                            {question.options.map((option) => {
+                              const selectedIds = (answerValues[question.id] || '').split(',').filter(Boolean);
+                              const isChecked = selectedIds.includes(option.id);
+                              return (
+                                <div key={option.id} className="flex items-center gap-2">
+                                  <Checkbox
+                                    id={`sales-${question.id}-${option.id}`}
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => {
+                                      let newSelectedIds = [...selectedIds];
+                                      if (checked) {
+                                        newSelectedIds.push(option.id);
+                                      } else {
+                                        newSelectedIds = newSelectedIds.filter(id => id !== option.id);
+                                      }
+                                      setAnswerValues(prev => ({ ...prev, [question.id]: newSelectedIds.join(',') }));
+                                      setAnswersModified(true);
+                                    }}
+                                  />
+                                  <Label htmlFor={`sales-${question.id}-${option.id}`} className="text-xs font-normal cursor-pointer">
+                                    {option.option_text}
+                                  </Label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : question.question_type === 'single_choice' && question.options && question.options.length > 0 ? (
+                          <RadioGroup
+                            value={answerValues[question.id] || ''}
+                            onValueChange={(value) => {
+                              setAnswerValues(prev => ({ ...prev, [question.id]: value }));
+                              setAnswersModified(true);
+                            }}
+                            className="pl-2"
+                          >
+                            {question.options.map((option) => (
+                              <div key={option.id} className="flex items-center gap-2">
+                                <RadioGroupItem value={option.id} id={`sales-${question.id}-${option.id}`} />
+                                <Label htmlFor={`sales-${question.id}-${option.id}`} className="text-xs font-normal cursor-pointer">
+                                  {option.option_text}
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        ) : question.question_type === 'number' ? (
+                          <Input
+                            type="number"
+                            value={answerValues[question.id] || ''}
+                            onChange={(e) => {
+                              setAnswerValues(prev => ({ ...prev, [question.id]: e.target.value }));
+                              setAnswersModified(true);
+                            }}
+                            placeholder="Digite o valor..."
+                            className="text-sm max-w-xs"
+                          />
+                        ) : (
+                          <Textarea
+                            value={answerValues[question.id] || ''}
+                            onChange={(e) => {
+                              setAnswerValues(prev => ({ ...prev, [question.id]: e.target.value }));
+                              setAnswersModified(true);
+                            }}
+                            placeholder="Resposta do cliente..."
+                            rows={2}
+                            className="text-sm"
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
