@@ -839,6 +839,57 @@ export type Database = {
           },
         ]
       }
+      lead_ownership_transfers: {
+        Row: {
+          created_at: string
+          from_user_id: string | null
+          id: string
+          lead_id: string
+          notes: string | null
+          organization_id: string
+          to_user_id: string
+          transfer_reason: string
+          transferred_by: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id?: string | null
+          id?: string
+          lead_id: string
+          notes?: string | null
+          organization_id: string
+          to_user_id: string
+          transfer_reason: string
+          transferred_by: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string | null
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          organization_id?: string
+          to_user_id?: string
+          transfer_reason?: string
+          transferred_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_ownership_transfers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ownership_transfers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_product_answers: {
         Row: {
           answer_1: string | null
@@ -4345,6 +4396,7 @@ export type Database = {
           leads_delete: boolean
           leads_edit: boolean
           leads_view: boolean
+          leads_view_only_own: boolean
           organization_id: string
           post_sale_manage: boolean
           post_sale_view: boolean
@@ -4395,6 +4447,7 @@ export type Database = {
           leads_delete?: boolean
           leads_edit?: boolean
           leads_view?: boolean
+          leads_view_only_own?: boolean
           organization_id: string
           post_sale_manage?: boolean
           post_sale_view?: boolean
@@ -4445,6 +4498,7 @@ export type Database = {
           leads_delete?: boolean
           leads_edit?: boolean
           leads_view?: boolean
+          leads_view_only_own?: boolean
           organization_id?: string
           post_sale_manage?: boolean
           post_sale_view?: boolean

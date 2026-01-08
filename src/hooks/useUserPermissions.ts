@@ -11,6 +11,7 @@ export interface UserPermissions {
   
   // Leads
   leads_view: boolean;
+  leads_view_only_own: boolean;
   leads_create: boolean;
   leads_edit: boolean;
   leads_delete: boolean;
@@ -82,6 +83,7 @@ export interface UserPermissions {
 
 export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>, { label: string; description: string; group: string }> = {
   leads_view: { label: 'Ver Leads', description: 'Visualizar leads da empresa', group: 'Leads' },
+  leads_view_only_own: { label: 'Ver Somente Seus Leads', description: 'Limitar visibilidade apenas aos leads que é responsável', group: 'Leads' },
   leads_create: { label: 'Criar Leads', description: 'Criar novos leads', group: 'Leads' },
   leads_edit: { label: 'Editar Leads', description: 'Editar dados de leads', group: 'Leads' },
   leads_delete: { label: 'Excluir Leads', description: 'Remover leads', group: 'Leads' },
@@ -299,6 +301,7 @@ export function useApplyRoleDefaults() {
           organization_id: tenantId,
           user_id: userId,
           leads_view: permsObj.leads_view ?? true,
+          leads_view_only_own: permsObj.leads_view_only_own ?? false,
           leads_create: permsObj.leads_create ?? true,
           leads_edit: permsObj.leads_edit ?? true,
           leads_delete: permsObj.leads_delete ?? false,
