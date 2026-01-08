@@ -69,6 +69,10 @@ export interface UserPermissions {
   sac_view: boolean;
   sac_manage: boolean;
   
+  // Scheduled Messages
+  scheduled_messages_view: boolean;
+  scheduled_messages_manage: boolean;
+  
   created_at: string;
   updated_at: string;
 }
@@ -126,9 +130,13 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   // SAC
   sac_view: { label: 'Ver SAC', description: 'Acessar módulo de SAC e chamados', group: 'SAC' },
   sac_manage: { label: 'Gerenciar SAC', description: 'Criar e gerenciar chamados SAC', group: 'SAC' },
+  
+  // Mensagens Agendadas
+  scheduled_messages_view: { label: 'Ver Mensagens Agendadas', description: 'Visualizar mensagens agendadas', group: 'Mensagens' },
+  scheduled_messages_manage: { label: 'Gerenciar Mensagens Agendadas', description: 'Cancelar e reagendar mensagens', group: 'Mensagens' },
 };
 
-export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC'];
+export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens'];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {

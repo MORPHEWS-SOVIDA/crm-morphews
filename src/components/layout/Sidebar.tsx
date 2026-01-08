@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Trophy,
   TicketCheck,
+  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,7 @@ export function Sidebar() {
   const canSeeInstagram = isAdmin || permissions?.instagram_view;
   const canSeePostSale = isAdmin || permissions?.post_sale_view;
   const canSeeSac = isAdmin || permissions?.sac_view;
+  const canSeeScheduledMessages = isAdmin || permissions?.scheduled_messages_view;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
@@ -98,6 +100,9 @@ export function Sidebar() {
     
     // SAC
     { icon: TicketCheck, label: 'SAC', path: '/sac', visible: canSeeSac },
+    
+    // Scheduled Messages
+    { icon: Send, label: 'Mensagens Agendadas', path: '/mensagens-agendadas', visible: canSeeScheduledMessages },
     
     // Financial
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },

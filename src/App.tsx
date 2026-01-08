@@ -43,6 +43,7 @@ import TwoFactorAuth from "./pages/TwoFactorAuth";
 import PostSaleKanban from "./pages/PostSaleKanban";
 import SalesDashboard from "./pages/SalesDashboard";
 import SAC from "./pages/SAC";
+import ScheduledMessages from "./pages/ScheduledMessages";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 
@@ -336,6 +337,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['receptive_module_access']}>
                     <AddReceptivo />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Scheduled Messages - require scheduled_messages_view */}
+              <Route
+                path="/mensagens-agendadas"
+                element={
+                  <ProtectedRoute requiredPermissions={['scheduled_messages_view']}>
+                    <ScheduledMessages />
                   </ProtectedRoute>
                 }
               />
