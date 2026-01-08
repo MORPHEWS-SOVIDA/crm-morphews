@@ -16,10 +16,60 @@ interface ScheduleMessagesParams {
 /**
  * Hook to schedule automated messages when a non-purchase reason is selected.
  * Fetches templates for the reason and creates scheduled messages.
+ * Also cancels any previously pending messages for the same lead.
  */
 export function useScheduleMessages() {
   const { tenantId } = useTenant();
   const { user } = useAuth();
+
+  /**
+   * Cancels all pending scheduled messages for a lead.
+   * Called when a new non-purchase reason is selected or when a sale is created.
+   */
+  const cancelPendingMessages = async (leadId: string, reason: string) => {
+    if (!tenantId) return { cancelled: 0, error: 'No tenant ID' };
+
+    try {
+      const { data: pendingMessages, error: fetchError } = await supabase
+        .from('lead_scheduled_messages')
+        .select('id')
+        .eq('lead_id', leadId)
+        .eq('organization_id', tenantId)
+        .eq('status', 'pending');
+
+      if (fetchError) {
+        console.error('Error fetching pending messages:', fetchError);
+        return { cancelled: 0, error: fetchError.message };
+      }
+
+      if (!pendingMessages || pendingMessages.length === 0) {
+        return { cancelled: 0, error: null };
+      }
+
+      const ids = pendingMessages.map(m => m.id);
+      
+      const { error: updateError } = await supabase
+        .from('lead_scheduled_messages')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancel_reason: reason,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', ids);
+
+      if (updateError) {
+        console.error('Error cancelling messages:', updateError);
+        return { cancelled: 0, error: updateError.message };
+      }
+
+      console.log(`Cancelled ${ids.length} pending messages for lead ${leadId}`);
+      return { cancelled: ids.length, error: null };
+    } catch (error) {
+      console.error('Error in cancelPendingMessages:', error);
+      return { cancelled: 0, error: String(error) };
+    }
+  };
 
   const scheduleMessagesForReason = async (params: ScheduleMessagesParams) => {
     if (!tenantId) {
@@ -28,6 +78,15 @@ export function useScheduleMessages() {
     }
 
     try {
+      // FIRST: Cancel any pending messages from previous non-purchase reasons
+      const { cancelled } = await cancelPendingMessages(
+        params.leadId, 
+        'Novo motivo de não compra selecionado'
+      );
+      if (cancelled > 0) {
+        console.log(`Cancelled ${cancelled} previous pending messages before scheduling new ones`);
+      }
+
       // Fetch active templates for this reason
       const { data: templates, error: templatesError } = await supabase
         .from('non_purchase_message_templates')
@@ -109,5 +168,5 @@ export function useScheduleMessages() {
     }
   };
 
-  return { scheduleMessagesForReason };
+  return { scheduleMessagesForReason, cancelPendingMessages };
 }
