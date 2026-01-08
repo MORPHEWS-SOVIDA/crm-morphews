@@ -39,11 +39,20 @@ export interface ScheduledMessage {
       name: string;
     };
   };
+  creator?: {
+    first_name: string;
+    last_name: string;
+  };
 }
 
 export function useScheduledMessages(filters?: {
   status?: string;
   onlyMine?: boolean;
+  createdBy?: string;
+  scheduledFrom?: string;
+  scheduledTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
 }) {
   const { tenantId } = useTenant();
   const { user } = useAuth();
@@ -62,7 +71,8 @@ export function useScheduledMessages(filters?: {
           template:non_purchase_message_templates!lead_scheduled_messages_template_id_fkey(
             id,
             non_purchase_reason:non_purchase_reasons!non_purchase_message_templates_non_purchase_reason_id_fkey(id, name)
-          )
+          ),
+          creator:profiles!lead_scheduled_messages_created_by_fkey(first_name, last_name)
         `)
         .eq('organization_id', tenantId)
         .is('deleted_at', null)
@@ -76,6 +86,27 @@ export function useScheduledMessages(filters?: {
       // Filter by user (only show messages created by current user)
       if (filters?.onlyMine && user?.id) {
         query = query.eq('created_by', user.id);
+      }
+
+      // Filter by specific creator
+      if (filters?.createdBy) {
+        query = query.eq('created_by', filters.createdBy);
+      }
+
+      // Filter by scheduled date range
+      if (filters?.scheduledFrom) {
+        query = query.gte('scheduled_at', filters.scheduledFrom);
+      }
+      if (filters?.scheduledTo) {
+        query = query.lte('scheduled_at', filters.scheduledTo);
+      }
+
+      // Filter by created date range
+      if (filters?.createdFrom) {
+        query = query.gte('created_at', filters.createdFrom);
+      }
+      if (filters?.createdTo) {
+        query = query.lte('created_at', filters.createdTo);
       }
 
       const { data, error } = await query;
@@ -175,6 +206,91 @@ export function useRetryFailedMessage() {
     onError: (error: Error) => {
       console.error('Error retrying message:', error);
       toast.error('Erro ao reagendar mensagem');
+    },
+  });
+}
+
+export function useUpdateScheduledMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      final_message,
+      scheduled_at,
+    }: {
+      id: string;
+      final_message?: string;
+      scheduled_at?: string;
+    }) => {
+      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (final_message !== undefined) updates.final_message = final_message;
+      if (scheduled_at !== undefined) updates.scheduled_at = scheduled_at;
+
+      const { error } = await supabase
+        .from('lead_scheduled_messages')
+        .update(updates)
+        .eq('id', id)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
+      toast.success('Mensagem atualizada com sucesso');
+    },
+    onError: (error: Error) => {
+      console.error('Error updating message:', error);
+      toast.error('Erro ao atualizar mensagem');
+    },
+  });
+}
+
+export function useCreateScheduledMessage() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      lead_id,
+      final_message,
+      scheduled_at,
+      whatsapp_instance_id,
+    }: {
+      lead_id: string;
+      final_message: string;
+      scheduled_at: string;
+      whatsapp_instance_id?: string;
+    }) => {
+      if (!tenantId) throw new Error('Organização não encontrada');
+
+      const { data, error } = await supabase
+        .from('lead_scheduled_messages')
+        .insert({
+          organization_id: tenantId,
+          lead_id,
+          final_message,
+          scheduled_at,
+          original_scheduled_at: scheduled_at,
+          whatsapp_instance_id: whatsapp_instance_id || null,
+          template_id: null,
+          status: 'pending',
+          created_by: user?.id || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
+      toast.success('Mensagem agendada com sucesso');
+    },
+    onError: (error: Error) => {
+      console.error('Error creating scheduled message:', error);
+      toast.error('Erro ao agendar mensagem');
     },
   });
 }
