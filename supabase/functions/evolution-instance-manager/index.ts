@@ -123,6 +123,55 @@ serve(async (req) => {
         throw new Error(createResult?.message || createResult?.error || `Erro ao criar instância: ${createResponse.status}`);
       }
 
+      // Algumas versões do Evolution ignoram settings no /instance/create.
+      // Garantimos explicitamente que grupos NÃO serão ignorados.
+      try {
+        const settingsResponse = await fetch(`${EVOLUTION_API_URL}/settings/set/${evolutionInstanceName}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({
+            groupsIgnore: false,
+          }),
+        });
+
+        const settingsResult = await settingsResponse.json().catch(() => ({}));
+        console.log("Evolution settings result:", { status: settingsResponse.status, result: settingsResult });
+      } catch (e) {
+        console.warn("Could not set Evolution settings:", e);
+      }
+
+      // Garantir webhook/events (inclui GROUPS_UPSERT) na instância recém-criada
+      try {
+        const webhookSetResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${evolutionInstanceName}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({
+            url: webhookUrl,
+            byEvents: false,
+            base64: true,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            events: [
+              "MESSAGES_UPSERT",
+              "CONNECTION_UPDATE",
+              "QRCODE_UPDATED",
+              "GROUPS_UPSERT",
+            ],
+          }),
+        });
+
+        const webhookSetResult = await webhookSetResponse.json().catch(() => ({}));
+        console.log("Evolution webhook set result:", { status: webhookSetResponse.status, result: webhookSetResult });
+      } catch (e) {
+        console.warn("Could not set Evolution webhook:", e);
+      }
       // 2. Salvar no banco de dados
       const { data: instance, error: insertError } = await supabase
         .from("whatsapp_instances")
@@ -375,34 +424,55 @@ serve(async (req) => {
       }
 
       // Atualizar configurações da instância para receber grupos
-      const updateResponse = await fetch(`${EVOLUTION_API_URL}/instance/update/${instance.evolution_instance_id}`, {
-        method: "PUT",
+      // (Evolution v2 usa /settings/set e /webhook/set)
+      const webhookUrl = getWebhookUrl(instance.evolution_instance_id);
+
+      const settingsResponse = await fetch(`${EVOLUTION_API_URL}/settings/set/${instance.evolution_instance_id}`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           "apikey": EVOLUTION_API_KEY,
         },
         body: JSON.stringify({
           groupsIgnore: false,
-          webhook: {
-            url: getWebhookUrl(instance.evolution_instance_id),
-            byEvents: false,
-            base64: true,
-            headers: {
-              "Content-Type": "application/json",
-            },
-            events: [
-              "MESSAGES_UPSERT",
-              "CONNECTION_UPDATE",
-              "QRCODE_UPDATED",
-              "GROUPS_UPSERT",
-            ],
-          },
         }),
       });
 
-      const updateResult = await updateResponse.json().catch(() => ({}));
-      console.log("Enable groups result:", { status: updateResponse.status, result: updateResult });
+      const settingsResult = await settingsResponse.json().catch(() => ({}));
+      console.log("Enable groups settings result:", { status: settingsResponse.status, result: settingsResult });
 
+      if (!settingsResponse.ok) {
+        throw new Error(settingsResult?.message || settingsResult?.error || `Erro ao habilitar grupos (settings): ${settingsResponse.status}`);
+      }
+
+      const webhookSetResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.evolution_instance_id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({
+          url: webhookUrl,
+          byEvents: false,
+          base64: true,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          events: [
+            "MESSAGES_UPSERT",
+            "CONNECTION_UPDATE",
+            "QRCODE_UPDATED",
+            "GROUPS_UPSERT",
+          ],
+        }),
+      });
+
+      const webhookSetResult = await webhookSetResponse.json().catch(() => ({}));
+      console.log("Enable groups webhook set result:", { status: webhookSetResponse.status, result: webhookSetResult });
+
+      if (!webhookSetResponse.ok) {
+        throw new Error(webhookSetResult?.message || webhookSetResult?.error || `Erro ao habilitar grupos (webhook): ${webhookSetResponse.status}`);
+      }
       return new Response(JSON.stringify({ 
         success: true, 
         message: "Grupos habilitados na instância" 
