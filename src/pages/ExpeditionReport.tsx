@@ -7,16 +7,20 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Printer, FileText, Package, Truck, Store } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Download, FileText, Package, Truck, Store, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
 import { formatCurrency } from '@/hooks/useSales';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 type ShiftFilter = 'morning' | 'afternoon' | 'full_day' | 'all';
 type DeliveryTypeFilter = 'motoboy' | 'carrier' | 'pickup' | 'all';
+type DateTypeFilter = 'delivery' | 'created';
 
 interface SaleWithDetails {
   id: string;
@@ -54,14 +58,35 @@ export default function ExpeditionReport() {
   // Filters
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateTypeFilter, setDateTypeFilter] = useState<DateTypeFilter>('delivery');
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
   const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<DeliveryTypeFilter>('all');
+  const [motoboyFilter, setMotoboyFilter] = useState<string>('all');
   const [includeDispatched, setIncludeDispatched] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // Fetch delivery users (motoboys)
+  const { data: deliveryUsers } = useQuery({
+    queryKey: ['delivery-users-list', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name');
+      
+      return data?.map(u => ({
+        id: u.user_id,
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Usuário'
+      })) || [];
+    },
+    enabled: !!organizationId,
+  });
 
   // Fetch sales for report
   const { data: sales, isLoading } = useQuery({
-    queryKey: ['expedition-report', organizationId, startDate, endDate, shiftFilter, deliveryTypeFilter, includeDispatched],
+    queryKey: ['expedition-report', organizationId, startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, includeDispatched],
     queryFn: async () => {
       if (!organizationId) return [];
 
@@ -85,9 +110,21 @@ export default function ExpeditionReport() {
           items:sale_items(id, product_name, quantity, total_cents)
         `)
         .eq('organization_id', organizationId)
-        .gte('scheduled_delivery_date', startDate)
-        .lte('scheduled_delivery_date', endDate)
         .order('romaneio_number', { ascending: true });
+
+      // Filter by date type
+      if (dateTypeFilter === 'delivery') {
+        query = query
+          .gte('scheduled_delivery_date', startDate)
+          .lte('scheduled_delivery_date', endDate);
+      } else {
+        // Created date - use created_at
+        const startDateTime = `${startDate}T00:00:00`;
+        const endDateTime = `${endDate}T23:59:59`;
+        query = query
+          .gte('created_at', startDateTime)
+          .lte('created_at', endDateTime);
+      }
 
       // Filter by status
       if (includeDispatched) {
@@ -96,7 +133,7 @@ export default function ExpeditionReport() {
         query = query.eq('status', 'draft');
       }
 
-      // Filter by shift
+      // Filter by shift (only applies to motoboy deliveries with scheduled date)
       if (shiftFilter !== 'all') {
         query = query.eq('scheduled_delivery_shift', shiftFilter);
       }
@@ -104,6 +141,11 @@ export default function ExpeditionReport() {
       // Filter by delivery type
       if (deliveryTypeFilter !== 'all') {
         query = query.eq('delivery_type', deliveryTypeFilter);
+      }
+
+      // Filter by motoboy
+      if (motoboyFilter !== 'all') {
+        query = query.eq('assigned_delivery_user_id', motoboyFilter);
       }
 
       const { data, error } = await query;
@@ -114,24 +156,11 @@ export default function ExpeditionReport() {
     enabled: !!organizationId && showReport,
   });
 
-  // Fetch motoboy/delivery users
-  const { data: deliveryUsers } = useQuery({
-    queryKey: ['delivery-users', organizationId],
-    queryFn: async () => {
-      if (!organizationId) return {};
-      
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name');
-      
-      const usersMap: Record<string, string> = {};
-      data?.forEach(u => {
-        usersMap[u.user_id] = `${u.first_name} ${u.last_name}`;
-      });
-      return usersMap;
-    },
-    enabled: !!organizationId,
-  });
+  // Delivery users map for display
+  const deliveryUsersMap = deliveryUsers?.reduce((acc, u) => {
+    acc[u.id] = u.name;
+    return acc;
+  }, {} as Record<string, string>) || {};
 
   // Fetch carriers
   const { data: carriers } = useQuery({
@@ -153,8 +182,44 @@ export default function ExpeditionReport() {
     enabled: !!organizationId,
   });
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    if (!printRef.current) return;
+    
+    setIsGeneratingPdf(true);
+    try {
+      const element = printRef.current;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 5;
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      
+      const fileName = `relatorio-expedicao-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleGenerateReport = () => {
@@ -169,12 +234,6 @@ export default function ExpeditionReport() {
       full_day: 'Dia Todo',
     };
     return shifts[shift] || shift;
-  };
-
-  const getDeliveryTypeIcon = (type: string | null) => {
-    if (type === 'motoboy') return <Truck className="w-4 h-4" />;
-    if (type === 'carrier') return <Package className="w-4 h-4" />;
-    return <Store className="w-4 h-4" />;
   };
 
   const getProductsSummary = (items: SaleWithDetails['items']) => {
@@ -219,6 +278,25 @@ export default function ExpeditionReport() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Date Type Selection */}
+            <div className="space-y-2">
+              <Label>Tipo de Data</Label>
+              <RadioGroup
+                value={dateTypeFilter}
+                onValueChange={(value) => setDateTypeFilter(value as DateTypeFilter)}
+                className="flex flex-wrap gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="delivery" id="date-delivery" />
+                  <Label htmlFor="date-delivery" className="cursor-pointer">Data de Entrega</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="created" id="date-created" />
+                  <Label htmlFor="date-created" className="cursor-pointer">Data de Criação</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
             {/* Date Range */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -299,6 +377,26 @@ export default function ExpeditionReport() {
               </RadioGroup>
             </div>
 
+            {/* Motoboy Filter */}
+            {(deliveryTypeFilter === 'motoboy' || deliveryTypeFilter === 'all') && (
+              <div className="space-y-2">
+                <Label>Filtrar por Motoboy</Label>
+                <Select value={motoboyFilter} onValueChange={setMotoboyFilter}>
+                  <SelectTrigger className="w-full md:w-[300px]">
+                    <SelectValue placeholder="Todos os motoboys" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Motoboys</SelectItem>
+                    {deliveryUsers?.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Include Dispatched */}
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -318,9 +416,13 @@ export default function ExpeditionReport() {
                 Gerar Relatório
               </Button>
               {showReport && sales && sales.length > 0 && (
-                <Button onClick={handlePrint} variant="outline">
-                  <Printer className="w-4 h-4 mr-2" />
-                  Imprimir
+                <Button onClick={handleDownloadPdf} variant="default" disabled={isGeneratingPdf}>
+                  {isGeneratingPdf ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Baixar PDF
                 </Button>
               )}
             </div>
@@ -351,6 +453,7 @@ export default function ExpeditionReport() {
             <h1 className="text-xl font-bold">RESUMO DA ENTREGA DE ROMANEIOS</h1>
             <p className="text-sm">
               Período: {format(new Date(startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })} a {format(new Date(endDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+              {' '}({dateTypeFilter === 'delivery' ? 'Data de Entrega' : 'Data de Criação'})
               {shiftFilter !== 'all' && ` | Turno: ${getShiftLabel(shiftFilter)}`}
             </p>
             <p className="text-xs text-gray-600">
@@ -377,12 +480,15 @@ export default function ExpeditionReport() {
               {Object.entries(groupedByMotoboy).map(([motoboyId, motoboysSales]) => {
                 const motoboyName = motoboyId === 'sem-motoboy' 
                   ? 'SEM MOTOBOY ATRIBUÍDO' 
-                  : (deliveryUsers?.[motoboyId] || 'Motoboy não identificado');
+                  : (deliveryUsersMap[motoboyId] || 'Motoboy não identificado');
+                
+                const motoboyTotal = motoboysSales.reduce((sum, s) => sum + s.total_cents, 0);
                 
                 return (
                   <div key={motoboyId} className="mb-4">
-                    <h3 className="font-semibold bg-gray-100 p-1 mb-1 text-sm">
-                      🏍️ {motoboyName} ({motoboysSales.length} entregas)
+                    <h3 className="font-semibold bg-gray-100 p-1 mb-1 text-sm flex justify-between">
+                      <span>🏍️ {motoboyName} ({motoboysSales.length} entregas)</span>
+                      <span>Total: {formatCurrency(motoboyTotal)}</span>
                     </h3>
                     <table className="w-full text-xs border-collapse">
                       <thead>
