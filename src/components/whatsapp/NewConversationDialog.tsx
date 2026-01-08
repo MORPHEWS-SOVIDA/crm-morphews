@@ -99,9 +99,16 @@ export function NewConversationDialog({
     onOpenChange(false);
   };
 
-  // Normalizar telefone
+  // Normalizar telefone brasileiro para SEMPRE ter 55 + DD + 9 + 8 dígitos
   const normalizePhone = (phone: string) => {
-    return phone.replace(/\D/g, "");
+    let clean = phone.replace(/\D/g, "");
+    if (!clean) return "";
+    if (!clean.startsWith("55")) clean = `55${clean}`;
+    // Se tem 12 dígitos (55 + DD + 8), adiciona o 9 (celular)
+    if (clean.length === 12 && clean.startsWith("55")) {
+      clean = clean.slice(0, 4) + "9" + clean.slice(4);
+    }
+    return clean;
   };
 
   // Iniciar conversa
