@@ -133,6 +133,12 @@ export function useCreateLead() {
         console.error('Insert error code:', error.code);
         console.error('Insert error details:', error.details);
         console.error('Insert error hint:', error.hint);
+        
+        // Check if it's a duplicate WhatsApp error from our trigger
+        if (error.code === '23505' || error.message?.includes('WhatsApp já cadastrado')) {
+          throw new Error('DUPLICATE_WHATSAPP');
+        }
+        
         throw new Error('Erro ao criar lead: ' + error.message);
       }
 

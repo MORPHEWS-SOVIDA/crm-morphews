@@ -30,6 +30,7 @@ export interface ExistingLeadWithOwner {
 /**
  * Check if a WhatsApp number already exists for another user's lead
  * Returns the lead info with current owner if found
+ * Uses SECURITY DEFINER function to bypass RLS for cross-permission searches
  */
 export async function checkLeadExistsForOtherUser(
   whatsapp: string,
@@ -46,61 +47,38 @@ export async function checkLeadExistsForOtherUser(
     return null;
   }
 
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  // Query for existing lead with same WhatsApp in the organization
-  let query = supabase
-    .from('leads')
-    .select(`
-      id, 
-      name, 
-      whatsapp,
-      lead_responsibles!inner(user_id)
-    `)
-    .eq('whatsapp', normalizedPhone)
-    .limit(1);
-
-  // Exclude current lead if editing
-  if (excludeLeadId) {
-    query = query.neq('id', excludeLeadId);
-  }
-
-  const { data, error } = await query.maybeSingle();
+  // Use SECURITY DEFINER function to check across all leads in the org
+  const { data, error } = await supabase.rpc('find_lead_by_whatsapp', {
+    p_whatsapp: normalizedPhone,
+  });
 
   if (error) {
-    console.error('Error checking lead ownership:', error);
+    console.error('Error checking lead ownership via RPC:', error);
     return null;
   }
 
-  if (!data) return null;
-
-  // Check if any responsible is NOT the current user
-  const responsibles = data.lead_responsibles as { user_id: string }[];
-  const isCurrentUserResponsible = responsibles.some(r => r.user_id === user.id);
-  
-  if (isCurrentUserResponsible) {
-    // Current user already has access, no need to transfer
+  // RPC returns array, check first result
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result || !result.lead_id) {
     return null;
   }
 
-  // Get the primary responsible user info
-  const primaryResponsible = responsibles[0];
-  if (!primaryResponsible) return null;
+  // If current user is already responsible, no need to transfer
+  if (result.is_current_user_responsible) {
+    return null;
+  }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('first_name, last_name')
-    .eq('user_id', primaryResponsible.user_id)
-    .single();
+  // If we're editing an existing lead, exclude it from the check
+  if (excludeLeadId && result.lead_id === excludeLeadId) {
+    return null;
+  }
 
   return {
-    id: data.id,
-    name: data.name,
-    whatsapp: data.whatsapp,
-    owner_user_id: primaryResponsible.user_id,
-    owner_name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Usuário desconhecido',
+    id: result.lead_id,
+    name: result.lead_name || 'Lead sem nome',
+    whatsapp: result.lead_whatsapp,
+    owner_user_id: result.owner_user_id,
+    owner_name: result.owner_name || 'Usuário desconhecido',
   };
 }
 
