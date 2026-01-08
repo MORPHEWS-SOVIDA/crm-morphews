@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { MessageBubble } from "./MessageBubble";
 import { AudioRecorder } from "./AudioRecorder";
 import { EmojiPicker } from "./EmojiPicker";
+import { NewConversationDialog } from "./NewConversationDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WhatsAppChatProps {
@@ -73,6 +74,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false);
   const [showLeadInfoDrawer, setShowLeadInfoDrawer] = useState(false);
+  const [showNewConversationDialog, setShowNewConversationDialog] = useState(false);
   const [newLeadName, setNewLeadName] = useState("");
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -822,17 +824,38 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           : cn("w-80 border-r", selectedConversation ? "hidden md:flex" : "flex")
       )}>
         {/* Search Header */}
-        <div className="p-3 border-b">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar conversa..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+        <div className="p-3 border-b space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar conversa..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setShowNewConversationDialog(true)}
+              className="shrink-0"
+              title="Nova conversa"
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+            </Button>
           </div>
         </div>
+        
+        {/* New Conversation Dialog */}
+        <NewConversationDialog
+          open={showNewConversationDialog}
+          onOpenChange={setShowNewConversationDialog}
+          onConversationCreated={(conversationId, instId) => {
+            // Recarregar conversas
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+          }}
+        />
 
         {/* Conversations */}
         <ScrollArea className="flex-1">
