@@ -36,6 +36,7 @@ interface UpdateTrackingData {
   saleId: string;
   status: MotoboyTrackingStatus;
   notes?: string;
+  assignedMotoboyId?: string | null;
 }
 
 // Default labels for statuses
@@ -166,7 +167,7 @@ export function useUpdateMotoboyTracking() {
   const { tenantId } = useTenant();
 
   return useMutation({
-    mutationFn: async ({ saleId, status, notes }: UpdateTrackingData) => {
+    mutationFn: async ({ saleId, status, notes, assignedMotoboyId }: UpdateTrackingData) => {
       // Get organization_id from sale
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -189,10 +190,15 @@ export function useUpdateMotoboyTracking() {
 
       if (insertError) throw insertError;
 
-      // Update current status on sales table
+      // Update current status on sales table (and optionally assigned motoboy)
+      const updateData: Record<string, unknown> = { motoboy_tracking_status: status };
+      if (assignedMotoboyId !== undefined) {
+        updateData.assigned_delivery_user_id = assignedMotoboyId;
+      }
+      
       const { error: updateError } = await supabase
         .from('sales')
-        .update({ motoboy_tracking_status: status })
+        .update(updateData)
         .eq('id', saleId);
 
       if (updateError) throw updateError;
