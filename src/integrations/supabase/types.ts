@@ -2664,26 +2664,32 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_standard: boolean
           organization_id: string
           position: number
           product_id: string
           question_text: string
+          standard_question_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
+          is_standard?: boolean
           organization_id: string
           position?: number
           product_id: string
           question_text: string
+          standard_question_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
+          is_standard?: boolean
           organization_id?: string
           position?: number
           product_id?: string
           question_text?: string
+          standard_question_id?: string | null
         }
         Relationships: [
           {
@@ -2698,6 +2704,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_questions_standard_question_id_fkey"
+            columns: ["standard_question_id"]
+            isOneToOne: false
+            referencedRelation: "standard_questions"
             referencedColumns: ["id"]
           },
         ]

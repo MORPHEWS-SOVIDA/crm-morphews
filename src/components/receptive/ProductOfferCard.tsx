@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
   Star, 
   DollarSign, 
@@ -21,7 +23,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
-import { useProductQuestions } from '@/hooks/useProductQuestions';
+import { useProductQuestions, ProductQuestion } from '@/hooks/useProductQuestions';
 
 interface ProductPriceKit {
   id: string;
@@ -319,16 +321,83 @@ export function ProductOfferCard({
                 {productQuestions.map((question, index) => (
                   <div key={question.id} className="space-y-2">
                     <Label className="text-sm font-medium">{index + 1}. {question.question_text}</Label>
-                    <Textarea
-                      value={dynamicAnswers[question.id] || ''}
-                      onChange={(e) => onDynamicAnswersChange({ 
-                        ...dynamicAnswers, 
-                        [question.id]: e.target.value 
-                      })}
-                      placeholder="Resposta do cliente..."
-                      rows={2}
-                      className="bg-white dark:bg-background"
-                    />
+                    
+                    {/* Render based on question type */}
+                    {question.question_type === 'multiple_choice' && question.options && question.options.length > 0 ? (
+                      // Multiple choice - Checkboxes
+                      <div className="space-y-2 pl-2">
+                        {question.options.map((option) => {
+                          const selectedIds = (dynamicAnswers[question.id] || '').split(',').filter(Boolean);
+                          const isChecked = selectedIds.includes(option.id);
+                          return (
+                            <div key={option.id} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`${question.id}-${option.id}`}
+                                checked={isChecked}
+                                onCheckedChange={(checked) => {
+                                  let newSelectedIds = [...selectedIds];
+                                  if (checked) {
+                                    newSelectedIds.push(option.id);
+                                  } else {
+                                    newSelectedIds = newSelectedIds.filter(id => id !== option.id);
+                                  }
+                                  onDynamicAnswersChange({
+                                    ...dynamicAnswers,
+                                    [question.id]: newSelectedIds.join(',')
+                                  });
+                                }}
+                              />
+                              <Label htmlFor={`${question.id}-${option.id}`} className="text-sm font-normal cursor-pointer">
+                                {option.option_text}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : question.question_type === 'single_choice' && question.options && question.options.length > 0 ? (
+                      // Single choice - Radio buttons
+                      <RadioGroup
+                        value={dynamicAnswers[question.id] || ''}
+                        onValueChange={(value) => onDynamicAnswersChange({
+                          ...dynamicAnswers,
+                          [question.id]: value
+                        })}
+                        className="pl-2"
+                      >
+                        {question.options.map((option) => (
+                          <div key={option.id} className="flex items-center gap-2">
+                            <RadioGroupItem value={option.id} id={`${question.id}-${option.id}`} />
+                            <Label htmlFor={`${question.id}-${option.id}`} className="text-sm font-normal cursor-pointer">
+                              {option.option_text}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    ) : question.question_type === 'number' ? (
+                      // Number input
+                      <Input
+                        type="number"
+                        value={dynamicAnswers[question.id] || ''}
+                        onChange={(e) => onDynamicAnswersChange({
+                          ...dynamicAnswers,
+                          [question.id]: e.target.value
+                        })}
+                        placeholder="Digite o valor..."
+                        className="bg-white dark:bg-background max-w-xs"
+                      />
+                    ) : (
+                      // Default: Free text
+                      <Textarea
+                        value={dynamicAnswers[question.id] || ''}
+                        onChange={(e) => onDynamicAnswersChange({ 
+                          ...dynamicAnswers, 
+                          [question.id]: e.target.value 
+                        })}
+                        placeholder="Resposta do cliente..."
+                        rows={2}
+                        className="bg-white dark:bg-background"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

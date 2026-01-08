@@ -4,6 +4,13 @@ import { useTenant } from './useTenant';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
+export interface StandardQuestionOption {
+  id: string;
+  question_id: string;
+  option_text: string;
+  position: number;
+}
+
 export interface ProductQuestion {
   id: string;
   product_id: string;
@@ -13,6 +20,9 @@ export interface ProductQuestion {
   is_standard: boolean;
   standard_question_id: string | null;
   created_at: string;
+  // Standard question details (when is_standard = true)
+  question_type?: 'multiple_choice' | 'single_choice' | 'imc_calculator' | 'number' | 'text';
+  options?: StandardQuestionOption[];
 }
 
 export interface LeadQuestionAnswer {
@@ -35,7 +45,7 @@ export interface LeadQuestionAnswerWithDetails extends LeadQuestionAnswer {
   } | null;
 }
 
-// Get questions for a specific product
+// Get questions for a specific product - with standard question details
 export function useProductQuestions(productId: string | undefined) {
   const { tenantId } = useTenant();
 
@@ -44,14 +54,65 @@ export function useProductQuestions(productId: string | undefined) {
     queryFn: async () => {
       if (!productId || !tenantId) return [];
 
-      const { data, error } = await supabase
+      // Fetch product questions
+      const { data: questions, error } = await supabase
         .from('product_questions')
         .select('*')
         .eq('product_id', productId)
         .order('position');
 
       if (error) throw error;
-      return data as ProductQuestion[];
+      if (!questions || questions.length === 0) return [];
+
+      // Get standard question IDs
+      const standardQuestionIds = questions
+        .filter(q => q.is_standard && q.standard_question_id)
+        .map(q => q.standard_question_id!);
+
+      // Fetch standard question details if any
+      let standardQuestionsMap: Record<string, { question_type: string }> = {};
+      let optionsMap: Record<string, StandardQuestionOption[]> = {};
+
+      if (standardQuestionIds.length > 0) {
+        const { data: standardQuestions } = await supabase
+          .from('standard_questions')
+          .select('id, question_type')
+          .in('id', standardQuestionIds);
+
+        if (standardQuestions) {
+          standardQuestionsMap = standardQuestions.reduce((acc, sq) => {
+            acc[sq.id] = { question_type: sq.question_type };
+            return acc;
+          }, {} as Record<string, { question_type: string }>);
+        }
+
+        // Fetch options for standard questions
+        const { data: options } = await supabase
+          .from('standard_question_options')
+          .select('*')
+          .in('question_id', standardQuestionIds)
+          .order('position');
+
+        if (options) {
+          optionsMap = options.reduce((acc, opt) => {
+            if (!acc[opt.question_id]) acc[opt.question_id] = [];
+            acc[opt.question_id].push(opt);
+            return acc;
+          }, {} as Record<string, StandardQuestionOption[]>);
+        }
+      }
+
+      // Merge standard question data into product questions
+      return questions.map(q => {
+        if (q.is_standard && q.standard_question_id && standardQuestionsMap[q.standard_question_id]) {
+          return {
+            ...q,
+            question_type: standardQuestionsMap[q.standard_question_id].question_type as ProductQuestion['question_type'],
+            options: optionsMap[q.standard_question_id] || []
+          };
+        }
+        return { ...q, question_type: 'text' as const, options: [] };
+      }) as ProductQuestion[];
     },
     enabled: !!productId && !!tenantId,
   });
