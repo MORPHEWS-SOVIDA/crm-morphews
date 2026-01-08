@@ -412,6 +412,124 @@ serve(async (req) => {
     }
 
     // =====================
+    // ADD MANUAL INSTANCE (from existing Evolution instance)
+    // =====================
+    if (action === "add_manual") {
+      const { evolution_instance_id, evolution_api_token, phone_number } = await req.json().catch(() => ({})) || {};
+      
+      // Re-parse body since we already parsed once
+      const body = { action, instanceId, name, evolution_instance_id: undefined, evolution_api_token: undefined, phone_number: undefined };
+      const fullBody = await req.clone().json().catch(() => ({}));
+      
+      const manualInstanceId = fullBody.evolution_instance_id;
+      const manualToken = fullBody.evolution_api_token;
+      const manualPhoneNumber = fullBody.phone_number;
+      const manualName = fullBody.name || manualInstanceId;
+
+      if (!manualInstanceId) {
+        throw new Error("ID da instância (evolution_instance_id) é obrigatório");
+      }
+
+      console.log("Adding manual Evolution instance:", { manualInstanceId, manualName, organizationId });
+
+      // Verificar se instância já existe no banco
+      const { data: existing } = await supabase
+        .from("whatsapp_instances")
+        .select("id")
+        .eq("evolution_instance_id", manualInstanceId)
+        .single();
+
+      if (existing) {
+        throw new Error("Esta instância já está cadastrada no sistema");
+      }
+
+      // Verificar se a instância existe no Evolution API e está conectada
+      let isConnected = false;
+      let phoneFromEvolution = manualPhoneNumber || null;
+      
+      try {
+        const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${manualInstanceId}`, {
+          method: "GET",
+          headers: { "apikey": EVOLUTION_API_KEY },
+        });
+        
+        if (statusResponse.ok) {
+          const statusResult = await statusResponse.json().catch(() => ({}));
+          console.log("Manual instance status:", statusResult);
+          isConnected = statusResult?.instance?.state === "open";
+          
+          // Tentar pegar número do status
+          if (statusResult?.instance?.ownerJid) {
+            phoneFromEvolution = statusResult.instance.ownerJid.split("@")[0];
+          }
+        }
+      } catch (e) {
+        console.warn("Could not verify instance in Evolution:", e);
+      }
+
+      // Configurar webhook para a instância manual
+      const webhookUrl = getWebhookUrl(manualInstanceId);
+      try {
+        await fetch(`${EVOLUTION_API_URL}/webhook/set/${manualInstanceId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({
+            url: webhookUrl,
+            byEvents: false,
+            base64: true,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            events: [
+              "MESSAGES_UPSERT",
+              "CONNECTION_UPDATE",
+              "QRCODE_UPDATED",
+              "GROUPS_UPSERT",
+            ],
+          }),
+        });
+        console.log("Webhook configured for manual instance:", manualInstanceId);
+      } catch (e) {
+        console.warn("Could not configure webhook:", e);
+      }
+
+      // Salvar no banco de dados
+      const { data: instance, error: insertError } = await supabase
+        .from("whatsapp_instances")
+        .insert({
+          organization_id: organizationId,
+          name: manualName,
+          provider: "evolution",
+          evolution_instance_id: manualInstanceId,
+          evolution_api_token: manualToken || null,
+          evolution_webhook_configured: true,
+          status: isConnected ? "connected" : "pending",
+          is_connected: isConnected,
+          phone_number: phoneFromEvolution,
+          monthly_price_cents: 0,
+          payment_source: "admin_grant",
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error saving manual instance:", insertError);
+        throw new Error("Erro ao salvar instância: " + insertError.message);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        instance,
+        message: isConnected ? "Instância adicionada e conectada!" : "Instância adicionada. Configure o QR Code para conectar.",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
     // LIST INSTANCES
     // =====================
     if (action === "list") {
