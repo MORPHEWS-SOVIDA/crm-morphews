@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type CheckpointType = 'dispatched' | 'delivered' | 'payment_confirmed';
+export type CheckpointType = 'pending_expedition' | 'dispatched' | 'delivered' | 'payment_confirmed';
 
 export interface SaleCheckpoint {
   id: string;
@@ -28,12 +28,13 @@ interface ToggleCheckpointData {
 }
 
 export const checkpointLabels: Record<CheckpointType, string> = {
+  pending_expedition: 'Pedido Separado',
   dispatched: 'Despachado',
   delivered: 'Entregue',
   payment_confirmed: 'Pagamento Confirmado',
 };
 
-export const checkpointOrder: CheckpointType[] = ['dispatched', 'delivered', 'payment_confirmed'];
+export const checkpointOrder: CheckpointType[] = ['pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
 
 export function useSaleCheckpoints(saleId: string | undefined) {
   const { user } = useAuth();
@@ -100,6 +101,8 @@ export function useToggleSaleCheckpoint() {
         .eq('checkpoint_type', checkpointType)
         .maybeSingle();
 
+      let checkpointId = existing?.id;
+
       if (complete) {
         if (existing) {
           // Update existing
@@ -115,7 +118,7 @@ export function useToggleSaleCheckpoint() {
           if (error) throw error;
         } else {
           // Create new
-          const { error } = await supabase
+          const { data: newCheckpoint, error } = await supabase
             .from('sale_checkpoints')
             .insert({
               sale_id: saleId,
@@ -124,13 +127,33 @@ export function useToggleSaleCheckpoint() {
               completed_at: new Date().toISOString(),
               completed_by: user?.id,
               notes,
-            });
+            })
+            .select('id')
+            .single();
 
           if (error) throw error;
+          checkpointId = newCheckpoint.id;
         }
 
+        // Insert history record
+        await supabase.from('sale_checkpoint_history').insert({
+          checkpoint_id: checkpointId,
+          sale_id: saleId,
+          organization_id: sale.organization_id,
+          checkpoint_type: checkpointType,
+          action: 'completed',
+          changed_by: user?.id,
+          notes,
+        });
+
         // Update legacy fields on sales table for compatibility AND update status
-        if (checkpointType === 'dispatched') {
+        if (checkpointType === 'pending_expedition') {
+          await supabase.from('sales').update({ 
+            expedition_validated_at: new Date().toISOString(),
+            expedition_validated_by: user?.id,
+            status: 'pending_expedition'
+          }).eq('id', saleId);
+        } else if (checkpointType === 'dispatched') {
           await supabase.from('sales').update({ 
             dispatched_at: new Date().toISOString(),
             status: 'dispatched'
@@ -160,10 +183,23 @@ export function useToggleSaleCheckpoint() {
             .eq('id', existing.id);
 
           if (error) throw error;
+
+          // Insert history record for uncomplete
+          await supabase.from('sale_checkpoint_history').insert({
+            checkpoint_id: existing.id,
+            sale_id: saleId,
+            organization_id: sale.organization_id,
+            checkpoint_type: checkpointType,
+            action: 'uncompleted',
+            changed_by: user?.id,
+            notes,
+          });
         }
 
         // Clear legacy fields too
-        if (checkpointType === 'dispatched') {
+        if (checkpointType === 'pending_expedition') {
+          await supabase.from('sales').update({ expedition_validated_at: null }).eq('id', saleId);
+        } else if (checkpointType === 'dispatched') {
           await supabase.from('sales').update({ dispatched_at: null }).eq('id', saleId);
         } else if (checkpointType === 'delivered') {
           await supabase.from('sales').update({ delivered_at: null }).eq('id', saleId);
@@ -176,10 +212,70 @@ export function useToggleSaleCheckpoint() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', data.saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sale-checkpoint-history', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
     },
+  });
+}
+
+// New hook to fetch checkpoint history
+export interface CheckpointHistoryEntry {
+  id: string;
+  checkpoint_id: string | null;
+  sale_id: string;
+  organization_id: string;
+  checkpoint_type: CheckpointType;
+  action: string;
+  changed_by: string | null;
+  notes: string | null;
+  created_at: string;
+  changed_by_profile?: {
+    first_name: string | null;
+    last_name: string | null;
+  };
+}
+
+export function useSaleCheckpointHistory(saleId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['sale-checkpoint-history', saleId],
+    queryFn: async () => {
+      if (!saleId) return [];
+
+      const { data, error } = await supabase
+        .from('sale_checkpoint_history')
+        .select('*')
+        .eq('sale_id', saleId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch profiles for changed_by users
+      const userIds = [...new Set((data || []).map(c => c.changed_by).filter(Boolean))] as string[];
+      let profilesMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', userIds);
+
+        profilesMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+          return acc;
+        }, {} as typeof profilesMap);
+      }
+
+      return (data || []).map(c => ({
+        ...c,
+        checkpoint_type: c.checkpoint_type as CheckpointType,
+        changed_by_profile: c.changed_by ? profilesMap[c.changed_by] : undefined,
+      })) as CheckpointHistoryEntry[];
+    },
+    enabled: !!saleId && !!user,
   });
 }
 

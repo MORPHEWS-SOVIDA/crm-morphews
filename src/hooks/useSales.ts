@@ -265,7 +265,8 @@ export function useSales(filters?: { status?: SaleStatus }) {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, lead_source)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, lead_source),
+          items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at)
         `)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
@@ -832,25 +833,16 @@ export function useAllDeliveries() {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
+          items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at)
         `)
         .eq('organization_id', organizationId)
-        .in('status', ['dispatched', 'delivered', 'returned'])
-        .not('assigned_delivery_user_id', 'is', null)
+        .eq('delivery_type', 'motoboy')
         .order('scheduled_delivery_date', { ascending: true });
 
       if (error) throw error;
 
-      // Fetch items for each sale
-      const salesWithItems = await Promise.all((data || []).map(async (sale) => {
-        const { data: items } = await supabase
-          .from('sale_items')
-          .select('*')
-          .eq('sale_id', sale.id);
-        return { ...sale, items: items || [] };
-      }));
-
-      return salesWithItems as Sale[];
+      return (data || []) as unknown as Sale[];
     },
     enabled: !!organizationId,
   });

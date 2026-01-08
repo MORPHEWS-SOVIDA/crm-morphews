@@ -236,13 +236,10 @@ export default function Sales() {
         }
       }
       
-      // Product filter - need to check sale items
+      // Product filter - check sale items
       if (productFilter !== 'all') {
-        const hasProduct = (sale as any).items?.some((item: any) => item.product_id === productFilter);
-        if (!hasProduct) {
-          // Need to fetch items - for now skip if not loaded
-          return true; // Keep in results if we can't check
-        }
+        const hasProduct = sale.items?.some((item: any) => item.product_id === productFilter);
+        if (!hasProduct) return false;
       }
       
       // Lead source filter
