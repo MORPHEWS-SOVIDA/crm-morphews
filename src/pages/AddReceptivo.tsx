@@ -55,12 +55,14 @@ import {
 } from '@/hooks/useReceptiveModule';
 import { useLeadSources } from '@/hooks/useConfigOptions';
 import { useProducts, Product } from '@/hooks/useProducts';
+import { useProductBrands } from '@/hooks/useProductBrands';
 import { ProductSelectorForSale } from '@/components/products/ProductSelectorForSale';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { useLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
+import { useScheduleMessages } from '@/hooks/useScheduleMessages';
 import { useLeadProductQuestionAnswers } from '@/hooks/useProductQuestions';
 import { useMyCommission } from '@/hooks/useSellerCommission';
 import { useAuth } from '@/hooks/useAuth';
@@ -162,6 +164,7 @@ export default function AddReceptivo() {
   const { data: accessInfo, isLoading: loadingAccess } = useReceptiveModuleAccess();
   const { data: leadSources = [] } = useLeadSources();
   const { data: products = [] } = useProducts();
+  const { data: productBrands = [] } = useProductBrands();
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
   const { data: funnelStages = [] } = useFunnelStages();
   const { data: users = [] } = useUsers();
@@ -171,6 +174,7 @@ export default function AddReceptivo() {
   const createAttendance = useCreateReceptiveAttendance();
   const updateAttendance = useUpdateReceptiveAttendance();
   const createSale = useCreateSale();
+  const { scheduleMessagesForReason } = useScheduleMessages();
 
   const [currentStep, setCurrentStep] = useState<FlowStep>('phone');
   const [phoneInput, setPhoneInput] = useState('55');
@@ -975,6 +979,31 @@ export default function AddReceptivo() {
           } catch (webhookError) {
             console.error('Error sending non-purchase webhook:', webhookError);
           }
+        }
+
+        // Schedule automated messages for this reason
+        const sellerUser = users.find(u => u.user_id === sellerUserId);
+        const sellerName = sellerUser ? `${sellerUser.first_name || ''} ${sellerUser.last_name || ''}`.trim() : user?.user_metadata?.name || '';
+        
+        const productBrand = currentProduct?.brand_id 
+          ? productBrands.find(b => b.id === currentProduct.brand_id)?.name 
+          : undefined;
+          
+        const { scheduled, error: scheduleError } = await scheduleMessagesForReason({
+          leadId,
+          leadName: lead?.name || leadData.name,
+          leadWhatsapp: lead?.whatsapp || leadData.whatsapp,
+          reasonId,
+          productId: currentProductId,
+          productName: currentProduct?.name,
+          productBrand,
+          sellerName,
+        });
+
+        if (scheduleError) {
+          console.error('Error scheduling messages:', scheduleError);
+        } else if (scheduled > 0) {
+          console.log(`Scheduled ${scheduled} automated messages`);
         }
       }
 
