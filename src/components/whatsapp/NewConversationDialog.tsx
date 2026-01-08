@@ -35,17 +35,24 @@ export function NewConversationDialog({
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [phone, setPhone] = useState(phoneNumber);
+  const [messageText, setMessageText] = useState(message);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>("");
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  // Atualiza o telefone quando muda a prop
+  // Atualiza o telefone e mensagem quando mudam as props
   useEffect(() => {
     if (phoneNumber) {
       setPhone(phoneNumber);
     }
   }, [phoneNumber]);
+
+  useEffect(() => {
+    if (message) {
+      setMessageText(message);
+    }
+  }, [message]);
 
   // Buscar instâncias conectadas
   useEffect(() => {
@@ -87,6 +94,7 @@ export function NewConversationDialog({
   // Limpar estado ao fechar
   const handleClose = () => {
     if (!phoneNumber) setPhone("");
+    if (!message) setMessageText("");
     setSelectedInstanceId("");
     onOpenChange(false);
   };
@@ -148,15 +156,15 @@ export function NewConversationDialog({
         conversationId = newConversation.id;
       }
 
-      // Se tem mensagem pré-definida, enviar
-      if (message && conversationId) {
+      // Se tem mensagem, enviar
+      if (messageText.trim() && conversationId) {
         await supabase.functions.invoke("whatsapp-send-message", {
           body: {
             organizationId: profile?.organization_id,
             conversationId,
             instanceId: selectedInstanceId,
             phone: cleanPhone,
-            content: message,
+            content: messageText.trim(),
             messageType: "text",
             senderUserId: profile?.user_id,
           },
@@ -257,14 +265,17 @@ export function NewConversationDialog({
             )}
           </div>
 
-          {message && (
-            <div className="space-y-2">
-              <Label>Mensagem a enviar</Label>
-              <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                {message}
-              </div>
-            </div>
-          )}
+          {/* Mensagem (editável) */}
+          <div className="space-y-2">
+            <Label htmlFor="message">Mensagem a enviar</Label>
+            <textarea
+              id="message"
+              placeholder="Digite sua mensagem (opcional)"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="w-full min-h-[80px] p-3 text-sm rounded-lg border border-input bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
 
         <DialogFooter>
