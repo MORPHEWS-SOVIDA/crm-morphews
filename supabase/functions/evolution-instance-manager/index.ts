@@ -537,8 +537,27 @@ serve(async (req) => {
         console.warn("Could not verify instance in Evolution:", e);
       }
 
-      // Configurar webhook para a instância manual
+      // Configurar webhook E settings para a instância manual
       const webhookUrl = getWebhookUrl(manualInstanceId);
+      
+      // Primeiro, garantir que grupos NÃO serão ignorados (settings)
+      try {
+        const settingsRes = await fetch(`${EVOLUTION_API_URL}/settings/set/${manualInstanceId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({
+            groupsIgnore: false,
+          }),
+        });
+        console.log("Settings configured for manual instance:", manualInstanceId, await settingsRes.json().catch(() => ({})));
+      } catch (e) {
+        console.warn("Could not configure settings:", e);
+      }
+      
+      // Depois, configurar webhook com todos os eventos necessários
       try {
         await fetch(`${EVOLUTION_API_URL}/webhook/set/${manualInstanceId}`, {
           method: "POST",
