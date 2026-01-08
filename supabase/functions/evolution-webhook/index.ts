@@ -418,6 +418,57 @@ serve(async (req) => {
             .eq("id", instance.id);
 
           console.log("Instance status updated:", { instanceId: instance.id, isConnected });
+
+          // =====================
+          // AUTO-ENABLE GROUPS ON CONNECT
+          // =====================
+          if (isConnected) {
+            console.log("🔄 Auto-enabling groups for instance:", instanceName);
+            
+            // 1. Configurar settings para NÃO ignorar grupos
+            try {
+              const settingsRes = await fetch(`${EVOLUTION_API_URL}/settings/set/${instanceName}`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "apikey": EVOLUTION_API_KEY,
+                },
+                body: JSON.stringify({
+                  groupsIgnore: false,
+                }),
+              });
+              console.log("✅ Groups settings configured:", await settingsRes.json().catch(() => ({})));
+            } catch (e) {
+              console.warn("⚠️ Could not configure groups settings:", e);
+            }
+
+            // 2. Garantir que webhook tem GROUPS_UPSERT
+            try {
+              const webhookUrl = `${SUPABASE_URL}/functions/v1/evolution-webhook`;
+              const webhookRes = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "apikey": EVOLUTION_API_KEY,
+                },
+                body: JSON.stringify({
+                  url: webhookUrl,
+                  byEvents: false,
+                  base64: true,
+                  headers: { "Content-Type": "application/json" },
+                  events: [
+                    "MESSAGES_UPSERT",
+                    "CONNECTION_UPDATE",
+                    "QRCODE_UPDATED",
+                    "GROUPS_UPSERT",
+                  ],
+                }),
+              });
+              console.log("✅ Webhook with groups configured:", await webhookRes.json().catch(() => ({})));
+            } catch (e) {
+              console.warn("⚠️ Could not configure webhook:", e);
+            }
+          }
         }
       }
 
