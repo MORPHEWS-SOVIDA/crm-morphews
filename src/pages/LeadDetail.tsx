@@ -37,6 +37,7 @@ import { LeadAddressesManager } from '@/components/leads/LeadAddressesManager';
 import { LeadFollowupsSection } from '@/components/leads/LeadFollowupsSection';
 import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHistorySection';
 import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
+import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMessagesSection';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -608,6 +609,9 @@ export default function LeadDetail() {
 
             {/* Follow-ups */}
             <LeadFollowupsSection leadId={id!} />
+
+            {/* Mensagens Agendadas */}
+            <LeadScheduledMessagesSection leadId={id!} />
 
             {/* Histórico Receptivo */}
             <LeadReceptiveHistorySection leadId={id!} />
