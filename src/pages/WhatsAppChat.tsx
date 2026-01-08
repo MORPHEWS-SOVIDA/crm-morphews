@@ -325,7 +325,10 @@ export default function WhatsAppChat() {
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument) || !selectedConversation || !selectedInstance) return;
+    if ((!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument) || !selectedConversation) return;
+    
+    // Usar o instance_id da conversa, não o filtro selecionado
+    const conversationInstanceId = selectedConversation.instance_id;
     
     const messageText = newMessage.trim();
     const imageToSend = selectedImage;
@@ -376,7 +379,7 @@ export default function WhatsAppChat() {
 
       const body: any = {
         organizationId: profile.organization_id,
-        instanceId: selectedInstance,
+        instanceId: conversationInstanceId, // Usar instance_id da conversa
         conversationId: selectedConversation.id,
         chatId: selectedConversation.chat_id || null,
         phone: selectedConversation.phone_number,
@@ -397,7 +400,7 @@ export default function WhatsAppChat() {
 
       console.log("[WhatsApp] Enviando mensagem:", {
         organization_id: profile.organization_id,
-        instance_id: selectedInstance,
+        instance_id: conversationInstanceId,
         conversation_id: selectedConversation.id,
         message_type: messageType,
       });

@@ -511,18 +511,29 @@ serve(async (req) => {
 
       const organizationId = instance.organization_id;
 
-      // Para grupos, usar remoteJid como identificador único
-      // Para individuais, usar phone_number
-      const lookupField = isGroup ? "chat_id" : "phone_number";
-      const lookupValue = isGroup ? remoteJid : fromPhone;
-
-      // Buscar conversa existente
+      // Buscar conversa existente - PRIMEIRO por chat_id (mais confiável)
+      // Depois tentar por phone_number normalizado
       let { data: conversation } = await supabase
         .from("whatsapp_conversations")
         .select("id, unread_count, instance_id")
         .eq("organization_id", organizationId)
-        .eq(lookupField, lookupValue)
-        .single();
+        .eq("chat_id", remoteJid)
+        .maybeSingle();
+
+      // Se não encontrou por chat_id, tentar por phone_number (para conversas criadas pelo frontend)
+      if (!conversation && !isGroup) {
+        const { data: convByPhone } = await supabase
+          .from("whatsapp_conversations")
+          .select("id, unread_count, instance_id")
+          .eq("organization_id", organizationId)
+          .eq("phone_number", fromPhone)
+          .maybeSingle();
+        
+        if (convByPhone) {
+          conversation = convByPhone;
+          console.log("Found conversation by phone_number:", fromPhone);
+        }
+      }
 
       if (!conversation) {
         // Criar nova conversa
