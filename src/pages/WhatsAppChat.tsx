@@ -133,9 +133,12 @@ export default function WhatsAppChat() {
           .map((d: any) => d.whatsapp_instances);
         setInstances(instancesList);
         if (instancesList.length > 0 && !selectedInstance) {
-          // Prioriza instância conectada, mas aceita desconectada
-          const connected = instancesList.find((i: Instance) => i.is_connected);
-          setSelectedInstance(connected?.id || instancesList[0].id);
+          // Se tiver mais de 1 instância, começa em "todas" para não esconder conversas.
+          if (instancesList.length > 1) {
+            setSelectedInstance('all');
+          } else {
+            setSelectedInstance(instancesList[0].id);
+          }
         }
       }
     };
@@ -171,10 +174,15 @@ export default function WhatsAppChat() {
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (!error && data) {
-        // Filtrar pela instância selecionada ou mostrar todas se current_instance_id
-        const filtered = data.filter(c => 
-          c.instance_id === selectedInstance || 
-          c.current_instance_id === selectedInstance
+        // "all" = todas as conversas da organização
+        if (selectedInstance === 'all') {
+          setConversations(data);
+          return;
+        }
+
+        // Filtrar pela instância selecionada ou mostrar as que estão com current_instance_id nela
+        const filtered = data.filter((c: any) =>
+          c.instance_id === selectedInstance || c.current_instance_id === selectedInstance
         );
         setConversations(filtered);
       }
@@ -585,7 +593,7 @@ export default function WhatsAppChat() {
             
             {/* Instance selector */}
             {instances.length > 1 && (
-              <select 
+              <select
                 className="w-full mb-2 p-2 rounded-md border border-input bg-background text-sm"
                 value={selectedInstance || ''}
                 onChange={(e) => {
@@ -593,7 +601,8 @@ export default function WhatsAppChat() {
                   setSelectedConversation(null);
                 }}
               >
-                {instances.map(inst => (
+                <option value="all">Todas as instâncias</option>
+                {instances.map((inst) => (
                   <option key={inst.id} value={inst.id}>
                     {inst.name} {inst.phone_number && `(${inst.phone_number})`}
                   </option>
