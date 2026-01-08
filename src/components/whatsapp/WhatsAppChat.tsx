@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import { MessageBubble } from "./MessageBubble";
 import { AudioRecorder } from "./AudioRecorder";
 import { EmojiPicker } from "./EmojiPicker";
 import { NewConversationDialog } from "./NewConversationDialog";
+import { ScheduledMessagesPanel } from "./ScheduledMessagesPanel";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WhatsAppChatProps {
@@ -134,6 +135,34 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     enabled: !!profile?.organization_id,
     refetchInterval: 5000, // Poll every 5 seconds
   });
+
+  // Fetch pending scheduled messages count per lead
+  const leadIds = conversations?.filter(c => c.lead_id).map(c => c.lead_id as string) || [];
+  const { data: scheduledMessagesCount } = useQuery({
+    queryKey: ["scheduled-messages-count", leadIds],
+    queryFn: async () => {
+      if (leadIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from("lead_scheduled_messages")
+        .select("lead_id")
+        .in("lead_id", leadIds)
+        .eq("status", "pending")
+        .is("deleted_at", null);
+
+      if (error) throw error;
+      
+      // Count per lead
+      const counts: Record<string, number> = {};
+      data?.forEach(row => {
+        counts[row.lead_id] = (counts[row.lead_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: leadIds.length > 0,
+    refetchInterval: 30000, // Poll every 30 seconds
+  });
+
 
   // Fetch messages for selected conversation
   const { data: messages, isLoading: loadingMessages } = useQuery({
@@ -906,7 +935,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     )}
                   </div>
                   <div className="flex justify-between items-center">
-                    <div className="text-sm text-muted-foreground truncate">
+                    <div className="text-sm text-muted-foreground truncate flex items-center gap-1">
                       {conversation.is_group ? (
                         <span className="text-blue-600 flex items-center gap-1">
                           Grupo
@@ -924,11 +953,20 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                         </span>
                       )}
                     </div>
-                    {conversation.unread_count > 0 && (
-                      <Badge className="bg-green-500 text-white h-5 min-w-5 flex items-center justify-center">
-                        {conversation.unread_count}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {/* Scheduled messages indicator */}
+                      {conversation.lead_id && scheduledMessagesCount?.[conversation.lead_id] && (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 h-5 min-w-5 flex items-center justify-center gap-0.5 px-1">
+                          <Clock className="h-3 w-3" />
+                          {scheduledMessagesCount[conversation.lead_id]}
+                        </Badge>
+                      )}
+                      {conversation.unread_count > 0 && (
+                        <Badge className="bg-green-500 text-white h-5 min-w-5 flex items-center justify-center">
+                          {conversation.unread_count}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1418,6 +1456,16 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                 </div>
               )}
             </div>
+
+            {/* Scheduled Messages Panel */}
+            {selectedConversation?.lead_id && (
+              <ScheduledMessagesPanel
+                leadId={selectedConversation.lead_id}
+                whatsappInstanceId={selectedConversation.instance_id}
+                phoneNumber={selectedConversation.phone_number}
+                compact
+              />
+            )}
           </div>
           <DrawerFooter>
             {selectedConversation?.lead_id ? (
