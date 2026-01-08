@@ -94,7 +94,7 @@ serve(async (req) => {
           integration: "WHATSAPP-BAILEYS",
           rejectCall: true,
           msgCall: "Não posso atender agora, me envie uma mensagem.",
-          groupsIgnore: true,
+          groupsIgnore: false, // IMPORTANTE: Receber mensagens de grupos
           alwaysOnline: false,
           readMessages: true,
           readStatus: false,
@@ -110,6 +110,7 @@ serve(async (req) => {
               "MESSAGES_UPSERT",
               "CONNECTION_UPDATE",
               "QRCODE_UPDATED",
+              "GROUPS_UPSERT", // Evento de grupos
             ],
           },
         }),
@@ -350,6 +351,62 @@ serve(async (req) => {
         .eq("id", instanceId);
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
+    // UPDATE GROUPS CONFIG
+    // =====================
+    if (action === "enable_groups") {
+      if (!instanceId) {
+        throw new Error("instanceId é obrigatório");
+      }
+
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("id", instanceId)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (!instance?.evolution_instance_id) {
+        throw new Error("Instância não encontrada");
+      }
+
+      // Atualizar configurações da instância para receber grupos
+      const updateResponse = await fetch(`${EVOLUTION_API_URL}/instance/update/${instance.evolution_instance_id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({
+          groupsIgnore: false,
+          webhook: {
+            url: getWebhookUrl(instance.evolution_instance_id),
+            byEvents: false,
+            base64: true,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            events: [
+              "MESSAGES_UPSERT",
+              "CONNECTION_UPDATE",
+              "QRCODE_UPDATED",
+              "GROUPS_UPSERT",
+            ],
+          },
+        }),
+      });
+
+      const updateResult = await updateResponse.json().catch(() => ({}));
+      console.log("Enable groups result:", { status: updateResponse.status, result: updateResult });
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Grupos habilitados na instância" 
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

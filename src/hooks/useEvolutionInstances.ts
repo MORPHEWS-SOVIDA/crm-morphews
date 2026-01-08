@@ -170,6 +170,32 @@ export function useEvolutionInstances() {
     },
   });
 
+  // Habilitar grupos na instância
+  const enableGroups = useMutation({
+    mutationFn: async (instanceId: string) => {
+      const response = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "enable_groups", instanceId },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Grupos habilitados! As mensagens de grupos aparecerão no chat.");
+      queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao habilitar grupos: ${error.message}`);
+    },
+  });
+
   return {
     instances,
     isLoading,
@@ -179,6 +205,7 @@ export function useEvolutionInstances() {
     checkStatus,
     deleteInstance,
     logoutInstance,
+    enableGroups,
     pollingInstanceId,
     setPollingInstanceId,
   };

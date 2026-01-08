@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
-import { Plus, Smartphone, Wifi, WifiOff, Trash2, QrCode, RefreshCw, LogOut, Loader2 } from "lucide-react";
+import { Plus, Smartphone, Wifi, WifiOff, Trash2, QrCode, RefreshCw, LogOut, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 
 interface EvolutionInstance {
@@ -34,6 +34,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     checkStatus,
     deleteInstance,
     logoutInstance,
+    enableGroups,
     pollingInstanceId,
     setPollingInstanceId,
   } = useEvolutionInstances();
@@ -136,6 +137,14 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     
     try {
       await logoutInstance.mutateAsync(instance.id);
+    } catch (e) {
+      // Erro já tratado no hook
+    }
+  };
+
+  const handleEnableGroups = async (instance: EvolutionInstance) => {
+    try {
+      await enableGroups.mutateAsync(instance.id);
     } catch (e) {
       // Erro já tratado no hook
     }
@@ -263,17 +272,32 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                     </Button>
                   )}
                   {instance.is_connected && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLogout(instance);
-                      }}
-                    >
-                      <LogOut className="h-4 w-4 mr-1" />
-                      Desconectar
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEnableGroups(instance);
+                        }}
+                        disabled={enableGroups.isPending}
+                        title="Habilitar mensagens de grupos"
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Grupos
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLogout(instance);
+                        }}
+                      >
+                        <LogOut className="h-4 w-4 mr-1" />
+                        Desconectar
+                      </Button>
+                    </>
                   )}
                   <Button
                     size="sm"
