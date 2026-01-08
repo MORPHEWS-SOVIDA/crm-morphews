@@ -196,6 +196,43 @@ export function useEvolutionInstances() {
     },
   });
 
+  // Adicionar instância manualmente
+  const addManualInstance = useMutation({
+    mutationFn: async (params: { 
+      name: string; 
+      evolution_instance_id: string; 
+      evolution_api_token?: string;
+      phone_number?: string;
+    }) => {
+      const response = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { 
+          action: "add_manual", 
+          name: params.name,
+          evolution_instance_id: params.evolution_instance_id,
+          evolution_api_token: params.evolution_api_token || null,
+          phone_number: params.phone_number || null,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || "Instância adicionada!");
+      queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao adicionar: ${error.message}`);
+    },
+  });
+
   return {
     instances,
     isLoading,
@@ -206,6 +243,7 @@ export function useEvolutionInstances() {
     deleteInstance,
     logoutInstance,
     enableGroups,
+    addManualInstance,
     pollingInstanceId,
     setPollingInstanceId,
   };
