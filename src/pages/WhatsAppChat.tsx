@@ -23,6 +23,8 @@ import {
   Link,
   Settings,
   FileText,
+  Users,
+  Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -34,6 +36,8 @@ import { AudioRecorder } from '@/components/whatsapp/AudioRecorder';
 import { MessageBubble } from '@/components/whatsapp/MessageBubble';
 import { ConversationItem } from '@/components/whatsapp/ConversationItem';
 import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
+import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Conversation {
   id: string;
@@ -102,6 +106,10 @@ export default function WhatsAppChat() {
   
   // Dialog state
   const [showLeadDialog, setShowLeadDialog] = useState(false);
+  const [showNewConversationDialog, setShowNewConversationDialog] = useState(false);
+  
+  // Filter state
+  const [conversationTypeFilter, setConversationTypeFilter] = useState<'all' | 'individual' | 'group'>('all');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -565,10 +573,19 @@ export default function WhatsAppChat() {
     }
   };
 
-  const filteredConversations = conversations.filter(c => 
-    (normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
-    c.phone_number.includes(searchTerm))
-  );
+  const filteredConversations = conversations.filter(c => {
+    // Filtro de busca por texto
+    const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
+      c.phone_number.includes(searchTerm);
+    
+    // Filtro por tipo de conversa (individual/grupo)
+    const isGroup = c.phone_number.includes('@g.us') || (c as any).is_group === true;
+    const matchesType = conversationTypeFilter === 'all' ||
+      (conversationTypeFilter === 'group' && isGroup) ||
+      (conversationTypeFilter === 'individual' && !isGroup);
+    
+    return matchesSearch && matchesType;
+  });
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
@@ -577,7 +594,7 @@ export default function WhatsAppChat() {
       <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
         {/* Left Column - Conversations List */}
         <div className="w-80 border-r border-border flex flex-col bg-card overflow-hidden">
-          {/* Header */}
+        {/* Header */}
           <div className="p-3 border-b border-border bg-muted/30">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-lg flex items-center gap-2">
@@ -589,9 +606,20 @@ export default function WhatsAppChat() {
                   </Badge>
                 )}
               </h2>
-              <Button variant="ghost" size="icon" onClick={() => navigate('/whatsapp')}>
-                <Settings className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setShowNewConversationDialog(true)}
+                  title="Nova Conversa"
+                  className="h-8 w-8"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => navigate('/whatsapp')} className="h-8 w-8">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             
             {/* Instance selector */}
@@ -612,6 +640,31 @@ export default function WhatsAppChat() {
                 ))}
               </select>
             )}
+            
+            {/* Filtro de tipo de conversa */}
+            <div className="mb-2">
+              <Select value={conversationTypeFilter} onValueChange={(v) => setConversationTypeFilter(v as any)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <Filter className="h-3 w-3 mr-1.5" />
+                  <SelectValue placeholder="Filtrar conversas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as conversas</SelectItem>
+                  <SelectItem value="individual">
+                    <div className="flex items-center gap-2">
+                      <User className="h-3 w-3" />
+                      Conversas individuais
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="group">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-3 w-3" />
+                      Grupos
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {/* Search */}
             <div className="relative">
@@ -938,6 +991,12 @@ export default function WhatsAppChat() {
           onCreateNew={handleCreateLead}
         />
       )}
+      
+      {/* New Conversation Dialog */}
+      <NewConversationDialog
+        open={showNewConversationDialog}
+        onOpenChange={setShowNewConversationDialog}
+      />
     </Layout>
   );
 }
