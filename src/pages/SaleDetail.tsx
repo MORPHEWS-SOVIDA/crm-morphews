@@ -1122,6 +1122,7 @@ export default function SaleDetail() {
             {/* NEW: Sale Checkpoints Card - Independent Tasks */}
             <SaleCheckpointsCard 
               saleId={sale.id} 
+              saleStatus={sale.status}
               isCancelled={sale.status === 'cancelled'} 
             />
 
@@ -1337,16 +1338,7 @@ export default function SaleDetail() {
             )}
 
             {/* Tracking Code Card removed - now included in CarrierTrackingCard above */}
-
-            {/* Delivery Actions - Mark as Delivered OR Mark as Returned */}
-            {sale.status === 'dispatched' && canMarkDelivered && (
-              <DeliveryActionsCard 
-                sale={sale}
-                handleMarkDelivered={handleMarkDelivered}
-                updateSale={updateSale}
-                paymentMethodRequiresProof={paymentMethodRequiresProof}
-              />
-            )}
+            {/* DeliveryActionsCard removed - now integrated into SaleCheckpointsCard */}
 
             {/* Returned Sale - Option to Reschedule */}
             {sale.status === 'returned' && (

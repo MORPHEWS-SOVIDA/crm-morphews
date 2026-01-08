@@ -3278,6 +3278,64 @@ export type Database = {
           },
         ]
       }
+      sale_checkpoint_history: {
+        Row: {
+          action: string
+          changed_by: string | null
+          checkpoint_id: string | null
+          checkpoint_type: string
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          sale_id: string
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          checkpoint_id?: string | null
+          checkpoint_type: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          sale_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          checkpoint_id?: string | null
+          checkpoint_type?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_checkpoint_history_checkpoint_id_fkey"
+            columns: ["checkpoint_id"]
+            isOneToOne: false
+            referencedRelation: "sale_checkpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_checkpoint_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_checkpoint_history_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_checkpoints: {
         Row: {
           checkpoint_type: string
