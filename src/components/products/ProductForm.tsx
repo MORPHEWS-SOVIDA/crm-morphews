@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler } from 'lucide-react';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
 import { PriceKitsManager } from './PriceKitsManager';
@@ -36,6 +36,7 @@ import { ProductFaqManager, type ProductFaq } from './ProductFaqManager';
 import { ProductIngredientsManager, type ProductIngredient } from './ProductIngredientsManager';
 import { useUsers } from '@/hooks/useUsers';
 import { useProductVisibility } from '@/hooks/useProductVisibility';
+import { useProductBrands } from '@/hooks/useProductBrands';
 
 // Categorias que usam o sistema de kits dinâmicos
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
@@ -60,6 +61,19 @@ const formSchema = z.object({
   crosssell_product_1_id: z.string().nullable().optional(),
   crosssell_product_2_id: z.string().nullable().optional(),
   restrict_to_users: z.boolean().optional(),
+  // New fields
+  brand_id: z.string().nullable().optional(),
+  hot_site_url: z.string().optional(),
+  youtube_video_url: z.string().optional(),
+  sku: z.string().optional(),
+  unit: z.string().optional(),
+  net_weight_grams: z.coerce.number().min(0).nullable().optional(),
+  gross_weight_grams: z.coerce.number().min(0).nullable().optional(),
+  width_cm: z.coerce.number().min(0).nullable().optional(),
+  height_cm: z.coerce.number().min(0).nullable().optional(),
+  depth_cm: z.coerce.number().min(0).nullable().optional(),
+  barcode_ean: z.string().optional(),
+  gtin_tax: z.string().optional(),
 });
 
 interface ProductFormProps {
@@ -84,6 +98,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(initialVisibleUserIds);
   
   const { data: users = [] } = useUsers();
+  const { data: brands = [] } = useProductBrands();
   
   // Sync state when initial values change - only sync if content actually changed
   // This prevents resetting state when empty arrays are recreated on parent re-renders
@@ -144,6 +159,19 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       crosssell_product_1_id: product?.crosssell_product_1_id || null,
       crosssell_product_2_id: product?.crosssell_product_2_id || null,
       restrict_to_users: product?.restrict_to_users ?? false,
+      // New fields
+      brand_id: product?.brand_id || null,
+      hot_site_url: product?.hot_site_url || '',
+      youtube_video_url: product?.youtube_video_url || '',
+      sku: product?.sku || '',
+      unit: product?.unit || '',
+      net_weight_grams: product?.net_weight_grams || null,
+      gross_weight_grams: product?.gross_weight_grams || null,
+      width_cm: product?.width_cm || null,
+      height_cm: product?.height_cm || null,
+      depth_cm: product?.depth_cm || null,
+      barcode_ean: product?.barcode_ean || '',
+      gtin_tax: product?.gtin_tax || '',
     },
   });
 
@@ -249,6 +277,268 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
             <p className="text-sm text-muted-foreground mt-4">
               A foto do produto será exibida durante a venda. A foto do rótulo pode ser visualizada pelo vendedor em caso de dúvidas.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Identificação e Links */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Barcode className="h-5 w-5" />
+              Identificação e Links
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="brand_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Marca</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                      value={field.value || 'none'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a marca" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Sem marca</SelectItem>
+                        {brands.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id}>
+                            {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Cadastre marcas em Configurações
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sku"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código (SKU)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="ABC-123" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="barcode_ean"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código de Barras (EAN/GTIN)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="7891234567890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gtin_tax"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>GTIN/EAN Tributário</FormLabel>
+                    <FormControl>
+                      <Input placeholder="7891234567890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="hot_site_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Hot Site
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://produto.exemplo.com" {...field} />
+                  </FormControl>
+                  <FormDescription>Link do site próprio do produto</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="youtube_video_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Youtube className="h-4 w-4" />
+                    Link Vídeo YouTube
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://youtube.com/watch?v=..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Dimensões e Peso */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Ruler className="h-5 w-5" />
+              Dimensões e Peso
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="unit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Unidade</FormLabel>
+                  <FormControl>
+                    <Input placeholder="UN, CX, KG, L..." {...field} />
+                  </FormControl>
+                  <FormDescription>Unidade de medida do produto</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="net_weight_grams"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Peso Líquido (g)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        placeholder="0" 
+                        {...field} 
+                        value={field.value ?? ''} 
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gross_weight_grams"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Peso Bruto (g)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        placeholder="0" 
+                        {...field} 
+                        value={field.value ?? ''} 
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="width_cm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Largura (cm)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        step="0.01"
+                        placeholder="0" 
+                        {...field} 
+                        value={field.value ?? ''} 
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="height_cm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Altura (cm)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        step="0.01"
+                        placeholder="0" 
+                        {...field} 
+                        value={field.value ?? ''} 
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="depth_cm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Profundidade (cm)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        step="0.01"
+                        placeholder="0" 
+                        {...field} 
+                        value={field.value ?? ''} 
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </CardContent>
         </Card>
 

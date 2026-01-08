@@ -967,12 +967,19 @@ export type Database = {
       }
       lead_products: {
         Row: {
+          barcode_ean: string | null
+          brand_id: string | null
           category: string
           cost_cents: number | null
           created_at: string
           crosssell_product_1_id: string | null
           crosssell_product_2_id: string | null
+          depth_cm: number | null
           description: string | null
+          gross_weight_grams: number | null
+          gtin_tax: string | null
+          height_cm: number | null
+          hot_site_url: string | null
           id: string
           image_url: string | null
           is_active: boolean
@@ -984,6 +991,7 @@ export type Database = {
           minimum_price: number | null
           minimum_stock: number | null
           name: string
+          net_weight_grams: number | null
           organization_id: string | null
           price_1_unit: number | null
           price_12_units: number | null
@@ -991,19 +999,30 @@ export type Database = {
           price_6_units: number | null
           restrict_to_users: boolean
           sales_script: string | null
+          sku: string | null
           stock_quantity: number | null
           stock_reserved: number | null
           track_stock: boolean | null
+          unit: string | null
           updated_at: string | null
           usage_period_days: number | null
+          width_cm: number | null
+          youtube_video_url: string | null
         }
         Insert: {
+          barcode_ean?: string | null
+          brand_id?: string | null
           category?: string
           cost_cents?: number | null
           created_at?: string
           crosssell_product_1_id?: string | null
           crosssell_product_2_id?: string | null
+          depth_cm?: number | null
           description?: string | null
+          gross_weight_grams?: number | null
+          gtin_tax?: string | null
+          height_cm?: number | null
+          hot_site_url?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -1015,6 +1034,7 @@ export type Database = {
           minimum_price?: number | null
           minimum_stock?: number | null
           name: string
+          net_weight_grams?: number | null
           organization_id?: string | null
           price_1_unit?: number | null
           price_12_units?: number | null
@@ -1022,19 +1042,30 @@ export type Database = {
           price_6_units?: number | null
           restrict_to_users?: boolean
           sales_script?: string | null
+          sku?: string | null
           stock_quantity?: number | null
           stock_reserved?: number | null
           track_stock?: boolean | null
+          unit?: string | null
           updated_at?: string | null
           usage_period_days?: number | null
+          width_cm?: number | null
+          youtube_video_url?: string | null
         }
         Update: {
+          barcode_ean?: string | null
+          brand_id?: string | null
           category?: string
           cost_cents?: number | null
           created_at?: string
           crosssell_product_1_id?: string | null
           crosssell_product_2_id?: string | null
+          depth_cm?: number | null
           description?: string | null
+          gross_weight_grams?: number | null
+          gtin_tax?: string | null
+          height_cm?: number | null
+          hot_site_url?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -1046,6 +1077,7 @@ export type Database = {
           minimum_price?: number | null
           minimum_stock?: number | null
           name?: string
+          net_weight_grams?: number | null
           organization_id?: string | null
           price_1_unit?: number | null
           price_12_units?: number | null
@@ -1053,13 +1085,24 @@ export type Database = {
           price_6_units?: number | null
           restrict_to_users?: boolean
           sales_script?: string | null
+          sku?: string | null
           stock_quantity?: number | null
           stock_reserved?: number | null
           track_stock?: boolean | null
+          unit?: string | null
           updated_at?: string | null
           usage_period_days?: number | null
+          width_cm?: number | null
+          youtube_video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "product_brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_products_crosssell_product_1_id_fkey"
             columns: ["crosssell_product_1_id"]
@@ -2216,6 +2259,41 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: true
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_brands: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_brands_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
