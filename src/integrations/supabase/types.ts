@@ -5661,6 +5661,17 @@ export type Database = {
         Args: { _organization_id: string; _phone: string }
         Returns: string
       }
+      find_lead_by_whatsapp: {
+        Args: { p_whatsapp: string }
+        Returns: {
+          is_current_user_responsible: boolean
+          lead_id: string
+          lead_name: string
+          lead_whatsapp: string
+          owner_name: string
+          owner_user_id: string
+        }[]
+      }
       get_default_permissions_for_role: {
         Args: { _role: string }
         Returns: Json
@@ -5758,6 +5769,7 @@ export type Database = {
         Returns: undefined
       }
       normalize_cnpj: { Args: { input: string }; Returns: string }
+      normalize_phone_digits: { Args: { p: string }; Returns: string }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
       normalize_text_for_comparison: {
         Args: { input: string }
