@@ -81,6 +81,18 @@ interface ProductOfferCardProps {
 
 const formatPrice = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
 
+// Format price with total and unit display
+const formatPriceWithUnit = (totalCents: number, quantity: number) => {
+  const total = formatPrice(totalCents);
+  const unit = formatPrice(Math.round(totalCents / quantity));
+  
+  if (quantity === 1) {
+    return { total, unit: null };
+  }
+  
+  return { total, unit };
+};
+
 // Format as installment - divide by 10, show as 12x
 const formatInstallment = (cents: number) => {
   const installmentValue = Math.round(cents / 10);
@@ -238,6 +250,8 @@ export function ProductOfferCard({
       danger: 'text-red-600',
     };
 
+    const priceDisplay = formatPriceWithUnit(price, kit.quantity);
+
     return (
       <button
         onClick={() => onKitSelect(kit.id, type)}
@@ -252,8 +266,13 @@ export function ProductOfferCard({
               </p>
             </div>
             <p className={`text-2xl font-bold ${priceClasses[variant]}`}>
-              {formatPrice(price)}
+              {priceDisplay.total}
             </p>
+            {priceDisplay.unit && (
+              <p className="text-sm font-medium text-muted-foreground">
+                ({priceDisplay.unit}/un)
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">
               ou {formatInstallment(price)}
             </p>

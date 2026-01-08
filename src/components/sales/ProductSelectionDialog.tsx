@@ -323,6 +323,18 @@ export function ProductSelectionDialog({
     }).format(cents / 100);
   };
 
+  // Format price with total and unit display
+  const formatPriceWithUnit = (totalCents: number, quantity: number) => {
+    const total = formatPrice(totalCents);
+    const unit = formatPrice(Math.round(totalCents / quantity));
+    
+    if (quantity === 1) {
+      return { total, unit: null };
+    }
+    
+    return { total, unit };
+  };
+
   const getCommissionComparison = (): CommissionComparison => {
     if (!isCustomCommission) return 'equal';
     if (commission > sellerDefaultCommission) return 'higher';
@@ -435,6 +447,7 @@ export function ProductSelectionDialog({
     const effectiveCommission = useDefault ? sellerDefaultCommission : (customCommission || sellerDefaultCommission);
     const commissionComparison = compareCommission(customCommission, sellerDefaultCommission, useDefault);
     const commissionValueForPrice = calculateCommissionValue(priceCents * kit.quantity, effectiveCommission);
+    const priceDisplay = formatPriceWithUnit(priceCents, kit.quantity);
 
     return (
       <label 
@@ -469,7 +482,10 @@ export function ProductSelectionDialog({
           </div>
         </div>
         <div className="text-right">
-          <p className="text-lg font-bold text-primary">{formatPrice(priceCents)}</p>
+          <p className="text-lg font-bold text-primary">{priceDisplay.total}</p>
+          {priceDisplay.unit && (
+            <p className="text-xs text-muted-foreground">({priceDisplay.unit}/un)</p>
+          )}
           <CommissionBadge comparison={commissionComparison} value={commissionValueForPrice} />
         </div>
       </label>

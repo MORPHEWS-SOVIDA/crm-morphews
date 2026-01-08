@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CurrencyInput } from '@/components/ui/currency-input';
 import { Separator } from '@/components/ui/separator';
 import {
   Accordion,
@@ -31,6 +29,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ProductPriceKitFormData } from '@/hooks/useProductPriceKits';
+import { SyncedPriceInput, formatPriceWithUnit } from './SyncedPriceInput';
 
 interface PriceKitsManagerProps {
   kits: ProductPriceKitFormData[];
@@ -65,13 +64,11 @@ function SortableKitItem({
   index, 
   onUpdate, 
   onRemove,
-  formatPrice,
 }: { 
   kit: ProductPriceKitFormData; 
   index: number;
   onUpdate: (updates: Partial<ProductPriceKitFormData>) => void;
   onRemove: () => void;
-  formatPrice: (cents: number | null | undefined) => string;
 }) {
   const {
     attributes,
@@ -111,7 +108,7 @@ function SortableKitItem({
             </span>
           </div>
           <span className="text-sm text-muted-foreground">
-            {formatPrice(kit.regular_price_cents)}
+            {formatPriceWithUnit(kit.regular_price_cents, kit.quantity)}
           </span>
         </div>
       </AccordionTrigger>
@@ -136,45 +133,43 @@ function SortableKitItem({
             <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
               Valor Normal
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Preço ({kit.quantity} {kit.quantity === 1 ? 'un' : 'uns'})</Label>
-                <CurrencyInput
-                  value={kit.regular_price_cents}
-                  onChange={(value) => onUpdate({ regular_price_cents: value })}
+            <div className="space-y-4">
+              <SyncedPriceInput
+                label="Preço"
+                quantity={kit.quantity}
+                valueCents={kit.regular_price_cents}
+                onChange={(value) => onUpdate({ regular_price_cents: value || 0 })}
+              />
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`regular-commission-${index}`}
+                  checked={kit.regular_use_default_commission}
+                  onCheckedChange={(checked) => onUpdate({ 
+                    regular_use_default_commission: checked,
+                    regular_custom_commission: checked ? null : 0
+                  })}
                 />
+                <Label htmlFor={`regular-commission-${index}`}>
+                  Comissão Padrão
+                </Label>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`regular-commission-${index}`}
-                    checked={kit.regular_use_default_commission}
-                    onCheckedChange={(checked) => onUpdate({ 
-                      regular_use_default_commission: checked,
-                      regular_custom_commission: checked ? null : 0
+              {!kit.regular_use_default_commission && (
+                <div>
+                  <Label className="text-xs">Comissão Personalizada (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={kit.regular_custom_commission || ''}
+                    onChange={(e) => onUpdate({ 
+                      regular_custom_commission: parseFloat(e.target.value) || 0 
                     })}
+                    placeholder="0.00"
+                    className="w-32"
                   />
-                  <Label htmlFor={`regular-commission-${index}`}>
-                    Comissão Padrão
-                  </Label>
                 </div>
-                {!kit.regular_use_default_commission && (
-                  <div>
-                    <Label className="text-xs">Comissão Personalizada (%)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={kit.regular_custom_commission || ''}
-                      onChange={(e) => onUpdate({ 
-                        regular_custom_commission: parseFloat(e.target.value) || 0 
-                      })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -185,45 +180,43 @@ function SortableKitItem({
             <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
               Venda por:
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Preço de Venda ({kit.quantity} {kit.quantity === 1 ? 'un' : 'uns'})</Label>
-                <CurrencyInput
-                  value={kit.promotional_price_cents || 0}
-                  onChange={(value) => onUpdate({ promotional_price_cents: value || null })}
+            <div className="space-y-4">
+              <SyncedPriceInput
+                label="Preço de Venda"
+                quantity={kit.quantity}
+                valueCents={kit.promotional_price_cents}
+                onChange={(value) => onUpdate({ promotional_price_cents: value })}
+              />
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`promo-commission-${index}`}
+                  checked={kit.promotional_use_default_commission}
+                  onCheckedChange={(checked) => onUpdate({ 
+                    promotional_use_default_commission: checked,
+                    promotional_custom_commission: checked ? null : 0
+                  })}
                 />
+                <Label htmlFor={`promo-commission-${index}`}>
+                  Comissão Padrão
+                </Label>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`promo-commission-${index}`}
-                    checked={kit.promotional_use_default_commission}
-                    onCheckedChange={(checked) => onUpdate({ 
-                      promotional_use_default_commission: checked,
-                      promotional_custom_commission: checked ? null : 0
+              {!kit.promotional_use_default_commission && (
+                <div>
+                  <Label className="text-xs">Comissão Personalizada (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={kit.promotional_custom_commission || ''}
+                    onChange={(e) => onUpdate({ 
+                      promotional_custom_commission: parseFloat(e.target.value) || 0 
                     })}
+                    placeholder="0.00"
+                    className="w-32"
                   />
-                  <Label htmlFor={`promo-commission-${index}`}>
-                    Comissão Padrão
-                  </Label>
                 </div>
-                {!kit.promotional_use_default_commission && (
-                  <div>
-                    <Label className="text-xs">Comissão Personalizada (%)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={kit.promotional_custom_commission || ''}
-                      onChange={(e) => onUpdate({ 
-                        promotional_custom_commission: parseFloat(e.target.value) || 0 
-                      })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -234,45 +227,43 @@ function SortableKitItem({
             <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
               Valor Promocional 2
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Preço Promocional 2 ({kit.quantity} {kit.quantity === 1 ? 'un' : 'uns'})</Label>
-                <CurrencyInput
-                  value={kit.promotional_price_2_cents || 0}
-                  onChange={(value) => onUpdate({ promotional_price_2_cents: value || null })}
+            <div className="space-y-4">
+              <SyncedPriceInput
+                label="Preço Promocional 2"
+                quantity={kit.quantity}
+                valueCents={kit.promotional_price_2_cents}
+                onChange={(value) => onUpdate({ promotional_price_2_cents: value })}
+              />
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`promo2-commission-${index}`}
+                  checked={kit.promotional_2_use_default_commission}
+                  onCheckedChange={(checked) => onUpdate({ 
+                    promotional_2_use_default_commission: checked,
+                    promotional_2_custom_commission: checked ? null : 0
+                  })}
                 />
+                <Label htmlFor={`promo2-commission-${index}`}>
+                  Comissão Padrão
+                </Label>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`promo2-commission-${index}`}
-                    checked={kit.promotional_2_use_default_commission}
-                    onCheckedChange={(checked) => onUpdate({ 
-                      promotional_2_use_default_commission: checked,
-                      promotional_2_custom_commission: checked ? null : 0
+              {!kit.promotional_2_use_default_commission && (
+                <div>
+                  <Label className="text-xs">Comissão Personalizada (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={kit.promotional_2_custom_commission || ''}
+                    onChange={(e) => onUpdate({ 
+                      promotional_2_custom_commission: parseFloat(e.target.value) || 0 
                     })}
+                    placeholder="0.00"
+                    className="w-32"
                   />
-                  <Label htmlFor={`promo2-commission-${index}`}>
-                    Comissão Padrão
-                  </Label>
                 </div>
-                {!kit.promotional_2_use_default_commission && (
-                  <div>
-                    <Label className="text-xs">Comissão Personalizada (%)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={kit.promotional_2_custom_commission || ''}
-                      onChange={(e) => onUpdate({ 
-                        promotional_2_custom_commission: parseFloat(e.target.value) || 0 
-                      })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -283,45 +274,43 @@ function SortableKitItem({
             <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
               Valor Mínimo
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Preço Mínimo ({kit.quantity} {kit.quantity === 1 ? 'un' : 'uns'})</Label>
-                <CurrencyInput
-                  value={kit.minimum_price_cents || 0}
-                  onChange={(value) => onUpdate({ minimum_price_cents: value || null })}
+            <div className="space-y-4">
+              <SyncedPriceInput
+                label="Preço Mínimo"
+                quantity={kit.quantity}
+                valueCents={kit.minimum_price_cents}
+                onChange={(value) => onUpdate({ minimum_price_cents: value })}
+              />
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`min-commission-${index}`}
+                  checked={kit.minimum_use_default_commission}
+                  onCheckedChange={(checked) => onUpdate({ 
+                    minimum_use_default_commission: checked,
+                    minimum_custom_commission: checked ? null : 0
+                  })}
                 />
+                <Label htmlFor={`min-commission-${index}`}>
+                  Comissão Padrão
+                </Label>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`min-commission-${index}`}
-                    checked={kit.minimum_use_default_commission}
-                    onCheckedChange={(checked) => onUpdate({ 
-                      minimum_use_default_commission: checked,
-                      minimum_custom_commission: checked ? null : 0
+              {!kit.minimum_use_default_commission && (
+                <div>
+                  <Label className="text-xs">Comissão Personalizada (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={kit.minimum_custom_commission || ''}
+                    onChange={(e) => onUpdate({ 
+                      minimum_custom_commission: parseFloat(e.target.value) || 0 
                     })}
+                    placeholder="0.00"
+                    className="w-32"
                   />
-                  <Label htmlFor={`min-commission-${index}`}>
-                    Comissão Padrão
-                  </Label>
                 </div>
-                {!kit.minimum_use_default_commission && (
-                  <div>
-                    <Label className="text-xs">Comissão Personalizada (%)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={kit.minimum_custom_commission || ''}
-                      onChange={(e) => onUpdate({ 
-                        minimum_custom_commission: parseFloat(e.target.value) || 0 
-                      })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -495,11 +484,6 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
     }
   };
 
-  const formatPrice = (cents: number | null | undefined) => {
-    if (!cents) return 'Não definido';
-    return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-
   return (
     <div className="space-y-4">
       {/* Add new kit */}
@@ -549,7 +533,6 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
                   index={index}
                   onUpdate={(updates) => handleUpdateKit(index, updates)}
                   onRemove={() => handleRemoveKit(index)}
-                  formatPrice={formatPrice}
                 />
               ))}
             </Accordion>
