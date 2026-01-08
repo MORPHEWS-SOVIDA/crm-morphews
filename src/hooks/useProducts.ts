@@ -50,6 +50,19 @@ export interface Product {
   label_image_url: string | null;
   // Visibility restriction
   restrict_to_users: boolean;
+  // New fields
+  brand_id: string | null;
+  hot_site_url: string | null;
+  youtube_video_url: string | null;
+  sku: string | null;
+  unit: string | null;
+  net_weight_grams: number | null;
+  gross_weight_grams: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
+  depth_cm: number | null;
+  barcode_ean: string | null;
+  gtin_tax: string | null;
 }
 
 // Computed property for available stock
@@ -73,7 +86,7 @@ export interface ProductFormData {
   is_active?: boolean;
   is_featured?: boolean;
   category?: ProductCategory;
-  // New fields
+  // Cost and stock fields
   cost_cents?: number;
   stock_quantity?: number;
   minimum_stock?: number;
@@ -86,6 +99,19 @@ export interface ProductFormData {
   label_image_url?: string | null;
   // Visibility restriction
   restrict_to_users?: boolean;
+  // New fields
+  brand_id?: string | null;
+  hot_site_url?: string | null;
+  youtube_video_url?: string | null;
+  sku?: string | null;
+  unit?: string | null;
+  net_weight_grams?: number | null;
+  gross_weight_grams?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  depth_cm?: number | null;
+  barcode_ean?: string | null;
+  gtin_tax?: string | null;
 }
 
 export function useProducts() {
