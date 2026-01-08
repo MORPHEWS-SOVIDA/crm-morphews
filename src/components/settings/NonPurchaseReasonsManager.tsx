@@ -28,7 +28,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Pencil, Trash2, GripVertical, Clock, Webhook, Users } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, GripVertical, Clock, Webhook, Users, HelpCircle } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   useNonPurchaseReasons, 
   useCreateNonPurchaseReason, 
@@ -164,34 +170,55 @@ export function NonPurchaseReasonsManager() {
 
   return (
     <div className="space-y-4">
-      {/* Create Button */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogTrigger asChild>
-          <Button onClick={() => setFormData(initialFormData)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar Motivo
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Novo Motivo de Não Compra</DialogTitle>
-          </DialogHeader>
-          <ReasonForm 
-            formData={formData} 
-            setFormData={setFormData} 
-            stages={stages} 
-          />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancelar</Button>
-            </DialogClose>
-            <Button onClick={handleCreate} disabled={createReason.isPending}>
-              {createReason.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Criar
+      {/* Header with Help Tooltip */}
+      <div className="flex items-center gap-2">
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => setFormData(initialFormData)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Motivo
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Novo Motivo de Não Compra</DialogTitle>
+            </DialogHeader>
+            <ReasonForm 
+              formData={formData} 
+              setFormData={setFormData} 
+              stages={stages} 
+            />
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancelar</Button>
+              </DialogClose>
+              <Button onClick={handleCreate} disabled={createReason.isPending}>
+                {createReason.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Criar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50">
+                <HelpCircle className="w-5 h-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-sm p-4 text-sm">
+              <p className="font-semibold mb-2">Como funciona o sistema de Follow-up?</p>
+              <ul className="space-y-2 text-muted-foreground">
+                <li>• Quando um vendedor seleciona um motivo de não compra, as mensagens automáticas configuradas são agendadas.</li>
+                <li>• <strong>Se o lead for atendido novamente</strong> e receber outro motivo de não compra, as mensagens anteriores são <strong>canceladas automaticamente</strong> e as novas são agendadas.</li>
+                <li>• <strong>Se uma venda for efetuada</strong> para o lead, todas as mensagens pendentes são <strong>canceladas automaticamente</strong>.</li>
+                <li>• As mensagens respeitam o horário comercial configurado (se houver).</li>
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       {/* List */}
       {reasons.length === 0 ? (

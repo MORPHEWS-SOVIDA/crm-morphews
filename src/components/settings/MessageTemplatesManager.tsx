@@ -34,7 +34,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info, HelpCircle } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   useNonPurchaseMessageTemplates, 
   useCreateMessageTemplate, 
@@ -167,7 +173,26 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
             <MessageSquare className="w-3 h-3" />
             Mensagens Automáticas ({templates.length})
           </span>
-          <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <HelpCircle className="w-3 h-3 text-blue-500" />
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs p-3 text-xs">
+                  <p className="font-semibold mb-1">Variáveis disponíveis:</p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li><code className="bg-muted px-1 rounded">{'{{nome}}'}</code> - Nome completo</li>
+                    <li><code className="bg-muted px-1 rounded">{'{{primeiro_nome}}'}</code> - Primeiro nome</li>
+                    <li><code className="bg-muted px-1 rounded">{'{{vendedor}}'}</code> - Nome do vendedor</li>
+                    <li><code className="bg-muted px-1 rounded">{'{{produto}}'}</code> - Produto de interesse</li>
+                    <li><code className="bg-muted px-1 rounded">{'{{marca_do_produto}}'}</code> - Marca</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </div>
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2 space-y-2">

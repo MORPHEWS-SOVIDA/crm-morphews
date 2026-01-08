@@ -519,6 +519,33 @@ export function useCreateSale() {
         changed_by: user.id,
       });
 
+      // CANCEL any pending scheduled messages for this lead (sale was created)
+      try {
+        const { data: pendingMessages } = await supabase
+          .from('lead_scheduled_messages')
+          .select('id')
+          .eq('lead_id', data.lead_id)
+          .eq('organization_id', organizationId)
+          .eq('status', 'pending');
+
+        if (pendingMessages && pendingMessages.length > 0) {
+          const ids = pendingMessages.map(m => m.id);
+          await supabase
+            .from('lead_scheduled_messages')
+            .update({
+              status: 'cancelled',
+              cancelled_at: new Date().toISOString(),
+              cancel_reason: 'Venda efetuada para o cliente',
+              updated_at: new Date().toISOString(),
+            })
+            .in('id', ids);
+          console.log(`Cancelled ${ids.length} pending follow-up messages due to sale creation`);
+        }
+      } catch (cancelError) {
+        console.error('Error cancelling scheduled messages:', cancelError);
+        // Don't fail the sale, just log the error
+      }
+
       // Create installments for receivables tracking
       // This is important for financial conciliation and accounts receivable
       if (data.payment_method_id) {
