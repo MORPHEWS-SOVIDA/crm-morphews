@@ -228,9 +228,24 @@ export default function NewLead() {
       } else {
         navigate('/leads');
       }
-    } catch (error) {
-      // Error already handled by mutation
+    } catch (error: any) {
       console.error('Lead creation failed:', error);
+      
+      // If it's a duplicate error that wasn't caught by checkLeadExistsForOtherUser,
+      // re-run the check and show the transfer dialog
+      if (error?.message === 'DUPLICATE_WHATSAPP') {
+        const existingLead = await checkLeadExistsForOtherUser(formData.whatsapp.trim());
+        if (existingLead) {
+          setExistingLeadForTransfer(existingLead);
+          setShowTransferDialog(true);
+        } else {
+          toast({
+            title: 'WhatsApp já cadastrado',
+            description: 'Este número já está vinculado a um lead existente na organização.',
+            variant: 'destructive',
+          });
+        }
+      }
     }
   };
 
