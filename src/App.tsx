@@ -45,6 +45,7 @@ import SalesDashboard from "./pages/SalesDashboard";
 import SAC from "./pages/SAC";
 import ScheduledMessages from "./pages/ScheduledMessages";
 import ExpeditionReport from "./pages/ExpeditionReport";
+import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/planos" element={<Planos />} />
               <Route path="/signup-success" element={<SignupSuccess />} />
               <Route path="/auth/error" element={<AuthError />} />
+              <Route path="/legal" element={<Legal />} />
 
               {/* Home - shows landing for non-auth, dashboard for auth */}
               <Route path="/" element={<Home />} />
