@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Plus, Search, Package, Loader2 } from 'lucide-react';
+import { ProductCsvManager } from '@/components/products/ProductCsvManager';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductForm } from '@/components/products/ProductForm';
 import { ProductDetailDialog } from '@/components/products/ProductDetailDialog';
@@ -341,12 +342,17 @@ export default function Products() {
               Gerencie seu catálogo de produtos
             </p>
           </div>
-          {canManageProducts && (
-            <Button onClick={() => setViewMode('create')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Produto
-            </Button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {canManageProducts && products && (
+              <ProductCsvManager products={products} canManage={canManageProducts} />
+            )}
+            {canManageProducts && (
+              <Button onClick={() => setViewMode('create')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Produto
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search */}
