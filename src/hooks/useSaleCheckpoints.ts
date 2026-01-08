@@ -129,13 +129,23 @@ export function useToggleSaleCheckpoint() {
           if (error) throw error;
         }
 
-        // Update legacy fields on sales table for compatibility
+        // Update legacy fields on sales table for compatibility AND update status
         if (checkpointType === 'dispatched') {
-          await supabase.from('sales').update({ dispatched_at: new Date().toISOString() }).eq('id', saleId);
+          await supabase.from('sales').update({ 
+            dispatched_at: new Date().toISOString(),
+            status: 'dispatched'
+          }).eq('id', saleId);
         } else if (checkpointType === 'delivered') {
-          await supabase.from('sales').update({ delivered_at: new Date().toISOString() }).eq('id', saleId);
+          await supabase.from('sales').update({ 
+            delivered_at: new Date().toISOString(),
+            status: 'delivered'
+          }).eq('id', saleId);
         } else if (checkpointType === 'payment_confirmed') {
-          await supabase.from('sales').update({ payment_confirmed_at: new Date().toISOString() }).eq('id', saleId);
+          await supabase.from('sales').update({ 
+            payment_confirmed_at: new Date().toISOString(),
+            payment_confirmed_by: user?.id,
+            status: 'payment_confirmed'
+          }).eq('id', saleId);
         }
       } else {
         // Uncheck - just clear the completed_at
@@ -167,6 +177,8 @@ export function useToggleSaleCheckpoint() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale', data.saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
     },
   });
 }
