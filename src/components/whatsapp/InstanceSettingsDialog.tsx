@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -47,20 +47,20 @@ export function InstanceSettingsDialog({
     enabled: open,
   });
 
-  const [distributionMode, setDistributionMode] = useState<string>("manual");
-  const [autoCloseHours, setAutoCloseHours] = useState<number>(24);
-  const [displayName, setDisplayName] = useState<string>("");
-  const [instanceNumber, setInstanceNumber] = useState<string>("");
+  const [distributionMode, setDistributionMode] = useState<string>(settings?.distribution_mode || "manual");
+  const [autoCloseHours, setAutoCloseHours] = useState<number>(settings?.auto_close_hours || 24);
+  const [displayName, setDisplayName] = useState<string>(settings?.display_name_for_team || "");
+  const [instanceNumber, setInstanceNumber] = useState<string>(settings?.manual_instance_number || "");
 
   // Atualizar state quando carregar dados
-  useState(() => {
+  useEffect(() => {
     if (settings) {
       setDistributionMode(settings.distribution_mode || "manual");
       setAutoCloseHours(settings.auto_close_hours || 24);
       setDisplayName(settings.display_name_for_team || "");
       setInstanceNumber(settings.manual_instance_number || "");
     }
-  });
+  }, [settings]);
 
   // Salvar configurações
   const updateSettings = useMutation({
@@ -88,10 +88,6 @@ export function InstanceSettingsDialog({
     },
   });
 
-  // Inicializar valores quando os dados chegam
-  if (settings && distributionMode === "manual" && settings.distribution_mode) {
-    // Só atualiza se ainda não foi alterado pelo usuário
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

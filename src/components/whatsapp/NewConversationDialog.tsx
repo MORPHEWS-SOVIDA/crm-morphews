@@ -145,7 +145,7 @@ export function NewConversationDialog({
 
       let conversationId = existingConversation?.id;
 
-      // Se não existe, criar nova conversa
+      // Se não existe, criar nova conversa - já atribuída ao usuário que iniciou
       if (!conversationId) {
         const { data: newConversation, error: createError } = await supabase
           .from("whatsapp_conversations")
@@ -155,12 +155,34 @@ export function NewConversationDialog({
             phone_number: cleanPhone,
             chat_id: `${cleanPhone}@s.whatsapp.net`,
             is_group: false,
+            // ENVIO ATIVO: Conversa já nasce atribuída ao usuário que iniciou
+            status: 'assigned',
+            assigned_user_id: profile?.user_id,
+            assigned_at: new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (createError) throw createError;
         conversationId = newConversation.id;
+      } else {
+        // Se a conversa existe mas estava pendente/fechada, atribuir ao usuário
+        const { data: existingConv } = await supabase
+          .from("whatsapp_conversations")
+          .select("status, assigned_user_id")
+          .eq("id", conversationId)
+          .single();
+
+        if (existingConv && (existingConv.status !== 'assigned' || !existingConv.assigned_user_id)) {
+          await supabase
+            .from("whatsapp_conversations")
+            .update({
+              status: 'assigned',
+              assigned_user_id: profile?.user_id,
+              assigned_at: new Date().toISOString(),
+            })
+            .eq("id", conversationId);
+        }
       }
 
       // Se tem mensagem, enviar
