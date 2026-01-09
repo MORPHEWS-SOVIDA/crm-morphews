@@ -57,6 +57,8 @@ export default function WhatsAppDMs() {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState("");
+  const [newInstanceNumber, setNewInstanceNumber] = useState("");
+  const [newDeviceLabel, setNewDeviceLabel] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<EvolutionInstance | null>(null);
   const [isGeneratingQR, setIsGeneratingQR] = useState<string | null>(null);
@@ -68,9 +70,11 @@ export default function WhatsAppDMs() {
   // QR Codes em memória (não salvar no banco por ser muito grande)
   const [qrCodesMap, setQrCodesMap] = useState<Record<string, string>>({});
   
-  // Edit instance name dialog
+  // Edit instance dialog
   const [editNameInstance, setEditNameInstance] = useState<EvolutionInstance | null>(null);
   const [newInstanceNameEdit, setNewInstanceNameEdit] = useState("");
+  const [newInstanceNumberEdit, setNewInstanceNumberEdit] = useState("");
+  const [newDeviceLabelEdit, setNewDeviceLabelEdit] = useState("");
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   
   // Ver todas as conversas (todas as instâncias)
@@ -171,7 +175,12 @@ export default function WhatsAppDMs() {
     setIsCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
-        body: { action: "create", name: newInstanceName },
+        body: { 
+          action: "create", 
+          name: newInstanceName,
+          manual_instance_number: newInstanceNumber.trim() || null,
+          manual_device_label: newDeviceLabel.trim() || null,
+        },
       });
 
       if (error) throw error;
@@ -195,6 +204,8 @@ export default function WhatsAppDMs() {
 
       setShowCreateDialog(false);
       setNewInstanceName("");
+      setNewInstanceNumber("");
+      setNewDeviceLabel("");
       refetch();
     } catch (error: any) {
       toast({
@@ -304,22 +315,28 @@ export default function WhatsAppDMs() {
     try {
       const { error } = await supabase
         .from("whatsapp_instances")
-        .update({ name: newInstanceNameEdit.trim() })
+        .update({ 
+          name: newInstanceNameEdit.trim(),
+          manual_instance_number: newInstanceNumberEdit.trim() || null,
+          manual_device_label: newDeviceLabelEdit.trim() || null,
+        })
         .eq("id", editNameInstance.id);
 
       if (error) throw error;
 
       toast({ 
-        title: "Nome atualizado!", 
-        description: `Instância renomeada para "${newInstanceNameEdit.trim()}"`,
+        title: "Instância atualizada!", 
+        description: `Informações da instância salvas com sucesso.`,
       });
 
       setEditNameInstance(null);
       setNewInstanceNameEdit("");
+      setNewInstanceNumberEdit("");
+      setNewDeviceLabelEdit("");
       refetch();
     } catch (error: any) {
       toast({
-        title: "Erro ao atualizar nome",
+        title: "Erro ao atualizar",
         description: error.message,
         variant: "destructive",
       });
@@ -456,10 +473,33 @@ export default function WhatsAppDMs() {
                 <Label htmlFor="instance-name">Nome da Instância *</Label>
                 <Input
                   id="instance-name"
-                  placeholder="Ex: Atendimento Principal"
+                  placeholder="Ex: vendas123 (sem espaços e acentos)"
                   value={newInstanceName}
                   onChange={(e) => setNewInstanceName(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">Sem espaços, acentos ou caracteres especiais. Esse é o ID enviado para o Evolution.</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="instance-number">Número da Instância</Label>
+                <Input
+                  id="instance-number"
+                  placeholder="Ex: 5551998874646"
+                  value={newInstanceNumber}
+                  onChange={(e) => setNewInstanceNumber(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Somente números. Exemplo: 5551998874646</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="device-label">Celular / Localização</Label>
+                <Input
+                  id="device-label"
+                  placeholder="Ex: Celular verde, Mesa 3..."
+                  value={newDeviceLabel}
+                  onChange={(e) => setNewDeviceLabel(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Informação para identificar o dispositivo.</p>
               </div>
             </div>
 
@@ -727,11 +767,13 @@ export default function WhatsAppDMs() {
                             onClick={() => {
                               setEditNameInstance(instance);
                               setNewInstanceNameEdit(instance.name);
+                              setNewInstanceNumberEdit(instance.manual_instance_number || "");
+                              setNewDeviceLabelEdit(instance.manual_device_label || "");
                             }}
                             className="text-muted-foreground hover:text-foreground"
                           >
                             <Pencil className="h-4 w-4 mr-1" />
-                            Editar Nome
+                            Editar
                           </Button>
                           {isAdmin && (
                             <Button 
@@ -881,16 +923,16 @@ export default function WhatsAppDMs() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Edit Instance Name Dialog */}
+        {/* Edit Instance Dialog */}
         <Dialog open={!!editNameInstance} onOpenChange={(open) => !open && setEditNameInstance(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Pencil className="h-5 w-5 text-primary" />
-                Editar Nome da Instância
+                Editar Instância
               </DialogTitle>
               <DialogDescription>
-                Altere o nome de identificação desta instância do WhatsApp.
+                Altere as informações desta instância do WhatsApp.
               </DialogDescription>
             </DialogHeader>
 
@@ -898,10 +940,30 @@ export default function WhatsAppDMs() {
               <div className="space-y-2">
                 <Label>Nome da Instância *</Label>
                 <Input
-                  placeholder="Ex: Atendimento Principal"
+                  placeholder="Ex: vendas123"
                   value={newInstanceNameEdit}
                   onChange={(e) => setNewInstanceNameEdit(e.target.value)}
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Número da Instância</Label>
+                <Input
+                  placeholder="Ex: 5551998874646"
+                  value={newInstanceNumberEdit}
+                  onChange={(e) => setNewInstanceNumberEdit(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Somente números. Exemplo: 5551998874646</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Celular / Localização</Label>
+                <Input
+                  placeholder="Ex: Celular verde, Mesa 3..."
+                  value={newDeviceLabelEdit}
+                  onChange={(e) => setNewDeviceLabelEdit(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Informação para identificar o dispositivo.</p>
               </div>
             </div>
 
