@@ -123,6 +123,7 @@ export default function WhatsAppChat() {
   const [isSending, setIsSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [claimingConversationId, setClaimingConversationId] = useState<string | null>(null);
+  const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
   
   // Status tab filter
   const [statusFilter, setStatusFilter] = useState<StatusTab>('pending');
@@ -683,7 +684,7 @@ export default function WhatsAppChat() {
     }
   };
 
-  // Handler para encerrar conversa
+  // Handler para encerrar conversa (do header do chat)
   const handleCloseConversation = async () => {
     if (!selectedConversation) return;
     await closeConversation.mutateAsync(selectedConversation.id);
@@ -693,6 +694,27 @@ export default function WhatsAppChat() {
         : c
     ));
     setSelectedConversation(null);
+  };
+
+  // Handler para encerrar conversa (da lista)
+  const handleCloseConversationById = async (conversationId: string) => {
+    setClosingConversationId(conversationId);
+    try {
+      await closeConversation.mutateAsync(conversationId);
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId 
+          ? { ...c, status: 'closed' }
+          : c
+      ));
+      // Se era a conversa selecionada, deselecionar
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+      }
+      // Mover para aba encerrado
+      setStatusFilter('closed');
+    } finally {
+      setClosingConversationId(null);
+    }
   };
 
   const filteredConversations = conversations.filter(c => {
@@ -922,6 +944,8 @@ export default function WhatsAppChat() {
                     showClaimButton={statusFilter === 'pending' && isManualDistribution(conv.instance_id)}
                     onClaim={() => handleClaimConversation(conv.id)}
                     isClaiming={claimingConversationId === conv.id}
+                    onClose={() => handleCloseConversationById(conv.id)}
+                    isClosing={closingConversationId === conv.id}
                     assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
                     currentUserId={user?.id}
                     otherInstanceConversations={otherInstances}
