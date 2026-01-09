@@ -295,13 +295,21 @@ serve(async (req) => {
 
       const isConnected = statusResult?.instance?.state === "open";
       const status = isConnected ? "connected" : (statusResult?.instance?.state || "pending");
+      
+      // Extrair número do telefone do ownerJid
+      let phoneNumber = instance.phone_number;
+      if (statusResult?.instance?.ownerJid) {
+        phoneNumber = statusResult.instance.ownerJid.split("@")[0];
+        console.log("Phone number extracted from ownerJid:", phoneNumber);
+      }
 
-      // Atualizar no banco
+      // Atualizar no banco incluindo phone_number
       await supabase
         .from("whatsapp_instances")
         .update({ 
           is_connected: isConnected,
           status: status,
+          phone_number: phoneNumber,
         })
         .eq("id", instanceId);
 
