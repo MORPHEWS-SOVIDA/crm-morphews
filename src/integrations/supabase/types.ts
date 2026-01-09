@@ -4889,6 +4889,7 @@ export type Database = {
           applied_coupon_id: string | null
           created_at: string
           discount_applied_cents: number | null
+          display_name_for_team: string | null
           evolution_api_token: string | null
           evolution_instance_id: string | null
           evolution_webhook_configured: boolean | null
@@ -4916,6 +4917,7 @@ export type Database = {
           applied_coupon_id?: string | null
           created_at?: string
           discount_applied_cents?: number | null
+          display_name_for_team?: string | null
           evolution_api_token?: string | null
           evolution_instance_id?: string | null
           evolution_webhook_configured?: boolean | null
@@ -4943,6 +4945,7 @@ export type Database = {
           applied_coupon_id?: string | null
           created_at?: string
           discount_applied_cents?: number | null
+          display_name_for_team?: string | null
           evolution_api_token?: string | null
           evolution_instance_id?: string | null
           evolution_webhook_configured?: boolean | null
