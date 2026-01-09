@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Users, Eye, Send, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Users, Eye, Send, Plus, Shield, Clock, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { Separator } from "@/components/ui/separator";
 
 interface InstancePermissionsProps {
   instanceId: string;
@@ -34,11 +36,17 @@ interface InstanceUser {
   user_id: string;
   can_view: boolean;
   can_send: boolean;
+  is_instance_admin: boolean;
+  participates_in_distribution: boolean;
+  is_always_available: boolean;
+  available_from: string | null;
+  available_until: string | null;
 }
 
 export function InstancePermissions({ instanceId, instanceName, open, onOpenChange }: InstancePermissionsProps) {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   // Fetch organization members
   const { data: orgMembers, isLoading: loadingMembers } = useQuery({
@@ -46,7 +54,6 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     queryFn: async () => {
       if (!profile?.organization_id) return [];
       
-      // Get organization members
       const { data: members, error: membersError } = await supabase
         .from("organization_members")
         .select("user_id, role")
@@ -54,7 +61,6 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
       if (membersError) throw membersError;
 
-      // Get profiles for these members
       const userIds = members.map(m => m.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
@@ -63,7 +69,6 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
       if (profilesError) throw profilesError;
 
-      // Combine data
       return members.map(member => ({
         user_id: member.user_id,
         role: member.role,
@@ -98,6 +103,9 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
           user_id: userId,
           can_view: true,
           can_send: true,
+          is_instance_admin: false,
+          participates_in_distribution: true,
+          is_always_available: true,
         });
       if (error) throw error;
     },
@@ -112,14 +120,10 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   // Update user permissions
   const updatePermissionMutation = useMutation({
-    mutationFn: async ({ id, can_view, can_send }: { id: string; can_view?: boolean; can_send?: boolean }) => {
-      const update: any = {};
-      if (can_view !== undefined) update.can_view = can_view;
-      if (can_send !== undefined) update.can_send = can_send;
-
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<InstanceUser>) => {
       const { error } = await supabase
         .from("whatsapp_instance_users")
-        .update(update)
+        .update(updates)
         .eq("id", id);
       if (error) throw error;
     },
@@ -151,14 +155,14 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Permissões - {instanceName}
           </DialogTitle>
           <DialogDescription>
-            Defina quais membros da equipe podem ver e enviar mensagens
+            Defina permissões, distribuição automática e horários de disponibilidade
           </DialogDescription>
         </DialogHeader>
 
@@ -167,84 +171,214 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-3 overflow-y-auto flex-1 pr-2">
             {orgMembers?.map((member) => {
               const permission = getUserPermission(member.user_id);
               const hasAccess = !!permission;
               const memberName = member.profiles 
                 ? `${member.profiles.first_name} ${member.profiles.last_name}`
                 : "Usuário";
+              const isExpanded = expandedUser === member.user_id;
 
               return (
                 <div
                   key={member.user_id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                  className="rounded-lg border bg-muted/30 overflow-hidden"
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {memberName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{memberName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {member.profiles?.email}
-                      </p>
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {member.role === "owner" ? "Dono" : member.role === "admin" ? "Admin" : "Membro"}
-                      </Badge>
+                  {/* Header row */}
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {memberName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{memberName}</p>
+                          {permission?.is_instance_admin && (
+                            <Badge variant="secondary" className="text-[10px] h-5">
+                              <Shield className="h-3 w-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {member.profiles?.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {hasAccess ? (
+                        <>
+                          <div className="flex items-center gap-3 mr-2">
+                            <div className="flex items-center gap-1.5" title="Ver mensagens">
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                              <Switch
+                                checked={permission?.can_view || false}
+                                onCheckedChange={(checked) =>
+                                  updatePermissionMutation.mutate({
+                                    id: permission!.id,
+                                    can_view: checked,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5" title="Enviar mensagens">
+                              <Send className="h-4 w-4 text-muted-foreground" />
+                              <Switch
+                                checked={permission?.can_send || false}
+                                onCheckedChange={(checked) =>
+                                  updatePermissionMutation.mutate({
+                                    id: permission!.id,
+                                    can_send: checked,
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedUser(isExpanded ? null : member.user_id)}
+                          >
+                            {isExpanded ? "Menos" : "Mais"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-600"
+                            onClick={() => removeUserMutation.mutate(permission!.id)}
+                          >
+                            Remover
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addUserMutation.mutate(member.user_id)}
+                          disabled={addUserMutation.isPending}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Adicionar
+                        </Button>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    {hasAccess ? (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                          <Switch
-                            checked={permission?.can_view || false}
-                            onCheckedChange={(checked) =>
-                              updatePermissionMutation.mutate({
-                                id: permission!.id,
-                                can_view: checked,
-                              })
-                            }
-                          />
+                  {/* Expanded settings */}
+                  {hasAccess && isExpanded && (
+                    <div className="px-3 pb-3 pt-0 space-y-4 border-t bg-background/50">
+                      <Separator className="mb-4" />
+                      
+                      {/* Admin da instância */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            Admin desta instância
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Pode ver todos os atendimentos e reatribuir leads
+                          </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Send className="h-4 w-4 text-muted-foreground" />
-                          <Switch
-                            checked={permission?.can_send || false}
-                            onCheckedChange={(checked) =>
-                              updatePermissionMutation.mutate({
-                                id: permission!.id,
-                                can_send: checked,
-                              })
-                            }
-                          />
+                        <Switch
+                          checked={permission?.is_instance_admin || false}
+                          onCheckedChange={(checked) =>
+                            updatePermissionMutation.mutate({
+                              id: permission!.id,
+                              is_instance_admin: checked,
+                            })
+                          }
+                        />
+                      </div>
+
+                      {/* Participa da distribuição */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4" />
+                            Participa da distribuição
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Recebe leads automaticamente no modo auto-distribuição
+                          </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-600"
-                          onClick={() => removeUserMutation.mutate(permission!.id)}
-                        >
-                          Remover
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addUserMutation.mutate(member.user_id)}
-                        disabled={addUserMutation.isPending}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Adicionar
-                      </Button>
-                    )}
-                  </div>
+                        <Switch
+                          checked={permission?.participates_in_distribution || false}
+                          onCheckedChange={(checked) =>
+                            updatePermissionMutation.mutate({
+                              id: permission!.id,
+                              participates_in_distribution: checked,
+                            })
+                          }
+                        />
+                      </div>
+
+                      {/* Horário de disponibilidade */}
+                      {permission?.participates_in_distribution && (
+                        <div className="space-y-3 pt-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                Disponível 24h
+                              </Label>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Recebe leads a qualquer horário
+                              </p>
+                            </div>
+                            <Switch
+                              checked={permission?.is_always_available || false}
+                              onCheckedChange={(checked) =>
+                                updatePermissionMutation.mutate({
+                                  id: permission!.id,
+                                  is_always_available: checked,
+                                })
+                              }
+                            />
+                          </div>
+
+                          {!permission?.is_always_available && (
+                            <div className="flex items-center gap-4 pl-6">
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`from-${member.user_id}`} className="text-sm">De:</Label>
+                                <Input
+                                  id={`from-${member.user_id}`}
+                                  type="time"
+                                  value={permission?.available_from || "08:00"}
+                                  onChange={(e) =>
+                                    updatePermissionMutation.mutate({
+                                      id: permission!.id,
+                                      available_from: e.target.value,
+                                    })
+                                  }
+                                  className="w-28 h-8"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`until-${member.user_id}`} className="text-sm">Até:</Label>
+                                <Input
+                                  id={`until-${member.user_id}`}
+                                  type="time"
+                                  value={permission?.available_until || "18:00"}
+                                  onChange={(e) =>
+                                    updatePermissionMutation.mutate({
+                                      id: permission!.id,
+                                      available_until: e.target.value,
+                                    })
+                                  }
+                                  className="w-28 h-8"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -254,11 +388,15 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
         <div className="flex items-center gap-4 pt-4 border-t text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Eye className="h-4 w-4" />
-            <span>Ver mensagens</span>
+            <span>Ver</span>
           </div>
           <div className="flex items-center gap-2">
             <Send className="h-4 w-4" />
-            <span>Enviar mensagens</span>
+            <span>Enviar</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span>Admin = acesso total</span>
           </div>
         </div>
       </DialogContent>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +26,9 @@ import {
   Users,
   Filter,
   Instagram,
+  UserPlus,
+  XCircle,
+  Hand,
 } from 'lucide-react';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { toast } from 'sonner';
@@ -37,9 +40,15 @@ import { ImageUpload } from '@/components/whatsapp/ImageUpload';
 import { AudioRecorder } from '@/components/whatsapp/AudioRecorder';
 import { MessageBubble } from '@/components/whatsapp/MessageBubble';
 import { ConversationItem } from '@/components/whatsapp/ConversationItem';
+import { ConversationStatusTabs } from '@/components/whatsapp/ConversationStatusTabs';
+import { ConversationTransferDialog } from '@/components/whatsapp/ConversationTransferDialog';
 import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useConversationDistribution } from '@/hooks/useConversationDistribution';
+import { useQuery } from '@tanstack/react-query';
+
+type StatusTab = 'pending' | 'assigned' | 'closed';
 
 interface Conversation {
   id: string;
@@ -51,6 +60,8 @@ interface Conversation {
   lead_id: string | null;
   instance_id: string;
   chat_id?: string | null;
+  status?: string; // 'pending' | 'assigned' | 'closed' - kept as string for DB compatibility
+  assigned_user_id?: string | null;
 }
 
 interface Message {
@@ -82,12 +93,20 @@ interface Instance {
   is_connected: boolean;
   display_name_for_team: string | null;
   manual_instance_number: string | null;
+  distribution_mode?: string;
+}
+
+interface InstanceUserPermission {
+  user_id: string;
+  is_instance_admin: boolean;
 }
 
 export default function WhatsAppChat() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { data: funnelStages } = useFunnelStages();
+  const { claimConversation, closeConversation } = useConversationDistribution();
+  
   const [isUpdatingStars, setIsUpdatingStars] = useState(false);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
@@ -100,6 +119,10 @@ export default function WhatsAppChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [claimingConversationId, setClaimingConversationId] = useState<string | null>(null);
+  
+  // Status tab filter
+  const [statusFilter, setStatusFilter] = useState<StatusTab>('pending');
   
   // Media state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -111,6 +134,7 @@ export default function WhatsAppChat() {
   // Dialog state
   const [showLeadDialog, setShowLeadDialog] = useState(false);
   const [showNewConversationDialog, setShowNewConversationDialog] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
   
   // Filter state
   const [conversationTypeFilter, setConversationTypeFilter] = useState<'all' | 'individual' | 'group'>('all');

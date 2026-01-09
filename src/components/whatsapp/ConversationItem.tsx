@@ -2,7 +2,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { UserCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { UserCheck, Clock, CheckCircle, Hand } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -14,6 +15,8 @@ interface Conversation {
   unread_count: number;
   lead_id: string | null;
   instance_id: string;
+  status?: string; // 'pending' | 'assigned' | 'closed'
+  assigned_user_id?: string | null;
 }
 
 interface ConversationItemProps {
@@ -21,9 +24,24 @@ interface ConversationItemProps {
   isSelected: boolean;
   onClick: () => void;
   instanceLabel?: string | null;
+  showClaimButton?: boolean;
+  onClaim?: () => void;
+  isClaiming?: boolean;
+  assignedUserName?: string | null;
+  currentUserId?: string;
 }
 
-export function ConversationItem({ conversation, isSelected, onClick, instanceLabel }: ConversationItemProps) {
+export function ConversationItem({ 
+  conversation, 
+  isSelected, 
+  onClick, 
+  instanceLabel,
+  showClaimButton,
+  onClaim,
+  isClaiming,
+  assignedUserName,
+  currentUserId
+}: ConversationItemProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -42,6 +60,38 @@ export function ConversationItem({ conversation, isSelected, onClick, instanceLa
     return format(date, 'dd/MM', { locale: ptBR });
   };
 
+  const status = conversation.status || 'pending';
+  const isAssignedToMe = conversation.assigned_user_id === currentUserId;
+  
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-3 w-3 text-yellow-600" />;
+      case 'assigned':
+        return <UserCheck className="h-3 w-3 text-green-600" />;
+      case 'closed':
+        return <CheckCircle className="h-3 w-3 text-gray-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusBadge = () => {
+    if (status === 'assigned' && assignedUserName) {
+      return (
+        <span className="text-[10px] text-green-600 truncate max-w-[80px]">
+          {isAssignedToMe ? 'Meu' : assignedUserName.split(' ')[0]}
+        </span>
+      );
+    }
+    return null;
+  };
+
+  const handleClaimClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClaim?.();
+  };
+
   return (
     <div
       onClick={onClick}
@@ -49,23 +99,38 @@ export function ConversationItem({ conversation, isSelected, onClick, instanceLa
         "flex items-center gap-3 p-3 cursor-pointer transition-colors border-b border-border/50",
         isSelected 
           ? "bg-accent" 
-          : "hover:bg-accent/50"
+          : "hover:bg-accent/50",
+        status === 'closed' && "opacity-60"
       )}
     >
-      {/* Avatar */}
-      <Avatar className="h-12 w-12 flex-shrink-0">
-        <AvatarImage src={conversation.contact_profile_pic || undefined} />
-        <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-medium">
-          {conversation.contact_name?.[0]?.toUpperCase() || conversation.phone_number.slice(-2)}
-        </AvatarFallback>
-      </Avatar>
+      {/* Avatar with status indicator */}
+      <div className="relative flex-shrink-0">
+        <Avatar className="h-12 w-12">
+          <AvatarImage src={conversation.contact_profile_pic || undefined} />
+          <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-medium">
+            {conversation.contact_name?.[0]?.toUpperCase() || conversation.phone_number.slice(-2)}
+          </AvatarFallback>
+        </Avatar>
+        {/* Status dot */}
+        <div className={cn(
+          "absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-card flex items-center justify-center",
+          status === 'pending' && "bg-yellow-100",
+          status === 'assigned' && "bg-green-100",
+          status === 'closed' && "bg-gray-100"
+        )}>
+          {getStatusIcon()}
+        </div>
+      </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="font-medium truncate">
-            {conversation.contact_name || conversation.phone_number}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-medium truncate">
+              {conversation.contact_name || conversation.phone_number}
+            </span>
+            {getStatusBadge()}
+          </div>
           {conversation.last_message_at && (
             <span className={cn(
               "text-xs flex-shrink-0 ml-2",
@@ -76,35 +141,46 @@ export function ConversationItem({ conversation, isSelected, onClick, instanceLa
           )}
         </div>
         
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {conversation.lead_id ? (
               <span className="text-xs text-green-600 flex items-center gap-1 truncate">
                 <UserCheck className="h-3 w-3 flex-shrink-0" />
                 Lead vinculado
-                {instanceLabel && (
-                  <span className="text-muted-foreground/70 font-normal ml-1 truncate max-w-[100px]">
-                    · {instanceLabel}
-                  </span>
-                )}
               </span>
             ) : (
-              <span className="text-sm text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground truncate">
                 {conversation.phone_number}
-                {instanceLabel && (
-                  <span className="text-xs opacity-70 ml-1">
-                    · {instanceLabel}
-                  </span>
-                )}
+              </span>
+            )}
+            {instanceLabel && (
+              <span className="text-[10px] text-muted-foreground/60 truncate max-w-[60px]">
+                {instanceLabel}
               </span>
             )}
           </div>
           
-          {conversation.unread_count > 0 && (
-            <Badge className="bg-green-500 text-white h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs font-medium flex-shrink-0">
-              {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Botão ATENDER para conversas pendentes */}
+            {showClaimButton && status === 'pending' && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-6 px-2 text-[10px] bg-primary hover:bg-primary/90"
+                onClick={handleClaimClick}
+                disabled={isClaiming}
+              >
+                <Hand className="h-3 w-3 mr-1" />
+                ATENDER
+              </Button>
+            )}
+            
+            {conversation.unread_count > 0 && (
+              <Badge className="bg-green-500 text-white h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs font-medium">
+                {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
     </div>

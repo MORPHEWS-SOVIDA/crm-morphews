@@ -4720,10 +4720,77 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversation_assignments: {
+        Row: {
+          action: string
+          assigned_by: string | null
+          conversation_id: string
+          created_at: string
+          from_user_id: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          to_user_id: string | null
+        }
+        Insert: {
+          action: string
+          assigned_by?: string | null
+          conversation_id: string
+          created_at?: string
+          from_user_id?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          to_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          assigned_by?: string | null
+          conversation_id?: string
+          created_at?: string
+          from_user_id?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          to_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_conversations: {
         Row: {
+          assigned_at: string | null
           assigned_user_id: string | null
           chat_id: string | null
+          closed_at: string | null
           contact_id: string | null
           contact_name: string | null
           contact_profile_pic: string | null
@@ -4735,6 +4802,7 @@ export type Database = {
           id: string
           instance_id: string
           is_group: boolean
+          last_customer_message_at: string | null
           last_message_at: string | null
           lead_id: string | null
           organization_id: string
@@ -4745,8 +4813,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_at?: string | null
           assigned_user_id?: string | null
           chat_id?: string | null
+          closed_at?: string | null
           contact_id?: string | null
           contact_name?: string | null
           contact_profile_pic?: string | null
@@ -4758,6 +4828,7 @@ export type Database = {
           id?: string
           instance_id: string
           is_group?: boolean
+          last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
           organization_id: string
@@ -4768,8 +4839,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_at?: string | null
           assigned_user_id?: string | null
           chat_id?: string | null
+          closed_at?: string | null
           contact_id?: string | null
           contact_name?: string | null
           contact_profile_pic?: string | null
@@ -4781,6 +4854,7 @@ export type Database = {
           id?: string
           instance_id?: string
           is_group?: boolean
+          last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
           organization_id?: string
@@ -4844,27 +4918,42 @@ export type Database = {
       }
       whatsapp_instance_users: {
         Row: {
+          available_from: string | null
+          available_until: string | null
           can_send: boolean
           can_view: boolean
           created_at: string
           id: string
           instance_id: string
+          is_always_available: boolean
+          is_instance_admin: boolean
+          participates_in_distribution: boolean
           user_id: string
         }
         Insert: {
+          available_from?: string | null
+          available_until?: string | null
           can_send?: boolean
           can_view?: boolean
           created_at?: string
           id?: string
           instance_id: string
+          is_always_available?: boolean
+          is_instance_admin?: boolean
+          participates_in_distribution?: boolean
           user_id: string
         }
         Update: {
+          available_from?: string | null
+          available_until?: string | null
           can_send?: boolean
           can_view?: boolean
           created_at?: string
           id?: string
           instance_id?: string
+          is_always_available?: boolean
+          is_instance_admin?: boolean
+          participates_in_distribution?: boolean
           user_id?: string
         }
         Relationships: [
@@ -4887,14 +4976,17 @@ export type Database = {
       whatsapp_instances: {
         Row: {
           applied_coupon_id: string | null
+          auto_close_hours: number | null
           created_at: string
           discount_applied_cents: number | null
           display_name_for_team: string | null
+          distribution_mode: string
           evolution_api_token: string | null
           evolution_instance_id: string | null
           evolution_webhook_configured: boolean | null
           id: string
           is_connected: boolean
+          last_assigned_user_id: string | null
           manual_device_label: string | null
           manual_instance_number: string | null
           monthly_price_cents: number
@@ -4915,14 +5007,17 @@ export type Database = {
         }
         Insert: {
           applied_coupon_id?: string | null
+          auto_close_hours?: number | null
           created_at?: string
           discount_applied_cents?: number | null
           display_name_for_team?: string | null
+          distribution_mode?: string
           evolution_api_token?: string | null
           evolution_instance_id?: string | null
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
+          last_assigned_user_id?: string | null
           manual_device_label?: string | null
           manual_instance_number?: string | null
           monthly_price_cents?: number
@@ -4943,14 +5038,17 @@ export type Database = {
         }
         Update: {
           applied_coupon_id?: string | null
+          auto_close_hours?: number | null
           created_at?: string
           discount_applied_cents?: number | null
           display_name_for_team?: string | null
+          distribution_mode?: string
           evolution_api_token?: string | null
           evolution_instance_id?: string | null
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
+          last_assigned_user_id?: string | null
           manual_device_label?: string | null
           manual_instance_number?: string | null
           monthly_price_cents?: number
@@ -5664,6 +5762,14 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: number
       }
+      claim_whatsapp_conversation: {
+        Args: { p_conversation_id: string; p_user_id: string }
+        Returns: Json
+      }
+      close_whatsapp_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: Json
+      }
       current_tenant_id: { Args: never; Returns: string }
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
@@ -5687,6 +5793,10 @@ export type Database = {
       get_default_permissions_for_role: {
         Args: { _role: string }
         Returns: Json
+      }
+      get_next_available_user_for_distribution: {
+        Args: { p_instance_id: string; p_organization_id: string }
+        Returns: string
       }
       get_or_create_contact_by_phone: {
         Args: { _name?: string; _organization_id: string; _phone: string }
@@ -5791,6 +5901,10 @@ export type Database = {
         Args: { _feature_key: string; _org_id: string }
         Returns: boolean
       }
+      reopen_whatsapp_conversation: {
+        Args: { p_conversation_id: string; p_instance_id: string }
+        Returns: Json
+      }
       reserve_stock_for_sale: { Args: { _sale_id: string }; Returns: undefined }
       restore_stock_for_cancelled_delivered_sale: {
         Args: { _sale_id: string }
@@ -5808,6 +5922,14 @@ export type Database = {
       seed_standard_questions_for_org: {
         Args: { _org_id: string }
         Returns: undefined
+      }
+      transfer_whatsapp_conversation: {
+        Args: {
+          p_conversation_id: string
+          p_notes?: string
+          p_to_user_id: string
+        }
+        Returns: Json
       }
       unreserve_stock_for_sale: {
         Args: { _sale_id: string }
