@@ -64,7 +64,8 @@ serve(async (req) => {
     }
 
     const organizationId = membership.organization_id;
-    const { action, instanceId, name } = await req.json();
+    const body = await req.json();
+    const { action, instanceId, name, evolution_instance_id, evolution_api_token, phone_number } = body;
 
     console.log("Evolution Instance Manager:", { action, instanceId, name, organizationId });
 
@@ -485,16 +486,11 @@ serve(async (req) => {
     // ADD MANUAL INSTANCE (from existing Evolution instance)
     // =====================
     if (action === "add_manual") {
-      const { evolution_instance_id, evolution_api_token, phone_number } = await req.json().catch(() => ({})) || {};
-      
-      // Re-parse body since we already parsed once
-      const body = { action, instanceId, name, evolution_instance_id: undefined, evolution_api_token: undefined, phone_number: undefined };
-      const fullBody = await req.clone().json().catch(() => ({}));
-      
-      const manualInstanceId = fullBody.evolution_instance_id;
-      const manualToken = fullBody.evolution_api_token;
-      const manualPhoneNumber = fullBody.phone_number;
-      const manualName = fullBody.name || manualInstanceId;
+      // Usar os campos já extraídos do body parseado no início da função
+      const manualInstanceId = evolution_instance_id;
+      const manualToken = evolution_api_token;
+      const manualPhoneNumber = phone_number;
+      const manualName = name || manualInstanceId;
 
       if (!manualInstanceId) {
         throw new Error("ID da instância (evolution_instance_id) é obrigatório");
