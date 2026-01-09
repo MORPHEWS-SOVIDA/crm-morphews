@@ -33,6 +33,41 @@ function getWebhookUrl(instanceName: string): string {
   return `${SUPABASE_URL}/functions/v1/evolution-webhook`;
 }
 
+function extractPhoneFromOwnerValue(value: unknown): string | null {
+  if (!value || typeof value !== "string") return null;
+  // Pode vir como "5511999999999@s.whatsapp.net" ou só "5511999999999"
+  const beforeAt = value.split("@")[0];
+  const digits = beforeAt.replace(/\D/g, "");
+  return digits ? digits : null;
+}
+
+async function fetchOwnerPhoneFromEvolution(instanceName: string): Promise<string | null> {
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) return null;
+
+  try {
+    const res = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+      method: "GET",
+      headers: { apikey: EVOLUTION_API_KEY },
+    });
+
+    if (!res.ok) {
+      console.warn("fetchInstances failed:", res.status);
+      return null;
+    }
+
+    const list = await res.json().catch(() => null);
+    const items: any[] = Array.isArray(list) ? list : [];
+
+    const found = items.find((it) => it?.instance?.instanceName === instanceName);
+    const owner = found?.instance?.owner ?? found?.instance?.ownerJid;
+
+    return extractPhoneFromOwnerValue(owner);
+  } catch (e) {
+    console.warn("Could not fetch owner phone from Evolution:", e);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -295,18 +330,31 @@ serve(async (req) => {
 
       const isConnected = statusResult?.instance?.state === "open";
       const status = isConnected ? "connected" : (statusResult?.instance?.state || "pending");
-      
-      // Extrair número do telefone do ownerJid
-      let phoneNumber = instance.phone_number;
-      if (statusResult?.instance?.ownerJid) {
-        phoneNumber = statusResult.instance.ownerJid.split("@")[0];
+
+      // Extrair número do telefone (Evolution v1: connectionState não traz ownerJid; precisamos do fetchInstances)
+      let phoneNumber: string | null = instance.phone_number;
+
+      // Tentativa 1: quando existir ownerJid (algumas builds podem enviar)
+      const ownerJid = statusResult?.instance?.ownerJid;
+      const fromOwnerJid = extractPhoneFromOwnerValue(ownerJid);
+      if (fromOwnerJid) {
+        phoneNumber = fromOwnerJid;
         console.log("Phone number extracted from ownerJid:", phoneNumber);
+      }
+
+      // Tentativa 2: fetchInstances (traz .instance.owner)
+      if (isConnected && !phoneNumber) {
+        const fetchedPhone = await fetchOwnerPhoneFromEvolution(instance.evolution_instance_id);
+        if (fetchedPhone) {
+          phoneNumber = fetchedPhone;
+          console.log("Phone number fetched from fetchInstances:", phoneNumber);
+        }
       }
 
       // Atualizar no banco incluindo phone_number
       await supabase
         .from("whatsapp_instances")
-        .update({ 
+        .update({
           is_connected: isConnected,
           status: status,
           phone_number: phoneNumber,
@@ -519,22 +567,28 @@ serve(async (req) => {
 
       // Verificar se a instância existe no Evolution API e está conectada
       let isConnected = false;
-      let phoneFromEvolution = manualPhoneNumber || null;
-      
+      let phoneFromEvolution: string | null = manualPhoneNumber || null;
+
       try {
         const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${manualInstanceId}`, {
           method: "GET",
           headers: { "apikey": EVOLUTION_API_KEY },
         });
-        
+
         if (statusResponse.ok) {
           const statusResult = await statusResponse.json().catch(() => ({}));
           console.log("Manual instance status:", statusResult);
           isConnected = statusResult?.instance?.state === "open";
-          
-          // Tentar pegar número do status
-          if (statusResult?.instance?.ownerJid) {
-            phoneFromEvolution = statusResult.instance.ownerJid.split("@")[0];
+
+          // Tentativa 1: ownerJid (quando vier)
+          const fromOwnerJid = extractPhoneFromOwnerValue(statusResult?.instance?.ownerJid);
+          if (fromOwnerJid) {
+            phoneFromEvolution = fromOwnerJid;
+          }
+
+          // Tentativa 2: fetchInstances (traz .instance.owner)
+          if (isConnected && !phoneFromEvolution) {
+            phoneFromEvolution = await fetchOwnerPhoneFromEvolution(manualInstanceId);
           }
         }
       } catch (e) {
@@ -632,9 +686,38 @@ serve(async (req) => {
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false });
 
+      // Backfill rápido do phone_number para instâncias conectadas (sem depender do payload do connectionState)
+      const list = (instances || []) as any[];
+      const needsBackfill = list.some((i) => i?.provider === "evolution" && i?.is_connected && !i?.phone_number && i?.evolution_instance_id);
+
+      if (needsBackfill) {
+        try {
+          const res = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+            method: "GET",
+            headers: { apikey: EVOLUTION_API_KEY },
+          });
+
+          if (res.ok) {
+            const items = (await res.json().catch(() => [])) as any[];
+            for (const inst of list) {
+              if (inst?.provider !== "evolution" || !inst?.is_connected || inst?.phone_number || !inst?.evolution_instance_id) continue;
+
+              const found = items.find((it) => it?.instance?.instanceName === inst.evolution_instance_id);
+              const phone = extractPhoneFromOwnerValue(found?.instance?.owner ?? found?.instance?.ownerJid);
+              if (!phone) continue;
+
+              inst.phone_number = phone;
+              await supabase.from("whatsapp_instances").update({ phone_number: phone }).eq("id", inst.id);
+            }
+          }
+        } catch (e) {
+          console.warn("list backfill phone_number failed:", e);
+        }
+      }
+
       return new Response(JSON.stringify({
         success: true,
-        instances: instances || [],
+        instances: list,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
