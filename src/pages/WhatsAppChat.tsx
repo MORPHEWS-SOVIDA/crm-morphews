@@ -93,7 +93,7 @@ interface Instance {
   is_connected: boolean;
   display_name_for_team: string | null;
   manual_instance_number: string | null;
-  distribution_mode?: string;
+  distribution_mode: string; // 'manual' | 'auto'
 }
 
 interface InstanceUserPermission {
@@ -160,7 +160,8 @@ export default function WhatsAppChat() {
             phone_number,
             is_connected,
             display_name_for_team,
-            manual_instance_number
+            manual_instance_number,
+            distribution_mode
           )
         `)
         .eq('user_id', user.id)
@@ -758,6 +759,12 @@ export default function WhatsAppChat() {
     return displayName || number || inst.name;
   };
 
+  // Verificar se a instância usa distribuição manual (permite botão ATENDER)
+  const isManualDistribution = (instId: string): boolean => {
+    const inst = instances.find(i => i.id === instId);
+    return inst?.distribution_mode !== 'auto';
+  };
+
   // Update lead stars
   const updateLeadStars = async (stars: number) => {
     if (!lead) return;
@@ -902,7 +909,7 @@ export default function WhatsAppChat() {
                   isSelected={selectedConversation?.id === conv.id}
                   onClick={() => setSelectedConversation(conv)}
                   instanceLabel={getInstanceLabel(conv.instance_id)}
-                  showClaimButton={statusFilter === 'pending'}
+                  showClaimButton={statusFilter === 'pending' && isManualDistribution(conv.instance_id)}
                   onClaim={() => handleClaimConversation(conv.id)}
                   isClaiming={claimingConversationId === conv.id}
                   assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
@@ -959,8 +966,9 @@ export default function WhatsAppChat() {
                       Encerrar
                     </Button>
                   )}
-                  {/* Botão Atender - para conversas pendentes */}
-                  {(selectedConversation.status === 'pending' || !selectedConversation.status) && (
+                  {/* Botão Atender - para conversas pendentes APENAS em modo manual */}
+                  {(selectedConversation.status === 'pending' || !selectedConversation.status) && 
+                   isManualDistribution(selectedConversation.instance_id) && (
                     <Button 
                       size="sm"
                       onClick={() => handleClaimConversation(selectedConversation.id)}

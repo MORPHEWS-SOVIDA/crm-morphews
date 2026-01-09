@@ -139,7 +139,7 @@ export function InstanceSettingsDialog({
             <div className="space-y-3">
               <Label>Modo de Distribuição de Leads</Label>
               <RadioGroup
-                value={settings?.distribution_mode || distributionMode}
+                value={distributionMode}
                 onValueChange={setDistributionMode}
                 className="space-y-3"
               >
@@ -184,7 +184,7 @@ export function InstanceSettingsDialog({
                   type="number"
                   min="1"
                   max="168"
-                  value={settings?.auto_close_hours || autoCloseHours}
+                  value={autoCloseHours}
                   onChange={(e) => setAutoCloseHours(parseInt(e.target.value) || 24)}
                   className="w-24"
                 />
