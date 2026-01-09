@@ -167,18 +167,20 @@ export default function LeadDetail() {
     );
   }
 
-  // Find current stage from custom stages
-  const currentStage = funnelStages.find(s => s.name === lead.stage) || 
-    funnelStages.find(s => s.position === mapStageToPosition(lead.stage));
-  
-  const stageColor = currentStage?.color || '#9b87f5';
-  const stageTextColor = currentStage?.text_color || '#ffffff';
-  const stageName = currentStage?.name || lead.stage;
-  
-  const instagramUrl = getInstagramProfileUrl(lead.instagram);
-  const instagramHandle = normalizeInstagramHandle(lead.instagram);
-  
-  // Map legacy stage enum to position
+  // Map enum to position and vice-versa
+  const POSITION_TO_ENUM: Record<number, FunnelStage> = {
+    0: 'cloud' as FunnelStage,
+    1: 'prospect' as FunnelStage,
+    2: 'contacted' as FunnelStage,
+    3: 'convincing' as FunnelStage,
+    4: 'scheduled' as FunnelStage,
+    5: 'positive' as FunnelStage,
+    6: 'waiting_payment' as FunnelStage,
+    7: 'success' as FunnelStage,
+    8: 'trash' as FunnelStage,
+    99: 'trash' as FunnelStage,
+  };
+
   function mapStageToPosition(stage: string): number {
     const positionMap: Record<string, number> = {
       'cloud': 0,
@@ -189,10 +191,21 @@ export default function LeadDetail() {
       'positive': 5,
       'waiting_payment': 6,
       'success': 7,
-      'trash': 99,
+      'trash': 8,
     };
     return positionMap[stage] ?? 1;
   }
+
+  // Find current stage from custom stages by enum position
+  const currentStagePosition = mapStageToPosition(lead.stage);
+  const currentStage = funnelStages.find(s => s.position === currentStagePosition);
+  
+  const stageColor = currentStage?.color || '#9b87f5';
+  const stageTextColor = currentStage?.text_color || '#ffffff';
+  const stageName = currentStage?.name || lead.stage;
+  
+  const instagramUrl = getInstagramProfileUrl(lead.instagram);
+  const instagramHandle = normalizeInstagramHandle(lead.instagram);
 
   const formatFollowers = (num: number | null) => {
     if (!num) return '0';
@@ -256,7 +269,7 @@ export default function LeadDetail() {
                   </p>
                   <Select
                     value={lead.stage}
-                    onValueChange={(value) => handleUpdate('stage', value as FunnelStage)}
+                    onValueChange={(selectedEnumValue) => handleUpdate('stage', selectedEnumValue as FunnelStage)}
                   >
                     <SelectTrigger 
                       className="w-auto border-0 bg-transparent p-0 h-auto text-2xl font-bold hover:bg-white/10 rounded"
@@ -265,19 +278,23 @@ export default function LeadDetail() {
                       <SelectValue>{stageName}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {funnelStages.map((stage) => (
-                        <SelectItem 
-                          key={stage.id} 
-                          value={stage.name}
-                          className="flex items-center gap-2"
-                        >
-                          <span 
-                            className="w-3 h-3 rounded-full inline-block mr-2"
-                            style={{ backgroundColor: stage.color }}
-                          />
-                          {stage.name}
-                        </SelectItem>
-                      ))}
+                      {funnelStages.map((stage) => {
+                        // Map position to enum value for the database
+                        const enumValue = POSITION_TO_ENUM[stage.position] || 'prospect';
+                        return (
+                          <SelectItem 
+                            key={stage.id} 
+                            value={enumValue}
+                            className="flex items-center gap-2"
+                          >
+                            <span 
+                              className="w-3 h-3 rounded-full inline-block mr-2"
+                              style={{ backgroundColor: stage.color }}
+                            />
+                            {stage.name}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

@@ -76,7 +76,7 @@ export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
           </TableHeader>
           <TableBody>
             {leads.map((lead, index) => {
-              const stageInfo = FUNNEL_STAGES[lead.stage];
+              const stageInfo = FUNNEL_STAGES[lead.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: lead.stage };
               const instagramUrl = getInstagramProfileUrl(lead.instagram);
               const instagramHandle = normalizeInstagramHandle(lead.instagram);
               
