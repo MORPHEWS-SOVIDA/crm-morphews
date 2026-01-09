@@ -77,9 +77,9 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
 
               <div className="space-y-4">
                 {history.map((entry, index) => {
-                  const stageInfo = FUNNEL_STAGES[entry.stage];
+                  const stageInfo = FUNNEL_STAGES[entry.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: entry.stage };
                   const previousStageInfo = entry.previous_stage 
-                    ? FUNNEL_STAGES[entry.previous_stage] 
+                    ? (FUNNEL_STAGES[entry.previous_stage] || { color: 'bg-muted', textColor: 'text-foreground', label: entry.previous_stage })
                     : null;
                   const { date, time } = formatDateTime(entry.created_at);
                   const isLatest = index === history.length - 1;

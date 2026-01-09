@@ -13,7 +13,7 @@ interface MobileLeadCardProps {
 
 export function MobileLeadCard({ lead }: MobileLeadCardProps) {
   const navigate = useNavigate();
-  const stageInfo = FUNNEL_STAGES[lead.stage];
+  const stageInfo = FUNNEL_STAGES[lead.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: lead.stage };
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
 
   const formatFollowers = (num: number | null) => {
