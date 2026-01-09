@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,7 @@ import { EmojiPicker } from "./EmojiPicker";
 import { NewConversationDialog } from "./NewConversationDialog";
 import { ScheduledMessagesPanel } from "./ScheduledMessagesPanel";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useFunnelStages } from "@/hooks/useFunnelStages";
 
 interface WhatsAppChatProps {
   instanceId?: string; // Agora opcional - se não passar, busca todas da org
@@ -79,6 +80,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { data: funnelStages } = useFunnelStages();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,7 +112,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       if (!instanceId) return null;
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("id, name, is_connected, phone_number")
+        .select("id, name, is_connected, phone_number, display_name_for_team, manual_instance_number")
         .eq("id", instanceId)
         .single();
       if (error) return null;
@@ -121,6 +123,35 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   });
 
   const isInstanceConnected = instanceData?.is_connected ?? true; // Default to true if no instanceId
+
+  // Fetch all instances for display names in conversation list
+  const { data: allInstances } = useQuery({
+    queryKey: ["whatsapp-instances-info", profile?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("id, name, display_name_for_team, manual_instance_number, phone_number");
+      if (error) return [];
+      return data as InstanceInfo[];
+    },
+    enabled: !!profile?.organization_id,
+  });
+
+  // Create a map for quick instance lookup
+  const instancesMap = allInstances?.reduce((acc, inst) => {
+    acc[inst.id] = inst;
+    return acc;
+  }, {} as Record<string, InstanceInfo>) || {};
+
+  // Helper to get instance display label
+  const getInstanceLabel = (instId: string) => {
+    const inst = instancesMap[instId];
+    if (!inst) return null;
+    const displayName = inst.display_name_for_team || inst.name;
+    const number = inst.manual_instance_number || inst.phone_number;
+    if (displayName && number) return `${displayName} · ${number}`;
+    return displayName || number || inst.name;
+  };
 
   // Fetch conversations - CONTACT CENTRIC: busca da org, não de uma instância
   const { data: conversations, isLoading: loadingConversations } = useQuery({
@@ -172,8 +203,62 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     refetchInterval: 30000, // Poll every 30 seconds
   });
 
+  // Fetch lead details for drawer (stars, instagram, stage)
+  const { data: leadDetails, refetch: refetchLead } = useQuery({
+    queryKey: ["lead-details-chat", selectedConversation?.lead_id],
+    queryFn: async () => {
+      if (!selectedConversation?.lead_id) return null;
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, name, stars, instagram, stage")
+        .eq("id", selectedConversation.lead_id)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!selectedConversation?.lead_id,
+  });
 
-  // Fetch messages for selected conversation
+  // Helper to get stage display name
+  const getStageDisplayName = (stageKey: string | null | undefined) => {
+    if (!stageKey || !funnelStages) return stageKey;
+    // Map database stage enum to funnel position
+    const stagePositionMap: Record<string, number> = {
+      'prospect': 0,
+      'contacted': 1,
+      'qualified': 2,
+      'proposal': 3,
+      'negotiation': 4,
+      'cloud': 5,
+      'trash': 6,
+    };
+    const position = stagePositionMap[stageKey];
+    if (position === undefined) return stageKey;
+    const customStage = funnelStages.find(s => s.position === position);
+    return customStage?.name || stageKey;
+  };
+
+  // Update lead stars
+  const updateLeadStars = useMutation({
+    mutationFn: async (stars: number) => {
+      if (!selectedConversation?.lead_id) throw new Error("No lead");
+      const { error } = await supabase
+        .from("leads")
+        .update({ stars })
+        .eq("id", selectedConversation.lead_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchLead();
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+      toast({ title: "Estrelas atualizadas!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar estrelas", variant: "destructive" });
+    },
+  });
+
+
   const { data: messages, isLoading: loadingMessages } = useQuery({
     queryKey: ["whatsapp-messages", selectedConversation?.id],
     queryFn: async () => {
@@ -813,7 +898,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
   const handleViewLead = () => {
     if (selectedConversation?.lead_id) {
-      navigate(`/leads/${selectedConversation.lead_id}`);
+      // Abre em nova aba para não sair do chat
+      window.open(`/leads/${selectedConversation.lead_id}`, '_blank');
     }
   };
 
@@ -956,9 +1042,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                       ) : (
                         <span>{conversation.phone_number}</span>
                       )}
-                      {conversation.channel_name && (
-                        <span className="text-xs opacity-60 ml-1">
-                          · {conversation.channel_name}
+                      {/* Instance label (Nome + Número) */}
+                      {getInstanceLabel(conversation.instance_id) && (
+                        <span className="text-xs opacity-60 ml-1 truncate max-w-[120px]">
+                          · {getInstanceLabel(conversation.instance_id)}
                         </span>
                       )}
                     </div>
@@ -1436,32 +1523,82 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               </div>
             </div>
             
-            <div className="space-y-2 pt-2 border-t">
+            <div className="space-y-3 pt-2 border-t">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">WhatsApp:</span>
                 <span className="font-medium">{selectedConversation?.phone_number || "-"}</span>
               </div>
-              {selectedConversation?.lead_id ? (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status:</span>
-                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-                    Lead Vinculado
-                  </Badge>
+              
+              {/* Estrelas - Editável */}
+              {selectedConversation?.lead_id && leadDetails && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Estrelas:</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => updateLeadStars.mutate(star)}
+                        disabled={updateLeadStars.isPending}
+                        className="p-0.5 hover:scale-110 transition-transform disabled:opacity-50"
+                      >
+                        <Star 
+                          className={cn(
+                            "h-5 w-5",
+                            star <= (leadDetails.stars || 0) 
+                              ? "fill-yellow-400 text-yellow-400" 
+                              : "text-gray-300"
+                          )} 
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status:</span>
-                  <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
-                    Sem Lead
+              )}
+              
+              {/* Instagram - com logo */}
+              {selectedConversation?.lead_instagram && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Instagram className="h-4 w-4 text-pink-500" />
+                    Instagram:
+                  </span>
+                  <a 
+                    href={`https://instagram.com/${selectedConversation.lead_instagram.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-pink-600 hover:underline"
+                  >
+                    {selectedConversation.lead_instagram}
+                  </a>
+                </div>
+              )}
+              
+              {/* Etapa do Funil - com nome correto */}
+              {selectedConversation?.lead_id && leadDetails?.stage && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Etapa do funil:</span>
+                  <Badge variant="outline">
+                    {getStageDisplayName(leadDetails.stage)}
                   </Badge>
                 </div>
               )}
+              
               {selectedConversation?.is_group && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tipo:</span>
                   <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
                     Grupo
                   </Badge>
+                </div>
+              )}
+              
+              {/* Instância */}
+              {selectedConversation && getInstanceLabel(selectedConversation.instance_id) && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Instância:</span>
+                  <span className="font-medium text-xs truncate max-w-[150px]">
+                    {getInstanceLabel(selectedConversation.instance_id)}
+                  </span>
                 </div>
               )}
             </div>
