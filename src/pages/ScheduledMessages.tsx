@@ -46,7 +46,7 @@ import {
   Search,
   RefreshCw,
   MessageSquare,
-  User,
+  
   Calendar,
   Loader2,
   WifiOff,
@@ -522,12 +522,12 @@ export default function ScheduledMessages() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Vendedor/Criador</Label>
-                    <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
+                    <Select value={createdByFilter || "__all__"} onValueChange={(v) => setCreatedByFilter(v === "__all__" ? "" : v)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Todos</SelectItem>
+                        <SelectItem value="__all__">Todos</SelectItem>
                         {users.map((u) => (
                           <SelectItem key={u.user_id} value={u.user_id}>
                             {u.first_name} {u.last_name}
@@ -685,12 +685,6 @@ export default function ScheduledMessages() {
                             : `em ${formatDistanceToNow(new Date(msg.scheduled_at), { locale: ptBR })}`})
                         </span>
                       </div>
-                      {msg.creator && (
-                        <div className="flex items-center gap-1">
-                          <User className="w-4 h-4" />
-                          <span>Por: {msg.creator.first_name} {msg.creator.last_name}</span>
-                        </div>
-                      )}
                       {msg.template?.non_purchase_reason?.name && (
                         <span>Motivo: {msg.template.non_purchase_reason.name}</span>
                       )}

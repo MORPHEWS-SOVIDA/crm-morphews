@@ -39,10 +39,6 @@ export interface ScheduledMessage {
       name: string;
     };
   };
-  creator?: {
-    first_name: string;
-    last_name: string;
-  };
 }
 
 export function useScheduledMessages(filters?: {
@@ -71,12 +67,11 @@ export function useScheduledMessages(filters?: {
           template:non_purchase_message_templates!lead_scheduled_messages_template_id_fkey(
             id,
             non_purchase_reason:non_purchase_reasons!non_purchase_message_templates_non_purchase_reason_id_fkey(id, name)
-          ),
-          creator:profiles!lead_scheduled_messages_created_by_fkey(first_name, last_name)
+          )
         `)
         .eq('organization_id', tenantId)
         .is('deleted_at', null)
-        .order('scheduled_at', { ascending: true });
+        .order('scheduled_at', { ascending: false });
 
       // Filter by status
       if (filters?.status && filters.status !== 'all') {
