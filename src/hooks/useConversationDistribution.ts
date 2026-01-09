@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type ConversationStatus = 'pending' | 'assigned' | 'closed';
+export type ConversationStatus = 'pending' | 'autodistributed' | 'assigned' | 'closed';
 
 export interface ConversationAssignment {
   id: string;
@@ -21,7 +21,7 @@ export interface ConversationAssignment {
 export function useConversationDistribution() {
   const queryClient = useQueryClient();
 
-  // Assumir conversa (claim)
+  // Assumir conversa (claim) - funciona para pendente E autodistribuído
   const claimConversation = useMutation({
     mutationFn: async ({ conversationId, userId }: { conversationId: string; userId: string }) => {
       const { data, error } = await supabase.rpc('claim_whatsapp_conversation', {
@@ -117,6 +117,8 @@ export function useConversationDistribution() {
       } else if (status === 'pending') {
         updateData.assigned_user_id = null;
         updateData.assigned_at = null;
+        updateData.designated_user_id = null;
+        updateData.designated_at = null;
       } else if (status === 'closed') {
         updateData.closed_at = new Date().toISOString();
       }
@@ -149,12 +151,14 @@ export function useConversationDistribution() {
  */
 export const statusLabels: Record<ConversationStatus, string> = {
   pending: 'Pendente',
+  autodistributed: 'Pra você',
   assigned: 'Atribuído',
   closed: 'Encerrado'
 };
 
 export const statusColors: Record<ConversationStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  autodistributed: 'bg-blue-100 text-blue-800 border-blue-300',
   assigned: 'bg-green-100 text-green-800 border-green-300',
   closed: 'bg-gray-100 text-gray-600 border-gray-300'
 };

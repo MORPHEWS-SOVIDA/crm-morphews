@@ -49,7 +49,7 @@ import { useConversationDistribution } from '@/hooks/useConversationDistribution
 import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
 import { useQuery } from '@tanstack/react-query';
 
-type StatusTab = 'pending' | 'assigned' | 'closed';
+type StatusTab = 'pending' | 'autodistributed' | 'assigned' | 'closed';
 
 interface Conversation {
   id: string;
@@ -61,8 +61,9 @@ interface Conversation {
   lead_id: string | null;
   instance_id: string;
   chat_id?: string | null;
-  status?: string; // 'pending' | 'assigned' | 'closed' - kept as string for DB compatibility
+  status?: string; // 'pending' | 'autodistributed' | 'assigned' | 'closed'
   assigned_user_id?: string | null;
+  designated_user_id?: string | null; // Para auto-distribuição
 }
 
 interface Message {
@@ -126,7 +127,7 @@ export default function WhatsAppChat() {
   const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
   
   // Status tab filter
-  const [statusFilter, setStatusFilter] = useState<StatusTab>('pending');
+  const [statusFilter, setStatusFilter] = useState<StatusTab>('autodistributed');
   
   // Media state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -656,14 +657,17 @@ export default function WhatsAppChat() {
     ) || false;
   };
 
-  // Calcular contagens por status
+  // Calcular contagens por status (autodistributed só conta as do usuário logado)
   const statusCounts = useMemo(() => {
     return {
       pending: conversations.filter(c => c.status === 'pending' || !c.status).length,
+      autodistributed: conversations.filter(c => 
+        c.status === 'autodistributed' && c.designated_user_id === user?.id
+      ).length,
       assigned: conversations.filter(c => c.status === 'assigned').length,
       closed: conversations.filter(c => c.status === 'closed').length,
     };
-  }, [conversations]);
+  }, [conversations, user?.id]);
 
   // Handler para assumir conversa
   const handleClaimConversation = async (conversationId: string) => {
@@ -721,6 +725,11 @@ export default function WhatsAppChat() {
     // Filtro por status (aba)
     const convStatus = c.status || 'pending';
     if (convStatus !== statusFilter) return false;
+    
+    // Para aba "autodistributed", mostrar APENAS conversas designadas para o usuário logado
+    if (statusFilter === 'autodistributed' && c.designated_user_id !== user?.id) {
+      return false;
+    }
     
     // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin da instância
     if (statusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
