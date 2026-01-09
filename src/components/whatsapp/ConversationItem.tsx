@@ -20,9 +20,10 @@ interface ConversationItemProps {
   conversation: Conversation;
   isSelected: boolean;
   onClick: () => void;
+  instanceLabel?: string | null;
 }
 
-export function ConversationItem({ conversation, isSelected, onClick }: ConversationItemProps) {
+export function ConversationItem({ conversation, isSelected, onClick, instanceLabel }: ConversationItemProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -81,10 +82,20 @@ export function ConversationItem({ conversation, isSelected, onClick }: Conversa
               <span className="text-xs text-green-600 flex items-center gap-1 truncate">
                 <UserCheck className="h-3 w-3 flex-shrink-0" />
                 Lead vinculado
+                {instanceLabel && (
+                  <span className="text-muted-foreground/70 font-normal ml-1 truncate max-w-[100px]">
+                    · {instanceLabel}
+                  </span>
+                )}
               </span>
             ) : (
               <span className="text-sm text-muted-foreground truncate">
                 {conversation.phone_number}
+                {instanceLabel && (
+                  <span className="text-xs opacity-70 ml-1">
+                    · {instanceLabel}
+                  </span>
+                )}
               </span>
             )}
           </div>
