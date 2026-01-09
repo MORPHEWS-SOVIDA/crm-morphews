@@ -4894,6 +4894,8 @@ export type Database = {
           evolution_webhook_configured: boolean | null
           id: string
           is_connected: boolean
+          manual_device_label: string | null
+          manual_instance_number: string | null
           monthly_price_cents: number
           name: string
           organization_id: string
@@ -4919,6 +4921,8 @@ export type Database = {
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
+          manual_device_label?: string | null
+          manual_instance_number?: string | null
           monthly_price_cents?: number
           name: string
           organization_id: string
@@ -4944,6 +4948,8 @@ export type Database = {
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
+          manual_device_label?: string | null
+          manual_instance_number?: string | null
           monthly_price_cents?: number
           name?: string
           organization_id?: string
