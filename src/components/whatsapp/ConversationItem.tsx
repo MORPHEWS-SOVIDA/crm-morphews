@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -36,6 +36,8 @@ interface ConversationItemProps {
   showClaimButton?: boolean;
   onClaim?: () => void;
   isClaiming?: boolean;
+  onClose?: () => void;
+  isClosing?: boolean;
   assignedUserName?: string | null;
   currentUserId?: string;
   otherInstanceConversations?: OtherInstanceConversation[];
@@ -49,6 +51,8 @@ export function ConversationItem({
   showClaimButton,
   onClaim,
   isClaiming,
+  onClose,
+  isClosing,
   assignedUserName,
   currentUserId,
   otherInstanceConversations
@@ -103,6 +107,13 @@ export function ConversationItem({
     e.stopPropagation();
     onClaim?.();
   };
+
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClose?.();
+  };
+
+  const isAssignedToCurrentUser = conversation.assigned_user_id === currentUserId;
 
   return (
     <div
@@ -220,16 +231,30 @@ export function ConversationItem({
           
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Botão ATENDER para conversas pendentes */}
-            {showClaimButton && status === 'pending' && (
+            {showClaimButton && (status === 'pending' || !status) && (
               <Button
                 size="sm"
                 variant="default"
-                className="h-6 px-2 text-[10px] bg-primary hover:bg-primary/90"
+                className="h-6 px-2 text-[10px] bg-green-600 hover:bg-green-700"
                 onClick={handleClaimClick}
                 disabled={isClaiming}
               >
                 <Hand className="h-3 w-3 mr-1" />
                 ATENDER
+              </Button>
+            )}
+            
+            {/* Botão FECHAR para conversas atribuídas ao usuário atual */}
+            {status === 'assigned' && isAssignedToCurrentUser && onClose && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[10px] border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                onClick={handleCloseClick}
+                disabled={isClosing}
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                FECHAR
               </Button>
             )}
             

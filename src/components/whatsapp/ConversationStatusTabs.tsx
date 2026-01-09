@@ -45,13 +45,14 @@ export function ConversationStatusTabs({
           >
             <Icon className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{tab.label}</span>
-            {count > 0 && (
+            {/* Mostrar badge apenas para Pendente */}
+            {tab.key === 'pending' && count > 0 && (
               <Badge 
                 variant={isActive ? "default" : "secondary"} 
                 className={cn(
                   "h-5 min-w-[20px] px-1.5 text-[10px]",
-                  tab.key === 'pending' && count > 0 && !isActive && "bg-yellow-100 text-yellow-800",
-                  tab.key === 'pending' && count > 0 && isActive && "bg-yellow-500"
+                  !isActive && "bg-yellow-100 text-yellow-800",
+                  isActive && "bg-yellow-500"
                 )}
               >
                 {count}
