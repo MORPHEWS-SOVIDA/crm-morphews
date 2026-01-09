@@ -25,7 +25,9 @@ import {
   FileText,
   Users,
   Filter,
+  Instagram,
 } from 'lucide-react';
+import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -78,13 +80,15 @@ interface Instance {
   name: string;
   phone_number: string | null;
   is_connected: boolean;
+  display_name_for_team: string | null;
+  manual_instance_number: string | null;
 }
 
 export default function WhatsAppChat() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  
-  // State
+  const { data: funnelStages } = useFunnelStages();
+  const [isUpdatingStars, setIsUpdatingStars] = useState(false);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -129,7 +133,9 @@ export default function WhatsAppChat() {
             id,
             name,
             phone_number,
-            is_connected
+            is_connected,
+            display_name_for_team,
+            manual_instance_number
           )
         `)
         .eq('user_id', user.id)
@@ -589,6 +595,53 @@ export default function WhatsAppChat() {
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
+  // Helper to get custom stage display name
+  const getStageDisplayName = (stageKey: string | null | undefined) => {
+    if (!stageKey || !funnelStages) return stageKey;
+    const stagePositionMap: Record<string, number> = {
+      'prospect': 0,
+      'contacted': 1,
+      'qualified': 2,
+      'proposal': 3,
+      'negotiation': 4,
+      'cloud': 5,
+      'trash': 6,
+    };
+    const position = stagePositionMap[stageKey];
+    if (position === undefined) return stageKey;
+    const customStage = funnelStages.find(s => s.position === position);
+    return customStage?.name || stageKey;
+  };
+
+  // Helper to get instance display label
+  const getInstanceLabel = (instId: string) => {
+    const inst = instances.find(i => i.id === instId);
+    if (!inst) return null;
+    const displayName = inst.display_name_for_team || inst.name;
+    const number = inst.manual_instance_number || inst.phone_number;
+    if (displayName && number) return `${displayName} · ${number}`;
+    return displayName || number || inst.name;
+  };
+
+  // Update lead stars
+  const updateLeadStars = async (stars: number) => {
+    if (!lead) return;
+    setIsUpdatingStars(true);
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ stars })
+        .eq('id', lead.id);
+      if (error) throw error;
+      setLead(prev => prev ? { ...prev, stars } : null);
+      toast.success('Estrelas atualizadas!');
+    } catch (err: any) {
+      toast.error('Erro ao atualizar estrelas');
+    } finally {
+      setIsUpdatingStars(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
@@ -633,11 +686,16 @@ export default function WhatsAppChat() {
                 }}
               >
                 <option value="all">Todas as instâncias</option>
-                {instances.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name} {inst.phone_number && `(${inst.phone_number})`}
-                  </option>
-                ))}
+                {instances.map((inst) => {
+                  const displayName = inst.display_name_for_team || inst.name;
+                  const number = inst.manual_instance_number || inst.phone_number;
+                  const label = displayName && number ? `${displayName} · ${number}` : displayName || number || inst.name;
+                  return (
+                    <option key={inst.id} value={inst.id}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             )}
             
@@ -693,6 +751,7 @@ export default function WhatsAppChat() {
                   conversation={conv}
                   isSelected={selectedConversation?.id === conv.id}
                   onClick={() => setSelectedConversation(conv)}
+                  instanceLabel={getInstanceLabel(conv.instance_id)}
                 />
               ))
             )}
@@ -896,21 +955,29 @@ export default function WhatsAppChat() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-16 w-16">
+                        <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
                         <AvatarFallback className="bg-primary/20 text-primary text-xl">
                           {lead.name[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <h4 className="font-semibold">{lead.name}</h4>
+                        {/* Estrelas editáveis */}
                         <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className={cn(
-                                "h-4 w-4",
-                                i < lead.stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"
-                              )}
-                            />
+                            <button
+                              key={i}
+                              onClick={() => updateLeadStars(i + 1)}
+                              disabled={isUpdatingStars}
+                              className="p-0 hover:scale-110 transition-transform disabled:opacity-50"
+                            >
+                              <Star 
+                                className={cn(
+                                  "h-4 w-4 cursor-pointer",
+                                  i < lead.stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"
+                                )}
+                              />
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -923,33 +990,47 @@ export default function WhatsAppChat() {
                         <Phone className="h-4 w-4 text-muted-foreground" />
                         <span>{lead.whatsapp}</span>
                       </div>
-                      {lead.email && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">@</span>
-                          <span>{lead.email}</span>
-                        </div>
-                      )}
+                      {/* Instagram com logo */}
                       {lead.instagram && (
                         <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">IG</span>
-                          <span>{lead.instagram}</span>
+                          <Instagram className="h-4 w-4 text-pink-500" />
+                          <a 
+                            href={`https://instagram.com/${lead.instagram.replace('@', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-pink-600 hover:underline"
+                          >
+                            {lead.instagram}
+                          </a>
                         </div>
                       )}
                     </div>
 
                     <Separator />
 
+                    {/* Etapa do funil com nome correto */}
                     <div>
                       <span className="text-sm text-muted-foreground">Etapa do funil</span>
-                      <Badge variant="secondary" className="mt-1 capitalize">
-                        {lead.stage}
+                      <Badge variant="secondary" className="mt-1 block w-fit">
+                        {getStageDisplayName(lead.stage)}
                       </Badge>
                     </div>
 
+                    {/* Instância da conversa */}
+                    {getInstanceLabel(selectedConversation.instance_id) && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Instância</span>
+                        <p className="text-sm font-medium truncate">
+                          {getInstanceLabel(selectedConversation.instance_id)}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Abre em nova aba */}
                     <Button 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => navigate(`/leads/${lead.id}`)}
+                      onClick={() => window.open(`/leads/${lead.id}`, '_blank')}
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Ver Lead Completo
