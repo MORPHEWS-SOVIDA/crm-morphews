@@ -572,15 +572,13 @@ async function getOrCreateConversation(
   groupSubject?: string,
   contactName?: string,
   contactProfilePic?: string
-) {
+): Promise<{ conversation: any; isNew: boolean }> {
   const phoneForLookup = isGroup ? "" : normalizePhoneE164(sendablePhone || phoneForDisplay);
   const contactId = isGroup ? null : await resolveOrCreateContact(organizationId, phoneForLookup, contactName);
-  
+
   // Determinar display_name
-  const displayName = isGroup 
-    ? (groupSubject || "Grupo") 
-    : (contactName || null);
-  
+  const displayName = isGroup ? (groupSubject || "Grupo") : (contactName || null);
+
   console.log("Looking for conversation by org+chat_id:", organizationId, chatId);
 
   // BUSCAR POR ORG + CHAT_ID (estável, nunca muda)
@@ -598,24 +596,28 @@ async function getOrCreateConversation(
       current_instance_id: instanceId,
       instance_id: instanceId,
     };
-    
+
     if (displayName && !existing.display_name) updates.display_name = displayName;
     if (contactName && !existing.contact_name) updates.contact_name = contactName;
     if (contactProfilePic && !existing.contact_profile_pic) updates.contact_profile_pic = contactProfilePic;
     if (sendablePhone && existing.sendable_phone !== sendablePhone) updates.sendable_phone = sendablePhone;
     if (contactId && !existing.contact_id) updates.contact_id = contactId;
     if (isGroup && groupSubject && existing.group_subject !== groupSubject) updates.group_subject = groupSubject;
-    
+
     // Auto-vincular lead se não tiver (apenas para não-grupos)
     if (!existing.lead_id && !isGroup) {
       const lead = await findLeadByPhone(organizationId, phoneForLookup);
       if (lead) updates.lead_id = lead.id;
     }
-    
+
     await supabase.from("whatsapp_conversations").update(updates).eq("id", existing.id);
-    
+
     console.log("Updated existing conversation:", existing.id);
-    return { ...existing, contact_id: existing.contact_id || contactId, current_instance_id: instanceId };
+
+    return {
+      conversation: { ...existing, contact_id: existing.contact_id || contactId, current_instance_id: instanceId },
+      isNew: false,
+    };
   }
 
   // Criar nova conversa
@@ -649,7 +651,7 @@ async function getOrCreateConversation(
   }
 
   console.log("Created new conversation:", newConv.id, "is_group:", isGroup, "lead_id:", lead?.id);
-  return newConv;
+  return { conversation: newConv, isNew: true };
 }
 
 /**
@@ -882,7 +884,7 @@ async function processWasenderMessage(instance: any, body: any) {
   const chatIdForDb = remoteJid || (isGroup ? `${phoneForConv}@g.us` : `${sendablePhone}@s.whatsapp.net`);
 
   // Get or create conversation using stable chat_id
-  const conversation = await getOrCreateConversation(
+  const { conversation, isNew: isNewConversation } = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
     chatIdForDb, // CHAVE ESTÁVEL
@@ -892,6 +894,29 @@ async function processWasenderMessage(instance: any, body: any) {
     isGroup ? groupSubject : undefined,
     senderName || undefined
   );
+
+  // Auto-distribuição / reabertura por instância (somente inbound)
+  if (!isFromMe) {
+    const shouldAutoAssignNew = isNewConversation && instance.distribution_mode === "auto";
+    const shouldReopen =
+      !isNewConversation && (conversation.status === "closed" || !conversation.status);
+
+    if (shouldAutoAssignNew || shouldReopen) {
+      const { data: reopenResult, error: reopenError } = await supabase.rpc(
+        "reopen_whatsapp_conversation",
+        {
+          p_conversation_id: conversation.id,
+          p_instance_id: instance.id,
+        }
+      );
+
+      if (reopenError) {
+        console.error("❌ Error in reopen_whatsapp_conversation:", reopenError);
+      } else {
+        console.log("🔄 Reopen/auto-distribution result:", reopenResult);
+      }
+    }
+  }
 
   // ✅ IMPORTANT: Wasender media URLs often expire / require auth.
   // To make the CRM reliably display images/audios, we download and store the media in our own storage
@@ -1014,7 +1039,7 @@ async function processZapiMessage(instance: any, body: any) {
     from_me: isFromMe
   });
   
-  const conversation = await getOrCreateConversation(
+  const { conversation, isNew: isNewConversation } = await getOrCreateConversation(
     instance.id,
     instance.organization_id,
     remoteJid,
@@ -1024,6 +1049,29 @@ async function processZapiMessage(instance: any, body: any) {
     isGroup ? groupSubject : undefined,
     msgData.senderName || undefined
   );
+
+  // Auto-distribuição / reabertura por instância (somente inbound)
+  if (!isFromMe) {
+    const shouldAutoAssignNew = isNewConversation && instance.distribution_mode === "auto";
+    const shouldReopen =
+      !isNewConversation && (conversation.status === "closed" || !conversation.status);
+
+    if (shouldAutoAssignNew || shouldReopen) {
+      const { data: reopenResult, error: reopenError } = await supabase.rpc(
+        "reopen_whatsapp_conversation",
+        {
+          p_conversation_id: conversation.id,
+          p_instance_id: instance.id,
+        }
+      );
+
+      if (reopenError) {
+        console.error("❌ Error in reopen_whatsapp_conversation:", reopenError);
+      } else {
+        console.log("🔄 Reopen/auto-distribution result:", reopenResult);
+      }
+    }
+  }
   
   let messageType = "text";
   if (msgData.image) messageType = "image";
