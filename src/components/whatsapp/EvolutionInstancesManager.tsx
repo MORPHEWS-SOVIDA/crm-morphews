@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
-import { Plus, Smartphone, Wifi, WifiOff, Trash2, QrCode, RefreshCw, LogOut, Loader2, Settings2 } from "lucide-react";
+import { Plus, Smartphone, Wifi, WifiOff, Trash2, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings } from "lucide-react";
 import { toast } from "sonner";
+import { InstancePermissions } from "./InstancePermissions";
+import { InstanceSettingsDialog } from "./InstanceSettingsDialog";
 
 interface EvolutionInstance {
   id: string;
@@ -53,6 +55,11 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   const [manualInstanceId, setManualInstanceId] = useState("");
   const [manualToken, setManualToken] = useState("");
   const [manualPhone, setManualPhone] = useState("");
+
+  // Estado para permissões e configurações
+  const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [selectedInstanceForDialog, setSelectedInstanceForDialog] = useState<EvolutionInstance | null>(null);
 
   // Polling para verificar conexão
   useEffect(() => {
@@ -364,7 +371,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                 )}
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {!instance.is_connected && (
                     <Button
                       size="sm"
@@ -391,6 +398,30 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                       Desconectar
                     </Button>
                   )}
+                  {/* Botão Configurações */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedInstanceForDialog(instance);
+                      setSettingsDialogOpen(true);
+                    }}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  {/* Botão Permissões */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedInstanceForDialog(instance);
+                      setPermissionsDialogOpen(true);
+                    }}
+                  >
+                    <Users className="h-4 w-4" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -459,6 +490,26 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Permissões */}
+      {selectedInstanceForDialog && (
+        <InstancePermissions
+          instanceId={selectedInstanceForDialog.id}
+          instanceName={selectedInstanceForDialog.name}
+          open={permissionsDialogOpen}
+          onOpenChange={setPermissionsDialogOpen}
+        />
+      )}
+
+      {/* Dialog de Configurações */}
+      {selectedInstanceForDialog && (
+        <InstanceSettingsDialog
+          instanceId={selectedInstanceForDialog.id}
+          instanceName={selectedInstanceForDialog.name}
+          open={settingsDialogOpen}
+          onOpenChange={setSettingsDialogOpen}
+        />
+      )}
     </div>
   );
 }
