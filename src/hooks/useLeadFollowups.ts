@@ -15,6 +15,7 @@ export interface LeadFollowup {
   source_id: string | null;
   completed_at: string | null;
   notes: string | null;
+  result: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -126,12 +127,13 @@ export function useCompleteFollowup() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+    mutationFn: async ({ id, notes, result }: { id: string; notes?: string; result?: string }) => {
       const { error } = await supabase
         .from('lead_followups')
         .update({
           completed_at: new Date().toISOString(),
           notes: notes || null,
+          result: result || null,
         })
         .eq('id', id);
 
@@ -140,7 +142,6 @@ export function useCompleteFollowup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-followups'] });
       queryClient.invalidateQueries({ queryKey: ['upcoming-followups'] });
-      toast({ title: 'Follow-up marcado como concluído!' });
     },
   });
 }
