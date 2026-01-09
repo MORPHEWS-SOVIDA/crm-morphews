@@ -37,12 +37,18 @@ export function InstanceSettingsDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number")
+        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number, redistribution_timeout_minutes")
         .eq("id", instanceId)
         .single();
 
       if (error) throw error;
-      return data;
+      return data as unknown as {
+        distribution_mode: string | null;
+        auto_close_hours: number | null;
+        display_name_for_team: string | null;
+        manual_instance_number: string | null;
+        redistribution_timeout_minutes: number | null;
+      };
     },
     enabled: open,
   });
@@ -51,6 +57,7 @@ export function InstanceSettingsDialog({
   const [autoCloseHours, setAutoCloseHours] = useState<number>(settings?.auto_close_hours || 24);
   const [displayName, setDisplayName] = useState<string>(settings?.display_name_for_team || "");
   const [instanceNumber, setInstanceNumber] = useState<string>(settings?.manual_instance_number || "");
+  const [redistributionTimeout, setRedistributionTimeout] = useState<number>(settings?.redistribution_timeout_minutes || 30);
 
   // Atualizar state quando carregar dados
   useEffect(() => {
@@ -59,6 +66,7 @@ export function InstanceSettingsDialog({
       setAutoCloseHours(settings.auto_close_hours || 24);
       setDisplayName(settings.display_name_for_team || "");
       setInstanceNumber(settings.manual_instance_number || "");
+      setRedistributionTimeout(settings.redistribution_timeout_minutes || 30);
     }
   }, [settings]);
 
@@ -72,6 +80,7 @@ export function InstanceSettingsDialog({
           auto_close_hours: autoCloseHours,
           display_name_for_team: displayName.trim() || null,
           manual_instance_number: instanceNumber.trim() || null,
+          redistribution_timeout_minutes: distributionMode === 'auto' ? redistributionTimeout : null,
         })
         .eq("id", instanceId);
 
@@ -164,11 +173,35 @@ export function InstanceSettingsDialog({
                       Auto-Distribuição (Rodízio)
                     </Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Conversas são atribuídas automaticamente em rodízio para usuários disponíveis
+                      Novas conversas são designadas automaticamente para usuários em rodízio.
+                      O vendedor designado verá a conversa na aba "Pra você" e deve clicar ATENDER.
                     </p>
                   </div>
                 </div>
               </RadioGroup>
+              
+              {/* Timeout de redistribuição - só aparece quando auto está selecionado */}
+              {distributionMode === 'auto' && (
+                <div className="ml-6 p-3 border rounded-lg bg-muted/30 space-y-2">
+                  <Label className="text-sm">Tempo para redistribuição</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min="5"
+                      max="1440"
+                      value={redistributionTimeout}
+                      onChange={(e) => setRedistributionTimeout(parseInt(e.target.value) || 30)}
+                      className="w-24"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      minutos
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Se o vendedor não atender neste tempo, a conversa passa para o próximo na fila
+                  </p>
+                </div>
+              )}
             </div>
 
             <Separator />

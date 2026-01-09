@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore, XCircle } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore, XCircle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -24,8 +24,9 @@ interface Conversation {
   unread_count: number;
   lead_id: string | null;
   instance_id: string;
-  status?: string; // 'pending' | 'assigned' | 'closed'
+  status?: string; // 'pending' | 'autodistributed' | 'assigned' | 'closed'
   assigned_user_id?: string | null;
+  designated_user_id?: string | null; // Para auto-distribuição
 }
 
 interface ConversationItemProps {
@@ -77,12 +78,15 @@ export function ConversationItem({
 
   const status = conversation.status || 'pending';
   const isAssignedToMe = conversation.assigned_user_id === currentUserId;
+  const isDesignatedToMe = conversation.designated_user_id === currentUserId;
   const hasOtherInstances = otherInstanceConversations && otherInstanceConversations.length > 0;
   
   const getStatusIcon = () => {
     switch (status) {
       case 'pending':
         return <Clock className="h-3 w-3 text-yellow-600" />;
+      case 'autodistributed':
+        return <Zap className="h-3 w-3 text-blue-600" />;
       case 'assigned':
         return <UserCheck className="h-3 w-3 text-green-600" />;
       case 'closed':
@@ -93,6 +97,13 @@ export function ConversationItem({
   };
 
   const getStatusBadge = () => {
+    if (status === 'autodistributed' && isDesignatedToMe) {
+      return (
+        <span className="text-[10px] text-blue-600 truncate max-w-[80px]">
+          Pra você
+        </span>
+      );
+    }
     if (status === 'assigned' && assignedUserName) {
       return (
         <span className="text-[10px] text-green-600 truncate max-w-[80px]">
@@ -114,6 +125,13 @@ export function ConversationItem({
   };
 
   const isAssignedToCurrentUser = conversation.assigned_user_id === currentUserId;
+  
+  // Mostrar botão ATENDER para: pendente OU autodistribuído (se for o usuário designado)
+  const canShowClaimButton = showClaimButton && (
+    status === 'pending' || 
+    !status || 
+    (status === 'autodistributed' && isDesignatedToMe)
+  );
 
   return (
     <div
@@ -138,6 +156,7 @@ export function ConversationItem({
         <div className={cn(
           "absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-card flex items-center justify-center",
           status === 'pending' && "bg-yellow-100",
+          status === 'autodistributed' && "bg-blue-100",
           status === 'assigned' && "bg-green-100",
           status === 'closed' && "bg-gray-100"
         )}>
@@ -185,10 +204,12 @@ export function ConversationItem({
                             <span className={cn(
                               "text-[10px] px-1 rounded",
                               conv.status === 'pending' && "bg-yellow-100 text-yellow-700",
+                              conv.status === 'autodistributed' && "bg-blue-100 text-blue-700",
                               conv.status === 'assigned' && "bg-green-100 text-green-700",
                               conv.status === 'closed' && "bg-gray-100 text-gray-600"
                             )}>
                               {conv.status === 'pending' ? 'Pendente' : 
+                               conv.status === 'autodistributed' ? 'Pra você' :
                                conv.status === 'assigned' ? 'Atribuído' : 'Encerrado'}
                             </span>
                           )}
@@ -230,8 +251,8 @@ export function ConversationItem({
           </div>
           
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Botão ATENDER para conversas pendentes */}
-            {showClaimButton && (status === 'pending' || !status) && (
+            {/* Botão ATENDER para conversas pendentes ou autodistribuídas (para o usuário designado) */}
+            {canShowClaimButton && (
               <Button
                 size="sm"
                 variant="default"

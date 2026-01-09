@@ -654,7 +654,8 @@ serve(async (req) => {
             .single();
           
           if (instConfig?.distribution_mode === 'auto' && conversation) {
-            console.log("🔄 Auto-distribution enabled, assigning conversation...");
+            console.log("🔄 Auto-distribution enabled, designating conversation...");
+            // Usar reopen que agora define status = 'autodistributed' e designated_user_id
             const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
               p_conversation_id: conversation.id,
               p_instance_id: instance.id
