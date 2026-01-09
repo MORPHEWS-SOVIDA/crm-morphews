@@ -44,6 +44,8 @@ interface EvolutionInstance {
   provider: string;
   created_at: string;
   updated_at: string;
+  manual_instance_number: string | null;
+  manual_device_label: string | null;
 }
 
 export default function WhatsAppDMs() {
@@ -79,7 +81,8 @@ export default function WhatsAppDMs() {
   const [manualName, setManualName] = useState("");
   const [manualInstanceId, setManualInstanceId] = useState("");
   const [manualToken, setManualToken] = useState("");
-  const [manualPhone, setManualPhone] = useState("");
+  const [manualInstanceNumber, setManualInstanceNumber] = useState("");
+  const [manualDeviceLabel, setManualDeviceLabel] = useState("");
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -491,27 +494,38 @@ export default function WhatsAppDMs() {
 
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="manual-name">Nome de Exibição</Label>
+                <Label htmlFor="manual-name">Nome da Instância *</Label>
                 <Input
                   id="manual-name"
-                  placeholder="Ex: Vendas, Suporte..."
+                  placeholder="Ex: vendas123 (sem espaço, sem acento)"
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Nome amigável para identificar a instância</p>
+                <p className="text-xs text-muted-foreground">Esse é o ID da instância no Evolution API (campo instanceName). Sem espaços e sem acentos.</p>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="manual-instance-id">ID da Instância (Evolution) *</Label>
+                <Label htmlFor="manual-instance-number">Número da Instância</Label>
                 <Input
-                  id="manual-instance-id"
-                  placeholder="Ex: minhainstancia123"
-                  value={manualInstanceId}
-                  onChange={(e) => setManualInstanceId(e.target.value)}
+                  id="manual-instance-number"
+                  placeholder="Ex: 5551998874646"
+                  value={manualInstanceNumber}
+                  onChange={(e) => setManualInstanceNumber(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">O nome/ID da instância no Evolution API (campo instanceName)</p>
+                <p className="text-xs text-muted-foreground">Somente números. Exemplo: 5551998874646</p>
               </div>
               
+              <div className="space-y-2">
+                <Label htmlFor="manual-device-label">Celular / Localização da Instância</Label>
+                <Input
+                  id="manual-device-label"
+                  placeholder="Ex: Celular verde, Mesa 3..."
+                  value={manualDeviceLabel}
+                  onChange={(e) => setManualDeviceLabel(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Informação para identificar onde está o celular físico.</p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="manual-token">Token da API (opcional)</Label>
                 <Input
@@ -522,17 +536,6 @@ export default function WhatsAppDMs() {
                 />
                 <p className="text-xs text-muted-foreground">Token específico da instância, se houver</p>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="manual-phone">Número do WhatsApp (opcional)</Label>
-                <Input
-                  id="manual-phone"
-                  placeholder="Ex: 5511999999999"
-                  value={manualPhone}
-                  onChange={(e) => setManualPhone(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Número conectado (sem @s.whatsapp.net)</p>
-              </div>
             </div>
 
             <div className="flex gap-3">
@@ -542,28 +545,30 @@ export default function WhatsAppDMs() {
               <Button 
                 className="flex-1" 
                 onClick={async () => {
-                  if (!manualInstanceId.trim()) {
-                    toast({ title: "O ID da instância é obrigatório", variant: "destructive" });
+                  if (!manualName.trim()) {
+                    toast({ title: "O nome da instância é obrigatório", variant: "destructive" });
                     return;
                   }
                   try {
                     await addManualInstance.mutateAsync({
-                      name: manualName.trim() || manualInstanceId.trim(),
-                      evolution_instance_id: manualInstanceId.trim(),
+                      name: manualName.trim(),
+                      evolution_instance_id: manualName.trim(),
                       evolution_api_token: manualToken.trim() || undefined,
-                      phone_number: manualPhone.trim() || undefined,
+                      manual_instance_number: manualInstanceNumber.trim() || undefined,
+                      manual_device_label: manualDeviceLabel.trim() || undefined,
                     });
                     setManualName("");
                     setManualInstanceId("");
                     setManualToken("");
-                    setManualPhone("");
+                    setManualInstanceNumber("");
+                    setManualDeviceLabel("");
                     setShowManualDialog(false);
                     refetch();
                   } catch (e: any) {
                     toast({ title: "Erro ao adicionar", description: e.message, variant: "destructive" });
                   }
                 }}
-                disabled={!manualInstanceId.trim() || addManualInstance.isPending}
+                disabled={!manualName.trim() || addManualInstance.isPending}
               >
                 {addManualInstance.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Adicionar Instância
@@ -608,19 +613,35 @@ export default function WhatsAppDMs() {
                       </div>
                       
                       {/* Phone Number Display */}
-                      <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">Número conectado:</span>
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        {/* Número da Instância */}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Número da instância:</span>
+                          </div>
+                          {(instance.manual_instance_number || instance.phone_number) ? (
+                            <p className="text-base font-semibold font-mono">
+                              +{instance.manual_instance_number || instance.phone_number}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">
+                              Nenhum número cadastrado
+                            </p>
+                          )}
                         </div>
-                        {instance.phone_number ? (
-                          <p className="text-base font-semibold font-mono">
-                            +{instance.phone_number}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">
-                            Nenhum número conectado ainda
-                          </p>
+
+                        {/* Celular / Dispositivo */}
+                        {instance.manual_device_label && (
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Smartphone className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">Dispositivo:</span>
+                            </div>
+                            <p className="text-sm font-medium">
+                              {instance.manual_device_label}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>

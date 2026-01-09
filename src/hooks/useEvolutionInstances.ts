@@ -203,6 +203,8 @@ export function useEvolutionInstances() {
       evolution_instance_id: string; 
       evolution_api_token?: string;
       phone_number?: string;
+      manual_instance_number?: string;
+      manual_device_label?: string;
     }) => {
       const response = await supabase.functions.invoke("evolution-instance-manager", {
         body: { 
@@ -211,6 +213,8 @@ export function useEvolutionInstances() {
           evolution_instance_id: params.evolution_instance_id,
           evolution_api_token: params.evolution_api_token || null,
           phone_number: params.phone_number || null,
+          manual_instance_number: params.manual_instance_number || null,
+          manual_device_label: params.manual_device_label || null,
         },
       });
 
