@@ -612,7 +612,7 @@ export default function LeadDetail() {
             <LeadFollowupsSection leadId={id!} />
 
             {/* Mensagens Agendadas */}
-            <LeadScheduledMessagesSection leadId={id!} />
+            <LeadScheduledMessagesSection leadId={id!} leadName={lead?.name} leadWhatsapp={lead?.whatsapp} />
 
             {/* Histórico Receptivo */}
             <LeadReceptiveHistorySection leadId={id!} />
