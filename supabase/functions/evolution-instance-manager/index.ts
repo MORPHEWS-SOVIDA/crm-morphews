@@ -100,7 +100,7 @@ serve(async (req) => {
 
     const organizationId = membership.organization_id;
     const body = await req.json();
-    const { action, instanceId, name, evolution_instance_id, evolution_api_token, phone_number, manual_instance_number, manual_device_label } = body;
+    const { action, instanceId, name, evolution_instance_id, evolution_api_token, phone_number, manual_instance_number, manual_device_label, display_name_for_team } = body;
 
     console.log("Evolution Instance Manager:", { action, instanceId, name, organizationId });
 
@@ -224,6 +224,7 @@ serve(async (req) => {
           payment_source: "admin_grant", // Instâncias Evolution são gratuitas (concedidas pelo admin)
           manual_instance_number: manual_instance_number || null,
           manual_device_label: manual_device_label || null,
+          display_name_for_team: display_name_for_team || null,
         })
         .select()
         .single();
@@ -662,6 +663,7 @@ serve(async (req) => {
           payment_source: "admin_grant",
           manual_instance_number: manual_instance_number || null,
           manual_device_label: manual_device_label || null,
+          display_name_for_team: display_name_for_team || null,
         })
         .select()
         .single();

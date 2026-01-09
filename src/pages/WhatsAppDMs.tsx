@@ -46,6 +46,7 @@ interface EvolutionInstance {
   updated_at: string;
   manual_instance_number: string | null;
   manual_device_label: string | null;
+  display_name_for_team: string | null;
 }
 
 export default function WhatsAppDMs() {
@@ -59,6 +60,7 @@ export default function WhatsAppDMs() {
   const [newInstanceName, setNewInstanceName] = useState("");
   const [newInstanceNumber, setNewInstanceNumber] = useState("");
   const [newDeviceLabel, setNewDeviceLabel] = useState("");
+  const [newDisplayNameForTeam, setNewDisplayNameForTeam] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<EvolutionInstance | null>(null);
   const [isGeneratingQR, setIsGeneratingQR] = useState<string | null>(null);
@@ -75,6 +77,7 @@ export default function WhatsAppDMs() {
   const [newInstanceNameEdit, setNewInstanceNameEdit] = useState("");
   const [newInstanceNumberEdit, setNewInstanceNumberEdit] = useState("");
   const [newDeviceLabelEdit, setNewDeviceLabelEdit] = useState("");
+  const [newDisplayNameForTeamEdit, setNewDisplayNameForTeamEdit] = useState("");
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   
   // Ver todas as conversas (todas as instâncias)
@@ -87,6 +90,7 @@ export default function WhatsAppDMs() {
   const [manualToken, setManualToken] = useState("");
   const [manualInstanceNumber, setManualInstanceNumber] = useState("");
   const [manualDeviceLabel, setManualDeviceLabel] = useState("");
+  const [manualDisplayNameForTeam, setManualDisplayNameForTeam] = useState("");
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -180,6 +184,7 @@ export default function WhatsAppDMs() {
           name: newInstanceName,
           manual_instance_number: newInstanceNumber.trim() || null,
           manual_device_label: newDeviceLabel.trim() || null,
+          display_name_for_team: newDisplayNameForTeam.trim() || null,
         },
       });
 
@@ -206,6 +211,7 @@ export default function WhatsAppDMs() {
       setNewInstanceName("");
       setNewInstanceNumber("");
       setNewDeviceLabel("");
+      setNewDisplayNameForTeam("");
       refetch();
     } catch (error: any) {
       toast({
@@ -319,6 +325,7 @@ export default function WhatsAppDMs() {
           name: newInstanceNameEdit.trim(),
           manual_instance_number: newInstanceNumberEdit.trim() || null,
           manual_device_label: newDeviceLabelEdit.trim() || null,
+          display_name_for_team: newDisplayNameForTeamEdit.trim() || null,
         })
         .eq("id", editNameInstance.id);
 
@@ -333,6 +340,7 @@ export default function WhatsAppDMs() {
       setNewInstanceNameEdit("");
       setNewInstanceNumberEdit("");
       setNewDeviceLabelEdit("");
+      setNewDisplayNameForTeamEdit("");
       refetch();
     } catch (error: any) {
       toast({
@@ -501,6 +509,17 @@ export default function WhatsAppDMs() {
                 />
                 <p className="text-xs text-muted-foreground">Informação para identificar o dispositivo.</p>
               </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="display-name-team">Nome que time vai ver no chat</Label>
+                <Input
+                  id="display-name-team"
+                  placeholder="Ex: Vendas Principal, Suporte..."
+                  value={newDisplayNameForTeam}
+                  onChange={(e) => setNewDisplayNameForTeam(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Este nome será exibido no chat para identificar a instância.</p>
+              </div>
             </div>
 
             <div className="flex gap-3">
@@ -565,6 +584,17 @@ export default function WhatsAppDMs() {
                 />
                 <p className="text-xs text-muted-foreground">Informação para identificar onde está o celular físico.</p>
               </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="manual-display-name-team">Nome que time vai ver no chat</Label>
+                <Input
+                  id="manual-display-name-team"
+                  placeholder="Ex: Vendas Principal, Suporte..."
+                  value={manualDisplayNameForTeam}
+                  onChange={(e) => setManualDisplayNameForTeam(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Este nome será exibido no chat para identificar a instância.</p>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="manual-token">Token da API (opcional)</Label>
@@ -596,12 +626,14 @@ export default function WhatsAppDMs() {
                       evolution_api_token: manualToken.trim() || undefined,
                       manual_instance_number: manualInstanceNumber.trim() || undefined,
                       manual_device_label: manualDeviceLabel.trim() || undefined,
+                      display_name_for_team: manualDisplayNameForTeam.trim() || undefined,
                     });
                     setManualName("");
                     setManualInstanceId("");
                     setManualToken("");
                     setManualInstanceNumber("");
                     setManualDeviceLabel("");
+                    setManualDisplayNameForTeam("");
                     setShowManualDialog(false);
                     refetch();
                   } catch (e: any) {
@@ -680,6 +712,19 @@ export default function WhatsAppDMs() {
                             </div>
                             <p className="text-sm font-medium">
                               {instance.manual_device_label}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Nome que time vai ver no chat */}
+                        {instance.display_name_for_team && (
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">Nome no chat:</span>
+                            </div>
+                            <p className="text-sm font-medium">
+                              {instance.display_name_for_team}
                             </p>
                           </div>
                         )}
@@ -769,6 +814,7 @@ export default function WhatsAppDMs() {
                               setNewInstanceNameEdit(instance.name);
                               setNewInstanceNumberEdit(instance.manual_instance_number || "");
                               setNewDeviceLabelEdit(instance.manual_device_label || "");
+                              setNewDisplayNameForTeamEdit(instance.display_name_for_team || "");
                             }}
                             className="text-muted-foreground hover:text-foreground"
                           >
@@ -798,6 +844,21 @@ export default function WhatsAppDMs() {
                           WhatsApp conectado e funcionando!
                         </p>
                         <div className="flex gap-2 justify-center flex-wrap">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              setEditNameInstance(instance);
+                              setNewInstanceNameEdit(instance.name);
+                              setNewInstanceNumberEdit(instance.manual_instance_number || "");
+                              setNewDeviceLabelEdit(instance.manual_device_label || "");
+                              setNewDisplayNameForTeamEdit(instance.display_name_for_team || "");
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -964,6 +1025,16 @@ export default function WhatsAppDMs() {
                   onChange={(e) => setNewDeviceLabelEdit(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">Informação para identificar o dispositivo.</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Nome que time vai ver no chat</Label>
+                <Input
+                  placeholder="Ex: Vendas Principal, Suporte..."
+                  value={newDisplayNameForTeamEdit}
+                  onChange={(e) => setNewDisplayNameForTeamEdit(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Este nome será exibido no chat para identificar a instância.</p>
               </div>
             </div>
 

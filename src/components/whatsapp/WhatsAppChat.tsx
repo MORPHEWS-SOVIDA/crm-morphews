@@ -40,6 +40,7 @@ interface Conversation {
   // Campos do lead (via whatsapp_conversations_view)
   lead_name?: string | null;
   lead_stage?: string | null;
+  lead_instagram?: string | null;
 
   contact_id: string | null;
   instance_id: string;
@@ -49,6 +50,14 @@ interface Conversation {
   is_group?: boolean; // NOVO: indica se é grupo
   group_subject?: string; // NOVO: nome do grupo
   display_name?: string; // NOVO: nome para exibição
+}
+
+interface InstanceInfo {
+  id: string;
+  name: string;
+  display_name_for_team: string | null;
+  manual_instance_number: string | null;
+  phone_number: string | null;
 }
 
 interface Message {
