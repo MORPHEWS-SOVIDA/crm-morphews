@@ -638,7 +638,7 @@ async function getOrCreateConversation(
       contact_profile_pic: contactProfilePic || null,
       contact_id: contactId,
       lead_id: lead?.id || null,
-      status: "open",
+      status: "pending", // Novas conversas começam como pendentes
     })
     .select()
     .single();
