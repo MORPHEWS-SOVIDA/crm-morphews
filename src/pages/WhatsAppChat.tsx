@@ -596,20 +596,31 @@ export default function WhatsAppChat() {
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
   // Helper to get custom stage display name
+  // Mapeamento: prospect→1, contacted→2, qualified→3, proposal→4, negotiation→5, cloud→stage_type=cloud, trash→stage_type=trash
   const getStageDisplayName = (stageKey: string | null | undefined) => {
     if (!stageKey || !funnelStages) return stageKey;
+    
+    // Special stage_type handling
+    if (stageKey === 'cloud') {
+      const cloudStage = funnelStages.find(s => s.stage_type === 'cloud');
+      return cloudStage?.name || 'Aguardando';
+    }
+    if (stageKey === 'trash') {
+      const trashStage = funnelStages.find(s => s.stage_type === 'trash');
+      return trashStage?.name || 'Sem interesse';
+    }
+    
+    // Funnel stages map enum values to positions 1-5
     const stagePositionMap: Record<string, number> = {
-      'prospect': 0,
-      'contacted': 1,
-      'qualified': 2,
-      'proposal': 3,
-      'negotiation': 4,
-      'cloud': 5,
-      'trash': 6,
+      'prospect': 1,
+      'contacted': 2,
+      'qualified': 3,
+      'proposal': 4,
+      'negotiation': 5,
     };
     const position = stagePositionMap[stageKey];
     if (position === undefined) return stageKey;
-    const customStage = funnelStages.find(s => s.position === position);
+    const customStage = funnelStages.find(s => s.position === position && s.stage_type === 'funnel');
     return customStage?.name || stageKey;
   };
 
