@@ -585,7 +585,7 @@ serve(async (req) => {
       // Depois tentar por phone_number com variações brasileiras (com/sem 9)
       let { data: conversation } = await supabase
         .from("whatsapp_conversations")
-        .select("id, unread_count, instance_id, phone_number")
+        .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
         .eq("organization_id", organizationId)
         .eq("chat_id", remoteJid)
         .maybeSingle();
@@ -599,7 +599,7 @@ serve(async (req) => {
         for (const phoneVar of phoneVariations) {
           const { data: convByPhone } = await supabase
             .from("whatsapp_conversations")
-            .select("id, unread_count, instance_id, phone_number")
+            .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
             .eq("organization_id", organizationId)
             .eq("phone_number", phoneVar)
             .maybeSingle();
@@ -613,7 +613,7 @@ serve(async (req) => {
       }
 
       if (!conversation) {
-        // Criar nova conversa
+        // Criar nova conversa - status inicial é 'pending' para distribuição
         const displayName = isGroup 
           ? (groupSubject || `Grupo ${remoteJid.split("@")[0]}`)
           : (pushName || `+${fromPhone}`);
@@ -633,25 +633,72 @@ serve(async (req) => {
             is_group: isGroup,
             group_subject: groupSubject,
             last_message_at: new Date().toISOString(),
+            last_customer_message_at: new Date().toISOString(),
             unread_count: 1,
+            status: 'pending', // Nova conversa entra como pendente para distribuição
           })
-          .select("id, unread_count, instance_id, phone_number")
+          .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
           .single();
 
         if (convoError) {
           console.error("Error creating conversation:", convoError);
         } else {
-          conversation = newConvo;
-          console.log("Created new conversation:", { id: conversation?.id, isGroup, groupSubject });
+          conversation = newConvo as any;
+          console.log("Created new conversation:", { id: conversation?.id, isGroup, groupSubject, status: 'pending' });
+          
+          // Verificar se auto-distribuição está ativa para essa instância
+          const { data: instConfig } = await supabase
+            .from("whatsapp_instances")
+            .select("distribution_mode")
+            .eq("id", instance.id)
+            .single();
+          
+          if (instConfig?.distribution_mode === 'auto' && conversation) {
+            console.log("🔄 Auto-distribution enabled, assigning conversation...");
+            const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
+              p_conversation_id: conversation.id,
+              p_instance_id: instance.id
+            });
+            console.log("Auto-distribution result:", assignResult);
+          }
         }
       } else {
         // Atualizar conversa existente
         const updateData: any = {
           last_message_at: new Date().toISOString(),
+          last_customer_message_at: new Date().toISOString(),
           unread_count: (conversation.unread_count || 0) + 1,
           chat_id: remoteJid,
           current_instance_id: instance.id,
         };
+        
+        // REABERTURA: Se conversa está fechada, reabrir para distribuição
+        const wasClosedOrPending = conversation.status === 'closed' || !conversation.status;
+        if (wasClosedOrPending) {
+          console.log("📬 Conversation was closed/pending, reopening for distribution...");
+          
+          // Verificar modo de distribuição da instância
+          const { data: instConfig } = await supabase
+            .from("whatsapp_instances")
+            .select("distribution_mode")
+            .eq("id", instance.id)
+            .single();
+          
+          if (instConfig?.distribution_mode === 'auto') {
+            // Auto-distribuição: chamar função para atribuir ao próximo usuário
+            const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
+              p_conversation_id: conversation.id,
+              p_instance_id: instance.id
+            });
+            console.log("Auto-reopen result:", assignResult);
+          } else {
+            // Distribuição manual: volta para pendente
+            updateData.status = 'pending';
+            updateData.assigned_user_id = null;
+            updateData.assigned_at = null;
+            updateData.closed_at = null;
+          }
+        }
         
         // Atualizar phone_number se diferente (normalização brasileira)
         if (!isGroup && conversation.phone_number !== fromPhone) {
@@ -671,7 +718,7 @@ serve(async (req) => {
           .update(updateData)
           .eq("id", conversation.id);
 
-        console.log("Updated conversation:", conversation.id, "from instance:", instance.id);
+        console.log("Updated conversation:", conversation.id, "from instance:", instance.id, wasClosedOrPending ? "(reopened)" : "");
       }
 
       // =====================

@@ -603,7 +603,84 @@ export default function WhatsAppChat() {
     }
   };
 
+  // Buscar nomes dos usuários atribuídos
+  const { data: userProfiles } = useQuery({
+    queryKey: ['user-profiles-for-conversations', profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return {};
+      const { data: members } = await supabase
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', profile.organization_id);
+      
+      if (!members?.length) return {};
+      
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', members.map(m => m.user_id));
+      
+      const map: Record<string, string> = {};
+      profiles?.forEach(p => {
+        map[p.user_id] = `${p.first_name} ${p.last_name}`.trim();
+      });
+      return map;
+    },
+    enabled: !!profile?.organization_id,
+  });
+
+  // Calcular contagens por status
+  const statusCounts = useMemo(() => {
+    return {
+      pending: conversations.filter(c => c.status === 'pending' || !c.status).length,
+      assigned: conversations.filter(c => c.status === 'assigned').length,
+      closed: conversations.filter(c => c.status === 'closed').length,
+    };
+  }, [conversations]);
+
+  // Handler para assumir conversa
+  const handleClaimConversation = async (conversationId: string) => {
+    if (!user?.id) return;
+    setClaimingConversationId(conversationId);
+    try {
+      await claimConversation.mutateAsync({ conversationId, userId: user.id });
+      // Atualizar conversa local
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId 
+          ? { ...c, status: 'assigned', assigned_user_id: user.id }
+          : c
+      ));
+      // Mover para aba atribuído
+      setStatusFilter('assigned');
+    } finally {
+      setClaimingConversationId(null);
+    }
+  };
+
+  // Handler para encerrar conversa
+  const handleCloseConversation = async () => {
+    if (!selectedConversation) return;
+    await closeConversation.mutateAsync(selectedConversation.id);
+    setConversations(prev => prev.map(c => 
+      c.id === selectedConversation.id 
+        ? { ...c, status: 'closed' }
+        : c
+    ));
+    setSelectedConversation(null);
+  };
+
   const filteredConversations = conversations.filter(c => {
+    // Filtro por status (aba)
+    const convStatus = c.status || 'pending';
+    if (convStatus !== statusFilter) return false;
+    
+    // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin
+    if (statusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
+      // TODO: Verificar se é admin da instância para mostrar todas
+      // Por enquanto, mostra apenas as próprias
+      return false;
+    }
+    
     // Filtro de busca por texto
     const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
       c.phone_number.includes(searchTerm);
@@ -771,13 +848,28 @@ export default function WhatsAppChat() {
             </div>
           </div>
 
+          {/* Status Tabs */}
+          <ConversationStatusTabs
+            activeTab={statusFilter}
+            onTabChange={setStatusFilter}
+            counts={statusCounts}
+          />
+
           {/* Conversations List */}
           <ScrollArea className="flex-1">
             {filteredConversations.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p className="font-medium">Nenhuma conversa</p>
-                <p className="text-xs mt-1">Mensagens recebidas aparecerão aqui</p>
+                <p className="font-medium">
+                  {statusFilter === 'pending' && 'Nenhuma conversa pendente'}
+                  {statusFilter === 'assigned' && 'Nenhuma conversa atribuída'}
+                  {statusFilter === 'closed' && 'Nenhuma conversa encerrada'}
+                </p>
+                <p className="text-xs mt-1">
+                  {statusFilter === 'pending' && 'Novas mensagens aparecerão aqui'}
+                  {statusFilter === 'assigned' && 'Suas conversas em atendimento'}
+                  {statusFilter === 'closed' && 'Conversas finalizadas'}
+                </p>
               </div>
             ) : (
               filteredConversations.map(conv => (
@@ -787,6 +879,11 @@ export default function WhatsAppChat() {
                   isSelected={selectedConversation?.id === conv.id}
                   onClick={() => setSelectedConversation(conv)}
                   instanceLabel={getInstanceLabel(conv.instance_id)}
+                  showClaimButton={statusFilter === 'pending'}
+                  onClaim={() => handleClaimConversation(conv.id)}
+                  isClaiming={claimingConversationId === conv.id}
+                  assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
+                  currentUserId={user?.id}
                 />
               ))
             )}
@@ -814,6 +911,43 @@ export default function WhatsAppChat() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  {/* Botão Transferir - apenas para conversas atribuídas */}
+                  {selectedConversation.status === 'assigned' && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowTransferDialog(true)}
+                      className="h-8 text-xs"
+                    >
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Transferir
+                    </Button>
+                  )}
+                  {/* Botão Encerrar - para conversas atribuídas */}
+                  {selectedConversation.status === 'assigned' && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={handleCloseConversation}
+                      disabled={closeConversation.isPending}
+                      className="h-8 text-xs text-orange-600 hover:text-orange-700"
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Encerrar
+                    </Button>
+                  )}
+                  {/* Botão Atender - para conversas pendentes */}
+                  {(selectedConversation.status === 'pending' || !selectedConversation.status) && (
+                    <Button 
+                      size="sm"
+                      onClick={() => handleClaimConversation(selectedConversation.id)}
+                      disabled={claimingConversationId === selectedConversation.id}
+                      className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                    >
+                      <Hand className="h-4 w-4 mr-1" />
+                      ATENDER
+                    </Button>
+                  )}
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -1113,6 +1247,18 @@ export default function WhatsAppChat() {
         open={showNewConversationDialog}
         onOpenChange={setShowNewConversationDialog}
       />
+
+      {/* Transfer Conversation Dialog */}
+      {selectedConversation && (
+        <ConversationTransferDialog
+          open={showTransferDialog}
+          onOpenChange={setShowTransferDialog}
+          conversationId={selectedConversation.id}
+          instanceId={selectedConversation.instance_id}
+          currentUserId={selectedConversation.assigned_user_id}
+          contactName={selectedConversation.contact_name || selectedConversation.phone_number}
+        />
+      )}
     </Layout>
   );
 }
