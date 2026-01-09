@@ -46,6 +46,7 @@ import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
+import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
 import { useQuery } from '@tanstack/react-query';
 
 type StatusTab = 'pending' | 'assigned' | 'closed';
@@ -107,6 +108,7 @@ export default function WhatsAppChat() {
   const navigate = useNavigate();
   const { data: funnelStages } = useFunnelStages();
   const { claimConversation, closeConversation } = useConversationDistribution();
+  const { data: crossInstanceMap } = useCrossInstanceConversations();
   
   const [isUpdatingStars, setIsUpdatingStars] = useState(false);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -902,20 +904,30 @@ export default function WhatsAppChat() {
                 </p>
               </div>
             ) : (
-              filteredConversations.map(conv => (
-                <ConversationItem
-                  key={conv.id}
-                  conversation={conv}
-                  isSelected={selectedConversation?.id === conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  instanceLabel={getInstanceLabel(conv.instance_id)}
-                  showClaimButton={statusFilter === 'pending' && isManualDistribution(conv.instance_id)}
-                  onClaim={() => handleClaimConversation(conv.id)}
-                  isClaiming={claimingConversationId === conv.id}
-                  assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
-                  currentUserId={user?.id}
-                />
-              ))
+              filteredConversations.map(conv => {
+                // Obter conversas do mesmo contato em outras instâncias
+                const otherInstances = getOtherInstanceConversations(
+                  crossInstanceMap,
+                  conv.phone_number,
+                  conv.instance_id
+                );
+                
+                return (
+                  <ConversationItem
+                    key={conv.id}
+                    conversation={conv}
+                    isSelected={selectedConversation?.id === conv.id}
+                    onClick={() => setSelectedConversation(conv)}
+                    instanceLabel={getInstanceLabel(conv.instance_id)}
+                    showClaimButton={statusFilter === 'pending' && isManualDistribution(conv.instance_id)}
+                    onClaim={() => handleClaimConversation(conv.id)}
+                    isClaiming={claimingConversationId === conv.id}
+                    assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
+                    currentUserId={user?.id}
+                    otherInstanceConversations={otherInstances}
+                  />
+                );
+              })
             )}
           </ScrollArea>
         </div>
