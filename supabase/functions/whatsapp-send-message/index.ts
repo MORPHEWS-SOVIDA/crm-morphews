@@ -495,14 +495,32 @@ Deno.serve(async (req) => {
       console.error(`[${requestId}] ⚠️ Failed to save message to DB:`, saveError);
     }
 
-    // Update conversation
+    // Update conversation - se usuário está enviando e conversa não está atribuída, atribuir
+    const conversationUpdate: Record<string, any> = {
+      last_message_at: new Date().toISOString(),
+      unread_count: 0,
+      current_instance_id: instanceId,
+    };
+
+    // Buscar estado atual da conversa
+    const { data: currentConv } = await supabaseAdmin
+      .from("whatsapp_conversations")
+      .select("status, assigned_user_id")
+      .eq("id", conversationId)
+      .single();
+
+    // ENVIO ATIVO: Se usuário está enviando e conversa não está atribuída, atribuir ao usuário
+    if (senderUserId && currentConv && (currentConv.status !== 'assigned' || !currentConv.assigned_user_id)) {
+      conversationUpdate.status = 'assigned';
+      conversationUpdate.assigned_user_id = senderUserId;
+      conversationUpdate.assigned_at = new Date().toISOString();
+      conversationUpdate.closed_at = null;
+      console.log(`[${requestId}] 📌 Assigning conversation to sender: ${senderUserId}`);
+    }
+
     await supabaseAdmin
       .from("whatsapp_conversations")
-      .update({
-        last_message_at: new Date().toISOString(),
-        unread_count: 0,
-        current_instance_id: instanceId,
-      })
+      .update(conversationUpdate)
       .eq("id", conversationId);
 
     if (!sendResult.success) {

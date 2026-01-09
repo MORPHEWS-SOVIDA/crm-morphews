@@ -98,6 +98,7 @@ interface Instance {
 
 interface InstanceUserPermission {
   user_id: string;
+  instance_id: string;
   is_instance_admin: boolean;
 }
 
@@ -423,6 +424,7 @@ export default function WhatsAppChat() {
         phone: selectedConversation.phone_number,
         messageType,
         content: messageText || '',
+        senderUserId: user?.id, // ID do usuário para multi-atendimento
       };
 
       if (documentToSend) {
@@ -629,6 +631,27 @@ export default function WhatsAppChat() {
     enabled: !!profile?.organization_id,
   });
 
+  // Verificar se usuário é admin de alguma instância
+  const { data: userInstancePermissions } = useQuery({
+    queryKey: ['user-instance-permissions', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data } = await supabase
+        .from('whatsapp_instance_users')
+        .select('instance_id, is_instance_admin')
+        .eq('user_id', user.id);
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const isAdminOfInstance = (instanceId: string) => {
+    return userInstancePermissions?.some(p => 
+      (p.instance_id === instanceId && p.is_instance_admin) || 
+      (selectedInstance === 'all' && p.is_instance_admin)
+    ) || false;
+  };
+
   // Calcular contagens por status
   const statusCounts = useMemo(() => {
     return {
@@ -674,11 +697,11 @@ export default function WhatsAppChat() {
     const convStatus = c.status || 'pending';
     if (convStatus !== statusFilter) return false;
     
-    // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin
+    // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin da instância
     if (statusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
-      // TODO: Verificar se é admin da instância para mostrar todas
-      // Por enquanto, mostra apenas as próprias
-      return false;
+      // Verificar se é admin da instância para mostrar todas
+      const isAdmin = isAdminOfInstance(c.instance_id);
+      if (!isAdmin) return false;
     }
     
     // Filtro de busca por texto
