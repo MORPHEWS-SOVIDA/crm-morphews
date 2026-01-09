@@ -222,6 +222,8 @@ serve(async (req) => {
           is_connected: false,
           monthly_price_cents: 0,
           payment_source: "admin_grant", // Instâncias Evolution são gratuitas (concedidas pelo admin)
+          manual_instance_number: manual_instance_number || null,
+          manual_device_label: manual_device_label || null,
         })
         .select()
         .single();
