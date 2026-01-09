@@ -720,6 +720,7 @@ export type Database = {
           notes: string | null
           organization_id: string
           reason: string | null
+          result: string | null
           scheduled_at: string
           source_id: string | null
           source_type: string
@@ -734,6 +735,7 @@ export type Database = {
           notes?: string | null
           organization_id: string
           reason?: string | null
+          result?: string | null
           scheduled_at: string
           source_id?: string | null
           source_type?: string
@@ -748,6 +750,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           reason?: string | null
+          result?: string | null
           scheduled_at?: string
           source_id?: string | null
           source_type?: string
