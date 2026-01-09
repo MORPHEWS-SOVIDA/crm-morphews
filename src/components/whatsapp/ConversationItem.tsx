@@ -3,8 +3,17 @@ import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCheck, Clock, CheckCircle, Hand } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+export interface OtherInstanceConversation {
+  id: string;
+  instance_id: string;
+  instance_name: string;
+  instance_display_name: string | null;
+  status: string | null;
+}
 
 interface Conversation {
   id: string;
@@ -29,6 +38,7 @@ interface ConversationItemProps {
   isClaiming?: boolean;
   assignedUserName?: string | null;
   currentUserId?: string;
+  otherInstanceConversations?: OtherInstanceConversation[];
 }
 
 export function ConversationItem({ 
@@ -40,7 +50,8 @@ export function ConversationItem({
   onClaim,
   isClaiming,
   assignedUserName,
-  currentUserId
+  currentUserId,
+  otherInstanceConversations
 }: ConversationItemProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -62,6 +73,7 @@ export function ConversationItem({
 
   const status = conversation.status || 'pending';
   const isAssignedToMe = conversation.assigned_user_id === currentUserId;
+  const hasOtherInstances = otherInstanceConversations && otherInstanceConversations.length > 0;
   
   const getStatusIcon = () => {
     switch (status) {
@@ -120,6 +132,13 @@ export function ConversationItem({
         )}>
           {getStatusIcon()}
         </div>
+        
+        {/* Indicador de conversas em outras instâncias */}
+        {hasOtherInstances && (
+          <div className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
+            <MessageSquareMore className="h-2.5 w-2.5 text-white" />
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -130,6 +149,45 @@ export function ConversationItem({
               {conversation.contact_name || conversation.phone_number}
             </span>
             {getStatusBadge()}
+            
+            {/* Badge de outras instâncias com tooltip */}
+            {hasOtherInstances && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className="h-4 px-1 text-[9px] bg-blue-50 text-blue-700 border-blue-200 cursor-help"
+                    >
+                      +{otherInstanceConversations.length}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[250px]">
+                    <p className="font-medium text-xs mb-1">Conversas em outras instâncias:</p>
+                    <ul className="text-xs space-y-0.5">
+                      {otherInstanceConversations.map((conv) => (
+                        <li key={conv.id} className="flex items-center gap-1">
+                          <span className="truncate">
+                            {conv.instance_display_name || conv.instance_name}
+                          </span>
+                          {conv.status && (
+                            <span className={cn(
+                              "text-[10px] px-1 rounded",
+                              conv.status === 'pending' && "bg-yellow-100 text-yellow-700",
+                              conv.status === 'assigned' && "bg-green-100 text-green-700",
+                              conv.status === 'closed' && "bg-gray-100 text-gray-600"
+                            )}>
+                              {conv.status === 'pending' ? 'Pendente' : 
+                               conv.status === 'assigned' ? 'Atribuído' : 'Encerrado'}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           {conversation.last_message_at && (
             <span className={cn(
