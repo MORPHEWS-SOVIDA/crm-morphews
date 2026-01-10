@@ -87,7 +87,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddressFields } from '@/components/AddressFields';
 import { ProductOfferCard } from '@/components/receptive/ProductOfferCard';
-
+import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
 interface LeadData {
@@ -1394,81 +1394,83 @@ export default function AddReceptivo() {
 
             {/* HISTÓRICO COMPLETO DO LEAD - só para leads existentes */}
             {leadData.existed && leadData.id && (
-              <>
-                {/* Vendas Anteriores */}
-                {leadSales.length > 0 && (
-                  <Card className="border-green-500/30">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-green-600">
-                        <ShoppingCart className="w-5 h-5" />
-                        Vendas Anteriores ({leadSales.length})
-                      </CardTitle>
-                      <CardDescription>Histórico de compras do cliente</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {leadSales.slice(0, 5).map((sale) => (
-                          <div 
-                            key={sale.id} 
-                            className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between"
-                          >
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge className={getStatusColor(sale.status)}>
-                                  {getStatusLabel(sale.status)}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  {format(new Date(sale.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                                </span>
+              <SectionErrorBoundary title="Histórico do lead">
+                <>
+                  {/* Vendas Anteriores */}
+                  {leadSales.length > 0 && (
+                    <Card className="border-green-500/30">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-green-600">
+                          <ShoppingCart className="w-5 h-5" />
+                          Vendas Anteriores ({leadSales.length})
+                        </CardTitle>
+                        <CardDescription>Histórico de compras do cliente</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {leadSales.slice(0, 5).map((sale) => (
+                            <div
+                              key={sale.id}
+                              className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge className={getStatusColor(sale.status)}>
+                                    {getStatusLabel(sale.status)}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {format(new Date(sale.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                                  </span>
+                                </div>
+                                <p className="font-semibold text-primary mt-1">
+                                  {formatCurrency(sale.total_cents)}
+                                </p>
                               </div>
-                              <p className="font-semibold text-primary mt-1">
-                                {formatCurrency(sale.total_cents)}
-                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
                             </div>
+                          ))}
+                          {leadSales.length > 5 && (
                             <Button
                               variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
+                              className="w-full"
+                              onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
                             >
-                              <Eye className="w-4 h-4" />
+                              Ver todas as {leadSales.length} vendas
+                              <ExternalLink className="w-4 h-4 ml-2" />
                             </Button>
-                          </div>
-                        ))}
-                        {leadSales.length > 5 && (
-                          <Button
-                            variant="ghost"
-                            className="w-full"
-                            onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
-                          >
-                            Ver todas as {leadSales.length} vendas
-                            <ExternalLink className="w-4 h-4 ml-2" />
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
-                {/* Endereços */}
-                <LeadAddressesManager leadId={leadData.id} />
+                  {/* Endereços */}
+                  <LeadAddressesManager leadId={leadData.id} />
 
-                {/* Perguntas Padrão - Standard Questions */}
-                <LeadStandardQuestionsSection leadId={leadData.id} />
+                  {/* Perguntas Padrão - Standard Questions */}
+                  <LeadStandardQuestionsSection leadId={leadData.id} />
 
-                {/* Follow-ups */}
-                <LeadFollowupsSection leadId={leadData.id} />
+                  {/* Follow-ups */}
+                  <LeadFollowupsSection leadId={leadData.id} />
 
-                {/* SAC */}
-                <LeadSacSection leadId={leadData.id} />
+                  {/* SAC */}
+                  <LeadSacSection leadId={leadData.id} />
 
-                {/* Histórico Receptivo */}
-                <LeadReceptiveHistorySection leadId={leadData.id} />
+                  {/* Histórico Receptivo */}
+                  <LeadReceptiveHistorySection leadId={leadData.id} />
 
-                {/* Timeline de Etapas */}
-                {leadData.stage && (
-                  <LeadStageTimeline leadId={leadData.id} currentStage={leadData.stage} />
-                )}
-              </>
+                  {/* Timeline de Etapas */}
+                  {leadData.stage && (
+                    <LeadStageTimeline leadId={leadData.id} currentStage={leadData.stage} />
+                  )}
+                </>
+              </SectionErrorBoundary>
             )}
           </div>
         )}
