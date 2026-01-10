@@ -1147,36 +1147,27 @@ export default function WhatsAppChat() {
                  </div>
                </div>
 
-              {/* Sub-abas por instância (mesmo lead/telefone em vários números) */}
+              {/* Dropdown de instância (quando contato está em múltiplas instâncias) */}
               {samePhoneConversations.length > 1 && (
-                <div className="border-b border-border bg-muted/50 px-4 py-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                      Este contato está em {samePhoneConversations.length} instâncias:
-                    </span>
-                  </div>
-                  <Tabs
+                <div className="border-b border-border bg-muted/30 px-4 py-1.5 flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                    Instância ({samePhoneConversations.length}):
+                  </span>
+                  <Select
                     value={activeInstanceId ?? selectedConversation.instance_id}
-                    onValueChange={(instId) => {
-                      setActiveInstanceId(instId);
-                    }}
+                    onValueChange={(instId) => setActiveInstanceId(instId)}
                   >
-                    <TabsList className="h-8 w-auto gap-1 bg-background/80 p-1">
+                    <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
                       {samePhoneConversations.map((instId) => (
-                        <TabsTrigger
-                          key={instId}
-                          value={instId}
-                          className={cn(
-                            "text-xs px-3 py-1.5 rounded-md font-medium transition-colors",
-                            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
-                            "data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-muted"
-                          )}
-                        >
+                        <SelectItem key={instId} value={instId} className="text-xs">
                           {getInstanceTabLabel(instId)}
-                        </TabsTrigger>
+                        </SelectItem>
                       ))}
-                    </TabsList>
-                  </Tabs>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
  
