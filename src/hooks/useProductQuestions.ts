@@ -118,7 +118,7 @@ export function useProductQuestions(productId: string | undefined) {
   });
 }
 
-// Get all questions for all products (for bulk operations)
+// Get all questions for all products (for bulk operations) - with standard question details
 export function useAllProductQuestions(productIds: string[]) {
   const { tenantId } = useTenant();
 
@@ -127,14 +127,64 @@ export function useAllProductQuestions(productIds: string[]) {
     queryFn: async () => {
       if (!productIds.length || !tenantId) return [];
 
-      const { data, error } = await supabase
+      const { data: questions, error } = await supabase
         .from('product_questions')
         .select('*')
         .in('product_id', productIds)
         .order('position');
 
       if (error) throw error;
-      return data as ProductQuestion[];
+      if (!questions || questions.length === 0) return [];
+
+      // Get standard question IDs
+      const standardQuestionIds = questions
+        .filter(q => q.is_standard && q.standard_question_id)
+        .map(q => q.standard_question_id!);
+
+      // Fetch standard question details if any
+      let standardQuestionsMap: Record<string, { question_type: string }> = {};
+      let optionsMap: Record<string, StandardQuestionOption[]> = {};
+
+      if (standardQuestionIds.length > 0) {
+        const { data: standardQuestions } = await supabase
+          .from('standard_questions')
+          .select('id, question_type')
+          .in('id', standardQuestionIds);
+
+        if (standardQuestions) {
+          standardQuestionsMap = standardQuestions.reduce((acc, sq) => {
+            acc[sq.id] = { question_type: sq.question_type };
+            return acc;
+          }, {} as Record<string, { question_type: string }>);
+        }
+
+        // Fetch options for standard questions
+        const { data: options } = await supabase
+          .from('standard_question_options')
+          .select('*')
+          .in('question_id', standardQuestionIds)
+          .order('position');
+
+        if (options) {
+          optionsMap = options.reduce((acc, opt) => {
+            if (!acc[opt.question_id]) acc[opt.question_id] = [];
+            acc[opt.question_id].push(opt);
+            return acc;
+          }, {} as Record<string, StandardQuestionOption[]>);
+        }
+      }
+
+      // Merge standard question data into product questions
+      return questions.map(q => {
+        if (q.is_standard && q.standard_question_id && standardQuestionsMap[q.standard_question_id]) {
+          return {
+            ...q,
+            question_type: standardQuestionsMap[q.standard_question_id].question_type as ProductQuestion['question_type'],
+            options: optionsMap[q.standard_question_id] || []
+          };
+        }
+        return { ...q, question_type: 'text' as const, options: [] };
+      }) as ProductQuestion[];
     },
     enabled: productIds.length > 0 && !!tenantId,
   });

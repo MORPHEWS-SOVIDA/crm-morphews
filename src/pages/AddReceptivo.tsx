@@ -834,7 +834,7 @@ export default function AddReceptivo() {
                 answer_text: answerText,
                 updated_by: user?.id || null,
               }, {
-                onConflict: 'lead_id,question_id',
+                onConflict: 'lead_id,product_id,question_id',
               });
           }
         }
@@ -872,7 +872,7 @@ export default function AddReceptivo() {
               answer_text: answerText,
               updated_by: user?.id || null,
             }, {
-              onConflict: 'lead_id,question_id',
+              onConflict: 'lead_id,product_id,question_id',
             });
         }
       }
