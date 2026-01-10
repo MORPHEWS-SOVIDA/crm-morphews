@@ -3,9 +3,11 @@ import { Instagram, ChevronRight } from 'lucide-react';
 import { Lead, FUNNEL_STAGES } from '@/types/lead';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MobileLeadCardProps {
   lead: Lead;
@@ -13,6 +15,7 @@ interface MobileLeadCardProps {
 
 export function MobileLeadCard({ lead }: MobileLeadCardProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const stageInfo = FUNNEL_STAGES[lead.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: lead.stage };
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
 
@@ -82,8 +85,14 @@ export function MobileLeadCard({ lead }: MobileLeadCardProps) {
       </div>
 
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
-        <span className="text-xs text-muted-foreground">
-          Responsável: <span className="text-foreground">{lead.assigned_to}</span>
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          Responsável:{' '}
+          <ResponsibleBadge
+            responsible={lead.assigned_to}
+            currentUserId={user?.id}
+            variant="inline"
+            className="text-foreground"
+          />
         </span>
       </div>
     </div>
