@@ -880,25 +880,22 @@ export default function WhatsAppChat() {
 
   // Helper to get instance display label
   const getInstanceLabel = (instId: string) => {
-    const inst = instances.find(i => i.id === instId);
+    const inst = instances.find((i) => i.id === instId);
     if (!inst) return null;
-    const displayName = inst.display_name_for_team || inst.name;
+
+    const displayName = inst.display_name_for_team || inst.name || 'Instância';
     const number = inst.manual_instance_number || inst.phone_number;
-    if (displayName && number) return `${displayName} · ${number}`;
-    return displayName || number || inst.name;
+
+    return number ? `${displayName} - ${number}` : displayName;
+  };
+
+  const getInstanceIsConnected = (instId: string) => {
+    const inst = instances.find((i) => i.id === instId);
+    return inst?.is_connected ?? null;
   };
 
   const getInstanceTabLabel = (instId: string) => {
-    const inst = instances.find((i) => i.id === instId);
-    if (!inst) return 'Instância';
-
-    // Prioridade: "Nome que time vai ver no chat" (display_name_for_team)
-    // Se não tiver, usa o nome técnico como fallback
-    const displayName = inst.display_name_for_team || inst.name || 'Instância';
-    // Número da instância configurado manualmente
-    const number = inst.manual_instance_number || inst.phone_number || '';
-
-    return number ? `${displayName} - ${number}` : displayName;
+    return getInstanceLabel(instId) || 'Instância';
   };
 
   // Verificar se a instância usa distribuição manual (permite botão ATENDER)
@@ -985,7 +982,7 @@ export default function WhatsAppChat() {
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             "w-2 h-2 rounded-full",
-                            isConnected ? "bg-green-500" : "bg-red-500"
+                            isConnected ? "bg-funnel-positive" : "bg-destructive"
                           )} />
                           <span>{label}</span>
                         </div>
@@ -1175,11 +1172,26 @@ export default function WhatsAppChat() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {samePhoneConversations.map((instId) => (
-                        <SelectItem key={instId} value={instId} className="text-xs">
-                          {getInstanceTabLabel(instId)}
-                        </SelectItem>
-                      ))}
+                      {samePhoneConversations.map((instId) => {
+                        const label = getInstanceTabLabel(instId);
+                        const isConnected = getInstanceIsConnected(instId);
+
+                        return (
+                          <SelectItem key={instId} value={instId} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              {isConnected !== null && (
+                                <div
+                                  className={cn(
+                                    "w-2 h-2 rounded-full",
+                                    isConnected ? "bg-funnel-positive" : "bg-destructive"
+                                  )}
+                                />
+                              )}
+                              <span>{label}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
