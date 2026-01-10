@@ -1454,17 +1454,19 @@ export default function AddReceptivo() {
                   <LeadAddressesManager leadId={leadData.id} />
 
                   {/* Perguntas Padrão - Standard Questions */}
-                  {leadData.id ? (
-                    <LeadStandardQuestionsSection leadId={leadData.id} />
-                  ) : (
-                    <Card className="bg-muted/30 border-dashed">
-                      <CardContent className="py-6">
-                        <p className="text-sm text-muted-foreground text-center">
-                          Finalize ou busque um lead para acessar as Perguntas Padrão
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
+                  <SectionErrorBoundary title="Perguntas Padrão">
+                    {leadData.id ? (
+                      <LeadStandardQuestionsSection leadId={leadData.id} />
+                    ) : (
+                      <Card className="bg-muted/30 border-dashed">
+                        <CardContent className="py-6">
+                          <p className="text-sm text-muted-foreground text-center">
+                            Finalize ou busque um lead para acessar as Perguntas Padrão
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </SectionErrorBoundary>
 
                   {/* Follow-ups */}
                   <LeadFollowupsSection leadId={leadData.id} />

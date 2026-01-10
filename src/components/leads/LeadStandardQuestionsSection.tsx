@@ -80,17 +80,23 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
     }
   }, [categories, activeCategory]);
 
-  // Initialize answers from existing data
+  // Initialize answers from existing data - with sanitization
   useEffect(() => {
     if (existingAnswers && existingAnswers.length > 0) {
       const initialAnswers: AnswerState = {};
       existingAnswers.forEach(answer => {
+        // Ensure selected_option_ids is an array of strings
+        let sanitizedOptionIds: string[] | undefined;
+        if (Array.isArray(answer.selected_option_ids)) {
+          sanitizedOptionIds = answer.selected_option_ids.map(id => String(id));
+        }
+        
         initialAnswers[answer.question_id] = {
-          selectedOptionIds: answer.selected_option_ids || undefined,
-          numericValue: answer.numeric_value ?? undefined,
-          imcWeight: answer.imc_weight ?? undefined,
-          imcHeight: answer.imc_height ?? undefined,
-          imcAge: answer.imc_age ?? undefined
+          selectedOptionIds: sanitizedOptionIds,
+          numericValue: typeof answer.numeric_value === 'number' ? answer.numeric_value : undefined,
+          imcWeight: typeof answer.imc_weight === 'number' ? answer.imc_weight : undefined,
+          imcHeight: typeof answer.imc_height === 'number' ? answer.imc_height : undefined,
+          imcAge: typeof answer.imc_age === 'number' ? answer.imc_age : undefined
         };
       });
       setAnswers(initialAnswers);
@@ -221,7 +227,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
 
       return (
         <div key={question.id} className="space-y-3 p-4 border rounded-lg bg-muted/20">
-          <Label className="font-medium">{question.question_text}</Label>
+          <Label className="font-medium">{String(question.question_text || '')}</Label>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">Peso (kg)</Label>
@@ -253,8 +259,8 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
           </div>
           {imcResult && (
             <div className="flex items-center gap-2 mt-2">
-              <Badge variant="outline">IMC: {imcResult.imc}</Badge>
-              <Badge variant="secondary">{imcResult.category}</Badge>
+              <Badge variant="outline">IMC: {String(imcResult.imc)}</Badge>
+              <Badge variant="secondary">{String(imcResult.category)}</Badge>
             </div>
           )}
         </div>
@@ -264,7 +270,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
     if (question.question_type === 'number') {
       return (
         <div key={question.id} className="space-y-2 p-4 border rounded-lg bg-muted/20">
-          <Label className="font-medium">{question.question_text}</Label>
+          <Label className="font-medium">{String(question.question_text || '')}</Label>
           <Input
             type="number"
             placeholder="Digite um número..."
@@ -279,7 +285,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
     if (question.question_type === 'single_choice') {
       return (
         <div key={question.id} className="space-y-2 p-4 border rounded-lg bg-muted/20">
-          <Label className="font-medium">{question.question_text}</Label>
+          <Label className="font-medium">{String(question.question_text || '')}</Label>
           <RadioGroup
             value={answer?.selectedOptionIds?.[0] || ''}
             onValueChange={(value) => handleOptionToggle(question.id, value, false)}
@@ -289,7 +295,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
                 <div key={option.id} className="flex items-center space-x-2">
                   <RadioGroupItem value={option.id} id={option.id} />
                   <Label htmlFor={option.id} className="font-normal cursor-pointer">
-                    {option.option_text}
+                    {String(option.option_text || '')}
                   </Label>
                 </div>
               ))}
@@ -302,7 +308,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
     // multiple_choice
     return (
       <div key={question.id} className="space-y-2 p-4 border rounded-lg bg-muted/20">
-        <Label className="font-medium">{question.question_text}</Label>
+        <Label className="font-medium">{String(question.question_text || '')}</Label>
         <div className="grid grid-cols-2 gap-2">
           {question.options?.map(option => (
             <div key={option.id} className="flex items-center space-x-2">
@@ -312,7 +318,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
                 onCheckedChange={() => handleOptionToggle(question.id, option.id, true)}
               />
               <Label htmlFor={option.id} className="font-normal cursor-pointer">
-                {option.option_text}
+                {String(option.option_text || '')}
               </Label>
             </div>
           ))}
@@ -365,8 +371,8 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
               <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
                 {categories.map(category => (
                   <TabsTrigger key={category} value={category} className="relative">
-                    {CATEGORY_LABELS[category] || category}
-                    {answeredCountByCategory[category] > 0 && (
+                    {String(CATEGORY_LABELS[category] || category)}
+                    {(answeredCountByCategory[category] ?? 0) > 0 && (
                       <Badge variant="default" className="ml-1 h-5 w-5 p-0 justify-center text-xs">
                         {answeredCountByCategory[category]}
                       </Badge>
