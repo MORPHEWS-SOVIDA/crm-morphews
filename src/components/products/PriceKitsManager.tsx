@@ -79,10 +79,12 @@ function SortableKitItem({
     isDragging,
   } = useSortable({ id: `kit-${index}` });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+    position: 'relative' as const,
   };
 
   return (
@@ -92,26 +94,29 @@ function SortableKitItem({
       value={`kit-${index}`}
       className="border rounded-lg overflow-hidden bg-card"
     >
-      <AccordionTrigger className="px-4 hover:no-underline">
-        <div className="flex items-center justify-between w-full pr-2">
-          <div className="flex items-center gap-2">
-            <div
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="w-4 h-4 text-muted-foreground" />
-            </div>
+      <div className="flex items-center">
+        {/* Drag handle - outside AccordionTrigger to avoid conflicts */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-3 hover:bg-muted flex items-center touch-none"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
+        </div>
+        
+        <AccordionTrigger className="flex-1 px-2 hover:no-underline">
+          <div className="flex items-center justify-between w-full pr-2">
             <span className="font-medium">
               Kit {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
             </span>
+            <span className="text-sm text-muted-foreground">
+              {formatPriceWithUnit(kit.regular_price_cents, kit.quantity)}
+            </span>
           </div>
-          <span className="text-sm text-muted-foreground">
-            {formatPriceWithUnit(kit.regular_price_cents, kit.quantity)}
-          </span>
-        </div>
-      </AccordionTrigger>
+        </AccordionTrigger>
+      </div>
       <AccordionContent className="px-4 pb-4">
         <div className="space-y-6">
           {/* Quantity */}
