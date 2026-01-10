@@ -263,7 +263,37 @@ export default function WhatsAppChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedInstance, profile?.organization_id]);
+   }, [selectedInstance, profile?.organization_id]);
+
+  // Mantém controle de qual instância está ativa dentro do chat (sub-abas)
+  useEffect(() => {
+    if (!selectedConversation) return;
+    setActiveInstanceId(selectedConversation.instance_id);
+  }, [selectedConversation?.id]);
+
+  // Conversas do mesmo telefone em múltiplas instâncias (para sub-abas)
+  const { data: samePhoneConversations = [] } = useQuery({
+    queryKey: ['same-phone-conversations', profile?.organization_id, selectedConversation?.phone_number],
+    enabled: !!profile?.organization_id && !!selectedConversation?.phone_number && instances.length > 0,
+    queryFn: async (): Promise<Conversation[]> => {
+      if (!profile?.organization_id || !selectedConversation?.phone_number) return [];
+
+      const instanceIds = instances.map((i) => i.id);
+      if (instanceIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('whatsapp_conversations')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .eq('phone_number', selectedConversation.phone_number)
+        .in('instance_id', instanceIds)
+        .order('last_message_at', { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+      return (data || []) as Conversation[];
+    },
+    staleTime: 15000,
+  });
 
   // Fetch messages for selected conversation
   type FetchMessagesOptions = {
@@ -848,6 +878,18 @@ export default function WhatsAppChat() {
     return displayName || number || inst.name;
   };
 
+  const getInstanceTabLabel = (instId: string) => {
+    const inst = instances.find((i) => i.id === instId);
+    if (!inst) return 'Instância';
+
+    const displayName = inst.display_name_for_team || inst.name || 'Instância';
+    const numberRaw = inst.manual_instance_number || inst.phone_number || '';
+    const digits = String(numberRaw).replace(/\D/g, '');
+    const last4 = digits.slice(-4);
+
+    return last4 ? `${displayName} · ${last4}` : displayName;
+  };
+
   // Verificar se a instância usa distribuição manual (permite botão ATENDER)
   const isManualDistribution = (instId: string): boolean => {
     const inst = instances.find(i => i.id === instId);
@@ -1004,7 +1046,10 @@ export default function WhatsAppChat() {
                     key={conv.id}
                     conversation={conv}
                     isSelected={selectedConversation?.id === conv.id}
-                    onClick={() => setSelectedConversation(conv)}
+                    onClick={() => {
+                      setSelectedConversation(conv);
+                      setActiveInstanceId(conv.instance_id);
+                    }}
                     instanceLabel={getInstanceLabel(conv.instance_id)}
                     showClaimButton={statusFilter === 'pending' && isManualDistribution(conv.instance_id)}
                     onClaim={() => handleClaimConversation(conv.id)}
@@ -1089,11 +1134,35 @@ export default function WhatsAppChat() {
                   >
                     <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                   </Button>
-                </div>
-              </div>
+                 </div>
+               </div>
 
-              {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
+              {/* Sub-abas por instância (mesmo lead/telefone em vários números) */}
+              {samePhoneConversations.length > 1 && (
+                <div className="border-b border-border bg-card px-4 py-2">
+                  <Tabs
+                    value={activeInstanceId ?? selectedConversation.instance_id}
+                    onValueChange={(instId) => {
+                      setActiveInstanceId(instId);
+                      const target = samePhoneConversations.find((c) => c.instance_id === instId);
+                      if (target && target.id !== selectedConversation.id) {
+                        setSelectedConversation(target);
+                      }
+                    }}
+                  >
+                    <TabsList className="h-9 w-full justify-start bg-muted/30">
+                      {samePhoneConversations.map((c) => (
+                        <TabsTrigger key={c.id} value={c.instance_id} className="text-xs">
+                          {getInstanceTabLabel(c.instance_id)}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
+                </div>
+              )}
+ 
+               {/* Messages */}
+               <ScrollArea className="flex-1 p-4">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
