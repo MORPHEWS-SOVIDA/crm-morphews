@@ -100,13 +100,13 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     enabled: open,
   });
 
-  // Fetch instance distribution mode
+  // Fetch instance distribution mode and settings
   const { data: instanceSettings } = useQuery({
     queryKey: ["instance-distribution-mode", instanceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode")
+        .select("distribution_mode, redistribution_timeout_minutes")
         .eq("id", instanceId)
         .single();
 
