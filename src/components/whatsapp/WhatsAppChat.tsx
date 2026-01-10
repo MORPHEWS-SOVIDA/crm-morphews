@@ -291,19 +291,37 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   });
 
   // Fetch lead details for drawer (stars, instagram, stage)
+  // Usa RPC SECURITY DEFINER para permitir visualizar lead mesmo com leads_view_only_own
   const { data: leadDetails, refetch: refetchLead } = useQuery({
-    queryKey: ["lead-details-chat", selectedConversation?.lead_id],
+    queryKey: ["lead-details-chat", selectedConversation?.id],
     queryFn: async () => {
-      if (!selectedConversation?.lead_id) return null;
+      if (!selectedConversation?.id) return null;
+      
+      // Usar RPC que bypassa RLS para dados do lead vinculado à conversa
       const { data, error } = await supabase
-        .from("leads")
-        .select("id, name, stars, instagram, stage")
-        .eq("id", selectedConversation.lead_id)
-        .single();
-      if (error) return null;
-      return data;
+        .rpc("get_linked_lead_for_conversation", { 
+          p_conversation_id: selectedConversation.id 
+        });
+      
+      if (error) {
+        console.error("[WhatsAppChat] Erro ao buscar lead vinculado:", error);
+        return null;
+      }
+      
+      // A RPC retorna um array, pegar o primeiro item
+      if (data && data.length > 0) {
+        const lead = data[0];
+        return {
+          id: lead.lead_id,
+          name: lead.lead_name,
+          stars: lead.lead_stars,
+          instagram: lead.lead_instagram,
+          stage: lead.lead_stage,
+        };
+      }
+      return null;
     },
-    enabled: !!selectedConversation?.lead_id,
+    enabled: !!selectedConversation?.id,
   });
 
   // Helper to get stage display name
@@ -985,9 +1003,11 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   };
 
   const handleViewLead = () => {
-    if (selectedConversation?.lead_id) {
+    // Prioriza o ID do leadDetails (que vem da RPC e bypassa RLS)
+    const leadIdToView = leadDetails?.id || selectedConversation?.lead_id;
+    if (leadIdToView) {
       // Abre em nova aba para não sair do chat
-      window.open(`/leads/${selectedConversation.lead_id}`, '_blank');
+      window.open(`/leads/${leadIdToView}`, '_blank');
     }
   };
 
@@ -1223,21 +1243,22 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               </div>
 
               {/* Lead Status Bar - Compact on Mobile */}
+              {/* Usa leadDetails (RPC) que bypassa RLS para mostrar lead vinculado corretamente */}
               {!selectedConversation.is_group && (
                 <div className="border-t bg-muted/30 px-3 py-2 flex items-center justify-between gap-2">
-                  {selectedConversation.lead_id ? (
+                  {(leadDetails?.id || selectedConversation.lead_id) ? (
                     <>
                       <div className="flex items-center gap-2 min-w-0">
                         <Badge variant="secondary" className="bg-green-100 text-green-700 shrink-0">
                           <User className="h-3 w-3 mr-1" />
-                          Lead
+                          Lead vinculado
                         </Badge>
                         <span className="text-sm font-medium truncate">
-                          {selectedConversation.lead_name || "Vinculado"}
+                          {leadDetails?.name || selectedConversation.lead_name || "Vinculado"}
                         </span>
-                        {selectedConversation.lead_stage && (
+                        {(leadDetails?.stage || selectedConversation.lead_stage) && (
                           <Badge variant="outline" className="text-xs shrink-0">
-                            {selectedConversation.lead_stage}
+                            {getStageDisplayName(leadDetails?.stage || selectedConversation.lead_stage)}
                           </Badge>
                         )}
                       </div>
@@ -1743,7 +1764,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
             )}
           </div>
           <DrawerFooter>
-            {selectedConversation?.lead_id ? (
+            {(leadDetails?.id || selectedConversation?.lead_id) ? (
               <Button onClick={() => { setShowLeadInfoDrawer(false); handleViewLead(); }}>
                 <User className="h-4 w-4 mr-2" />
                 Ver Lead Completo

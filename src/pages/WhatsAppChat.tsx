@@ -431,27 +431,57 @@ export default function WhatsAppChat() {
     }
   }, [selectedConversation?.id, fetchMessages]);
 
-  // Fetch lead data
+  // Fetch lead data - usando RPC SECURITY DEFINER para permitir visualizar lead mesmo com RLS restritivo
   useEffect(() => {
     const fetchLead = async () => {
-      if (!selectedConversation?.lead_id) {
+      if (!selectedConversation?.id) {
         setLead(null);
         return;
       }
       
+      // Usar RPC que bypassa RLS para dados do lead vinculado à conversa
       const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('id', selectedConversation.lead_id)
-        .single();
+        .rpc('get_linked_lead_for_conversation', { 
+          p_conversation_id: selectedConversation.id 
+        });
 
-      if (!error && data) {
-        setLead(data);
+      if (error) {
+        console.error('[WhatsAppChat] Erro ao buscar lead vinculado:', error);
+        setLead(null);
+        return;
+      }
+      
+      // A RPC retorna um array, pegar o primeiro item
+      if (data && data.length > 0) {
+        const leadData = data[0];
+        // Buscar dados completos do lead se tivermos acesso, senão usar dados da RPC
+        const { data: fullLead, error: fullError } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('id', leadData.lead_id)
+          .maybeSingle();
+
+        if (!fullError && fullLead) {
+          setLead(fullLead);
+        } else {
+          // Fallback para dados básicos da RPC se RLS bloquear a query completa
+          setLead({
+            id: leadData.lead_id,
+            name: leadData.lead_name || 'Lead Vinculado',
+            instagram: leadData.lead_instagram || '',
+            whatsapp: selectedConversation.phone_number,
+            email: null,
+            stage: leadData.lead_stage || 'prospect',
+            stars: leadData.lead_stars || 0,
+          });
+        }
+      } else {
+        setLead(null);
       }
     };
 
     fetchLead();
-  }, [selectedConversation?.lead_id]);
+  }, [selectedConversation?.id]);
 
   // Auto scroll to bottom
   useEffect(() => {
