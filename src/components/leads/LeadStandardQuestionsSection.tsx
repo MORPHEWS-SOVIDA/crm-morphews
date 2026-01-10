@@ -23,7 +23,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface LeadStandardQuestionsSectionProps {
-  leadId: string;
+  leadId: string | undefined;
 }
 
 interface AnswerState {
@@ -149,6 +149,11 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
   };
 
   const handleSave = () => {
+    if (!leadId) {
+      toast.error('Lead não encontrado');
+      return;
+    }
+
     const answersToSave = Object.entries(answers)
       .filter(([_, answer]) => {
         return (answer.selectedOptionIds && answer.selectedOptionIds.length > 0) ||
@@ -184,6 +189,10 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
 
     saveAnswers({ leadId, answers: answersToSave });
   };
+
+  if (!leadId) {
+    return null;
+  }
 
   if (isLoadingQuestions || isLoadingAnswers) {
     return (
