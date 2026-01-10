@@ -189,6 +189,7 @@ export default function AddReceptivo() {
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [sourceHistory, setSourceHistory] = useState<Array<{
     id: string;
     source_name: string;
@@ -674,7 +675,56 @@ export default function AddReceptivo() {
     }
   };
 
-  const handleGoToConversation = () => setCurrentStep('conversation');
+  const handleGoToConversation = async () => {
+    // For new leads, create the lead immediately so leadId is available for product questions
+    if (!leadData.existed && !leadData.id && tenantId && user) {
+      if (!leadData.name.trim()) {
+        toast({ title: 'Informe o nome do cliente', variant: 'destructive' });
+        return;
+      }
+      
+      setIsCreatingLead(true);
+      try {
+        const { data: newLead, error: leadError } = await supabase
+          .from('leads')
+          .insert({
+            organization_id: tenantId,
+            assigned_to: user.id,
+            created_by: user.id,
+            name: leadData.name,
+            whatsapp: leadData.whatsapp,
+            email: leadData.email || null,
+            instagram: leadData.instagram || null,
+            specialty: leadData.specialty || null,
+            lead_source: selectedSourceId || null,
+            observations: leadData.observations || null,
+            secondary_phone: leadData.secondary_phone || null,
+            cpf_cnpj: leadData.cpf_cnpj || null,
+            stage: 'prospect',
+          })
+          .select()
+          .single();
+
+        if (leadError) throw leadError;
+        
+        setLeadData(prev => ({ 
+          ...prev, 
+          id: newLead.id, 
+          existed: true,
+          created_at: newLead.created_at,
+        }));
+        
+        toast({ title: 'Lead criado!', description: 'Cliente salvo no sistema' });
+      } catch (error: unknown) {
+        toast({ title: 'Erro ao criar lead', description: getErrorMessage(error), variant: 'destructive' });
+        setIsCreatingLead(false);
+        return;
+      }
+      setIsCreatingLead(false);
+    }
+    
+    setCurrentStep('conversation');
+  };
 
   const handleGoToProduct = async () => {
     if (!conversationMode) {
@@ -1248,15 +1298,16 @@ export default function AddReceptivo() {
     );
   };
 
-  const renderNavButtons = (onBack?: () => void, onNext?: () => void, nextDisabled?: boolean, nextLabel?: string) => (
+  const renderNavButtons = (onBack?: () => void, onNext?: () => void, nextDisabled?: boolean, nextLabel?: string, isLoading?: boolean) => (
     <div className="flex justify-between gap-2">
       {onBack ? (
-        <Button variant="outline" onClick={onBack}>Voltar</Button>
+        <Button variant="outline" onClick={onBack} disabled={isLoading}>Voltar</Button>
       ) : <div />}
       {onNext && (
-        <Button onClick={onNext} disabled={nextDisabled}>
+        <Button onClick={onNext} disabled={nextDisabled || isLoading}>
+          {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           {nextLabel || 'Continuar'}
-          <ArrowRight className="w-4 h-4 ml-2" />
+          {!isLoading && <ArrowRight className="w-4 h-4 ml-2" />}
         </Button>
       )}
     </div>
@@ -1443,7 +1494,7 @@ export default function AddReceptivo() {
                 </div>
 
                 <Separator />
-                {renderNavButtons(undefined, handleGoToConversation)}
+                {renderNavButtons(undefined, handleGoToConversation, !leadData.name.trim(), isCreatingLead ? 'Criando...' : 'Continuar', isCreatingLead)}
               </CardContent>
             </Card>
 
