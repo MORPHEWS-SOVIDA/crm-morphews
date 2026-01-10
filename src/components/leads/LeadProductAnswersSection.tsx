@@ -300,11 +300,24 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                   <div className="space-y-2 text-sm">
                     {productQuestions.map((question) => {
                       const answer = productAnswers.find(a => a.question_id === question.id);
+                      
+                      // Resolve option IDs to text for choice-based questions
+                      let displayText = answer?.answer_text || '';
+                      if (answer?.answer_text && question.options && question.options.length > 0) {
+                        const optionIds = answer.answer_text.split(',').filter(Boolean);
+                        const selectedOptions = question.options
+                          .filter(opt => optionIds.includes(opt.id))
+                          .map(opt => opt.option_text);
+                        if (selectedOptions.length > 0) {
+                          displayText = selectedOptions.join(', ');
+                        }
+                      }
+                      
                       return (
                         <div key={question.id}>
                           <p className="text-muted-foreground">{question.question_text}</p>
                           <p className="font-medium">
-                            {answer?.answer_text || <span className="text-muted-foreground italic">Sem resposta</span>}
+                            {displayText || <span className="text-muted-foreground italic">Sem resposta</span>}
                           </p>
                         </div>
                       );
