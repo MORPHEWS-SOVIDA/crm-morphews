@@ -263,6 +263,7 @@ export default function WhatsAppChat() {
     if (!selectedConversation) return;
     setIsLoading(true);
     
+    // Buscar mensagens
     const { data, error } = await supabase
       .from('whatsapp_messages')
       .select('*')
@@ -270,7 +271,32 @@ export default function WhatsAppChat() {
       .order('created_at', { ascending: true });
 
     if (!error && data) {
-      setMessages(data);
+      // Buscar nomes dos usuários que enviaram mensagens (outbound com sent_by_user_id)
+      const userIds = [...new Set(data.filter(m => m.sent_by_user_id).map(m => m.sent_by_user_id))];
+      
+      let userNames: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', userIds);
+        
+        if (profiles) {
+          userNames = profiles.reduce((acc, p) => {
+            const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Usuário';
+            acc[p.user_id] = name;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
+      
+      // Adicionar sender_name às mensagens
+      const messagesWithSender = data.map(m => ({
+        ...m,
+        sender_name: m.sent_by_user_id ? userNames[m.sent_by_user_id] || null : null
+      }));
+      
+      setMessages(messagesWithSender);
       // Reset unread count
       await supabase
         .from('whatsapp_conversations')
