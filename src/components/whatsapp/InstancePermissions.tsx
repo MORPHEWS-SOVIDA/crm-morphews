@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Plus, Shield, Clock, RefreshCw } from "lucide-react";
+import { Loader2, Users, Eye, Send, Plus, Shield, Clock, RefreshCw, Zap } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface InstancePermissionsProps {
   instanceId: string;
@@ -47,6 +48,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [distributionMode, setDistributionMode] = useState<"manual" | "auto">("manual");
 
   // Fetch organization members
   const { data: orgMembers, isLoading: loadingMembers } = useQuery({
@@ -92,6 +94,29 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     },
     enabled: open,
   });
+
+  // Fetch instance distribution mode
+  const { data: instanceSettings } = useQuery({
+    queryKey: ["instance-distribution-mode", instanceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("distribution_mode")
+        .eq("id", instanceId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Update local state when settings load
+  useEffect(() => {
+    if (instanceSettings?.distribution_mode) {
+      setDistributionMode(instanceSettings.distribution_mode as "manual" | "auto");
+    }
+  }, [instanceSettings]);
 
   // Add user to instance
   const addUserMutation = useMutation({
@@ -147,6 +172,25 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     },
   });
 
+  // Update instance distribution mode
+  const updateDistributionModeMutation = useMutation({
+    mutationFn: async (mode: "manual" | "auto") => {
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({ distribution_mode: mode })
+        .eq("id", instanceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instance-distribution-mode", instanceId] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Modo de distribuição atualizado!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+    },
+  });
+
   const getUserPermission = (userId: string) => {
     return instanceUsers?.find((u) => u.user_id === userId);
   };
@@ -162,7 +206,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
             Permissões - {instanceName}
           </DialogTitle>
           <DialogDescription>
-            Defina permissões, distribuição automática e horários de disponibilidade
+            Defina o modo de distribuição e permissões de acesso
           </DialogDescription>
         </DialogHeader>
 
@@ -171,7 +215,48 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-3 overflow-y-auto flex-1 pr-2">
+          <>
+            {/* SELETOR DE MODO DE DISTRIBUIÇÃO */}
+            <div className="bg-muted/50 rounded-lg p-4 border-2 border-primary/20">
+              <Label htmlFor="distribution-mode" className="text-base font-semibold flex items-center gap-2 mb-3">
+                <Zap className="h-5 w-5 text-primary" />
+                Modo de Distribuição de Conversas
+              </Label>
+              <Select
+                value={distributionMode}
+                onValueChange={(value: "manual" | "auto") => {
+                  setDistributionMode(value);
+                  updateDistributionModeMutation.mutate(value);
+                }}
+              >
+                <SelectTrigger id="distribution-mode" className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">Todas as conversas em PENDENTES</span>
+                      <span className="text-xs text-muted-foreground">Usuários escolhem qual conversa assumir</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="auto">
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">Distribuição Automática</span>
+                      <span className="text-xs text-muted-foreground">Conversas entram como "Pra você" via rodízio</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                {distributionMode === "manual" 
+                  ? "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."
+                  : "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."}
+              </p>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="space-y-3 overflow-y-auto flex-1 pr-2">
             {orgMembers?.map((member) => {
               const permission = getUserPermission(member.user_id);
               const hasAccess = !!permission;
@@ -295,31 +380,33 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                         />
                       </div>
 
-                      {/* Participa da distribuição */}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="flex items-center gap-2">
-                            <RefreshCw className="h-4 w-4" />
-                            Participa da distribuição
-                          </Label>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Recebe leads automaticamente no modo auto-distribuição
-                          </p>
+                      {/* Participa da distribuição - APENAS visível no modo AUTO */}
+                      {distributionMode === "auto" && (
+                        <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-950/30 p-3 rounded-md border border-blue-200/50 dark:border-blue-800/50">
+                          <div>
+                            <Label className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                              <RefreshCw className="h-4 w-4" />
+                              Participa da distribuição
+                            </Label>
+                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                              Recebe leads automaticamente via rodízio
+                            </p>
+                          </div>
+                          <Switch
+                            checked={permission?.participates_in_distribution || false}
+                            onCheckedChange={(checked) =>
+                              updatePermissionMutation.mutate({
+                                id: permission!.id,
+                                participates_in_distribution: checked,
+                              })
+                            }
+                          />
                         </div>
-                        <Switch
-                          checked={permission?.participates_in_distribution || false}
-                          onCheckedChange={(checked) =>
-                            updatePermissionMutation.mutate({
-                              id: permission!.id,
-                              participates_in_distribution: checked,
-                            })
-                          }
-                        />
-                      </div>
+                      )}
 
-                      {/* Horário de disponibilidade */}
-                      {permission?.participates_in_distribution && (
-                        <div className="space-y-3 pt-2">
+                      {/* Horário de disponibilidade - APENAS se participa e está em AUTO */}
+                      {distributionMode === "auto" && permission?.participates_in_distribution && (
+                        <div className="space-y-3 pt-2 bg-blue-50/30 dark:bg-blue-950/20 p-3 rounded-md border border-blue-200/30 dark:border-blue-800/30">
                           <div className="flex items-center justify-between">
                             <div>
                               <Label className="flex items-center gap-2">
@@ -382,7 +469,8 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
 
         <div className="flex items-center gap-4 pt-4 border-t text-sm text-muted-foreground">
