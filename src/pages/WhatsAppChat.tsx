@@ -45,6 +45,7 @@ import { ConversationTransferDialog } from '@/components/whatsapp/ConversationTr
 import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
 import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
 import { useQuery } from '@tanstack/react-query';
@@ -76,6 +77,7 @@ interface Message {
   created_at: string;
   is_from_bot: boolean;
   status: string | null;
+  instance_id?: string | null; // IMPORTANTE: permite separar por instância dentro da mesma conversa
 }
 
 interface Lead {
@@ -116,6 +118,7 @@ export default function WhatsAppChat() {
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null); // sub-aba da instância dentro da conversa
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [lead, setLead] = useState<Lead | null>(null);
