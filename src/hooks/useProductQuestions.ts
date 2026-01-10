@@ -402,7 +402,7 @@ export function useUpsertLeadQuestionAnswers() {
             updated_by: user?.id || null,
             updated_at: new Date().toISOString(),
           }, {
-            onConflict: 'lead_id,question_id',
+            onConflict: 'lead_id,product_id,question_id',
           });
       }
 
