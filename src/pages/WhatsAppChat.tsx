@@ -971,9 +971,10 @@ export default function WhatsAppChat() {
               >
                 <option value="all">Todas as instâncias</option>
                 {instances.map((inst) => {
+                  // Prioridade: "Nome que time vai ver no chat" - Número da Instância
                   const displayName = inst.display_name_for_team || inst.name;
                   const number = inst.manual_instance_number || inst.phone_number;
-                  const label = displayName && number ? `${displayName} · ${number}` : displayName || number || inst.name;
+                  const label = displayName && number ? `${displayName} - ${number}` : displayName || number || inst.name;
                   return (
                     <option key={inst.id} value={inst.id}>
                       {label}
