@@ -961,27 +961,39 @@ export default function WhatsAppChat() {
             
             {/* Instance selector */}
             {instances.length > 1 && (
-              <select
-                className="w-full mb-2 p-2 rounded-md border border-input bg-background text-sm"
-                value={selectedInstance || ''}
-                onChange={(e) => {
-                  setSelectedInstance(e.target.value);
+              <Select
+                value={selectedInstance || 'all'}
+                onValueChange={(val) => {
+                  setSelectedInstance(val);
                   setSelectedConversation(null);
                 }}
               >
-                <option value="all">Todas as instâncias</option>
-                {instances.map((inst) => {
-                  // Prioridade: "Nome que time vai ver no chat" - Número da Instância
-                  const displayName = inst.display_name_for_team || inst.name;
-                  const number = inst.manual_instance_number || inst.phone_number;
-                  const label = displayName && number ? `${displayName} - ${number}` : displayName || number || inst.name;
-                  return (
-                    <option key={inst.id} value={inst.id}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
+                <SelectTrigger className="w-full mb-2 text-sm">
+                  <SelectValue placeholder="Selecione a instância" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as instâncias</SelectItem>
+                  {instances.map((inst) => {
+                    // Prioridade: "Nome que time vai ver no chat" - Número da Instância
+                    const displayName = inst.display_name_for_team || inst.name;
+                    const number = inst.manual_instance_number || inst.phone_number;
+                    const label = displayName && number ? `${displayName} - ${number}` : displayName || number || inst.name;
+                    const isConnected = inst.is_connected;
+                    
+                    return (
+                      <SelectItem key={inst.id} value={inst.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            isConnected ? "bg-green-500" : "bg-red-500"
+                          )} />
+                          <span>{label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             )}
             
             {/* Filtro de tipo de conversa */}
