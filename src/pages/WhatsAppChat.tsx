@@ -370,6 +370,7 @@ export default function WhatsAppChat() {
       if (!silent) setIsLoading(false);
     },
     [selectedConversation, activeInstanceId]
+  );
 
   useEffect(() => {
     fetchMessages();
