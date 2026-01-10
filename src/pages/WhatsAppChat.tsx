@@ -892,11 +892,13 @@ export default function WhatsAppChat() {
     const inst = instances.find((i) => i.id === instId);
     if (!inst) return 'Instância';
 
-    // Usar "Nome para o time" + número completo da instância
+    // Prioridade: "Nome que time vai ver no chat" (display_name_for_team)
+    // Se não tiver, usa o nome técnico como fallback
     const displayName = inst.display_name_for_team || inst.name || 'Instância';
+    // Número da instância configurado manualmente
     const number = inst.manual_instance_number || inst.phone_number || '';
 
-    return number ? `${displayName} · ${number}` : displayName;
+    return number ? `${displayName} - ${number}` : displayName;
   };
 
   // Verificar se a instância usa distribuição manual (permite botão ATENDER)
