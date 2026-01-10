@@ -78,6 +78,13 @@ interface Message {
   is_from_bot: boolean;
   status: string | null;
   instance_id?: string | null; // IMPORTANTE: permite separar por instância dentro da mesma conversa
+
+  // Multi-atendimento (sender)
+  sent_by_user_id?: string | null;
+  sender_name?: string | null;
+
+  // Erro (quando falha envio)
+  error_details?: string | null;
 }
 
 interface Lead {
@@ -259,52 +266,72 @@ export default function WhatsAppChat() {
   }, [selectedInstance, profile?.organization_id]);
 
   // Fetch messages for selected conversation
-  const fetchMessages = useCallback(async () => {
-    if (!selectedConversation) return;
-    setIsLoading(true);
-    
-    // Buscar mensagens
-    const { data, error } = await supabase
-      .from('whatsapp_messages')
-      .select('*')
-      .eq('conversation_id', selectedConversation.id)
-      .order('created_at', { ascending: true });
+  type FetchMessagesOptions = {
+    silent?: boolean;
+    resetUnread?: boolean;
+  };
 
-    if (!error && data) {
-      // Buscar nomes dos usuários que enviaram mensagens (outbound com sent_by_user_id)
-      const userIds = [...new Set(data.filter(m => m.sent_by_user_id).map(m => m.sent_by_user_id))];
-      
-      let userNames: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .in('user_id', userIds);
-        
-        if (profiles) {
-          userNames = profiles.reduce((acc, p) => {
-            const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Usuário';
-            acc[p.user_id] = name;
-            return acc;
-          }, {} as Record<string, string>);
+  const fetchMessages = useCallback(
+    async (options: FetchMessagesOptions = {}) => {
+      const { silent = false, resetUnread = true } = options;
+
+      if (!selectedConversation) return;
+      if (!silent) setIsLoading(true);
+
+      // Buscar mensagens
+      const { data, error } = await supabase
+        .from('whatsapp_messages')
+        .select('*')
+        .eq('conversation_id', selectedConversation.id)
+        .order('created_at', { ascending: true });
+
+      if (!error && data) {
+        // Buscar nomes dos usuários que enviaram mensagens (outbound com sent_by_user_id)
+        const userIds = [
+          ...new Set(
+            data
+              .map((m: any) => m.sent_by_user_id)
+              .filter(Boolean)
+          ),
+        ] as string[];
+
+        let userNames: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name')
+            .in('user_id', userIds);
+
+          if (profiles) {
+            userNames = profiles.reduce((acc, p) => {
+              const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Usuário';
+              acc[p.user_id] = name;
+              return acc;
+            }, {} as Record<string, string>);
+          }
+        }
+
+        // Adicionar sender_name às mensagens
+        const messagesWithSender: Message[] = (data as any[]).map((m) => ({
+          ...m,
+          sender_name: m.sent_by_user_id ? userNames[m.sent_by_user_id] || null : null,
+        }));
+
+        setMessages(messagesWithSender);
+
+        // Reset unread count (apenas quando abrimos a conversa)
+        if (resetUnread) {
+          await supabase
+            .from('whatsapp_conversations')
+            .update({ unread_count: 0 })
+            .eq('id', selectedConversation.id);
         }
       }
-      
-      // Adicionar sender_name às mensagens
-      const messagesWithSender = data.map(m => ({
-        ...m,
-        sender_name: m.sent_by_user_id ? userNames[m.sent_by_user_id] || null : null
-      }));
-      
-      setMessages(messagesWithSender);
-      // Reset unread count
-      await supabase
-        .from('whatsapp_conversations')
-        .update({ unread_count: 0 })
-        .eq('id', selectedConversation.id);
-    }
-    setIsLoading(false);
-  }, [selectedConversation]);
+
+      if (!silent) setIsLoading(false);
+    },
+    [selectedConversation]
+  );
 
   useEffect(() => {
     fetchMessages();
@@ -313,47 +340,38 @@ export default function WhatsAppChat() {
       // Realtime for messages - escuta todos os eventos
       const channel = supabase
         .channel(`messages-realtime-${selectedConversation.id}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `conversation_id=eq.${selectedConversation.id}`
-        }, (payload) => {
-          console.log('[Realtime] New message:', payload);
-          setMessages(prev => {
-            const newMsg = payload.new as Message;
-            const exists = prev.some(m => m.id === newMsg.id);
-            if (exists) return prev;
-            return [...prev, newMsg];
-          });
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `conversation_id=eq.${selectedConversation.id}`
-        }, (payload) => {
-          console.log('[Realtime] Message updated:', payload);
-          setMessages(prev => prev.map(m => 
-            m.id === (payload.new as Message).id ? payload.new as Message : m
-          ));
-        })
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'whatsapp_messages',
+            filter: `conversation_id=eq.${selectedConversation.id}`,
+          },
+          () => {
+            // Sempre refaz o fetch para manter sender_name (multi-atendimento)
+            fetchMessages({ silent: true, resetUnread: false });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'whatsapp_messages',
+            filter: `conversation_id=eq.${selectedConversation.id}`,
+          },
+          () => {
+            fetchMessages({ silent: true, resetUnread: false });
+          }
+        )
         .subscribe((status) => {
           console.log('[Realtime] Messages subscription status:', status);
         });
 
-      // Polling backup every 5 seconds (reduced frequency since realtime should work)
-      const pollInterval = setInterval(async () => {
-        const { data } = await supabase
-          .from('whatsapp_messages')
-          .select('*')
-          .eq('conversation_id', selectedConversation.id)
-          .order('created_at', { ascending: true });
-        
-        if (data && data.length > messages.length) {
-          console.log('[Polling] Found new messages:', data.length - messages.length);
-          setMessages(data);
-        }
+      // Polling backup every 5 seconds
+      const pollInterval = setInterval(() => {
+        fetchMessages({ silent: true, resetUnread: false });
       }, 5000);
 
       return () => {
@@ -441,9 +459,11 @@ export default function WhatsAppChat() {
       media_caption: messageText || null,
       created_at: new Date().toISOString(),
       is_from_bot: false,
-      status: 'sending'
+      status: 'sending',
+      sent_by_user_id: user?.id ?? null,
+      sender_name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
     };
-    setMessages(prev => [...prev, optimisticMessage]);
+    setMessages((prev) => [...prev, optimisticMessage]);
     
     try {
       if (!profile?.organization_id) {
@@ -502,9 +522,16 @@ export default function WhatsAppChat() {
       
       // Replace optimistic message with real one
       if (data?.message) {
-        setMessages(prev => prev.map(m => 
-          m.id === optimisticMessage.id ? data.message : m
-        ));
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== optimisticMessage.id) return m;
+            const incoming = data.message as Message;
+            return {
+              ...incoming,
+              sender_name: incoming.sender_name ?? m.sender_name ?? null,
+            };
+          })
+        );
       }
       
       inputRef.current?.focus();
