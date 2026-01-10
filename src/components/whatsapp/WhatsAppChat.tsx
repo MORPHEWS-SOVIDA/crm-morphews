@@ -178,34 +178,29 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     refetchInterval: 5000, // Poll every 5 seconds
   });
 
-  // Buscar TODAS as conversas do mesmo phone_number em diferentes instâncias
+  // Buscar TODAS as conversas do mesmo phone_number em diferentes instâncias da organização
   // Isso permite mostrar sub-abas por instância quando o mesmo lead conversa por múltiplos números
   const { data: samePhoneConversations } = useQuery({
     queryKey: ["same-phone-conversations", selectedConversation?.phone_number, profile?.organization_id],
     queryFn: async () => {
       if (!selectedConversation?.phone_number || !profile?.organization_id) return [];
 
+      // Primeiro pegar as instâncias da organização
+      const { data: orgInstances } = await supabase
+        .from("whatsapp_instances")
+        .select("id, name, display_name_for_team, manual_instance_number, phone_number")
+        .eq("organization_id", profile.organization_id);
+
+      if (!orgInstances || orgInstances.length === 0) return [];
+
+      const instanceIds = orgInstances.map(i => i.id);
+
+      // Buscar conversas deste número em todas as instâncias da org
       const { data, error } = await supabase
         .from("whatsapp_conversations")
-        .select(`
-          id,
-          phone_number,
-          instance_id,
-          last_message_at,
-          unread_count,
-          lead_id,
-          contact_name,
-          whatsapp_instances!inner (
-            id,
-            name,
-            display_name_for_team,
-            manual_instance_number,
-            phone_number,
-            organization_id
-          )
-        `)
+        .select("id, phone_number, instance_id, last_message_at, unread_count, lead_id, contact_name")
         .eq("phone_number", selectedConversation.phone_number)
-        .eq("whatsapp_instances.organization_id", profile.organization_id)
+        .in("instance_id", instanceIds)
         .order("last_message_at", { ascending: false });
 
       if (error) {
@@ -213,21 +208,30 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         return [];
       }
 
-      return data?.map((conv: any) => ({
-        id: conv.id,
-        phone_number: conv.phone_number,
-        instance_id: conv.instance_id,
-        last_message_at: conv.last_message_at,
-        unread_count: conv.unread_count,
-        lead_id: conv.lead_id,
-        contact_name: conv.contact_name,
-        instance_name: conv.whatsapp_instances?.name || "Instância",
-        instance_display_name: conv.whatsapp_instances?.display_name_for_team,
-        instance_number: conv.whatsapp_instances?.manual_instance_number || conv.whatsapp_instances?.phone_number,
-      })) || [];
+      // Mesclar com info das instâncias
+      const instanceMap = orgInstances.reduce((acc, inst) => {
+        acc[inst.id] = inst;
+        return acc;
+      }, {} as Record<string, typeof orgInstances[0]>);
+
+      return data?.map((conv) => {
+        const inst = instanceMap[conv.instance_id];
+        return {
+          id: conv.id,
+          phone_number: conv.phone_number,
+          instance_id: conv.instance_id,
+          last_message_at: conv.last_message_at,
+          unread_count: conv.unread_count,
+          lead_id: conv.lead_id,
+          contact_name: conv.contact_name,
+          instance_name: inst?.name || "Instância",
+          instance_display_name: inst?.display_name_for_team,
+          instance_number: inst?.manual_instance_number || inst?.phone_number,
+        };
+      }) || [];
     },
     enabled: !!selectedConversation?.phone_number && !!profile?.organization_id,
-    staleTime: 10000,
+    staleTime: 5000, // Reduzido para atualizar mais rápido
   });
 
   // Determinar se temos múltiplas instâncias para este contato
