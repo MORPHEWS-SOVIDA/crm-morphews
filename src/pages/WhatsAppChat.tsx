@@ -1139,7 +1139,12 @@ export default function WhatsAppChat() {
 
               {/* Sub-abas por instância (mesmo lead/telefone em vários números) */}
               {samePhoneConversations.length > 1 && (
-                <div className="border-b border-border bg-card px-4 py-2">
+                <div className="border-b border-border bg-muted/50 px-4 py-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Este contato está em {samePhoneConversations.length} instâncias:
+                    </span>
+                  </div>
                   <Tabs
                     value={activeInstanceId ?? selectedConversation.instance_id}
                     onValueChange={(instId) => {
@@ -1150,9 +1155,17 @@ export default function WhatsAppChat() {
                       }
                     }}
                   >
-                    <TabsList className="h-9 w-full justify-start bg-muted/30">
+                    <TabsList className="h-8 w-auto gap-1 bg-background/80 p-1">
                       {samePhoneConversations.map((c) => (
-                        <TabsTrigger key={c.id} value={c.instance_id} className="text-xs">
+                        <TabsTrigger
+                          key={c.id}
+                          value={c.instance_id}
+                          className={cn(
+                            "text-xs px-3 py-1.5 rounded-md font-medium transition-colors",
+                            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
+                            "data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-muted"
+                          )}
+                        >
                           {getInstanceTabLabel(c.instance_id)}
                         </TabsTrigger>
                       ))}
