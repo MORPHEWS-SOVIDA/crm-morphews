@@ -15,6 +15,8 @@ interface WhatsAppInstance {
   name: string;
   phone_number: string | null;
   is_connected: boolean;
+  display_name_for_team: string | null;
+  manual_instance_number: string | null;
 }
 
 interface NewConversationDialogProps {
@@ -63,7 +65,7 @@ export function NewConversationDialog({
       try {
         const { data, error } = await supabase
           .from("whatsapp_instances")
-          .select("id, name, phone_number, is_connected")
+          .select("id, name, phone_number, is_connected, display_name_for_team, manual_instance_number")
           .eq("organization_id", profile.organization_id)
           .eq("is_connected", true)
           .order("name");
@@ -215,9 +217,28 @@ export function NewConversationDialog({
       }
     } catch (error: any) {
       console.error("Error starting conversation:", error);
+      
+      // Mensagem amigável em PT-BR com opção de reportar
+      const errorMessage = error.message || "Erro desconhecido";
+      const whatsappLink = `https://wa.me/555130760116?text=${encodeURIComponent(
+        `Erro ao iniciar conversa no CRM:\n\n${errorMessage}\n\nOrganização: ${profile?.organization_id}`
+      )}`;
+      
       toast({
         title: "Erro ao iniciar conversa",
-        description: error.message,
+        description: (
+          <div className="space-y-2">
+            <p>Não foi possível iniciar a conversa. Verifique se a instância está conectada.</p>
+            <a 
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary underline hover:no-underline"
+            >
+              Reportar erro para suporte
+            </a>
+          </div>
+        ),
         variant: "destructive",
       });
     } finally {
@@ -276,19 +297,20 @@ export function NewConversationDialog({
                   <SelectValue placeholder="Selecione a instância" />
                 </SelectTrigger>
                 <SelectContent>
-                  {instances.map((instance) => (
-                    <SelectItem key={instance.id} value={instance.id}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <span>{instance.name}</span>
-                        {instance.phone_number && (
-                          <span className="text-muted-foreground text-xs">
-                            ({instance.phone_number})
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {instances.map((instance) => {
+                    const displayName = instance.display_name_for_team || instance.name;
+                    const number = instance.manual_instance_number || instance.phone_number;
+                    const label = displayName && number ? `${displayName} - ${number}` : displayName || number || instance.name;
+                    
+                    return (
+                      <SelectItem key={instance.id} value={instance.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span>{label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             )}
