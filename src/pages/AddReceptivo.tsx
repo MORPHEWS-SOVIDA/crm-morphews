@@ -63,7 +63,8 @@ import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { useLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
 import { useScheduleMessages } from '@/hooks/useScheduleMessages';
-import { useLeadProductQuestionAnswers } from '@/hooks/useProductQuestions';
+import { useLeadProductQuestionAnswers, useProductQuestions } from '@/hooks/useProductQuestions';
+import { useLeadStandardAnswers } from '@/hooks/useStandardQuestions';
 import { useMyCommission } from '@/hooks/useSellerCommission';
 import { useAuth } from '@/hooks/useAuth';
 import { useTenant } from '@/hooks/useTenant';
@@ -261,7 +262,12 @@ export default function AddReceptivo() {
   
   // Fetch existing dynamic product question answers
   const { data: existingDynamicAnswers = [] } = useLeadProductQuestionAnswers(leadData.id, currentProductId || undefined);
-
+  
+  // Fetch product questions to know which are standard
+  const { data: currentProductQuestions = [] } = useProductQuestions(currentProductId || undefined);
+  
+  // Fetch existing standard question answers for the lead
+  const { data: existingStandardAnswers = [] } = useLeadStandardAnswers(leadData.id);
   // Set default seller
   useEffect(() => {
     if (user?.id && !sellerUserId) {
@@ -282,20 +288,39 @@ export default function AddReceptivo() {
     }
   }, [existingAnswers, currentProductId]);
 
-  // Load existing dynamic answers when product changes
+  // Load existing dynamic answers when product changes - merge standard and product-specific answers
   useEffect(() => {
+    const answersMap: Record<string, string> = {};
+    
+    // First, load product-specific answers from lead_product_question_answers
     if (existingDynamicAnswers.length > 0) {
-      const answersMap: Record<string, string> = {};
       existingDynamicAnswers.forEach(answer => {
         if (answer.question_id && answer.answer_text) {
           answersMap[answer.question_id] = answer.answer_text;
         }
       });
-      setDynamicAnswers(answersMap);
-    } else {
-      setDynamicAnswers({});
     }
-  }, [existingDynamicAnswers, currentProductId]);
+    
+    // Then, for standard questions, load from lead_standard_question_answers
+    // Map by standard_question_id to the product_question.id
+    if (currentProductQuestions.length > 0 && existingStandardAnswers.length > 0) {
+      currentProductQuestions.forEach(pq => {
+        if (pq.is_standard && pq.standard_question_id) {
+          const stdAnswer = existingStandardAnswers.find(a => a.question_id === pq.standard_question_id);
+          if (stdAnswer) {
+            // Convert selected_option_ids array to comma-separated string for compatibility
+            if (stdAnswer.selected_option_ids && stdAnswer.selected_option_ids.length > 0) {
+              answersMap[pq.id] = stdAnswer.selected_option_ids.join(',');
+            } else if (stdAnswer.numeric_value !== null) {
+              answersMap[pq.id] = String(stdAnswer.numeric_value);
+            }
+          }
+        }
+      });
+    }
+    
+    setDynamicAnswers(answersMap);
+  }, [existingDynamicAnswers, existingStandardAnswers, currentProductQuestions, currentProductId]);
 
   // Load existing rejections
   useEffect(() => {
@@ -800,7 +825,57 @@ export default function AddReceptivo() {
     return leadId || null;
   };
 
-  const saveProductAnswers = async (leadId: string) => {
+  const saveProductAnswers = async (leadId: string, productQuestions: typeof currentProductQuestions) => {
+    // Helper to save a single answer to the correct table
+    const saveAnswer = async (
+      productId: string,
+      questionId: string,
+      answerText: string,
+      pQuestions: typeof currentProductQuestions
+    ) => {
+      if (!tenantId || !answerText) return;
+      
+      // Find the product question to check if it's standard
+      const pq = pQuestions.find(q => q.id === questionId);
+      
+      if (pq?.is_standard && pq.standard_question_id) {
+        // Save to lead_standard_question_answers
+        // Parse the answer - could be comma-separated option IDs or a numeric value
+        const optionIds = answerText.includes(',') || answerText.length === 36 
+          ? answerText.split(',').filter(Boolean)
+          : null;
+        const numericValue = !optionIds && !isNaN(Number(answerText)) ? Number(answerText) : null;
+        
+        await supabase
+          .from('lead_standard_question_answers')
+          .upsert({
+            lead_id: leadId,
+            question_id: pq.standard_question_id,
+            organization_id: tenantId,
+            selected_option_ids: optionIds,
+            numeric_value: numericValue,
+            answered_by: user?.id || null,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'lead_id,question_id',
+          });
+      } else {
+        // Save to lead_product_question_answers
+        await supabase
+          .from('lead_product_question_answers')
+          .upsert({
+            lead_id: leadId,
+            product_id: productId,
+            question_id: questionId,
+            organization_id: tenantId,
+            answer_text: answerText,
+            updated_by: user?.id || null,
+          }, {
+            onConflict: 'lead_id,product_id,question_id',
+          });
+      }
+    };
+
     // Save answers for all offer items
     for (const item of offerItems) {
       // Save legacy answers (key_question_1/2/3)
@@ -820,23 +895,16 @@ export default function AddReceptivo() {
           });
       }
       
-      // Save dynamic answers (product_questions)
+      // Save dynamic answers (product_questions) - need to fetch questions for each product
       if (Object.keys(item.dynamicAnswers).length > 0 && tenantId) {
+        // Fetch product questions for this item
+        const { data: itemQuestions = [] } = await supabase
+          .from('product_questions')
+          .select('id, is_standard, standard_question_id')
+          .eq('product_id', item.productId);
+        
         for (const [questionId, answerText] of Object.entries(item.dynamicAnswers)) {
-          if (answerText) {
-            await supabase
-              .from('lead_product_question_answers')
-              .upsert({
-                lead_id: leadId,
-                product_id: item.productId,
-                question_id: questionId,
-                organization_id: tenantId,
-                answer_text: answerText,
-                updated_by: user?.id || null,
-              }, {
-                onConflict: 'lead_id,product_id,question_id',
-              });
-          }
+          await saveAnswer(item.productId, questionId, answerText, itemQuestions as typeof currentProductQuestions);
         }
       }
     }
@@ -861,20 +929,7 @@ export default function AddReceptivo() {
     // Save current product dynamic answers if any
     if (currentProductId && Object.keys(dynamicAnswers).length > 0 && tenantId) {
       for (const [questionId, answerText] of Object.entries(dynamicAnswers)) {
-        if (answerText) {
-          await supabase
-            .from('lead_product_question_answers')
-            .upsert({
-              lead_id: leadId,
-              product_id: currentProductId,
-              question_id: questionId,
-              organization_id: tenantId,
-              answer_text: answerText,
-              updated_by: user?.id || null,
-            }, {
-              onConflict: 'lead_id,product_id,question_id',
-            });
-        }
+        await saveAnswer(currentProductId, questionId, answerText, productQuestions);
       }
     }
   };
@@ -886,7 +941,7 @@ export default function AddReceptivo() {
       const leadId = await ensureLeadExists();
       if (!leadId) throw new Error('Erro ao criar lead');
 
-      await saveProductAnswers(leadId);
+      await saveProductAnswers(leadId, currentProductQuestions);
 
       if (selectedSourceId && tenantId && user) {
         await supabase.from('lead_source_history').insert({
@@ -989,7 +1044,7 @@ export default function AddReceptivo() {
       const leadId = await ensureLeadExists();
       
       if (leadId) {
-        await saveProductAnswers(leadId);
+        await saveProductAnswers(leadId, currentProductQuestions);
 
         if (selectedSourceId && tenantId && user) {
           await supabase.from('lead_source_history').insert({
