@@ -96,15 +96,14 @@ function SortableKitItem({
     >
       <div className="flex items-center">
         {/* Drag handle - outside AccordionTrigger to avoid conflicts */}
-        <div
+        <button
+          type="button"
           {...attributes}
           {...listeners}
           className="cursor-grab active:cursor-grabbing p-3 hover:bg-muted flex items-center touch-none"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="w-5 h-5 text-muted-foreground" />
-        </div>
+        </button>
         
         <AccordionTrigger className="flex-1 px-2 hover:no-underline">
           <div className="flex items-center justify-between w-full pr-2">
@@ -444,7 +443,11 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
   const [newQuantity, setNewQuantity] = useState('');
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
