@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/error-message';
 
 export interface ReceptiveAttendance {
   id: string;
@@ -69,10 +70,10 @@ export function useReceptiveModuleAccess() {
 
       const userEnabled = permData?.receptive_module_access ?? false;
 
-      return { 
-        hasAccess: orgEnabled && userEnabled, 
-        orgEnabled, 
-        userEnabled 
+      return {
+        hasAccess: orgEnabled && userEnabled,
+        orgEnabled,
+        userEnabled,
       };
     },
     enabled: !!user,
@@ -125,10 +126,10 @@ export function useCreateReceptiveAttendance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptive-attendances'] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Erro ao criar atendimento',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     },

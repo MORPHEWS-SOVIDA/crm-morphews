@@ -48,16 +48,21 @@ export function LeadTransferDialog({
   const handleTransfer = async () => {
     if (!user?.id) return;
 
-    await transferOwnership.mutateAsync({
-      leadId: existingLead.id,
-      toUserId: user.id,
-      fromUserId: existingLead.owner_user_id,
-      reason,
-      notes: notes || reasonLabels[reason],
-    });
+    try {
+      await transferOwnership.mutateAsync({
+        leadId: existingLead.id,
+        toUserId: user.id,
+        fromUserId: existingLead.owner_user_id,
+        reason,
+        notes: notes || reasonLabels[reason],
+      });
+    } catch {
+      // Errors are already surfaced via the mutation onError toast.
+      return;
+    }
 
     onOpenChange(false);
-    
+
     if (onTransferComplete) {
       onTransferComplete(existingLead.id);
     } else {
