@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -82,6 +83,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const isMobile = useIsMobile();
   const { data: funnelStages } = useFunnelStages();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null); // Sub-aba de instância ativa
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false);
@@ -176,6 +178,87 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     refetchInterval: 5000, // Poll every 5 seconds
   });
 
+  // Buscar TODAS as conversas do mesmo phone_number em diferentes instâncias
+  // Isso permite mostrar sub-abas por instância quando o mesmo lead conversa por múltiplos números
+  const { data: samePhoneConversations } = useQuery({
+    queryKey: ["same-phone-conversations", selectedConversation?.phone_number, profile?.organization_id],
+    queryFn: async () => {
+      if (!selectedConversation?.phone_number || !profile?.organization_id) return [];
+
+      const { data, error } = await supabase
+        .from("whatsapp_conversations")
+        .select(`
+          id,
+          phone_number,
+          instance_id,
+          last_message_at,
+          unread_count,
+          lead_id,
+          contact_name,
+          whatsapp_instances!inner (
+            id,
+            name,
+            display_name_for_team,
+            manual_instance_number,
+            phone_number,
+            organization_id
+          )
+        `)
+        .eq("phone_number", selectedConversation.phone_number)
+        .eq("whatsapp_instances.organization_id", profile.organization_id)
+        .order("last_message_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching same-phone conversations:", error);
+        return [];
+      }
+
+      return data?.map((conv: any) => ({
+        id: conv.id,
+        phone_number: conv.phone_number,
+        instance_id: conv.instance_id,
+        last_message_at: conv.last_message_at,
+        unread_count: conv.unread_count,
+        lead_id: conv.lead_id,
+        contact_name: conv.contact_name,
+        instance_name: conv.whatsapp_instances?.name || "Instância",
+        instance_display_name: conv.whatsapp_instances?.display_name_for_team,
+        instance_number: conv.whatsapp_instances?.manual_instance_number || conv.whatsapp_instances?.phone_number,
+      })) || [];
+    },
+    enabled: !!selectedConversation?.phone_number && !!profile?.organization_id,
+    staleTime: 10000,
+  });
+
+  // Determinar se temos múltiplas instâncias para este contato
+  const hasMultipleInstances = (samePhoneConversations?.length || 0) > 1;
+  
+  // Conversa ativa baseada na instância selecionada
+  const activeConversation = useMemo(() => {
+    if (!hasMultipleInstances || !activeInstanceId) {
+      return selectedConversation;
+    }
+    // Buscar a conversa da instância selecionada
+    const conv = samePhoneConversations?.find(c => c.instance_id === activeInstanceId);
+    if (conv) {
+      // Merge com selectedConversation para manter campos extras
+      return {
+        ...selectedConversation,
+        id: conv.id,
+        instance_id: conv.instance_id,
+      } as Conversation;
+    }
+    return selectedConversation;
+  }, [selectedConversation, hasMultipleInstances, activeInstanceId, samePhoneConversations]);
+
+  // Atualizar activeInstanceId quando selecionar uma nova conversa
+  useEffect(() => {
+    if (selectedConversation?.instance_id) {
+      setActiveInstanceId(selectedConversation.instance_id);
+    }
+  }, [selectedConversation?.id]);
+
+
   // Fetch pending scheduled messages count per lead
   const leadIds = conversations?.filter(c => c.lead_id).map(c => c.lead_id as string) || [];
   const { data: scheduledMessagesCount } = useQuery({
@@ -259,10 +342,11 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   });
 
 
+  // Usar activeConversation para buscar mensagens (respeita a sub-aba selecionada)
   const { data: messages, isLoading: loadingMessages } = useQuery({
-    queryKey: ["whatsapp-messages", selectedConversation?.id],
+    queryKey: ["whatsapp-messages", activeConversation?.id],
     queryFn: async () => {
-      if (!selectedConversation) return [];
+      if (!activeConversation) return [];
       
       // Buscar mensagens com nome do remetente
       const { data, error } = await supabase
@@ -271,7 +355,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           *,
           profiles:sent_by_user_id (first_name, last_name)
         `)
-        .eq("conversation_id", selectedConversation.id)
+        .eq("conversation_id", activeConversation.id)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -285,18 +369,18 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       }));
       
       // Mark as read
-      if (selectedConversation.unread_count > 0) {
+      if (activeConversation.unread_count > 0) {
         await supabase
           .from("whatsapp_conversations")
           .update({ unread_count: 0 })
-          .eq("id", selectedConversation.id);
+          .eq("id", activeConversation.id);
         
         queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations"] });
       }
       
       return messagesWithSender as Message[];
     },
-    enabled: !!selectedConversation?.id,
+    enabled: !!activeConversation?.id,
     refetchInterval: 3000, // Poll every 3 seconds
   });
 
@@ -350,26 +434,26 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   useEffect(() => {
     adjustTextareaHeight();
   }, [messageText, adjustTextareaHeight]);
-  // Send message mutation - usa o instance_id da conversa
+  // Send message mutation - usa activeConversation para respeitar a sub-aba selecionada
   const sendMessage = useMutation({
     mutationFn: async (text: string) => {
-      if (!selectedConversation) throw new Error("No conversation selected");
+      if (!activeConversation) throw new Error("No conversation selected");
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
       console.log("[WhatsApp] Enviando mensagem de texto:", {
         organization_id: profile.organization_id,
-        conversation_id: selectedConversation.id,
-        instance_id: selectedConversation.instance_id,
-        has_chat_id: !!selectedConversation.chat_id,
+        conversation_id: activeConversation.id,
+        instance_id: activeConversation.instance_id,
+        has_chat_id: !!activeConversation.chat_id,
       });
 
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
-          conversationId: selectedConversation.id,
-          instanceId: selectedConversation.instance_id,
-          chatId: selectedConversation.chat_id || null,
-          phone: selectedConversation.phone_number,
+          conversationId: activeConversation.id,
+          instanceId: activeConversation.instance_id,
+          chatId: activeConversation.chat_id || null,
+          phone: activeConversation.phone_number,
           content: text,
           messageType: "text",
           senderUserId: profile.user_id, // Para identificar quem enviou
@@ -428,7 +512,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   };
 
   const handleSendAudio = async (base64: string, mimeType: string) => {
-    if (!selectedConversation) return;
+    if (!activeConversation) return;
     if (!profile?.organization_id) {
       toast({
         title: "Erro ao enviar áudio",
@@ -462,7 +546,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const blob = new Blob([byteArray], { type: mimeType });
 
       console.log("[WhatsApp] Criando URL de upload para áudio:", {
-        conversation_id: selectedConversation.id,
+        conversation_id: activeConversation.id,
         size_bytes: blob.size,
         mime_type: mimeType,
       });
@@ -473,7 +557,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         {
           body: {
             organizationId: profile.organization_id,
-            conversationId: selectedConversation.id,
+            conversationId: activeConversation.id,
             mimeType: mimeType,
             kind: "audio",
           },
@@ -503,10 +587,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
-          conversationId: selectedConversation.id,
-          instanceId: selectedConversation.instance_id,
-          chatId: selectedConversation.chat_id || null,
-          phone: selectedConversation.phone_number,
+          conversationId: activeConversation.id,
+          instanceId: activeConversation.instance_id,
+          chatId: activeConversation.chat_id || null,
+          phone: activeConversation.phone_number,
           content: "",
           messageType: "audio",
           mediaStoragePath: uploadUrlData.path,
@@ -573,7 +657,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   };
 
   const handleSendImage = async () => {
-    if (!selectedConversation || !selectedImage) return;
+    if (!activeConversation || !selectedImage) return;
     if (!profile?.organization_id) {
       toast({
         title: "Erro ao enviar imagem",
@@ -610,7 +694,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         {
           body: {
             organizationId: profile.organization_id,
-            conversationId: selectedConversation.id,
+            conversationId: activeConversation.id,
             mimeType: file.type,
             kind: "image",
           },
@@ -640,10 +724,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
-          conversationId: selectedConversation.id,
-          instanceId: selectedConversation.instance_id,
-          chatId: selectedConversation.chat_id || null,
-          phone: selectedConversation.phone_number,
+          conversationId: activeConversation.id,
+          instanceId: activeConversation.instance_id,
+          chatId: activeConversation.chat_id || null,
+          phone: activeConversation.phone_number,
           content: messageText || "",
           messageType: "image",
           mediaStoragePath: uploadUrlData.path,
@@ -723,7 +807,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   };
 
   const handleSendDocument = async () => {
-    if (!selectedConversation || !selectedDocument) return;
+    if (!activeConversation || !selectedDocument) return;
     if (!profile?.organization_id) {
       toast({
         title: "Erro ao enviar documento",
@@ -761,7 +845,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
         {
           body: {
             organizationId: profile.organization_id,
-            conversationId: selectedConversation.id,
+            conversationId: activeConversation.id,
             mimeType: file.type,
             kind: "document",
           },
@@ -791,10 +875,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           organizationId: profile.organization_id,
-          conversationId: selectedConversation.id,
-          instanceId: selectedConversation.instance_id,
-          chatId: selectedConversation.chat_id || null,
-          phone: selectedConversation.phone_number,
+          conversationId: activeConversation.id,
+          instanceId: activeConversation.instance_id,
+          chatId: activeConversation.chat_id || null,
+          phone: activeConversation.phone_number,
           content: file.name,
           messageType: "document",
           mediaStoragePath: uploadUrlData.path,
@@ -1179,6 +1263,47 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                       </Button>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Sub-abas de Instâncias - quando o mesmo contato tem conversas em múltiplos números */}
+              {hasMultipleInstances && samePhoneConversations && samePhoneConversations.length > 1 && (
+                <div className="border-t bg-muted/20 px-2 py-1.5">
+                  <Tabs 
+                    value={activeInstanceId || selectedConversation.instance_id} 
+                    onValueChange={(value) => setActiveInstanceId(value)}
+                    className="w-full"
+                  >
+                    <TabsList className="w-full h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
+                      {samePhoneConversations.map((conv: any) => {
+                        const label = conv.instance_display_name || conv.instance_name;
+                        const number = conv.instance_number;
+                        return (
+                          <TabsTrigger
+                            key={conv.instance_id}
+                            value={conv.instance_id}
+                            className={cn(
+                              "h-8 px-3 text-xs font-medium rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
+                              conv.unread_count > 0 && "ring-2 ring-green-500"
+                            )}
+                          >
+                            <span className="truncate max-w-[100px]">
+                              {label}
+                              {number && ` · ${number.slice(-4)}`}
+                            </span>
+                            {conv.unread_count > 0 && (
+                              <Badge className="ml-1.5 h-4 min-w-4 px-1 text-[10px] bg-green-500">
+                                {conv.unread_count}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                  </Tabs>
+                  <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                    📱 Este contato conversou por {samePhoneConversations.length} números diferentes
+                  </p>
                 </div>
               )}
             </div>
