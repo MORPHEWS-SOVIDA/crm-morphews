@@ -76,6 +76,7 @@ import { LeadFollowupsSection } from '@/components/leads/LeadFollowupsSection';
 import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHistorySection';
 import { LeadSacSection } from '@/components/leads/LeadSacSection';
 import { LeadAddressesManager } from '@/components/leads/LeadAddressesManager';
+import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -416,8 +417,18 @@ export default function AddReceptivo() {
   const { quantity: currentQuantity, unitPrice: currentUnitPrice, commission: currentCommission } = getCurrentProductValues();
   
   // Calculate totals from offer items + current product
-  const offerItemsSubtotal = offerItems.reduce((acc, item) => acc + (item.unitPriceCents * item.quantity), 0);
-  const currentProductSubtotal = currentUnitPrice * currentQuantity;
+  // For kit-based products: unitPriceCents is already the TOTAL kit price (not per-unit)
+  // So we don't multiply by quantity for kit items
+  const offerItemsSubtotal = offerItems.reduce((acc, item) => {
+    const isKitBasedCategory = ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(item.productCategory);
+    // For kit-based: unitPriceCents is already total kit price, don't multiply
+    // For legacy/manipulado: unitPriceCents is per-unit, multiply by quantity
+    return acc + (isKitBasedCategory ? item.unitPriceCents : (item.unitPriceCents * item.quantity));
+  }, 0);
+  
+  // For current product being configured
+  const isCurrentKitBased = currentProduct?.category && ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(currentProduct.category);
+  const currentProductSubtotal = isCurrentKitBased ? currentUnitPrice : (currentUnitPrice * currentQuantity);
   const subtotal = offerItemsSubtotal + (currentProductId ? currentProductSubtotal : 0);
   
   let totalDiscount = 0;
@@ -1372,6 +1383,9 @@ export default function AddReceptivo() {
 
                 {/* Endereços */}
                 <LeadAddressesManager leadId={leadData.id} />
+
+                {/* Perguntas Padrão - Standard Questions */}
+                <LeadStandardQuestionsSection leadId={leadData.id} />
 
                 {/* Follow-ups */}
                 <LeadFollowupsSection leadId={leadData.id} />

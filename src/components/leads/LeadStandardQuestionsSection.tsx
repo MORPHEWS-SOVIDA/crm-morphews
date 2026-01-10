@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Save, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ClipboardList, Save, Check, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useStandardQuestions,
@@ -19,6 +19,8 @@ import {
   CATEGORY_LABELS
 } from '@/hooks/useStandardQuestions';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface LeadStandardQuestionsSectionProps {
   leadId: string;
@@ -313,21 +315,36 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
   const totalAnswered = Object.values(answeredCountByCategory).reduce((a, b) => a + b, 0);
   const totalQuestions = questions.length;
 
+  // Get most recent answer date
+  const lastAnswerDate = useMemo(() => {
+    if (!existingAnswers || existingAnswers.length === 0) return null;
+    const dates = existingAnswers.map(a => new Date(a.updated_at));
+    return new Date(Math.max(...dates.map(d => d.getTime())));
+  }, [existingAnswers]);
+
   return (
     <Card>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-3">
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between cursor-pointer">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ClipboardList className="w-5 h-5 text-primary" />
-                Perguntas Padrão
-                {totalAnswered > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {totalAnswered}/{totalQuestions}
-                  </Badge>
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                  Perguntas Padrão
+                  {totalAnswered > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {totalAnswered}/{totalQuestions}
+                    </Badge>
+                  )}
+                </CardTitle>
+                {lastAnswerDate && (
+                  <CardDescription className="flex items-center gap-1 mt-1 text-xs">
+                    <Clock className="w-3 h-3" />
+                    Última atualização: {format(lastAnswerDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </CardDescription>
                 )}
-              </CardTitle>
+              </div>
               {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </div>
           </CollapsibleTrigger>

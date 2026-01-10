@@ -279,7 +279,10 @@ export function ProductSelectionDialog({
   };
 
   const { quantity, unitPrice, commission, isCustomCommission } = getSelectedValues();
-  const subtotal = unitPrice * quantity;
+  // For kit system: unitPrice is already the TOTAL kit price (e.g., R$240 for 6 bottles)
+  // So subtotal should NOT multiply by quantity again
+  // For legacy/manipulado: unitPrice is per-unit, so we DO multiply by quantity
+  const subtotal = (usesKitSystem && selectedKit) ? unitPrice : (unitPrice * quantity);
   
   let discountCents = 0;
   if (!isManipulado) {
@@ -446,7 +449,8 @@ export function ProductSelectionDialog({
 
     const effectiveCommission = useDefault ? sellerDefaultCommission : (customCommission || sellerDefaultCommission);
     const commissionComparison = compareCommission(customCommission, sellerDefaultCommission, useDefault);
-    const commissionValueForPrice = calculateCommissionValue(priceCents * kit.quantity, effectiveCommission);
+    // priceCents is already the TOTAL kit price (not per-unit), so don't multiply by quantity
+    const commissionValueForPrice = calculateCommissionValue(priceCents, effectiveCommission);
     const priceDisplay = formatPriceWithUnit(priceCents, kit.quantity);
 
     return (
