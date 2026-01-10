@@ -5794,6 +5794,16 @@ export type Database = {
         Args: { _role: string }
         Returns: Json
       }
+      get_linked_lead_for_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: {
+          lead_id: string
+          lead_instagram: string
+          lead_name: string
+          lead_stage: string
+          lead_stars: number
+        }[]
+      }
       get_next_available_user_for_distribution: {
         Args: { p_instance_id: string; p_organization_id: string }
         Returns: string
