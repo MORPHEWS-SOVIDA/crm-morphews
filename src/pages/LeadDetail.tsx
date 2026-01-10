@@ -39,6 +39,8 @@ import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHis
 import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
 import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMessagesSection';
 import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
+import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
+import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useUsers } from '@/hooks/useUsers';
@@ -435,13 +437,19 @@ export default function LeadDetail() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Responsável</p>
-                    <InlineSelect
-                      value={lead.assigned_to}
-                      options={userOptions}
-                      onSave={(value) => handleUpdate('assigned_to', value)}
-                      displayClassName="font-medium"
-                      placeholder="Selecione o responsável"
-                    />
+                    <div className="flex items-center gap-2">
+                      <InlineSelect
+                        value={lead.assigned_to}
+                        options={userOptions}
+                        onSave={(value) => handleUpdate('assigned_to', value)}
+                        displayClassName="font-medium"
+                        placeholder="Selecione o responsável"
+                      />
+                      <ResponsibleBadge
+                        responsible={lead.assigned_to}
+                        currentUserId={user?.id}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -611,40 +619,60 @@ export default function LeadDetail() {
             </div>
 
             {/* Lead Sales */}
-            <LeadSalesSection leadId={id!} leadName={lead.name} />
+            <SectionErrorBoundary title="Vendas">
+              <LeadSalesSection leadId={id!} leadName={lead.name} />
+            </SectionErrorBoundary>
 
             {/* Standard Questions - Perguntas Padrão */}
-            <LeadStandardQuestionsSection leadId={id!} />
+            <SectionErrorBoundary title="Perguntas Padrão">
+              <LeadStandardQuestionsSection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Lead Product Answers - Key Questions */}
-            <LeadProductAnswersSection leadId={id!} />
+            <SectionErrorBoundary title="Perguntas do Produto">
+              <LeadProductAnswersSection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Post-Sale History */}
-            <LeadPostSaleHistory leadId={id!} />
+            <SectionErrorBoundary title="Histórico Pós-Venda">
+              <LeadPostSaleHistory leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* SAC - Chamados */}
-            <LeadSacSection leadId={id!} />
+            <SectionErrorBoundary title="SAC">
+              <LeadSacSection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Follow-ups */}
-            <LeadFollowupsSection leadId={id!} />
+            <SectionErrorBoundary title="Follow-ups">
+              <LeadFollowupsSection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Mensagens Agendadas */}
-            <LeadScheduledMessagesSection leadId={id!} leadName={lead?.name} leadWhatsapp={lead?.whatsapp} />
+            <SectionErrorBoundary title="Mensagens Agendadas">
+              <LeadScheduledMessagesSection leadId={id!} leadName={lead?.name} leadWhatsapp={lead?.whatsapp} />
+            </SectionErrorBoundary>
 
             {/* Histórico Receptivo */}
-            <LeadReceptiveHistorySection leadId={id!} />
+            <SectionErrorBoundary title="Histórico Receptivo">
+              <LeadReceptiveHistorySection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Stage History Timeline */}
-            <LeadStageTimeline leadId={id!} currentStage={lead.stage} />
+            <SectionErrorBoundary title="Histórico do Funil">
+              <LeadStageTimeline leadId={id!} currentStage={lead.stage} />
+            </SectionErrorBoundary>
 
             {/* Ownership History */}
-            <div className="bg-card rounded-xl p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-muted-foreground" />
-                Histórico de Responsáveis
-              </h2>
-              <LeadOwnershipHistory leadId={id!} />
-            </div>
+            <SectionErrorBoundary title="Histórico de Responsáveis">
+              <div className="bg-card rounded-xl p-6 shadow-card">
+                <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-muted-foreground" />
+                  Histórico de Responsáveis
+                </h2>
+                <LeadOwnershipHistory leadId={id!} />
+              </div>
+            </SectionErrorBoundary>
           </div>
 
           {/* Right Column - Financial & Actions */}

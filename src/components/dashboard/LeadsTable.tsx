@@ -3,8 +3,10 @@ import { Instagram, Mail, User } from 'lucide-react';
 import { Lead, FUNNEL_STAGES } from '@/types/lead';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl, normalizeInstagramHandle } from '@/lib/instagram';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Table,
   TableBody,
@@ -23,6 +25,7 @@ interface LeadsTableProps {
 
 export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const formatFollowers = (num: number | null) => {
     if (!num) return '0';
@@ -118,7 +121,13 @@ export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
                       <StarRating rating={lead.stars as 0 | 1 | 2 | 3 | 4 | 5} size="sm" />
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{lead.assigned_to}</TableCell>
+                  <TableCell>
+                    <ResponsibleBadge
+                      responsible={lead.assigned_to}
+                      currentUserId={user?.id}
+                      variant="inline"
+                    />
+                  </TableCell>
                   <TableCell className="text-right font-semibold">
                     {formatCurrency(lead.negotiated_value)}
                   </TableCell>

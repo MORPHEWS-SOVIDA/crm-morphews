@@ -163,7 +163,7 @@ export function useTransferLeadOwnership() {
 
       if (!orgId) throw new Error('Organização não encontrada');
 
-      // Add new user as responsible
+      // 1. Add new user as responsible (upsert to avoid duplicates)
       const { error: responsibleError } = await supabase
         .from('lead_responsibles')
         .upsert(
@@ -179,7 +179,15 @@ export function useTransferLeadOwnership() {
 
       if (responsibleError) throw responsibleError;
 
-      // Record the transfer
+      // 2. Update lead's primary assigned_to field so UI reflects the change
+      const { error: leadUpdateError } = await supabase
+        .from('leads')
+        .update({ assigned_to: toUserId })
+        .eq('id', leadId);
+
+      if (leadUpdateError) throw leadUpdateError;
+
+      // 3. Record the transfer in history
       const { error: transferError } = await supabase
         .from('lead_ownership_transfers')
         .insert({
