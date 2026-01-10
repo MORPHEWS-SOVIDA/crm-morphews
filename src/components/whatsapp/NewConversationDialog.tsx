@@ -305,7 +305,7 @@ export function NewConversationDialog({
                     return (
                       <SelectItem key={instance.id} value={instance.id}>
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <div className="w-2 h-2 rounded-full bg-funnel-positive" />
                           <span>{label}</span>
                         </div>
                       </SelectItem>
