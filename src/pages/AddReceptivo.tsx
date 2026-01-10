@@ -82,6 +82,7 @@ import { checkLeadExistsForOtherUser, ExistingLeadWithOwner } from '@/hooks/useL
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/error-message';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddressFields } from '@/components/AddressFields';
@@ -593,8 +594,8 @@ export default function AddReceptivo() {
       }
       
       setCurrentStep('lead_info');
-    } catch (error: any) {
-      toast({ title: 'Erro na busca', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Erro na busca', description: getErrorMessage(error), variant: 'destructive' });
     }
   };
 
@@ -643,8 +644,8 @@ export default function AddReceptivo() {
         toast({ title: 'Lead assumido!', description: `Você agora é responsável por ${leadFromDb.name}` });
         setCurrentStep('lead_info');
       }
-    } catch (error: any) {
-      toast({ title: 'Erro ao carregar lead', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Erro ao carregar lead', description: getErrorMessage(error), variant: 'destructive' });
     }
   };
 

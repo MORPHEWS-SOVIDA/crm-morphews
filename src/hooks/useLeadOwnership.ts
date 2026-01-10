@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from './useTenant';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/error-message';
 
 export interface LeadOwnershipTransfer {
   id: string;
@@ -42,7 +43,7 @@ export async function checkLeadExistsForOtherUser(
 
   // Normalize the phone number (remove non-digits)
   const normalizedPhone = whatsapp.replace(/\D/g, '');
-  
+
   if (normalizedPhone.length < 8) {
     return null;
   }
@@ -150,18 +151,31 @@ export function useTransferLeadOwnership() {
       notes?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !tenantId) throw new Error('Não autenticado');
+      if (!user) throw new Error('Não autenticado');
+
+      // Tenant can be briefly unavailable right after login; fall back to backend function.
+      let orgId = tenantId;
+      if (!orgId) {
+        const { data: orgFromRpc, error: orgError } = await supabase.rpc('get_user_organization_id');
+        if (orgError) throw orgError;
+        orgId = orgFromRpc as unknown as string | null;
+      }
+
+      if (!orgId) throw new Error('Organização não encontrada');
 
       // Add new user as responsible
       const { error: responsibleError } = await supabase
         .from('lead_responsibles')
-        .upsert({
-          lead_id: leadId,
-          user_id: toUserId,
-          organization_id: tenantId,
-        }, {
-          onConflict: 'lead_id,user_id',
-        });
+        .upsert(
+          {
+            lead_id: leadId,
+            user_id: toUserId,
+            organization_id: orgId,
+          },
+          {
+            onConflict: 'lead_id,user_id',
+          },
+        );
 
       if (responsibleError) throw responsibleError;
 
@@ -169,7 +183,7 @@ export function useTransferLeadOwnership() {
       const { error: transferError } = await supabase
         .from('lead_ownership_transfers')
         .insert({
-          organization_id: tenantId,
+          organization_id: orgId,
           lead_id: leadId,
           from_user_id: fromUserId || null,
           to_user_id: toUserId,
@@ -189,8 +203,9 @@ export function useTransferLeadOwnership() {
       queryClient.invalidateQueries({ queryKey: ['lead-ownership-history', leadId] });
       toast.success('Lead transferido com sucesso!');
     },
-    onError: (error: Error) => {
-      toast.error('Erro ao transferir lead', { description: error.message });
+    onError: (error: unknown) => {
+      toast.error('Erro ao transferir lead', { description: getErrorMessage(error) });
     },
   });
 }
+
