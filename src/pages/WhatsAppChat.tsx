@@ -271,26 +271,32 @@ export default function WhatsAppChat() {
     setActiveInstanceId(selectedConversation.instance_id);
   }, [selectedConversation?.id]);
 
-  // Conversas do mesmo telefone em múltiplas instâncias (para sub-abas)
+  // Instâncias que já tiveram mensagens para esse contato dentro desta conversa (abas)
+  // IMPORTANTE: hoje o backend pode "unificar" o mesmo lead em 1 conversation_id.
+  // Então, a separação por instância precisa ser feita pelo instance_id da mensagem.
   const { data: samePhoneConversations = [] } = useQuery({
-    queryKey: ['same-phone-conversations', profile?.organization_id, selectedConversation?.phone_number],
-    enabled: !!profile?.organization_id && !!selectedConversation?.phone_number && instances.length > 0,
-    queryFn: async (): Promise<Conversation[]> => {
-      if (!profile?.organization_id || !selectedConversation?.phone_number) return [];
-
-      const instanceIds = instances.map((i) => i.id);
-      if (instanceIds.length === 0) return [];
+    queryKey: ['same-phone-instances', selectedConversation?.id],
+    enabled: !!selectedConversation?.id,
+    queryFn: async (): Promise<string[]> => {
+      if (!selectedConversation?.id) return [];
 
       const { data, error } = await supabase
-        .from('whatsapp_conversations')
-        .select('*')
-        .eq('organization_id', profile.organization_id)
-        .eq('phone_number', selectedConversation.phone_number)
-        .in('instance_id', instanceIds)
-        .order('last_message_at', { ascending: false, nullsFirst: false });
+        .from('whatsapp_messages')
+        .select('instance_id, created_at')
+        .eq('conversation_id', selectedConversation.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Conversation[];
+
+      const unique = new Set<string>();
+      (data || []).forEach((m: any) => {
+        if (m.instance_id) unique.add(m.instance_id);
+      });
+
+      // Garantir que a instância "base" da conversa esteja presente
+      if (selectedConversation.instance_id) unique.add(selectedConversation.instance_id);
+
+      return Array.from(unique);
     },
     staleTime: 15000,
   });
@@ -308,11 +314,14 @@ export default function WhatsAppChat() {
       if (!selectedConversation) return;
       if (!silent) setIsLoading(true);
 
-      // Buscar mensagens
+      // Buscar mensagens (sempre filtrar por instance_id para NÃO misturar instâncias)
+      const effectiveInstanceId = activeInstanceId ?? selectedConversation.instance_id;
+
       const { data, error } = await supabase
         .from('whatsapp_messages')
         .select('*')
         .eq('conversation_id', selectedConversation.id)
+        .eq('instance_id', effectiveInstanceId)
         .order('created_at', { ascending: true });
 
       if (!error && data) {
@@ -360,8 +369,7 @@ export default function WhatsAppChat() {
 
       if (!silent) setIsLoading(false);
     },
-    [selectedConversation]
-  );
+    [selectedConversation, activeInstanceId]
 
   useEffect(() => {
     fetchMessages();
@@ -448,8 +456,8 @@ export default function WhatsAppChat() {
   const sendMessage = async () => {
     if ((!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument) || !selectedConversation) return;
     
-    // Usar o instance_id da conversa, não o filtro selecionado
-    const conversationInstanceId = selectedConversation.instance_id;
+    // Usar a instância ativa da sub-aba (quando existe multi-instância)
+    const conversationInstanceId = activeInstanceId ?? selectedConversation.instance_id;
     
     const messageText = newMessage.trim();
     const imageToSend = selectedImage;
@@ -490,6 +498,7 @@ export default function WhatsAppChat() {
       created_at: new Date().toISOString(),
       is_from_bot: false,
       status: 'sending',
+      instance_id: conversationInstanceId,
       sent_by_user_id: user?.id ?? null,
       sender_name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
     };
@@ -1149,24 +1158,20 @@ export default function WhatsAppChat() {
                     value={activeInstanceId ?? selectedConversation.instance_id}
                     onValueChange={(instId) => {
                       setActiveInstanceId(instId);
-                      const target = samePhoneConversations.find((c) => c.instance_id === instId);
-                      if (target && target.id !== selectedConversation.id) {
-                        setSelectedConversation(target);
-                      }
                     }}
                   >
                     <TabsList className="h-8 w-auto gap-1 bg-background/80 p-1">
-                      {samePhoneConversations.map((c) => (
+                      {samePhoneConversations.map((instId) => (
                         <TabsTrigger
-                          key={c.id}
-                          value={c.instance_id}
+                          key={instId}
+                          value={instId}
                           className={cn(
                             "text-xs px-3 py-1.5 rounded-md font-medium transition-colors",
                             "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
                             "data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-muted"
                           )}
                         >
-                          {getInstanceTabLabel(c.instance_id)}
+                          {getInstanceTabLabel(instId)}
                         </TabsTrigger>
                       ))}
                     </TabsList>
@@ -1399,12 +1404,12 @@ export default function WhatsAppChat() {
                       </Badge>
                     </div>
 
-                    {/* Instância da conversa */}
-                    {getInstanceLabel(selectedConversation.instance_id) && (
+                    {/* Instância ativa (sub-aba) */}
+                    {getInstanceLabel(activeInstanceId ?? selectedConversation.instance_id) && (
                       <div>
                         <span className="text-sm text-muted-foreground">Instância</span>
                         <p className="text-sm font-medium truncate">
-                          {getInstanceLabel(selectedConversation.instance_id)}
+                          {getInstanceLabel(activeInstanceId ?? selectedConversation.instance_id)}
                         </p>
                       </div>
                     )}
