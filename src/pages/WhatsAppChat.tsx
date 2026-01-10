@@ -162,37 +162,48 @@ export default function WhatsAppChat() {
   useEffect(() => {
     const fetchInstances = async () => {
       if (!user) return;
-      
-      const { data, error } = await supabase
+
+      // 1) Primeiro busca as permissões do usuário
+      const { data: perms, error: permsError } = await supabase
         .from('whatsapp_instance_users')
-        .select(`
-          instance_id,
-          can_view,
-          whatsapp_instances!inner (
-            id,
-            name,
-            phone_number,
-            is_connected,
-            display_name_for_team,
-            manual_instance_number,
-            distribution_mode
-          )
-        `)
+        .select('instance_id')
         .eq('user_id', user.id)
         .eq('can_view', true);
 
-      if (!error && data) {
-        // IMPORTANTE: Não filtra por is_connected - mostra todas instâncias
-        const instancesList = data
-          .map((d: any) => d.whatsapp_instances);
-        setInstances(instancesList);
-        if (instancesList.length > 0 && !selectedInstance) {
-          // Se tiver mais de 1 instância, começa em "todas" para não esconder conversas.
-          if (instancesList.length > 1) {
-            setSelectedInstance('all');
-          } else {
-            setSelectedInstance(instancesList[0].id);
-          }
+      if (permsError) {
+        console.error('[WhatsAppChat] Erro ao buscar permissões de instâncias:', permsError);
+        return;
+      }
+
+      const instanceIds = (perms || []).map((p: any) => p.instance_id).filter(Boolean) as string[];
+
+      if (instanceIds.length === 0) {
+        setInstances([]);
+        setSelectedInstance(null);
+        return;
+      }
+
+      // 2) Depois busca os dados completos da instância (incluindo campos de exibição)
+      const { data: instancesData, error: instancesError } = await supabase
+        .from('whatsapp_instances')
+        .select('id, name, phone_number, is_connected, display_name_for_team, manual_instance_number, distribution_mode')
+        .in('id', instanceIds)
+        .order('name');
+
+      if (instancesError) {
+        console.error('[WhatsAppChat] Erro ao buscar instâncias:', instancesError);
+        return;
+      }
+
+      const instancesList = (instancesData || []) as unknown as Instance[];
+      setInstances(instancesList);
+
+      if (instancesList.length > 0 && !selectedInstance) {
+        // Se tiver mais de 1 instância, começa em "todas" para não esconder conversas.
+        if (instancesList.length > 1) {
+          setSelectedInstance('all');
+        } else {
+          setSelectedInstance(instancesList[0].id);
         }
       }
     };
