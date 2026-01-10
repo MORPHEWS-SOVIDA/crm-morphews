@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -212,8 +212,8 @@ export default function AddReceptivo() {
   const [showRejectionInput, setShowRejectionInput] = useState(false);
   const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
+  const dynamicAnswersInitKeyRef = useRef<string>('');
   
-  // Manipulado fields
   const [requisitionNumber, setRequisitionNumber] = useState('');
   const [manipuladoPrice, setManipuladoPrice] = useState<number>(0);
   const [manipuladoQuantity, setManipuladoQuantity] = useState<number>(1);
@@ -262,14 +262,14 @@ export default function AddReceptivo() {
   const { data: existingAnswers } = useLeadProductAnswer(leadData.id, currentProductId || undefined);
   
   // Fetch existing dynamic product question answers
-  const { data: existingDynamicAnswers = [] } = useLeadProductQuestionAnswers(leadData.id, currentProductId || undefined);
+  const { data: existingDynamicAnswers = [], isLoading: loadingDynamicAnswers } = useLeadProductQuestionAnswers(leadData.id, currentProductId || undefined);
   
   // Fetch product questions to know which are standard
-  const { data: currentProductQuestions = [] } = useProductQuestions(currentProductId || undefined);
+  const { data: currentProductQuestions = [], isLoading: loadingProductQuestions } = useProductQuestions(currentProductId || undefined);
   
   // Fetch existing standard question answers for the lead
-  const { data: existingStandardAnswers = [] } = useLeadStandardAnswers(leadData.id);
-  // Set default seller
+  const { data: existingStandardAnswers = [], isLoading: loadingStandardAnswers } = useLeadStandardAnswers(leadData.id);
+
   useEffect(() => {
     if (user?.id && !sellerUserId) {
       setSellerUserId(user.id);
@@ -290,24 +290,44 @@ export default function AddReceptivo() {
   }, [existingAnswers, currentProductId]);
 
   // Load existing dynamic answers when product changes - merge standard and product-specific answers
+  // IMPORTANT: only initialize once per (phone + product). Otherwise, background refetches can keep
+  // overwriting user input and make the UI look "unclickable".
   useEffect(() => {
+    if (!currentProductId) {
+      setDynamicAnswers({});
+      dynamicAnswersInitKeyRef.current = '';
+      return;
+    }
+
+    const initKey = `${leadData.whatsapp}:${currentProductId}`;
+
+    // Wait for queries to finish before initializing; otherwise we may lock-in empty state
+    // and never pre-fill existing answers.
+    if (loadingDynamicAnswers || loadingProductQuestions || (leadData.id ? loadingStandardAnswers : false)) {
+      return;
+    }
+
+    if (dynamicAnswersInitKeyRef.current === initKey) {
+      return;
+    }
+
     const answersMap: Record<string, string> = {};
-    
+
     // First, load product-specific answers from lead_product_question_answers
     if (existingDynamicAnswers.length > 0) {
-      existingDynamicAnswers.forEach(answer => {
+      existingDynamicAnswers.forEach((answer) => {
         if (answer.question_id && answer.answer_text) {
           answersMap[answer.question_id] = answer.answer_text;
         }
       });
     }
-    
+
     // Then, for standard questions, load from lead_standard_question_answers
     // Map by standard_question_id to the product_question.id
     if (currentProductQuestions.length > 0 && existingStandardAnswers.length > 0) {
-      currentProductQuestions.forEach(pq => {
+      currentProductQuestions.forEach((pq) => {
         if (pq.is_standard && pq.standard_question_id) {
-          const stdAnswer = existingStandardAnswers.find(a => a.question_id === pq.standard_question_id);
+          const stdAnswer = existingStandardAnswers.find((a) => a.question_id === pq.standard_question_id);
           if (stdAnswer) {
             // Convert selected_option_ids array to comma-separated string for compatibility
             if (stdAnswer.selected_option_ids && stdAnswer.selected_option_ids.length > 0) {
@@ -319,9 +339,21 @@ export default function AddReceptivo() {
         }
       });
     }
-    
+
     setDynamicAnswers(answersMap);
-  }, [existingDynamicAnswers, existingStandardAnswers, currentProductQuestions, currentProductId]);
+    dynamicAnswersInitKeyRef.current = initKey;
+  }, [
+    leadData.whatsapp,
+    leadData.id,
+    currentProductId,
+    existingDynamicAnswers,
+    existingStandardAnswers,
+    currentProductQuestions,
+    loadingDynamicAnswers,
+    loadingProductQuestions,
+    loadingStandardAnswers,
+  ]);
+
 
   // Load existing rejections
   useEffect(() => {
@@ -530,6 +562,7 @@ export default function AddReceptivo() {
     setManipuladoQuantity(1);
     setCurrentAnswers({});
     setDynamicAnswers({});
+    dynamicAnswersInitKeyRef.current = '';
     setShowAddProduct(true);
   };
 
