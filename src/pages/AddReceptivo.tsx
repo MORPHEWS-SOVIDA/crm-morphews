@@ -77,6 +77,8 @@ import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHis
 import { LeadSacSection } from '@/components/leads/LeadSacSection';
 import { LeadAddressesManager } from '@/components/leads/LeadAddressesManager';
 import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
+import { LeadTransferDialog } from '@/components/LeadTransferDialog';
+import { checkLeadExistsForOtherUser, ExistingLeadWithOwner } from '@/hooks/useLeadOwnership';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -234,6 +236,10 @@ export default function AddReceptivo() {
   const [sellerUserId, setSellerUserId] = useState<string | null>(null);
   const [purchasePotential, setPurchasePotential] = useState<number>(0);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+
+  // Lead transfer dialog state
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [existingLeadForTransfer, setExistingLeadForTransfer] = useState<ExistingLeadWithOwner | null>(null);
 
   const currentProduct = products.find(p => p.id === currentProductId);
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
@@ -538,6 +544,17 @@ export default function AddReceptivo() {
     }
 
     try {
+      // First, check if lead exists for another user (bypasses RLS visibility restrictions)
+      const existingForOther = await checkLeadExistsForOtherUser(phoneInput);
+      
+      if (existingForOther) {
+        // Lead exists but belongs to another user - show transfer dialog
+        setExistingLeadForTransfer(existingForOther);
+        setShowTransferDialog(true);
+        return;
+      }
+
+      // Lead doesn't exist for another user, proceed with normal search
       const result = await searchLead.mutateAsync(phoneInput);
       
       if (result.lead) {
@@ -578,6 +595,56 @@ export default function AddReceptivo() {
       setCurrentStep('lead_info');
     } catch (error: any) {
       toast({ title: 'Erro na busca', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // Handler when user assumes the lead from the transfer dialog
+  const handleTransferComplete = async (leadId: string) => {
+    // After transfer, fetch the lead data and continue
+    try {
+      const { data: leadFromDb, error } = await supabase
+        .from('leads')
+        .select(`
+          id, name, whatsapp, email, instagram, specialty, 
+          lead_source, stage, stars, observations,
+          cep, street, street_number, complement, neighborhood, city, state,
+          secondary_phone, cpf_cnpj, created_at
+        `)
+        .eq('id', leadId)
+        .single();
+
+      if (error) throw error;
+
+      if (leadFromDb) {
+        setLeadData({
+          id: leadFromDb.id,
+          name: leadFromDb.name || '',
+          whatsapp: leadFromDb.whatsapp || '',
+          email: leadFromDb.email || '',
+          instagram: leadFromDb.instagram || '',
+          specialty: leadFromDb.specialty || '',
+          lead_source: leadFromDb.lead_source || '',
+          observations: leadFromDb.observations || '',
+          cep: leadFromDb.cep || '',
+          street: leadFromDb.street || '',
+          street_number: leadFromDb.street_number || '',
+          complement: leadFromDb.complement || '',
+          neighborhood: leadFromDb.neighborhood || '',
+          city: leadFromDb.city || '',
+          state: leadFromDb.state || '',
+          secondary_phone: leadFromDb.secondary_phone || '',
+          cpf_cnpj: leadFromDb.cpf_cnpj || '',
+          existed: true,
+          created_at: leadFromDb.created_at,
+          stage: leadFromDb.stage as FunnelStage,
+          stars: leadFromDb.stars,
+        });
+        setSelectedSourceId(leadFromDb.lead_source || '');
+        toast({ title: 'Lead assumido!', description: `Você agora é responsável por ${leadFromDb.name}` });
+        setCurrentStep('lead_info');
+      }
+    } catch (error: any) {
+      toast({ title: 'Erro ao carregar lead', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -2233,6 +2300,15 @@ export default function AddReceptivo() {
           </div>
         )}
       </div>
+
+      {/* Lead Transfer Dialog */}
+      <LeadTransferDialog
+        open={showTransferDialog}
+        onOpenChange={setShowTransferDialog}
+        existingLead={existingLeadForTransfer}
+        reason="receptivo"
+        onTransferComplete={handleTransferComplete}
+      />
     </Layout>
   );
 }
