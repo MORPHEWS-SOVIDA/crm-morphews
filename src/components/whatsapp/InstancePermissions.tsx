@@ -54,6 +54,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [distributionMode, setDistributionMode] = useState<"manual" | "auto">("manual");
+  const [timeoutMinutes, setTimeoutMinutes] = useState<number>(5);
 
   // Fetch organization members
   const { data: orgMembers, isLoading: loadingMembers } = useQuery({
@@ -111,7 +112,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
         .single();
 
       if (error) throw error;
-      return data;
+      return data as { distribution_mode: string | null; redistribution_timeout_minutes: number | null };
     },
     enabled: open,
   });
@@ -120,6 +121,9 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   useEffect(() => {
     if (instanceSettings?.distribution_mode) {
       setDistributionMode(instanceSettings.distribution_mode as "manual" | "auto");
+    }
+    if (instanceSettings?.redistribution_timeout_minutes !== undefined && instanceSettings?.redistribution_timeout_minutes !== null) {
+      setTimeoutMinutes(instanceSettings.redistribution_timeout_minutes);
     }
   }, [instanceSettings]);
 
@@ -196,6 +200,24 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     },
   });
 
+  // Update redistribution timeout
+  const updateTimeoutMutation = useMutation({
+    mutationFn: async (minutes: number) => {
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({ redistribution_timeout_minutes: minutes })
+        .eq("id", instanceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instance-distribution-mode", instanceId] });
+      toast({ title: "Timeout de redistribuição atualizado!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar timeout", description: error.message, variant: "destructive" });
+    },
+  });
+
   const getUserPermission = (userId: string) => {
     return instanceUsers?.find((u) => u.user_id === userId);
   };
@@ -261,6 +283,46 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                   ? "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."
                   : "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."}
               </p>
+
+              {/* Configurações adicionais para modo auto */}
+              {distributionMode === "auto" && (
+                <div className="mt-4 pt-4 border-t border-primary/10 space-y-4">
+                  {/* Visibilidade */}
+                  <div className="flex items-center gap-3 bg-blue-50/50 dark:bg-blue-950/30 p-3 rounded-md">
+                    <Eye className="h-4 w-4 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Visibilidade: Só o designado vê</p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">Conversas auto-distribuídas ficam visíveis apenas para o vendedor designado</p>
+                    </div>
+                  </div>
+
+                  {/* Timeout de redistribuição */}
+                  <div className="flex items-center gap-3 bg-amber-50/50 dark:bg-amber-950/30 p-3 rounded-md">
+                    <Clock className="h-4 w-4 text-amber-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">Redistribuição automática</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">Se não atender, passa para próximo vendedor após:</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={120}
+                        value={timeoutMinutes}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 5;
+                          setTimeoutMinutes(value);
+                        }}
+                        onBlur={() => {
+                          updateTimeoutMutation.mutate(timeoutMinutes);
+                        }}
+                        className="w-16 h-8 text-center"
+                      />
+                      <span className="text-sm text-amber-700 dark:text-amber-300">minutos</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Adicionar usuário */}

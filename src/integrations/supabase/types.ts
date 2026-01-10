@@ -4996,6 +4996,7 @@ export type Database = {
           phone_number: string | null
           provider: string
           qr_code_base64: string | null
+          redistribution_timeout_minutes: number | null
           status: string
           stripe_subscription_item_id: string | null
           updated_at: string
@@ -5027,6 +5028,7 @@ export type Database = {
           phone_number?: string | null
           provider?: string
           qr_code_base64?: string | null
+          redistribution_timeout_minutes?: number | null
           status?: string
           stripe_subscription_item_id?: string | null
           updated_at?: string
@@ -5058,6 +5060,7 @@ export type Database = {
           phone_number?: string | null
           provider?: string
           qr_code_base64?: string | null
+          redistribution_timeout_minutes?: number | null
           status?: string
           stripe_subscription_item_id?: string | null
           updated_at?: string
