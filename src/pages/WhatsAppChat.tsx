@@ -892,12 +892,11 @@ export default function WhatsAppChat() {
     const inst = instances.find((i) => i.id === instId);
     if (!inst) return 'Instância';
 
+    // Usar "Nome para o time" + número completo da instância
     const displayName = inst.display_name_for_team || inst.name || 'Instância';
-    const numberRaw = inst.manual_instance_number || inst.phone_number || '';
-    const digits = String(numberRaw).replace(/\D/g, '');
-    const last4 = digits.slice(-4);
+    const number = inst.manual_instance_number || inst.phone_number || '';
 
-    return last4 ? `${displayName} · ${last4}` : displayName;
+    return number ? `${displayName} · ${number}` : displayName;
   };
 
   // Verificar se a instância usa distribuição manual (permite botão ATENDER)
