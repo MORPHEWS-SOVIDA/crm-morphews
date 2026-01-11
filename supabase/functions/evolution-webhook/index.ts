@@ -682,10 +682,11 @@ serve(async (req) => {
           if (instance.active_bot_id && !isGroup) {
             console.log("🤖 Instance has active bot, setting status to with_bot");
             updateData.status = 'with_bot';
+            updateData.handling_bot_id = instance.active_bot_id;
+            updateData.bot_started_at = new Date().toISOString();
+            updateData.bot_messages_count = 0;
             updateData.assigned_user_id = null;
             updateData.assigned_at = null;
-            updateData.designated_user_id = null;
-            updateData.designated_at = null;
             updateData.closed_at = null;
           } else {
             // PRIORIDADE 2: Verificar modo de distribuição da instância
@@ -703,12 +704,10 @@ serve(async (req) => {
               });
               console.log("Auto-reopen result:", assignResult);
             } else {
-              // Distribuição manual: volta para pendente
+            // Distribuição manual: volta para pendente
               updateData.status = 'pending';
               updateData.assigned_user_id = null;
               updateData.assigned_at = null;
-              updateData.designated_user_id = null;
-              updateData.designated_at = null;
               updateData.closed_at = null;
             }
           }
