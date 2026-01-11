@@ -190,7 +190,7 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async ({ final_message, scheduled_at }: { final_message: string; scheduled_at: string }) => {
+    mutationFn: async ({ final_message, scheduled_at, whatsapp_instance_id }: { final_message: string; scheduled_at: string; whatsapp_instance_id: string | null }) => {
       if (!tenantId) throw new Error('Organização não encontrada');
       const { error } = await supabase
         .from('lead_scheduled_messages')
@@ -202,6 +202,7 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
           original_scheduled_at: scheduled_at,
           status: 'pending',
           created_by: user?.id || null,
+          whatsapp_instance_id: whatsapp_instance_id || null,
         });
       if (error) throw error;
     },
@@ -388,6 +389,7 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
         onSave={(data) => createMutation.mutate(data)}
         isPending={createMutation.isPending}
         leadName={leadName}
+        tenantId={tenantId}
       />
     </>
   );
@@ -471,26 +473,50 @@ function EditMessageDialog({ message, onClose, onSave, isPending }: EditDialogPr
 interface CreateDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: { final_message: string; scheduled_at: string }) => void;
+  onSave: (data: { final_message: string; scheduled_at: string; whatsapp_instance_id: string | null }) => void;
   isPending: boolean;
   leadName?: string;
+  tenantId: string | null;
 }
 
-function CreateMessageDialog({ open, onClose, onSave, isPending, leadName }: CreateDialogProps) {
+function CreateMessageDialog({ open, onClose, onSave, isPending, leadName, tenantId }: CreateDialogProps) {
   const [messageText, setMessageText] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
+
+  // Fetch available WhatsApp instances
+  const { data: instances = [] } = useQuery({
+    queryKey: ['whatsapp-instances-for-schedule', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('whatsapp_instances')
+        .select('id, name, phone_number, status')
+        .eq('organization_id', tenantId)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId && open,
+  });
 
   const handleClose = () => {
     setMessageText('');
     setScheduledAt('');
+    setSelectedInstanceId('');
     onClose();
   };
 
   const handleSave = () => {
     if (!messageText || !scheduledAt) return;
-    onSave({ final_message: messageText, scheduled_at: new Date(scheduledAt).toISOString() });
+    onSave({ 
+      final_message: messageText, 
+      scheduled_at: new Date(scheduledAt).toISOString(),
+      whatsapp_instance_id: selectedInstanceId || null,
+    });
     setMessageText('');
     setScheduledAt('');
+    setSelectedInstanceId('');
   };
 
   return (
@@ -507,6 +533,25 @@ function CreateMessageDialog({ open, onClose, onSave, isPending, leadName }: Cre
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Instância WhatsApp</Label>
+            <select
+              value={selectedInstanceId}
+              onChange={(e) => setSelectedInstanceId(e.target.value)}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Selecione uma instância...</option>
+              {instances.map((inst) => (
+                <option key={inst.id} value={inst.id}>
+                  {inst.name} {inst.phone_number ? `(${inst.phone_number})` : ''} {inst.status === 'connected' ? '🟢' : '🔴'}
+                </option>
+              ))}
+            </select>
+            {instances.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma instância configurada</p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label>Data/Hora de Envio *</Label>
             <Input
