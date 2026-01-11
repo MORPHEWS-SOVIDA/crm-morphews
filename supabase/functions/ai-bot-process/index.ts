@@ -653,7 +653,8 @@ async function processMessage(
   bot: AIBot,
   context: ConversationContext,
   userMessage: string,
-  instanceName: string
+  instanceName: string,
+  isWithinSchedule: boolean = true // Novo parâmetro - vem do webhook
 ): Promise<ProcessResult> {
   
   console.log('🤖 Processing message for bot:', bot.name);
@@ -664,11 +665,14 @@ async function processMessage(
     return qualificationResult.result;
   }
 
-  // 1. Verificar horário de funcionamento
-  if (!isWithinWorkingHours(bot)) {
-    console.log('⏰ Out of working hours');
+  // 1. Verificar horário de funcionamento (usando isWithinSchedule do webhook)
+  // Se está fora do horário agendado, enviar mensagem de fora de horário mas CONTINUAR INTERAGINDO
+  if (!isWithinSchedule) {
+    console.log('⏰ Outside scheduled hours - will still respond with out-of-hours context');
     
-    if (bot.out_of_hours_message) {
+    // Se é primeira mensagem fora do horário, enviar aviso
+    // Depois continua processando normalmente para poder interagir
+    if (context.botMessagesCount === 0 && bot.out_of_hours_message) {
       await sendWhatsAppMessage(
         instanceName,
         context.chatId,
@@ -677,9 +681,25 @@ async function processMessage(
         context.instanceId,
         bot.id
       );
+      
+      // Consumir energia pelo aviso de fora de horário
+      await checkAndConsumeEnergy(
+        context.organizationId,
+        bot.id,
+        context.conversationId,
+        30,
+        'out_of_hours_message'
+      );
+      
+      // Incrementar contador para não enviar novamente
+      await supabase
+        .from('whatsapp_conversations')
+        .update({ bot_messages_count: 1 })
+        .eq('id', context.conversationId);
+      
+      context.botMessagesCount = 1;
     }
-    
-    return { success: true, action: 'out_of_hours' };
+    // Continua processando - o robô vai responder normalmente
   }
 
   // 2. Verificar keywords de transferência
@@ -829,6 +849,7 @@ serve(async (req) => {
       messageType = 'text',
       mediaUrl,
       mediaMimeType,
+      isWithinSchedule = true, // Novo campo do webhook - indica se está dentro do horário agendado
     } = body;
 
     console.log('🤖 AI Bot Process request:', {
@@ -837,6 +858,7 @@ serve(async (req) => {
       isFirstMessage,
       messageType,
       hasMedia: !!mediaUrl,
+      isWithinSchedule,
       messagePreview: userMessage?.substring(0, 50)
     });
 
@@ -1021,7 +1043,7 @@ serve(async (req) => {
     }
 
     // Processar mensagem (texto ou áudio transcrito)
-    const result = await processMessage(bot, context, processedMessage, instanceName);
+    const result = await processMessage(bot, context, processedMessage, instanceName, isWithinSchedule);
 
     // Adicionar energia de processamento de mídia ao resultado
     if (mediaProcessingEnergy > 0 && result.energyUsed) {
