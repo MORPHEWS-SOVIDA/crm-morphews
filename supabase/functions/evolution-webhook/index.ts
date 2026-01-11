@@ -612,6 +612,8 @@ serve(async (req) => {
         }
       }
 
+      let wasClosed = false;
+
       if (!conversation) {
         // Criar nova conversa - status inicial é 'pending' para distribuição
         const displayName = isGroup 
@@ -674,7 +676,7 @@ serve(async (req) => {
         };
         
         // REABERTURA: Se conversa está fechada, reabrir para distribuição
-        const wasClosed = conversation.status === 'closed';
+        wasClosed = conversation.status === 'closed';
         if (wasClosed) {
           console.log("📬 Conversation was closed, reopening...");
           
@@ -731,7 +733,10 @@ serve(async (req) => {
           .update(updateData)
           .eq("id", conversation.id);
 
-        console.log("Updated conversation:", conversation.id, "from instance:", instance.id, wasClosed ? "(reopened)" : "");
+        // Mantém o estado local alinhado com o update acima (importante para a lógica do robô abaixo)
+        conversation = { ...(conversation as any), ...(updateData as any) } as any;
+
+        console.log("Updated conversation:", (conversation as any)?.id, "from instance:", instance.id, wasClosed ? "(reopened)" : "");
       }
 
       // =====================
@@ -830,7 +835,7 @@ serve(async (req) => {
             console.log("🤖 Processing message with AI bot:", instance.active_bot_id, "type:", msgData.type);
             
             // Verificar se é primeira mensagem (conversa acabou de ser criada ou reaberta)
-            const isFirstMessage = conversation.status === 'pending' || !conversation.status;
+            const isFirstMessage = wasClosed || conversation.status === 'pending' || !conversation.status;
             
             // Atualizar status para 'with_bot' se ainda não está
             if (conversation.status !== 'with_bot') {
