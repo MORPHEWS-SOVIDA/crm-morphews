@@ -431,6 +431,221 @@ async function transferToHuman(
 }
 
 // ============================================================================
+// QUALIFICATION LOGIC
+// ============================================================================
+
+async function processQualification(
+  bot: AIBot,
+  context: ConversationContext,
+  userMessage: string,
+  instanceName: string
+): Promise<{ shouldContinue: boolean; result?: ProcessResult }> {
+  
+  // Se qualificação não está habilitada ou já foi completada, continuar normal
+  if (!bot.initial_qualification_enabled || !bot.initial_questions || bot.initial_questions.length === 0) {
+    return { shouldContinue: true };
+  }
+
+  if (context.qualificationCompleted) {
+    return { shouldContinue: true };
+  }
+
+  const questions = bot.initial_questions;
+  const currentStep = context.qualificationStep;
+
+  console.log('📋 Qualification step:', currentStep, 'of', questions.length);
+
+  // Se é o primeiro passo (step = 0), enviar primeira pergunta
+  if (currentStep === 0) {
+    const firstQuestion = questions[0];
+    const questionMessage = formatQualificationQuestion(firstQuestion, 1, questions.length);
+    
+    await sendWhatsAppMessage(
+      instanceName,
+      context.chatId,
+      questionMessage,
+      context.conversationId,
+      context.instanceId,
+      bot.id
+    );
+
+    // Atualizar step para 1 (esperando resposta da primeira pergunta)
+    await supabase
+      .from('whatsapp_conversations')
+      .update({ bot_qualification_step: 1 })
+      .eq('id', context.conversationId);
+
+    // Consumir energia
+    await checkAndConsumeEnergy(context.organizationId, bot.id, context.conversationId, 30, 'qualification_question');
+
+    return { 
+      shouldContinue: false, 
+      result: { success: true, action: 'qualification', message: 'First question sent' } 
+    };
+  }
+
+  // Salvar resposta da pergunta anterior
+  const previousQuestion = questions[currentStep - 1];
+  if (context.leadId) {
+    await saveQualificationAnswer(
+      context.leadId,
+      context.organizationId,
+      previousQuestion,
+      userMessage
+    );
+    console.log('✅ Saved answer for question:', previousQuestion.questionText);
+  }
+
+  // Verificar se há mais perguntas
+  if (currentStep < questions.length) {
+    const nextQuestion = questions[currentStep];
+    const questionMessage = formatQualificationQuestion(nextQuestion, currentStep + 1, questions.length);
+    
+    await sendWhatsAppMessage(
+      instanceName,
+      context.chatId,
+      questionMessage,
+      context.conversationId,
+      context.instanceId,
+      bot.id
+    );
+
+    // Atualizar step
+    await supabase
+      .from('whatsapp_conversations')
+      .update({ bot_qualification_step: currentStep + 1 })
+      .eq('id', context.conversationId);
+
+    // Consumir energia
+    await checkAndConsumeEnergy(context.organizationId, bot.id, context.conversationId, 30, 'qualification_question');
+
+    return { 
+      shouldContinue: false, 
+      result: { success: true, action: 'qualification', message: `Question ${currentStep + 1} sent` } 
+    };
+  }
+
+  // Todas as perguntas foram respondidas
+  await supabase
+    .from('whatsapp_conversations')
+    .update({ bot_qualification_completed: true })
+    .eq('id', context.conversationId);
+
+  console.log('✅ Qualification completed');
+
+  // Enviar mensagem de transição
+  const transitionMessage = `Obrigado pelas informações, ${context.contactName}! 🙏 Agora posso te ajudar melhor. Como posso te atender?`;
+  
+  await sendWhatsAppMessage(
+    instanceName,
+    context.chatId,
+    transitionMessage,
+    context.conversationId,
+    context.instanceId,
+    bot.id
+  );
+
+  await checkAndConsumeEnergy(context.organizationId, bot.id, context.conversationId, 30, 'qualification_complete');
+
+  return { shouldContinue: true };
+}
+
+function formatQualificationQuestion(question: InitialQuestion, number: number, total: number): string {
+  const prefix = `📋 *Pergunta ${number}/${total}*\n\n`;
+  return prefix + question.questionText;
+}
+
+async function saveQualificationAnswer(
+  leadId: string,
+  organizationId: string,
+  question: InitialQuestion,
+  answer: string
+): Promise<void> {
+  try {
+    // Preparar dados baseado no tipo de pergunta
+    const answerData: any = {
+      lead_id: leadId,
+      question_id: question.questionId,
+      organization_id: organizationId,
+      updated_at: new Date().toISOString(),
+    };
+
+    switch (question.questionType) {
+      case 'number':
+        // Tentar extrair número da resposta
+        const numMatch = answer.match(/\d+([.,]\d+)?/);
+        if (numMatch) {
+          answerData.numeric_value = parseFloat(numMatch[0].replace(',', '.'));
+        }
+        break;
+      
+      case 'text':
+        answerData.text_value = answer;
+        break;
+
+      case 'imc_calculator':
+        // Tentar extrair peso, altura e idade da resposta
+        // Formato esperado: "75kg 1.70m 30 anos" ou similar
+        const weightMatch = answer.match(/(\d+([.,]\d+)?)\s*(kg|quilo)/i);
+        const heightMatch = answer.match(/(\d+([.,]\d+)?)\s*(m|metro|cm)/i);
+        const ageMatch = answer.match(/(\d+)\s*(anos?|age)/i);
+        
+        if (weightMatch) {
+          answerData.imc_weight = parseFloat(weightMatch[1].replace(',', '.'));
+        }
+        if (heightMatch) {
+          let height = parseFloat(heightMatch[1].replace(',', '.'));
+          // Se altura > 3, provavelmente está em cm
+          if (height > 3) height = height / 100;
+          answerData.imc_height = height;
+        }
+        if (ageMatch) {
+          answerData.imc_age = parseInt(ageMatch[1]);
+        }
+        
+        // Calcular IMC se tiver peso e altura
+        if (answerData.imc_weight && answerData.imc_height) {
+          const imc = answerData.imc_weight / (answerData.imc_height * answerData.imc_height);
+          answerData.imc_result = Math.round(imc * 100) / 100;
+          
+          // Categorizar
+          if (imc < 18.5) answerData.imc_category = 'Abaixo do peso';
+          else if (imc < 25) answerData.imc_category = 'Peso normal';
+          else if (imc < 30) answerData.imc_category = 'Sobrepeso';
+          else if (imc < 35) answerData.imc_category = 'Obesidade grau I';
+          else if (imc < 40) answerData.imc_category = 'Obesidade grau II';
+          else answerData.imc_category = 'Obesidade grau III';
+        }
+        break;
+      
+      case 'single_choice':
+      case 'multiple_choice':
+        // Para escolhas, salvar o texto como referência
+        // Idealmente, buscaríamos as opções e matchearíamos
+        answerData.text_value = answer;
+        break;
+      
+      default:
+        answerData.text_value = answer;
+    }
+
+    // Upsert a resposta
+    const { error } = await supabase
+      .from('lead_standard_question_answers')
+      .upsert(answerData, {
+        onConflict: 'lead_id,question_id',
+        ignoreDuplicates: false
+      });
+
+    if (error) {
+      console.error('❌ Error saving qualification answer:', error);
+    }
+  } catch (err) {
+    console.error('❌ Error in saveQualificationAnswer:', err);
+  }
+}
+
+// ============================================================================
 // MAIN PROCESS
 // ============================================================================
 
@@ -442,6 +657,12 @@ async function processMessage(
 ): Promise<ProcessResult> {
   
   console.log('🤖 Processing message for bot:', bot.name);
+  
+  // 0. Processar qualificação inicial (se habilitada)
+  const qualificationResult = await processQualification(bot, context, userMessage, instanceName);
+  if (!qualificationResult.shouldContinue && qualificationResult.result) {
+    return qualificationResult.result;
+  }
 
   // 1. Verificar horário de funcionamento
   if (!isWithinWorkingHours(bot)) {
