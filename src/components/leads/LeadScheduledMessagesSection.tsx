@@ -192,7 +192,10 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
   const createMutation = useMutation({
     mutationFn: async ({ final_message, scheduled_at, whatsapp_instance_id }: { final_message: string; scheduled_at: string; whatsapp_instance_id: string | null }) => {
       if (!tenantId) throw new Error('Organização não encontrada');
-      const { error } = await supabase
+      
+      console.log('[LeadScheduledMessages] Creating scheduled message:', { leadId, final_message, scheduled_at, whatsapp_instance_id });
+      
+      const { data, error } = await supabase
         .from('lead_scheduled_messages')
         .insert({
           organization_id: tenantId,
@@ -203,8 +206,16 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
           status: 'pending',
           created_by: user?.id || null,
           whatsapp_instance_id: whatsapp_instance_id || null,
-        });
-      if (error) throw error;
+        })
+        .select();
+        
+      if (error) {
+        console.error('[LeadScheduledMessages] Error creating message:', error);
+        throw error;
+      }
+      
+      console.log('[LeadScheduledMessages] Message created:', data);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-scheduled-messages', leadId] });
@@ -212,7 +223,10 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
       toast.success('Mensagem agendada');
       setShowCreateDialog(false);
     },
-    onError: () => toast.error('Erro ao agendar mensagem'),
+    onError: (err) => {
+      console.error('[LeadScheduledMessages] Mutation error:', err);
+      toast.error('Erro ao agendar mensagem: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+    },
   });
 
   if (isLoading) {
