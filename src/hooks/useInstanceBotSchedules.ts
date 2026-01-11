@@ -69,6 +69,7 @@ export function useAddInstanceBotSchedule() {
     }) => {
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
+      // Inserir o agendamento do robô
       const { error } = await supabase.from("instance_bot_schedules").insert({
         instance_id: instanceId,
         bot_id: botId,
@@ -81,10 +82,29 @@ export function useAddInstanceBotSchedule() {
       });
 
       if (error) throw error;
+
+      // Automaticamente atualizar o distribution_mode para 'bot' 
+      // quando um robô é adicionado à instância
+      const { error: updateError } = await supabase
+        .from("whatsapp_instances")
+        .update({ distribution_mode: "bot" })
+        .eq("id", instanceId);
+
+      if (updateError) {
+        console.error("Erro ao atualizar distribution_mode:", updateError);
+        // Não falhar a operação, apenas logar o erro
+      }
+
+      return { instanceId };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["instance-bot-schedules", variables.instanceId] });
-      toast({ title: "Robô agendado com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["instance-distribution-mode", variables.instanceId] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ 
+        title: "Robô agendado com sucesso!",
+        description: "O modo de distribuição foi alterado para Robô de IA automaticamente."
+      });
     },
     onError: (error: any) => {
       toast({
