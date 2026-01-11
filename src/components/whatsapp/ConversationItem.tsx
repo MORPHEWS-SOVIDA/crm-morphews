@@ -82,6 +82,15 @@ export function ConversationItem({
   const isDesignatedToMe = conversation.designated_user_id === currentUserId;
   const hasOtherInstances = otherInstanceConversations && otherInstanceConversations.length > 0;
   
+  // Calcular total de não lidas em outras instâncias
+  const totalUnreadOtherInstances = otherInstanceConversations?.reduce(
+    (sum, conv) => sum + (conv.unread_count || 0), 
+    0
+  ) || 0;
+  
+  // Verificar se alguma outra instância tem mensagens não lidas
+  const hasUnreadInOtherInstances = totalUnreadOtherInstances > 0;
+  
   const getStatusIcon = () => {
     switch (status) {
       case 'with_bot':
@@ -181,6 +190,15 @@ export function ConversationItem({
         {hasOtherInstances && (
           <div className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
             <MessageSquareMore className="h-2.5 w-2.5 text-white" />
+          </div>
+        )}
+        
+        {/* Badge de não lidas em outras instâncias (posicionado à direita do avatar) */}
+        {hasUnreadInOtherInstances && (
+          <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse">
+            <span className="text-[10px] font-bold text-white">
+              {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
+            </span>
           </div>
         )}
       </div>
