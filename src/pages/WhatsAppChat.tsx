@@ -1118,7 +1118,7 @@ export default function WhatsAppChat() {
                       setActiveInstanceId(conv.instance_id);
                     }}
                     instanceLabel={getInstanceLabel(conv.instance_id)}
-                    showClaimButton={statusFilter === 'pending' && isManualDistribution(conv.instance_id)}
+                    showClaimButton={(statusFilter === 'pending' && isManualDistribution(conv.instance_id)) || statusFilter === 'with_bot'}
                     onClaim={() => handleClaimConversation(conv.id)}
                     isClaiming={claimingConversationId === conv.id}
                     onClose={() => handleCloseConversationById(conv.id)}
@@ -1190,6 +1190,18 @@ export default function WhatsAppChat() {
                     >
                       <Hand className="h-4 w-4 mr-1" />
                       ATENDER
+                    </Button>
+                  )}
+                  {/* Botão Assumir - para conversas com robô */}
+                  {selectedConversation.status === 'with_bot' && (
+                    <Button 
+                      size="sm"
+                      onClick={() => handleClaimConversation(selectedConversation.id)}
+                      disabled={claimingConversationId === selectedConversation.id}
+                      className="h-8 text-xs bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Hand className="h-4 w-4 mr-1" />
+                      ASSUMIR DO ROBÔ
                     </Button>
                   )}
                   <Button 

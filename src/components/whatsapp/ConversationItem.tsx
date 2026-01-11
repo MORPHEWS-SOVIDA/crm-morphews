@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore, XCircle, Zap } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore, XCircle, Zap, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -83,6 +83,8 @@ export function ConversationItem({
   
   const getStatusIcon = () => {
     switch (status) {
+      case 'with_bot':
+        return <Bot className="h-3 w-3 text-purple-600" />;
       case 'pending':
         return <Clock className="h-3 w-3 text-yellow-600" />;
       case 'autodistributed':
@@ -97,6 +99,13 @@ export function ConversationItem({
   };
 
   const getStatusBadge = () => {
+    if (status === 'with_bot') {
+      return (
+        <span className="text-[10px] text-purple-600 truncate max-w-[80px]">
+          Com robô
+        </span>
+      );
+    }
     if (status === 'autodistributed' && isDesignatedToMe) {
       return (
         <span className="text-[10px] text-blue-600 truncate max-w-[80px]">
@@ -126,12 +135,15 @@ export function ConversationItem({
 
   const isAssignedToCurrentUser = conversation.assigned_user_id === currentUserId;
   
-  // Mostrar botão ATENDER para: pendente OU autodistribuído (se for o usuário designado)
+  // Mostrar botão ATENDER para: pendente OU autodistribuído (se for o usuário designado) OU with_bot
   const canShowClaimButton = showClaimButton && (
     status === 'pending' || 
     !status || 
-    (status === 'autodistributed' && isDesignatedToMe)
+    (status === 'autodistributed' && isDesignatedToMe) ||
+    status === 'with_bot'
   );
+  
+  const isWithBot = status === 'with_bot';
 
   return (
     <div
@@ -155,6 +167,7 @@ export function ConversationItem({
         {/* Status dot */}
         <div className={cn(
           "absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-card flex items-center justify-center",
+          status === 'with_bot' && "bg-purple-100",
           status === 'pending' && "bg-yellow-100",
           status === 'autodistributed' && "bg-blue-100",
           status === 'assigned' && "bg-green-100",
@@ -251,17 +264,22 @@ export function ConversationItem({
           </div>
           
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Botão ATENDER para conversas pendentes ou autodistribuídas (para o usuário designado) */}
+            {/* Botão ATENDER/ASSUMIR para conversas pendentes, autodistribuídas ou com robô */}
             {canShowClaimButton && (
               <Button
                 size="sm"
                 variant="default"
-                className="h-6 px-2 text-[10px] bg-green-600 hover:bg-green-700"
+                className={cn(
+                  "h-6 px-2 text-[10px]",
+                  isWithBot 
+                    ? "bg-purple-600 hover:bg-purple-700" 
+                    : "bg-green-600 hover:bg-green-700"
+                )}
                 onClick={handleClaimClick}
                 disabled={isClaiming}
               >
                 <Hand className="h-3 w-3 mr-1" />
-                ATENDER
+                {isWithBot ? 'ASSUMIR' : 'ATENDER'}
               </Button>
             )}
             
