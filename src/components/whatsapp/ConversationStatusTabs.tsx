@@ -29,51 +29,61 @@ export function ConversationStatusTabs({
   onTabChange,
   counts 
 }: ConversationStatusTabsProps) {
+  // Dividir em 2 linhas: primeira com Com Robô e Pendente, segunda com Pra você, Atribuído e Encerrado
+  const firstRow = tabs.slice(0, 2);
+  const secondRow = tabs.slice(2);
+
+  const renderTab = (tab: typeof tabs[0]) => {
+    const Icon = tab.icon;
+    const count = counts[tab.key];
+    const isActive = activeTab === tab.key;
+    const showBadge = (tab.key === 'with_bot' || tab.key === 'pending' || tab.key === 'autodistributed') && count > 0;
+
+    return (
+      <button
+        key={tab.key}
+        onClick={() => onTabChange(tab.key)}
+        className={cn(
+          "flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-medium transition-colors relative min-w-0",
+          isActive 
+            ? "text-primary bg-muted/50" 
+            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+        )}
+      >
+        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="truncate">{tab.label}</span>
+        {showBadge && (
+          <Badge 
+            variant={isActive ? "default" : "secondary"} 
+            className={cn(
+              "h-5 min-w-[20px] px-1.5 text-[10px] flex-shrink-0",
+              tab.key === 'with_bot' && !isActive && "bg-purple-100 text-purple-800",
+              tab.key === 'with_bot' && isActive && "bg-purple-500",
+              tab.key === 'autodistributed' && !isActive && "bg-blue-100 text-blue-800",
+              tab.key === 'autodistributed' && isActive && "bg-blue-500",
+              tab.key === 'pending' && !isActive && "bg-yellow-100 text-yellow-800",
+              tab.key === 'pending' && isActive && "bg-yellow-500"
+            )}
+          >
+            {count}
+          </Badge>
+        )}
+        {isActive && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="border-b border-border">
-      <div className="grid grid-cols-3 sm:grid-cols-5">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const count = counts[tab.key];
-          const isActive = activeTab === tab.key;
-          // Mostrar badge para Com Robô, Pendente e Autodistribuído
-          const showBadge = (tab.key === 'with_bot' || tab.key === 'pending' || tab.key === 'autodistributed') && count > 0;
-
-          return (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              className={cn(
-                "flex items-center justify-center gap-1 py-2.5 px-2 text-xs font-medium transition-colors relative",
-                isActive 
-                  ? "text-primary bg-muted/50" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-            >
-              <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="truncate">{tab.label}</span>
-              {showBadge && (
-                <Badge 
-                  variant={isActive ? "default" : "secondary"} 
-                  className={cn(
-                    "h-5 min-w-[20px] px-1.5 text-[10px]",
-                    tab.key === 'with_bot' && !isActive && "bg-purple-100 text-purple-800",
-                    tab.key === 'with_bot' && isActive && "bg-purple-500",
-                    tab.key === 'autodistributed' && !isActive && "bg-blue-100 text-blue-800",
-                    tab.key === 'autodistributed' && isActive && "bg-blue-500",
-                    tab.key === 'pending' && !isActive && "bg-yellow-100 text-yellow-800",
-                    tab.key === 'pending' && isActive && "bg-yellow-500"
-                  )}
-                >
-                  {count}
-                </Badge>
-              )}
-              {isActive && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-          );
-        })}
+      {/* Primeira linha: Com Robô e Pendente */}
+      <div className="flex border-b border-border/50">
+        {firstRow.map(renderTab)}
+      </div>
+      {/* Segunda linha: Pra você, Atribuído e Encerrado */}
+      <div className="flex">
+        {secondRow.map(renderTab)}
       </div>
     </div>
   );
