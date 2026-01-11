@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare, AlertTriangle, Headphones, Package } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, MessageSquare, AlertTriangle, Headphones, Package, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ import { AllUsersTab } from "@/components/super-admin/AllUsersTab";
 import { ErrorLogsTab } from "@/components/super-admin/ErrorLogsTab";
 import { PlanFeaturesEditor } from "@/components/super-admin/PlanFeaturesEditor";
 import { OrgFeatureOverridesEditor } from "@/components/super-admin/OrgFeatureOverridesEditor";
+import { EnergyManagementTab } from "@/components/super-admin/EnergyManagementTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -827,6 +828,10 @@ export default function SuperAdmin() {
               <AlertTriangle className="h-3 w-3" />
               Logs de Erros
             </TabsTrigger>
+            <TabsTrigger value="energy" className="gap-1">
+              <Zap className="h-3 w-3" />
+              Energia IA
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="organizations">
@@ -1342,6 +1347,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="error-logs">
             <ErrorLogsTab />
+          </TabsContent>
+
+          <TabsContent value="energy">
+            <EnergyManagementTab />
           </TabsContent>
         </Tabs>
       </div>
