@@ -23,41 +23,48 @@ export interface LeadFollowup {
 }
 
 export function useLeadFollowups(leadId: string | undefined) {
+  const { tenantId } = useTenant();
+
   return useQuery({
-    queryKey: ['lead-followups', leadId],
+    queryKey: ['lead-followups', tenantId, leadId],
     queryFn: async () => {
-      if (!leadId) {
-        console.log('[useLeadFollowups] No leadId, returning empty');
+      if (!leadId || !tenantId) {
+        console.log('[useLeadFollowups] Missing leadId/tenantId, returning empty');
         return [];
       }
-      
-      console.log('[useLeadFollowups] Fetching followups for lead:', leadId);
-      
-      const { data, error } = await supabase
-        .from('lead_followups')
-        .select(`
-          *,
-          profiles!lead_followups_user_id_fkey(first_name, last_name)
-        `)
-        .eq('lead_id', leadId)
-        .order('scheduled_at', { ascending: false });
 
-      if (error) {
-        console.error('[useLeadFollowups] Error:', error);
-        throw error;
-      }
-      
-      console.log('[useLeadFollowups] Fetched:', data?.length, 'followups');
-      
-      return (data || []).map((item: any) => ({
-        ...item,
-        user_name: item.profiles 
-          ? `${item.profiles.first_name} ${item.profiles.last_name}` 
-          : 'Desconhecido',
-      })) as LeadFollowup[];
+      console.log('[useLeadFollowups] Fetching followups for lead:', { leadId, tenantId });
+
+      // Safety timeout so UI never gets stuck in loading forever
+      const timeoutMs = 12000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout ao carregar follow-ups')), timeoutMs)
+      );
+
+      const fetchPromise = (async () => {
+        const { data, error } = await supabase
+          .from('lead_followups')
+          .select('*')
+          .eq('organization_id', tenantId)
+          .eq('lead_id', leadId)
+          .order('scheduled_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log('[useLeadFollowups] Fetched:', data?.length, 'followups');
+
+        return (data || []).map((item: any) => ({
+          ...item,
+          user_name: '—',
+        })) as LeadFollowup[];
+      })();
+
+      return await Promise.race([fetchPromise, timeoutPromise]);
     },
-    enabled: !!leadId,
-    staleTime: 0, // Always refetch
+    enabled: !!leadId && !!tenantId,
+    initialData: [],
+    staleTime: 0,
+    retry: 1,
   });
 }
 
@@ -127,13 +134,11 @@ export function useCreateFollowup() {
       console.log('[useCreateFollowup] Created:', followup);
       return { ...followup, lead_id: data.lead_id };
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       console.log('[useCreateFollowup] Invalidating queries for lead:', variables.lead_id);
-      // Invalidate with exact match
-      queryClient.invalidateQueries({ queryKey: ['lead-followups', variables.lead_id] });
+      queryClient.invalidateQueries({ queryKey: ['lead-followups', tenantId, variables.lead_id] });
       queryClient.invalidateQueries({ queryKey: ['upcoming-followups'] });
-      // Also refetch immediately
-      queryClient.refetchQueries({ queryKey: ['lead-followups', variables.lead_id] });
+      queryClient.refetchQueries({ queryKey: ['lead-followups', tenantId, variables.lead_id] });
     },
     onError: (error: any) => {
       console.error('[useCreateFollowup] Mutation error:', error);
