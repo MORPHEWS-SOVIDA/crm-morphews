@@ -554,10 +554,10 @@ serve(async (req) => {
         contentPreview: msgData.content.substring(0, 100),
       });
 
-      // Buscar a instância para saber a organização
+      // Buscar a instância para saber a organização E se tem robô ativo
       const { data: instance } = await supabase
         .from("whatsapp_instances")
-        .select("id, organization_id, phone_number")
+        .select("id, organization_id, phone_number, active_bot_id, evolution_instance_id")
         .eq("evolution_instance_id", instanceName)
         .single();
 
@@ -803,6 +803,56 @@ serve(async (req) => {
             isGroup,
             hasMedia: !!savedMediaUrl,
           });
+
+          // =====================
+          // PROCESSAR COM ROBÔ IA (se ativo e conversa com status adequado)
+          // =====================
+          const shouldProcessWithBot = 
+            instance.active_bot_id && 
+            !isGroup && // Não processar grupos com robô por enquanto
+            msgData.type === 'text' && // Apenas mensagens de texto
+            (conversation.status === 'with_bot' || conversation.status === 'pending' || !conversation.status);
+
+          if (shouldProcessWithBot) {
+            console.log("🤖 Processing message with AI bot:", instance.active_bot_id);
+            
+            // Verificar se é primeira mensagem (conversa acabou de ser criada ou reaberta)
+            const isFirstMessage = conversation.status === 'pending' || !conversation.status;
+            
+            // Atualizar status para 'with_bot' se ainda não está
+            if (conversation.status !== 'with_bot') {
+              await supabase.rpc('start_bot_handling', {
+                p_conversation_id: conversation.id,
+                p_bot_id: instance.active_bot_id
+              });
+            }
+
+            // Chamar edge function de processamento IA (fire and forget)
+            fetch(`${SUPABASE_URL}/functions/v1/ai-bot-process`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                botId: instance.active_bot_id,
+                conversationId: conversation.id,
+                instanceId: instance.id,
+                instanceName: instanceName,
+                organizationId: organizationId,
+                userMessage: messageContent,
+                contactName: pushName || `+${fromPhone}`,
+                phoneNumber: fromPhone,
+                chatId: remoteJid,
+                isFirstMessage,
+              }),
+            }).then(async (res) => {
+              const result = await res.json();
+              console.log("🤖 Bot process result:", result);
+            }).catch((botError) => {
+              console.error("❌ Error calling AI bot:", botError);
+            });
+          }
         }
       }
 
