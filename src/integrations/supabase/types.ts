@@ -777,6 +777,77 @@ export type Database = {
           },
         ]
       }
+      instance_bot_schedules: {
+        Row: {
+          bot_id: string
+          created_at: string
+          days_of_week: number[]
+          end_time: string
+          id: string
+          instance_id: string
+          is_active: boolean
+          organization_id: string
+          priority: number
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          days_of_week?: number[]
+          end_time?: string
+          id?: string
+          instance_id: string
+          is_active?: boolean
+          organization_id: string
+          priority?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          days_of_week?: number[]
+          end_time?: string
+          id?: string
+          instance_id?: string
+          is_active?: boolean
+          organization_id?: string
+          priority?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instance_bot_schedules_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instance_bot_schedules_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instance_bot_schedules_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instance_bot_schedules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interested_leads: {
         Row: {
           converted_at: string | null
@@ -6224,6 +6295,14 @@ export type Database = {
           p_response_length: string
           p_service_type: string
           p_state: string
+        }
+        Returns: string
+      }
+      get_active_bot_for_instance: {
+        Args: {
+          p_current_day?: number
+          p_current_time?: string
+          p_instance_id: string
         }
         Returns: string
       }

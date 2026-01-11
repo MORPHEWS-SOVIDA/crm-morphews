@@ -554,10 +554,10 @@ serve(async (req) => {
         contentPreview: msgData.content.substring(0, 100),
       });
 
-      // Buscar a instância para saber a organização E se tem robô ativo
+      // Buscar a instância para saber a organização
       const { data: instance } = await supabase
         .from("whatsapp_instances")
-        .select("id, organization_id, phone_number, active_bot_id, evolution_instance_id")
+        .select("id, organization_id, phone_number, evolution_instance_id")
         .eq("evolution_instance_id", instanceName)
         .single();
 
@@ -580,6 +580,18 @@ serve(async (req) => {
       }
 
       const organizationId = instance.organization_id;
+
+      // Buscar robô ativo baseado no horário/dia atual usando a tabela de agendamentos
+      let activeBotId: string | null = null;
+      const { data: activeBotResult } = await supabase.rpc('get_active_bot_for_instance', {
+        p_instance_id: instance.id
+      });
+      if (activeBotResult) {
+        activeBotId = activeBotResult;
+        console.log("🤖 Active bot for current time:", activeBotId);
+      } else {
+        console.log("🤖 No active bot for current time/day");
+      }
 
       // Buscar conversa existente - PRIMEIRO por chat_id (mais confiável)
       // Depois tentar por phone_number com variações brasileiras (com/sem 9)
@@ -680,11 +692,11 @@ serve(async (req) => {
         if (wasClosed) {
           console.log("📬 Conversation was closed, reopening...");
           
-          // PRIORIDADE 1: Se instância tem robô ativo, vai para robô
-          if (instance.active_bot_id && !isGroup) {
-            console.log("🤖 Instance has active bot, setting status to with_bot");
+          // PRIORIDADE 1: Se instância tem robô ativo para o horário atual, vai para robô
+          if (activeBotId && !isGroup) {
+            console.log("🤖 Instance has active bot for current time, setting status to with_bot");
             updateData.status = 'with_bot';
-            updateData.handling_bot_id = instance.active_bot_id;
+            updateData.handling_bot_id = activeBotId;
             updateData.bot_started_at = new Date().toISOString();
             updateData.bot_messages_count = 0;
             updateData.assigned_user_id = null;
@@ -826,13 +838,13 @@ serve(async (req) => {
           // =====================
           const supportedBotTypes = ['text', 'audio', 'image'];
           const shouldProcessWithBot = 
-            instance.active_bot_id && 
+            activeBotId && 
             !isGroup && // Não processar grupos com robô por enquanto
             supportedBotTypes.includes(msgData.type) && // Texto, áudio e imagem
             (conversation.status === 'with_bot' || conversation.status === 'pending' || !conversation.status);
 
           if (shouldProcessWithBot) {
-            console.log("🤖 Processing message with AI bot:", instance.active_bot_id, "type:", msgData.type);
+            console.log("🤖 Processing message with AI bot:", activeBotId, "type:", msgData.type);
             
             // Verificar se é primeira mensagem (conversa acabou de ser criada ou reaberta)
             const isFirstMessage = wasClosed || conversation.status === 'pending' || !conversation.status;
@@ -841,13 +853,13 @@ serve(async (req) => {
             if (conversation.status !== 'with_bot') {
               await supabase.rpc('start_bot_handling', {
                 p_conversation_id: conversation.id,
-                p_bot_id: instance.active_bot_id
+                p_bot_id: activeBotId
               });
             }
 
             // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
             const botPayload: any = {
-              botId: instance.active_bot_id,
+              botId: activeBotId,
               conversationId: conversation.id,
               instanceId: instance.id,
               instanceName: instanceName,
