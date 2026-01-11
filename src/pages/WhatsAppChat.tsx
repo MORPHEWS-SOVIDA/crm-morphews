@@ -1152,6 +1152,18 @@ export default function WhatsAppChat() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  {/* Botão Atribuir - para conversas "Pra você" (autodistributed) */}
+                  {selectedConversation.status === 'autodistributed' && (
+                    <Button 
+                      size="sm"
+                      onClick={() => handleClaimConversation(selectedConversation.id)}
+                      disabled={claimingConversationId === selectedConversation.id}
+                      className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                    >
+                      <Hand className="h-4 w-4 mr-1" />
+                      ATRIBUIR
+                    </Button>
+                  )}
                   {/* Botão Transferir - apenas para conversas atribuídas */}
                   {selectedConversation.status === 'assigned' && (
                     <Button 
