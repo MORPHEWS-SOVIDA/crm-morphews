@@ -50,7 +50,7 @@ import { useConversationDistribution } from '@/hooks/useConversationDistribution
 import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
 import { useQuery } from '@tanstack/react-query';
 
-type StatusTab = 'pending' | 'autodistributed' | 'assigned' | 'closed';
+type StatusTab = 'with_bot' | 'pending' | 'autodistributed' | 'assigned' | 'closed';
 
 interface Conversation {
   id: string;
@@ -797,6 +797,7 @@ export default function WhatsAppChat() {
   // Calcular contagens por status (autodistributed só conta as do usuário logado)
   const statusCounts = useMemo(() => {
     return {
+      with_bot: conversations.filter(c => c.status === 'with_bot').length,
       pending: conversations.filter(c => c.status === 'pending' || !c.status).length,
       autodistributed: conversations.filter(c => 
         c.status === 'autodistributed' && c.designated_user_id === user?.id
@@ -1084,12 +1085,16 @@ export default function WhatsAppChat() {
               <div className="p-8 text-center text-muted-foreground">
                 <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
                 <p className="font-medium">
+                  {statusFilter === 'with_bot' && 'Nenhuma conversa com robô'}
                   {statusFilter === 'pending' && 'Nenhuma conversa pendente'}
+                  {statusFilter === 'autodistributed' && 'Nenhuma conversa pra você'}
                   {statusFilter === 'assigned' && 'Nenhuma conversa atribuída'}
                   {statusFilter === 'closed' && 'Nenhuma conversa encerrada'}
                 </p>
                 <p className="text-xs mt-1">
+                  {statusFilter === 'with_bot' && 'Conversas sendo atendidas por IA aparecerão aqui'}
                   {statusFilter === 'pending' && 'Novas mensagens aparecerão aqui'}
+                  {statusFilter === 'autodistributed' && 'Conversas designadas para você'}
                   {statusFilter === 'assigned' && 'Suas conversas em atendimento'}
                   {statusFilter === 'closed' && 'Conversas finalizadas'}
                 </p>

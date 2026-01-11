@@ -12,9 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Settings, Clock, RefreshCw, Hand } from "lucide-react";
+import { Loader2, Settings, Clock, RefreshCw, Hand, Bot } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAIBots } from "@/hooks/useAIBots";
 
 interface InstanceSettingsDialogProps {
   instanceId: string;
@@ -31,13 +33,17 @@ export function InstanceSettingsDialog({
 }: InstanceSettingsDialogProps) {
   const queryClient = useQueryClient();
 
+  // Buscar lista de robôs disponíveis
+  const { data: bots } = useAIBots();
+  const activeBots = bots?.filter(bot => bot.is_active) || [];
+
   // Buscar configurações atuais
   const { data: settings, isLoading } = useQuery({
     queryKey: ["instance-settings", instanceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number, redistribution_timeout_minutes")
+        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number, redistribution_timeout_minutes, active_bot_id")
         .eq("id", instanceId)
         .single();
 
@@ -48,6 +54,7 @@ export function InstanceSettingsDialog({
         display_name_for_team: string | null;
         manual_instance_number: string | null;
         redistribution_timeout_minutes: number | null;
+        active_bot_id: string | null;
       };
     },
     enabled: open,
@@ -58,6 +65,7 @@ export function InstanceSettingsDialog({
   const [displayName, setDisplayName] = useState<string>(settings?.display_name_for_team || "");
   const [instanceNumber, setInstanceNumber] = useState<string>(settings?.manual_instance_number || "");
   const [redistributionTimeout, setRedistributionTimeout] = useState<number>(settings?.redistribution_timeout_minutes || 30);
+  const [activeBotId, setActiveBotId] = useState<string | null>(settings?.active_bot_id || null);
 
   // Atualizar state quando carregar dados
   useEffect(() => {
@@ -67,6 +75,7 @@ export function InstanceSettingsDialog({
       setDisplayName(settings.display_name_for_team || "");
       setInstanceNumber(settings.manual_instance_number || "");
       setRedistributionTimeout(settings.redistribution_timeout_minutes || 30);
+      setActiveBotId(settings.active_bot_id || null);
     }
   }, [settings]);
 
@@ -81,6 +90,7 @@ export function InstanceSettingsDialog({
           display_name_for_team: displayName.trim() || null,
           manual_instance_number: instanceNumber.trim() || null,
           redistribution_timeout_minutes: distributionMode === 'auto' ? redistributionTimeout : null,
+          active_bot_id: activeBotId || null,
         })
         .eq("id", instanceId);
 
@@ -202,6 +212,40 @@ export function InstanceSettingsDialog({
                   </p>
                 </div>
               )}
+            </div>
+
+            <Separator />
+
+            {/* Robô IA */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                Robô IA Ativo
+              </Label>
+              <Select
+                value={activeBotId || "none"}
+                onValueChange={(value) => setActiveBotId(value === "none" ? null : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um robô" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Nenhum robô ativo</span>
+                  </SelectItem>
+                  {activeBots.map((bot) => (
+                    <SelectItem key={bot.id} value={bot.id}>
+                      <span className="flex items-center gap-2">
+                        <Bot className="h-3.5 w-3.5 text-primary" />
+                        {bot.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Quando ativo, o robô responderá automaticamente novas conversas nesta instância
+              </p>
             </div>
 
             <Separator />

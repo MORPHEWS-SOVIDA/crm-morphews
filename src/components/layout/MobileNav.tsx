@@ -20,7 +20,8 @@ import {
   Instagram,
   Shield,
   ClipboardList,
-  TicketCheck
+  TicketCheck,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -86,6 +87,7 @@ export function MobileNav() {
   const menuNavItems = [
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive },
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam },
+    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeSettings },
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
     { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts },
     { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale },
