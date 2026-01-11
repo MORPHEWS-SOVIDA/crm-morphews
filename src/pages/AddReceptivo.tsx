@@ -290,7 +290,7 @@ export default function AddReceptivo() {
   }, [existingAnswers, currentProductId]);
 
   // Load existing dynamic answers when product changes - merge standard and product-specific answers
-  // IMPORTANT: only initialize once per (phone + product). Otherwise, background refetches can keep
+  // IMPORTANT: only initialize once per (leadId + product). Otherwise, background refetches can keep
   // overwriting user input and make the UI look "unclickable".
   useEffect(() => {
     if (!currentProductId) {
@@ -299,11 +299,14 @@ export default function AddReceptivo() {
       return;
     }
 
-    const initKey = `${leadData.whatsapp}:${currentProductId}`;
+    // Use leadId in key so that when user assumes a lead, we reload answers
+    const initKey = `${leadData.id || leadData.whatsapp}:${currentProductId}`;
 
     // Wait for queries to finish before initializing; otherwise we may lock-in empty state
     // and never pre-fill existing answers.
-    if (loadingDynamicAnswers || loadingProductQuestions || (leadData.id ? loadingStandardAnswers : false)) {
+    // Only wait for standard answers if we have a leadId (existing lead)
+    const waitingForQueries = loadingDynamicAnswers || loadingProductQuestions || (leadData.id ? loadingStandardAnswers : false);
+    if (waitingForQueries) {
       return;
     }
 
@@ -343,8 +346,8 @@ export default function AddReceptivo() {
     setDynamicAnswers(answersMap);
     dynamicAnswersInitKeyRef.current = initKey;
   }, [
-    leadData.whatsapp,
     leadData.id,
+    leadData.whatsapp,
     currentProductId,
     existingDynamicAnswers,
     existingStandardAnswers,
@@ -660,6 +663,10 @@ export default function AddReceptivo() {
 
   // Handler when user assumes the lead from the transfer dialog
   const handleTransferComplete = async (leadId: string) => {
+    // Reset dynamic answers init key to force reload of answers for the new lead
+    dynamicAnswersInitKeyRef.current = '';
+    setDynamicAnswers({});
+    
     // After transfer, fetch the lead data and continue
     try {
       const { data: leadFromDb, error } = await supabase
