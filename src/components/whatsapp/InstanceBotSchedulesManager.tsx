@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Calendar, Clock, Plus, Trash2, ChevronUp, ChevronDown, Power } from "lucide-react";
+import { Bot, Calendar, Clock, Plus, Trash2, ChevronUp, ChevronDown, Power, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,15 @@ const DAYS_OF_WEEK = [
 
 interface InstanceBotSchedulesManagerProps {
   instanceId: string;
+  distributionMode?: "bot" | "manual" | "auto";
+  onRequestBotMode?: () => void;
 }
 
-export function InstanceBotSchedulesManager({ instanceId }: InstanceBotSchedulesManagerProps) {
+export function InstanceBotSchedulesManager({ 
+  instanceId, 
+  distributionMode,
+  onRequestBotMode 
+}: InstanceBotSchedulesManagerProps) {
   const { data: schedules = [], isLoading } = useInstanceBotSchedules(instanceId);
   const { data: bots = [] } = useAIBots();
   const addSchedule = useAddInstanceBotSchedule();
@@ -43,6 +49,10 @@ export function InstanceBotSchedulesManager({ instanceId }: InstanceBotSchedules
   const activeBots = bots.filter((b) => b.is_active);
   const usedBotIds = schedules.map((s) => s.bot_id);
   const availableBots = activeBots.filter((b) => !usedBotIds.includes(b.id));
+  
+  // Detectar inconsistência: tem bots agendados mas modo não é 'bot'
+  const hasScheduledBots = schedules.length > 0;
+  const isInconsistent = hasScheduledBots && distributionMode && distributionMode !== "bot";
 
   const handleAddSchedule = () => {
     if (!selectedBotId) return;
@@ -119,6 +129,33 @@ export function InstanceBotSchedulesManager({ instanceId }: InstanceBotSchedules
       <p className="text-xs text-muted-foreground">
         Configure múltiplos robôs para diferentes horários. O robô com maior prioridade que estiver no horário será usado.
       </p>
+
+      {/* Aviso de inconsistência: tem bots mas modo não é 'bot' */}
+      {isInconsistent && (
+        <div className="flex items-center gap-3 bg-amber-100 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 p-3 rounded-lg">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              ⚠️ Robô configurado mas modo de distribuição está errado
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+              Você tem robôs agendados, mas o modo de distribuição está como "{distributionMode === 'manual' ? 'Todas em PENDENTES' : 'Distribuição Automática'}". 
+              O robô NÃO vai responder até você ativar o modo "Robô de IA".
+            </p>
+          </div>
+          {onRequestBotMode && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={onRequestBotMode}
+              className="bg-purple-600 hover:bg-purple-700 flex-shrink-0"
+            >
+              <Bot className="h-4 w-4 mr-1" />
+              Ativar Robô
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Lista de agendamentos */}
       <div className="space-y-3">

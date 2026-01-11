@@ -361,7 +361,14 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
             {/* Robôs IA com Agendamento */}
             <div className="bg-purple-50/50 dark:bg-purple-950/30 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-800">
-              <InstanceBotSchedulesManager instanceId={instanceId} />
+              <InstanceBotSchedulesManager 
+                instanceId={instanceId} 
+                distributionMode={distributionMode}
+                onRequestBotMode={() => {
+                  setDistributionMode("bot");
+                  updateDistributionModeMutation.mutate("bot");
+                }}
+              />
             </div>
 
             {/* Adicionar usuário */}
