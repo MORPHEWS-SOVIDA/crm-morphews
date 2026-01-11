@@ -273,20 +273,24 @@ export function ConversationItem({
         </div>
         
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {conversation.lead_id ? (
-              <span className="text-xs text-green-600 flex items-center gap-1 truncate">
-                <UserCheck className="h-3 w-3 flex-shrink-0" />
-                Lead vinculado
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground truncate">
-                {conversation.phone_number}
-              </span>
-            )}
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            {/* Número do contato */}
+            <div className="flex items-center gap-2">
+              {conversation.lead_id ? (
+                <span className="text-xs text-green-600 flex items-center gap-1 truncate">
+                  <UserCheck className="h-3 w-3 flex-shrink-0" />
+                  Lead vinculado
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground truncate">
+                  {conversation.phone_number}
+                </span>
+              )}
+            </div>
+            {/* Instância - "Falando com:" */}
             {instanceLabel && (
-              <span className="text-[10px] text-muted-foreground/60 truncate max-w-[60px]">
-                {instanceLabel}
+              <span className="text-[10px] text-muted-foreground truncate">
+                Falando com: <span className="font-medium text-foreground/70">{instanceLabel}</span>
               </span>
             )}
           </div>
