@@ -866,7 +866,12 @@ serve(async (req) => {
             botIdToUse && 
             !isGroup && // Não processar grupos com robô por enquanto
             supportedBotTypes.includes(msgData.type) && // Texto, áudio e imagem
-            (conversation.status === 'with_bot' || conversation.status === 'pending' || !conversation.status);
+            (
+              conversation.status === 'with_bot' ||
+              conversation.status === 'pending' ||
+              conversation.status === 'autodistributed' ||
+              !conversation.status
+            );
 
           if (shouldProcessWithBot) {
             console.log("🤖 Processing message with AI bot:", botIdToUse, "type:", msgData.type, "isWithinSchedule:", isWithinSchedule);
