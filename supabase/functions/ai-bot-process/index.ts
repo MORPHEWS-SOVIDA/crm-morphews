@@ -19,6 +19,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // INTERFACES
 // ============================================================================
 
+interface InitialQuestion {
+  questionId: string;
+  questionText: string;
+  questionType: string;
+  position: number;
+}
+
 interface AIBot {
   id: string;
   organization_id: string;
@@ -35,6 +42,8 @@ interface AIBot {
   working_days: number[] | null;
   max_energy_per_message: number | null;
   max_energy_per_conversation: number | null;
+  initial_qualification_enabled: boolean | null;
+  initial_questions: InitialQuestion[] | null;
 }
 
 interface ConversationContext {
@@ -46,11 +55,14 @@ interface ConversationContext {
   chatId: string;
   botMessagesCount: number;
   botEnergyConsumed: number;
+  leadId: string | null;
+  qualificationStep: number;
+  qualificationCompleted: boolean;
 }
 
 interface ProcessResult {
   success: boolean;
-  action: 'responded' | 'transferred' | 'no_energy' | 'out_of_hours' | 'error';
+  action: 'responded' | 'transferred' | 'no_energy' | 'out_of_hours' | 'error' | 'qualification';
   message?: string;
   energyUsed?: number;
 }
@@ -640,7 +652,7 @@ serve(async (req) => {
     // Buscar dados da conversa
     const { data: conversation } = await supabase
       .from('whatsapp_conversations')
-      .select('bot_messages_count, bot_energy_consumed')
+      .select('bot_messages_count, bot_energy_consumed, lead_id, bot_qualification_step, bot_qualification_completed')
       .eq('id', conversationId)
       .single();
 
@@ -653,6 +665,9 @@ serve(async (req) => {
       chatId,
       botMessagesCount: conversation?.bot_messages_count || 0,
       botEnergyConsumed: conversation?.bot_energy_consumed || 0,
+      leadId: conversation?.lead_id || null,
+      qualificationStep: conversation?.bot_qualification_step || 0,
+      qualificationCompleted: conversation?.bot_qualification_completed || false,
     };
 
     // Se é primeira mensagem e tem welcome message, enviar primeiro

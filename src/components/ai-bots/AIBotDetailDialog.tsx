@@ -9,11 +9,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, Clock, MessageSquare, Plus, Trash2, Save, Sparkles } from "lucide-react";
+import { Bot, Settings, Brain, Package, Clock, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts, useToggleAIBotProduct } from "@/hooks/useAIBots";
 import { useProducts } from "@/hooks/useProducts";
 import { AvatarGenerator } from "./AvatarGenerator";
+import { BotQualificationConfig } from "./BotQualificationConfig";
 
+interface InitialQuestion {
+  questionId: string;
+  questionText: string;
+  questionType: string;
+  position: number;
+}
 interface AIBotDetailDialogProps {
   botId: string | null;
   open: boolean;
@@ -39,6 +46,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [workingHoursEnd, setWorkingHoursEnd] = useState<string | undefined>();
   const [maxMessages, setMaxMessages] = useState<number | undefined>();
   
+  // Qualification state
+  const [qualificationEnabled, setQualificationEnabled] = useState<boolean>(false);
+  const [initialQuestions, setInitialQuestions] = useState<InitialQuestion[]>([]);
+  
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
@@ -53,6 +64,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setWorkingHoursStart(bot.working_hours_start?.slice(0, 5) || '08:00');
       setWorkingHoursEnd(bot.working_hours_end?.slice(0, 5) || '18:00');
       setMaxMessages(bot.max_messages_before_transfer || 10);
+      setQualificationEnabled(bot.initial_qualification_enabled || false);
+      setInitialQuestions((bot.initial_questions as InitialQuestion[]) || []);
     }
   };
   
@@ -76,6 +89,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       working_hours_start: workingHoursStart,
       working_hours_end: workingHoursEnd,
       max_messages_before_transfer: maxMessages,
+      initial_qualification_enabled: qualificationEnabled,
+      initial_questions: initialQuestions,
     });
   };
   
@@ -124,7 +139,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           </div>
         ) : bot ? (
           <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="general" className="gap-1">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Geral</span>
@@ -132,6 +147,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
               <TabsTrigger value="messages" className="gap-1">
                 <MessageSquare className="h-4 w-4" />
                 <span className="hidden sm:inline">Mensagens</span>
+              </TabsTrigger>
+              <TabsTrigger value="qualification" className="gap-1">
+                <ClipboardList className="h-4 w-4" />
+                <span className="hidden sm:inline">Qualificação</span>
               </TabsTrigger>
               <TabsTrigger value="knowledge" className="gap-1">
                 <Brain className="h-4 w-4" />
@@ -287,6 +306,17 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+            
+            {/* Tab: Qualificação */}
+            <TabsContent value="qualification" className="space-y-4 mt-4">
+              <BotQualificationConfig
+                botId={botId!}
+                enabled={qualificationEnabled}
+                initialQuestions={initialQuestions}
+                onEnabledChange={setQualificationEnabled}
+                onQuestionsChange={setInitialQuestions}
+              />
             </TabsContent>
             
             {/* Tab: Conhecimento */}
