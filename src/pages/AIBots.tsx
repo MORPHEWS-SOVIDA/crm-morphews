@@ -8,6 +8,7 @@ import { useAIBots, useOrganizationEnergy, useDeleteAIBot } from "@/hooks/useAIB
 import { AIBotWizard } from "@/components/ai-bots/AIBotWizard";
 import { AIBotDetailDialog } from "@/components/ai-bots/AIBotDetailDialog";
 import { EnergyDashboard } from "@/components/ai-bots/EnergyDashboard";
+import { EnergyUsageChart } from "@/components/ai-bots/EnergyUsageChart";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -55,8 +56,15 @@ export default function AIBots() {
           </Button>
         </div>
 
-        {/* Energy Dashboard */}
-        {energy && <EnergyDashboard energy={energy} />}
+        {/* Energy Dashboard & Chart */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="lg:col-span-1">
+            {energy && <EnergyDashboard energy={energy} />}
+          </div>
+          <div className="lg:col-span-1">
+            <EnergyUsageChart />
+          </div>
+        </div>
 
         {/* Bots Grid */}
         {isLoading ? (

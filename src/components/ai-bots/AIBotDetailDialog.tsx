@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, Clock, MessageSquare, Plus, Trash2, Save } from "lucide-react";
+import { Bot, Settings, Brain, Package, Clock, MessageSquare, Plus, Trash2, Save, Sparkles } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts, useToggleAIBotProduct } from "@/hooks/useAIBots";
 import { useProducts } from "@/hooks/useProducts";
+import { AvatarGenerator } from "./AvatarGenerator";
 
 interface AIBotDetailDialogProps {
   botId: string | null;
@@ -144,6 +145,32 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
             
             {/* Tab: Geral */}
             <TabsContent value="general" className="space-y-4 mt-4">
+              {/* Avatar Generator */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    Avatar do Robô
+                  </CardTitle>
+                  <CardDescription>
+                    Gere um avatar com IA baseado na personalidade do robô
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <AvatarGenerator
+                    botId={bot.id}
+                    currentAvatarUrl={bot.avatar_url}
+                    name={bot.name}
+                    gender={bot.gender}
+                    ageRange={bot.age_range}
+                    serviceType={bot.service_type}
+                    brazilianState={bot.brazilian_state || undefined}
+                    personalityDescription={bot.personality_description || undefined}
+                    size="lg"
+                  />
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Status do Robô</CardTitle>
