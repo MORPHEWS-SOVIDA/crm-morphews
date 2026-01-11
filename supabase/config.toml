@@ -1,5 +1,8 @@
 project_id = "rriizlxqfpfpdflgxjtj"
 
+[functions.generate-bot-avatar]
+verify_jwt = false
+
 [functions.create-org-user]
 verify_jwt = false
 
