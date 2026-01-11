@@ -23,6 +23,7 @@ import {
   TicketCheck,
   Send,
   Scale,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -128,6 +129,9 @@ export function Sidebar() {
     
     // Team (permission controlled)
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam },
+    
+    // AI Bots (admin only)
+    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeSettings },
     
     // 2FA for managers
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
