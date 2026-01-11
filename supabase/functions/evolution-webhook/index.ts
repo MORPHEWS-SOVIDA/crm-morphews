@@ -674,30 +674,43 @@ serve(async (req) => {
         };
         
         // REABERTURA: Se conversa está fechada, reabrir para distribuição
-        const wasClosedOrPending = conversation.status === 'closed' || !conversation.status;
-        if (wasClosedOrPending) {
-          console.log("📬 Conversation was closed/pending, reopening for distribution...");
+        const wasClosed = conversation.status === 'closed';
+        if (wasClosed) {
+          console.log("📬 Conversation was closed, reopening...");
           
-          // Verificar modo de distribuição da instância
-          const { data: instConfig } = await supabase
-            .from("whatsapp_instances")
-            .select("distribution_mode")
-            .eq("id", instance.id)
-            .single();
-          
-          if (instConfig?.distribution_mode === 'auto') {
-            // Auto-distribuição: chamar função para atribuir ao próximo usuário
-            const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
-              p_conversation_id: conversation.id,
-              p_instance_id: instance.id
-            });
-            console.log("Auto-reopen result:", assignResult);
-          } else {
-            // Distribuição manual: volta para pendente
-            updateData.status = 'pending';
+          // PRIORIDADE 1: Se instância tem robô ativo, vai para robô
+          if (instance.active_bot_id && !isGroup) {
+            console.log("🤖 Instance has active bot, setting status to with_bot");
+            updateData.status = 'with_bot';
             updateData.assigned_user_id = null;
             updateData.assigned_at = null;
+            updateData.designated_user_id = null;
+            updateData.designated_at = null;
             updateData.closed_at = null;
+          } else {
+            // PRIORIDADE 2: Verificar modo de distribuição da instância
+            const { data: instConfig } = await supabase
+              .from("whatsapp_instances")
+              .select("distribution_mode")
+              .eq("id", instance.id)
+              .single();
+            
+            if (instConfig?.distribution_mode === 'auto') {
+              // Auto-distribuição: chamar função para atribuir ao próximo usuário
+              const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
+                p_conversation_id: conversation.id,
+                p_instance_id: instance.id
+              });
+              console.log("Auto-reopen result:", assignResult);
+            } else {
+              // Distribuição manual: volta para pendente
+              updateData.status = 'pending';
+              updateData.assigned_user_id = null;
+              updateData.assigned_at = null;
+              updateData.designated_user_id = null;
+              updateData.designated_at = null;
+              updateData.closed_at = null;
+            }
           }
         }
         
@@ -719,7 +732,7 @@ serve(async (req) => {
           .update(updateData)
           .eq("id", conversation.id);
 
-        console.log("Updated conversation:", conversation.id, "from instance:", instance.id, wasClosedOrPending ? "(reopened)" : "");
+        console.log("Updated conversation:", conversation.id, "from instance:", instance.id, wasClosed ? "(reopened)" : "");
       }
 
       // =====================
