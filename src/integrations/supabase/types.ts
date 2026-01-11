@@ -1709,6 +1709,7 @@ export type Database = {
           organization_id: string
           question_id: string
           selected_option_ids: string[] | null
+          text_value: string | null
           updated_at: string
         }
         Insert: {
@@ -1725,6 +1726,7 @@ export type Database = {
           organization_id: string
           question_id: string
           selected_option_ids?: string[] | null
+          text_value?: string | null
           updated_at?: string
         }
         Update: {
@@ -1741,6 +1743,7 @@ export type Database = {
           organization_id?: string
           question_id?: string
           selected_option_ids?: string[] | null
+          text_value?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5093,6 +5096,8 @@ export type Database = {
           assigned_user_id: string | null
           bot_energy_consumed: number | null
           bot_messages_count: number | null
+          bot_qualification_completed: boolean | null
+          bot_qualification_step: number | null
           bot_started_at: string | null
           chat_id: string | null
           closed_at: string | null
@@ -5123,6 +5128,8 @@ export type Database = {
           assigned_user_id?: string | null
           bot_energy_consumed?: number | null
           bot_messages_count?: number | null
+          bot_qualification_completed?: boolean | null
+          bot_qualification_step?: number | null
           bot_started_at?: string | null
           chat_id?: string | null
           closed_at?: string | null
@@ -5153,6 +5160,8 @@ export type Database = {
           assigned_user_id?: string | null
           bot_energy_consumed?: number | null
           bot_messages_count?: number | null
+          bot_qualification_completed?: boolean | null
+          bot_qualification_step?: number | null
           bot_started_at?: string | null
           chat_id?: string | null
           closed_at?: string | null
