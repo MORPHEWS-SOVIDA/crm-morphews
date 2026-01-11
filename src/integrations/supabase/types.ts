@@ -14,6 +14,216 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_bot_knowledge: {
+        Row: {
+          answer: string | null
+          bot_id: string
+          content_url: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          knowledge_type: string
+          organization_id: string
+          priority: number | null
+          question: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          answer?: string | null
+          bot_id: string
+          content_url?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          knowledge_type: string
+          organization_id: string
+          priority?: number | null
+          question?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answer?: string | null
+          bot_id?: string
+          content_url?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          knowledge_type?: string
+          organization_id?: string
+          priority?: number | null
+          question?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bot_knowledge_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bot_knowledge_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_bot_products: {
+        Row: {
+          bot_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          product_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          product_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bot_products_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bot_products_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bot_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_bots: {
+        Row: {
+          age_range: string
+          avatar_url: string | null
+          brazilian_state: string | null
+          company_differential: string | null
+          created_at: string
+          gender: string
+          id: string
+          initial_qualification_enabled: boolean | null
+          initial_questions: Json | null
+          is_active: boolean
+          max_energy_per_conversation: number | null
+          max_energy_per_message: number | null
+          max_messages_before_transfer: number | null
+          name: string
+          organization_id: string
+          out_of_hours_message: string | null
+          personality_description: string | null
+          regional_expressions: string[] | null
+          response_length: string
+          service_type: string
+          system_prompt: string
+          transfer_keywords: string[] | null
+          transfer_message: string | null
+          transfer_on_confusion: boolean | null
+          updated_at: string
+          welcome_message: string | null
+          working_days: number[] | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          age_range?: string
+          avatar_url?: string | null
+          brazilian_state?: string | null
+          company_differential?: string | null
+          created_at?: string
+          gender?: string
+          id?: string
+          initial_qualification_enabled?: boolean | null
+          initial_questions?: Json | null
+          is_active?: boolean
+          max_energy_per_conversation?: number | null
+          max_energy_per_message?: number | null
+          max_messages_before_transfer?: number | null
+          name: string
+          organization_id: string
+          out_of_hours_message?: string | null
+          personality_description?: string | null
+          regional_expressions?: string[] | null
+          response_length?: string
+          service_type?: string
+          system_prompt?: string
+          transfer_keywords?: string[] | null
+          transfer_message?: string | null
+          transfer_on_confusion?: boolean | null
+          updated_at?: string
+          welcome_message?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          age_range?: string
+          avatar_url?: string | null
+          brazilian_state?: string | null
+          company_differential?: string | null
+          created_at?: string
+          gender?: string
+          id?: string
+          initial_qualification_enabled?: boolean | null
+          initial_questions?: Json | null
+          is_active?: boolean
+          max_energy_per_conversation?: number | null
+          max_energy_per_message?: number | null
+          max_messages_before_transfer?: number | null
+          name?: string
+          organization_id?: string
+          out_of_hours_message?: string | null
+          personality_description?: string | null
+          regional_expressions?: string[] | null
+          response_length?: string
+          service_type?: string
+          system_prompt?: string
+          transfer_keywords?: string[] | null
+          transfer_message?: string | null
+          transfer_on_confusion?: boolean | null
+          updated_at?: string
+          welcome_message?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_identities: {
         Row: {
           contact_id: string
@@ -396,6 +606,57 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: []
+      }
+      energy_usage_log: {
+        Row: {
+          action_type: string
+          bot_id: string | null
+          conversation_id: string | null
+          created_at: string
+          details: Json | null
+          energy_consumed: number
+          id: string
+          organization_id: string
+          tokens_used: number | null
+        }
+        Insert: {
+          action_type: string
+          bot_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          details?: Json | null
+          energy_consumed: number
+          id?: string
+          organization_id: string
+          tokens_used?: number | null
+        }
+        Update: {
+          action_type?: string
+          bot_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          details?: Json | null
+          energy_consumed?: number
+          id?: string
+          organization_id?: string
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energy_usage_log_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "energy_usage_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       error_logs: {
         Row: {
@@ -1868,6 +2129,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "onboarding_data_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_energy: {
+        Row: {
+          bonus_energy: number
+          created_at: string
+          id: string
+          included_energy: number
+          organization_id: string
+          reset_at: string
+          updated_at: string
+          used_energy: number
+        }
+        Insert: {
+          bonus_energy?: number
+          created_at?: string
+          id?: string
+          included_energy?: number
+          organization_id: string
+          reset_at?: string
+          updated_at?: string
+          used_energy?: number
+        }
+        Update: {
+          bonus_energy?: number
+          created_at?: string
+          id?: string
+          included_energy?: number
+          organization_id?: string
+          reset_at?: string
+          updated_at?: string
+          used_energy?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_energy_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
@@ -4789,6 +5091,9 @@ export type Database = {
         Row: {
           assigned_at: string | null
           assigned_user_id: string | null
+          bot_energy_consumed: number | null
+          bot_messages_count: number | null
+          bot_started_at: string | null
           chat_id: string | null
           closed_at: string | null
           contact_id: string | null
@@ -4799,6 +5104,7 @@ export type Database = {
           customer_phone_e164: string | null
           display_name: string | null
           group_subject: string | null
+          handling_bot_id: string | null
           id: string
           instance_id: string
           is_group: boolean
@@ -4815,6 +5121,9 @@ export type Database = {
         Insert: {
           assigned_at?: string | null
           assigned_user_id?: string | null
+          bot_energy_consumed?: number | null
+          bot_messages_count?: number | null
+          bot_started_at?: string | null
           chat_id?: string | null
           closed_at?: string | null
           contact_id?: string | null
@@ -4825,6 +5134,7 @@ export type Database = {
           customer_phone_e164?: string | null
           display_name?: string | null
           group_subject?: string | null
+          handling_bot_id?: string | null
           id?: string
           instance_id: string
           is_group?: boolean
@@ -4841,6 +5151,9 @@ export type Database = {
         Update: {
           assigned_at?: string | null
           assigned_user_id?: string | null
+          bot_energy_consumed?: number | null
+          bot_messages_count?: number | null
+          bot_started_at?: string | null
           chat_id?: string | null
           closed_at?: string | null
           contact_id?: string | null
@@ -4851,6 +5164,7 @@ export type Database = {
           customer_phone_e164?: string | null
           display_name?: string | null
           group_subject?: string | null
+          handling_bot_id?: string | null
           id?: string
           instance_id?: string
           is_group?: boolean
@@ -4887,6 +5201,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "whatsapp_conversations_handling_bot_id_fkey"
+            columns: ["handling_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_conversations_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: false
@@ -4909,6 +5230,68 @@ export type Database = {
           },
           {
             foreignKeyName: "whatsapp_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_instance_bots: {
+        Row: {
+          bot_id: string
+          created_at: string
+          id: string
+          instance_id: string
+          is_active: boolean
+          organization_id: string
+          priority: number | null
+          updated_at: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          id?: string
+          instance_id: string
+          is_active?: boolean
+          organization_id: string
+          priority?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string
+          is_active?: boolean
+          organization_id?: string
+          priority?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instance_bots_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instance_bots_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instance_bots_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instance_bots_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -4975,6 +5358,7 @@ export type Database = {
       }
       whatsapp_instances: {
         Row: {
+          active_bot_id: string | null
           applied_coupon_id: string | null
           auto_close_hours: number | null
           created_at: string
@@ -5007,6 +5391,7 @@ export type Database = {
           z_api_token: string | null
         }
         Insert: {
+          active_bot_id?: string | null
           applied_coupon_id?: string | null
           auto_close_hours?: number | null
           created_at?: string
@@ -5039,6 +5424,7 @@ export type Database = {
           z_api_token?: string | null
         }
         Update: {
+          active_bot_id?: string | null
           applied_coupon_id?: string | null
           auto_close_hours?: number | null
           created_at?: string
@@ -5071,6 +5457,13 @@ export type Database = {
           z_api_token?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_active_bot_id_fkey"
+            columns: ["active_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_instances_applied_coupon_id_fkey"
             columns: ["applied_coupon_id"]
@@ -5773,6 +6166,18 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: Json
       }
+      consume_energy: {
+        Args: {
+          p_action_type: string
+          p_bot_id: string
+          p_conversation_id: string
+          p_details?: Json
+          p_energy_amount: number
+          p_organization_id: string
+          p_tokens_used?: number
+        }
+        Returns: Json
+      }
       current_tenant_id: { Args: never; Returns: string }
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
@@ -5792,6 +6197,23 @@ export type Database = {
           owner_name: string
           owner_user_id: string
         }[]
+      }
+      generate_bot_system_prompt: {
+        Args: {
+          p_age_range: string
+          p_company_differential: string
+          p_gender: string
+          p_personality_description: string
+          p_regional_expressions: string[]
+          p_response_length: string
+          p_service_type: string
+          p_state: string
+        }
+        Returns: string
+      }
+      get_available_energy: {
+        Args: { p_organization_id: string }
+        Returns: Json
       }
       get_default_permissions_for_role: {
         Args: { _role: string }
@@ -5935,6 +6357,18 @@ export type Database = {
       seed_standard_questions_for_org: {
         Args: { _org_id: string }
         Returns: undefined
+      }
+      start_bot_handling: {
+        Args: { p_bot_id: string; p_conversation_id: string }
+        Returns: Json
+      }
+      transfer_from_bot_to_human: {
+        Args: {
+          p_conversation_id: string
+          p_reason?: string
+          p_user_id?: string
+        }
+        Returns: Json
       }
       transfer_whatsapp_conversation: {
         Args: {

@@ -48,6 +48,7 @@ import ExpeditionReport from "./pages/ExpeditionReport";
 import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
+import AIBots from "./pages/AIBots";
 
 const queryClient = new QueryClient();
 
@@ -360,6 +361,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['sales_view']}>
                     <ExpeditionReport />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* AI Bots - require settings_view (admin) */}
+              <Route
+                path="/robos-ia"
+                element={
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <AIBots />
                   </ProtectedRoute>
                 }
               />
