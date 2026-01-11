@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2 } from "lucide-react";
+import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -54,7 +54,7 @@ interface InstanceUser {
 export function InstancePermissions({ instanceId, instanceName, open, onOpenChange }: InstancePermissionsProps) {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
-  const [distributionMode, setDistributionMode] = useState<"manual" | "auto">("manual");
+  const [distributionMode, setDistributionMode] = useState<"bot" | "manual" | "auto">("manual");
   const [timeoutMinutes, setTimeoutMinutes] = useState<number>(5);
 
   // Fetch organization members
@@ -124,7 +124,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   // Update local state when settings load
   useEffect(() => {
     if (instanceSettings?.distribution_mode) {
-      setDistributionMode(instanceSettings.distribution_mode as "manual" | "auto");
+      setDistributionMode(instanceSettings.distribution_mode as "bot" | "manual" | "auto");
     }
     if (instanceSettings?.redistribution_timeout_minutes !== undefined && instanceSettings?.redistribution_timeout_minutes !== null) {
       setTimeoutMinutes(instanceSettings.redistribution_timeout_minutes);
@@ -187,7 +187,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   // Update instance distribution mode
   const updateDistributionModeMutation = useMutation({
-    mutationFn: async (mode: "manual" | "auto") => {
+    mutationFn: async (mode: "bot" | "manual" | "auto") => {
       const { error } = await supabase
         .from("whatsapp_instances")
         .update({ distribution_mode: mode })
@@ -259,7 +259,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               </Label>
               <Select
                 value={distributionMode}
-                onValueChange={(value: "manual" | "auto") => {
+                onValueChange={(value: "bot" | "manual" | "auto") => {
                   setDistributionMode(value);
                   updateDistributionModeMutation.mutate(value);
                 }}
@@ -268,25 +268,55 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="manual">
-                    <div className="flex flex-col items-start">
-                      <span className="font-semibold">Todas as conversas em PENDENTES</span>
-                      <span className="text-xs text-muted-foreground">Usuários escolhem qual conversa assumir</span>
+                  <SelectItem value="bot">
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-purple-600" />
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Robô de IA</span>
+                        <span className="text-xs text-muted-foreground">O robô atende primeiro e qualifica os leads</span>
+                      </div>
                     </div>
                   </SelectItem>
                   <SelectItem value="auto">
-                    <div className="flex flex-col items-start">
-                      <span className="font-semibold">Distribuição Automática</span>
-                      <span className="text-xs text-muted-foreground">Conversas entram como "Pra você" via rodízio</span>
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 text-blue-600" />
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Distribuição Automática</span>
+                        <span className="text-xs text-muted-foreground">Conversas entram como "Pra você" via rodízio</span>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="manual">
+                    <div className="flex items-center gap-2">
+                      <Hand className="h-4 w-4 text-amber-600" />
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Todas as conversas em PENDENTES</span>
+                        <span className="text-xs text-muted-foreground">Usuários escolhem qual conversa assumir</span>
+                      </div>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-2">
-                {distributionMode === "manual" 
-                  ? "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."
-                  : "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."}
+                {distributionMode === "bot" 
+                  ? "🤖 Novas conversas vão para o ROBÔ DE IA. Ele atende, qualifica e transfere para um humano quando necessário."
+                  : distributionMode === "auto"
+                    ? "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."
+                    : "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."}
               </p>
+
+              {/* Aviso sobre robô */}
+              {distributionMode === "bot" && (
+                <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-800 space-y-2">
+                  <div className="flex items-center gap-3 bg-purple-100/50 dark:bg-purple-950/50 p-3 rounded-md">
+                    <Bot className="h-4 w-4 text-purple-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Configure os robôs abaixo</p>
+                      <p className="text-xs text-purple-700 dark:text-purple-300">Adicione robôs de IA com horários de funcionamento na seção "Robôs IA com Agendamento"</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Configurações adicionais para modo auto */}
               {distributionMode === "auto" && (
