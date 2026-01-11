@@ -5181,6 +5181,8 @@ export type Database = {
           created_at: string
           current_instance_id: string | null
           customer_phone_e164: string | null
+          designated_at: string | null
+          designated_user_id: string | null
           display_name: string | null
           group_subject: string | null
           handling_bot_id: string | null
@@ -5213,6 +5215,8 @@ export type Database = {
           created_at?: string
           current_instance_id?: string | null
           customer_phone_e164?: string | null
+          designated_at?: string | null
+          designated_user_id?: string | null
           display_name?: string | null
           group_subject?: string | null
           handling_bot_id?: string | null
@@ -5245,6 +5249,8 @@ export type Database = {
           created_at?: string
           current_instance_id?: string | null
           customer_phone_e164?: string | null
+          designated_at?: string | null
+          designated_user_id?: string | null
           display_name?: string | null
           group_subject?: string | null
           handling_bot_id?: string | null
