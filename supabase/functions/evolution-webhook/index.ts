@@ -581,16 +581,33 @@ serve(async (req) => {
 
       const organizationId = instance.organization_id;
 
-      // Buscar robô ativo baseado no horário/dia atual usando a tabela de agendamentos
+      // Buscar robô para esta instância:
+      // 1. Primeiro, verificar se há ALGUM bot configurado (independente do horário)
+      // 2. Depois, verificar se há bot ativo para o horário ATUAL
+      let anyBotId: string | null = null;
       let activeBotId: string | null = null;
+      
+      // Qualquer bot configurado na instância (ignora horário)
+      const { data: anyBotResult } = await supabase.rpc('get_any_bot_for_instance', {
+        p_instance_id: instance.id
+      });
+      if (anyBotResult) {
+        anyBotId = anyBotResult;
+        console.log("🤖 Instance has bot configured:", anyBotId);
+      }
+      
+      // Bot ativo para o horário atual
       const { data: activeBotResult } = await supabase.rpc('get_active_bot_for_instance', {
         p_instance_id: instance.id
       });
       if (activeBotResult) {
         activeBotId = activeBotResult;
         console.log("🤖 Active bot for current time:", activeBotId);
+      } else if (anyBotId) {
+        // Há bot configurado mas não está no horário - ainda assim processar!
+        console.log("🤖 Bot exists but outside schedule - will send out-of-hours message");
       } else {
-        console.log("🤖 No active bot for current time/day");
+        console.log("🤖 No bot configured for this instance");
       }
 
       // Buscar conversa existente - PRIMEIRO por chat_id (mais confiável)
@@ -692,11 +709,12 @@ serve(async (req) => {
         if (wasClosed) {
           console.log("📬 Conversation was closed, reopening...");
           
-          // PRIORIDADE 1: Se instância tem robô ativo para o horário atual, vai para robô
-          if (activeBotId && !isGroup) {
-            console.log("🤖 Instance has active bot for current time, setting status to with_bot");
+          // PRIORIDADE 1: Se instância tem robô configurado (independente do horário), vai para robô
+          // O ai-bot-process vai decidir se responde normalmente ou envia mensagem de fora de horário
+          if (anyBotId && !isGroup) {
+            console.log("🤖 Instance has bot configured, setting status to with_bot");
             updateData.status = 'with_bot';
-            updateData.handling_bot_id = activeBotId;
+            updateData.handling_bot_id = anyBotId;
             updateData.bot_started_at = new Date().toISOString();
             updateData.bot_messages_count = 0;
             updateData.assigned_user_id = null;
@@ -834,17 +852,24 @@ serve(async (req) => {
           });
 
           // =====================
-          // PROCESSAR COM ROBÔ IA (se ativo e conversa com status adequado)
+          // PROCESSAR COM ROBÔ IA
+          // Se há bot configurado na instância, SEMPRE processar (mesmo fora do horário)
+          // O ai-bot-process decide se responde normalmente ou envia mensagem de fora de horário
           // =====================
           const supportedBotTypes = ['text', 'audio', 'image'];
+          
+          // Usar anyBotId (qualquer bot configurado) ao invés de apenas activeBotId (bot no horário)
+          const botIdToUse = anyBotId;
+          const isWithinSchedule = !!activeBotId;
+          
           const shouldProcessWithBot = 
-            activeBotId && 
+            botIdToUse && 
             !isGroup && // Não processar grupos com robô por enquanto
             supportedBotTypes.includes(msgData.type) && // Texto, áudio e imagem
             (conversation.status === 'with_bot' || conversation.status === 'pending' || !conversation.status);
 
           if (shouldProcessWithBot) {
-            console.log("🤖 Processing message with AI bot:", activeBotId, "type:", msgData.type);
+            console.log("🤖 Processing message with AI bot:", botIdToUse, "type:", msgData.type, "isWithinSchedule:", isWithinSchedule);
             
             // Verificar se é primeira mensagem (conversa acabou de ser criada ou reaberta)
             const isFirstMessage = wasClosed || conversation.status === 'pending' || !conversation.status;
@@ -853,13 +878,13 @@ serve(async (req) => {
             if (conversation.status !== 'with_bot') {
               await supabase.rpc('start_bot_handling', {
                 p_conversation_id: conversation.id,
-                p_bot_id: activeBotId
+                p_bot_id: botIdToUse
               });
             }
 
             // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
             const botPayload: any = {
-              botId: activeBotId,
+              botId: botIdToUse,
               conversationId: conversation.id,
               instanceId: instance.id,
               instanceName: instanceName,
@@ -870,6 +895,7 @@ serve(async (req) => {
               chatId: remoteJid,
               isFirstMessage,
               messageType: msgData.type,
+              isWithinSchedule, // Informar ao bot se está dentro do horário agendado
             };
 
             // Se for áudio ou imagem, incluir a URL da mídia salva

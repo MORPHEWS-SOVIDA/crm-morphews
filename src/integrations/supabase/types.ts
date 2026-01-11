@@ -6312,6 +6312,10 @@ export type Database = {
         }
         Returns: string
       }
+      get_any_bot_for_instance: {
+        Args: { p_instance_id: string }
+        Returns: string
+      }
       get_available_energy: {
         Args: { p_organization_id: string }
         Returns: Json
