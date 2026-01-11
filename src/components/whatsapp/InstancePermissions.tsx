@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Plus, Shield, Clock, RefreshCw, Zap, Trash2 } from "lucide-react";
+import { Loader2, Users, Eye, Send, Plus, Shield, Clock, RefreshCw, Zap, Trash2, Bot } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useAIBots } from "@/hooks/useAIBots";
 
 interface InstancePermissionsProps {
   instanceId: string;
@@ -55,6 +56,11 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   const { profile } = useAuth();
   const [distributionMode, setDistributionMode] = useState<"manual" | "auto">("manual");
   const [timeoutMinutes, setTimeoutMinutes] = useState<number>(5);
+  const [activeBotId, setActiveBotId] = useState<string | null>(null);
+
+  // Buscar lista de robôs disponíveis
+  const { data: bots } = useAIBots();
+  const activeBots = bots?.filter(bot => bot.is_active) || [];
 
   // Fetch organization members
   const { data: orgMembers, isLoading: loadingMembers } = useQuery({
@@ -107,12 +113,16 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode, redistribution_timeout_minutes")
+        .select("distribution_mode, redistribution_timeout_minutes, active_bot_id")
         .eq("id", instanceId)
         .single();
 
       if (error) throw error;
-      return data as { distribution_mode: string | null; redistribution_timeout_minutes: number | null };
+      return data as { 
+        distribution_mode: string | null; 
+        redistribution_timeout_minutes: number | null;
+        active_bot_id: string | null;
+      };
     },
     enabled: open,
   });
@@ -125,7 +135,27 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
     if (instanceSettings?.redistribution_timeout_minutes !== undefined && instanceSettings?.redistribution_timeout_minutes !== null) {
       setTimeoutMinutes(instanceSettings.redistribution_timeout_minutes);
     }
+    setActiveBotId(instanceSettings?.active_bot_id || null);
   }, [instanceSettings]);
+
+  // Update active bot mutation
+  const updateActiveBotMutation = useMutation({
+    mutationFn: async (botId: string | null) => {
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({ active_bot_id: botId })
+        .eq("id", instanceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instance-distribution-mode", instanceId] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Robô IA atualizado!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar robô", description: error.message, variant: "destructive" });
+    },
+  });
 
   // Add user to instance
   const addUserMutation = useMutation({
@@ -322,6 +352,49 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                     </div>
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* Robô IA Ativo */}
+            <div className="bg-purple-50/50 dark:bg-purple-950/30 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-800">
+              <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+                <Bot className="h-5 w-5 text-purple-600" />
+                Robô IA Ativo
+              </Label>
+              <Select
+                value={activeBotId || "none"}
+                onValueChange={(value) => {
+                  const newBotId = value === "none" ? null : value;
+                  setActiveBotId(newBotId);
+                  updateActiveBotMutation.mutate(newBotId);
+                }}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Selecione um robô" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Nenhum robô ativo</span>
+                  </SelectItem>
+                  {activeBots.map((bot) => (
+                    <SelectItem key={bot.id} value={bot.id}>
+                      <span className="flex items-center gap-2">
+                        <Bot className="h-3.5 w-3.5 text-purple-600" />
+                        {bot.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                {activeBotId 
+                  ? "🤖 O robô responderá automaticamente novas conversas nesta instância"
+                  : "Selecione um robô para ativar o atendimento automático com IA"}
+              </p>
+              {activeBots.length === 0 && (
+                <p className="text-xs text-amber-600 mt-2">
+                  ⚠️ Nenhum robô ativo encontrado. Crie um robô na página de Robôs IA.
+                </p>
               )}
             </div>
 
