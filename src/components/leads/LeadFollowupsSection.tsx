@@ -77,7 +77,14 @@ const getResultInfo = (resultKey: string | null) => {
 };
 
 export function LeadFollowupsSection({ leadId }: LeadFollowupsSectionProps) {
-  const { data: followups = [], isLoading } = useLeadFollowups(leadId);
+  const {
+    data: followups = [],
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useLeadFollowups(leadId);
   const createFollowup = useCreateFollowup();
   const completeFollowup = useCompleteFollowup();
   
