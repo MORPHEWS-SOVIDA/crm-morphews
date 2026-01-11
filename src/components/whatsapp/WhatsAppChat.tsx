@@ -1138,22 +1138,25 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     )}
                   </div>
                   <div className="flex justify-between items-center">
-                    <div className="text-sm text-muted-foreground truncate flex items-center gap-1">
-                      {conversation.is_group ? (
-                        <span className="text-blue-600 flex items-center gap-1">
-                          Grupo
-                        </span>
-                      ) : conversation.lead_id ? (
-                        <span className="text-green-600 flex items-center gap-1">
-                          <User className="h-3 w-3" /> Lead vinculado
-                        </span>
-                      ) : (
-                        <span>{conversation.phone_number}</span>
-                      )}
-                      {/* Instance label (Nome + Número) */}
+                    <div className="flex flex-col gap-0.5">
+                      {/* Número do contato */}
+                      <div className="text-sm text-muted-foreground truncate flex items-center gap-1">
+                        {conversation.is_group ? (
+                          <span className="text-blue-600 flex items-center gap-1">
+                            Grupo
+                          </span>
+                        ) : conversation.lead_id ? (
+                          <span className="text-green-600 flex items-center gap-1">
+                            <User className="h-3 w-3" /> Lead vinculado
+                          </span>
+                        ) : (
+                          <span>{conversation.phone_number}</span>
+                        )}
+                      </div>
+                      {/* Instância - "Falando com:" */}
                       {getInstanceLabel(conversation.instance_id) && (
-                        <span className="text-xs opacity-60 ml-1 truncate max-w-[120px]">
-                          · {getInstanceLabel(conversation.instance_id)}
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          Falando com: <span className="font-medium text-foreground/70">{getInstanceLabel(conversation.instance_id)}</span>
                         </span>
                       )}
                     </div>
