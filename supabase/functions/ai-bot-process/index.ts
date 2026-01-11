@@ -44,6 +44,28 @@ interface AIBot {
   max_energy_per_conversation: number | null;
   initial_qualification_enabled: boolean | null;
   initial_questions: InitialQuestion[] | null;
+  // Campos de personalidade e identidade
+  gender: string | null;
+  age_range: string | null;
+  brazilian_state: string | null;
+  personality_description: string | null;
+  company_differential: string | null;
+  regional_expressions: string[] | null;
+  response_length: string | null;
+  service_type: string | null;
+}
+
+interface BotProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  sales_script: string | null;
+  price_1_unit: number | null;
+  price_3_units: number | null;
+  price_6_units: number | null;
+  price_12_units: number | null;
+  hot_site_url: string | null;
+  usage_period_days: number | null;
 }
 
 interface ConversationContext {
@@ -223,6 +245,51 @@ async function analyzeImage(mediaUrl: string, userMessage: string, botSystemProm
 }
 
 // ============================================================================
+// BOT PRODUCTS & KNOWLEDGE
+// ============================================================================
+
+async function getBotProducts(botId: string): Promise<BotProduct[]> {
+  const { data, error } = await supabase
+    .from('ai_bot_products')
+    .select(`
+      product_id,
+      lead_products:product_id (
+        id,
+        name,
+        description,
+        sales_script,
+        price_1_unit,
+        price_3_units,
+        price_6_units,
+        price_12_units,
+        hot_site_url,
+        usage_period_days
+      )
+    `)
+    .eq('bot_id', botId);
+
+  if (error || !data) {
+    console.log('📦 No products found for bot');
+    return [];
+  }
+
+  return data.map((item: any) => item.lead_products).filter(Boolean);
+}
+
+async function getBotKnowledge(botId: string): Promise<Array<{question: string, answer: string}>> {
+  const { data, error } = await supabase
+    .from('ai_bot_knowledge')
+    .select('question, answer')
+    .eq('bot_id', botId)
+    .eq('is_active', true)
+    .eq('knowledge_type', 'faq')
+    .order('priority', { ascending: true });
+
+  if (error || !data) return [];
+  return data.filter(k => k.question && k.answer);
+}
+
+// ============================================================================
 // AI PROCESSING
 // ============================================================================
 
@@ -243,57 +310,184 @@ async function getConversationHistory(conversationId: string, limit = 20): Promi
   })).filter(m => m.content);
 }
 
+function buildBotPersonalityPrompt(bot: AIBot): string {
+  const parts: string[] = [];
+  
+  // Identidade do robô
+  if (bot.name) {
+    parts.push(`Você é ${bot.name}.`);
+  }
+  
+  // Gênero e idade
+  if (bot.gender || bot.age_range) {
+    const genderText = bot.gender === 'female' ? 'mulher' : bot.gender === 'male' ? 'homem' : 'pessoa';
+    const ageText = bot.age_range ? ` de ${bot.age_range.replace('_', ' a ').replace('older', 'mais de')} anos` : '';
+    parts.push(`Você é uma ${genderText}${ageText}.`);
+  }
+  
+  // Localização e regionalismos
+  if (bot.brazilian_state) {
+    const stateNames: Record<string, string> = {
+      'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA': 'Bahia',
+      'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo', 'GO': 'Goiás',
+      'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul', 'MG': 'Minas Gerais',
+      'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná', 'PE': 'Pernambuco', 'PI': 'Piauí',
+      'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte', 'RS': 'Rio Grande do Sul',
+      'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina', 'SP': 'São Paulo',
+      'SE': 'Sergipe', 'TO': 'Tocantins'
+    };
+    const stateName = stateNames[bot.brazilian_state] || bot.brazilian_state;
+    parts.push(`Você é de ${stateName} e usa expressões e sotaque típicos da região.`);
+  }
+  
+  // Expressões regionais
+  if (bot.regional_expressions && bot.regional_expressions.length > 0) {
+    parts.push(`Use naturalmente expressões como: ${bot.regional_expressions.join(', ')}.`);
+  }
+  
+  // Personalidade
+  if (bot.personality_description) {
+    parts.push(`Sua personalidade: ${bot.personality_description}`);
+  }
+  
+  // Tipo de atendimento
+  if (bot.service_type) {
+    const serviceTypes: Record<string, string> = {
+      'sales': 'Você é especialista em vendas consultivas. Foque em entender a necessidade e oferecer a melhor solução.',
+      'support': 'Você foca em suporte e atendimento. Resolva dúvidas e problemas com empatia.',
+      'scheduling': 'Você é especialista em agendamentos. Ajude a encontrar o melhor horário.',
+      'general': 'Você oferece atendimento geral, adaptando-se à necessidade do cliente.'
+    };
+    parts.push(serviceTypes[bot.service_type] || '');
+  }
+  
+  // Tamanho da resposta
+  if (bot.response_length) {
+    const lengthGuides: Record<string, string> = {
+      'short': 'Seja BREVE e DIRETO. Respostas curtas de 1-2 frases quando possível.',
+      'medium': 'Use respostas de tamanho médio, equilibradas entre brevidade e completude.',
+      'long': 'Pode usar respostas mais detalhadas quando necessário explicar algo complexo.'
+    };
+    parts.push(lengthGuides[bot.response_length] || '');
+  }
+  
+  // Diferencial da empresa
+  if (bot.company_differential) {
+    parts.push(`DIFERENCIAL DA EMPRESA: ${bot.company_differential}. Mencione isso quando relevante.`);
+  }
+  
+  return parts.join('\n');
+}
+
+function buildProductsContext(products: BotProduct[]): string {
+  if (!products.length) return '';
+  
+  const productInfos = products.map(p => {
+    const prices: string[] = [];
+    if (p.price_1_unit) prices.push(`1un: R$${(p.price_1_unit / 100).toFixed(2)}`);
+    if (p.price_3_units) prices.push(`3un: R$${(p.price_3_units / 100).toFixed(2)}`);
+    if (p.price_6_units) prices.push(`6un: R$${(p.price_6_units / 100).toFixed(2)}`);
+    if (p.price_12_units) prices.push(`12un: R$${(p.price_12_units / 100).toFixed(2)}`);
+    
+    let info = `**${p.name}**`;
+    if (p.description) info += `\n  Descrição: ${p.description}`;
+    if (prices.length) info += `\n  Preços: ${prices.join(' | ')}`;
+    if (p.usage_period_days) info += `\n  Duração: ${p.usage_period_days} dias de uso`;
+    if (p.sales_script) info += `\n  Script de Vendas: ${p.sales_script}`;
+    if (p.hot_site_url) info += `\n  Link: ${p.hot_site_url}`;
+    
+    return info;
+  });
+  
+  return `
+PRODUTOS QUE VOCÊ PODE OFERECER:
+${productInfos.join('\n\n')}
+
+Use essas informações para responder sobre preços, benefícios e características dos produtos.
+Quando falar de preços, sempre mencione que kits maiores têm melhor custo-benefício.`;
+}
+
+function buildFAQContext(faqs: Array<{question: string, answer: string}>): string {
+  if (!faqs.length) return '';
+  
+  const faqText = faqs.map(f => `P: ${f.question}\nR: ${f.answer}`).join('\n\n');
+  
+  return `
+PERGUNTAS FREQUENTES (use para responder dúvidas comuns):
+${faqText}`;
+}
+
 async function generateAIResponse(
   bot: AIBot, 
   userMessage: string, 
   conversationHistory: Array<{role: string, content: string}>,
   contactName: string,
-  messageCount: number = 0
+  messageCount: number = 0,
+  products: BotProduct[] = [],
+  faqs: Array<{question: string, answer: string}> = []
 ): Promise<{ response: string; tokensUsed: number }> {
   
-  // Construir sistema prompt com contexto MUITO mais rico para qualificação
+  // Construir prompt de personalidade
+  const personalityPrompt = buildBotPersonalityPrompt(bot);
+  
+  // Contexto de produtos
+  const productsContext = buildProductsContext(products);
+  
+  // Contexto de FAQs
+  const faqContext = buildFAQContext(faqs);
+  
+  // Diretrizes de qualificação
   const qualificationInstructions = `
-DIRETRIZES DE QUALIFICAÇÃO E ATENDIMENTO:
-1. NUNCA transfira para humano nas primeiras mensagens - primeiro entenda a necessidade do cliente
-2. Faça perguntas abertas para entender melhor o que o cliente precisa
-3. Demonstre interesse genuíno e empatia antes de oferecer soluções
-4. Se o cliente mencionar um problema, ESCUTE e QUALIFIQUE antes de transferir
-5. Colete informações importantes: nome, interesse, dúvidas, urgência
-6. Só sugira transferir para humano se:
-   - O cliente PEDIR explicitamente para falar com uma pessoa
-   - Você já tentou resolver e não conseguiu após 3+ trocas sobre o mesmo assunto
-   - For algo que realmente precisa de decisão humana (negociação de preço, reclamação grave)
+DIRETRIZES DE ATENDIMENTO HUMANIZADO:
+1. Seja NATURAL - você é uma pessoa real, não um robô. Converse como se estivesse no WhatsApp.
+2. NUNCA transfira nas primeiras mensagens - primeiro entenda o que o cliente precisa.
+3. Faça perguntas para entender melhor. Demonstre interesse genuíno.
+4. Se não souber algo específico, diga que vai verificar.
+5. Use emojis com moderação para deixar a conversa mais leve.
+6. Personalize: use o nome do cliente, referências ao que ele disse antes.
 
-ESTILO DE CONVERSA:
-- Seja proativo: faça perguntas, ofereça informações úteis
-- Use linguagem natural e amigável, como um bom vendedor faria
-- Evite respostas genéricas - personalize com base no contexto
-- Se não souber algo específico, diga que vai verificar e pergunte mais detalhes
-- Sempre termine com uma pergunta ou call-to-action claro
+QUANDO TRANSFERIR:
+- Cliente PEDIR explicitamente para falar com pessoa/humano/atendente
+- Após 5+ trocas sobre o mesmo problema sem resolução
+- Negociação de preço muito específica
+- Reclamações graves
 
-EXEMPLOS DE BOAS RESPOSTAS:
-- "Que bom que você entrou em contato! Para te ajudar melhor, me conta: você já conhece nossos produtos ou é a primeira vez?"
-- "Entendi sua dúvida sobre [X]. Antes de te passar mais detalhes, qual seria seu principal objetivo?"
-- "Ótima pergunta! Temos algumas opções que podem te atender. Me fala mais sobre o que você procura?"`;
+EVITE:
+- Respostas genéricas tipo "Como posso ajudar?"
+- Repetir as mesmas frases
+- Ser formal demais - seja amigável!
+- Transferir rápido demais`;
 
-  const systemPrompt = `${bot.system_prompt}
+  // System prompt completo e rico
+  const systemPrompt = `${personalityPrompt}
+
+${bot.system_prompt || 'Você é um assistente de atendimento prestativo e empático.'}
 
 CONTEXTO ATUAL:
-- Nome do cliente: ${contactName}
-- Data/Hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-- Número de mensagens na conversa: ${messageCount}
+- Cliente: ${contactName}
+- Data/Hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+- Mensagens na conversa: ${messageCount}
+
+${productsContext}
+
+${faqContext}
 
 ${qualificationInstructions}
 
-LEMBRE-SE: Você é um assistente INTELIGENTE que busca ajudar e qualificar o cliente. NÃO seja apenas um robô que responde e transfere.`;
+LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Seja natural, empático e útil.`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...conversationHistory.slice(-15), // Últimas 15 mensagens para contexto
+    ...conversationHistory.slice(-15),
     { role: 'user', content: userMessage }
   ];
 
-  console.log('🤖 Calling Lovable AI with', messages.length, 'messages');
+  console.log('🤖 Calling Gemini with enriched context:', {
+    hasProducts: products.length > 0,
+    hasFAQs: faqs.length > 0,
+    personality: !!personalityPrompt,
+    messagesCount: messages.length
+  });
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -304,8 +498,8 @@ LEMBRE-SE: Você é um assistente INTELIGENTE que busca ajudar e qualificar o cl
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages,
-      max_tokens: 600, // Aumentado para respostas mais completas
-      temperature: 0.8, // Aumentado para respostas mais naturais e variadas
+      max_tokens: 600,
+      temperature: 0.85, // Mais natural e variado
     }),
   });
 
@@ -774,12 +968,28 @@ async function processMessage(
   // 4. Buscar histórico da conversa
   const conversationHistory = await getConversationHistory(context.conversationId);
 
-  // 5. Gerar resposta IA
+  // 5. Buscar produtos e conhecimento do bot para contexto enriquecido
+  const [products, faqs] = await Promise.all([
+    getBotProducts(bot.id),
+    getBotKnowledge(bot.id)
+  ]);
+  
+  console.log('📦 Bot context loaded:', { products: products.length, faqs: faqs.length });
+
+  // 6. Gerar resposta IA com contexto completo
   let aiResponse: string;
   let tokensUsed: number;
   
   try {
-    const result = await generateAIResponse(bot, userMessage, conversationHistory, context.contactName, context.botMessagesCount);
+    const result = await generateAIResponse(
+      bot, 
+      userMessage, 
+      conversationHistory, 
+      context.contactName, 
+      context.botMessagesCount,
+      products,
+      faqs
+    );
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;
   } catch (error: any) {
