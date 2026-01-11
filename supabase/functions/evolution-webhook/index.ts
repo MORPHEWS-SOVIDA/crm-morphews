@@ -807,14 +807,15 @@ serve(async (req) => {
           // =====================
           // PROCESSAR COM ROBÔ IA (se ativo e conversa com status adequado)
           // =====================
+          const supportedBotTypes = ['text', 'audio', 'image'];
           const shouldProcessWithBot = 
             instance.active_bot_id && 
             !isGroup && // Não processar grupos com robô por enquanto
-            msgData.type === 'text' && // Apenas mensagens de texto
+            supportedBotTypes.includes(msgData.type) && // Texto, áudio e imagem
             (conversation.status === 'with_bot' || conversation.status === 'pending' || !conversation.status);
 
           if (shouldProcessWithBot) {
-            console.log("🤖 Processing message with AI bot:", instance.active_bot_id);
+            console.log("🤖 Processing message with AI bot:", instance.active_bot_id, "type:", msgData.type);
             
             // Verificar se é primeira mensagem (conversa acabou de ser criada ou reaberta)
             const isFirstMessage = conversation.status === 'pending' || !conversation.status;
@@ -827,6 +828,28 @@ serve(async (req) => {
               });
             }
 
+            // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
+            const botPayload: any = {
+              botId: instance.active_bot_id,
+              conversationId: conversation.id,
+              instanceId: instance.id,
+              instanceName: instanceName,
+              organizationId: organizationId,
+              userMessage: messageContent || '',
+              contactName: pushName || `+${fromPhone}`,
+              phoneNumber: fromPhone,
+              chatId: remoteJid,
+              isFirstMessage,
+              messageType: msgData.type,
+            };
+
+            // Se for áudio ou imagem, incluir a URL da mídia salva
+            if ((msgData.type === 'audio' || msgData.type === 'image') && savedMediaUrl) {
+              botPayload.mediaUrl = savedMediaUrl;
+              botPayload.mediaMimeType = msgData.mediaMimeType;
+              console.log("📎 Including media for bot processing:", msgData.type, savedMediaUrl);
+            }
+
             // Chamar edge function de processamento IA (fire and forget)
             fetch(`${SUPABASE_URL}/functions/v1/ai-bot-process`, {
               method: 'POST',
@@ -834,18 +857,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
               },
-              body: JSON.stringify({
-                botId: instance.active_bot_id,
-                conversationId: conversation.id,
-                instanceId: instance.id,
-                instanceName: instanceName,
-                organizationId: organizationId,
-                userMessage: messageContent,
-                contactName: pushName || `+${fromPhone}`,
-                phoneNumber: fromPhone,
-                chatId: remoteJid,
-                isFirstMessage,
-              }),
+              body: JSON.stringify(botPayload),
             }).then(async (res) => {
               const result = await res.json();
               console.log("🤖 Bot process result:", result);
