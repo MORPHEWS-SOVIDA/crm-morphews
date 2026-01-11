@@ -740,6 +740,20 @@ export default function AddReceptivo() {
 
         if (leadError) throw leadError;
         
+        // CRITICAL: Also create the lead_responsible entry so the user is tracked as responsible
+        const { error: responsibleError } = await supabase
+          .from('lead_responsibles')
+          .insert({
+            lead_id: newLead.id,
+            user_id: user.id,
+            organization_id: tenantId,
+          });
+        
+        if (responsibleError) {
+          console.error('Error creating lead responsible:', responsibleError);
+          // Don't fail the flow, but log it
+        }
+        
         setLeadData(prev => ({ 
           ...prev, 
           id: newLead.id, 
