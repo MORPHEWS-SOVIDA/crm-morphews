@@ -677,22 +677,41 @@ serve(async (req) => {
           conversation = newConvo as any;
           console.log("Created new conversation:", { id: conversation?.id, isGroup, groupSubject, status: 'pending' });
           
-          // Verificar se auto-distribuição está ativa para essa instância
+          // Verificar modo de distribuição da instância
           const { data: instConfig } = await supabase
             .from("whatsapp_instances")
             .select("distribution_mode")
             .eq("id", instance.id)
             .single();
           
-          if (instConfig?.distribution_mode === 'auto' && conversation) {
+          const distributionMode = instConfig?.distribution_mode || 'manual';
+          console.log("📋 Distribution mode for new conversation:", distributionMode);
+          
+          // MODO BOT: Se instância está em modo robô E tem bot configurado
+          if (distributionMode === 'bot' && anyBotId && !isGroup && conversation) {
+            console.log("🤖 Bot mode enabled, setting status to with_bot");
+            await supabase
+              .from("whatsapp_conversations")
+              .update({
+                status: 'with_bot',
+                handling_bot_id: anyBotId,
+                bot_started_at: new Date().toISOString(),
+                bot_messages_count: 0,
+              })
+              .eq("id", conversation.id);
+            // Atualizar estado local
+            conversation = { ...conversation, status: 'with_bot', handling_bot_id: anyBotId } as any;
+          }
+          // MODO AUTO-DISTRIBUIÇÃO
+          else if (distributionMode === 'auto' && conversation) {
             console.log("🔄 Auto-distribution enabled, designating conversation...");
-            // Usar reopen que agora define status = 'autodistributed' e designated_user_id
             const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
               p_conversation_id: conversation.id,
               p_instance_id: instance.id
             });
             console.log("Auto-distribution result:", assignResult);
           }
+          // MODO MANUAL: conversa fica pendente (já é o default)
         }
       } else {
         // Atualizar conversa existente
@@ -709,10 +728,19 @@ serve(async (req) => {
         if (wasClosed) {
           console.log("📬 Conversation was closed, reopening...");
           
-          // PRIORIDADE 1: Se instância tem robô configurado (independente do horário), vai para robô
-          // O ai-bot-process vai decidir se responde normalmente ou envia mensagem de fora de horário
-          if (anyBotId && !isGroup) {
-            console.log("🤖 Instance has bot configured, setting status to with_bot");
+          // Verificar modo de distribuição da instância
+          const { data: instConfig } = await supabase
+            .from("whatsapp_instances")
+            .select("distribution_mode")
+            .eq("id", instance.id)
+            .single();
+          
+          const distributionMode = instConfig?.distribution_mode || 'manual';
+          console.log("📋 Distribution mode for reopening:", distributionMode);
+          
+          // MODO BOT: Se instância está em modo robô E tem bot configurado
+          if (distributionMode === 'bot' && anyBotId && !isGroup) {
+            console.log("🤖 Bot mode enabled, setting status to with_bot");
             updateData.status = 'with_bot';
             updateData.handling_bot_id = anyBotId;
             updateData.bot_started_at = new Date().toISOString();
@@ -720,28 +748,21 @@ serve(async (req) => {
             updateData.assigned_user_id = null;
             updateData.assigned_at = null;
             updateData.closed_at = null;
-          } else {
-            // PRIORIDADE 2: Verificar modo de distribuição da instância
-            const { data: instConfig } = await supabase
-              .from("whatsapp_instances")
-              .select("distribution_mode")
-              .eq("id", instance.id)
-              .single();
-            
-            if (instConfig?.distribution_mode === 'auto') {
-              // Auto-distribuição: chamar função para atribuir ao próximo usuário
-              const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
-                p_conversation_id: conversation.id,
-                p_instance_id: instance.id
-              });
-              console.log("Auto-reopen result:", assignResult);
-            } else {
-            // Distribuição manual: volta para pendente
-              updateData.status = 'pending';
-              updateData.assigned_user_id = null;
-              updateData.assigned_at = null;
-              updateData.closed_at = null;
-            }
+          }
+          // MODO AUTO-DISTRIBUIÇÃO
+          else if (distributionMode === 'auto') {
+            const { data: assignResult } = await supabase.rpc('reopen_whatsapp_conversation', {
+              p_conversation_id: conversation.id,
+              p_instance_id: instance.id
+            });
+            console.log("Auto-reopen result:", assignResult);
+          }
+          // MODO MANUAL: volta para pendente
+          else {
+            updateData.status = 'pending';
+            updateData.assigned_user_id = null;
+            updateData.assigned_at = null;
+            updateData.closed_at = null;
           }
         }
         
@@ -853,8 +874,7 @@ serve(async (req) => {
 
           // =====================
           // PROCESSAR COM ROBÔ IA
-          // Se há bot configurado na instância, SEMPRE processar (mesmo fora do horário)
-          // O ai-bot-process decide se responde normalmente ou envia mensagem de fora de horário
+          // APENAS se a instância está em modo 'bot' E a conversa está com status apropriado
           // =====================
           const supportedBotTypes = ['text', 'audio', 'image'];
           
@@ -862,30 +882,19 @@ serve(async (req) => {
           const botIdToUse = anyBotId;
           const isWithinSchedule = !!activeBotId;
           
+          // IMPORTANTE: Só processar com bot se conversation.status === 'with_bot'
+          // Isso garante que apenas instâncias em modo BOT terão processamento de IA
           const shouldProcessWithBot = 
             botIdToUse && 
             !isGroup && // Não processar grupos com robô por enquanto
             supportedBotTypes.includes(msgData.type) && // Texto, áudio e imagem
-            (
-              conversation.status === 'with_bot' ||
-              conversation.status === 'pending' ||
-              conversation.status === 'autodistributed' ||
-              !conversation.status
-            );
+            conversation.status === 'with_bot'; // APENAS conversas que já estão com o robô
 
           if (shouldProcessWithBot) {
             console.log("🤖 Processing message with AI bot:", botIdToUse, "type:", msgData.type, "isWithinSchedule:", isWithinSchedule);
             
-            // Verificar se é primeira mensagem (conversa acabou de ser criada ou reaberta)
-            const isFirstMessage = wasClosed || conversation.status === 'pending' || !conversation.status;
-            
-            // Atualizar status para 'with_bot' se ainda não está
-            if (conversation.status !== 'with_bot') {
-              await supabase.rpc('start_bot_handling', {
-                p_conversation_id: conversation.id,
-                p_bot_id: botIdToUse
-              });
-            }
+            // Verificar se é primeira mensagem (conversa acabou de ser reaberta)
+            const isFirstMessage = wasClosed;
 
             // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
             const botPayload: any = {

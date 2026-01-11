@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Settings, Clock, RefreshCw, Hand } from "lucide-react";
+import { Loader2, Settings, Clock, RefreshCw, Hand, Bot } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -100,14 +100,14 @@ export function InstanceSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
             Configurações - {instanceName}
           </DialogTitle>
           <DialogDescription>
-            Defina o modo de distribuição e encerramento automático
+            Defina como as conversas serão distribuídas
           </DialogDescription>
         </DialogHeader>
 
@@ -146,43 +146,67 @@ export function InstanceSettingsDialog({
 
             {/* Modo de Distribuição */}
             <div className="space-y-3">
-              <Label>Modo de Distribuição de Leads</Label>
+              <Label>Modo de Atendimento</Label>
               <RadioGroup
                 value={distributionMode}
                 onValueChange={setDistributionMode}
                 className="space-y-3"
               >
-                <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50">
-                  <RadioGroupItem value="manual" id="manual" className="mt-0.5" />
+                {/* Modo Robô */}
+                <div className={`flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 ${distributionMode === 'bot' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30' : ''}`}>
+                  <RadioGroupItem value="bot" id="bot" className="mt-0.5" />
                   <div className="flex-1">
-                    <Label htmlFor="manual" className="flex items-center gap-2 cursor-pointer">
-                      <Hand className="h-4 w-4" />
-                      Distribuição Manual
+                    <Label htmlFor="bot" className="flex items-center gap-2 cursor-pointer">
+                      <Bot className="h-4 w-4 text-purple-600" />
+                      Robô de IA
                     </Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Conversas ficam pendentes até um atendente assumir clicando em "ATENDER"
+                      O robô de IA atende primeiro, qualifica o lead e transfere para um humano quando necessário
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50">
+                {/* Modo Auto-Distribuição */}
+                <div className={`flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 ${distributionMode === 'auto' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : ''}`}>
                   <RadioGroupItem value="auto" id="auto" className="mt-0.5" />
                   <div className="flex-1">
                     <Label htmlFor="auto" className="flex items-center gap-2 cursor-pointer">
-                      <RefreshCw className="h-4 w-4" />
-                      Auto-Distribuição (Rodízio)
+                      <RefreshCw className="h-4 w-4 text-blue-600" />
+                      Distribuição Automática (Rodízio)
                     </Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Novas conversas são designadas automaticamente para usuários em rodízio.
-                      O vendedor designado verá a conversa na aba "Pra você" e deve clicar ATENDER.
+                      Novas conversas são designadas automaticamente para vendedores em rodízio
+                    </p>
+                  </div>
+                </div>
+
+                {/* Modo Manual */}
+                <div className={`flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 ${distributionMode === 'manual' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : ''}`}>
+                  <RadioGroupItem value="manual" id="manual" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="manual" className="flex items-center gap-2 cursor-pointer">
+                      <Hand className="h-4 w-4 text-amber-600" />
+                      Todas Pendentes (Manual)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Todas as conversas ficam pendentes até um atendente assumir manualmente
                     </p>
                   </div>
                 </div>
               </RadioGroup>
+
+              {/* Nota sobre robô */}
+              {distributionMode === 'bot' && (
+                <div className="p-3 border rounded-lg bg-purple-50 dark:bg-purple-950/30 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    💡 <strong>Importante:</strong> Configure os robôs e horários de atendimento nas <strong>Permissões</strong> desta instância.
+                  </p>
+                </div>
+              )}
               
               {/* Timeout de redistribuição - só aparece quando auto está selecionado */}
               {distributionMode === 'auto' && (
-                <div className="ml-6 p-3 border rounded-lg bg-muted/30 space-y-2">
+                <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 space-y-2">
                   <Label className="text-sm">Tempo para redistribuição</Label>
                   <div className="flex items-center gap-3">
                     <Input
@@ -203,12 +227,6 @@ export function InstanceSettingsDialog({
                 </div>
               )}
             </div>
-
-            <Separator />
-
-            <p className="text-xs text-muted-foreground bg-purple-50 dark:bg-purple-950/30 p-3 rounded-lg">
-              💡 Para configurar robôs IA com agendamento de horários, acesse as <strong>Permissões</strong> desta instância.
-            </p>
 
             <Separator />
 
