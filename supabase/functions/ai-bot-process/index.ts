@@ -9,6 +9,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 
@@ -96,6 +97,117 @@ function shouldTransferByKeywords(message: string, keywords: string[] | null): b
     const lowerKeyword = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return lowerMessage.includes(lowerKeyword);
   });
+}
+
+// ============================================================================
+// AUDIO TRANSCRIPTION
+// ============================================================================
+
+async function transcribeAudio(mediaUrl: string): Promise<{ text: string; tokensUsed: number }> {
+  console.log('🎤 Transcribing audio from:', mediaUrl);
+  
+  try {
+    // Download audio from Supabase storage
+    const audioResponse = await fetch(mediaUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio: ${audioResponse.status}`);
+    }
+    
+    const audioBlob = await audioResponse.blob();
+    const audioBuffer = await audioBlob.arrayBuffer();
+    
+    // Create form data for OpenAI Whisper
+    const formData = new FormData();
+    formData.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), 'audio.ogg');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'pt');
+    formData.append('response_format', 'json');
+    
+    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+    
+    if (!whisperResponse.ok) {
+      const errorText = await whisperResponse.text();
+      console.error('❌ Whisper error:', whisperResponse.status, errorText);
+      throw new Error(`Whisper error: ${whisperResponse.status}`);
+    }
+    
+    const result = await whisperResponse.json();
+    const transcribedText = result.text || '';
+    
+    console.log('✅ Audio transcribed:', transcribedText.substring(0, 100) + '...');
+    
+    // Estimativa de tokens: ~100 tokens para transcrição
+    return { text: transcribedText, tokensUsed: 100 };
+  } catch (error) {
+    console.error('❌ Audio transcription error:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// IMAGE ANALYSIS
+// ============================================================================
+
+async function analyzeImage(mediaUrl: string, userMessage: string, botSystemPrompt: string): Promise<{ text: string; tokensUsed: number }> {
+  console.log('🖼️ Analyzing image from:', mediaUrl);
+  
+  try {
+    // Usar Gemini Flash via Lovable AI para análise de imagem
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: `${botSystemPrompt}\n\nO cliente enviou uma imagem. Analise-a e responda de forma útil.`
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: mediaUrl }
+              },
+              {
+                type: 'text',
+                text: userMessage || 'O que você vê nesta imagem?'
+              }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Image analysis error:', response.status, errorText);
+      throw new Error(`Image analysis error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const analysisText = data.choices?.[0]?.message?.content || '';
+    const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+    
+    console.log('✅ Image analyzed:', analysisText.substring(0, 100) + '...');
+    
+    return { text: analysisText, tokensUsed };
+  } catch (error) {
+    console.error('❌ Image analysis error:', error);
+    throw error;
+  }
 }
 
 // ============================================================================
@@ -481,17 +593,22 @@ serve(async (req) => {
       phoneNumber,
       chatId,
       isFirstMessage,
+      messageType = 'text',
+      mediaUrl,
+      mediaMimeType,
     } = body;
 
     console.log('🤖 AI Bot Process request:', {
       botId,
       conversationId,
       isFirstMessage,
+      messageType,
+      hasMedia: !!mediaUrl,
       messagePreview: userMessage?.substring(0, 50)
     });
 
     // Validar inputs
-    if (!botId || !conversationId || !userMessage) {
+    if (!botId || !conversationId) {
       return new Response(JSON.stringify({ 
         error: 'Missing required fields',
         success: false 
@@ -554,8 +671,126 @@ serve(async (req) => {
       await checkAndConsumeEnergy(organizationId, bot.id, conversationId, 50, 'welcome_message');
     }
 
-    // Processar mensagem
-    const result = await processMessage(bot, context, userMessage, instanceName);
+    // Processar mensagem baseado no tipo
+    let processedMessage = userMessage || '';
+    let mediaProcessingEnergy = 0;
+
+    // TRANSCRIÇÃO DE ÁUDIO
+    if (messageType === 'audio' && mediaUrl) {
+      console.log('🎤 Processing audio message...');
+      
+      try {
+        const transcription = await transcribeAudio(mediaUrl);
+        processedMessage = `[Áudio transcrito]: ${transcription.text}`;
+        
+        // Consumir energia pela transcrição
+        const audioEnergy = await checkAndConsumeEnergy(
+          organizationId, 
+          botId, 
+          conversationId, 
+          transcription.tokensUsed, 
+          'audio_transcription'
+        );
+        
+        if (!audioEnergy.success) {
+          console.log('⚡ No energy for audio transcription');
+          return new Response(JSON.stringify({ 
+            success: false, 
+            action: 'no_energy', 
+            message: 'No energy for audio transcription' 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        mediaProcessingEnergy += audioEnergy.energyConsumed;
+        console.log('✅ Audio transcribed and energy consumed:', audioEnergy.energyConsumed);
+      } catch (audioError) {
+        console.error('❌ Audio transcription failed:', audioError);
+        processedMessage = '[Áudio não pôde ser transcrito. Por favor, digite sua mensagem.]';
+      }
+    }
+
+    // ANÁLISE DE IMAGEM
+    if (messageType === 'image' && mediaUrl) {
+      console.log('🖼️ Processing image message...');
+      
+      try {
+        const imageAnalysis = await analyzeImage(mediaUrl, userMessage, bot.system_prompt);
+        
+        // Para imagens, a resposta da análise já é a resposta do bot
+        // Consumir energia pela análise
+        const imageEnergy = await checkAndConsumeEnergy(
+          organizationId, 
+          botId, 
+          conversationId, 
+          imageAnalysis.tokensUsed, 
+          'image_analysis'
+        );
+        
+        if (!imageEnergy.success) {
+          console.log('⚡ No energy for image analysis');
+          return new Response(JSON.stringify({ 
+            success: false, 
+            action: 'no_energy', 
+            message: 'No energy for image analysis' 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Enviar a resposta da análise de imagem diretamente
+        const sent = await sendWhatsAppMessage(
+          instanceName,
+          chatId,
+          imageAnalysis.text,
+          conversationId,
+          instanceId,
+          botId
+        );
+
+        // Atualizar contadores
+        await supabase
+          .from('whatsapp_conversations')
+          .update({
+            bot_messages_count: context.botMessagesCount + 1,
+            bot_energy_consumed: context.botEnergyConsumed + imageEnergy.energyConsumed,
+          })
+          .eq('id', conversationId);
+
+        return new Response(JSON.stringify({ 
+          success: sent, 
+          action: 'responded', 
+          energyUsed: imageEnergy.energyConsumed,
+          messageType: 'image_analysis'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (imageError) {
+        console.error('❌ Image analysis failed:', imageError);
+        processedMessage = userMessage || 'O cliente enviou uma imagem que não pôde ser analisada.';
+      }
+    }
+
+    // Se não tem mensagem para processar (ex: imagem sem texto após falha)
+    if (!processedMessage) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        action: 'error', 
+        message: 'No message to process' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Processar mensagem (texto ou áudio transcrito)
+    const result = await processMessage(bot, context, processedMessage, instanceName);
+
+    // Adicionar energia de processamento de mídia ao resultado
+    if (mediaProcessingEnergy > 0 && result.energyUsed) {
+      result.energyUsed += mediaProcessingEnergy;
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
