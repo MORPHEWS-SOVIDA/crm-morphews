@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, Clock, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList } from "lucide-react";
+import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts, useToggleAIBotProduct } from "@/hooks/useAIBots";
 import { useProducts } from "@/hooks/useProducts";
 import { AvatarGenerator } from "./AvatarGenerator";
@@ -42,8 +42,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [welcomeMessage, setWelcomeMessage] = useState<string | undefined>();
   const [transferMessage, setTransferMessage] = useState<string | undefined>();
   const [outOfHoursMessage, setOutOfHoursMessage] = useState<string | undefined>();
-  const [workingHoursStart, setWorkingHoursStart] = useState<string | undefined>();
-  const [workingHoursEnd, setWorkingHoursEnd] = useState<string | undefined>();
   const [maxMessages, setMaxMessages] = useState<number | undefined>();
   
   // Qualification state
@@ -61,8 +59,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setWelcomeMessage(bot.welcome_message || '');
       setTransferMessage(bot.transfer_message || '');
       setOutOfHoursMessage(bot.out_of_hours_message || '');
-      setWorkingHoursStart(bot.working_hours_start?.slice(0, 5) || '08:00');
-      setWorkingHoursEnd(bot.working_hours_end?.slice(0, 5) || '18:00');
       setMaxMessages(bot.max_messages_before_transfer || 10);
       setQualificationEnabled(bot.initial_qualification_enabled || false);
       setInitialQuestions((bot.initial_questions as InitialQuestion[]) || []);
@@ -86,8 +82,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       welcome_message: welcomeMessage,
       transfer_message: transferMessage,
       out_of_hours_message: outOfHoursMessage,
-      working_hours_start: workingHoursStart,
-      working_hours_end: workingHoursEnd,
       max_messages_before_transfer: maxMessages,
       initial_qualification_enabled: qualificationEnabled,
       initial_questions: initialQuestions,
@@ -212,31 +206,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
               
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Horário de Funcionamento
-                  </CardTitle>
+                  <CardTitle className="text-lg">Comportamento</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Início</Label>
-                      <Input
-                        type="time"
-                        value={workingHoursStart ?? bot.working_hours_start?.slice(0, 5)}
-                        onChange={(e) => setWorkingHoursStart(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Fim</Label>
-                      <Input
-                        type="time"
-                        value={workingHoursEnd ?? bot.working_hours_end?.slice(0, 5)}
-                        onChange={(e) => setWorkingHoursEnd(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  
                   <div className="space-y-2">
                     <Label>Máximo de mensagens antes de transferir</Label>
                     <Input
