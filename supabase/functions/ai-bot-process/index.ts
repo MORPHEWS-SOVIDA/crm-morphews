@@ -602,27 +602,29 @@ async function checkAndConsumeEnergy(
   // Calcular energia baseada em tokens (1 energia = ~100 tokens)
   const energyToConsume = Math.max(1, Math.ceil(tokensUsed / 100));
 
-  // Usar a função do banco para consumir energia atomicamente
+  // Consumir energia via RPC (também registra metadados/uso no backend)
   const { data, error } = await supabase.rpc('consume_energy', {
     p_organization_id: organizationId,
-    p_amount: energyToConsume
+    p_bot_id: botId,
+    p_conversation_id: conversationId,
+    p_action_type: actionType,
+    p_energy_amount: energyToConsume,
+    p_tokens_used: tokensUsed,
+    p_details: { timestamp: new Date().toISOString() },
   });
 
-  if (error || data === false) {
-    console.log('⚡ No energy available');
+  if (error) {
+    console.error('⚡ consume_energy error:', error);
     return { success: false, energyConsumed: 0 };
   }
 
-  // Log do uso de energia
-  await supabase.from('energy_usage_log').insert({
-    organization_id: organizationId,
-    bot_id: botId,
-    conversation_id: conversationId,
-    action_type: actionType,
-    energy_consumed: energyToConsume,
-    tokens_used: tokensUsed,
-    details: { timestamp: new Date().toISOString() }
-  });
+  // A função pode retornar boolean ou JSON (dependendo da implementação)
+  const ok = typeof data === 'boolean' ? data : (data?.success ?? true);
+
+  if (!ok) {
+    console.log('⚡ No energy available');
+    return { success: false, energyConsumed: 0 };
+  }
 
   console.log('⚡ Energy consumed:', energyToConsume);
   return { success: true, energyConsumed: energyToConsume };
