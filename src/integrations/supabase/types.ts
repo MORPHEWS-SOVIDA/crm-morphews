@@ -4556,6 +4556,7 @@ export type Database = {
           is_active: boolean
           max_leads: number | null
           max_users: number
+          monthly_energy: number | null
           name: string
           price_cents: number
           stripe_price_id: string | null
@@ -4567,6 +4568,7 @@ export type Database = {
           is_active?: boolean
           max_leads?: number | null
           max_users: number
+          monthly_energy?: number | null
           name: string
           price_cents: number
           stripe_price_id?: string | null
@@ -4578,6 +4580,7 @@ export type Database = {
           is_active?: boolean
           max_leads?: number | null
           max_users?: number
+          monthly_energy?: number | null
           name?: string
           price_cents?: number
           stripe_price_id?: string | null
@@ -6163,6 +6166,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_bonus_energy: {
+        Args: { amount: number; org_id: string }
+        Returns: undefined
+      }
       backfill_contacts_from_existing_conversations: {
         Args: { _organization_id: string }
         Returns: number
@@ -6314,6 +6321,10 @@ export type Database = {
       }
       initialize_org_role_permissions: {
         Args: { org_id: string }
+        Returns: undefined
+      }
+      initialize_organization_energy: {
+        Args: { org_id: string; plan_energy: number }
         Returns: undefined
       }
       is_current_user_org_admin: { Args: never; Returns: boolean }
