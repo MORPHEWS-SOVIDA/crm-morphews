@@ -10,6 +10,7 @@ interface CrossInstanceConversation {
   instance_display_name: string | null;
   last_message_at: string | null;
   status: string | null;
+  unread_count: number;
 }
 
 interface CrossInstanceMap {
@@ -37,6 +38,7 @@ export function useCrossInstanceConversations() {
           instance_id,
           last_message_at,
           status,
+          unread_count,
           whatsapp_instances!inner (
             id,
             name,
@@ -70,6 +72,7 @@ export function useCrossInstanceConversations() {
           instance_display_name: conv.whatsapp_instances?.display_name_for_team,
           last_message_at: conv.last_message_at,
           status: conv.status,
+          unread_count: conv.unread_count || 0,
         });
       });
 

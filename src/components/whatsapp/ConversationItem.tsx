@@ -13,6 +13,7 @@ export interface OtherInstanceConversation {
   instance_name: string;
   instance_display_name: string | null;
   status: string | null;
+  unread_count: number;
 }
 
 interface Conversation {
@@ -210,10 +211,19 @@ export function ConversationItem({
                     <ul className="text-xs space-y-0.5">
                       {otherInstanceConversations.map((conv) => (
                         <li key={conv.id} className="flex items-center gap-1">
+                          {/* Bolinha vermelha se tem mensagens não lidas */}
+                          {conv.unread_count > 0 && (
+                            <span className="w-2 h-2 rounded-full bg-destructive animate-pulse flex-shrink-0" />
+                          )}
                           <span className="truncate">
                             {conv.instance_display_name || conv.instance_name}
                           </span>
-                          {conv.status && (
+                          {conv.unread_count > 0 && (
+                            <span className="text-[9px] px-1 rounded bg-destructive text-white">
+                              {conv.unread_count}
+                            </span>
+                          )}
+                          {conv.status && conv.unread_count === 0 && (
                             <span className={cn(
                               "text-[10px] px-1 rounded",
                               conv.status === 'pending' && "bg-yellow-100 text-yellow-700",

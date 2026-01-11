@@ -864,10 +864,8 @@ export default function WhatsAppChat() {
     const convStatus = c.status || 'pending';
     if (convStatus !== statusFilter) return false;
     
-    // Para aba "autodistributed", mostrar APENAS conversas designadas para o usuário logado
-    if (statusFilter === 'autodistributed' && c.designated_user_id !== user?.id) {
-      return false;
-    }
+    // Para aba "autodistributed", mostrar TODAS as conversas da organização
+    // (removido filtro restritivo - agora todos veem as conversas autodistribuídas)
     
     // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin da instância
     if (statusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
@@ -1233,19 +1231,32 @@ export default function WhatsAppChat() {
                       {samePhoneConversations.map((instId) => {
                         const label = getInstanceTabLabel(instId);
                         const isConnected = getInstanceIsConnected(instId);
+                        
+                        // Verificar se tem mensagens não lidas nesta instância
+                        const otherConvs = crossInstanceMap?.[selectedConversation.phone_number] || [];
+                        const thisInstConv = otherConvs.find(c => c.instance_id === instId);
+                        const hasUnread = thisInstConv && thisInstConv.unread_count > 0;
 
                         return (
                           <SelectItem key={instId} value={instId} className="text-xs">
                             <div className="flex items-center gap-2">
-                              {isConnected !== null && (
+                              {/* Bolinha verde/vermelha conexão OU bolinha vermelha de não lida */}
+                              {hasUnread ? (
+                                <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                              ) : isConnected !== null ? (
                                 <div
                                   className={cn(
                                     "w-2 h-2 rounded-full",
                                     isConnected ? "bg-funnel-positive" : "bg-destructive"
                                   )}
                                 />
-                              )}
+                              ) : null}
                               <span>{label}</span>
+                              {hasUnread && thisInstConv && (
+                                <Badge variant="destructive" className="h-4 px-1 text-[9px] ml-1">
+                                  {thisInstConv.unread_count}
+                                </Badge>
+                              )}
                             </div>
                           </SelectItem>
                         );

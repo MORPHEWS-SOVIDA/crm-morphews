@@ -247,21 +247,45 @@ async function generateAIResponse(
   bot: AIBot, 
   userMessage: string, 
   conversationHistory: Array<{role: string, content: string}>,
-  contactName: string
+  contactName: string,
+  messageCount: number = 0
 ): Promise<{ response: string; tokensUsed: number }> {
   
-  // Construir sistema prompt com contexto
+  // Construir sistema prompt com contexto MUITO mais rico para qualificação
+  const qualificationInstructions = `
+DIRETRIZES DE QUALIFICAÇÃO E ATENDIMENTO:
+1. NUNCA transfira para humano nas primeiras mensagens - primeiro entenda a necessidade do cliente
+2. Faça perguntas abertas para entender melhor o que o cliente precisa
+3. Demonstre interesse genuíno e empatia antes de oferecer soluções
+4. Se o cliente mencionar um problema, ESCUTE e QUALIFIQUE antes de transferir
+5. Colete informações importantes: nome, interesse, dúvidas, urgência
+6. Só sugira transferir para humano se:
+   - O cliente PEDIR explicitamente para falar com uma pessoa
+   - Você já tentou resolver e não conseguiu após 3+ trocas sobre o mesmo assunto
+   - For algo que realmente precisa de decisão humana (negociação de preço, reclamação grave)
+
+ESTILO DE CONVERSA:
+- Seja proativo: faça perguntas, ofereça informações úteis
+- Use linguagem natural e amigável, como um bom vendedor faria
+- Evite respostas genéricas - personalize com base no contexto
+- Se não souber algo específico, diga que vai verificar e pergunte mais detalhes
+- Sempre termine com uma pergunta ou call-to-action claro
+
+EXEMPLOS DE BOAS RESPOSTAS:
+- "Que bom que você entrou em contato! Para te ajudar melhor, me conta: você já conhece nossos produtos ou é a primeira vez?"
+- "Entendi sua dúvida sobre [X]. Antes de te passar mais detalhes, qual seria seu principal objetivo?"
+- "Ótima pergunta! Temos algumas opções que podem te atender. Me fala mais sobre o que você procura?"`;
+
   const systemPrompt = `${bot.system_prompt}
 
 CONTEXTO ATUAL:
 - Nome do cliente: ${contactName}
 - Data/Hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+- Número de mensagens na conversa: ${messageCount}
 
-INSTRUÇÕES IMPORTANTES:
-- Responda de forma natural e empática
-- Use o nome do cliente quando apropriado
-- Mantenha respostas concisas mas completas
-- Se não souber algo, seja honesto e ofereça transferir para um humano`;
+${qualificationInstructions}
+
+LEMBRE-SE: Você é um assistente INTELIGENTE que busca ajudar e qualificar o cliente. NÃO seja apenas um robô que responde e transfere.`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -280,8 +304,8 @@ INSTRUÇÕES IMPORTANTES:
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages,
-      max_tokens: 500,
-      temperature: 0.7,
+      max_tokens: 600, // Aumentado para respostas mais completas
+      temperature: 0.8, // Aumentado para respostas mais naturais e variadas
     }),
   });
 
@@ -722,8 +746,13 @@ async function processMessage(
     return { success: true, action: 'transferred', message: 'Transfer keyword detected' };
   }
 
-  // 3. Verificar limite de mensagens
-  if (bot.max_messages_before_transfer && context.botMessagesCount >= bot.max_messages_before_transfer) {
+  // 3. Verificar limite de mensagens - aumentado para dar mais tempo ao robô qualificar
+  // Mínimo de 5 mensagens antes de transferir por limite
+  const effectiveMaxMessages = bot.max_messages_before_transfer 
+    ? Math.max(bot.max_messages_before_transfer, 5) 
+    : 15; // Se não configurado, usar 15 como padrão
+    
+  if (context.botMessagesCount >= effectiveMaxMessages) {
     console.log('📊 Max messages reached, transferring');
     
     await transferToHuman(context.conversationId, 'max_messages', bot.transfer_message);
@@ -750,7 +779,7 @@ async function processMessage(
   let tokensUsed: number;
   
   try {
-    const result = await generateAIResponse(bot, userMessage, conversationHistory, context.contactName);
+    const result = await generateAIResponse(bot, userMessage, conversationHistory, context.contactName, context.botMessagesCount);
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;
   } catch (error: any) {
