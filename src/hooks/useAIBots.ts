@@ -365,27 +365,5 @@ export function useInstanceBots(instanceId: string | null) {
   });
 }
 
-// Hook para definir robô ativo na instância
-export function useSetActiveInstanceBot() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ instanceId, botId }: { instanceId: string; botId: string | null }) => {
-      const { error } = await supabase
-        .from('whatsapp_instances')
-        .update({ active_bot_id: botId })
-        .eq('id', instanceId);
-      
-      if (error) throw error;
-      return instanceId;
-    },
-    onSuccess: (instanceId) => {
-      queryClient.invalidateQueries({ queryKey: ['evolution-instances'] });
-      queryClient.invalidateQueries({ queryKey: ['instance-bots', instanceId] });
-      toast.success(instanceId ? 'Robô ativado!' : 'Robô desativado!');
-    },
-    onError: (error: Error) => {
-      toast.error(`Erro: ${error.message}`);
-    },
-  });
-}
+// Hook useSetActiveInstanceBot foi descontinuado
+// Agora use useInstanceBotSchedules para gerenciar robôs por instância com agendamento
