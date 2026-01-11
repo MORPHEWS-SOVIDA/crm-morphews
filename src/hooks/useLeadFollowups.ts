@@ -26,7 +26,12 @@ export function useLeadFollowups(leadId: string | undefined) {
   return useQuery({
     queryKey: ['lead-followups', leadId],
     queryFn: async () => {
-      if (!leadId) return [];
+      if (!leadId) {
+        console.log('[useLeadFollowups] No leadId, returning empty');
+        return [];
+      }
+      
+      console.log('[useLeadFollowups] Fetching followups for lead:', leadId);
       
       const { data, error } = await supabase
         .from('lead_followups')
@@ -37,7 +42,12 @@ export function useLeadFollowups(leadId: string | undefined) {
         .eq('lead_id', leadId)
         .order('scheduled_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useLeadFollowups] Error:', error);
+        throw error;
+      }
+      
+      console.log('[useLeadFollowups] Fetched:', data?.length, 'followups');
       
       return (data || []).map((item: any) => ({
         ...item,
@@ -47,6 +57,7 @@ export function useLeadFollowups(leadId: string | undefined) {
       })) as LeadFollowup[];
     },
     enabled: !!leadId,
+    staleTime: 0, // Always refetch
   });
 }
 
@@ -91,6 +102,8 @@ export function useCreateFollowup() {
     }) => {
       if (!tenantId || !user) throw new Error('Usuário não autenticado');
 
+      console.log('[useCreateFollowup] Creating followup:', { lead_id: data.lead_id, tenantId });
+
       const { data: followup, error } = await supabase
         .from('lead_followups')
         .insert({
@@ -106,14 +119,24 @@ export function useCreateFollowup() {
         .select()
         .single();
 
-      if (error) throw error;
-      return followup;
+      if (error) {
+        console.error('[useCreateFollowup] Error:', error);
+        throw error;
+      }
+      
+      console.log('[useCreateFollowup] Created:', followup);
+      return { ...followup, lead_id: data.lead_id };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
+      console.log('[useCreateFollowup] Invalidating queries for lead:', variables.lead_id);
+      // Invalidate with exact match
       queryClient.invalidateQueries({ queryKey: ['lead-followups', variables.lead_id] });
       queryClient.invalidateQueries({ queryKey: ['upcoming-followups'] });
+      // Also refetch immediately
+      queryClient.refetchQueries({ queryKey: ['lead-followups', variables.lead_id] });
     },
     onError: (error: any) => {
+      console.error('[useCreateFollowup] Mutation error:', error);
       toast({
         title: 'Erro ao criar follow-up',
         description: error.message,
