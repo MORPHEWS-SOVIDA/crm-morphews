@@ -12,7 +12,7 @@ import type {
   DemandSlaConfig
 } from '@/types/demand';
 
-type UserProfile = { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
+type UserProfile = { id: string; user_id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
 
 // ============================================================================
 // COMMENTS
@@ -36,10 +36,10 @@ export function useDemandComments(demandId: string | null) {
       const userIds = [...new Set(data.map(c => c.user_id))];
       const { data: users } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .in('id', userIds);
+        .select('id, user_id, first_name, last_name, avatar_url')
+        .in('user_id', userIds);
 
-      const userMap = new Map<string, UserProfile>((users || []).map(u => [u.id, u]));
+      const userMap = new Map<string, UserProfile>((users || []).map(u => [u.user_id, u]));
 
       return data.map(comment => ({
         ...comment,
@@ -57,7 +57,7 @@ export function useAddDemandComment() {
 
   return useMutation({
     mutationFn: async ({ demandId, content }: { demandId: string; content: string }) => {
-      if (!profile?.organization_id || !profile?.id) {
+      if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -65,7 +65,7 @@ export function useAddDemandComment() {
         .from('demand_comments')
         .insert({
           demand_id: demandId,
-          user_id: profile.id,
+          user_id: profile.user_id,
           organization_id: profile.organization_id,
           content,
         })
@@ -125,10 +125,10 @@ export function useDemandAttachments(demandId: string | null) {
       const userIds = [...new Set(data.map(a => a.user_id))];
       const { data: users } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', userIds);
+        .select('id, user_id, first_name, last_name')
+        .in('user_id', userIds);
 
-      const userMap = new Map<string, { id: string; first_name: string | null; last_name: string | null }>((users || []).map(u => [u.id, u]));
+      const userMap = new Map<string, { id: string; first_name: string | null; last_name: string | null }>((users || []).map(u => [u.user_id, u]));
 
       return data.map(attachment => ({
         ...attachment,
@@ -146,7 +146,7 @@ export function useUploadDemandAttachment() {
 
   return useMutation({
     mutationFn: async ({ demandId, file }: { demandId: string; file: File }) => {
-      if (!profile?.organization_id || !profile?.id) {
+      if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -163,7 +163,7 @@ export function useUploadDemandAttachment() {
         .from('demand_attachments')
         .insert({
           demand_id: demandId,
-          user_id: profile.id,
+          user_id: profile.user_id,
           organization_id: profile.organization_id,
           file_name: file.name,
           file_path: filePath,
@@ -288,7 +288,7 @@ export function useToggleChecklistItem() {
         .from('demand_checklist_items')
         .update({
           is_completed: isCompleted,
-          completed_by: isCompleted ? profile?.id : null,
+          completed_by: isCompleted ? profile?.user_id : null,
           completed_at: isCompleted ? new Date().toISOString() : null,
         })
         .eq('id', id)
@@ -345,10 +345,10 @@ export function useDemandTimeEntries(demandId: string | null) {
       const userIds = [...new Set(data.map(e => e.user_id))];
       const { data: users } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .in('id', userIds);
+        .select('id, user_id, first_name, last_name, avatar_url')
+        .in('user_id', userIds);
 
-      const userMap = new Map<string, UserProfile>((users || []).map(u => [u.id, u]));
+      const userMap = new Map<string, UserProfile>((users || []).map(u => [u.user_id, u]));
 
       return data.map(entry => ({
         ...entry,
@@ -363,22 +363,22 @@ export function useActiveTimeEntry(demandId: string | null) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['active-time-entry', demandId, profile?.id],
+    queryKey: ['active-time-entry', demandId, profile?.user_id],
     queryFn: async () => {
-      if (!demandId || !profile?.id) return null;
+      if (!demandId || !profile?.user_id) return null;
 
       const { data, error } = await supabase
         .from('demand_time_entries')
         .select('*')
         .eq('demand_id', demandId)
-        .eq('user_id', profile.id)
+        .eq('user_id', profile.user_id)
         .is('ended_at', null)
         .maybeSingle();
 
       if (error) throw error;
       return data as DemandTimeEntry | null;
     },
-    enabled: !!demandId && !!profile?.id,
+    enabled: !!demandId && !!profile?.user_id,
   });
 }
 
@@ -388,7 +388,7 @@ export function useStartTimeEntry() {
 
   return useMutation({
     mutationFn: async (demandId: string) => {
-      if (!profile?.organization_id || !profile?.id) {
+      if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -396,7 +396,7 @@ export function useStartTimeEntry() {
         .from('demand_time_entries')
         .insert({
           demand_id: demandId,
-          user_id: profile.id,
+          user_id: profile.user_id,
           organization_id: profile.organization_id,
         })
         .select()
@@ -458,10 +458,10 @@ export function useDemandHistory(demandId: string | null) {
 
       const userIds = [...new Set(data.filter(h => h.user_id).map(h => h.user_id!))];
       const { data: users } = userIds.length > 0 
-        ? await supabase.from('profiles').select('id, first_name, last_name, avatar_url').in('id', userIds)
+        ? await supabase.from('profiles').select('id, user_id, first_name, last_name, avatar_url').in('user_id', userIds)
         : { data: [] };
 
-      const userMap = new Map<string, UserProfile>((users || []).map(u => [u.id, u]));
+      const userMap = new Map<string, UserProfile>((users || []).map(u => [u.user_id, u]));
 
       return data.map(history => ({
         ...history,

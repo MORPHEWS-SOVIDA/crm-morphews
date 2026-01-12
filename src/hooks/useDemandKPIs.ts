@@ -66,10 +66,10 @@ export function useDemandKPIs(boardId: string | null, dateRange?: { from: Date; 
       ))];
 
       const { data: users } = allUserIds.length > 0 
-        ? await supabase.from('profiles').select('id, first_name, last_name').in('id', allUserIds)
+        ? await supabase.from('profiles').select('id, user_id, first_name, last_name').in('user_id', allUserIds)
         : { data: [] };
 
-      const userMap = new Map((users || []).map(u => [u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Sem nome']));
+      const userMap = new Map((users || []).map(u => [u.user_id, `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Sem nome']));
 
       // Fetch time entries for time tracking
       let timeQuery = supabase
