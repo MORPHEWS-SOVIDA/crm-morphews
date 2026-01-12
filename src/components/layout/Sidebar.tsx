@@ -24,6 +24,7 @@ import {
   Send,
   Scale,
   Bot,
+  ListTodo,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,9 @@ export function Sidebar() {
     
     // AI Bots (admin only)
     { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeSettings },
+    
+    // Demands (admin only)
+    { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeSettings },
     
     // 2FA for managers
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
