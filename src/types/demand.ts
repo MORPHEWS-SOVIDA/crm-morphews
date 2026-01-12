@@ -163,7 +163,8 @@ export interface DemandAssigneeWithUser {
   assigned_at?: string;
   user?: {
     id: string;
-    full_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
     avatar_url: string | null;
   } | null;
 }
