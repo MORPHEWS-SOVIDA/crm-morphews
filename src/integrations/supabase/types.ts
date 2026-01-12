@@ -2142,6 +2142,9 @@ export type Database = {
           final_message: string
           id: string
           lead_id: string
+          media_filename: string | null
+          media_type: string | null
+          media_url: string | null
           organization_id: string
           original_scheduled_at: string
           scheduled_at: string
@@ -2161,6 +2164,9 @@ export type Database = {
           final_message: string
           id?: string
           lead_id: string
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
           organization_id: string
           original_scheduled_at: string
           scheduled_at: string
@@ -2180,6 +2186,9 @@ export type Database = {
           final_message?: string
           id?: string
           lead_id?: string
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
           organization_id?: string
           original_scheduled_at?: string
           scheduled_at?: string
@@ -2622,6 +2631,9 @@ export type Database = {
           delay_minutes: number
           id: string
           is_active: boolean
+          media_filename: string | null
+          media_type: string | null
+          media_url: string | null
           message_template: string
           non_purchase_reason_id: string
           organization_id: string
@@ -2636,6 +2648,9 @@ export type Database = {
           delay_minutes?: number
           id?: string
           is_active?: boolean
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
           message_template: string
           non_purchase_reason_id: string
           organization_id: string
@@ -2650,6 +2665,9 @@ export type Database = {
           delay_minutes?: number
           id?: string
           is_active?: boolean
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
           message_template?: string
           non_purchase_reason_id?: string
           organization_id?: string

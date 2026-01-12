@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info, HelpCircle } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info, HelpCircle, Image, Mic, FileIcon } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -49,6 +49,8 @@ import {
   type MessageTemplateFormData
 } from '@/hooks/useNonPurchaseMessageTemplates';
 import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
+import { useAuth } from '@/hooks/useAuth';
+import { MediaUploader } from '@/components/scheduled-messages/MediaUploader';
 
 interface MessageTemplatesManagerProps {
   reasonId: string;
@@ -62,6 +64,9 @@ interface TemplateFormData {
   send_start_hour: number | null;
   send_end_hour: number | null;
   use_business_hours: boolean;
+  media_type: 'image' | 'audio' | 'document' | null;
+  media_url: string | null;
+  media_filename: string | null;
 }
 
 const initialFormData: TemplateFormData = {
@@ -71,6 +76,9 @@ const initialFormData: TemplateFormData = {
   send_start_hour: null,
   send_end_hour: null,
   use_business_hours: false,
+  media_type: null,
+  media_url: null,
+  media_filename: null,
 };
 
 const VARIABLES = [
@@ -84,6 +92,7 @@ const VARIABLES = [
 export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplatesManagerProps) {
   const { data: templates = [], isLoading } = useNonPurchaseMessageTemplates(reasonId);
   const { data: instances = [] } = useWhatsAppInstances();
+  const { profile } = useAuth();
   
   const createTemplate = useCreateMessageTemplate();
   const updateTemplate = useUpdateMessageTemplate();
@@ -117,6 +126,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
       send_start_hour: formData.use_business_hours ? formData.send_start_hour : null,
       send_end_hour: formData.use_business_hours ? formData.send_end_hour : null,
       position: templates.length,
+      media_type: formData.media_type,
+      media_url: formData.media_url,
+      media_filename: formData.media_filename,
     });
 
     setFormData(initialFormData);
@@ -134,6 +146,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
         message_template: formData.message_template.trim(),
         send_start_hour: formData.use_business_hours ? formData.send_start_hour : null,
         send_end_hour: formData.use_business_hours ? formData.send_end_hour : null,
+        media_type: formData.media_type,
+        media_url: formData.media_url,
+        media_filename: formData.media_filename,
       },
     });
 
@@ -155,6 +170,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
       send_start_hour: template.send_start_hour,
       send_end_hour: template.send_end_hour,
       use_business_hours: template.send_start_hour !== null,
+      media_type: template.media_type || null,
+      media_url: template.media_url || null,
+      media_filename: template.media_filename || null,
     });
     setEditingId(template.id);
   };
@@ -163,6 +181,13 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
     if (!instanceId) return 'Nenhuma';
     const instance = instances.find(i => i.id === instanceId);
     return instance?.name || 'Instância não encontrada';
+  };
+
+  const getMediaIcon = (type: string | null) => {
+    if (type === 'image') return <Image className="w-3 h-3" />;
+    if (type === 'audio') return <Mic className="w-3 h-3" />;
+    if (type === 'document') return <FileIcon className="w-3 h-3" />;
+    return null;
   };
 
   return (
@@ -225,6 +250,11 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                         {template.send_start_hour !== null && (
                           <Badge variant="secondary" className="text-[10px] px-1 py-0">
                             {template.send_start_hour}h-{template.send_end_hour}h
+                          </Badge>
+                        )}
+                        {template.media_type && (
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                            {getMediaIcon(template.media_type)}
                           </Badge>
                         )}
                       </div>
@@ -419,6 +449,28 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Media Upload Section */}
+              <div className="space-y-2">
+                <Label>Mídia (opcional)</Label>
+                {profile?.organization_id && (
+                  <MediaUploader
+                    mediaType={formData.media_type}
+                    mediaUrl={formData.media_url}
+                    mediaFilename={formData.media_filename}
+                    onMediaChange={(data) => setFormData(prev => ({
+                      ...prev,
+                      media_type: data.media_type,
+                      media_url: data.media_url,
+                      media_filename: data.media_filename,
+                    }))}
+                    organizationId={profile.organization_id}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Anexe uma imagem, documento ou grave um áudio para enviar junto com a mensagem.
+                </p>
               </div>
             </div>
 

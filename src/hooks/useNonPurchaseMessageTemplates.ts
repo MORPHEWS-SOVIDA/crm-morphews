@@ -16,6 +16,10 @@ export interface NonPurchaseMessageTemplate {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Media fields
+  media_type: 'image' | 'audio' | 'document' | null;
+  media_url: string | null;
+  media_filename: string | null;
 }
 
 export interface MessageTemplateFormData {
@@ -27,6 +31,9 @@ export interface MessageTemplateFormData {
   send_end_hour?: number | null;
   position?: number;
   is_active?: boolean;
+  media_type?: 'image' | 'audio' | 'document' | null;
+  media_url?: string | null;
+  media_filename?: string | null;
 }
 
 export function useNonPurchaseMessageTemplates(reasonId?: string) {
