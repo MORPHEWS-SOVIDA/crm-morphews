@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -165,6 +165,7 @@ const initialLeadData: LeadData = {
 
 export default function AddReceptivo() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { tenantId } = useTenant();
   const { data: accessInfo, isLoading: loadingAccess } = useReceptiveModuleAccess();
@@ -293,6 +294,21 @@ export default function AddReceptivo() {
       setSellerUserId(user.id);
     }
   }, [user?.id, sellerUserId]);
+
+  // Auto-fill phone from URL query parameters (VoIP integration)
+  useEffect(() => {
+    const telefoneParam = searchParams.get('telefone') || searchParams.get('whatsapp') || searchParams.get('fone_cliente');
+    if (telefoneParam && phoneInput === '55') {
+      // Normalize: remove non-digits, ensure starts with 55
+      let normalized = telefoneParam.replace(/\D/g, '');
+      if (!normalized.startsWith('55') && normalized.length >= 10) {
+        normalized = '55' + normalized;
+      }
+      if (normalized.length >= 12) {
+        setPhoneInput(normalized);
+      }
+    }
+  }, [searchParams, phoneInput]);
 
   // Load existing legacy answers when product changes
   useEffect(() => {
