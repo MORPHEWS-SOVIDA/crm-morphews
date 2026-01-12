@@ -145,6 +145,9 @@ export function useScheduleMessages() {
           final_message: finalMessage,
           status: 'pending',
           created_by: user?.id || null,
+          media_type: template.media_type || null,
+          media_url: template.media_url || null,
+          media_filename: template.media_filename || null,
         });
       }
 

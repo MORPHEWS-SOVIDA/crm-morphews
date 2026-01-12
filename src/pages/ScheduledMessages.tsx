@@ -54,7 +54,10 @@ import {
   Pencil,
   Plus,
   ChevronDown,
-  Filter
+  Filter,
+  Image,
+  Mic,
+  FileIcon,
 } from 'lucide-react';
 import { 
   useScheduledMessages, 
@@ -72,6 +75,7 @@ import { useLeads } from '@/hooks/useLeads';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { MediaUploader } from '@/components/scheduled-messages/MediaUploader';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pending: { label: 'Pendente', icon: Clock, className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
@@ -185,6 +189,11 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
   const [scheduledAt, setScheduledAt] = useState('');
   const [instanceId, setInstanceId] = useState('');
   const [leadSearch, setLeadSearch] = useState('');
+  const [mediaType, setMediaType] = useState<'image' | 'audio' | 'document' | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaFilename, setMediaFilename] = useState<string | null>(null);
+  
+  const { tenantId } = useTenant();
 
   const { data: leads = [] } = useLeads();
   const { data: instances = [] } = useWhatsAppInstances();
@@ -204,6 +213,9 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
         final_message: messageText,
         scheduled_at: new Date(scheduledAt).toISOString(),
         whatsapp_instance_id: instanceId || undefined,
+        media_type: mediaType,
+        media_url: mediaUrl,
+        media_filename: mediaFilename,
       },
       {
         onSuccess: () => {
@@ -213,13 +225,28 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
           setScheduledAt('');
           setInstanceId('');
           setLeadSearch('');
+          setMediaType(null);
+          setMediaUrl(null);
+          setMediaFilename(null);
         },
       }
     );
   };
 
+  const handleClose = () => {
+    onClose();
+    setLeadId('');
+    setMessageText('');
+    setScheduledAt('');
+    setInstanceId('');
+    setLeadSearch('');
+    setMediaType(null);
+    setMediaUrl(null);
+    setMediaFilename(null);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={() => onClose()}>
+    <Dialog open={open} onOpenChange={() => handleClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -294,17 +321,38 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
             <Label htmlFor="newMessageText">Mensagem *</Label>
             <Textarea
               id="newMessageText"
-              rows={6}
+              rows={5}
               placeholder="Digite a mensagem que será enviada..."
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
               className="resize-none"
             />
           </div>
+
+          {/* Media Upload Section */}
+          <div className="space-y-2">
+            <Label>Mídia (opcional)</Label>
+            {tenantId && (
+              <MediaUploader
+                mediaType={mediaType}
+                mediaUrl={mediaUrl}
+                mediaFilename={mediaFilename}
+                onMediaChange={(data) => {
+                  setMediaType(data.media_type);
+                  setMediaUrl(data.media_url);
+                  setMediaFilename(data.media_filename);
+                }}
+                organizationId={tenantId}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Anexe imagem, documento ou grave um áudio nativo.
+            </p>
+          </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>
           <Button

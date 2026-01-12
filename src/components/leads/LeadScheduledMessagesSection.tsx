@@ -47,12 +47,16 @@ import {
   Trash2,
   Plus,
   Loader2,
+  Image,
+  Mic,
+  FileIcon,
 } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTenant } from '@/hooks/useTenant';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { MediaUploader } from '@/components/scheduled-messages/MediaUploader';
 
 interface LeadScheduledMessagesSectionProps {
   leadId: string;
@@ -190,10 +194,24 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async ({ final_message, scheduled_at, whatsapp_instance_id }: { final_message: string; scheduled_at: string; whatsapp_instance_id: string | null }) => {
+    mutationFn: async ({ 
+      final_message, 
+      scheduled_at, 
+      whatsapp_instance_id,
+      media_type,
+      media_url,
+      media_filename 
+    }: { 
+      final_message: string; 
+      scheduled_at: string; 
+      whatsapp_instance_id: string | null;
+      media_type?: 'image' | 'audio' | 'document' | null;
+      media_url?: string | null;
+      media_filename?: string | null;
+    }) => {
       if (!tenantId) throw new Error('Organização não encontrada');
       
-      console.log('[LeadScheduledMessages] Creating scheduled message:', { leadId, final_message, scheduled_at, whatsapp_instance_id });
+      console.log('[LeadScheduledMessages] Creating scheduled message:', { leadId, final_message, scheduled_at, whatsapp_instance_id, media_type });
       
       const { data, error } = await supabase
         .from('lead_scheduled_messages')
@@ -206,6 +224,9 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
           status: 'pending',
           created_by: user?.id || null,
           whatsapp_instance_id: whatsapp_instance_id || null,
+          media_type: media_type || null,
+          media_url: media_url || null,
+          media_filename: media_filename || null,
         })
         .select();
         
@@ -487,7 +508,14 @@ function EditMessageDialog({ message, onClose, onSave, isPending }: EditDialogPr
 interface CreateDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: { final_message: string; scheduled_at: string; whatsapp_instance_id: string | null }) => void;
+  onSave: (data: { 
+    final_message: string; 
+    scheduled_at: string; 
+    whatsapp_instance_id: string | null;
+    media_type?: 'image' | 'audio' | 'document' | null;
+    media_url?: string | null;
+    media_filename?: string | null;
+  }) => void;
   isPending: boolean;
   leadName?: string;
   tenantId: string | null;
@@ -497,6 +525,9 @@ function CreateMessageDialog({ open, onClose, onSave, isPending, leadName, tenan
   const [messageText, setMessageText] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
+  const [mediaType, setMediaType] = useState<'image' | 'audio' | 'document' | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaFilename, setMediaFilename] = useState<string | null>(null);
 
   // Fetch available WhatsApp instances
   const { data: instances = [] } = useQuery({
@@ -518,6 +549,9 @@ function CreateMessageDialog({ open, onClose, onSave, isPending, leadName, tenan
     setMessageText('');
     setScheduledAt('');
     setSelectedInstanceId('');
+    setMediaType(null);
+    setMediaUrl(null);
+    setMediaFilename(null);
     onClose();
   };
 
@@ -527,15 +561,21 @@ function CreateMessageDialog({ open, onClose, onSave, isPending, leadName, tenan
       final_message: messageText, 
       scheduled_at: new Date(scheduledAt).toISOString(),
       whatsapp_instance_id: selectedInstanceId || null,
+      media_type: mediaType,
+      media_url: mediaUrl,
+      media_filename: mediaFilename,
     });
     setMessageText('');
     setScheduledAt('');
     setSelectedInstanceId('');
+    setMediaType(null);
+    setMediaUrl(null);
+    setMediaFilename(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="w-5 h-5" />
@@ -578,12 +618,33 @@ function CreateMessageDialog({ open, onClose, onSave, isPending, leadName, tenan
           <div className="space-y-2">
             <Label>Mensagem *</Label>
             <Textarea
-              rows={6}
+              rows={5}
               placeholder="Digite a mensagem..."
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
               className="resize-none"
             />
+          </div>
+
+          {/* Media Upload Section */}
+          <div className="space-y-2">
+            <Label>Mídia (opcional)</Label>
+            {tenantId && (
+              <MediaUploader
+                mediaType={mediaType}
+                mediaUrl={mediaUrl}
+                mediaFilename={mediaFilename}
+                onMediaChange={(data) => {
+                  setMediaType(data.media_type);
+                  setMediaUrl(data.media_url);
+                  setMediaFilename(data.media_filename);
+                }}
+                organizationId={tenantId}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Anexe imagem, documento ou grave um áudio nativo.
+            </p>
           </div>
         </div>
 
