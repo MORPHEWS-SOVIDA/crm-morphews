@@ -140,11 +140,16 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Pull organizationId early so we can validate permission against the target org
+    const organizationIdFromBody =
+      typeof parsedBody.organizationId === "string" ? parsedBody.organizationId : null;
+
     // Check authentication: either x-internal-secret OR valid JWT from authorized user
     const internalSecret = req.headers.get("x-internal-secret");
 
     const accessTokenFromBody = typeof parsedBody.accessToken === "string" ? parsedBody.accessToken : null;
-    const authHeader = req.headers.get("authorization") ?? (accessTokenFromBody ? `Bearer ${accessTokenFromBody}` : null);
+    const authHeader = req.headers.get("authorization") ??
+      (accessTokenFromBody ? `Bearer ${accessTokenFromBody}` : null);
 
     let isAuthorized = false;
     let callerUserId: string | null = null;
@@ -154,7 +159,7 @@ const handler = async (req: Request): Promise<Response> => {
       isAuthorized = true;
       console.log("Authorized via x-internal-secret");
     }
-    // Option 2: JWT auth (for client calls from admins)
+    // Option 2: JWT auth (for client calls)
     else if (authHeader) {
       const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
@@ -166,40 +171,63 @@ const handler = async (req: Request): Promise<Response> => {
       if (user && !userError) {
         callerUserId = user.id;
 
-        // Check if user is master admin
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
           auth: { autoRefreshToken: false, persistSession: false },
         });
 
+        // 1) Master admins can always create users
         const { data: isMasterAdmin } = await supabaseAdmin.rpc("is_master_admin", { _user_id: user.id });
-
         if (isMasterAdmin) {
           isAuthorized = true;
           console.log("Authorized as master admin:", user.email);
         } else {
-          // Check if user is org admin for ANY organization (will verify specific org membership later)
-          // Using limit(1) instead of single() to avoid error when user is admin in multiple orgs
-          const { data: orgMembers, error: orgMemberError } = await supabaseAdmin
-            .from("organization_members")
-            .select("role, organization_id")
-            .eq("user_id", user.id)
-            .in("role", ["owner", "admin"])
-            .limit(1);
+          // 2) For non-master users, require a target organization id
+          if (!organizationIdFromBody) {
+            console.error("Unauthorized: missing organizationId in request body");
+          } else {
+            // Require the caller to be a member of the target organization
+            const { data: memberRow, error: memberRowError } = await supabaseAdmin
+              .from("organization_members")
+              .select("role, organization_id")
+              .eq("user_id", user.id)
+              .eq("organization_id", organizationIdFromBody)
+              .maybeSingle();
 
-          if (orgMemberError) {
-            console.error("Error checking org membership:", orgMemberError);
-          }
+            if (memberRowError) {
+              console.error("Error checking org membership:", memberRowError);
+            }
 
-          if (orgMembers && orgMembers.length > 0) {
-            isAuthorized = true;
-            console.log("Authorized as org admin:", user.email, "org:", orgMembers[0].organization_id);
+            if (memberRow) {
+              // Owners/Admins are always allowed
+              if (["owner", "admin"].includes(memberRow.role)) {
+                isAuthorized = true;
+                console.log("Authorized as org admin:", user.email, "org:", memberRow.organization_id);
+              } else {
+                // Otherwise require granular permission (ex: managers)
+                const { data: permRow, error: permError } = await supabaseAdmin
+                  .from("user_permissions")
+                  .select("team_add_member")
+                  .eq("user_id", user.id)
+                  .eq("organization_id", organizationIdFromBody)
+                  .maybeSingle();
+
+                if (permError) {
+                  console.error("Error checking user permissions:", permError);
+                }
+
+                if (permRow?.team_add_member) {
+                  isAuthorized = true;
+                  console.log("Authorized via team_add_member permission:", user.email, "role:", memberRow.role);
+                }
+              }
+            }
           }
         }
       }
     }
 
     if (!isAuthorized) {
-      console.error("Unauthorized: No valid authentication provided");
+      console.error("Unauthorized: insufficient permissions or invalid auth");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
