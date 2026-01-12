@@ -6021,9 +6021,6 @@ export type Database = {
           status: string | null
           tenant_id: string | null
           updated_at: string | null
-          wasender_api_key: string | null
-          z_api_client_token: string | null
-          z_api_token: string | null
         }
         Insert: {
           created_at?: string | null
@@ -6039,9 +6036,6 @@ export type Database = {
           status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
-          wasender_api_key?: string | null
-          z_api_client_token?: string | null
-          z_api_token?: string | null
         }
         Update: {
           created_at?: string | null
@@ -6057,9 +6051,6 @@ export type Database = {
           status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
-          wasender_api_key?: string | null
-          z_api_client_token?: string | null
-          z_api_token?: string | null
         }
         Relationships: [
           {
@@ -6349,6 +6340,16 @@ export type Database = {
       get_default_permissions_for_role: {
         Args: { _role: string }
         Returns: Json
+      }
+      get_instance_credentials: {
+        Args: { p_instance_id: string }
+        Returns: {
+          evolution_api_token: string
+          evolution_instance_id: string
+          wasender_api_key: string
+          z_api_client_token: string
+          z_api_token: string
+        }[]
       }
       get_linked_lead_for_conversation: {
         Args: { p_conversation_id: string }
