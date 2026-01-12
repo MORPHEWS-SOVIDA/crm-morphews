@@ -68,10 +68,17 @@ export interface UserPermissions {
   
   // Modules
   receptive_module_access: boolean;
-  
-  // Team & Instagram
-  team_view: boolean;
   instagram_view: boolean;
+  
+  // Team Management
+  team_view: boolean;
+  team_add_member: boolean;
+  team_edit_member: boolean;
+  team_delete_member: boolean;
+  team_change_permissions: boolean;
+  team_change_role: boolean;
+  team_change_commission: boolean;
+  team_toggle_manager: boolean;
   
   // Post-Sale
   post_sale_view: boolean;
@@ -116,10 +123,13 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   whatsapp_v2_view: { label: 'WhatsApp 2.0', description: 'Acessar WhatsApp 2.0 (novo)', group: 'WhatsApp' },
   whatsapp_manage_view: { label: 'Gerenciar WhatsApp', description: 'Acessar configurações e instâncias WhatsApp', group: 'WhatsApp' },
   
-  // Robôs de IA
-  ai_bots_view: { label: 'Robôs de IA', description: 'Acessar e gerenciar robôs de IA', group: 'WhatsApp' },
+  // Robôs de IA - no Módulos
+  ai_bots_view: { label: 'Robôs de IA', description: 'Acessar e gerenciar robôs de IA', group: 'Módulos' },
   
-  // Demandas
+  // Instagram - no Módulos
+  instagram_view: { label: 'Ver Instagram DMs', description: 'Acessar Instagram DMs', group: 'Módulos' },
+  
+  // Demandas - no Módulos
   demands_view: { label: 'Demandas', description: 'Acessar módulo de demandas/tarefas', group: 'Módulos' },
   
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
@@ -146,9 +156,15 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   
   receptive_module_access: { label: 'Módulo Receptivo', description: 'Acesso ao módulo de atendimento receptivo', group: 'Módulos' },
   
-  // Equipe e Instagram
+  // Equipe - permissões granulares
   team_view: { label: 'Ver Minha Equipe', description: 'Visualizar página Minha Equipe', group: 'Equipe' },
-  instagram_view: { label: 'Ver Instagram DMs', description: 'Acessar Instagram DMs', group: 'Equipe' },
+  team_add_member: { label: 'Adicionar Usuário', description: 'Adicionar novos usuários à equipe', group: 'Equipe' },
+  team_edit_member: { label: 'Editar Usuário', description: 'Editar dados de usuários da equipe', group: 'Equipe' },
+  team_delete_member: { label: 'Excluir Usuário', description: 'Remover usuários da equipe', group: 'Equipe' },
+  team_change_permissions: { label: 'Alterar Permissões', description: 'Modificar permissões dos usuários', group: 'Equipe' },
+  team_change_role: { label: 'Alterar Papel', description: 'Alterar cargo/papel dos usuários', group: 'Equipe' },
+  team_change_commission: { label: 'Alterar Comissão (%)', description: 'Modificar percentual de comissão', group: 'Equipe' },
+  team_toggle_manager: { label: 'Tornar/Destornar Gerente', description: 'Definir usuário como gerente de vendas', group: 'Equipe' },
   
   // Pós-Venda
   post_sale_view: { label: 'Ver Pós-Venda', description: 'Visualizar módulo de pós-venda', group: 'Pós-Venda' },
@@ -357,6 +373,13 @@ export function useApplyRoleDefaults() {
           deliveries_view_all: permsObj.deliveries_view_all ?? false,
           receptive_module_access: permsObj.receptive_module_access ?? false,
           team_view: permsObj.team_view ?? false,
+          team_add_member: permsObj.team_add_member ?? false,
+          team_edit_member: permsObj.team_edit_member ?? false,
+          team_delete_member: permsObj.team_delete_member ?? false,
+          team_change_permissions: permsObj.team_change_permissions ?? false,
+          team_change_role: permsObj.team_change_role ?? false,
+          team_change_commission: permsObj.team_change_commission ?? false,
+          team_toggle_manager: permsObj.team_toggle_manager ?? false,
           instagram_view: permsObj.instagram_view ?? false,
           post_sale_view: permsObj.post_sale_view ?? false,
           post_sale_manage: permsObj.post_sale_manage ?? false,
