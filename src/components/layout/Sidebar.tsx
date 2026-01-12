@@ -54,7 +54,7 @@ export function Sidebar() {
   
   // Permission-based visibility
   const canSeeLeads = isAdmin || permissions?.leads_view;
-  const canCreateLeads = isAdmin || permissions?.leads_create;
+  const canCreateLeads = (isAdmin || permissions?.leads_create) && !permissions?.leads_hide_new_button;
   const canSeeSales = isAdmin || permissions?.sales_view;
   const canSeeProducts = isAdmin || permissions?.products_view;
   const canSeeSettings = isAdmin || permissions?.settings_view;

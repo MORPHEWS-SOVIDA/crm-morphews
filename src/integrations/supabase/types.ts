@@ -5440,6 +5440,7 @@ export type Database = {
           leads_create: boolean
           leads_delete: boolean
           leads_edit: boolean
+          leads_hide_new_button: boolean
           leads_view: boolean
           leads_view_only_own: boolean
           organization_id: string
@@ -5491,6 +5492,7 @@ export type Database = {
           leads_create?: boolean
           leads_delete?: boolean
           leads_edit?: boolean
+          leads_hide_new_button?: boolean
           leads_view?: boolean
           leads_view_only_own?: boolean
           organization_id: string
@@ -5542,6 +5544,7 @@ export type Database = {
           leads_create?: boolean
           leads_delete?: boolean
           leads_edit?: boolean
+          leads_hide_new_button?: boolean
           leads_view?: boolean
           leads_view_only_own?: boolean
           organization_id?: string

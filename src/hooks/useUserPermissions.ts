@@ -15,6 +15,7 @@ export interface UserPermissions {
   leads_create: boolean;
   leads_edit: boolean;
   leads_delete: boolean;
+  leads_hide_new_button: boolean; // Hides "+ Novo Lead" button, forces use of Add Receptivo
   
   // Sales
   sales_view: boolean;
@@ -87,6 +88,7 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   leads_create: { label: 'Criar Leads', description: 'Criar novos leads', group: 'Leads' },
   leads_edit: { label: 'Editar Leads', description: 'Editar dados de leads', group: 'Leads' },
   leads_delete: { label: 'Excluir Leads', description: 'Remover leads', group: 'Leads' },
+  leads_hide_new_button: { label: 'Ocultar Botão Novo Lead', description: 'Força o vendedor a cadastrar leads pelo Add Receptivo', group: 'Leads' },
   
   sales_view: { label: 'Ver Vendas', description: 'Visualizar vendas', group: 'Vendas' },
   sales_view_all: { label: 'Ver Vendas de Todos', description: 'Ver vendas de todos os vendedores', group: 'Vendas' },
@@ -305,6 +307,7 @@ export function useApplyRoleDefaults() {
           leads_create: permsObj.leads_create ?? true,
           leads_edit: permsObj.leads_edit ?? true,
           leads_delete: permsObj.leads_delete ?? false,
+          leads_hide_new_button: permsObj.leads_hide_new_button ?? false,
           sales_view: permsObj.sales_view ?? true,
           sales_view_all: permsObj.sales_view_all ?? false,
           sales_create: permsObj.sales_create ?? false,
