@@ -5495,6 +5495,13 @@ export type Database = {
           settings_standard_questions: boolean
           settings_teams: boolean
           settings_view: boolean
+          team_add_member: boolean
+          team_change_commission: boolean
+          team_change_permissions: boolean
+          team_change_role: boolean
+          team_delete_member: boolean
+          team_edit_member: boolean
+          team_toggle_manager: boolean
           team_view: boolean
           updated_at: string
           user_id: string
@@ -5550,6 +5557,13 @@ export type Database = {
           settings_standard_questions?: boolean
           settings_teams?: boolean
           settings_view?: boolean
+          team_add_member?: boolean
+          team_change_commission?: boolean
+          team_change_permissions?: boolean
+          team_change_role?: boolean
+          team_delete_member?: boolean
+          team_edit_member?: boolean
+          team_toggle_manager?: boolean
           team_view?: boolean
           updated_at?: string
           user_id: string
@@ -5605,6 +5619,13 @@ export type Database = {
           settings_standard_questions?: boolean
           settings_teams?: boolean
           settings_view?: boolean
+          team_add_member?: boolean
+          team_change_commission?: boolean
+          team_change_permissions?: boolean
+          team_change_role?: boolean
+          team_delete_member?: boolean
+          team_edit_member?: boolean
+          team_toggle_manager?: boolean
           team_view?: boolean
           updated_at?: string
           user_id?: string

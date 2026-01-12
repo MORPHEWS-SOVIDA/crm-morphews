@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
-import { useApplyRoleDefaults } from "@/hooks/useUserPermissions";
+import { useApplyRoleDefaults, useMyPermissions } from "@/hooks/useUserPermissions";
 import { AvatarUpload } from "@/components/team/AvatarUpload";
 import { useTeams } from "@/hooks/useTeams";
 import { checkDuplicateUserWhatsApp } from "@/hooks/useCheckDuplicateUserWhatsApp";
@@ -100,6 +100,7 @@ export default function Team() {
   const { data: teams = [] } = useTeams();
   const { data: subscription, isLoading: loadingSubscription } = useCurrentSubscription();
   const { data: allPlans = [], isLoading: loadingPlans } = useSubscriptionPlans();
+  const { data: myPermissions } = useMyPermissions();
   const customerPortal = useCustomerPortal();
   const createCheckout = useCreateCheckout();
   
@@ -1240,7 +1241,7 @@ export default function Team() {
               
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button disabled={!canAddUser}>
+                  <Button disabled={!canAddUser || !myPermissions?.team_add_member}>
                     <Plus className="w-4 h-4 mr-2" />
                     Adicionar Usuário
                   </Button>
@@ -1388,8 +1389,8 @@ export default function Team() {
                         )}
                       </Badge>
                     )}
-                    {/* Edit button for all members except self */}
-                    {member.user_id !== user?.id && (
+                    {/* Edit button for all members except self - requires team_edit_member permission */}
+                    {member.user_id !== user?.id && myPermissions?.team_edit_member && (
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -1399,8 +1400,8 @@ export default function Team() {
                         <Pencil className="w-4 h-4" />
                       </Button>
                     )}
-                    {/* Delete button only for non-owners and non-self */}
-                    {member.user_id !== user?.id && member.role !== "owner" && (
+                    {/* Delete button only for non-owners and non-self - requires team_delete_member permission */}
+                    {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -1625,27 +1626,29 @@ export default function Team() {
                   </div>
                 </div>
 
-                {/* Commission and Extension */}
+                {/* Commission and Extension - requires team_change_commission permission for commission */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="editCommission">Comissão (%)</Label>
-                    <Input
-                      id="editCommission"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={editMemberData.commissionPercentage || ""}
-                      onChange={(e) => setEditMemberData({ 
-                        ...editMemberData, 
-                        commissionPercentage: parseFloat(e.target.value) || 0 
-                      })}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Percentual de comissão sobre vendas (0% a 100%)
-                    </p>
-                  </div>
+                  {myPermissions?.team_change_commission && (
+                    <div className="space-y-2">
+                      <Label htmlFor="editCommission">Comissão (%)</Label>
+                      <Input
+                        id="editCommission"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={editMemberData.commissionPercentage || ""}
+                        onChange={(e) => setEditMemberData({ 
+                          ...editMemberData, 
+                          commissionPercentage: parseFloat(e.target.value) || 0 
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Percentual de comissão sobre vendas (0% a 100%)
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="editExtension">Ramal</Label>
                     <Input
@@ -1660,27 +1663,28 @@ export default function Team() {
                   </div>
                 </div>
 
-                {/* Sales Manager Section */}
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-4 text-primary">👑 Gerente de Time de Vendas</h4>
-                  
-                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 mb-4">
-                    <div className="space-y-0.5">
-                      <div className="font-medium">Usuário é Gerente de Time de Vendas?</div>
-                      <p className="text-xs text-muted-foreground">
-                        Gerentes podem ganhar comissão sobre vendas do seu time
-                      </p>
+                {/* Sales Manager Section - requires team_toggle_manager permission */}
+                {myPermissions?.team_toggle_manager && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-4 text-primary">👑 Gerente de Time de Vendas</h4>
+                    
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 mb-4">
+                      <div className="space-y-0.5">
+                        <div className="font-medium">Usuário é Gerente de Time de Vendas?</div>
+                        <p className="text-xs text-muted-foreground">
+                          Gerentes podem ganhar comissão sobre vendas do seu time
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editMemberData.isSalesManager}
+                        onCheckedChange={(checked) => setEditMemberData({ 
+                          ...editMemberData, 
+                          isSalesManager: checked,
+                          earnsTeamCommission: checked ? editMemberData.earnsTeamCommission : false,
+                          teamCommissionPercentage: checked ? editMemberData.teamCommissionPercentage : 0,
+                        })}
+                      />
                     </div>
-                    <Switch
-                      checked={editMemberData.isSalesManager}
-                      onCheckedChange={(checked) => setEditMemberData({ 
-                        ...editMemberData, 
-                        isSalesManager: checked,
-                        earnsTeamCommission: checked ? editMemberData.earnsTeamCommission : false,
-                        teamCommissionPercentage: checked ? editMemberData.teamCommissionPercentage : 0,
-                      })}
-                    />
-                  </div>
                   
                   {editMemberData.isSalesManager && (
                     <div className="space-y-4 ml-4 pl-4 border-l-2 border-primary/30">
@@ -1766,8 +1770,8 @@ export default function Team() {
                       )}
                     </div>
                   )}
-                </div>
-
+                  </div>
+                )}
                 {/* Team */}
                 <div className="space-y-2">
                   <Label>Time</Label>
@@ -1800,28 +1804,30 @@ export default function Team() {
                   </p>
                 </div>
 
-                {/* Role */}
-                <div className="space-y-2">
-                  <Label>Papel</Label>
-                  <Select value={editRole} onValueChange={(v) => setEditRole(v as OrgRole)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o papel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ASSIGNABLE_ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          <div className="flex flex-col">
-                            <span>{ORG_ROLE_LABELS[role].label}</span>
-                            <span className="text-xs text-muted-foreground">{ORG_ROLE_LABELS[role].description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Ao mudar o papel, as permissões padrão serão aplicadas. Você pode personalizá-las na aba "Permissões Detalhadas".
-                  </p>
-                </div>
+                {/* Role - requires team_change_role permission */}
+                {myPermissions?.team_change_role && (
+                  <div className="space-y-2">
+                    <Label>Papel</Label>
+                    <Select value={editRole} onValueChange={(v) => setEditRole(v as OrgRole)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o papel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASSIGNABLE_ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            <div className="flex flex-col">
+                              <span>{ORG_ROLE_LABELS[role].label}</span>
+                              <span className="text-xs text-muted-foreground">{ORG_ROLE_LABELS[role].description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Ao mudar o papel, as permissões padrão serão aplicadas. Você pode personalizá-las na aba "Permissões Detalhadas".
+                    </p>
+                  </div>
+                )}
                 
                 {/* Visibility - Only show for non-admin/owner roles */}
                 {!["admin", "owner"].includes(editRole) && (
