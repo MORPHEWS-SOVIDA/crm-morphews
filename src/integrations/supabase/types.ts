@@ -497,6 +497,593 @@ export type Database = {
           },
         ]
       }
+      demand_assignees: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          demand_id: string
+          id: string
+          notified_at: string | null
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          demand_id: string
+          id?: string
+          notified_at?: string | null
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          demand_id?: string
+          id?: string
+          notified_at?: string | null
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_assignees_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_assignees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_attachments: {
+        Row: {
+          created_at: string
+          demand_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          demand_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          demand_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_attachments_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_boards: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_boards_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_checklist_items: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          demand_id: string
+          id: string
+          is_completed: boolean
+          organization_id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          demand_id: string
+          id?: string
+          is_completed?: boolean
+          organization_id: string
+          position?: number
+          title: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          demand_id?: string
+          id?: string
+          is_completed?: boolean
+          organization_id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_checklist_items_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_checklist_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_columns: {
+        Row: {
+          board_id: string
+          color: string | null
+          created_at: string
+          id: string
+          is_final: boolean
+          name: string
+          organization_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_final?: boolean
+          name: string
+          organization_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_final?: boolean
+          name?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_columns_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "demand_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_columns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_comments: {
+        Row: {
+          content: string
+          created_at: string
+          demand_id: string
+          id: string
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          demand_id: string
+          id?: string
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          demand_id?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_comments_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_comments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_history: {
+        Row: {
+          action: string
+          created_at: string
+          demand_id: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          organization_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          demand_id: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          organization_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          demand_id?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          organization_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_history_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_label_assignments: {
+        Row: {
+          created_at: string
+          demand_id: string
+          id: string
+          label_id: string
+        }
+        Insert: {
+          created_at?: string
+          demand_id: string
+          id?: string
+          label_id: string
+        }
+        Update: {
+          created_at?: string
+          demand_id?: string
+          id?: string
+          label_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_label_assignments_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "demand_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_labels: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_labels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_sla_config: {
+        Row: {
+          created_at: string
+          hours: number
+          id: string
+          organization_id: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          created_at?: string
+          hours?: number
+          id?: string
+          organization_id: string
+          updated_at?: string
+          urgency: string
+        }
+        Update: {
+          created_at?: string
+          hours?: number
+          id?: string
+          organization_id?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_sla_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_time_entries: {
+        Row: {
+          created_at: string
+          demand_id: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          demand_id: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          demand_id?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_time_entries_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_time_entries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demands: {
+        Row: {
+          board_id: string
+          column_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_at: string | null
+          estimated_time_seconds: number | null
+          id: string
+          is_archived: boolean
+          lead_id: string | null
+          organization_id: string
+          position: number
+          sla_deadline: string | null
+          title: string
+          total_time_seconds: number
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          board_id: string
+          column_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          estimated_time_seconds?: number | null
+          id?: string
+          is_archived?: boolean
+          lead_id?: string | null
+          organization_id: string
+          position?: number
+          sla_deadline?: string | null
+          title: string
+          total_time_seconds?: number
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          board_id?: string
+          column_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          estimated_time_seconds?: number | null
+          id?: string
+          is_archived?: boolean
+          lead_id?: string | null
+          organization_id?: string
+          position?: number
+          sla_deadline?: string | null
+          title?: string
+          total_time_seconds?: number
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demands_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "demand_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "demand_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discount_authorizations: {
         Row: {
           authorization_code: string
@@ -6429,6 +7016,14 @@ export type Database = {
       }
       increment_coupon_usage: {
         Args: { coupon_id: string }
+        Returns: undefined
+      }
+      initialize_demand_board_columns: {
+        Args: { p_board_id: string; p_organization_id: string }
+        Returns: undefined
+      }
+      initialize_demand_sla_config: {
+        Args: { org_id: string }
         Returns: undefined
       }
       initialize_org_funnel_stages: {
