@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
-import { Plus, Smartphone, Wifi, WifiOff, Trash2, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEvolutionInstances, InstanceFilter } from "@/hooks/useEvolutionInstances";
+import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info } from "lucide-react";
 import { toast } from "sonner";
 import { InstancePermissions } from "./InstancePermissions";
 import { InstanceSettingsDialog } from "./InstanceSettingsDialog";
@@ -20,12 +21,20 @@ interface EvolutionInstance {
   is_connected: boolean;
   qr_code_base64: string | null;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 interface EvolutionInstancesManagerProps {
   onSelectInstance?: (instanceId: string) => void;
   selectedInstanceId?: string | null;
 }
+
+const FILTER_OPTIONS: { value: InstanceFilter; label: string }[] = [
+  { value: "all", label: "Todas" },
+  { value: "connected", label: "Conectadas" },
+  { value: "disconnected", label: "Desconectadas" },
+  { value: "archived", label: "Arquivadas" },
+];
 
 export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId }: EvolutionInstancesManagerProps) {
   const {
@@ -35,7 +44,8 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     createInstance,
     getQrCode,
     checkStatus,
-    deleteInstance,
+    archiveInstance,
+    unarchiveInstance,
     logoutInstance,
     addManualInstance,
     pollingInstanceId,
@@ -48,6 +58,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   const [selectedQrInstance, setSelectedQrInstance] = useState<EvolutionInstance | null>(null);
   const [currentQrCode, setCurrentQrCode] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<InstanceFilter>("all");
   
   // Estado para adicionar instância manualmente
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
@@ -60,6 +71,34 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [selectedInstanceForDialog, setSelectedInstanceForDialog] = useState<EvolutionInstance | null>(null);
+
+  // Filtrar instâncias
+  const filteredInstances = useMemo(() => {
+    if (!instances) return [];
+    
+    switch (activeFilter) {
+      case "connected":
+        return instances.filter(i => i.is_connected && !i.deleted_at);
+      case "disconnected":
+        return instances.filter(i => !i.is_connected && !i.deleted_at);
+      case "archived":
+        return instances.filter(i => i.deleted_at);
+      case "all":
+      default:
+        return instances.filter(i => !i.deleted_at);
+    }
+  }, [instances, activeFilter]);
+
+  // Contadores para os badges
+  const counts = useMemo(() => {
+    if (!instances) return { all: 0, connected: 0, disconnected: 0, archived: 0 };
+    return {
+      all: instances.filter(i => !i.deleted_at).length,
+      connected: instances.filter(i => i.is_connected && !i.deleted_at).length,
+      disconnected: instances.filter(i => !i.is_connected && !i.deleted_at).length,
+      archived: instances.filter(i => i.deleted_at).length,
+    };
+  }, [instances]);
 
   // Polling para verificar conexão
   useEffect(() => {
@@ -133,13 +172,21 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     }
   };
 
-  const handleDelete = async (instance: EvolutionInstance) => {
-    if (!confirm(`Tem certeza que deseja excluir a instância "${instance.name}"?`)) {
+  const handleArchive = async (instance: EvolutionInstance) => {
+    if (!confirm(`Arquivar a instância "${instance.name}"? O histórico de conversas será preservado.`)) {
       return;
     }
     
     try {
-      await deleteInstance.mutateAsync(instance.id);
+      await archiveInstance.mutateAsync(instance.id);
+    } catch (e) {
+      // Erro já tratado no hook
+    }
+  };
+
+  const handleUnarchive = async (instance: EvolutionInstance) => {
+    try {
+      await unarchiveInstance.mutateAsync(instance.id);
     } catch (e) {
       // Erro já tratado no hook
     }
@@ -156,7 +203,6 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
       // Erro já tratado no hook
     }
   };
-
 
   const handleAddManual = async () => {
     if (!manualInstanceId.trim()) {
@@ -193,6 +239,15 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
 
   return (
     <div className="space-y-4">
+      {/* Alerta informativo sobre a regra */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Regra do Sistema:</strong> Instâncias não podem ser excluídas para preservar o histórico de conversas. 
+          Você pode <strong>arquivar</strong> instâncias que não usa mais, ou <strong>desconectar</strong> e reconectar com outro número.
+        </AlertDescription>
+      </Alert>
+
       {/* Header com botões */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -293,7 +348,10 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
               <DialogHeader>
                 <DialogTitle>Criar Nova Instância</DialogTitle>
                 <DialogDescription>
-                  Crie uma nova conexão do WhatsApp para sua organização
+                  Crie uma nova conexão do WhatsApp para sua organização. 
+                  <span className="block mt-1 text-amber-600 dark:text-amber-400">
+                    Atenção: Uma vez criada, a instância não pode ser excluída, apenas arquivada.
+                  </span>
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -326,117 +384,175 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2">
+        {FILTER_OPTIONS.map((filter) => (
+          <Button
+            key={filter.value}
+            variant={activeFilter === filter.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveFilter(filter.value)}
+            className="gap-2"
+          >
+            {filter.label}
+            <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+              {counts[filter.value]}
+            </Badge>
+          </Button>
+        ))}
+      </div>
+
       {/* Lista de instâncias */}
-      {!instances || instances.length === 0 ? (
+      {filteredInstances.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Smartphone className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-center">
-              Nenhuma instância criada ainda.
-              <br />
-              Clique em "Nova Instância" para começar.
+              {activeFilter === "archived" 
+                ? "Nenhuma instância arquivada."
+                : activeFilter === "connected"
+                ? "Nenhuma instância conectada."
+                : activeFilter === "disconnected"
+                ? "Nenhuma instância desconectada."
+                : "Nenhuma instância criada ainda."}
+              {activeFilter === "all" && (
+                <>
+                  <br />
+                  Clique em "Nova Instância" para começar.
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {instances.map((instance) => (
-            <Card 
-              key={instance.id}
-              className={`cursor-pointer transition-all ${
-                selectedInstanceId === instance.id 
-                  ? "ring-2 ring-primary" 
-                  : "hover:shadow-md"
-              }`}
-              onClick={() => onSelectInstance?.(instance.id)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{instance.name}</CardTitle>
-                  <Badge 
-                    variant={instance.is_connected ? "default" : "secondary"}
-                    className={instance.is_connected ? "bg-green-500" : ""}
-                  >
-                    {instance.is_connected ? (
-                      <><Wifi className="h-3 w-3 mr-1" /> Conectado</>
+          {filteredInstances.map((instance) => {
+            const isArchived = !!instance.deleted_at;
+            
+            return (
+              <Card 
+                key={instance.id}
+                className={`cursor-pointer transition-all ${
+                  selectedInstanceId === instance.id 
+                    ? "ring-2 ring-primary" 
+                    : "hover:shadow-md"
+                } ${isArchived ? "opacity-60" : ""}`}
+                onClick={() => !isArchived && onSelectInstance?.(instance.id)}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{instance.name}</CardTitle>
+                    {isArchived ? (
+                      <Badge variant="secondary">
+                        <Archive className="h-3 w-3 mr-1" /> Arquivada
+                      </Badge>
                     ) : (
-                      <><WifiOff className="h-3 w-3 mr-1" /> Desconectado</>
+                      <Badge 
+                        variant={instance.is_connected ? "default" : "secondary"}
+                        className={instance.is_connected ? "bg-green-500" : ""}
+                      >
+                        {instance.is_connected ? (
+                          <><Wifi className="h-3 w-3 mr-1" /> Conectado</>
+                        ) : (
+                          <><WifiOff className="h-3 w-3 mr-1" /> Desconectado</>
+                        )}
+                      </Badge>
                     )}
-                  </Badge>
-                </div>
-                {instance.phone_number && (
-                  <CardDescription>
-                    +{instance.phone_number}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {!instance.is_connected && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShowQrCode(instance);
-                      }}
-                    >
-                      <QrCode className="h-4 w-4 mr-1" />
-                      QR Code
-                    </Button>
+                  </div>
+                  {instance.phone_number && (
+                    <CardDescription>
+                      +{instance.phone_number}
+                    </CardDescription>
                   )}
-                  {instance.is_connected && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLogout(instance);
-                      }}
-                    >
-                      <LogOut className="h-4 w-4 mr-1" />
-                      Desconectar
-                    </Button>
-                  )}
-                  {/* Botão Configurações */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedInstanceForDialog(instance);
-                      setSettingsDialogOpen(true);
-                    }}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                  {/* Botão Permissões */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedInstanceForDialog(instance);
-                      setPermissionsDialogOpen(true);
-                    }}
-                  >
-                    <Users className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(instance);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {isArchived ? (
+                      // Instância arquivada: apenas botão de restaurar
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUnarchive(instance);
+                        }}
+                        disabled={unarchiveInstance.isPending}
+                      >
+                        <ArchiveRestore className="h-4 w-4 mr-1" />
+                        Restaurar
+                      </Button>
+                    ) : (
+                      <>
+                        {!instance.is_connected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShowQrCode(instance);
+                            }}
+                          >
+                            <QrCode className="h-4 w-4 mr-1" />
+                            QR Code
+                          </Button>
+                        )}
+                        {instance.is_connected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLogout(instance);
+                            }}
+                          >
+                            <LogOut className="h-4 w-4 mr-1" />
+                            Desconectar
+                          </Button>
+                        )}
+                        {/* Botão Configurações */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInstanceForDialog(instance);
+                            setSettingsDialogOpen(true);
+                          }}
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                        {/* Botão Permissões */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInstanceForDialog(instance);
+                            setPermissionsDialogOpen(true);
+                          }}
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        {/* Botão Arquivar */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchive(instance);
+                          }}
+                          disabled={archiveInstance.isPending}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
