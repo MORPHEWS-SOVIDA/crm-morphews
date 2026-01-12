@@ -30,6 +30,9 @@ interface ScheduledMessage {
   final_message: string;
   scheduled_at: string;
   status: string;
+  media_type: string | null;
+  media_url: string | null;
+  media_filename: string | null;
 }
 
 interface Lead {
@@ -47,41 +50,90 @@ interface WhatsAppInstance {
 async function sendMessageViaEvolution(
   instanceName: string, 
   phone: string, 
-  message: string
+  message: string,
+  mediaType?: string | null,
+  mediaUrl?: string | null,
+  mediaFilename?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const url = `${EVOLUTION_API_URL}/message/sendText/${instanceName}`;
-    const body = {
-      number: phone,
-      text: message,
-    };
+    // If we have media, send it first
+    if (mediaUrl && mediaType) {
+      let endpoint = '';
+      let body: Record<string, unknown> = { number: phone };
 
-    console.log(`Sending message to ${phone} via instance ${instanceName}`);
+      if (mediaType === 'image') {
+        endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
+        body = { ...body, mediatype: 'image', media: mediaUrl, caption: message };
+      } else if (mediaType === 'audio') {
+        endpoint = `${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${instanceName}`;
+        body = { ...body, audio: mediaUrl };
+      } else if (mediaType === 'document') {
+        endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
+        body = { ...body, mediatype: 'document', media: mediaUrl, fileName: mediaFilename || 'document', caption: message };
+      }
 
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify(body),
-    });
+      console.log(`Sending ${mediaType} to ${phone} via instance ${instanceName}`);
 
-    const raw = await resp.json().catch(() => ({}));
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify(body),
+      });
 
-    if (!resp.ok) {
-      const errorMsg = raw?.message || raw?.error || `HTTP ${resp.status}`;
-      console.error(`Evolution API error: ${errorMsg}`);
-      return { success: false, error: errorMsg };
+      const raw = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        const errorMsg = raw?.message || raw?.error || `HTTP ${resp.status}`;
+        console.error(`Evolution API error: ${errorMsg}`);
+        return { success: false, error: errorMsg };
+      }
+
+      // For audio, send text separately if present
+      if (mediaType === 'audio' && message) {
+        await sendTextMessage(instanceName, phone, message);
+      }
+
+      console.log(`Media sent successfully to ${phone}`);
+      return { success: true };
     }
 
-    console.log(`Message sent successfully to ${phone}`);
-    return { success: true };
+    // Text only message
+    return await sendTextMessage(instanceName, phone, message);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error(`Error sending message: ${msg}`);
     return { success: false, error: msg };
   }
+}
+
+async function sendTextMessage(instanceName: string, phone: string, message: string): Promise<{ success: boolean; error?: string }> {
+  const url = `${EVOLUTION_API_URL}/message/sendText/${instanceName}`;
+  const body = { number: phone, text: message };
+
+  console.log(`Sending text to ${phone} via instance ${instanceName}`);
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": EVOLUTION_API_KEY,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const raw = await resp.json().catch(() => ({}));
+
+  if (!resp.ok) {
+    const errorMsg = raw?.message || raw?.error || `HTTP ${resp.status}`;
+    console.error(`Evolution API error: ${errorMsg}`);
+    return { success: false, error: errorMsg };
+  }
+
+  console.log(`Text sent successfully to ${phone}`);
+  return { success: true };
 }
 
 serve(async (req) => {
@@ -222,7 +274,10 @@ serve(async (req) => {
         const sendResult = await sendMessageViaEvolution(
           instance.evolution_instance_id,
           normalizedPhone,
-          msg.final_message
+          msg.final_message,
+          msg.media_type,
+          msg.media_url,
+          msg.media_filename
         );
 
         if (sendResult.success) {

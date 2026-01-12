@@ -22,6 +22,10 @@ export interface ScheduledMessage {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Media fields
+  media_type: 'image' | 'audio' | 'document' | null;
+  media_url: string | null;
+  media_filename: string | null;
   // Joined data
   lead?: {
     id: string;
@@ -252,11 +256,17 @@ export function useCreateScheduledMessage() {
       final_message,
       scheduled_at,
       whatsapp_instance_id,
+      media_type,
+      media_url,
+      media_filename,
     }: {
       lead_id: string;
       final_message: string;
       scheduled_at: string;
       whatsapp_instance_id?: string;
+      media_type?: 'image' | 'audio' | 'document' | null;
+      media_url?: string | null;
+      media_filename?: string | null;
     }) => {
       if (!tenantId) throw new Error('Organização não encontrada');
 
@@ -272,6 +282,9 @@ export function useCreateScheduledMessage() {
           template_id: null,
           status: 'pending',
           created_by: user?.id || null,
+          media_type: media_type || null,
+          media_url: media_url || null,
+          media_filename: media_filename || null,
         })
         .select()
         .single();
