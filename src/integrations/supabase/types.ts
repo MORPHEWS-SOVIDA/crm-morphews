@@ -6928,7 +6928,7 @@ export type Database = {
         Returns: Json
       }
       get_default_permissions_for_role: {
-        Args: { _role: string }
+        Args: { p_role: string }
         Returns: Json
       }
       get_instance_credentials: {
