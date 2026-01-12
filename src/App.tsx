@@ -49,6 +49,8 @@ import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
 import AIBots from "./pages/AIBots";
+import Demands from "./pages/Demands";
+import DemandsSettings from "./pages/DemandsSettings";
 
 const queryClient = new QueryClient();
 
@@ -371,6 +373,24 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['settings_view']}>
                     <AIBots />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Demands */}
+              <Route
+                path="/demandas"
+                element={
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <Demands />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/demandas/configuracoes"
+                element={
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <DemandsSettings />
                   </ProtectedRoute>
                 }
               />
