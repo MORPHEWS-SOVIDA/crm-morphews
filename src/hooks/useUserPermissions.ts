@@ -32,6 +32,13 @@ export interface UserPermissions {
   whatsapp_view: boolean;
   whatsapp_send: boolean;
   whatsapp_v2_view: boolean;
+  whatsapp_manage_view: boolean;
+  
+  // AI Bots
+  ai_bots_view: boolean;
+  
+  // Demands
+  demands_view: boolean;
   
   // Products & Settings
   products_view: boolean;
@@ -107,6 +114,13 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   whatsapp_view: { label: 'WhatsApp 1.0 (DMs)', description: 'Acessar Chat WhatsApp 1.0', group: 'WhatsApp' },
   whatsapp_send: { label: 'Enviar Mensagens', description: 'Enviar mensagens pelo WhatsApp', group: 'WhatsApp' },
   whatsapp_v2_view: { label: 'WhatsApp 2.0', description: 'Acessar WhatsApp 2.0 (novo)', group: 'WhatsApp' },
+  whatsapp_manage_view: { label: 'Gerenciar WhatsApp', description: 'Acessar configurações e instâncias WhatsApp', group: 'WhatsApp' },
+  
+  // Robôs de IA
+  ai_bots_view: { label: 'Robôs de IA', description: 'Acessar e gerenciar robôs de IA', group: 'WhatsApp' },
+  
+  // Demandas
+  demands_view: { label: 'Demandas', description: 'Acessar módulo de demandas/tarefas', group: 'Módulos' },
   
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
   products_manage: { label: 'Gerenciar Produtos', description: 'Criar/editar/excluir produtos', group: 'Produtos' },
@@ -286,7 +300,7 @@ export function useApplyRoleDefaults() {
       
       // Get default permissions for role from the database function
       const { data: defaultPerms, error: funcError } = await supabase
-        .rpc('get_default_permissions_for_role', { _role: role });
+        .rpc('get_default_permissions_for_role', { p_role: role });
       
       if (funcError) throw funcError;
       
@@ -320,6 +334,9 @@ export function useApplyRoleDefaults() {
           whatsapp_view: permsObj.whatsapp_view ?? true,
           whatsapp_send: permsObj.whatsapp_send ?? false,
           whatsapp_v2_view: permsObj.whatsapp_v2_view ?? false,
+          whatsapp_manage_view: permsObj.whatsapp_manage_view ?? false,
+          ai_bots_view: permsObj.ai_bots_view ?? false,
+          demands_view: permsObj.demands_view ?? false,
           products_view: permsObj.products_view ?? true,
           products_manage: permsObj.products_manage ?? false,
           products_view_cost: permsObj.products_view_cost ?? false,

@@ -71,6 +71,9 @@ export function Sidebar() {
   const canSeeScheduledMessages = isAdmin || permissions?.scheduled_messages_view;
   const canSeeSalesReport = isAdmin || permissions?.sales_report_view;
   const canSeeExpeditionReport = isAdmin || permissions?.expedition_report_view;
+  const canSeeWhatsAppManage = isAdmin || permissions?.whatsapp_manage_view;
+  const canSeeAIBots = isAdmin || permissions?.ai_bots_view;
+  const canSeeDemands = isAdmin || permissions?.demands_view;
   
   // WhatsApp DMs is visible for master admin or if organization has it enabled
   const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
@@ -123,19 +126,19 @@ export function Sidebar() {
     
     // WhatsApp 1.0 (DMs)
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsAppDMs },
-    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsAppDMs && isAdmin },
+    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsAppDMs && canSeeWhatsAppManage },
     
     // WhatsApp 2.0 (separate permission)
     { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsAppV2 },
     
+    // AI Bots (permission controlled)
+    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots },
+    
     // Team (permission controlled)
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam },
     
-    // AI Bots (admin only)
-    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeSettings },
-    
-    // Demands (admin only)
-    { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeSettings },
+    // Demands (permission controlled)
+    { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeDemands },
     
     // 2FA for managers
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
