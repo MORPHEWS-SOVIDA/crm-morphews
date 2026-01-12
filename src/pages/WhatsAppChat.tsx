@@ -50,7 +50,7 @@ import { useConversationDistribution } from '@/hooks/useConversationDistribution
 import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
 import { useQuery } from '@tanstack/react-query';
 
-type StatusTab = 'with_bot' | 'pending' | 'autodistributed' | 'assigned' | 'closed';
+type StatusTab = 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed';
 
 interface Conversation {
   id: string;
@@ -794,16 +794,26 @@ export default function WhatsAppChat() {
     ) || false;
   };
 
-  // Calcular contagens por status (autodistributed só conta as do usuário logado)
+  // Helper para identificar grupos
+  const isGroupConversation = (c: Conversation) => {
+    return c.phone_number.includes('@g.us') || (c as any).is_group === true;
+  };
+
+  // Calcular contagens por status (autodistributed só conta as do usuário logado, grupos ficam separados)
   const statusCounts = useMemo(() => {
+    // Separar grupos das demais conversas
+    const nonGroupConversations = conversations.filter(c => !isGroupConversation(c));
+    const groupConversations = conversations.filter(c => isGroupConversation(c));
+    
     return {
-      with_bot: conversations.filter(c => c.status === 'with_bot').length,
-      pending: conversations.filter(c => c.status === 'pending' || !c.status).length,
-      autodistributed: conversations.filter(c => 
+      with_bot: nonGroupConversations.filter(c => c.status === 'with_bot').length,
+      pending: nonGroupConversations.filter(c => c.status === 'pending' || !c.status).length,
+      groups: groupConversations.length,
+      autodistributed: nonGroupConversations.filter(c => 
         c.status === 'autodistributed' && c.designated_user_id === user?.id
       ).length,
-      assigned: conversations.filter(c => c.status === 'assigned').length,
-      closed: conversations.filter(c => c.status === 'closed').length,
+      assigned: nonGroupConversations.filter(c => c.status === 'assigned').length,
+      closed: nonGroupConversations.filter(c => c.status === 'closed').length,
     };
   }, [conversations, user?.id]);
 
@@ -860,6 +870,20 @@ export default function WhatsAppChat() {
   };
 
   const filteredConversations = conversations.filter(c => {
+    const isGroup = isGroupConversation(c);
+    
+    // Aba "groups" mostra apenas grupos
+    if (statusFilter === 'groups') {
+      if (!isGroup) return false;
+      // Filtro de busca por texto
+      const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
+        c.phone_number.includes(searchTerm);
+      return matchesSearch;
+    }
+    
+    // Demais abas excluem grupos
+    if (isGroup) return false;
+    
     // Filtro por status (aba)
     const convStatus = c.status || 'pending';
     if (convStatus !== statusFilter) return false;
@@ -878,13 +902,7 @@ export default function WhatsAppChat() {
     const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
       c.phone_number.includes(searchTerm);
     
-    // Filtro por tipo de conversa (individual/grupo)
-    const isGroup = c.phone_number.includes('@g.us') || (c as any).is_group === true;
-    const matchesType = conversationTypeFilter === 'all' ||
-      (conversationTypeFilter === 'group' && isGroup) ||
-      (conversationTypeFilter === 'individual' && !isGroup);
-    
-    return matchesSearch && matchesType;
+    return matchesSearch;
   });
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
