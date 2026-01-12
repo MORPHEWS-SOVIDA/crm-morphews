@@ -375,16 +375,16 @@ serve(async (req) => {
     }
 
     // =====================
-    // DELETE INSTANCE (SOFT DELETE)
+    // ARCHIVE INSTANCE (SOFT DELETE - preserva histórico)
     // =====================
-    if (action === "delete") {
+    if (action === "archive") {
       if (!instanceId) {
         throw new Error("instanceId é obrigatório");
       }
 
       // Verificar se é admin
       if (!["owner", "admin"].includes(membership.role)) {
-        throw new Error("Apenas administradores podem deletar instâncias");
+        throw new Error("Apenas administradores podem arquivar instâncias");
       }
 
       const { data: instance } = await supabase
@@ -398,43 +398,105 @@ serve(async (req) => {
         throw new Error("Instância não encontrada");
       }
 
-      // Deletar no Evolution se existir
-      if (instance.evolution_instance_id) {
+      if (instance.deleted_at) {
+        throw new Error("Instância já está arquivada");
+      }
+
+      // Desconectar do Evolution se estiver conectada
+      if (instance.evolution_instance_id && instance.is_connected) {
         try {
-          await fetch(`${EVOLUTION_API_URL}/instance/delete/${instance.evolution_instance_id}`, {
+          await fetch(`${EVOLUTION_API_URL}/instance/logout/${instance.evolution_instance_id}`, {
             method: "DELETE",
             headers: { "apikey": EVOLUTION_API_KEY },
           });
         } catch (e) {
-          console.error("Error deleting from Evolution:", e);
+          console.error("Error logging out from Evolution:", e);
         }
       }
 
-      // SOFT DELETE: Usar a função do banco para preservar conversas
-      // Primeiro guarda o nome da instância nas conversas
+      // Preservar o nome da instância nas conversas
       await supabase
         .from("whatsapp_conversations")
         .update({ original_instance_name: instance.name })
         .eq("instance_id", instanceId)
         .is("original_instance_name", null);
 
-      // Depois marca a instância como deletada
+      // Marcar a instância como arquivada (soft delete)
       const { error: updateError } = await supabase
         .from("whatsapp_instances")
         .update({
           deleted_at: new Date().toISOString(),
           is_connected: false,
-          status: "deleted",
+          status: "archived",
         })
         .eq("id", instanceId);
 
       if (updateError) {
-        throw new Error("Erro ao deletar instância");
+        throw new Error("Erro ao arquivar instância");
       }
 
-      return new Response(JSON.stringify({ success: true, message: "Instância excluída. O histórico de conversas foi preservado." }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Instância arquivada. O histórico de conversas foi preservado." 
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // =====================
+    // UNARCHIVE INSTANCE (Restaurar instância arquivada)
+    // =====================
+    if (action === "unarchive") {
+      if (!instanceId) {
+        throw new Error("instanceId é obrigatório");
+      }
+
+      // Verificar se é admin
+      if (!["owner", "admin"].includes(membership.role)) {
+        throw new Error("Apenas administradores podem restaurar instâncias");
+      }
+
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("id", instanceId)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (!instance) {
+        throw new Error("Instância não encontrada");
+      }
+
+      if (!instance.deleted_at) {
+        throw new Error("Instância não está arquivada");
+      }
+
+      // Restaurar a instância
+      const { error: updateError } = await supabase
+        .from("whatsapp_instances")
+        .update({
+          deleted_at: null,
+          status: "disconnected",
+        })
+        .eq("id", instanceId);
+
+      if (updateError) {
+        throw new Error("Erro ao restaurar instância");
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Instância restaurada. Use o QR Code para reconectar." 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
+    // DELETE INSTANCE (BLOQUEADO - usar archive)
+    // =====================
+    if (action === "delete") {
+      throw new Error("Exclusão de instâncias não é permitida. Use 'arquivar' para preservar o histórico de conversas.");
     }
 
     // =====================

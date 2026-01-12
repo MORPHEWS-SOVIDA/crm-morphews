@@ -15,7 +15,10 @@ interface EvolutionInstance {
   qr_code_base64: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
+
+export type InstanceFilter = "all" | "connected" | "disconnected" | "archived";
 
 export function useEvolutionInstances() {
   const queryClient = useQueryClient();
@@ -122,11 +125,11 @@ export function useEvolutionInstances() {
     },
   });
 
-  // Deletar instância
-  const deleteInstance = useMutation({
+  // Arquivar instância (soft-delete)
+  const archiveInstance = useMutation({
     mutationFn: async (instanceId: string) => {
       const response = await supabase.functions.invoke("evolution-instance-manager", {
-        body: { action: "delete", instanceId },
+        body: { action: "archive", instanceId },
       });
 
       if (response.error) {
@@ -140,11 +143,37 @@ export function useEvolutionInstances() {
       return true;
     },
     onSuccess: () => {
-      toast.success("Instância removida!");
+      toast.success("Instância arquivada!");
       queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao remover: ${error.message}`);
+      toast.error(`Erro ao arquivar: ${error.message}`);
+    },
+  });
+
+  // Desarquivar instância
+  const unarchiveInstance = useMutation({
+    mutationFn: async (instanceId: string) => {
+      const response = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "unarchive", instanceId },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return true;
+    },
+    onSuccess: () => {
+      toast.success("Instância restaurada!");
+      queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao restaurar: ${error.message}`);
     },
   });
 
@@ -246,7 +275,8 @@ export function useEvolutionInstances() {
     createInstance,
     getQrCode,
     checkStatus,
-    deleteInstance,
+    archiveInstance,
+    unarchiveInstance,
     logoutInstance,
     enableGroups,
     addManualInstance,
