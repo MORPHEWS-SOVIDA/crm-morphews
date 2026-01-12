@@ -39,6 +39,7 @@ import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHis
 import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
 import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMessagesSection';
 import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
+import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
@@ -617,6 +618,11 @@ export default function LeadDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Demandas */}
+            <SectionErrorBoundary title="Demandas">
+              <LeadDemandsSection leadId={id!} leadName={lead.name} />
+            </SectionErrorBoundary>
 
             {/* Lead Sales */}
             <SectionErrorBoundary title="Vendas">
