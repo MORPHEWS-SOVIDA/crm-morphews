@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -6,17 +8,33 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DemandDetailDialog } from '@/components/demands/DemandDetailDialog';
 import { URGENCY_CONFIG } from '@/types/demand';
 import type { DemandWithRelations } from '@/types/demand';
-import { Clock, AlertTriangle, User, MessageSquare, Paperclip } from 'lucide-react';
+import { Clock, AlertTriangle, User, GripVertical } from 'lucide-react';
 import { formatDistanceToNow, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface DemandCardProps {
   demand: DemandWithRelations;
   boardId: string;
+  isDragging?: boolean;
 }
 
-export function DemandCard({ demand, boardId }: DemandCardProps) {
+export function DemandCard({ demand, boardId, isDragging }: DemandCardProps) {
   const [showDetail, setShowDetail] = useState(false);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: demand.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const urgencyConfig = URGENCY_CONFIG[demand.urgency];
   const isOverdue = demand.sla_deadline && isPast(new Date(demand.sla_deadline));
@@ -26,32 +44,59 @@ export function DemandCard({ demand, boardId }: DemandCardProps) {
     return `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || '?';
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open dialog if we're dragging
+    if (isSortableDragging) return;
+    setShowDetail(true);
+  };
+
   return (
     <>
       <Card 
-        className="cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => setShowDetail(true)}
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "cursor-pointer hover:shadow-md transition-all group",
+          isSortableDragging && "opacity-50 shadow-lg rotate-2",
+          isDragging && "shadow-xl"
+        )}
+        onClick={handleCardClick}
       >
         <CardContent className="p-3 space-y-2">
-          {/* Labels */}
-          {demand.labels && demand.labels.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {demand.labels.slice(0, 3).map(label => (
-                <Badge 
-                  key={label.id}
-                  className="text-[10px] px-1.5 py-0 text-white"
-                  style={{ backgroundColor: label.color }}
-                >
-                  {label.name}
-                </Badge>
-              ))}
-              {demand.labels.length > 3 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  +{demand.labels.length - 3}
-                </Badge>
+          {/* Drag Handle & Labels Row */}
+          <div className="flex items-start gap-2">
+            {/* Drag Handle */}
+            <div 
+              {...attributes} 
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
+
+            {/* Labels */}
+            <div className="flex-1 flex flex-wrap gap-1">
+              {demand.labels && demand.labels.length > 0 && (
+                <>
+                  {demand.labels.slice(0, 3).map(label => (
+                    <Badge 
+                      key={label.id}
+                      className="text-[10px] px-1.5 py-0 text-white"
+                      style={{ backgroundColor: label.color }}
+                    >
+                      {label.name}
+                    </Badge>
+                  ))}
+                  {demand.labels.length > 3 && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      +{demand.labels.length - 3}
+                    </Badge>
+                  )}
+                </>
               )}
             </div>
-          )}
+          </div>
 
           {/* Title */}
           <p className="font-medium text-sm line-clamp-2">{demand.title}</p>
