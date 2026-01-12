@@ -5431,9 +5431,11 @@ export type Database = {
       }
       user_permissions: {
         Row: {
+          ai_bots_view: boolean
           created_at: string
           deliveries_view_all: boolean
           deliveries_view_own: boolean
+          demands_view: boolean
           expedition_report_view: boolean | null
           id: string
           instagram_view: boolean
@@ -5478,14 +5480,17 @@ export type Database = {
           team_view: boolean
           updated_at: string
           user_id: string
+          whatsapp_manage_view: boolean
           whatsapp_send: boolean
           whatsapp_v2_view: boolean | null
           whatsapp_view: boolean
         }
         Insert: {
+          ai_bots_view?: boolean
           created_at?: string
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
+          demands_view?: boolean
           expedition_report_view?: boolean | null
           id?: string
           instagram_view?: boolean
@@ -5530,14 +5535,17 @@ export type Database = {
           team_view?: boolean
           updated_at?: string
           user_id: string
+          whatsapp_manage_view?: boolean
           whatsapp_send?: boolean
           whatsapp_v2_view?: boolean | null
           whatsapp_view?: boolean
         }
         Update: {
+          ai_bots_view?: boolean
           created_at?: string
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
+          demands_view?: boolean
           expedition_report_view?: boolean | null
           id?: string
           instagram_view?: boolean
@@ -5582,6 +5590,7 @@ export type Database = {
           team_view?: boolean
           updated_at?: string
           user_id?: string
+          whatsapp_manage_view?: boolean
           whatsapp_send?: boolean
           whatsapp_v2_view?: boolean | null
           whatsapp_view?: boolean
