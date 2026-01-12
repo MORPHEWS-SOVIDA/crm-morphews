@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { notifyDemandAssignment, notifyDemandStatusChange } from '@/lib/demand-notifications';
 import type { 
   Demand, 
   DemandWithRelations, 
@@ -274,6 +275,10 @@ export function useCreateDemand() {
           .insert(assignees);
 
         if (assignError) console.error('Error adding assignees:', assignError);
+
+        // Send WhatsApp notification to assignees
+        notifyDemandAssignment(profile.organization_id, demand.id, input.assignee_ids)
+          .catch(err => console.error('Failed to send assignment notification:', err));
       }
 
       return demand as Demand;
