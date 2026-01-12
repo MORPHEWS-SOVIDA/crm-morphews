@@ -7,6 +7,9 @@ import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { useLeads } from '@/hooks/useLeads';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,10 +25,17 @@ export default function LeadsList() {
   const navigate = useNavigate();
   const { data: leads = [], isLoading, error } = useLeads();
   const isMobile = useIsMobile();
+  const { isAdmin: isGlobalAdmin } = useAuth();
+  const { isAdmin: isTenantAdmin, isOwner } = useTenant();
+  const { data: permissions } = useMyPermissions();
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [starsFilter, setStarsFilter] = useState<string>('all');
   const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null);
+  
+  // Check if user can see "Novo Lead" button
+  const isAdmin = isGlobalAdmin || isTenantAdmin || isOwner;
+  const canShowNewLeadButton = (isAdmin || permissions?.leads_create) && !permissions?.leads_hide_new_button;
 
   const responsaveis = useMemo(() => {
     const uniqueResponsaveis = [...new Set(leads.map(lead => lead.assigned_to))];
@@ -96,10 +106,12 @@ export default function LeadsList() {
               Gerencie e acompanhe todos os seus leads
             </p>
           </div>
-          <Button onClick={() => navigate('/leads/new')} className="gap-2 w-full sm:w-auto">
-            <Plus className="w-4 h-4" />
-            Novo Lead
-          </Button>
+          {canShowNewLeadButton && (
+            <Button onClick={() => navigate('/leads/new')} className="gap-2 w-full sm:w-auto">
+              <Plus className="w-4 h-4" />
+              Novo Lead
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -166,10 +178,12 @@ export default function LeadsList() {
         {filteredLeads.length === 0 && search ? (
           <div className="bg-card rounded-xl p-8 shadow-card text-center">
             <p className="text-muted-foreground mb-4">Nenhum lead encontrado para "{search}"</p>
-            <Button onClick={() => navigate('/leads/new')} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Cadastrar Lead
-            </Button>
+            {canShowNewLeadButton && (
+              <Button onClick={() => navigate('/leads/new')} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Cadastrar Lead
+              </Button>
+            )}
           </div>
         ) : isMobile ? (
           <MobileLeadsList 
