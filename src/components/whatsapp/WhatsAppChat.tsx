@@ -45,13 +45,19 @@ interface Conversation {
   lead_instagram?: string | null;
 
   contact_id: string | null;
-  instance_id: string;
+  instance_id: string | null; // Pode ser null se instância foi excluída
   channel_name?: string;
   channel_phone_number?: string;
   chat_id?: string; // NOVO: ID estável do chat (JID)
   is_group?: boolean; // NOVO: indica se é grupo
   group_subject?: string; // NOVO: nome do grupo
   display_name?: string; // NOVO: nome para exibição
+  
+  // Status da instância (via view)
+  instance_status?: 'connected' | 'disconnected' | 'deleted';
+  instance_is_connected?: boolean;
+  instance_deleted_at?: string | null;
+  original_instance_name?: string | null; // Nome da instância quando foi excluída
 }
 
 interface InstanceInfo {
@@ -146,13 +152,46 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   }, {} as Record<string, InstanceInfo>) || {};
 
   // Helper to get instance display label
-  const getInstanceLabel = (instId: string) => {
+  const getInstanceLabel = (instId: string | null) => {
+    if (!instId) return null;
     const inst = instancesMap[instId];
     if (!inst) return null;
     const displayName = inst.display_name_for_team || inst.name;
     const number = inst.manual_instance_number || inst.phone_number;
     if (displayName && number) return `${displayName} · ${number}`;
     return displayName || number || inst.name;
+  };
+
+  // Helper to get instance status badge
+  const getInstanceStatusInfo = (conversation: Conversation) => {
+    // Se não tem instance_id, foi excluída
+    if (!conversation.instance_id) {
+      return {
+        status: 'deleted' as const,
+        label: 'Instância Excluída',
+        originalName: conversation.original_instance_name,
+      };
+    }
+    // Checagem via view
+    if (conversation.instance_status === 'deleted' || conversation.instance_deleted_at) {
+      return {
+        status: 'deleted' as const,
+        label: 'Instância Excluída',
+        originalName: conversation.original_instance_name || conversation.channel_name,
+      };
+    }
+    if (conversation.instance_status === 'disconnected' || conversation.instance_is_connected === false) {
+      return {
+        status: 'disconnected' as const,
+        label: 'Instância Desconectada',
+        originalName: conversation.channel_name,
+      };
+    }
+    return {
+      status: 'connected' as const,
+      label: null,
+      originalName: null,
+    };
   };
 
   // Fetch conversations - CONTACT CENTRIC: busca da org, não de uma instância
@@ -1011,6 +1050,79 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }
   };
 
+  // Handler para continuar conversa por outra instância
+  const handleContinueOnOtherInstance = async (newInstanceId: string) => {
+    if (!selectedConversation || !profile?.organization_id) return;
+
+    try {
+      // Verificar se já existe conversa com este contato na nova instância
+      const { data: existingConv } = await supabase
+        .from("whatsapp_conversations")
+        .select("id")
+        .eq("instance_id", newInstanceId)
+        .eq("phone_number", selectedConversation.phone_number)
+        .single();
+
+      if (existingConv) {
+        // Já existe - apenas selecionar essa conversa
+        const { data: fullConv } = await supabase
+          .from("whatsapp_conversations_view")
+          .select("*")
+          .eq("id", existingConv.id)
+          .single();
+
+        if (fullConv) {
+          setSelectedConversation(fullConv as Conversation);
+          setActiveInstanceId(newInstanceId);
+          toast({ title: "Conversa encontrada nesta instância" });
+        }
+      } else {
+        // Criar nova conversa na nova instância
+        const { data: newConv, error } = await supabase
+          .from("whatsapp_conversations")
+          .insert({
+            instance_id: newInstanceId,
+            organization_id: profile.organization_id,
+            phone_number: selectedConversation.phone_number,
+            contact_name: selectedConversation.contact_name,
+            lead_id: selectedConversation.lead_id,
+            status: "pending",
+            unread_count: 0,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Buscar conversa completa via view
+        const { data: fullConv } = await supabase
+          .from("whatsapp_conversations_view")
+          .select("*")
+          .eq("id", newConv.id)
+          .single();
+
+        if (fullConv) {
+          setSelectedConversation(fullConv as Conversation);
+          setActiveInstanceId(newInstanceId);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+        queryClient.invalidateQueries({ queryKey: ["same-phone-conversations"] });
+        
+        toast({ 
+          title: "Pronto para continuar!", 
+          description: "Você pode enviar mensagens por esta nova instância." 
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao mudar instância",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredConversations = conversations?.filter(
     (c) =>
       normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
@@ -1153,12 +1265,35 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           <span>{conversation.phone_number}</span>
                         )}
                       </div>
-                      {/* Instância - "Falando com:" */}
-                      {getInstanceLabel(conversation.instance_id) && (
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          Falando com: <span className="font-medium text-foreground/70">{getInstanceLabel(conversation.instance_id)}</span>
-                        </span>
-                      )}
+                      {/* Instância - "Falando com:" ou status */}
+                      {(() => {
+                        const statusInfo = getInstanceStatusInfo(conversation);
+                        if (statusInfo.status === 'deleted') {
+                          return (
+                            <span className="text-[10px] text-red-500 truncate flex items-center gap-1">
+                              ⚠️ {statusInfo.label}
+                              {statusInfo.originalName && <span className="text-muted-foreground">({statusInfo.originalName})</span>}
+                            </span>
+                          );
+                        }
+                        if (statusInfo.status === 'disconnected') {
+                          return (
+                            <span className="text-[10px] text-amber-500 truncate flex items-center gap-1">
+                              ⚠️ {statusInfo.label}
+                              {statusInfo.originalName && <span className="text-muted-foreground">({statusInfo.originalName})</span>}
+                            </span>
+                          );
+                        }
+                        // Connected - mostrar normalmente
+                        if (getInstanceLabel(conversation.instance_id)) {
+                          return (
+                            <span className="text-[10px] text-muted-foreground truncate">
+                              Falando com: <span className="font-medium text-foreground/70">{getInstanceLabel(conversation.instance_id)}</span>
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     <div className="flex items-center gap-1">
                       {/* Scheduled messages indicator */}
@@ -1446,17 +1581,87 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               "border-t bg-card shrink-0",
               isMobile ? "safe-area-bottom" : ""
             )}>
-              {!isInstanceConnected && (
-                /* Aviso quando instância desconectada */
-                <div className="p-4 text-center bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800">
-                  <p className="text-amber-700 dark:text-amber-300 text-sm font-medium">
-                    ⚠️ WhatsApp desconectado
-                  </p>
-                  <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
-                    Se falhar ao enviar, reconecte a instância. (O status pode estar desatualizado.)
-                  </p>
-                </div>
-              )}
+              {/* Banner para instância excluída/desconectada com opção de continuar por outra */}
+              {(() => {
+                const statusInfo = getInstanceStatusInfo(selectedConversation);
+                const canSendViaOtherInstance = statusInfo.status !== 'connected' && allInstances && allInstances.filter(i => !instancesMap[i.id] || instancesMap[i.id]).length > 0;
+                
+                if (statusInfo.status === 'deleted') {
+                  return (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <p className="text-red-700 dark:text-red-300 text-sm font-medium flex items-center gap-1">
+                            ⚠️ Instância Excluída
+                          </p>
+                          <p className="text-red-600 dark:text-red-400 text-xs mt-0.5">
+                            {statusInfo.originalName ? `A instância "${statusInfo.originalName}" foi excluída.` : "Esta instância foi excluída."} 
+                            {" "}O histórico foi preservado.
+                          </p>
+                        </div>
+                        {allInstances && allInstances.length > 0 && (
+                          <select
+                            className="text-xs border rounded px-2 py-1.5 bg-background"
+                            onChange={(e) => {
+                              const newInstanceId = e.target.value;
+                              if (newInstanceId) {
+                                // Criar nova conversa na instância selecionada
+                                handleContinueOnOtherInstance(newInstanceId);
+                              }
+                            }}
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Continuar por outra instância...</option>
+                            {allInstances.map(inst => (
+                              <option key={inst.id} value={inst.id}>
+                                {inst.display_name_for_team || inst.name} {inst.phone_number ? `(${inst.phone_number.slice(-4)})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                if (statusInfo.status === 'disconnected' || !isInstanceConnected) {
+                  return (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <p className="text-amber-700 dark:text-amber-300 text-sm font-medium flex items-center gap-1">
+                            ⚠️ WhatsApp Desconectado
+                          </p>
+                          <p className="text-amber-600 dark:text-amber-400 text-xs mt-0.5">
+                            Reconecte a instância ou continue a conversa por outro número.
+                          </p>
+                        </div>
+                        {allInstances && allInstances.length > 0 && (
+                          <select
+                            className="text-xs border rounded px-2 py-1.5 bg-background"
+                            onChange={(e) => {
+                              const newInstanceId = e.target.value;
+                              if (newInstanceId) {
+                                handleContinueOnOtherInstance(newInstanceId);
+                              }
+                            }}
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Continuar por outra instância...</option>
+                            {allInstances.filter(i => i.id !== selectedConversation.instance_id).map(inst => (
+                              <option key={inst.id} value={inst.id}>
+                                {inst.display_name_for_team || inst.name} {inst.phone_number ? `(${inst.phone_number.slice(-4)})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()}
 
               <>
                 <input

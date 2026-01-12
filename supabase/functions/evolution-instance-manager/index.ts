@@ -375,7 +375,7 @@ serve(async (req) => {
     }
 
     // =====================
-    // DELETE INSTANCE
+    // DELETE INSTANCE (SOFT DELETE)
     // =====================
     if (action === "delete") {
       if (!instanceId) {
@@ -410,17 +410,29 @@ serve(async (req) => {
         }
       }
 
-      // Deletar do banco
-      const { error: deleteError } = await supabase
+      // SOFT DELETE: Usar a função do banco para preservar conversas
+      // Primeiro guarda o nome da instância nas conversas
+      await supabase
+        .from("whatsapp_conversations")
+        .update({ original_instance_name: instance.name })
+        .eq("instance_id", instanceId)
+        .is("original_instance_name", null);
+
+      // Depois marca a instância como deletada
+      const { error: updateError } = await supabase
         .from("whatsapp_instances")
-        .delete()
+        .update({
+          deleted_at: new Date().toISOString(),
+          is_connected: false,
+          status: "deleted",
+        })
         .eq("id", instanceId);
 
-      if (deleteError) {
+      if (updateError) {
         throw new Error("Erro ao deletar instância");
       }
 
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, message: "Instância excluída. O histórico de conversas foi preservado." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

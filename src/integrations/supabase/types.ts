@@ -5187,12 +5187,13 @@ export type Database = {
           group_subject: string | null
           handling_bot_id: string | null
           id: string
-          instance_id: string
+          instance_id: string | null
           is_group: boolean
           last_customer_message_at: string | null
           last_message_at: string | null
           lead_id: string | null
           organization_id: string
+          original_instance_name: string | null
           phone_number: string
           sendable_phone: string | null
           status: string
@@ -5221,12 +5222,13 @@ export type Database = {
           group_subject?: string | null
           handling_bot_id?: string | null
           id?: string
-          instance_id: string
+          instance_id?: string | null
           is_group?: boolean
           last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
           organization_id: string
+          original_instance_name?: string | null
           phone_number: string
           sendable_phone?: string | null
           status?: string
@@ -5255,12 +5257,13 @@ export type Database = {
           group_subject?: string | null
           handling_bot_id?: string | null
           id?: string
-          instance_id?: string
+          instance_id?: string | null
           is_group?: boolean
           last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
           organization_id?: string
+          original_instance_name?: string | null
           phone_number?: string
           sendable_phone?: string | null
           status?: string
@@ -5451,6 +5454,7 @@ export type Database = {
           applied_coupon_id: string | null
           auto_close_hours: number | null
           created_at: string
+          deleted_at: string | null
           discount_applied_cents: number | null
           display_name_for_team: string | null
           distribution_mode: string
@@ -5484,6 +5488,7 @@ export type Database = {
           applied_coupon_id?: string | null
           auto_close_hours?: number | null
           created_at?: string
+          deleted_at?: string | null
           discount_applied_cents?: number | null
           display_name_for_team?: string | null
           distribution_mode?: string
@@ -5517,6 +5522,7 @@ export type Database = {
           applied_coupon_id?: string | null
           auto_close_hours?: number | null
           created_at?: string
+          deleted_at?: string | null
           discount_applied_cents?: number | null
           display_name_for_team?: string | null
           distribution_mode?: string
@@ -6160,32 +6166,45 @@ export type Database = {
       }
       whatsapp_conversations_view: {
         Row: {
+          assigned_at: string | null
           assigned_user_id: string | null
+          bot_energy_consumed: number | null
+          bot_messages_count: number | null
+          bot_qualification_completed: boolean | null
+          bot_qualification_step: number | null
+          bot_started_at: string | null
+          channel_name: string | null
+          channel_phone_number: string | null
           chat_id: string | null
+          closed_at: string | null
           contact_id: string | null
           contact_name: string | null
           contact_profile_pic: string | null
           created_at: string | null
           current_instance_id: string | null
           customer_phone_e164: string | null
+          designated_at: string | null
+          designated_user_id: string | null
           display_name: string | null
           group_subject: string | null
+          handling_bot_id: string | null
           id: string | null
+          instance_deleted_at: string | null
           instance_id: string | null
+          instance_is_connected: boolean | null
+          instance_status: string | null
           is_group: boolean | null
+          last_customer_message_at: string | null
           last_message_at: string | null
-          lead_email: string | null
           lead_id: string | null
           lead_instagram: string | null
           lead_name: string | null
-          lead_secondary_phone: string | null
           lead_stage: Database["public"]["Enums"]["funnel_stage"] | null
-          lead_whatsapp: string | null
           organization_id: string | null
+          original_instance_name: string | null
           phone_number: string | null
           sendable_phone: string | null
           status: string | null
-          title: string | null
           unread_count: number | null
           updated_at: string | null
         }
@@ -6209,6 +6228,13 @@ export type Database = {
             columns: ["current_instance_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_handling_bot_id_fkey"
+            columns: ["handling_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
             referencedColumns: ["id"]
           },
           {
@@ -6465,6 +6491,10 @@ export type Database = {
       }
       seed_standard_questions_for_org: {
         Args: { _org_id: string }
+        Returns: undefined
+      }
+      soft_delete_whatsapp_instance: {
+        Args: { p_instance_id: string }
         Returns: undefined
       }
       start_bot_handling: {
