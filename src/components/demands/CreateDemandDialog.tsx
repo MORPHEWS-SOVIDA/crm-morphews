@@ -5,11 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDemandColumns } from '@/hooks/useDemandBoards';
 import { useCreateDemand } from '@/hooks/useDemands';
 import { useUsers } from '@/hooks/useUsers';
+import { useLeads } from '@/hooks/useLeads';
 import { URGENCY_CONFIG, type DemandUrgency } from '@/types/demand';
 import { MultiSelect } from '@/components/MultiSelect';
+import { Check, ChevronsUpDown, User } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CreateDemandDialogProps {
   open: boolean;
@@ -21,6 +26,7 @@ interface CreateDemandDialogProps {
 export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: CreateDemandDialogProps) {
   const { data: columns } = useDemandColumns(boardId);
   const { data: users } = useUsers();
+  const { data: leads } = useLeads();
   const createDemand = useCreateDemand();
 
   const [form, setForm] = useState({
@@ -29,10 +35,16 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
     column_id: '',
     urgency: 'medium' as DemandUrgency,
     assignee_ids: [] as string[],
+    lead_id: leadId || '',
   });
+  
+  const [leadSearchOpen, setLeadSearchOpen] = useState(false);
 
   // Auto-select first column
   const columnId = form.column_id || columns?.[0]?.id || '';
+
+  // Find selected lead
+  const selectedLead = leads?.find(l => l.id === form.lead_id);
 
   const handleSubmit = async () => {
     if (!form.title.trim() || !columnId) return;
@@ -44,7 +56,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       description: form.description || undefined,
       urgency: form.urgency,
       assignee_ids: form.assignee_ids.length > 0 ? form.assignee_ids : undefined,
-      lead_id: leadId,
+      lead_id: form.lead_id || leadId || undefined,
     });
 
     setForm({
@@ -53,6 +65,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       column_id: '',
       urgency: 'medium',
       assignee_ids: [],
+      lead_id: leadId || '',
     });
     onOpenChange(false);
   };
@@ -132,6 +145,66 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
               </Select>
             </div>
           </div>
+
+          {/* Lead/Cliente selector - only show if not pre-selected */}
+          {!leadId && (
+            <div className="space-y-2">
+              <Label>Cliente/Lead</Label>
+              <Popover open={leadSearchOpen} onOpenChange={setLeadSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={leadSearchOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedLead ? (
+                      <span className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        {selectedLead.name}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Selecione um cliente...</span>
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Buscar cliente..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {leads?.slice(0, 50).map((lead) => (
+                          <CommandItem
+                            key={lead.id}
+                            value={lead.name || ''}
+                            onSelect={() => {
+                              setForm(prev => ({ ...prev, lead_id: lead.id }));
+                              setLeadSearchOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                form.lead_id === lead.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span>{lead.name}</span>
+                              {lead.whatsapp && (
+                                <span className="text-xs text-muted-foreground">{lead.whatsapp}</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Responsáveis</Label>

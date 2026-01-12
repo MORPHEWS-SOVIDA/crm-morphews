@@ -87,6 +87,23 @@ export function useCreateDemandBoard() {
         .single();
 
       if (error) throw error;
+
+      // Auto-create default columns for the new board
+      const defaultColumns = [
+        { name: 'A Fazer', color: '#6b7280', is_final: false, position: 0 },
+        { name: 'Em Andamento', color: '#f59e0b', is_final: false, position: 1 },
+        { name: 'Em Revisão', color: '#8b5cf6', is_final: false, position: 2 },
+        { name: 'Concluído', color: '#22c55e', is_final: true, position: 3 },
+      ];
+
+      await supabase.from('demand_columns').insert(
+        defaultColumns.map(col => ({
+          organization_id: profile.organization_id,
+          board_id: data.id,
+          ...col,
+        }))
+      );
+
       return data as DemandBoard;
     },
     onSuccess: () => {
