@@ -59,7 +59,7 @@ export function useCreateDemandBoard() {
 
   return useMutation({
     mutationFn: async (input: { name: string; description?: string; color?: string }) => {
-      if (!profile?.organization_id || !profile?.id) {
+      if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -77,7 +77,7 @@ export function useCreateDemandBoard() {
         .from('demand_boards')
         .insert({
           organization_id: profile.organization_id,
-          created_by: profile.id,
+          created_by: profile.user_id,
           name: input.name,
           description: input.description || null,
           color: input.color || null,

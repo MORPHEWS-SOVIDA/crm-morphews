@@ -11,7 +11,7 @@ import type {
   DemandUrgency
 } from '@/types/demand';
 
-type UserProfile = { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
+type UserProfile = { id: string; user_id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
 
 // ============================================================================
 // DEMANDS QUERIES
@@ -58,9 +58,9 @@ export function useDemands(boardId: string | null, filters?: { assigneeId?: stri
       if (uniqueUserIds.length > 0) {
         const { data: users } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .in('id', uniqueUserIds);
-        userMap = new Map((users || []).map(u => [u.id, u]));
+          .select('id, user_id, first_name, last_name, avatar_url')
+          .in('user_id', uniqueUserIds);
+        userMap = new Map((users || []).map(u => [u.user_id, u]));
       }
 
       // Transform data
@@ -138,9 +138,9 @@ export function useDemand(demandId: string | null) {
       if (assigneeUserIds.length > 0) {
         const { data: users } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .in('id', assigneeUserIds);
-        userMap = new Map((users || []).map(u => [u.id, u]));
+          .select('id, user_id, first_name, last_name, avatar_url')
+          .in('user_id', assigneeUserIds);
+        userMap = new Map((users || []).map(u => [u.user_id, u]));
       }
 
       return {
@@ -196,9 +196,9 @@ export function useLeadDemands(leadId: string | null) {
       if (uniqueUserIds.length > 0) {
         const { data: users } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .in('id', uniqueUserIds);
-        userMap = new Map((users || []).map(u => [u.id, u]));
+          .select('id, user_id, first_name, last_name, avatar_url')
+          .in('user_id', uniqueUserIds);
+        userMap = new Map((users || []).map(u => [u.user_id, u]));
       }
 
       return data.map(d => ({
@@ -228,7 +228,7 @@ export function useCreateDemand() {
 
   return useMutation({
     mutationFn: async (input: CreateDemandInput) => {
-      if (!profile?.organization_id || !profile?.id) {
+      if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -245,7 +245,7 @@ export function useCreateDemand() {
         .from('demands')
         .insert({
           organization_id: profile.organization_id,
-          created_by: profile.id,
+          created_by: profile.user_id,
           board_id: input.board_id,
           column_id: input.column_id,
           lead_id: input.lead_id || null,
@@ -267,7 +267,7 @@ export function useCreateDemand() {
           user_id: userId,
           organization_id: profile.organization_id,
           role: 'responsible' as const,
-          assigned_by: profile.id,
+          assigned_by: profile.user_id,
         }));
 
         const { error: assignError } = await supabase
@@ -412,7 +412,7 @@ export function useAddDemandAssignee() {
 
   return useMutation({
     mutationFn: async ({ demandId, userId, role = 'responsible' }: { demandId: string; userId: string; role?: string }) => {
-      if (!profile?.organization_id || !profile?.id) {
+      if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -423,7 +423,7 @@ export function useAddDemandAssignee() {
           user_id: userId,
           organization_id: profile.organization_id,
           role,
-          assigned_by: profile.id,
+          assigned_by: profile.user_id,
         })
         .select()
         .single();
