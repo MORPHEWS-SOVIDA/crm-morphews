@@ -86,7 +86,8 @@ import { toast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/error-message';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AddressFields } from '@/components/AddressFields';
+import { AddressSelector } from '@/components/sales/AddressSelector';
+import { LeadAddress } from '@/hooks/useLeadAddresses';
 import { ProductOfferCard } from '@/components/receptive/ProductOfferCard';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
@@ -239,6 +240,23 @@ export default function AddReceptivo() {
   const [sellerUserId, setSellerUserId] = useState<string | null>(null);
   const [purchasePotential, setPurchasePotential] = useState<number>(0);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+  
+  // Selected address for delivery
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<LeadAddress | null>(null);
+  
+  // Handle address selection
+  const handleAddressChange = (addressId: string | null, address: LeadAddress | null) => {
+    setSelectedAddressId(addressId);
+    setSelectedAddress(address);
+    // Update delivery region from selected address if available
+    if (address?.delivery_region_id) {
+      setDeliveryConfig(prev => ({
+        ...prev,
+        regionId: address.delivery_region_id || prev.regionId,
+      }));
+    }
+  };
 
   // Lead transfer dialog state
   const [showTransferDialog, setShowTransferDialog] = useState(false);
@@ -1097,11 +1115,12 @@ export default function AddReceptivo() {
         discount_type: discountValue > 0 ? discountType : null,
         discount_value: discountValue,
         delivery_type: deliveryConfig.type,
-        delivery_region_id: deliveryConfig.regionId,
+        delivery_region_id: deliveryConfig.regionId || selectedAddress?.delivery_region_id,
         scheduled_delivery_date: deliveryConfig.scheduledDate?.toISOString().split('T')[0] || null,
         scheduled_delivery_shift: deliveryConfig.scheduledShift,
         shipping_carrier_id: deliveryConfig.carrierId,
         shipping_cost_cents: deliveryConfig.shippingCost,
+        shipping_address_id: selectedAddressId, // Include selected address
         payment_method_id: selectedPaymentMethodId,
         payment_installments: selectedInstallments,
         payment_status: paymentStatus,
@@ -2109,43 +2128,36 @@ export default function AddReceptivo() {
               {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
               <Separator />
 
+              {/* First: Delivery Type Selection */}
               <DeliveryTypeSelector
                 value={deliveryConfig}
                 onChange={setDeliveryConfig}
-                leadRegionId={leadData.delivery_region_id || null}
+                leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
               />
 
-              {/* Address */}
+              {/* Then: Address selection - only show if delivery requires shipping */}
               {(deliveryConfig.type === 'motoboy' || deliveryConfig.type === 'carrier') && (
                 <>
                   <Separator />
-                  <div>
-                    <h3 className="font-medium mb-3 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Endereço de Entrega
-                    </h3>
-                    <AddressFields
-                      cep={leadData.cep}
-                      street={leadData.street}
-                      streetNumber={leadData.street_number}
-                      complement={leadData.complement}
-                      neighborhood={leadData.neighborhood}
-                      city={leadData.city}
-                      state={leadData.state}
-                      onFieldChange={(field, value) => {
-                        const fieldMap: Record<string, keyof LeadData> = {
-                          cep: 'cep',
-                          street: 'street',
-                          street_number: 'street_number',
-                          complement: 'complement',
-                          neighborhood: 'neighborhood',
-                          city: 'city',
-                          state: 'state',
-                        };
-                        setLeadData(prev => ({ ...prev, [fieldMap[field] || field]: value }));
-                      }}
+                  {leadData.id ? (
+                    <AddressSelector
+                      leadId={leadData.id}
+                      value={selectedAddressId}
+                      onChange={handleAddressChange}
                     />
-                  </div>
+                  ) : (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                          Lead não salvo
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-500">
+                          Volte à etapa anterior para salvar os dados do lead e poder gerenciar endereços.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
