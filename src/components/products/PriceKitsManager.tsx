@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Plus, Trash2, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +36,12 @@ interface PriceKitsManagerProps {
   onChange: (kits: ProductPriceKitFormData[]) => void;
 }
 
-const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPriceKitFormData => ({
+// Generate a stable unique ID for each kit
+let kitIdCounter = 0;
+const generateKitId = () => `kit-${Date.now()}-${++kitIdCounter}`;
+
+const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPriceKitFormData & { _tempId: string } => ({
+  _tempId: generateKitId(),
   quantity,
   regular_price_cents: 0,
   regular_use_default_commission: true,
@@ -58,15 +63,20 @@ const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPric
   position,
 });
 
+// Extended type with stable ID for drag and drop
+type KitWithId = ProductPriceKitFormData & { _tempId?: string };
+
 // Sortable Kit Item Component
 function SortableKitItem({ 
   kit, 
   index, 
+  kitId,
   onUpdate, 
   onRemove,
 }: { 
   kit: ProductPriceKitFormData; 
   index: number;
+  kitId: string;
   onUpdate: (updates: Partial<ProductPriceKitFormData>) => void;
   onRemove: () => void;
 }) {
@@ -77,7 +87,7 @@ function SortableKitItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: `kit-${index}` });
+  } = useSortable({ id: kitId });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -441,6 +451,25 @@ function SortableKitItem({
 
 export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
   const [newQuantity, setNewQuantity] = useState('');
+  
+  // Generate stable IDs for each kit based on their original position when first seen
+  const kitIdsRef = useRef<Map<number, string>>(new Map());
+  
+  // Ensure each kit has a stable ID based on its quantity (unique per product)
+  const kitsWithIds = useMemo(() => {
+    return kits.map((kit, idx) => {
+      // Use quantity as the stable identifier since it must be unique per product
+      const stableKey = kit.quantity;
+      if (!kitIdsRef.current.has(stableKey)) {
+        kitIdsRef.current.set(stableKey, `kit-${stableKey}-${Date.now()}`);
+      }
+      return {
+        ...kit,
+        _stableId: kitIdsRef.current.get(stableKey)!,
+        _index: idx,
+      };
+    });
+  }, [kits]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -467,6 +496,10 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
   };
 
   const handleRemoveKit = (index: number) => {
+    const removedKit = kits[index];
+    // Clean up the ID mapping
+    kitIdsRef.current.delete(removedKit.quantity);
+    
     const newKits = kits.filter((_, i) => i !== index);
     newKits.forEach((kit, idx) => kit.position = idx);
     onChange(newKits);
@@ -474,6 +507,17 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
 
   const handleUpdateKit = (index: number, updates: Partial<ProductPriceKitFormData>) => {
     const newKits = [...kits];
+    
+    // If quantity changed, update ID mapping
+    if (updates.quantity !== undefined && updates.quantity !== kits[index].quantity) {
+      const oldQuantity = kits[index].quantity;
+      const oldId = kitIdsRef.current.get(oldQuantity);
+      kitIdsRef.current.delete(oldQuantity);
+      if (oldId) {
+        kitIdsRef.current.set(updates.quantity, oldId);
+      }
+    }
+    
     newKits[index] = { ...newKits[index], ...updates };
     onChange(newKits);
   };
@@ -482,13 +526,16 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = parseInt(String(active.id).replace('kit-', ''));
-      const newIndex = parseInt(String(over.id).replace('kit-', ''));
+      // Find indices by stable ID
+      const oldIndex = kitsWithIds.findIndex(k => k._stableId === active.id);
+      const newIndex = kitsWithIds.findIndex(k => k._stableId === over.id);
       
-      const newKits = arrayMove(kits, oldIndex, newIndex);
-      // Update positions
-      newKits.forEach((kit, idx) => kit.position = idx);
-      onChange(newKits);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newKits = arrayMove(kits, oldIndex, newIndex);
+        // Update positions
+        newKits.forEach((kit, idx) => kit.position = idx);
+        onChange(newKits);
+      }
     }
   };
 
@@ -530,17 +577,18 @@ export function PriceKitsManager({ kits, onChange }: PriceKitsManagerProps) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={kits.map((_, idx) => `kit-${idx}`)}
+            items={kitsWithIds.map(k => k._stableId)}
             strategy={verticalListSortingStrategy}
           >
             <Accordion type="multiple" className="w-full space-y-2">
-              {kits.map((kit, index) => (
+              {kitsWithIds.map((kitWithId) => (
                 <SortableKitItem
-                  key={`kit-${index}`}
-                  kit={kit}
-                  index={index}
-                  onUpdate={(updates) => handleUpdateKit(index, updates)}
-                  onRemove={() => handleRemoveKit(index)}
+                  key={kitWithId._stableId}
+                  kit={kitWithId}
+                  index={kitWithId._index}
+                  kitId={kitWithId._stableId}
+                  onUpdate={(updates) => handleUpdateKit(kitWithId._index, updates)}
+                  onRemove={() => handleRemoveKit(kitWithId._index)}
                 />
               ))}
             </Accordion>
