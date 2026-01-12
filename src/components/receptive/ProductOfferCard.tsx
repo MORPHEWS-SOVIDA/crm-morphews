@@ -100,8 +100,10 @@ const formatInstallment = (cents: number) => {
 };
 
 // Calculate actual commission value in cents
-const calculateCommissionValue = (priceCents: number, quantity: number, commissionPercentage: number) => {
-  return Math.round((priceCents * quantity) * (commissionPercentage / 100));
+// Note: priceCents is already the TOTAL price of the kit, not unit price
+// So we DON'T multiply by quantity again
+const calculateCommissionValue = (priceCents: number, commissionPercentage: number) => {
+  return Math.round(priceCents * (commissionPercentage / 100));
 };
 
 export function ProductOfferCard({
@@ -201,9 +203,9 @@ export function ProductOfferCard({
     }
   };
 
-  // Commission badge with value in R$
-  const CommissionDisplay = ({ price, quantity, commissionPercentage }: { price: number; quantity: number; commissionPercentage: number }) => {
-    const commissionValue = calculateCommissionValue(price, quantity, commissionPercentage);
+  // Commission badge with value in R$ - price is already the total kit price
+  const CommissionDisplay = ({ price, commissionPercentage }: { price: number; commissionPercentage: number }) => {
+    const commissionValue = calculateCommissionValue(price, commissionPercentage);
     const isGood = commissionPercentage >= defaultCommission;
     
     return (
@@ -277,7 +279,7 @@ export function ProductOfferCard({
               ou {formatInstallment(price)}
             </p>
           </div>
-          <CommissionDisplay price={price} quantity={kit.quantity} commissionPercentage={commission} />
+          <CommissionDisplay price={price} commissionPercentage={commission} />
         </div>
       </button>
     );
@@ -652,7 +654,7 @@ export function ProductOfferCard({
                   Sua comissão ({currentCommission}%):
                 </span>
                 <span className="font-bold text-green-600">
-                  Ganhe {formatPrice(calculateCommissionValue(currentUnitPrice, currentQuantity, currentCommission))}
+                  Ganhe {formatPrice(calculateCommissionValue(currentUnitPrice * currentQuantity, currentCommission))}
                 </span>
               </div>
             </div>
