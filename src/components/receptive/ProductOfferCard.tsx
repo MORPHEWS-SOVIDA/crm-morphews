@@ -712,11 +712,12 @@ export function ProductOfferCard({
             <Separator />
             <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">Valor selecionado:</span>
-                <span className="text-xl font-bold">{formatPrice(currentUnitPrice * currentQuantity)}</span>
+                <span className="font-medium">Kit {currentQuantity} {currentQuantity === 1 ? 'unidade' : 'unidades'}:</span>
+                {/* For kit system, currentUnitPrice is already the total kit price, don't multiply */}
+                <span className="text-xl font-bold">{formatPrice(currentUnitPrice)}</span>
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>ou {formatInstallment(currentUnitPrice * currentQuantity)}</span>
+                <span>ou {formatInstallment(currentUnitPrice)}</span>
               </div>
               <Separator className="my-3" />
               <div className="flex items-center justify-between">
@@ -725,7 +726,8 @@ export function ProductOfferCard({
                   Sua comissão ({currentCommission}%):
                 </span>
                 <span className="font-bold text-green-600">
-                  Ganhe {formatPrice(calculateCommissionValue(currentUnitPrice * currentQuantity, currentCommission))}
+                  {/* For kit system, commission is based on the kit price (already total) */}
+                  Ganhe {formatPrice(calculateCommissionValue(currentUnitPrice, currentCommission))}
                 </span>
               </div>
             </div>
