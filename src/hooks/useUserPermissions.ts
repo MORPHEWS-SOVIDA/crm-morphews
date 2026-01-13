@@ -28,6 +28,7 @@ export interface UserPermissions {
   sales_mark_delivered: boolean;
   sales_mark_printed: boolean;
   sales_cancel: boolean;
+  sales_hide_new_button: boolean; // Hides "+ Nova Venda" button, forces use of Add Receptivo
   
   // WhatsApp
   whatsapp_view: boolean;
@@ -114,6 +115,7 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   sales_dispatch: { label: 'Despachar', description: 'Marcar como despachado/enviado', group: 'Vendas' },
   sales_mark_delivered: { label: 'Marcar Entregue', description: 'Confirmar entrega ao cliente', group: 'Vendas' },
   sales_cancel: { label: 'Cancelar Vendas', description: 'Cancelar vendas', group: 'Vendas' },
+  sales_hide_new_button: { label: 'Ocultar Botão Nova Venda', description: 'Força o vendedor a cadastrar vendas pelo Add Receptivo', group: 'Vendas' },
   
   // Financeiro - agrupado
   reports_view: { label: 'Ver Financeiro', description: 'Acessar módulo financeiro e relatórios', group: 'Financeiro' },
@@ -350,6 +352,7 @@ export function useApplyRoleDefaults() {
           sales_mark_delivered: permsObj.sales_mark_delivered ?? false,
           sales_mark_printed: permsObj.sales_mark_printed ?? false,
           sales_cancel: permsObj.sales_cancel ?? false,
+          sales_hide_new_button: permsObj.sales_hide_new_button ?? false,
           whatsapp_view: permsObj.whatsapp_view ?? true,
           whatsapp_send: permsObj.whatsapp_send ?? false,
           whatsapp_v2_view: permsObj.whatsapp_v2_view ?? false,
