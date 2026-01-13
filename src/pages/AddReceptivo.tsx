@@ -133,7 +133,7 @@ interface OfferItem {
   productName: string;
   productCategory: string;
   kitId: string | null;
-  priceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'custom';
+  priceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'custom' | 'negotiated';
   quantity: number;
   unitPriceCents: number;
   commissionPercentage: number;
@@ -141,6 +141,7 @@ interface OfferItem {
   requisitionNumber?: string;
   answers: Record<string, string>;
   dynamicAnswers: Record<string, string>; // Answers for product_questions
+  negotiatedInstallments?: number; // For negotiated prices
 }
 
 const initialLeadData: LeadData = {
@@ -205,7 +206,7 @@ export default function AddReceptivo() {
   // Current product being configured
   const [currentProductId, setCurrentProductId] = useState('');
   const [currentKitId, setCurrentKitId] = useState<string | null>(null);
-  const [currentPriceType, setCurrentPriceType] = useState<'regular' | 'promotional' | 'promotional_2' | 'minimum'>('promotional');
+  const [currentPriceType, setCurrentPriceType] = useState<'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'negotiated'>('promotional');
   const [currentCustomPrice, setCurrentCustomPrice] = useState<number>(0);
   const [currentRejectedKitIds, setCurrentRejectedKitIds] = useState<string[]>([]);
   const [showPromo2, setShowPromo2] = useState(false);
@@ -215,6 +216,11 @@ export default function AddReceptivo() {
   const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
   const dynamicAnswersInitKeyRef = useRef<string>('');
+  
+  // Negotiation state
+  const [negotiatedPriceCents, setNegotiatedPriceCents] = useState<number | undefined>();
+  const [negotiatedInstallments, setNegotiatedInstallments] = useState<number>(12);
+  const [negotiatedCommission, setNegotiatedCommission] = useState<number | undefined>();
   
   const [requisitionNumber, setRequisitionNumber] = useState('');
   const [manipuladoPrice, setManipuladoPrice] = useState<number>(0);
@@ -482,6 +488,15 @@ export default function AddReceptivo() {
       return { quantity: 1, unitPrice: 0, commission: 0 };
     }
 
+    // If negotiated price is set, use it
+    if (negotiatedPriceCents !== undefined && negotiatedPriceCents > 0) {
+      return {
+        quantity: selectedKit.quantity,
+        unitPrice: negotiatedPriceCents,
+        commission: negotiatedCommission ?? myCommission?.commissionPercentage ?? 0,
+      };
+    }
+
     let price = selectedKit.regular_price_cents;
     let commission = myCommission?.commissionPercentage || 0;
     let useDefault = selectedKit.regular_use_default_commission;
@@ -576,7 +591,7 @@ export default function AddReceptivo() {
       productName: currentProduct.name,
       productCategory: currentProduct.category,
       kitId: currentKitId,
-      priceType: currentCustomPrice > 0 ? 'custom' : currentPriceType,
+      priceType: negotiatedPriceCents ? 'negotiated' : (currentCustomPrice > 0 ? 'custom' : currentPriceType),
       quantity: currentProduct.category === 'manipulado' ? manipuladoQuantity : currentQuantity,
       unitPriceCents: currentUnitPrice,
       commissionPercentage: currentCommission,
@@ -585,6 +600,7 @@ export default function AddReceptivo() {
       requisitionNumber: currentProduct.category === 'manipulado' ? requisitionNumber : undefined,
       answers: { ...currentAnswers },
       dynamicAnswers: { ...dynamicAnswers },
+      negotiatedInstallments: negotiatedPriceCents ? negotiatedInstallments : undefined,
     };
     
     setOfferItems(prev => [...prev, newItem]);
@@ -609,6 +625,11 @@ export default function AddReceptivo() {
     setDynamicAnswers({});
     dynamicAnswersInitKeyRef.current = '';
     setShowAddProduct(true);
+    // Reset negotiation state
+    setNegotiatedPriceCents(undefined);
+    setNegotiatedInstallments(12);
+    setNegotiatedCommission(undefined);
+    setCurrentPriceType('promotional');
   };
 
   // Remove item from offer
@@ -1896,7 +1917,7 @@ export default function AddReceptivo() {
                 product={currentProduct}
                 sortedKits={sortedKits}
                 currentKitId={currentKitId}
-                currentPriceType={currentPriceType}
+                currentPriceType={negotiatedPriceCents ? 'negotiated' : currentPriceType}
                 currentRejectedKitIds={currentRejectedKitIds}
                 showPromo2={showPromo2}
                 showMinimum={showMinimum}
@@ -1910,10 +1931,21 @@ export default function AddReceptivo() {
                 showRejectionInput={showRejectionInput}
                 rejectionReason={rejectionReason}
                 isRejecting={createKitRejection.isPending}
+                negotiatedPriceCents={negotiatedPriceCents}
+                negotiatedInstallments={negotiatedInstallments}
+                negotiatedCommission={negotiatedCommission}
+                onNegotiate={(price, installments, commission) => {
+                  setNegotiatedPriceCents(price);
+                  setNegotiatedInstallments(installments);
+                  setNegotiatedCommission(commission);
+                }}
                 onKitSelect={(kitId, priceType) => {
                   setCurrentKitId(kitId);
                   setCurrentPriceType(priceType);
                   setCurrentCustomPrice(0);
+                  // Clear negotiation when selecting a different price type
+                  setNegotiatedPriceCents(undefined);
+                  setNegotiatedCommission(undefined);
                 }}
                 onRevealPromo2={() => setShowPromo2(true)}
                 onRevealMinimum={() => setShowMinimum(true)}

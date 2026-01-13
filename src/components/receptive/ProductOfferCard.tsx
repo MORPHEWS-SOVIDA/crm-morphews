@@ -20,12 +20,14 @@ import {
   EyeOff,
   FileText,
   Coins,
-  HelpCircle
+  HelpCircle,
+  Calculator
 } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { useProductQuestions, ProductQuestion } from '@/hooks/useProductQuestions';
 import { ProductInfoButtons } from '@/components/products/ProductInfoButtons';
 import { ProductImageViewer } from '@/components/products/ProductImageViewer';
+import { NegotiationDialog } from './NegotiationDialog';
 
 interface ProductPriceKit {
   id: string;
@@ -49,7 +51,7 @@ interface ProductOfferCardProps {
   product: Product;
   sortedKits: ProductPriceKit[];
   currentKitId: string | null;
-  currentPriceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum';
+  currentPriceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'negotiated';
   currentRejectedKitIds: string[];
   showPromo2: boolean;
   showMinimum: boolean;
@@ -63,6 +65,11 @@ interface ProductOfferCardProps {
   showRejectionInput: boolean;
   rejectionReason: string;
   isRejecting: boolean;
+  // Negotiation props
+  negotiatedPriceCents?: number;
+  negotiatedInstallments?: number;
+  negotiatedCommission?: number;
+  onNegotiate?: (priceCents: number, installments: number, commission: number) => void;
   onKitSelect: (kitId: string, priceType: 'regular' | 'promotional' | 'promotional_2' | 'minimum') => void;
   onRevealPromo2: () => void;
   onRevealMinimum: () => void;
@@ -126,6 +133,11 @@ export function ProductOfferCard({
   showRejectionInput,
   rejectionReason,
   isRejecting,
+  // Negotiation props
+  negotiatedPriceCents,
+  negotiatedInstallments = 12,
+  negotiatedCommission,
+  onNegotiate,
   onKitSelect,
   onRevealPromo2,
   onRevealMinimum,
@@ -149,6 +161,9 @@ export function ProductOfferCard({
   
   // State to control whether script/questions have been completed
   const [questionsCompleted, setQuestionsCompleted] = useState(false);
+  
+  // State for negotiation dialog
+  const [showNegotiationDialog, setShowNegotiationDialog] = useState(false);
   
   // Auto-complete questions step if answers already exist
   useEffect(() => {
@@ -640,6 +655,20 @@ export function ProductOfferCard({
                   )}
                 </div>
 
+                {/* Negotiate Button */}
+                {currentKitId === currentVisibleKit.id && onNegotiate && (
+                  <div className="mt-4">
+                    <Button
+                      variant="outline"
+                      className="w-full text-primary border-primary hover:bg-primary/5"
+                      onClick={() => setShowNegotiationDialog(true)}
+                    >
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Negociar Valor / Parcelamento
+                    </Button>
+                  </div>
+                )}
+
                 {/* Rejection button to show next kit - only if there are more kits */}
                 {hasMoreKits && (
                   <div className="mt-4 pt-4 border-t border-dashed">
@@ -691,6 +720,23 @@ export function ProductOfferCard({
                   </div>
                 )}
               </div>
+
+              {/* Negotiation Dialog */}
+              {onNegotiate && currentVisibleKit && (
+                <NegotiationDialog
+                  open={showNegotiationDialog}
+                  onOpenChange={setShowNegotiationDialog}
+                  originalPriceCents={getPriceForType(currentVisibleKit, currentPriceType as any)}
+                  minimumPriceCents={currentVisibleKit.minimum_price_cents}
+                  quantity={currentVisibleKit.quantity}
+                  originalCommission={getCommissionForType(currentVisibleKit, currentPriceType as any)}
+                  defaultCommission={defaultCommission}
+                  minimumCommission={currentVisibleKit.minimum_custom_commission}
+                  onConfirm={(price, installments, commission) => {
+                    onNegotiate(price, installments, commission);
+                  }}
+                />
+              )}
             </div>
           </>
         )}
@@ -710,26 +756,60 @@ export function ProductOfferCard({
         {currentUnitPrice > 0 && (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Separator />
-            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+            <div className={`p-4 rounded-lg border ${
+              currentPriceType === 'negotiated' || negotiatedPriceCents
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+                : 'bg-primary/5 border-primary/20'
+            }`}>
+              {/* Negotiated indicator */}
+              {(currentPriceType === 'negotiated' || negotiatedPriceCents) && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="outline" className="text-amber-600 border-amber-600">
+                    <Calculator className="w-3 h-3 mr-1" />
+                    Valor Negociado
+                  </Badge>
+                </div>
+              )}
+              
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium">Kit {currentQuantity} {currentQuantity === 1 ? 'unidade' : 'unidades'}:</span>
                 {/* For kit system, currentUnitPrice is already the total kit price, don't multiply */}
                 <span className="text-xl font-bold">{formatPrice(currentUnitPrice)}</span>
               </div>
+              
+              {/* Show installments - either negotiated or default */}
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>ou {formatInstallment(currentUnitPrice)}</span>
+                {negotiatedInstallments && negotiatedInstallments !== 12 ? (
+                  <span>
+                    {negotiatedInstallments === 1 
+                      ? 'À vista'
+                      : `ou ${negotiatedInstallments}x de ${formatPrice(Math.round((currentUnitPrice / 10 * 12) / negotiatedInstallments))}`
+                    }
+                  </span>
+                ) : (
+                  <span>ou {formatInstallment(currentUnitPrice)}</span>
+                )}
               </div>
+              
               <Separator className="my-3" />
+              
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm">
                   <Coins className="w-4 h-4" />
                   Sua comissão ({currentCommission}%):
                 </span>
-                <span className="font-bold text-green-600">
+                <span className={`font-bold ${currentCommission < defaultCommission ? 'text-amber-600' : 'text-green-600'}`}>
                   {/* For kit system, commission is based on the kit price (already total) */}
                   Ganhe {formatPrice(calculateCommissionValue(currentUnitPrice, currentCommission))}
                 </span>
               </div>
+              
+              {/* Commission notice when discount applied */}
+              {currentCommission === defaultCommission && (currentPriceType === 'negotiated' || negotiatedPriceCents) && (
+                <p className="text-xs text-amber-600 mt-2">
+                  ⚠️ Com desconto aplicado, comissão usa taxa padrão
+                </p>
+              )}
             </div>
           </>
         )}
