@@ -743,12 +743,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
           </Card>
         )}
 
-        {/* Ingredientes */}
+        {/* Composição */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <FlaskConical className="h-5 w-5" />
-              Ingredientes
+              Composição
             </CardTitle>
           </CardHeader>
           <CardContent>
