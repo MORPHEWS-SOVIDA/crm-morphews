@@ -24,6 +24,7 @@ import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejection
 import { DiscountAuthorizationDialog } from './DiscountAuthorizationDialog';
 import { ProgressiveKitSelector } from './ProgressiveKitSelector';
 import { ProductInfoButtons } from '@/components/products/ProductInfoButtons';
+import { ProductImageViewer } from '@/components/products/ProductImageViewer';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectionDialogProps {
@@ -517,6 +518,14 @@ export function ProductSelectionDialog({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Product Image and Label Viewer */}
+              <ProductImageViewer
+                imageUrl={product.image_url}
+                labelImageUrl={product.label_image_url}
+                productName={product.name}
+                compact
+              />
+              
               {product.description && (
                 <p className="text-sm">{product.description}</p>
               )}
