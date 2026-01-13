@@ -281,7 +281,7 @@ export function ProductSelectionDialog({
     };
   };
 
-  const { quantity, unitPrice, commission, isCustomCommission } = getSelectedValues();
+  const { quantity, unitPrice, commission: baseCommission, isCustomCommission } = getSelectedValues();
   // For kit system: unitPrice is already the TOTAL kit price (e.g., R$240 for 6 bottles)
   // So subtotal should NOT multiply by quantity again
   // For legacy/manipulado: unitPrice is per-unit, so we DO multiply by quantity
@@ -297,11 +297,36 @@ export function ProductSelectionDialog({
   }
   
   const total = subtotal - discountCents;
+  
+  // BUSINESS RULE: Commission calculation with discount protection
+  // 1. If any discount is applied → use default commission (not the kit custom commission)
+  // 2. If final price is at or below minimum → use minimum price commission
+  const hasDiscount = discountCents > 0;
+  const minPriceForKit = selectedKit?.minimum_price_cents || 0;
+  const isBelowOrAtMinimum = usesKitSystem && minPriceForKit > 0 && total <= minPriceForKit;
+  
+  let effectiveCommission = baseCommission;
+  let commissionNote = '';
+  
+  if (usesKitSystem && selectedKit) {
+    if (isBelowOrAtMinimum) {
+      // Use minimum price commission
+      effectiveCommission = selectedKit.minimum_use_default_commission 
+        ? sellerDefaultCommission 
+        : (selectedKit.minimum_custom_commission || sellerDefaultCommission);
+      commissionNote = 'Comissão do valor mínimo';
+    } else if (hasDiscount) {
+      // Any discount → use default commission
+      effectiveCommission = sellerDefaultCommission;
+      commissionNote = 'Comissão padrão (com desconto)';
+    }
+  }
+  
+  const commission = effectiveCommission;
   const commissionValue = calculateCommissionValue(total, commission);
   
   // Validation - check if below minimum (considering discounts)
-  // minimum_price_cents is the minimum for the TOTAL kit price, not per unit
-  const minPriceForKit = selectedKit?.minimum_price_cents || 0;
+  // Note: minPriceForKit already defined above for commission calculation
   
   // Check if below minimum: 
   // 1. Custom price is below kit minimum
@@ -915,7 +940,11 @@ export function ProductSelectionDialog({
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span>Subtotal ({quantity} x {formatPrice(unitPrice)})</span>
+                  {usesKitSystem && selectedKit ? (
+                    <span>Kit {quantity} {quantity === 1 ? 'unidade' : 'unidades'}</span>
+                  ) : (
+                    <span>Subtotal ({quantity} x {formatPrice(unitPrice)})</span>
+                  )}
                   <span>{formatPrice(subtotal)}</span>
                 </div>
                 {discountCents > 0 && (
@@ -931,8 +960,13 @@ export function ProductSelectionDialog({
                 
                 {/* Commission Display */}
                 <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="text-sm text-muted-foreground">Sua comissão ({commission.toFixed(1)}%)</span>
-                  <CommissionBadge comparison={getCommissionComparison()} value={commissionValue} />
+                  <div className="text-sm text-muted-foreground">
+                    <span>Sua comissão ({commission.toFixed(1)}%)</span>
+                    {commissionNote && (
+                      <p className="text-xs text-amber-600">{commissionNote}</p>
+                    )}
+                  </div>
+                  <CommissionBadge comparison={hasDiscount || isBelowOrAtMinimum ? 'equal' : getCommissionComparison()} value={commissionValue} />
                 </div>
               </div>
             </CardContent>

@@ -564,6 +564,13 @@ export default function AddReceptivo() {
   const handleAddProductToOffer = () => {
     if (!currentProduct || !currentUnitPrice) return;
     
+    // Determine if this is a kit-based product
+    const isKitBased = ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(currentProduct.category);
+    
+    // For kit-based: unitPriceCents is already total kit price, so commission is calculated on that
+    // For manipulado/legacy: unitPriceCents is per-unit, so multiply by quantity
+    const itemTotal = isKitBased ? currentUnitPrice : (currentUnitPrice * currentQuantity);
+    
     const newItem: OfferItem = {
       productId: currentProductId,
       productName: currentProduct.name,
@@ -573,7 +580,8 @@ export default function AddReceptivo() {
       quantity: currentProduct.category === 'manipulado' ? manipuladoQuantity : currentQuantity,
       unitPriceCents: currentUnitPrice,
       commissionPercentage: currentCommission,
-      commissionCents: Math.round((currentUnitPrice * currentQuantity) * (currentCommission / 100)),
+      // Commission is based on itemTotal (already respects kit vs per-unit logic)
+      commissionCents: Math.round(itemTotal * (currentCommission / 100)),
       requisitionNumber: currentProduct.category === 'manipulado' ? requisitionNumber : undefined,
       answers: { ...currentAnswers },
       dynamicAnswers: { ...dynamicAnswers },
@@ -1090,10 +1098,22 @@ export default function AddReceptivo() {
         });
       }
 
+      // BUSINESS RULE: If any discount is applied, use default commission for all items
+      const hasDiscount = totalDiscount > 0;
+      const defaultCommission = myCommission?.commissionPercentage || 0;
+
       // Build all sale items
       const allItems = [];
       
       for (const item of offerItems) {
+        // Calculate item total (for kit-based, unitPriceCents is already total kit price)
+        const isKitBased = ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(item.productCategory);
+        const itemTotal = isKitBased ? item.unitPriceCents : (item.unitPriceCents * item.quantity);
+        
+        // If discount applied, use default commission
+        const effectiveCommission = hasDiscount ? defaultCommission : item.commissionPercentage;
+        const effectiveCommissionCents = Math.round(itemTotal * (effectiveCommission / 100));
+        
         allItems.push({
           product_id: item.productId,
           product_name: item.productName,
@@ -1101,13 +1121,17 @@ export default function AddReceptivo() {
           unit_price_cents: item.unitPriceCents,
           discount_cents: 0,
           requisition_number: item.requisitionNumber || null,
-          commission_percentage: item.commissionPercentage,
-          commission_cents: item.commissionCents,
+          commission_percentage: effectiveCommission,
+          commission_cents: effectiveCommissionCents,
         });
       }
 
       // Add current product if valid
       if (currentProductId && currentUnitPrice > 0) {
+        // Calculate effective commission for current product
+        const effectiveCommission = hasDiscount ? defaultCommission : currentCommission;
+        const effectiveCommissionCents = Math.round(currentProductSubtotal * (effectiveCommission / 100));
+        
         allItems.push({
           product_id: currentProductId,
           product_name: currentProduct?.name || 'Produto',
@@ -1115,8 +1139,8 @@ export default function AddReceptivo() {
           unit_price_cents: currentUnitPrice,
           discount_cents: allItems.length === 0 ? totalDiscount : 0,
           requisition_number: currentProduct?.category === 'manipulado' ? requisitionNumber : null,
-          commission_percentage: currentCommission,
-          commission_cents: currentCommissionValue,
+          commission_percentage: effectiveCommission,
+          commission_cents: effectiveCommissionCents,
         });
       }
 
@@ -2366,12 +2390,16 @@ export default function AddReceptivo() {
               <CardContent className="space-y-4">
                 {/* Summary */}
                 <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/30 space-y-2 text-sm">
-                  {offerItems.map((item, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{item.quantity}x {item.productName}</span>
-                      <span className="font-medium">{formatPrice(item.unitPriceCents * item.quantity)}</span>
-                    </div>
-                  ))}
+                  {offerItems.map((item, index) => {
+                    const isKitBased = ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(item.productCategory);
+                    const itemTotal = isKitBased ? item.unitPriceCents : (item.unitPriceCents * item.quantity);
+                    return (
+                      <div key={index} className="flex justify-between">
+                        <span>{item.quantity}x {item.productName}</span>
+                        <span className="font-medium">{formatPrice(itemTotal)}</span>
+                      </div>
+                    );
+                  })}
                   
                   {currentUnitPrice > 0 && currentProduct && (
                     <div className="flex justify-between">
@@ -2406,9 +2434,21 @@ export default function AddReceptivo() {
                     <span className="text-green-600">{formatPrice(total)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Sua comissão</span>
-                    <span>{formatPrice(totalCommissionValue)}</span>
+                    <span>Sua comissão ({myCommission?.commissionPercentage || 0}%)</span>
+                    {totalDiscount > 0 ? (
+                      <span className="text-amber-600">
+                        {formatPrice(Math.round(subtotal * ((myCommission?.commissionPercentage || 0) / 100)))}
+                        <span className="text-xs ml-1">(padrão)</span>
+                      </span>
+                    ) : (
+                      <span>{formatPrice(totalCommissionValue)}</span>
+                    )}
                   </div>
+                  {totalDiscount > 0 && (
+                    <p className="text-xs text-amber-600 text-center mt-2">
+                      ⚠️ Com desconto aplicado, a comissão é calculada pela taxa padrão
+                    </p>
+                  )}
                 </div>
 
                 <Button 
