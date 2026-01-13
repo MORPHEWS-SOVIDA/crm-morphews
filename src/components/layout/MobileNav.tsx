@@ -22,15 +22,16 @@ import {
   ClipboardList,
   TicketCheck,
   Bot,
+  ListTodo,
+  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
-import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
-import { useReceptiveModuleAccess } from '@/hooks/useReceptiveModule';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import logoMorphews from '@/assets/logo-morphews.png';
@@ -40,13 +41,19 @@ const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, isAdmin, signOut } = useAuth();
-  const { data: orgSettings } = useOrganizationSettings();
   const { data: permissions } = useMyPermissions();
-  const { data: receptiveAccess } = useReceptiveModuleAccess();
   const { data: isManager } = useIsManager();
+  const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+
+  // Helper to check if a feature is enabled in the plan
+  const hasFeature = (key: string) => {
+    if (isMasterAdmin) return true;
+    if (featuresLoading || !orgFeatures) return true;
+    return orgFeatures[key as keyof typeof orgFeatures] ?? true;
+  };
   
   // Permission-based visibility
   const canSeeLeads = isAdmin || permissions?.leads_view;
@@ -56,7 +63,7 @@ export function MobileNav() {
   const canSeeSettings = isAdmin || permissions?.settings_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeAllDeliveries = permissions?.deliveries_view_all;
-  const canSeeReceptive = receptiveAccess?.hasAccess;
+  const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
   const canSeeFinanceiro = isAdmin || permissions?.reports_view || permissions?.sales_confirm_payment;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
@@ -66,9 +73,10 @@ export function MobileNav() {
   const canSeeSac = isAdmin || permissions?.sac_view;
   const canSeeSalesReport = isAdmin || permissions?.sales_report_view;
   const canSeeExpeditionReport = isAdmin || permissions?.expedition_report_view;
-  
-  // WhatsApp DMs is visible for master admin or if organization has it enabled
-  const canSeeWhatsAppDMs = (isMasterAdmin || orgSettings?.whatsapp_dms_enabled) && canSeeWhatsApp;
+  const canSeeWhatsAppManage = isAdmin || permissions?.whatsapp_manage_view;
+  const canSeeAIBots = isAdmin || permissions?.ai_bots_view;
+  const canSeeDemands = isAdmin || permissions?.demands_view;
+  const canSeeScheduledMessages = isAdmin || permissions?.scheduled_messages_view;
 
   const handleSignOut = async () => {
     await signOut();
@@ -77,34 +85,36 @@ export function MobileNav() {
 
   // Main bottom nav - show only what user can access
   const mainNavItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: true },
-    { icon: Users, label: 'Leads', path: '/leads', visible: canSeeLeads },
-    { icon: Plus, label: 'Novo', path: '/leads/new', visible: canCreateLeads },
-    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales },
-  ].filter(item => item.visible).slice(0, 4); // Max 4 items in bottom nav
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: hasFeature('dashboard') },
+    { icon: Users, label: 'Leads', path: '/leads', visible: canSeeLeads && hasFeature('leads') },
+    { icon: Plus, label: 'Novo', path: '/leads/new', visible: canCreateLeads && hasFeature('leads') },
+    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales && hasFeature('sales') },
+  ].filter(item => item.visible).slice(0, 4);
 
-  // Menu items - full menu
+  // Menu items - full menu with feature gating
   const menuNavItems = [
-    { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive },
-    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam },
-    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeSettings },
+    { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
+    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam && hasFeature('team') },
+    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
+    { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeDemands && hasFeature('demands') },
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
-    { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts },
-    { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale },
-    { icon: TicketCheck, label: 'SAC', path: '/sac', visible: canSeeSac },
-    { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro },
-    { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport },
-    { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport },
-    { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries },
-    { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries },
-    { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsAppDMs },
-    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsAppDMs && isAdmin },
-    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsAppV2 },
-    { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro', visible: isAdmin },
-    { icon: ShoppingCart, label: 'Interessados', path: '/interessados', visible: isAdmin },
+    { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts && hasFeature('products') },
+    { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale && hasFeature('post_sale') },
+    { icon: TicketCheck, label: 'SAC', path: '/sac', visible: canSeeSac && hasFeature('sac') },
+    { icon: Send, label: 'Mensagens Agendadas', path: '/mensagens-agendadas', visible: canSeeScheduledMessages && hasFeature('scheduled_messages') },
+    { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
+    { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
+    { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
+    { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
+    { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries && hasFeature('deliveries') },
+    { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
+    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage') },
+    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsAppV2 && hasFeature('whatsapp_v2') },
+    { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro', visible: isAdmin && hasFeature('new_organization') },
+    { icon: ShoppingCart, label: 'Interessados', path: '/interessados', visible: isAdmin && hasFeature('interested_leads') },
     { icon: Crown, label: 'Super Admin', path: '/super-admin', visible: isMasterAdmin },
-    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram },
-    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings },
+    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
+    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings && hasFeature('settings') },
   ].filter(item => item.visible);
 
   return (
