@@ -5484,6 +5484,7 @@ export type Database = {
           sales_create: boolean
           sales_dispatch: boolean
           sales_edit_draft: boolean
+          sales_hide_new_button: boolean
           sales_mark_delivered: boolean
           sales_mark_printed: boolean
           sales_report_view: boolean | null
@@ -5547,6 +5548,7 @@ export type Database = {
           sales_create?: boolean
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
+          sales_hide_new_button?: boolean
           sales_mark_delivered?: boolean
           sales_mark_printed?: boolean
           sales_report_view?: boolean | null
@@ -5610,6 +5612,7 @@ export type Database = {
           sales_create?: boolean
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
+          sales_hide_new_button?: boolean
           sales_mark_delivered?: boolean
           sales_mark_printed?: boolean
           sales_report_view?: boolean | null

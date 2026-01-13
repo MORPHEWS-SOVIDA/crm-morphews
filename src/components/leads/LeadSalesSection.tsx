@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLeadSales, formatCurrency, getStatusLabel, getStatusColor } from '@/hooks/useSales';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -15,7 +17,12 @@ interface LeadSalesSectionProps {
 
 export function LeadSalesSection({ leadId, leadName }: LeadSalesSectionProps) {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const { data: permissions } = useMyPermissions();
   const { data: sales, isLoading } = useLeadSales(leadId);
+  
+  // Check if new sale button should be hidden
+  const hideNewSaleButton = !isAdmin && permissions?.sales_hide_new_button;
 
   if (isLoading) {
     return (
@@ -44,26 +51,30 @@ export function LeadSalesSection({ leadId, leadName }: LeadSalesSectionProps) {
             </Badge>
           )}
         </div>
-        <Button 
-          size="sm"
-          onClick={() => navigate(`/vendas/nova?leadId=${leadId}`)}
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Nova Venda
-        </Button>
+        {!hideNewSaleButton && (
+          <Button 
+            size="sm"
+            onClick={() => navigate(`/vendas/nova?leadId=${leadId}`)}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Nova Venda
+          </Button>
+        )}
       </div>
 
       {!sales || sales.length === 0 ? (
         <div className="text-center py-8">
           <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
           <p className="text-muted-foreground mb-3">Nenhuma venda registrada</p>
-          <Button 
-            variant="outline"
-            onClick={() => navigate(`/vendas/nova?leadId=${leadId}`)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Criar primeira venda
-          </Button>
+          {!hideNewSaleButton && (
+            <Button 
+              variant="outline"
+              onClick={() => navigate(`/vendas/nova?leadId=${leadId}`)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Criar primeira venda
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

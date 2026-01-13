@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Select,
   SelectContent,
@@ -117,9 +119,14 @@ function getCarrierTrackingColor(status: CarrierTrackingStatus | null) {
 
 export default function Sales() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const { data: permissions } = useMyPermissions();
   const [activeTab, setActiveTab] = useState<SaleStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Check if new sale button should be hidden
+  const hideNewSaleButton = !isAdmin && permissions?.sales_hide_new_button;
   
   // Basic filters
   const [sellerFilter, setSellerFilter] = useState<string>('all');
@@ -317,10 +324,12 @@ export default function Sales() {
             <h1 className="text-2xl font-bold">Vendas</h1>
             <p className="text-muted-foreground">Gerencie suas vendas e romaneios</p>
           </div>
-          <Button onClick={() => navigate('/vendas/nova')}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Venda
-          </Button>
+          {!hideNewSaleButton && (
+            <Button onClick={() => navigate('/vendas/nova')}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Venda
+            </Button>
+          )}
         </div>
 
         {/* Summary Card - Total value of filtered sales */}
