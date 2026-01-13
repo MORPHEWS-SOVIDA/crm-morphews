@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { useProductQuestions, ProductQuestion } from '@/hooks/useProductQuestions';
+import { ProductInfoButtons } from '@/components/products/ProductInfoButtons';
 
 interface ProductPriceKit {
   id: string;
@@ -311,21 +312,15 @@ export function ProductOfferCard({
           </Button>
         </div>
 
-        {/* Sales Script */}
-        {product.sales_script && (
-          <>
-            <Separator />
-            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-              <h4 className="font-medium flex items-center gap-2 text-primary mb-2">
-                <FileText className="w-4 h-4" />
-                Script de Vendas
-              </h4>
-              <p className="text-sm whitespace-pre-wrap">{product.sales_script}</p>
-            </div>
-          </>
-        )}
+        {/* Product Info Buttons (Composition, FAQ, Hot Site, Video) */}
+        <ProductInfoButtons 
+          productId={product.id}
+          productName={product.name}
+          hotSiteUrl={product.hot_site_url}
+          youtubeVideoUrl={product.youtube_video_url}
+        />
 
-        {/* Dynamic Product Questions (from product_questions table) */}
+        {/* Dynamic Product Questions (from product_questions table) - BEFORE Script */}
         {loadingQuestions ? (
           <div className="flex items-center justify-center p-4">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -469,6 +464,20 @@ export function ProductOfferCard({
                   />
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* Sales Script - AFTER Questions */}
+        {product.sales_script && (
+          <>
+            <Separator />
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <h4 className="font-medium flex items-center gap-2 text-primary mb-2">
+                <FileText className="w-4 h-4" />
+                Script de Vendas
+              </h4>
+              <p className="text-sm whitespace-pre-wrap">{product.sales_script}</p>
             </div>
           </>
         )}

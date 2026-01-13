@@ -10,7 +10,8 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye, FileText } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { 
   useProductQuestions, 
@@ -22,6 +23,7 @@ import { useMyCommission, calculateCommissionValue, compareCommission, Commissio
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { DiscountAuthorizationDialog } from './DiscountAuthorizationDialog';
 import { ProgressiveKitSelector } from './ProgressiveKitSelector';
+import { ProductInfoButtons } from '@/components/products/ProductInfoButtons';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectionDialogProps {
@@ -519,14 +521,15 @@ export function ProductSelectionDialog({
                 <p className="text-sm">{product.description}</p>
               )}
               
-              {product.sales_script && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Script de Vendas:</p>
-                  <p className="text-sm whitespace-pre-wrap">{product.sales_script}</p>
-                </div>
-              )}
+              {/* Product Info Buttons (Composition, FAQ, Hot Site, Video) */}
+              <ProductInfoButtons 
+                productId={product.id}
+                productName={product.name}
+                hotSiteUrl={product.hot_site_url}
+                youtubeVideoUrl={product.youtube_video_url}
+              />
 
-              {/* Key Questions with Answers (only show if leadId is provided) */}
+              {/* Key Questions with Answers (only show if leadId is provided) - BEFORE Script */}
               {hasKeyQuestions && leadId && (
                 <div className="space-y-3 pt-2 border-t">
                   <div className="flex items-center justify-between">
@@ -637,6 +640,17 @@ export function ProductSelectionDialog({
                       <p className="text-sm">{question.question_text}</p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Sales Script - AFTER Questions */}
+              {product.sales_script && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                    <FileText className="w-3 h-3" />
+                    Script de Vendas:
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap">{product.sales_script}</p>
                 </div>
               )}
 
