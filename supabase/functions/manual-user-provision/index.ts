@@ -192,18 +192,28 @@ serve(async (req) => {
       organizationId = newOrg.id;
       console.log("Organization created:", organizationId);
 
-      // Add user as owner
+      // Update profile with organization_id
+      await supabaseAdmin
+        .from("profiles")
+        .update({ organization_id: organizationId })
+        .eq("user_id", userId);
+    }
+
+    // ALWAYS ensure user is a member of the organization (handles edge cases)
+    const { data: existingMember } = await supabaseAdmin
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("user_id", userId)
+      .single();
+
+    if (!existingMember) {
+      console.log("Adding user to organization_members");
       await supabaseAdmin.from("organization_members").insert({
         organization_id: organizationId,
         user_id: userId,
         role: "owner",
       });
-
-      // Update profile
-      await supabaseAdmin
-        .from("profiles")
-        .update({ organization_id: organizationId })
-        .eq("user_id", userId);
     }
 
     // Create subscription
