@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-secret",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const supabaseAdmin = createClient(
@@ -39,14 +39,44 @@ serve(async (req) => {
   }
 
   try {
-    // Security: require admin secret (simple check for internal use only)
-    const adminSecret = req.headers.get("x-admin-secret");
-    
-    // Allow specific admin secret for manual provisioning
-    if (adminSecret !== "morphews-admin-2026") {
-      console.log("Unauthorized attempt with secret:", adminSecret);
+    // Security: only authenticated master admins can run this.
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseAnon = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: {
+            authorization: authHeader,
+          },
+        },
+      }
+    );
+
+    const { data: userRes, error: userErr } = await supabaseAnon.auth.getUser();
+    if (userErr || !userRes?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const requesterId = userRes.user.id;
+
+    const { data: isMasterAdmin, error: masterErr } = await supabaseAdmin.rpc("is_master_admin", {
+      _user_id: requesterId,
+    });
+
+    if (masterErr || !isMasterAdmin) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

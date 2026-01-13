@@ -161,11 +161,12 @@ serve(async (req) => {
                   <td style="padding: 40px;">
                     <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Senha Provisória</h2>
                     <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">Olá ${firstName},</p>
-                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">Você solicitou a recuperação de sua senha. Use a senha provisória abaixo para fazer login:</p>
-                    <div style="background-color: #fff7ed; border: 2px solid #f97316; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
-                      <p style="color: #9a3412; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">Sua senha provisória:</p>
-                      <p style="color: #c2410c; font-size: 32px; font-weight: 700; margin: 0; letter-spacing: 4px; font-family: 'Courier New', monospace;">${tempPassword}</p>
-                    </div>
+                     <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">Você solicitou a recuperação de sua senha. Use a senha provisória abaixo para fazer login:</p>
+                     <div style="background-color: #fff7ed; border: 2px solid #f97316; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
+                       <p style="color: #9a3412; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">Sua senha provisória (copie/cole sem espaços):</p>
+                       <p style="color: #c2410c; font-size: 28px; font-weight: 800; margin: 0; font-family: 'Courier New', monospace;">${tempPassword}</p>
+                       <p style="color: #6b7280; font-size: 12px; margin: 12px 0 0 0;">Se ao colar aparecerem espaços entre letras, apague-os.</p>
+                     </div>
                     <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;"><strong>Importante:</strong> Ao fazer login com esta senha, você será solicitado a criar uma nova senha segura.</p>
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 30px 0 0 0;">Se você não solicitou esta recuperação, pode ignorar este email com segurança.</p>
                     <p style="color: #9ca3af; font-size: 12px; line-height: 1.6; margin: 20px 0 0 0;"><em>Esta senha provisória expira em 24 horas.</em></p>

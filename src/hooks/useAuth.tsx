@@ -112,9 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    // Emails sometimes show passwords with spacing; remove whitespace to avoid "Invalid login credentials".
+    const normalizedPassword = password.replace(/\s+/g, "");
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: normalizedEmail,
+      password: normalizedPassword,
     });
     return { error };
   };
