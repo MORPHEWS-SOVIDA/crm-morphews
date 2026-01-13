@@ -90,6 +90,7 @@ import { AddressSelector } from '@/components/sales/AddressSelector';
 import { LeadAddress } from '@/hooks/useLeadAddresses';
 import { ProductOfferCard } from '@/components/receptive/ProductOfferCard';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
 interface LeadData {
@@ -170,6 +171,7 @@ export default function AddReceptivo() {
   const { user } = useAuth();
   const { tenantId } = useTenant();
   const { data: accessInfo, isLoading: loadingAccess } = useReceptiveModuleAccess();
+  const { data: orgFeatures } = useOrgFeatures();
   const { data: leadSources = [] } = useLeadSources();
   const { data: products = [] } = useProducts();
   const { data: productBrands = [] } = useProductBrands();
@@ -1693,20 +1695,22 @@ export default function AddReceptivo() {
                   {/* Endereços */}
                   <LeadAddressesManager leadId={leadData.id} />
 
-                  {/* Perguntas Padrão - Standard Questions */}
-                  <SectionErrorBoundary title="Perguntas Padrão">
-                    {leadData.id ? (
-                      <LeadStandardQuestionsSection leadId={leadData.id} />
-                    ) : (
-                      <Card className="bg-muted/30 border-dashed">
-                        <CardContent className="py-6">
-                          <p className="text-sm text-muted-foreground text-center">
-                            Finalize ou busque um lead para acessar as Perguntas Padrão
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </SectionErrorBoundary>
+                  {/* Perguntas Padrão - Standard Questions - only show if plan has standard_questions feature */}
+                  {orgFeatures?.standard_questions !== false && (
+                    <SectionErrorBoundary title="Perguntas Padrão">
+                      {leadData.id ? (
+                        <LeadStandardQuestionsSection leadId={leadData.id} />
+                      ) : (
+                        <Card className="bg-muted/30 border-dashed">
+                          <CardContent className="py-6">
+                            <p className="text-sm text-muted-foreground text-center">
+                              Finalize ou busque um lead para acessar as Perguntas Padrão
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </SectionErrorBoundary>
+                  )}
 
                   {/* Follow-ups */}
                   <LeadFollowupsSection leadId={leadData.id} />

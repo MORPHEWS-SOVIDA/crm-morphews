@@ -635,10 +635,12 @@ export default function LeadDetail() {
               </SectionErrorBoundary>
             )}
 
-            {/* Standard Questions - Perguntas Padrão */}
-            <SectionErrorBoundary title="Perguntas Padrão">
-              <LeadStandardQuestionsSection leadId={id!} />
-            </SectionErrorBoundary>
+            {/* Standard Questions - Perguntas Padrão - only show if plan has standard_questions feature */}
+            {orgFeatures?.standard_questions !== false && (
+              <SectionErrorBoundary title="Perguntas Padrão">
+                <LeadStandardQuestionsSection leadId={id!} />
+              </SectionErrorBoundary>
+            )}
 
             {/* Lead Product Answers - Key Questions */}
             <SectionErrorBoundary title="Perguntas do Produto">
