@@ -335,7 +335,7 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                     <SelectItem value="__none__">Nenhuma (configurar depois)</SelectItem>
                     {instances.map((instance) => (
                       <SelectItem key={instance.id} value={instance.id}>
-                        {instance.name} {instance.is_connected ? '🟢' : '🔴'}
+                        {instance.name}{instance.phone_number ? ` • ${instance.phone_number}` : ''} {instance.is_connected ? '🟢' : '🔴'}
                       </SelectItem>
                     ))}
                   </SelectContent>
