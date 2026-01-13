@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye, FileText } from 'lucide-react';
+import { Package, Check, Minus, Plus, Percent, DollarSign, HelpCircle, Save, TrendingUp, TrendingDown, Coins, Shield, Eye, FileText, Calculator } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { 
   useProductQuestions, 
@@ -23,6 +23,7 @@ import { useMyCommission, calculateCommissionValue, compareCommission, Commissio
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { DiscountAuthorizationDialog } from './DiscountAuthorizationDialog';
 import { ProgressiveKitSelector } from './ProgressiveKitSelector';
+import { NegotiationDialog } from '@/components/receptive/NegotiationDialog';
 import { ProductInfoButtons } from '@/components/products/ProductInfoButtons';
 import { ProductImageViewer } from '@/components/products/ProductImageViewer';
 import { cn } from '@/lib/utils';
@@ -86,6 +87,12 @@ export function ProductSelectionDialog({
   
   // Progressive kit selection state
   const [rejectedKitIds, setRejectedKitIds] = useState<string[]>([]);
+  
+  // Negotiation state
+  const [showNegotiationDialog, setShowNegotiationDialog] = useState(false);
+  const [negotiatedPriceCents, setNegotiatedPriceCents] = useState<number | null>(null);
+  const [negotiatedInstallments, setNegotiatedInstallments] = useState<number>(12);
+  const [negotiatedCommission, setNegotiatedCommission] = useState<number | null>(null);
 
   // Fetch data
   const { data: productQuestions = [] } = useProductQuestions(product?.id);
@@ -163,6 +170,10 @@ export function ProductSelectionDialog({
     setAuthorizationId(null);
     // Reset rejection state
     setRejectedKitIds([]);
+    // Reset negotiation state
+    setNegotiatedPriceCents(null);
+    setNegotiatedInstallments(12);
+    setNegotiatedCommission(null);
   }, [product?.id]);
 
   // Handler for kit rejection (progressive reveal)
@@ -217,6 +228,16 @@ export function ProductSelectionDialog({
       let unitPrice = 0;
       let commission = sellerDefaultCommission;
       let isCustomCommission = false;
+
+      // Check if negotiated price is being used
+      if (negotiatedPriceCents !== null) {
+        return {
+          quantity,
+          unitPrice: negotiatedPriceCents,
+          commission: negotiatedCommission ?? sellerDefaultCommission,
+          isCustomCommission: negotiatedCommission !== null && negotiatedCommission !== sellerDefaultCommission,
+        };
+      }
 
       switch (selectedPriceType) {
         case 'regular':
@@ -772,18 +793,52 @@ export function ProductSelectionDialog({
               <CardContent className="space-y-4">
                 {leadId ? (
                   /* Progressive selection for sales with lead */
-                  <ProgressiveKitSelector
-                    kits={priceKits}
-                    selectedKitId={selectedKitId}
-                    selectedPriceType={selectedPriceType}
-                    onSelectKit={(kitId, priceType) => {
-                      setSelectedKitId(kitId);
-                      setSelectedPriceType(priceType);
-                    }}
-                    rejectedKitIds={rejectedKitIds}
-                    onRejectKit={handleRejectKit}
-                    sellerDefaultCommission={sellerDefaultCommission}
-                  />
+                  <>
+                    <ProgressiveKitSelector
+                      kits={priceKits}
+                      selectedKitId={selectedKitId}
+                      selectedPriceType={selectedPriceType}
+                      onSelectKit={(kitId, priceType) => {
+                        setSelectedKitId(kitId);
+                        setSelectedPriceType(priceType);
+                        // Clear negotiated price when changing selection
+                        setNegotiatedPriceCents(null);
+                        setNegotiatedInstallments(12);
+                        setNegotiatedCommission(null);
+                      }}
+                      rejectedKitIds={rejectedKitIds}
+                      onRejectKit={handleRejectKit}
+                      sellerDefaultCommission={sellerDefaultCommission}
+                    />
+                    
+                    {/* Negotiate button */}
+                    {selectedKitId && (
+                      <div className="pt-2 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full text-primary border-primary hover:bg-primary/5"
+                          onClick={() => setShowNegotiationDialog(true)}
+                        >
+                          <Calculator className="w-4 h-4 mr-2" />
+                          Negociar Valor / Parcelamento
+                        </Button>
+                        
+                        {/* Negotiated indicator */}
+                        {negotiatedPriceCents !== null && (
+                          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                              <Calculator className="w-4 h-4" />
+                              <span>Valor negociado: {formatPrice(negotiatedPriceCents)}</span>
+                              {negotiatedInstallments !== 12 && (
+                                <span>| {negotiatedInstallments}x</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   /* Standard kit selection without progressive reveal (no lead) */
                   priceKits.sort((a, b) => a.position - b.position).map((kit) => (
@@ -1033,6 +1088,25 @@ export function ProductSelectionDialog({
         requestedPriceCents={effectiveKitPrice}
         onAuthorized={handleAuthorizationSuccess}
       />
+
+      {/* Negotiation Dialog */}
+      {selectedKit && (
+        <NegotiationDialog
+          open={showNegotiationDialog}
+          onOpenChange={setShowNegotiationDialog}
+          originalPriceCents={unitPrice}
+          minimumPriceCents={selectedKit.minimum_price_cents}
+          quantity={selectedKit.quantity}
+          originalCommission={baseCommission}
+          defaultCommission={sellerDefaultCommission}
+          minimumCommission={selectedKit.minimum_custom_commission}
+          onConfirm={(price, installments, commission) => {
+            setNegotiatedPriceCents(price);
+            setNegotiatedInstallments(installments);
+            setNegotiatedCommission(commission);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
