@@ -20,6 +20,7 @@ import { MotoboyTrackingStatusesManager } from '@/components/settings/MotoboyTra
 import { ProductBrandsManager } from '@/components/settings/ProductBrandsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { HelpCircle } from 'lucide-react';
 import { DataBackupManager } from '@/components/settings/DataBackupManager';
 
@@ -27,6 +28,7 @@ export default function Settings() {
   const { profile, updatePassword, user, isAdmin } = useAuth();
   const { data: isOrgAdmin, isLoading: loadingPermissions } = useOrgAdmin();
   const { data: permissions, isLoading: loadingMyPermissions } = useMyPermissions();
+  const { data: orgFeatures } = useOrgFeatures();
   const { data: leadSources = [], isLoading: loadingSources } = useLeadSources();
   const createSource = useCreateLeadSource();
   const deleteSource = useDeleteLeadSource();
@@ -402,8 +404,8 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Standard Questions */}
-        {canAccess('settings_standard_questions') && (
+        {/* Standard Questions - only show if plan has standard_questions feature */}
+        {canAccess('settings_standard_questions') && orgFeatures?.standard_questions !== false && (
           <div className="bg-card rounded-xl p-6 shadow-card">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-lg bg-cyan-500/10">

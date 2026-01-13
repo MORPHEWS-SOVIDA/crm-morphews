@@ -39,6 +39,9 @@ interface SubscriptionPlan {
   monthly_energy: number | null;
   is_active: boolean;
   stripe_price_id: string | null;
+  included_whatsapp_instances: number;
+  extra_instance_price_cents: number;
+  extra_energy_price_cents: number;
   created_at: string;
 }
 
@@ -51,6 +54,9 @@ interface PlanFormData {
   monthly_energy: number;
   is_active: boolean;
   stripe_price_id: string;
+  included_whatsapp_instances: number;
+  extra_instance_price_cents: number;
+  extra_energy_price_cents: number;
 }
 
 const defaultFormData: PlanFormData = {
@@ -62,6 +68,9 @@ const defaultFormData: PlanFormData = {
   monthly_energy: 1000,
   is_active: true,
   stripe_price_id: "",
+  included_whatsapp_instances: 0,
+  extra_instance_price_cents: 4900,
+  extra_energy_price_cents: 500,
 };
 
 export function PlanEditor() {
@@ -103,6 +112,9 @@ export function PlanEditor() {
           monthly_energy: data.monthly_energy,
           is_active: data.is_active,
           stripe_price_id: data.stripe_price_id || null,
+          included_whatsapp_instances: data.included_whatsapp_instances,
+          extra_instance_price_cents: data.extra_instance_price_cents,
+          extra_energy_price_cents: data.extra_energy_price_cents,
         })
         .select()
         .single();
@@ -135,6 +147,9 @@ export function PlanEditor() {
           monthly_energy: data.monthly_energy,
           is_active: data.is_active,
           stripe_price_id: data.stripe_price_id || null,
+          included_whatsapp_instances: data.included_whatsapp_instances,
+          extra_instance_price_cents: data.extra_instance_price_cents,
+          extra_energy_price_cents: data.extra_energy_price_cents,
         })
         .eq("id", id);
       if (error) throw error;
@@ -163,6 +178,9 @@ export function PlanEditor() {
           monthly_energy: plan.monthly_energy || 1000,
           is_active: plan.is_active,
           stripe_price_id: plan.stripe_price_id || "",
+          included_whatsapp_instances: plan.included_whatsapp_instances || 0,
+          extra_instance_price_cents: plan.extra_instance_price_cents || 4900,
+          extra_energy_price_cents: plan.extra_energy_price_cents || 500,
         });
         setHasChanges(false);
       }
@@ -498,7 +516,7 @@ export function PlanEditor() {
                           </p>
                         </div>
                       </div>
-                      <div className="grid md:grid-cols-2 gap-4 mt-4">
+                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                         <div className="space-y-2">
                           <Label>Preço por Usuário Extra (centavos)</Label>
                           <Input
@@ -510,23 +528,57 @@ export function PlanEditor() {
                             = {formatPrice(formData.extra_user_price_cents)}/usuário extra
                           </p>
                         </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                          <div>
-                            <Label className="flex items-center gap-2">
-                              {formData.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                              Visível no Site
-                            </Label>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {formData.is_active 
-                                ? "Clientes podem ver e contratar este plano" 
-                                : "Plano oculto, apenas para uso interno"}
-                            </p>
-                          </div>
-                          <Switch
-                            checked={formData.is_active}
-                            onCheckedChange={(checked) => handleFormChange("is_active", checked)}
+                        <div className="space-y-2">
+                          <Label>Instâncias WhatsApp Incluídas</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={formData.included_whatsapp_instances}
+                            onChange={(e) => handleFormChange("included_whatsapp_instances", parseInt(e.target.value) || 0)}
                           />
+                          <p className="text-xs text-muted-foreground">
+                            {formData.included_whatsapp_instances === 0 ? "Nenhuma" : `${formData.included_whatsapp_instances} instância(s)`}
+                          </p>
                         </div>
+                        <div className="space-y-2">
+                          <Label>Preço Instância Extra (centavos)</Label>
+                          <Input
+                            type="number"
+                            value={formData.extra_instance_price_cents}
+                            onChange={(e) => handleFormChange("extra_instance_price_cents", parseInt(e.target.value) || 0)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            = {formatPrice(formData.extra_instance_price_cents)}/mês
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Preço 1000 Energia Extra (centavos)</Label>
+                          <Input
+                            type="number"
+                            value={formData.extra_energy_price_cents}
+                            onChange={(e) => handleFormChange("extra_energy_price_cents", parseInt(e.target.value) || 0)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            = {formatPrice(formData.extra_energy_price_cents)}/1000 créditos
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-lg border bg-card mt-4">
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            {formData.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                            Visível no Site
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formData.is_active 
+                              ? "Clientes podem ver e contratar este plano" 
+                              : "Plano oculto, apenas para uso interno"}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={formData.is_active}
+                          onCheckedChange={(checked) => handleFormChange("is_active", checked)}
+                        />
                       </div>
                     </div>
 

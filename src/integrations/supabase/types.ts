@@ -5233,8 +5233,11 @@ export type Database = {
       subscription_plans: {
         Row: {
           created_at: string
+          extra_energy_price_cents: number
+          extra_instance_price_cents: number
           extra_user_price_cents: number
           id: string
+          included_whatsapp_instances: number
           is_active: boolean
           max_leads: number | null
           max_users: number
@@ -5245,8 +5248,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          extra_energy_price_cents?: number
+          extra_instance_price_cents?: number
           extra_user_price_cents?: number
           id?: string
+          included_whatsapp_instances?: number
           is_active?: boolean
           max_leads?: number | null
           max_users: number
@@ -5257,8 +5263,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          extra_energy_price_cents?: number
+          extra_instance_price_cents?: number
           extra_user_price_cents?: number
           id?: string
+          included_whatsapp_instances?: number
           is_active?: boolean
           max_leads?: number | null
           max_users?: number
