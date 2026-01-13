@@ -285,17 +285,22 @@ export function ProgressiveKitSelector({
 
   return (
     <div className="space-y-4">
-      {/* Previously revealed kits */}
+      {/* Previously revealed kits - fully selectable */}
       {previousKits.map((kit) => (
         <div 
           key={kit.id}
-          className="border rounded-lg p-3 bg-muted/30"
+          className={cn(
+            "border rounded-lg p-4",
+            selectedKitId === kit.id 
+              ? "border-primary bg-primary/5 ring-2 ring-primary/20" 
+              : "bg-muted/30"
+          )}
         >
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="font-bold">
+          <div className="flex items-center gap-2 mb-3">
+            <Badge variant={selectedKitId === kit.id ? "default" : "secondary"} className="font-bold">
               {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
             </Badge>
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="outline" className="text-xs text-muted-foreground">
               Opção anterior
             </Badge>
           </div>

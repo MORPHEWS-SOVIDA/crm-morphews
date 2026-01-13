@@ -180,6 +180,11 @@ export function ProductOfferCard({
     return sortedKits.filter(k => !currentRejectedKitIds.includes(k.id));
   }, [sortedKits, currentRejectedKitIds]);
 
+  // Get rejected kits (to show above current kit)
+  const rejectedKits = useMemo(() => {
+    return sortedKits.filter(k => currentRejectedKitIds.includes(k.id));
+  }, [sortedKits, currentRejectedKitIds]);
+
   // Find current visible kit (first non-rejected)
   const currentVisibleKit = useMemo(() => {
     return sortedKits.find(k => !currentRejectedKitIds.includes(k.id));
@@ -548,8 +553,8 @@ export function ProductOfferCard({
           </>
         )}
 
-        {/* Kit Selection - Show ONLY the current visible kit (progressive reveal) */}
-        {product.category !== 'manipulado' && currentVisibleKit && !allKitsRejected && (
+        {/* Kit Selection - Show rejected kits above, then current kit (progressive reveal) */}
+        {product.category !== 'manipulado' && (currentVisibleKit || rejectedKits.length > 0) && !allKitsRejected && (
           <>
             <Separator />
             <div className="space-y-4">
@@ -557,10 +562,97 @@ export function ProductOfferCard({
                 Selecione a quantidade e o preço:
               </h4>
               
+              {/* Show previously rejected kits (still selectable) */}
+              {rejectedKits.map((kit) => (
+                <div 
+                  key={kit.id}
+                  className={`p-4 rounded-lg border-2 ${currentKitId === kit.id ? 'border-primary bg-primary/5' : 'border-muted bg-muted/30'}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={currentKitId === kit.id ? "default" : "secondary"} className="text-base px-3 py-1">
+                        {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Opção anterior
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Price Options for rejected kit */}
+                  <div className="space-y-2">
+                    {/* Regular Price */}
+                    <PriceOption
+                      type="regular"
+                      label="Preço Regular"
+                      price={kit.regular_price_cents}
+                      commission={getCommissionForType(kit, 'regular')}
+                      isSelected={currentKitId === kit.id && currentPriceType === 'regular'}
+                      kit={kit}
+                      variant="default"
+                    />
+
+                    {/* Promotional */}
+                    {kit.promotional_price_cents && (
+                      <PriceOption
+                        type="promotional"
+                        label="Venda Por"
+                        price={kit.promotional_price_cents}
+                        commission={getCommissionForType(kit, 'promotional')}
+                        isSelected={currentKitId === kit.id && currentPriceType === 'promotional'}
+                        kit={kit}
+                        variant="success"
+                      />
+                    )}
+
+                    {/* Promotional 2 */}
+                    {kit.promotional_price_2_cents && (
+                      <PriceOption
+                        type="promotional_2"
+                        label="Preço Promocional"
+                        price={kit.promotional_price_2_cents}
+                        commission={getCommissionForType(kit, 'promotional_2')}
+                        isSelected={currentKitId === kit.id && currentPriceType === 'promotional_2'}
+                        kit={kit}
+                        variant="warning"
+                      />
+                    )}
+
+                    {/* Minimum */}
+                    {kit.minimum_price_cents && (
+                      <PriceOption
+                        type="minimum"
+                        label="Valor Mínimo"
+                        price={kit.minimum_price_cents}
+                        commission={getCommissionForType(kit, 'minimum')}
+                        isSelected={currentKitId === kit.id && currentPriceType === 'minimum'}
+                        kit={kit}
+                        variant="danger"
+                      />
+                    )}
+                  </div>
+
+                  {/* Negotiate button for rejected kit if selected */}
+                  {currentKitId === kit.id && onNegotiate && (
+                    <div className="mt-3">
+                      <Button
+                        variant="outline"
+                        className="w-full text-primary border-primary hover:bg-primary/5"
+                        onClick={() => setShowNegotiationDialog(true)}
+                      >
+                        <Calculator className="w-4 h-4 mr-2" />
+                        Negociar Valor / Parcelamento
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
               {/* Show ONLY the current visible kit */}
-              <div 
-                className={`p-5 rounded-lg border-2 ${currentKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}
-              >
+              {currentVisibleKit && (
+                <div 
+                  className={`p-5 rounded-lg border-2 ${currentKitId === currentVisibleKit.id ? 'border-primary bg-primary/5' : 'border-muted'}`}
+                >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Badge variant={currentKitId === currentVisibleKit.id ? "default" : "secondary"} className="text-lg px-3 py-1">
@@ -720,23 +812,28 @@ export function ProductOfferCard({
                   </div>
                 )}
               </div>
-
-              {/* Negotiation Dialog */}
-              {onNegotiate && currentVisibleKit && (
-                <NegotiationDialog
-                  open={showNegotiationDialog}
-                  onOpenChange={setShowNegotiationDialog}
-                  originalPriceCents={getPriceForType(currentVisibleKit, currentPriceType as any)}
-                  minimumPriceCents={currentVisibleKit.minimum_price_cents}
-                  quantity={currentVisibleKit.quantity}
-                  originalCommission={getCommissionForType(currentVisibleKit, currentPriceType as any)}
-                  defaultCommission={defaultCommission}
-                  minimumCommission={currentVisibleKit.minimum_custom_commission}
-                  onConfirm={(price, installments, commission) => {
-                    onNegotiate(price, installments, commission);
-                  }}
-                />
               )}
+
+              {/* Negotiation Dialog - works with any selected kit */}
+              {onNegotiate && currentKitId && (() => {
+                const selectedKit = sortedKits.find(k => k.id === currentKitId);
+                if (!selectedKit) return null;
+                return (
+                  <NegotiationDialog
+                    open={showNegotiationDialog}
+                    onOpenChange={setShowNegotiationDialog}
+                    originalPriceCents={getPriceForType(selectedKit, currentPriceType as any)}
+                    minimumPriceCents={selectedKit.minimum_price_cents}
+                    quantity={selectedKit.quantity}
+                    originalCommission={getCommissionForType(selectedKit, currentPriceType as any)}
+                    defaultCommission={defaultCommission}
+                    minimumCommission={selectedKit.minimum_custom_commission}
+                    onConfirm={(price, installments, commission) => {
+                      onNegotiate(price, installments, commission);
+                    }}
+                  />
+                );
+              })()}
             </div>
           </>
         )}
