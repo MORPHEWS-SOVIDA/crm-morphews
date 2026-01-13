@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useCurrentSubscription, useCustomerPortal, useSubscriptionPlans, useCreateCheckout } from "@/hooks/useSubscription";
+import { useCurrentSubscription, useCustomerPortal, useSubscriptionPlans, useCreateCheckout, useAddSubscriptionItem } from "@/hooks/useSubscription";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Users, 
@@ -103,6 +103,7 @@ export default function Team() {
   const { data: myPermissions } = useMyPermissions();
   const customerPortal = useCustomerPortal();
   const createCheckout = useCreateCheckout();
+  const addSubscriptionItem = useAddSubscriptionItem();
   
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -347,7 +348,7 @@ export default function Team() {
   };
 
   const handleUpgradePlan = (planId: string) => {
-    createCheckout.mutate(planId);
+    createCheckout.mutate({ planId, mode: 'change' });
   };
 
   const handleStartEditMyProfile = () => {
@@ -974,15 +975,18 @@ export default function Team() {
                     </Button>
                     <Button 
                       onClick={() => {
+                        addSubscriptionItem.mutate({ 
+                          itemType: 'extra_users', 
+                          quantity: extraUsersToAdd 
+                        });
                         setIsExtraUsersDialogOpen(false);
-                        handleManageSubscription();
                       }}
-                      disabled={customerPortal.isPending}
+                      disabled={addSubscriptionItem.isPending}
                     >
-                      {customerPortal.isPending ? (
+                      {addSubscriptionItem.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       ) : null}
-                      Continuar para Pagamento
+                      Confirmar Compra
                     </Button>
                   </DialogFooter>
                 </DialogContent>
