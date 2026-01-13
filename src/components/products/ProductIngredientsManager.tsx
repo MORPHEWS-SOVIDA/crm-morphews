@@ -54,16 +54,16 @@ export function ProductIngredientsManager({ ingredients, onChange }: ProductIngr
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <FlaskConical className="h-4 w-4" />
-        <span>Adicione os ingredientes do produto e uma descrição de cada um</span>
+        <span>Adicione os itens da composição do produto/serviço e uma descrição de cada um</span>
       </div>
 
       {ingredients.length === 0 ? (
         <div className="text-center py-8 border border-dashed rounded-lg">
           <FlaskConical className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground mb-4">Nenhum ingrediente adicionado</p>
+          <p className="text-sm text-muted-foreground mb-4">Nenhum item adicionado</p>
           <Button type="button" variant="outline" size="sm" onClick={addIngredient}>
             <Plus className="h-4 w-4 mr-2" />
-            Adicionar Ingrediente
+            Adicionar Item
           </Button>
         </div>
       ) : (
@@ -86,12 +86,12 @@ export function ProductIngredientsManager({ ingredients, onChange }: ProductIngr
                   </div>
                   <div className="flex-1 space-y-3">
                     <Input
-                      placeholder="Nome do ingrediente (ex: Vitamina C)"
+                      placeholder="Nome do item (ex: Vitamina C, Consultoria inicial)"
                       value={ingredient.name}
                       onChange={(e) => updateIngredient(index, 'name', e.target.value)}
                     />
                     <Textarea
-                      placeholder="Descrição e benefícios do ingrediente..."
+                      placeholder="Descrição e benefícios..."
                       value={ingredient.description || ''}
                       onChange={(e) => updateIngredient(index, 'description', e.target.value)}
                       className="min-h-[60px]"
@@ -113,7 +113,7 @@ export function ProductIngredientsManager({ ingredients, onChange }: ProductIngr
           
           <Button type="button" variant="outline" size="sm" onClick={addIngredient}>
             <Plus className="h-4 w-4 mr-2" />
-            Adicionar Ingrediente
+            Adicionar Item
           </Button>
         </div>
       )}
