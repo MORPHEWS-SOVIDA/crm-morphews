@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.ai-bot-process]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.manual-user-provision]
+verify_jwt = false
