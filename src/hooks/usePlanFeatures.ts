@@ -20,15 +20,23 @@ export const AVAILABLE_FEATURES = {
   deliveries: { label: "Entregas", group: "Vendas" },
   expedition_report: { label: "Relatório de Expedição", group: "Vendas" },
   sales_report: { label: "Relatório de Vendas", group: "Vendas" },
+  receptive: { label: "Add Receptivo", group: "Vendas" },
   
   // Post-sale & SAC
   post_sale: { label: "Pós-Venda", group: "Pós-Venda" },
+  post_sale_kanban: { label: "Kanban Pós-Venda", group: "Pós-Venda" },
   sac: { label: "SAC", group: "Pós-Venda" },
   
-  // Additional features
-  receptive: { label: "Módulo Receptivo", group: "Recursos Adicionais" },
-  scheduled_messages: { label: "Mensagens Agendadas", group: "Recursos Adicionais" },
-  instagram: { label: "Instagram DMs", group: "Recursos Adicionais" },
+  // Demands & Tasks
+  demands: { label: "Demandas", group: "Demandas" },
+  demands_settings: { label: "Config. Demandas", group: "Demandas" },
+  
+  // AI & Automation
+  ai_bots: { label: "Robôs de IA", group: "IA e Automação" },
+  scheduled_messages: { label: "Mensagens Agendadas", group: "IA e Automação" },
+  
+  // Additional channels
+  instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
   
   // Management
   team: { label: "Equipe", group: "Gerenciamento" },

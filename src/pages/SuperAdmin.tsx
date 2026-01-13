@@ -22,7 +22,7 @@ import { WhatsAppCreditsTab } from "@/components/super-admin/WhatsAppCreditsTab"
 import { WhatsAppProvidersTab } from "@/components/super-admin/WhatsAppProvidersTab";
 import { AllUsersTab } from "@/components/super-admin/AllUsersTab";
 import { ErrorLogsTab } from "@/components/super-admin/ErrorLogsTab";
-import { PlanFeaturesEditor } from "@/components/super-admin/PlanFeaturesEditor";
+import { PlanEditor } from "@/components/super-admin/PlanEditor";
 import { OrgFeatureOverridesEditor } from "@/components/super-admin/OrgFeatureOverridesEditor";
 import { EnergyManagementTab } from "@/components/super-admin/EnergyManagementTab";
 
@@ -814,10 +814,12 @@ export default function SuperAdmin() {
               <Globe className="h-3 w-3" />
               WhatsApp Providers
             </TabsTrigger>
-            <TabsTrigger value="plans">Planos</TabsTrigger>
-            <TabsTrigger value="plan-features" className="gap-1">
+            <TabsTrigger value="plan-editor" className="gap-1">
               <Package className="h-3 w-3" />
-              Features
+              Editor de Planos
+            </TabsTrigger>
+            <TabsTrigger value="org-overrides">
+              Overrides Org
             </TabsTrigger>
             <TabsTrigger value="users">Usuários sem Org</TabsTrigger>
             <TabsTrigger value="all-users" className="gap-1">
@@ -1222,45 +1224,11 @@ export default function SuperAdmin() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="plans">
-            <Card>
-              <CardHeader>
-                <CardTitle>Planos Disponíveis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-4 gap-4">
-                  {plans?.map((plan) => (
-                    <div
-                      key={plan.id}
-                      className={`p-4 rounded-lg border ${
-                        plan.is_active ? "bg-card" : "bg-muted/50 border-dashed"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold">{plan.name}</span>
-                        {!plan.is_active && (
-                          <Badge variant="outline" className="text-xs">
-                            Oculto
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-2xl font-bold text-primary">
-                        {formatPrice(plan.price_cents)}
-                        <span className="text-sm text-muted-foreground">/mês</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {plan.max_leads ? `${plan.max_leads} leads` : "Leads ilimitados"} •{" "}
-                        {plan.max_users} usuários
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="plan-editor">
+            <PlanEditor />
           </TabsContent>
 
-          <TabsContent value="plan-features" className="space-y-6">
-            <PlanFeaturesEditor />
+          <TabsContent value="org-overrides">
             <OrgFeatureOverridesEditor />
           </TabsContent>
 
