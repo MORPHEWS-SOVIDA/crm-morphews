@@ -48,6 +48,7 @@ import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useFunnelStages, FunnelStageCustom } from '@/hooks/useFunnelStages';
 import { FunnelStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,7 @@ export default function LeadDetail() {
   const { data: funnelStages = [] } = useFunnelStages();
   const { user, isAdmin } = useAuth();
   const { data: permissions } = useMyPermissions();
+  const { data: orgFeatures } = useOrgFeatures();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
   const addStageHistory = useAddStageHistory();
@@ -619,15 +621,19 @@ export default function LeadDetail() {
               </div>
             </div>
 
-            {/* Demandas */}
-            <SectionErrorBoundary title="Demandas">
-              <LeadDemandsSection leadId={id!} leadName={lead.name} />
-            </SectionErrorBoundary>
+            {/* Demandas - only show if plan has demands feature */}
+            {orgFeatures?.demands !== false && (
+              <SectionErrorBoundary title="Demandas">
+                <LeadDemandsSection leadId={id!} leadName={lead.name} />
+              </SectionErrorBoundary>
+            )}
 
-            {/* Lead Sales */}
-            <SectionErrorBoundary title="Vendas">
-              <LeadSalesSection leadId={id!} leadName={lead.name} />
-            </SectionErrorBoundary>
+            {/* Lead Sales - only show if plan has sales feature */}
+            {orgFeatures?.sales !== false && (
+              <SectionErrorBoundary title="Vendas">
+                <LeadSalesSection leadId={id!} leadName={lead.name} />
+              </SectionErrorBoundary>
+            )}
 
             {/* Standard Questions - Perguntas Padrão */}
             <SectionErrorBoundary title="Perguntas Padrão">
@@ -639,30 +645,38 @@ export default function LeadDetail() {
               <LeadProductAnswersSection leadId={id!} />
             </SectionErrorBoundary>
 
-            {/* Post-Sale History */}
-            <SectionErrorBoundary title="Histórico Pós-Venda">
-              <LeadPostSaleHistory leadId={id!} />
-            </SectionErrorBoundary>
+            {/* Post-Sale History - only show if plan has post_sale feature */}
+            {orgFeatures?.post_sale !== false && (
+              <SectionErrorBoundary title="Histórico Pós-Venda">
+                <LeadPostSaleHistory leadId={id!} />
+              </SectionErrorBoundary>
+            )}
 
-            {/* SAC - Chamados */}
-            <SectionErrorBoundary title="SAC">
-              <LeadSacSection leadId={id!} />
-            </SectionErrorBoundary>
+            {/* SAC - Chamados - only show if plan has sac feature */}
+            {orgFeatures?.sac !== false && (
+              <SectionErrorBoundary title="SAC">
+                <LeadSacSection leadId={id!} />
+              </SectionErrorBoundary>
+            )}
 
             {/* Follow-ups */}
             <SectionErrorBoundary title="Follow-ups">
               <LeadFollowupsSection leadId={id!} />
             </SectionErrorBoundary>
 
-            {/* Mensagens Agendadas */}
-            <SectionErrorBoundary title="Mensagens Agendadas">
-              <LeadScheduledMessagesSection leadId={id!} leadName={lead?.name} leadWhatsapp={lead?.whatsapp} />
-            </SectionErrorBoundary>
+            {/* Mensagens Agendadas - only show if plan has scheduled_messages feature */}
+            {orgFeatures?.scheduled_messages !== false && (
+              <SectionErrorBoundary title="Mensagens Agendadas">
+                <LeadScheduledMessagesSection leadId={id!} leadName={lead?.name} leadWhatsapp={lead?.whatsapp} />
+              </SectionErrorBoundary>
+            )}
 
-            {/* Histórico Receptivo */}
-            <SectionErrorBoundary title="Histórico Receptivo">
-              <LeadReceptiveHistorySection leadId={id!} />
-            </SectionErrorBoundary>
+            {/* Histórico Receptivo - only show if plan has receptive feature */}
+            {orgFeatures?.receptive !== false && (
+              <SectionErrorBoundary title="Histórico Receptivo">
+                <LeadReceptiveHistorySection leadId={id!} />
+              </SectionErrorBoundary>
+            )}
 
             {/* Stage History Timeline */}
             <SectionErrorBoundary title="Histórico do Funil">

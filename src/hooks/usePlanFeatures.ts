@@ -4,47 +4,53 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
 // Define all available features that can be enabled/disabled per plan
+// This should mirror the modules available in user_permissions
 export const AVAILABLE_FEATURES = {
-  // Main modules
+  // Módulos Principais
   dashboard: { label: "Dashboard", group: "Módulos Principais" },
   leads: { label: "Leads / CRM", group: "Módulos Principais" },
-  sales: { label: "Vendas", group: "Módulos Principais" },
   products: { label: "Produtos", group: "Módulos Principais" },
+  
+  // Vendas
+  sales: { label: "Vendas", group: "Vendas" },
+  deliveries: { label: "Entregas", group: "Vendas" },
+  receptive: { label: "Add Receptivo", group: "Vendas" },
+  sales_dashboard: { label: "Painel de Vendas (Gamificação)", group: "Vendas" },
+  
+  // Pós-Venda & SAC
+  post_sale: { label: "Pós-Venda", group: "Pós-Venda & SAC" },
+  post_sale_kanban: { label: "Kanban Pós-Venda", group: "Pós-Venda & SAC" },
+  sac: { label: "SAC (Chamados)", group: "Pós-Venda & SAC" },
+  
+  // Mensagens & Automação
+  scheduled_messages: { label: "Mensagens Agendadas", group: "Mensagens & Automação" },
+  ai_bots: { label: "Robôs de IA", group: "Mensagens & Automação" },
   
   // WhatsApp
   whatsapp_v1: { label: "WhatsApp 1.0 (DMs)", group: "WhatsApp" },
   whatsapp_v2: { label: "WhatsApp 2.0", group: "WhatsApp" },
   whatsapp_multiattendant: { label: "Multi-Atendimento", group: "WhatsApp" },
+  whatsapp_manage: { label: "Gerenciar WhatsApp", group: "WhatsApp" },
   
-  // Sales flow
-  deliveries: { label: "Entregas", group: "Vendas" },
-  expedition_report: { label: "Relatório de Expedição", group: "Vendas" },
-  sales_report: { label: "Relatório de Vendas", group: "Vendas" },
-  receptive: { label: "Add Receptivo", group: "Vendas" },
+  // Canais Adicionais
+  instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
   
-  // Post-sale & SAC
-  post_sale: { label: "Pós-Venda", group: "Pós-Venda" },
-  post_sale_kanban: { label: "Kanban Pós-Venda", group: "Pós-Venda" },
-  sac: { label: "SAC", group: "Pós-Venda" },
-  
-  // Demands & Tasks
+  // Demandas
   demands: { label: "Demandas", group: "Demandas" },
   demands_settings: { label: "Config. Demandas", group: "Demandas" },
   
-  // AI & Automation
-  ai_bots: { label: "Robôs de IA", group: "IA e Automação" },
-  scheduled_messages: { label: "Mensagens Agendadas", group: "IA e Automação" },
+  // Relatórios
+  sales_report: { label: "Relatório de Vendas", group: "Relatórios" },
+  expedition_report: { label: "Relatório de Expedição", group: "Relatórios" },
+  financial: { label: "Financeiro", group: "Relatórios" },
   
-  // Additional channels
-  instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
-  
-  // Management
-  team: { label: "Equipe", group: "Gerenciamento" },
+  // Gerenciamento
+  team: { label: "Minha Equipe", group: "Gerenciamento" },
   settings: { label: "Configurações", group: "Gerenciamento" },
-  financial: { label: "Financeiro", group: "Gerenciamento" },
   
-  // Reports & Dashboard
-  sales_dashboard: { label: "Painel de Vendas", group: "Relatórios" },
+  // Super Admin (interno)
+  new_organization: { label: "Nova Organização", group: "Super Admin" },
+  interested_leads: { label: "Leads Interessados", group: "Super Admin" },
 } as const;
 
 export type FeatureKey = keyof typeof AVAILABLE_FEATURES;
