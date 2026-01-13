@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type CheckpointType = 'pending_expedition' | 'dispatched' | 'delivered' | 'payment_confirmed';
+export type CheckpointType = 'printed' | 'pending_expedition' | 'dispatched' | 'delivered' | 'payment_confirmed';
 
 export interface SaleCheckpoint {
   id: string;
@@ -28,13 +28,14 @@ interface ToggleCheckpointData {
 }
 
 export const checkpointLabels: Record<CheckpointType, string> = {
+  printed: 'Impresso',
   pending_expedition: 'Pedido Separado',
   dispatched: 'Despachado',
   delivered: 'Entregue',
   payment_confirmed: 'Pagamento Confirmado',
 };
 
-export const checkpointOrder: CheckpointType[] = ['pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
+export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
 
 export function useSaleCheckpoints(saleId: string | undefined) {
   const { user } = useAuth();
@@ -147,7 +148,12 @@ export function useToggleSaleCheckpoint() {
         });
 
         // Update legacy fields on sales table for compatibility AND update status
-        if (checkpointType === 'pending_expedition') {
+        if (checkpointType === 'printed') {
+          await supabase.from('sales').update({ 
+            printed_at: new Date().toISOString(),
+            printed_by: user?.id,
+          }).eq('id', saleId);
+        } else if (checkpointType === 'pending_expedition') {
           await supabase.from('sales').update({ 
             expedition_validated_at: new Date().toISOString(),
             expedition_validated_by: user?.id,
@@ -197,7 +203,9 @@ export function useToggleSaleCheckpoint() {
         }
 
         // Clear legacy fields too
-        if (checkpointType === 'pending_expedition') {
+        if (checkpointType === 'printed') {
+          await supabase.from('sales').update({ printed_at: null, printed_by: null }).eq('id', saleId);
+        } else if (checkpointType === 'pending_expedition') {
           await supabase.from('sales').update({ expedition_validated_at: null }).eq('id', saleId);
         } else if (checkpointType === 'dispatched') {
           await supabase.from('sales').update({ dispatched_at: null }).eq('id', saleId);

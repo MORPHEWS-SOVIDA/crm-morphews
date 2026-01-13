@@ -4803,6 +4803,8 @@ export type Database = {
           post_sale_contact_status:
             | Database["public"]["Enums"]["post_sale_contact_status"]
             | null
+          printed_at: string | null
+          printed_by: string | null
           return_latitude: number | null
           return_longitude: number | null
           return_notes: string | null
@@ -4869,6 +4871,8 @@ export type Database = {
           post_sale_contact_status?:
             | Database["public"]["Enums"]["post_sale_contact_status"]
             | null
+          printed_at?: string | null
+          printed_by?: string | null
           return_latitude?: number | null
           return_longitude?: number | null
           return_notes?: string | null
@@ -4935,6 +4939,8 @@ export type Database = {
           post_sale_contact_status?:
             | Database["public"]["Enums"]["post_sale_contact_status"]
             | null
+          printed_at?: string | null
+          printed_by?: string | null
           return_latitude?: number | null
           return_longitude?: number | null
           return_notes?: string | null
@@ -5479,6 +5485,7 @@ export type Database = {
           sales_dispatch: boolean
           sales_edit_draft: boolean
           sales_mark_delivered: boolean
+          sales_mark_printed: boolean
           sales_report_view: boolean | null
           sales_validate_expedition: boolean
           sales_view: boolean
@@ -5541,6 +5548,7 @@ export type Database = {
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
           sales_mark_delivered?: boolean
+          sales_mark_printed?: boolean
           sales_report_view?: boolean | null
           sales_validate_expedition?: boolean
           sales_view?: boolean
@@ -5603,6 +5611,7 @@ export type Database = {
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
           sales_mark_delivered?: boolean
+          sales_mark_printed?: boolean
           sales_report_view?: boolean | null
           sales_validate_expedition?: boolean
           sales_view?: boolean
