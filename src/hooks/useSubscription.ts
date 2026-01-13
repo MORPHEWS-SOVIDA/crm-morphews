@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -12,6 +12,9 @@ export interface SubscriptionPlan {
   extra_user_price_cents: number;
   is_active: boolean;
   stripe_price_id: string | null;
+  included_whatsapp_instances: number;
+  extra_instance_price_cents: number;
+  extra_energy_price_cents: number;
 }
 
 export interface Subscription {
@@ -22,6 +25,8 @@ export interface Subscription {
   current_period_start: string | null;
   current_period_end: string | null;
   extra_users: number;
+  extra_whatsapp_instances: number;
+  extra_energy_packs: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
 }
@@ -64,13 +69,14 @@ export function useCurrentSubscription() {
 }
 
 export function useCreateCheckout() {
-  const { session } = useAuth();
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (planId: string) => {
+    mutationFn: async ({ planId, mode = 'new' }: { planId: string; mode?: 'new' | 'change' }) => {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
           planId,
+          mode,
           successUrl: `${window.location.origin}/?subscription=success`,
           cancelUrl: `${window.location.origin}/planos`,
         },
@@ -83,11 +89,47 @@ export function useCreateCheckout() {
     onSuccess: (data) => {
       if (data?.url) {
         window.location.href = data.url;
+      } else if (data?.success) {
+        toast({
+          title: "Plano alterado!",
+          description: data.message || "A alteração foi processada com sucesso.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
       }
     },
     onError: (error: Error) => {
       toast({
-        title: "Erro ao criar checkout",
+        title: "Erro ao processar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+export function useAddSubscriptionItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemType, quantity }: { itemType: 'extra_users' | 'extra_whatsapp_instances' | 'extra_energy'; quantity: number }) => {
+      const { data, error } = await supabase.functions.invoke("add-subscription-item", {
+        body: { itemType, quantity },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sucesso!",
+        description: data.message || "Item adicionado à sua assinatura.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao adicionar item",
         description: error.message,
         variant: "destructive",
       });
@@ -100,7 +142,7 @@ export function useCustomerPortal() {
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("customer-portal", {
         body: {
-          returnUrl: `${window.location.origin}/settings`,
+          returnUrl: `${window.location.origin}/team`,
         },
       });
 

@@ -57,7 +57,7 @@ export default function Planos() {
         if (plan) {
           setAutoCheckoutTriggered(true);
           window.history.replaceState({}, '', '/planos');
-          createCheckout.mutate(planId);
+          createCheckout.mutate({ planId, mode: 'new' });
         }
       }
     }

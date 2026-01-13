@@ -5244,6 +5244,9 @@ export type Database = {
           monthly_energy: number | null
           name: string
           price_cents: number
+          stripe_extra_energy_price_id: string | null
+          stripe_extra_users_price_id: string | null
+          stripe_extra_whatsapp_instances_price_id: string | null
           stripe_price_id: string | null
         }
         Insert: {
@@ -5259,6 +5262,9 @@ export type Database = {
           monthly_energy?: number | null
           name: string
           price_cents: number
+          stripe_extra_energy_price_id?: string | null
+          stripe_extra_users_price_id?: string | null
+          stripe_extra_whatsapp_instances_price_id?: string | null
           stripe_price_id?: string | null
         }
         Update: {
@@ -5274,6 +5280,9 @@ export type Database = {
           monthly_energy?: number | null
           name?: string
           price_cents?: number
+          stripe_extra_energy_price_id?: string | null
+          stripe_extra_users_price_id?: string | null
+          stripe_extra_whatsapp_instances_price_id?: string | null
           stripe_price_id?: string | null
         }
         Relationships: []
@@ -5283,7 +5292,9 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
+          extra_energy_packs: number
           extra_users: number
+          extra_whatsapp_instances: number
           id: string
           organization_id: string
           plan_id: string
@@ -5296,7 +5307,9 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          extra_energy_packs?: number
           extra_users?: number
+          extra_whatsapp_instances?: number
           id?: string
           organization_id: string
           plan_id: string
@@ -5309,7 +5322,9 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          extra_energy_packs?: number
           extra_users?: number
+          extra_whatsapp_instances?: number
           id?: string
           organization_id?: string
           plan_id?: string
