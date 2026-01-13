@@ -117,17 +117,30 @@ export function useReorderFunnelStages() {
 
   return useMutation({
     mutationFn: async (stages: { id: string; position: number }[]) => {
-      // Update positions in parallel
-      const updates = stages.map(({ id, position }) =>
+      // First, set all positions to negative values to avoid constraint conflicts
+      // This works because we're moving them out of the way temporarily
+      const tempUpdates = stages.map(({ id }, index) =>
+        supabase
+          .from('organization_funnel_stages')
+          .update({ position: -(index + 1000) })
+          .eq('id', id)
+      );
+
+      const tempResults = await Promise.all(tempUpdates);
+      const tempErrors = tempResults.filter(r => r.error);
+      if (tempErrors.length > 0) throw tempErrors[0].error;
+
+      // Now update to the final positions
+      const finalUpdates = stages.map(({ id, position }) =>
         supabase
           .from('organization_funnel_stages')
           .update({ position })
           .eq('id', id)
       );
 
-      const results = await Promise.all(updates);
-      const errors = results.filter(r => r.error);
-      if (errors.length > 0) throw errors[0].error;
+      const finalResults = await Promise.all(finalUpdates);
+      const finalErrors = finalResults.filter(r => r.error);
+      if (finalErrors.length > 0) throw finalErrors[0].error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['funnel-stages'] });
