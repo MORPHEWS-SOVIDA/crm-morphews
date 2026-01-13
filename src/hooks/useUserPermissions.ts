@@ -26,6 +26,7 @@ export interface UserPermissions {
   sales_validate_expedition: boolean;
   sales_dispatch: boolean;
   sales_mark_delivered: boolean;
+  sales_mark_printed: boolean;
   sales_cancel: boolean;
   
   // WhatsApp
@@ -108,7 +109,8 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   sales_view_all: { label: 'Ver Vendas de Todos', description: 'Ver vendas de todos os vendedores', group: 'Vendas' },
   sales_create: { label: 'Criar Vendas', description: 'Criar novas vendas', group: 'Vendas' },
   sales_edit_draft: { label: 'Editar Rascunhos', description: 'Editar vendas em rascunho', group: 'Vendas' },
-  sales_validate_expedition: { label: 'Validar Expedição', description: 'Validar vendas para envio', group: 'Vendas' },
+  sales_mark_printed: { label: 'Marcar Impresso', description: 'Marcar venda como impressa para expedição', group: 'Vendas' },
+  sales_validate_expedition: { label: 'Validar Expedição', description: 'Marcar pedido como separado', group: 'Vendas' },
   sales_dispatch: { label: 'Despachar', description: 'Marcar como despachado/enviado', group: 'Vendas' },
   sales_mark_delivered: { label: 'Marcar Entregue', description: 'Confirmar entrega ao cliente', group: 'Vendas' },
   sales_cancel: { label: 'Cancelar Vendas', description: 'Cancelar vendas', group: 'Vendas' },
@@ -346,6 +348,7 @@ export function useApplyRoleDefaults() {
           sales_validate_expedition: permsObj.sales_validate_expedition ?? false,
           sales_dispatch: permsObj.sales_dispatch ?? false,
           sales_mark_delivered: permsObj.sales_mark_delivered ?? false,
+          sales_mark_printed: permsObj.sales_mark_printed ?? false,
           sales_cancel: permsObj.sales_cancel ?? false,
           whatsapp_view: permsObj.whatsapp_view ?? true,
           whatsapp_send: permsObj.whatsapp_send ?? false,

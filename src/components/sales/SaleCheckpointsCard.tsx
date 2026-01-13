@@ -90,6 +90,10 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
     }
 
     // Check permissions
+    if (type === 'printed' && !permissions?.sales_mark_printed) {
+      toast.error('Sem permissão para marcar como impresso');
+      return;
+    }
     if (type === 'pending_expedition' && !permissions?.sales_validate_expedition) {
       toast.error('Sem permissão para validar expedição');
       return;
@@ -159,6 +163,7 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
 
   const canEditCheckpoint = (type: CheckpointType) => {
     if (isCancelled) return false;
+    if (type === 'printed') return permissions?.sales_mark_printed;
     if (type === 'pending_expedition') return permissions?.sales_validate_expedition;
     if (type === 'dispatched') return permissions?.sales_dispatch;
     if (type === 'delivered') return permissions?.sales_mark_delivered;
