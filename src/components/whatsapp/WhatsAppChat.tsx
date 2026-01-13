@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,8 @@ import { NewConversationDialog } from "./NewConversationDialog";
 import { ScheduledMessagesPanel } from "./ScheduledMessagesPanel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useFunnelStages } from "@/hooks/useFunnelStages";
+import { useCrossInstanceConversations, getOtherInstanceConversations } from "@/hooks/useCrossInstanceConversations";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface WhatsAppChatProps {
   instanceId?: string; // Agora opcional - se não passar, busca todas da org
@@ -88,6 +90,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { data: funnelStages } = useFunnelStages();
+  const { data: crossInstanceMap } = useCrossInstanceConversations();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null); // Sub-aba de instância ativa
   const [messageText, setMessageText] = useState("");
@@ -1224,17 +1227,90 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                 )}
                 onClick={() => setSelectedConversation(conversation)}
               >
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={conversation.contact_profile_pic || undefined} />
-                  <AvatarFallback className={cn(
-                    "text-white",
-                    conversation.is_group ? "bg-blue-500" : "bg-green-500"
-                  )}>
-                    {conversation.is_group 
-                      ? "G" 
-                      : (conversation.display_name?.charAt(0) || conversation.contact_name?.charAt(0) || conversation.phone_number.slice(-2))}
-                  </AvatarFallback>
-                </Avatar>
+                {/* Avatar com indicadores de outras instâncias */}
+                <div className="relative flex-shrink-0">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={conversation.contact_profile_pic || undefined} />
+                    <AvatarFallback className={cn(
+                      "text-white",
+                      conversation.is_group ? "bg-blue-500" : "bg-green-500"
+                    )}>
+                      {conversation.is_group 
+                        ? "G" 
+                        : (conversation.display_name?.charAt(0) || conversation.contact_name?.charAt(0) || conversation.phone_number.slice(-2))}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  {/* Indicadores de outras instâncias */}
+                  {(() => {
+                    const otherInstances = getOtherInstanceConversations(
+                      crossInstanceMap, 
+                      conversation.phone_number, 
+                      conversation.instance_id || ''
+                    );
+                    
+                    if (otherInstances.length === 0) return null;
+                    
+                    const totalUnreadOtherInstances = otherInstances.reduce(
+                      (sum, conv) => sum + (conv.unread_count || 0), 
+                      0
+                    );
+                    
+                    return (
+                      <>
+                        {/* Bolinha azul indicando conversas em outras instâncias */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center cursor-help">
+                                <MessageSquareMore className="h-2.5 w-2.5 text-white" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[280px]">
+                              <p className="font-medium text-xs mb-1">Conversas em outras instâncias:</p>
+                              <ul className="text-xs space-y-0.5">
+                                {otherInstances.map((conv) => (
+                                  <li key={conv.id} className="flex items-center gap-1">
+                                    {conv.unread_count > 0 && (
+                                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                                    )}
+                                    <span className="truncate">
+                                      {conv.instance_display_name || conv.instance_name}
+                                    </span>
+                                    {conv.unread_count > 0 && (
+                                      <span className="text-[9px] px-1 rounded bg-red-500 text-white">
+                                        {conv.unread_count}
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        {/* Badge âmbar pulsante com total de não lidas em outras instâncias */}
+                        {totalUnreadOtherInstances > 0 && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse cursor-help">
+                                  <span className="text-[10px] font-bold text-white">
+                                    {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p className="text-xs">Mensagens não lidas em outras instâncias</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center">
                     <span className="font-medium truncate flex items-center gap-1">
