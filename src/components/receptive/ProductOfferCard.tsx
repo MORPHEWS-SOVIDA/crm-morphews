@@ -25,6 +25,7 @@ import {
 import { Product } from '@/hooks/useProducts';
 import { useProductQuestions, ProductQuestion } from '@/hooks/useProductQuestions';
 import { ProductInfoButtons } from '@/components/products/ProductInfoButtons';
+import { ProductImageViewer } from '@/components/products/ProductImageViewer';
 
 interface ProductPriceKit {
   id: string;
@@ -300,16 +301,25 @@ export function ProductOfferCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Product Header */}
-        <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {product.is_featured && <Star className="w-4 h-4 text-amber-500" />}
-            <span className="font-medium">{product.name}</span>
-            <Badge variant="outline">{product.category}</Badge>
+        {/* Product Header with Image */}
+        <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {product.is_featured && <Star className="w-4 h-4 text-amber-500" />}
+              <span className="font-medium">{product.name}</span>
+              <Badge variant="outline">{product.category}</Badge>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onResetProduct}>
+              Trocar
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={onResetProduct}>
-            Trocar
-          </Button>
+          
+          {/* Product Image and Label Viewer */}
+          <ProductImageViewer
+            imageUrl={product.image_url}
+            labelImageUrl={product.label_image_url}
+            productName={product.name}
+          />
         </div>
 
         {/* Product Info Buttons (Composition, FAQ, Hot Site, Video) */}
