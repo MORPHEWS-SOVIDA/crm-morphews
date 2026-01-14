@@ -40,6 +40,7 @@ import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQue
 import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMessagesSection';
 import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
 import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
+import { LeadNonPurchaseSection } from '@/components/leads/LeadNonPurchaseSection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
@@ -620,6 +621,11 @@ export default function LeadDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Non-Purchase Classification - always available */}
+            <SectionErrorBoundary title="Classificar Não Comprou">
+              <LeadNonPurchaseSection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Demandas - only show if plan has demands feature */}
             {orgFeatures?.demands !== false && (
