@@ -3,13 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { notifyDemandAssignment, notifyDemandStatusChange } from '@/lib/demand-notifications';
-import type { 
-  Demand, 
-  DemandWithRelations, 
-  CreateDemandInput, 
+import type {
+  Demand,
+  DemandWithRelations,
+  CreateDemandInput,
   UpdateDemandInput,
   DemandUrgency
 } from '@/types/demand';
+import type { DemandsFilters } from '@/types/demands-filters';
 
 type UserProfile = { id: string; user_id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
 
@@ -17,7 +18,7 @@ type UserProfile = { id: string; user_id: string; first_name: string | null; las
 // DEMANDS QUERIES
 // ============================================================================
 
-export function useDemands(boardId: string | null, filters?: { assigneeId?: string; archived?: boolean }) {
+export function useDemands(boardId: string | null, filters?: DemandsFilters) {
   const { profile } = useAuth();
 
   return useQuery({
@@ -49,11 +50,11 @@ export function useDemands(boardId: string | null, filters?: { assigneeId?: stri
       if (error) throw error;
 
       // Fetch user data for assignees
-      const allUserIds = (data || []).flatMap(d => 
+      const allUserIds = (data || []).flatMap(d =>
         (d.assignees as { user_id: string }[] | null)?.map(a => a.user_id) || []
       );
       const uniqueUserIds = [...new Set(allUserIds)];
-      
+
       let userMap = new Map<string, UserProfile>();
       if (uniqueUserIds.length > 0) {
         const { data: users } = await supabase
@@ -64,7 +65,7 @@ export function useDemands(boardId: string | null, filters?: { assigneeId?: stri
       }
 
       // Transform data
-      const demands: DemandWithRelations[] = (data || []).map(d => ({
+      let demands: DemandWithRelations[] = (data || []).map(d => ({
         ...d,
         urgency: d.urgency as DemandUrgency,
         labels: (d.labels as { label: { id: string; name: string; color: string } | null }[] | null)
@@ -79,11 +80,34 @@ export function useDemands(boardId: string | null, filters?: { assigneeId?: stri
           })) || [],
       }));
 
-      // Filter by assignee if needed
+      // Client-side filters (keeps the query simple and supports mixed filters)
       if (filters?.assigneeId) {
-        return demands.filter(d => 
-          d.assignees?.some(a => a.user_id === filters.assigneeId)
-        );
+        demands = demands.filter(d => d.assignees?.some(a => a.user_id === filters.assigneeId));
+      }
+
+      if (filters?.leadId) {
+        demands = demands.filter(d => d.lead_id === filters.leadId);
+      }
+
+      if (filters?.urgency) {
+        demands = demands.filter(d => d.urgency === filters.urgency);
+      }
+
+      if (filters?.createdFrom) {
+        const from = new Date(`${filters.createdFrom}T00:00:00`);
+        demands = demands.filter(d => new Date(d.created_at) >= from);
+      }
+
+      if (filters?.createdTo) {
+        const to = new Date(`${filters.createdTo}T23:59:59.999`);
+        demands = demands.filter(d => new Date(d.created_at) <= to);
+      }
+
+      if (filters?.labelIds && filters.labelIds.length > 0) {
+        demands = demands.filter(d => {
+          const ids = new Set((d.labels || []).map(l => l.id));
+          return filters.labelIds!.every(id => ids.has(id));
+        });
       }
 
       return demands;
@@ -92,8 +116,8 @@ export function useDemands(boardId: string | null, filters?: { assigneeId?: stri
   });
 }
 
-export function useDemandsByColumn(boardId: string | null, filters?: { assigneeId?: string }) {
-  const { data: demands, ...rest } = useDemands(boardId, { ...filters, archived: false });
+export function useDemandsByColumn(boardId: string | null, filters?: Omit<DemandsFilters, 'archived'>) {
+  const { data: demands, ...rest } = useDemands(boardId, { ...(filters || {}), archived: false });
 
   const demandsByColumn = (demands || []).reduce<Record<string, DemandWithRelations[]>>((acc, demand) => {
     if (!acc[demand.column_id]) {
@@ -187,11 +211,11 @@ export function useLeadDemands(leadId: string | null) {
       if (error) throw error;
 
       // Fetch user data for assignees
-      const allUserIds = (data || []).flatMap(d => 
+      const allUserIds = (data || []).flatMap(d =>
         (d.assignees as { user_id: string }[] | null)?.map(a => a.user_id) || []
       );
       const uniqueUserIds = [...new Set(allUserIds)];
-      
+
       let userMap = new Map<string, UserProfile>();
       if (uniqueUserIds.length > 0) {
         const { data: users } = await supabase
@@ -325,14 +349,14 @@ export function useMoveDemand() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      demandId, 
-      columnId, 
+    mutationFn: async ({
+      demandId,
+      columnId,
       position,
-      boardId 
-    }: { 
-      demandId: string; 
-      columnId: string; 
+      boardId
+    }: {
+      demandId: string;
+      columnId: string;
       position: number;
       boardId: string;
     }) => {

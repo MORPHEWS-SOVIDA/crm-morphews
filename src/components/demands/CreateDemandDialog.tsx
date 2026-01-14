@@ -11,9 +11,10 @@ import { useDemandColumns } from '@/hooks/useDemandBoards';
 import { useCreateDemand } from '@/hooks/useDemands';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeads } from '@/hooks/useLeads';
+import { useAssignDemandLabel, useDemandLabels } from '@/hooks/useDemandDetails';
 import { URGENCY_CONFIG, type DemandUrgency } from '@/types/demand';
 import { MultiSelect } from '@/components/MultiSelect';
-import { Check, ChevronsUpDown, User } from 'lucide-react';
+import { Check, ChevronsUpDown, User, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CreateDemandDialogProps {
@@ -27,7 +28,10 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
   const { data: columns } = useDemandColumns(boardId);
   const { data: users } = useUsers();
   const { data: leads } = useLeads();
+  const { data: labels } = useDemandLabels();
+
   const createDemand = useCreateDemand();
+  const assignLabel = useAssignDemandLabel();
 
   const [form, setForm] = useState({
     title: '',
@@ -35,6 +39,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
     column_id: '',
     urgency: 'medium' as DemandUrgency,
     assignee_ids: [] as string[],
+    label_ids: [] as string[],
     lead_id: leadId || '',
   });
   
@@ -49,7 +54,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
   const handleSubmit = async () => {
     if (!form.title.trim() || !columnId) return;
 
-    await createDemand.mutateAsync({
+    const created = await createDemand.mutateAsync({
       board_id: boardId,
       column_id: columnId,
       title: form.title,
@@ -59,20 +64,33 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       lead_id: form.lead_id || leadId || undefined,
     });
 
+    if (form.label_ids.length > 0) {
+      await Promise.all(
+        form.label_ids.map((labelId) => assignLabel.mutateAsync({ demandId: created.id, labelId }))
+      );
+    }
+
     setForm({
       title: '',
       description: '',
       column_id: '',
       urgency: 'medium',
       assignee_ids: [],
+      label_ids: [],
       lead_id: leadId || '',
     });
     onOpenChange(false);
   };
 
+  // IMPORTANT: Demand assignees expect auth user id (profiles.user_id)
   const userOptions = users?.map(u => ({
-    value: u.id,
+    value: u.user_id,
     label: `${u.first_name} ${u.last_name}`,
+  })) || [];
+
+  const labelOptions = labels?.map(l => ({
+    value: l.id,
+    label: l.name,
   })) || [];
 
   return (
@@ -215,6 +233,21 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
               placeholder="Selecione responsáveis..."
             />
           </div>
+
+          {labelOptions.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                Etiquetas
+              </Label>
+              <MultiSelect
+                options={labelOptions}
+                selected={form.label_ids}
+                onChange={(ids) => setForm(prev => ({ ...prev, label_ids: ids }))}
+                placeholder="Selecione etiquetas..."
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

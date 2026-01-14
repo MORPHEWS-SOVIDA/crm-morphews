@@ -19,12 +19,11 @@ import { DemandCard } from '@/components/demands/DemandCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { DemandWithRelations } from '@/types/demand';
+import type { DemandsFilters } from '@/types/demands-filters';
 
 interface DemandKanbanViewProps {
   boardId: string;
-  filters?: {
-    assigneeId?: string;
-  };
+  filters?: Omit<DemandsFilters, 'archived'>;
 }
 
 export function DemandKanbanView({ boardId, filters }: DemandKanbanViewProps) {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -30,14 +30,15 @@ import {
 import { URGENCY_CONFIG } from '@/types/demand';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Clock, 
-  User, 
-  Calendar, 
-  Building2, 
-  MessageSquare, 
-  Paperclip, 
-  CheckSquare, 
+import { DemandEditForm } from '@/components/demands/DemandEditForm';
+import {
+  Clock,
+  User,
+  Calendar,
+  Building2,
+  MessageSquare,
+  Paperclip,
+  CheckSquare,
   History,
   Play,
   Square,
@@ -48,7 +49,8 @@ import {
   Image as ImageIcon,
   File,
   Send,
-  Timer
+  Timer,
+  Pencil,
 } from 'lucide-react';
 import { format, formatDistanceToNow, differenceInSeconds } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -64,6 +66,15 @@ interface DemandDetailDialogProps {
 export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: DemandDetailDialogProps) {
   const { profile } = useAuth();
   const { data: demand, isLoading } = useDemand(open ? demandId : null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!open) setIsEditing(false);
+  }, [open]);
+
+  useEffect(() => {
+    setIsEditing(false);
+  }, [demandId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,18 +100,18 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
                       </Badge>
                     )}
                     {demand.column && (
-                      <Badge 
+                      <Badge
                         variant="secondary"
-                        style={{ 
+                        style={{
                           backgroundColor: demand.column.color ? `${demand.column.color}20` : undefined,
-                          borderColor: demand.column.color || undefined 
+                          borderColor: demand.column.color || undefined
                         }}
                       >
                         {demand.column.name}
                       </Badge>
                     )}
                     {demand.labels?.map(label => (
-                      <Badge 
+                      <Badge
                         key={label.id}
                         className="text-white text-xs"
                         style={{ backgroundColor: label.color }}
@@ -110,9 +121,20 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
                     ))}
                   </div>
                 </div>
-                <Badge className={cn(URGENCY_CONFIG[demand.urgency].bgColor, URGENCY_CONFIG[demand.urgency].color)}>
-                  {URGENCY_CONFIG[demand.urgency].label}
-                </Badge>
+
+                <div className="flex items-center gap-2">
+                  <Badge className={cn(URGENCY_CONFIG[demand.urgency].bgColor, URGENCY_CONFIG[demand.urgency].color)}>
+                    {URGENCY_CONFIG[demand.urgency].label}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(v => !v)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    {isEditing ? 'Fechar edição' : 'Editar'}
+                  </Button>
+                </div>
               </div>
             </DialogHeader>
 
@@ -153,7 +175,7 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
             </div>
 
             {/* Description */}
-            {demand.description && (
+            {!isEditing && demand.description && (
               <div className="px-6 py-3 border-b">
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                   {demand.description}
@@ -192,7 +214,15 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
 
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="details" className="h-full m-0 p-6">
-                  <DetailsTab demand={demand} />
+                  {isEditing ? (
+                    <DemandEditForm
+                      demand={demand}
+                      onCancel={() => setIsEditing(false)}
+                      onSaved={() => setIsEditing(false)}
+                    />
+                  ) : (
+                    <DetailsTab demand={demand} />
+                  )}
                 </TabsContent>
                 <TabsContent value="comments" className="h-full m-0">
                   <CommentsTab demandId={demandId} />
