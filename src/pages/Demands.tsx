@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { DemandKanbanView } from '@/components/demands/DemandKanbanView';
-import { DemandFilters } from '@/components/demands/DemandFilters';
+import { DemandFilters, type DemandsKanbanFilters } from '@/components/demands/DemandFilters';
 import { DemandKPIDashboard } from '@/components/demands/DemandKPIDashboard';
 import { useDemandBoards } from '@/hooks/useDemandBoards';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Demands() {
   const { data: boards, isLoading: boardsLoading } = useDemandBoards();
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<{ assigneeId?: string; status?: string }>({});
+  const [filters, setFilters] = useState<DemandsKanbanFilters>({});
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('kanban');
 

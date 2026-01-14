@@ -4,7 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DemandBoardsManager } from '@/components/demands/DemandBoardsManager';
 import { DemandSlaConfig } from '@/components/demands/DemandSlaConfig';
 import { DemandLabelsManager } from '@/components/demands/DemandLabelsManager';
-import { Settings, Tag, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { Settings, Tag, Clock, ArrowLeft } from 'lucide-react';
 
 export default function DemandsSettings() {
   const [activeTab, setActiveTab] = useState('boards');
@@ -12,9 +14,18 @@ export default function DemandsSettings() {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Configurações de Demandas</h1>
-          <p className="text-muted-foreground">Gerencie quadros, colunas, SLA e etiquetas</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Configurações de Demandas</h1>
+            <p className="text-muted-foreground">Gerencie quadros, colunas, SLA e etiquetas</p>
+          </div>
+
+          <Button variant="outline" asChild>
+            <Link to="/demandas" className="inline-flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Link>
+          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
