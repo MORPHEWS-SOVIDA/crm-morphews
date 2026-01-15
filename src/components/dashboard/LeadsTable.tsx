@@ -87,7 +87,7 @@ export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
                 <TableRow
                   key={lead.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(`/leads/${lead.id}`)}
+                  onClick={() => window.open(`/leads/${lead.id}`, '_blank')}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <TableCell className="font-medium">{lead.name}</TableCell>
