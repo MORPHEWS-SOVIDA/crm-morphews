@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import type { FunnelStage } from '@/types/lead';
 
 export interface FunnelStageCustom {
   id: string;
@@ -11,6 +12,7 @@ export interface FunnelStageCustom {
   text_color: string;
   stage_type: 'funnel' | 'cloud' | 'trash';
   is_default: boolean;
+  enum_value: FunnelStage | null; // NEW: maps to lead.stage
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +30,30 @@ export function useFunnelStages() {
       return data as FunnelStageCustom[];
     },
   });
+}
+
+/**
+ * Returns the enum_value for a custom funnel stage.
+ * Uses the database enum_value if available, otherwise falls back to position-based mapping.
+ */
+export function getStageEnumValue(stage: FunnelStageCustom): FunnelStage {
+  if (stage.enum_value) {
+    return stage.enum_value;
+  }
+  
+  // Fallback for stages without enum_value
+  const positionToEnum: Record<number, FunnelStage> = {
+    0: 'cloud',
+    1: 'prospect',
+    2: 'contacted',
+    3: 'convincing',
+    4: 'scheduled',
+    5: 'positive',
+    6: 'waiting_payment',
+    7: 'success',
+    8: 'trash',
+  };
+  return positionToEnum[stage.position] || 'cloud';
 }
 
 export function useUpdateFunnelStage() {

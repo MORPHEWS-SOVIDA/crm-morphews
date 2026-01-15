@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
@@ -15,7 +14,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Lead, FunnelStage } from '@/types/lead';
-import { FunnelStageCustom } from '@/hooks/useFunnelStages';
+import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
 import { useUpdateLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,7 +23,8 @@ import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { StageChangeDialog } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
-import { GripVertical, User, Instagram } from 'lucide-react';
+import { GripVertical, User, DollarSign } from 'lucide-react';
+import { Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 
@@ -37,10 +37,18 @@ interface KanbanBoardProps {
 
 interface KanbanCardProps {
   lead: Lead;
-  onClick: () => void;
 }
 
-function KanbanCard({ lead, onClick }: KanbanCardProps) {
+function formatCurrency(value: number | null) {
+  if (!value) return null;
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+  }).format(value);
+}
+
+function KanbanCard({ lead }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -56,6 +64,13 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
   };
 
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
+  const negotiatedValue = formatCurrency(lead.negotiated_value);
+
+  // Open lead in new tab
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.open(`/leads/${lead.id}`, '_blank');
+  };
 
   return (
     <div
@@ -76,7 +91,7 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
           <GripVertical className="w-4 h-4" />
         </button>
         
-        <div className="flex-1 min-w-0" onClick={onClick}>
+        <div className="flex-1 min-w-0" onClick={handleClick}>
           <h4 className="font-medium text-sm text-foreground truncate">{lead.name}</h4>
           
           {lead.specialty && (
@@ -85,6 +100,12 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
           
           <div className="flex items-center gap-2 mt-2">
             <StarRating rating={lead.stars as 1 | 2 | 3 | 4 | 5} size="sm" />
+            {negotiatedValue && (
+              <span className="flex items-center gap-0.5 text-xs font-semibold text-green-600">
+                <DollarSign className="w-3 h-3" />
+                {negotiatedValue}
+              </span>
+            )}
           </div>
           
           <div className="flex items-center justify-between mt-2">
@@ -106,7 +127,10 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
                 </a>
               )}
               {lead.whatsapp && (
-                <WhatsAppButton phone={lead.whatsapp} variant="icon" />
+                <WhatsAppButton 
+                  phone={lead.whatsapp} 
+                  variant="icon" 
+                />
               )}
             </div>
           </div>
@@ -128,10 +152,9 @@ function KanbanCardOverlay({ lead }: { lead: Lead }) {
 interface KanbanColumnProps {
   stage: FunnelStageCustom;
   leads: Lead[];
-  onCardClick: (leadId: string) => void;
 }
 
-function KanbanColumn({ stage, leads, onCardClick }: KanbanColumnProps) {
+function KanbanColumn({ stage, leads }: KanbanColumnProps) {
   return (
     <div className="flex-shrink-0 w-72 flex flex-col bg-muted/30 rounded-xl">
       {/* Header */}
@@ -157,7 +180,6 @@ function KanbanColumn({ stage, leads, onCardClick }: KanbanColumnProps) {
               <KanbanCard
                 key={lead.id}
                 lead={lead}
-                onClick={() => onCardClick(lead.id)}
               />
             ))}
             {leads.length === 0 && (
@@ -180,7 +202,6 @@ interface PendingStageChange {
 }
 
 export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel }: KanbanBoardProps) {
-  const navigate = useNavigate();
   const { profile, user } = useAuth();
   const updateLead = useUpdateLead();
   const addStageHistory = useAddStageHistory();
@@ -214,24 +235,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     return filtered;
   }, [leads, selectedStars, selectedResponsavel]);
 
-  // Map stages to their legacy enum values for lead matching
-  const getStageEnumValue = (stage: FunnelStageCustom): string => {
-    // Map position to legacy enum values
-    const positionToEnum: Record<number, string> = {
-      0: 'cloud',
-      1: 'prospect',
-      2: 'contacted',
-      3: 'convincing',
-      4: 'scheduled',
-      5: 'positive',
-      6: 'waiting_payment',
-      7: 'success',
-      8: 'trash',
-    };
-    return positionToEnum[stage.position] || 'cloud';
-  };
-
-  // Group leads by stage
+  // Group leads by stage using the centralized getStageEnumValue function
   const leadsByStage = useMemo(() => {
     const grouped: Record<string, Lead[]> = {};
     stages.forEach((stage) => {
@@ -321,10 +325,6 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     setPendingChange(null);
   };
 
-  const handleCardClick = (leadId: string) => {
-    navigate(`/leads/${leadId}`);
-  };
-
   return (
     <>
       <DndContext
@@ -340,7 +340,6 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
                 key={stage.id}
                 stage={stage}
                 leads={leadsByStage[stage.id] || []}
-                onCardClick={handleCardClick}
               />
             ))}
           </div>

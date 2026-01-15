@@ -2901,6 +2901,7 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          enum_value: Database["public"]["Enums"]["funnel_stage"] | null
           id: string
           is_default: boolean
           name: string
@@ -2913,6 +2914,7 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string
+          enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
           name: string
@@ -2925,6 +2927,7 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string
+          enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
           name?: string

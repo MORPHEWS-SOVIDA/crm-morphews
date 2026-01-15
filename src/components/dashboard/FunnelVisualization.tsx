@@ -1,7 +1,7 @@
 import { Cloud, Trash2, Kanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Lead, FunnelStage, FUNNEL_STAGES } from '@/types/lead';
-import { FunnelStageCustom } from '@/hooks/useFunnelStages';
+import { Lead, FunnelStage } from '@/types/lead';
+import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
 
 interface FunnelVisualizationProps {
   leads: Lead[];
@@ -11,24 +11,7 @@ interface FunnelVisualizationProps {
   onSwitchToKanban?: () => void;
 }
 
-// Map position to legacy enum values for lead matching
-const positionToEnum: Record<number, FunnelStage> = {
-  0: 'cloud',
-  1: 'prospect',
-  2: 'contacted',
-  3: 'convincing',
-  4: 'scheduled',
-  5: 'positive',
-  6: 'waiting_payment',
-  7: 'success',
-  8: 'trash',
-};
-
 export function FunnelVisualization({ leads, stages, selectedStage, onSelectStage, onSwitchToKanban }: FunnelVisualizationProps) {
-  const getStageEnumValue = (stage: FunnelStageCustom): FunnelStage => {
-    return positionToEnum[stage.position] || 'cloud';
-  };
-
   const getStageCounts = (enumValue: FunnelStage) => 
     leads.filter((lead) => lead.stage === enumValue).length;
 
