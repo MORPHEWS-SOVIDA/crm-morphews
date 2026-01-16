@@ -41,6 +41,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
     assignee_ids: [] as string[],
     label_ids: [] as string[],
     lead_id: leadId || '',
+    due_at: '',
   });
   
   const [leadSearchOpen, setLeadSearchOpen] = useState(false);
@@ -62,6 +63,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       urgency: form.urgency,
       assignee_ids: form.assignee_ids.length > 0 ? form.assignee_ids : undefined,
       lead_id: form.lead_id || leadId || undefined,
+      due_at: form.due_at ? new Date(form.due_at).toISOString() : undefined,
     });
 
     if (form.label_ids.length > 0) {
@@ -78,6 +80,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       assignee_ids: [],
       label_ids: [],
       lead_id: leadId || '',
+      due_at: '',
     });
     onOpenChange(false);
   };
@@ -162,6 +165,15 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Data de Entrega</Label>
+            <Input
+              type="datetime-local"
+              value={form.due_at}
+              onChange={(e) => setForm(prev => ({ ...prev, due_at: e.target.value }))}
+            />
           </div>
 
           {/* Lead/Cliente selector - only show if not pre-selected */}

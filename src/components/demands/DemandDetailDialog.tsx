@@ -78,7 +78,7 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
         {isLoading ? (
           <div className="p-6 space-y-4">
             <Skeleton className="h-8 w-3/4" />
@@ -213,16 +213,18 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
               </TabsList>
 
               <div className="flex-1 overflow-hidden">
-                <TabsContent value="details" className="h-full m-0 p-6">
-                  {isEditing ? (
-                    <DemandEditForm
-                      demand={demand}
-                      onCancel={() => setIsEditing(false)}
-                      onSaved={() => setIsEditing(false)}
-                    />
-                  ) : (
-                    <DetailsTab demand={demand} />
-                  )}
+                <TabsContent value="details" className="h-full m-0 overflow-y-auto">
+                  <div className="p-6">
+                    {isEditing ? (
+                      <DemandEditForm
+                        demand={demand}
+                        onCancel={() => setIsEditing(false)}
+                        onSaved={() => setIsEditing(false)}
+                      />
+                    ) : (
+                      <DetailsTab demand={demand} />
+                    )}
+                  </div>
                 </TabsContent>
                 <TabsContent value="comments" className="h-full m-0">
                   <CommentsTab demandId={demandId} />
