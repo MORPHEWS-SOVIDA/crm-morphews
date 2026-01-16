@@ -8,6 +8,7 @@ import { MultiSelect } from '@/components/MultiSelect';
 import { useUpdateDemand, useAddDemandAssignee, useRemoveDemandAssignee } from '@/hooks/useDemands';
 import { useUsers } from '@/hooks/useUsers';
 import { useAssignDemandLabel, useDemandLabels, useRemoveDemandLabel } from '@/hooks/useDemandDetails';
+import { useToast } from '@/hooks/use-toast';
 import { URGENCY_CONFIG, type DemandUrgency, type DemandWithRelations } from '@/types/demand';
 
 function toLocalDateTimeInputValue(iso: string | null | undefined) {
@@ -30,6 +31,7 @@ interface DemandEditFormProps {
 }
 
 export function DemandEditForm({ demand, onCancel, onSaved }: DemandEditFormProps) {
+  const { toast } = useToast();
   const updateDemand = useUpdateDemand();
   const addAssignee = useAddDemandAssignee();
   const removeAssignee = useRemoveDemandAssignee();
@@ -60,39 +62,47 @@ export function DemandEditForm({ demand, onCancel, onSaved }: DemandEditFormProp
   );
 
   const handleSave = async () => {
-    await updateDemand.mutateAsync({
-      id: demand.id,
-      title: form.title,
-      description: form.description || null,
-      urgency: form.urgency,
-      due_at: fromLocalDateTimeInputValue(form.due_at),
-    });
+    try {
+      await updateDemand.mutateAsync({
+        id: demand.id,
+        title: form.title,
+        description: form.description || null,
+        urgency: form.urgency,
+        due_at: fromLocalDateTimeInputValue(form.due_at),
+      });
 
-    // Reconcile assignees
-    const currentAssignees = demand.assignees || [];
-    const desiredAssigneeIds = new Set(form.assignee_ids);
+      // Reconcile assignees
+      const currentAssignees = demand.assignees || [];
+      const desiredAssigneeIds = new Set(form.assignee_ids);
 
-    const toRemove = currentAssignees.filter(a => !desiredAssigneeIds.has(a.user_id));
-    const toAdd = form.assignee_ids.filter(uid => !currentAssignees.some(a => a.user_id === uid));
+      const toRemove = currentAssignees.filter(a => !desiredAssigneeIds.has(a.user_id));
+      const toAdd = form.assignee_ids.filter(uid => !currentAssignees.some(a => a.user_id === uid));
 
-    await Promise.all([
-      ...toRemove.map(a => removeAssignee.mutateAsync({ assigneeId: a.id, demandId: demand.id })),
-      ...toAdd.map(userId => addAssignee.mutateAsync({ demandId: demand.id, userId })),
-    ]);
+      await Promise.all([
+        ...toRemove.map(a => removeAssignee.mutateAsync({ assigneeId: a.id, demandId: demand.id })),
+        ...toAdd.map(userId => addAssignee.mutateAsync({ demandId: demand.id, userId })),
+      ]);
 
-    // Reconcile labels
-    const currentLabelIds = new Set((demand.labels || []).map(l => l.id));
-    const desiredLabelIds = new Set(form.label_ids);
+      // Reconcile labels
+      const currentLabelIds = new Set((demand.labels || []).map(l => l.id));
+      const desiredLabelIds = new Set(form.label_ids);
 
-    const labelsToRemove = [...currentLabelIds].filter(id => !desiredLabelIds.has(id));
-    const labelsToAdd = [...desiredLabelIds].filter(id => !currentLabelIds.has(id));
+      const labelsToRemove = [...currentLabelIds].filter(id => !desiredLabelIds.has(id));
+      const labelsToAdd = [...desiredLabelIds].filter(id => !currentLabelIds.has(id));
 
-    await Promise.all([
-      ...labelsToRemove.map(labelId => removeLabel.mutateAsync({ demandId: demand.id, labelId })),
-      ...labelsToAdd.map(labelId => assignLabel.mutateAsync({ demandId: demand.id, labelId })),
-    ]);
+      await Promise.all([
+        ...labelsToRemove.map(labelId => removeLabel.mutateAsync({ demandId: demand.id, labelId })),
+        ...labelsToAdd.map(labelId => assignLabel.mutateAsync({ demandId: demand.id, labelId })),
+      ]);
 
-    onSaved();
+      onSaved();
+    } catch (err) {
+      toast({
+        title: 'Erro ao salvar alterações',
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

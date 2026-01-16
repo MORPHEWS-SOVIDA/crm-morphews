@@ -298,7 +298,11 @@ export function useCreateDemand() {
           .from('demand_assignees')
           .insert(assignees);
 
-        if (assignError) console.error('Error adding assignees:', assignError);
+        // If we cannot assign, rollback the demand creation so it doesn't stay "sem responsável".
+        if (assignError) {
+          await supabase.from('demands').delete().eq('id', demand.id);
+          throw assignError;
+        }
 
         // Send WhatsApp notification to assignees
         notifyDemandAssignment(profile.organization_id, demand.id, input.assignee_ids)
