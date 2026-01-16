@@ -10,7 +10,8 @@ export const AVAILABLE_FEATURES = {
   dashboard: { label: "Dashboard", group: "Módulos Principais" },
   leads: { label: "Leads / CRM", group: "Módulos Principais" },
   products: { label: "Produtos", group: "Módulos Principais" },
-  standard_questions: { label: "Perguntas Padrão", group: "Módulos Principais" },
+  standard_questions: { label: "Perguntas Sovida", group: "Módulos Principais" },
+  custom_questions: { label: "Perguntas Personalizadas", group: "Módulos Principais" },
   
   // Vendas
   sales: { label: "Vendas", group: "Vendas" },

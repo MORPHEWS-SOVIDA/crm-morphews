@@ -137,7 +137,7 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
-            Perguntas Chave
+            Perguntas Personalizadas
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -160,7 +160,7 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="w-5 h-5" />
-          Perguntas Chave
+          Perguntas Personalizadas
         </CardTitle>
         {availableProducts.length > 0 && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -217,7 +217,7 @@ export function LeadProductAnswersSection({ leadId }: LeadProductAnswersSectionP
                   </div>
                 ) : selectedProductId ? (
                   <p className="text-muted-foreground text-sm">
-                    Este produto não tem perguntas chave configuradas.
+                    Este produto não tem perguntas personalizadas configuradas.
                   </p>
                 ) : null}
 

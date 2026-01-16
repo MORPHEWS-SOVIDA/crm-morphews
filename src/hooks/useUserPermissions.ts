@@ -147,7 +147,7 @@ export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organ
   settings_carriers: { label: 'Transportadoras', description: 'Gerenciar transportadoras', group: 'Configurações' },
   settings_payment_methods: { label: 'Formas de Pagamento', description: 'Gerenciar métodos de pagamento', group: 'Configurações' },
   settings_non_purchase_reasons: { label: 'Motivos de Não Compra', description: 'Gerenciar motivos de não compra', group: 'Configurações' },
-  settings_standard_questions: { label: 'Perguntas Padrão', description: 'Gerenciar perguntas padrão', group: 'Configurações' },
+  settings_standard_questions: { label: 'Perguntas Sovida', description: 'Gerenciar Perguntas Sovida', group: 'Configurações' },
   settings_teams: { label: 'Times', description: 'Gerenciar times da organização', group: 'Configurações' },
   settings_lead_sources: { label: 'Origens de Lead', description: 'Gerenciar origens de lead', group: 'Configurações' },
   

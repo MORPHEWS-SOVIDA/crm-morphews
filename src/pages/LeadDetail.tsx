@@ -613,17 +613,19 @@ export default function LeadDetail() {
               </SectionErrorBoundary>
             )}
 
-            {/* Standard Questions - Perguntas Padrão - only show if plan has standard_questions feature */}
+            {/* Standard Questions - Perguntas Sovida - only show if plan has standard_questions feature */}
             {orgFeatures?.standard_questions !== false && (
-              <SectionErrorBoundary title="Perguntas Padrão">
+              <SectionErrorBoundary title="Perguntas Sovida">
                 <LeadStandardQuestionsSection leadId={id!} />
               </SectionErrorBoundary>
             )}
 
-            {/* Lead Product Answers - Key Questions */}
-            <SectionErrorBoundary title="Perguntas do Produto">
-              <LeadProductAnswersSection leadId={id!} />
-            </SectionErrorBoundary>
+            {/* Lead Product Answers - Perguntas Personalizadas */}
+            {orgFeatures?.custom_questions !== false && (
+              <SectionErrorBoundary title="Perguntas Personalizadas">
+                <LeadProductAnswersSection leadId={id!} />
+              </SectionErrorBoundary>
+            )}
 
             {/* Post-Sale History - only show if plan has post_sale feature */}
             {orgFeatures?.post_sale !== false && (

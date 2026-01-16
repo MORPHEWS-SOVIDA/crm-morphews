@@ -175,7 +175,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
           <div className="flex flex-wrap justify-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={openStandardDialog}>
               <List className="w-4 h-4 mr-2" />
-              Selecionar Perguntas Padrão
+              Selecionar Perguntas Sovida
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={addCustomQuestion}>
               <PenLine className="w-4 h-4 mr-2" />
@@ -210,7 +210,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
                     <span className="text-sm font-medium text-muted-foreground">Pergunta {index + 1}</span>
                     {question.is_standard && (
                       <Badge variant="secondary" className="text-xs">
-                        Padrão
+                        Sovida
                       </Badge>
                     )}
                   </div>
@@ -250,7 +250,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" onClick={openStandardDialog}>
             <List className="w-4 h-4 mr-2" />
-            Perguntas Padrão
+            Perguntas Sovida
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={addCustomQuestion}>
             <PenLine className="w-4 h-4 mr-2" />
@@ -263,14 +263,14 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
       <Dialog open={showStandardDialog} onOpenChange={setShowStandardDialog}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Selecionar Perguntas Padrão</DialogTitle>
+            <DialogTitle>Selecionar Perguntas Sovida</DialogTitle>
           </DialogHeader>
 
           {isLoading ? (
             <p className="text-muted-foreground text-center py-4">Carregando...</p>
           ) : standardQuestions.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">
-              Nenhuma pergunta padrão configurada. Acesse Configurações para criar.
+              Nenhuma Pergunta Sovida configurada. Acesse Configurações para criar.
             </p>
           ) : (
             <div className="space-y-4">

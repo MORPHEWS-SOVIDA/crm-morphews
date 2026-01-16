@@ -462,7 +462,7 @@ export function ProductOfferCard({
             <div className="space-y-4">
               <h4 className="font-medium flex items-center gap-2">
                 <ClipboardList className="w-4 h-4" />
-                Perguntas-Chave
+                Perguntas Personalizadas
               </h4>
               {product.key_question_1 && (
                 <div className="space-y-2">
