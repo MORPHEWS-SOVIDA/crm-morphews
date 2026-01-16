@@ -10,7 +10,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useDemand } from '@/hooks/useDemands';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useDemand, useDeleteDemand } from '@/hooks/useDemands';
 import {
   useDemandComments,
   useAddDemandComment,
@@ -66,6 +77,7 @@ interface DemandDetailDialogProps {
 export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: DemandDetailDialogProps) {
   const { profile } = useAuth();
   const { data: demand, isLoading } = useDemand(open ? demandId : null);
+  const deleteDemand = useDeleteDemand();
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -126,6 +138,7 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
                   <Badge className={cn(URGENCY_CONFIG[demand.urgency].bgColor, URGENCY_CONFIG[demand.urgency].color)}>
                     {URGENCY_CONFIG[demand.urgency].label}
                   </Badge>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -134,6 +147,34 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
                     <Pencil className="h-4 w-4 mr-2" />
                     {isEditing ? 'Fechar edição' : 'Editar'}
                   </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={deleteDemand.isPending}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir demanda?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação é permanente e não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={async () => {
+                            await deleteDemand.mutateAsync({ id: demand.id, boardId });
+                            onOpenChange(false);
+                          }}
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </DialogHeader>
@@ -213,18 +254,20 @@ export function DemandDetailDialog({ open, onOpenChange, demandId, boardId }: De
               </TabsList>
 
               <div className="flex-1 overflow-hidden">
-                <TabsContent value="details" className="h-full m-0 overflow-y-auto">
-                  <div className="p-6">
-                    {isEditing ? (
-                      <DemandEditForm
-                        demand={demand}
-                        onCancel={() => setIsEditing(false)}
-                        onSaved={() => setIsEditing(false)}
-                      />
-                    ) : (
-                      <DetailsTab demand={demand} />
-                    )}
-                  </div>
+                <TabsContent value="details" className="h-full m-0">
+                  <ScrollArea className="h-full">
+                    <div className="p-6">
+                      {isEditing ? (
+                        <DemandEditForm
+                          demand={demand}
+                          onCancel={() => setIsEditing(false)}
+                          onSaved={() => setIsEditing(false)}
+                        />
+                      ) : (
+                        <DetailsTab demand={demand} />
+                      )}
+                    </div>
+                  </ScrollArea>
                 </TabsContent>
                 <TabsContent value="comments" className="h-full m-0">
                   <CommentsTab demandId={demandId} />
