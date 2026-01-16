@@ -51,7 +51,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useFunnelStages, FunnelStageCustom } from '@/hooks/useFunnelStages';
-import { FunnelStage } from '@/types/lead';
+import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -177,9 +177,12 @@ export default function LeadDetail() {
   // This ensures we always match the tenant's custom stage configuration
   const currentStage = funnelStages.find(s => s.enum_value === lead.stage);
   
+  // Fallback to FUNNEL_STAGES if no custom stage matches
+  const fallbackStage = FUNNEL_STAGES[lead.stage as keyof typeof FUNNEL_STAGES];
+  
   const stageColor = currentStage?.color || '#9b87f5';
   const stageTextColor = currentStage?.text_color || '#ffffff';
-  const stageName = currentStage?.name || lead.stage;
+  const stageName = currentStage?.name || fallbackStage?.label || lead.stage;
   
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
   const instagramHandle = normalizeInstagramHandle(lead.instagram);
