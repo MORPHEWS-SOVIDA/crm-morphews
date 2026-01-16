@@ -173,38 +173,9 @@ export default function LeadDetail() {
     );
   }
 
-  // Map enum to position and vice-versa
-  const POSITION_TO_ENUM: Record<number, FunnelStage> = {
-    0: 'cloud' as FunnelStage,
-    1: 'prospect' as FunnelStage,
-    2: 'contacted' as FunnelStage,
-    3: 'convincing' as FunnelStage,
-    4: 'scheduled' as FunnelStage,
-    5: 'positive' as FunnelStage,
-    6: 'waiting_payment' as FunnelStage,
-    7: 'success' as FunnelStage,
-    8: 'trash' as FunnelStage,
-    99: 'trash' as FunnelStage,
-  };
-
-  function mapStageToPosition(stage: string): number {
-    const positionMap: Record<string, number> = {
-      'cloud': 0,
-      'prospect': 1,
-      'contacted': 2,
-      'convincing': 3,
-      'scheduled': 4,
-      'positive': 5,
-      'waiting_payment': 6,
-      'success': 7,
-      'trash': 8,
-    };
-    return positionMap[stage] ?? 1;
-  }
-
-  // Find current stage from custom stages by enum position
-  const currentStagePosition = mapStageToPosition(lead.stage);
-  const currentStage = funnelStages.find(s => s.position === currentStagePosition);
+  // Find current stage from custom stages by enum_value (not position!)
+  // This ensures we always match the tenant's custom stage configuration
+  const currentStage = funnelStages.find(s => s.enum_value === lead.stage);
   
   const stageColor = currentStage?.color || '#9b87f5';
   const stageTextColor = currentStage?.text_color || '#ffffff';
@@ -284,13 +255,12 @@ export default function LeadDetail() {
                       <SelectValue>{stageName}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {funnelStages.map((stage) => {
-                        // Map position to enum value for the database
-                        const enumValue = POSITION_TO_ENUM[stage.position] || 'prospect';
-                        return (
+                      {funnelStages
+                        .filter(stage => stage.enum_value) // Only show stages with valid enum_value
+                        .map((stage) => (
                           <SelectItem 
                             key={stage.id} 
-                            value={enumValue}
+                            value={stage.enum_value!}
                             className="flex items-center gap-2"
                           >
                             <span 
@@ -299,8 +269,7 @@ export default function LeadDetail() {
                             />
                             {stage.name}
                           </SelectItem>
-                        );
-                      })}
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

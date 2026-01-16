@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { History, ChevronDown, ChevronUp, MessageSquare, Clock, User } from 'lucide-react';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useLeadStageHistory } from '@/hooks/useLeadStageHistory';
+import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,23 @@ interface LeadStageTimelineProps {
 
 export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelineProps) {
   const { data: history = [], isLoading } = useLeadStageHistory(leadId);
+  const { data: customStages = [] } = useFunnelStages();
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Helper to get stage info from tenant's custom stages, with fallback to static FUNNEL_STAGES
+  const getStageInfo = (stageEnum: FunnelStage) => {
+    const customStage = customStages.find(s => s.enum_value === stageEnum);
+    if (customStage) {
+      return {
+        label: customStage.name,
+        color: customStage.color,
+        textColor: customStage.text_color,
+      };
+    }
+    // Fallback to static definition
+    const staticStage = FUNNEL_STAGES[stageEnum];
+    return staticStage || { label: stageEnum, color: 'bg-muted', textColor: 'text-foreground' };
+  };
 
   if (isLoading) {
     return (
@@ -77,21 +94,26 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
 
               <div className="space-y-4">
                 {history.map((entry, index) => {
-                  const stageInfo = FUNNEL_STAGES[entry.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: entry.stage };
+                  const stageInfo = getStageInfo(entry.stage);
                   const previousStageInfo = entry.previous_stage 
-                    ? (FUNNEL_STAGES[entry.previous_stage] || { color: 'bg-muted', textColor: 'text-foreground', label: entry.previous_stage })
+                    ? getStageInfo(entry.previous_stage)
                     : null;
                   const { date, time } = formatDateTime(entry.created_at);
                   const isLatest = index === history.length - 1;
 
+                  // Check if colors are hex/rgb or Tailwind classes
+                  const isHexOrRgb = (color: string) => color.startsWith('#') || color.startsWith('rgb');
+                  
                   return (
                     <div key={entry.id} className="relative pl-10">
                       {/* Timeline dot */}
                       <div 
                         className={cn(
                           "absolute left-2 w-5 h-5 rounded-full border-2 border-background flex items-center justify-center",
-                          isLatest ? stageInfo.color : "bg-muted"
+                          !isLatest && "bg-muted",
+                          isLatest && !isHexOrRgb(stageInfo.color) && stageInfo.color
                         )}
+                        style={isLatest && isHexOrRgb(stageInfo.color) ? { backgroundColor: stageInfo.color } : undefined}
                       >
                         {isLatest && (
                           <div className="w-2 h-2 rounded-full bg-background" />
@@ -106,22 +128,33 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           {previousStageInfo && (
                             <>
-                              <span className={cn(
-                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
-                                previousStageInfo.color,
-                                previousStageInfo.textColor,
-                                "opacity-60"
-                              )}>
+                              <span 
+                                className={cn(
+                                  "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium opacity-60",
+                                  !isHexOrRgb(previousStageInfo.color) && previousStageInfo.color,
+                                  !isHexOrRgb(previousStageInfo.textColor) && previousStageInfo.textColor
+                                )}
+                                style={{
+                                  ...(isHexOrRgb(previousStageInfo.color) ? { backgroundColor: previousStageInfo.color } : {}),
+                                  ...(isHexOrRgb(previousStageInfo.textColor) ? { color: previousStageInfo.textColor } : {}),
+                                }}
+                              >
                                 {previousStageInfo.label}
                               </span>
                               <span className="text-muted-foreground">→</span>
                             </>
                           )}
-                          <span className={cn(
-                            "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
-                            stageInfo.color,
-                            stageInfo.textColor
-                          )}>
+                          <span 
+                            className={cn(
+                              "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
+                              !isHexOrRgb(stageInfo.color) && stageInfo.color,
+                              !isHexOrRgb(stageInfo.textColor) && stageInfo.textColor
+                            )}
+                            style={{
+                              ...(isHexOrRgb(stageInfo.color) ? { backgroundColor: stageInfo.color } : {}),
+                              ...(isHexOrRgb(stageInfo.textColor) ? { color: stageInfo.textColor } : {}),
+                            }}
+                          >
                             {stageInfo.label}
                           </span>
                         </div>
