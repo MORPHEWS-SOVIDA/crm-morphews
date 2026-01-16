@@ -47,9 +47,17 @@ export function useEvolutionInstances() {
 
   // Criar instância
   const createInstance = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (params: { name: string; settings?: {
+      reject_call?: boolean;
+      msg_call?: string;
+      groups_ignore?: boolean;
+      always_online?: boolean;
+      read_messages?: boolean;
+      read_status?: boolean;
+      sync_full_history?: boolean;
+    }}) => {
       const response = await supabase.functions.invoke("evolution-instance-manager", {
-        body: { action: "create", name },
+        body: { action: "create", name: params.name, settings: params.settings },
       });
 
       if (response.error) {

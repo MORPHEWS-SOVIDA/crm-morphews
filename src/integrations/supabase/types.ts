@@ -6137,6 +6137,7 @@ export type Database = {
           distribution_mode: string
           evolution_api_token: string | null
           evolution_instance_id: string | null
+          evolution_settings: Json | null
           evolution_webhook_configured: boolean | null
           id: string
           is_connected: boolean
@@ -6171,6 +6172,7 @@ export type Database = {
           distribution_mode?: string
           evolution_api_token?: string | null
           evolution_instance_id?: string | null
+          evolution_settings?: Json | null
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
@@ -6205,6 +6207,7 @@ export type Database = {
           distribution_mode?: string
           evolution_api_token?: string | null
           evolution_instance_id?: string | null
+          evolution_settings?: Json | null
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
