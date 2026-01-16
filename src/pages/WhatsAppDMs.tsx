@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2 } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
 import { InstancePermissions } from "@/components/whatsapp/InstancePermissions";
+import { EvolutionSettingsDialog } from "@/components/whatsapp/EvolutionSettingsDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
@@ -91,6 +92,9 @@ export default function WhatsAppDMs() {
   const [manualInstanceNumber, setManualInstanceNumber] = useState("");
   const [manualDeviceLabel, setManualDeviceLabel] = useState("");
   const [manualDisplayNameForTeam, setManualDisplayNameForTeam] = useState("");
+
+  // Dialog para configurações do Evolution
+  const [evolutionSettingsInstance, setEvolutionSettingsInstance] = useState<EvolutionInstance | null>(null);
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -888,6 +892,14 @@ export default function WhatsAppDMs() {
                         <Users className="h-4 w-4" />
                         Permissões
                       </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setEvolutionSettingsInstance(instance)}
+                        title="Configurações do WhatsApp (Evolution)"
+                      >
+                        <Cog className="h-4 w-4" />
+                      </Button>
                     </div>
 
                     {/* Botão de conversas */}
@@ -1056,6 +1068,18 @@ export default function WhatsAppDMs() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Dialog de Configurações do Evolution */}
+        {evolutionSettingsInstance && (
+          <EvolutionSettingsDialog
+            instanceId={evolutionSettingsInstance.id}
+            instanceName={evolutionSettingsInstance.name}
+            open={!!evolutionSettingsInstance}
+            onOpenChange={(open) => {
+              if (!open) setEvolutionSettingsInstance(null);
+            }}
+          />
+        )}
       </div>
     </Layout>
   );
