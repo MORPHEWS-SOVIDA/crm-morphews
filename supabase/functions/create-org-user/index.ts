@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Validate internal secret for service-to-service calls
-const INTERNAL_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.substring(0, 32);
+const INTERNAL_SECRET = Deno.env.get("INTERNAL_AUTH_SECRET");
 
 interface CreateOrgUserRequest {
   organizationId: string;
