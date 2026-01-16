@@ -412,8 +412,8 @@ export default function Settings() {
                 <HelpCircle className="w-6 h-6 text-cyan-500" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Perguntas Padrão</h2>
-                <p className="text-sm text-muted-foreground">Perguntas pré-definidas para produtos</p>
+                <h2 className="text-lg font-semibold text-foreground">Perguntas Sovida</h2>
+                <p className="text-sm text-muted-foreground">Perguntas pré-definidas para qualificação do lead</p>
               </div>
             </div>
             <StandardQuestionsManager />

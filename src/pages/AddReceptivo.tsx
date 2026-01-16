@@ -1695,16 +1695,16 @@ export default function AddReceptivo() {
                   {/* Endereços */}
                   <LeadAddressesManager leadId={leadData.id} />
 
-                  {/* Perguntas Padrão - Standard Questions - only show if plan has standard_questions feature */}
+                  {/* Perguntas Sovida - Standard Questions - only show if plan has standard_questions feature */}
                   {orgFeatures?.standard_questions !== false && (
-                    <SectionErrorBoundary title="Perguntas Padrão">
+                    <SectionErrorBoundary title="Perguntas Sovida">
                       {leadData.id ? (
                         <LeadStandardQuestionsSection leadId={leadData.id} />
                       ) : (
                         <Card className="bg-muted/30 border-dashed">
                           <CardContent className="py-6">
                             <p className="text-sm text-muted-foreground text-center">
-                              Finalize ou busque um lead para acessar as Perguntas Padrão
+                              Finalize ou busque um lead para acessar as Perguntas Sovida
                             </p>
                           </CardContent>
                         </Card>

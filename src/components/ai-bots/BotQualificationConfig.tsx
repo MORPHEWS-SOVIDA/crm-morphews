@@ -201,7 +201,7 @@ export function BotQualificationConfig({
             {showSelector && (
               <Card className="border-primary/50">
                 <CardHeader className="py-3">
-                  <CardTitle className="text-sm">Selecionar Perguntas Padrão</CardTitle>
+                  <CardTitle className="text-sm">Selecionar Perguntas Sovida</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <ScrollArea className="h-[300px] pr-4">

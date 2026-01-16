@@ -712,12 +712,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
           </CardContent>
         </Card>
 
-        {/* Perguntas Chave - Dinâmicas */}
+        {/* Perguntas Personalizadas - Dinâmicas */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <HelpCircle className="h-5 w-5" />
-              Perguntas Chave
+              Perguntas Personalizadas
             </CardTitle>
           </CardHeader>
           <CardContent>

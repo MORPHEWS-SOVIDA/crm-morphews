@@ -590,7 +590,7 @@ export function ProductSelectionDialog({
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                       <HelpCircle className="w-3 h-3" />
-                      Perguntas Chave - Respostas do Cliente
+                      Perguntas Personalizadas - Respostas do Cliente
                     </p>
                     {answersModified && (
                       <Button

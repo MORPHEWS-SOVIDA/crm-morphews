@@ -346,7 +346,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <ClipboardList className="w-5 h-5 text-primary" />
-                  Perguntas Padrão
+                  Perguntas Sovida
                   {totalAnswered > 0 && (
                     <Badge variant="secondary" className="ml-2">
                       {totalAnswered}/{totalQuestions}

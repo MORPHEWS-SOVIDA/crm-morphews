@@ -175,12 +175,12 @@ export function ProductDetailDialog({ product, open, onOpenChange }: ProductDeta
               </>
             )}
 
-            {/* Perguntas Chave */}
+            {/* Perguntas Personalizadas */}
             {(product.key_question_1 || product.key_question_2 || product.key_question_3) && (
               <>
                 <Separator />
                 <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-3">Perguntas Chave</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-3">Perguntas Personalizadas</h4>
                   <div className="space-y-3">
                     {product.key_question_1 && (
                       <div className="p-3 rounded-lg border-l-4 border-primary bg-muted/30">

@@ -267,7 +267,7 @@ export function StandardQuestionsManager() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">
-          Perguntas padrão podem ser adicionadas a produtos para coleta de informações do cliente.
+          Perguntas Sovida podem ser usadas para qualificação padronizada do lead.
         </p>
         <Button onClick={openCreateDialog} size="sm">
           <Plus className="w-4 h-4 mr-2" />
@@ -277,7 +277,7 @@ export function StandardQuestionsManager() {
 
       {questions.length === 0 ? (
         <div className="border border-dashed rounded-lg p-6 text-center">
-          <p className="text-muted-foreground">Nenhuma pergunta padrão configurada</p>
+          <p className="text-muted-foreground">Nenhuma Pergunta Sovida configurada</p>
         </div>
       ) : (
         <Accordion type="multiple" defaultValue={Object.keys(groupedQuestions)} className="space-y-2">
@@ -341,7 +341,7 @@ export function StandardQuestionsManager() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingQuestion ? 'Editar Pergunta' : 'Nova Pergunta Padrão'}
+              {editingQuestion ? 'Editar Pergunta' : 'Nova Pergunta Sovida'}
             </DialogTitle>
           </DialogHeader>
 
