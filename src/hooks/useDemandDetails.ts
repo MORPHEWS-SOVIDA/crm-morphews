@@ -526,6 +526,46 @@ export function useCreateDemandLabel() {
   });
 }
 
+export function useUpdateDemandLabel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
+      const { data, error } = await supabase
+        .from('demand_labels')
+        .update({ name, color })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as DemandLabel;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['demand-labels'] });
+    },
+  });
+}
+
+export function useDeleteDemandLabel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('demand_labels')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['demand-labels'] });
+    },
+  });
+}
+
 export function useAssignDemandLabel() {
   const queryClient = useQueryClient();
 
