@@ -291,14 +291,18 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
             onValueChange={(value) => handleOptionToggle(question.id, value, false)}
           >
             <div className="grid grid-cols-2 gap-2">
-              {question.options?.map(option => (
-                <div key={option.id} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.id} id={option.id} />
-                  <Label htmlFor={option.id} className="font-normal cursor-pointer">
-                    {String(option.option_text || '')}
-                  </Label>
-                </div>
-              ))}
+              {(question.options || []).map(option => {
+                const optionId = String(option?.id || '');
+                const optionText = String(option?.option_text || '');
+                return (
+                  <div key={optionId} className="flex items-center space-x-2">
+                    <RadioGroupItem value={optionId} id={optionId} />
+                    <Label htmlFor={optionId} className="font-normal cursor-pointer">
+                      {optionText}
+                    </Label>
+                  </div>
+                );
+              })}
             </div>
           </RadioGroup>
         </div>
@@ -310,18 +314,23 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
       <div key={question.id} className="space-y-2 p-4 border rounded-lg bg-muted/20">
         <Label className="font-medium">{String(question.question_text || '')}</Label>
         <div className="grid grid-cols-2 gap-2">
-          {question.options?.map(option => (
-            <div key={option.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={option.id}
-                checked={answer?.selectedOptionIds?.includes(option.id) || false}
-                onCheckedChange={() => handleOptionToggle(question.id, option.id, true)}
-              />
-              <Label htmlFor={option.id} className="font-normal cursor-pointer">
-                {String(option.option_text || '')}
-              </Label>
-            </div>
-          ))}
+          {(question.options || []).map(option => {
+            const optionId = String(option?.id || '');
+            const optionText = String(option?.option_text || '');
+            const isChecked = answer?.selectedOptionIds?.includes(optionId) || false;
+            return (
+              <div key={optionId} className="flex items-center space-x-2">
+                <Checkbox
+                  id={optionId}
+                  checked={isChecked}
+                  onCheckedChange={() => handleOptionToggle(question.id, optionId, true)}
+                />
+                <Label htmlFor={optionId} className="font-normal cursor-pointer">
+                  {optionText}
+                </Label>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -349,7 +358,7 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
                   Perguntas Sovida
                   {totalAnswered > 0 && (
                     <Badge variant="secondary" className="ml-2">
-                      {totalAnswered}/{totalQuestions}
+                      {String(totalAnswered)}/{String(totalQuestions)}
                     </Badge>
                   )}
                 </CardTitle>
@@ -369,21 +378,25 @@ export function LeadStandardQuestionsSection({ leadId }: LeadStandardQuestionsSe
           <CardContent className="space-y-4">
             <Tabs value={activeCategory} onValueChange={setActiveCategory}>
               <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
-                {categories.map(category => (
-                  <TabsTrigger key={category} value={category} className="relative">
-                    {String(CATEGORY_LABELS[category] || category)}
-                    {(answeredCountByCategory[category] ?? 0) > 0 && (
-                      <Badge variant="default" className="ml-1 h-5 w-5 p-0 justify-center text-xs">
-                        {answeredCountByCategory[category]}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                ))}
+                {categories.map(category => {
+                  const categoryLabel = CATEGORY_LABELS[category] || category || 'Categoria';
+                  const answerCount = answeredCountByCategory[category] ?? 0;
+                  return (
+                    <TabsTrigger key={String(category)} value={String(category)} className="relative">
+                      {String(categoryLabel)}
+                      {answerCount > 0 && (
+                        <Badge variant="default" className="ml-1 h-5 w-5 p-0 justify-center text-xs">
+                          {String(answerCount)}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
               
               {categories.map(category => (
-                <TabsContent key={category} value={category} className="space-y-3 mt-4">
-                  {questionsByCategory[category]?.map(renderQuestion)}
+                <TabsContent key={String(category)} value={String(category)} className="space-y-3 mt-4">
+                  {(questionsByCategory[category] || []).map(renderQuestion)}
                 </TabsContent>
               ))}
             </Tabs>
