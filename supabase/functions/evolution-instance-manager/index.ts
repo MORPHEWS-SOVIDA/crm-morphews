@@ -100,7 +100,7 @@ serve(async (req) => {
 
     const organizationId = membership.organization_id;
     const body = await req.json();
-    const { action, instanceId, name, evolution_instance_id, evolution_api_token, phone_number, manual_instance_number, manual_device_label, display_name_for_team } = body;
+    const { action, instanceId, name, evolution_instance_id, evolution_api_token, phone_number, manual_instance_number, manual_device_label, display_name_for_team, settings } = body;
 
     console.log("Evolution Instance Manager:", { action, instanceId, name, organizationId });
 
@@ -115,7 +115,18 @@ serve(async (req) => {
       const evolutionInstanceName = generateInstanceName(organizationId, name);
       const webhookUrl = getWebhookUrl(evolutionInstanceName);
 
-      console.log("Creating Evolution instance:", { evolutionInstanceName, webhookUrl });
+      // Usar settings passados ou valores default
+      const instanceSettings = {
+        reject_call: settings?.reject_call ?? true,
+        msg_call: settings?.msg_call ?? "Não posso atender agora, me envie uma mensagem.",
+        groups_ignore: settings?.groups_ignore ?? false,
+        always_online: settings?.always_online ?? false,
+        read_messages: settings?.read_messages ?? true,
+        read_status: settings?.read_status ?? false,
+        sync_full_history: settings?.sync_full_history ?? false,
+      };
+
+      console.log("Creating Evolution instance:", { evolutionInstanceName, webhookUrl, settings: instanceSettings });
 
       // 1. Criar instância no Evolution API
       const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
@@ -128,13 +139,13 @@ serve(async (req) => {
           instanceName: evolutionInstanceName,
           qrcode: true,
           integration: "WHATSAPP-BAILEYS",
-          rejectCall: true,
-          msgCall: "Não posso atender agora, me envie uma mensagem.",
-          groupsIgnore: false, // IMPORTANTE: Receber mensagens de grupos
-          alwaysOnline: false,
-          readMessages: true,
-          readStatus: false,
-          syncFullHistory: false,
+          rejectCall: instanceSettings.reject_call,
+          msgCall: instanceSettings.msg_call,
+          groupsIgnore: instanceSettings.groups_ignore,
+          alwaysOnline: instanceSettings.always_online,
+          readMessages: instanceSettings.read_messages,
+          readStatus: instanceSettings.read_status,
+          syncFullHistory: instanceSettings.sync_full_history,
           webhook: {
             url: webhookUrl,
             byEvents: false,
@@ -160,7 +171,7 @@ serve(async (req) => {
       }
 
       // Algumas versões do Evolution ignoram settings no /instance/create.
-      // Garantimos explicitamente que grupos NÃO serão ignorados.
+      // Garantimos explicitamente aplicando os settings via API.
       try {
         const settingsResponse = await fetch(`${EVOLUTION_API_URL}/settings/set/${evolutionInstanceName}`, {
           method: "POST",
@@ -169,7 +180,13 @@ serve(async (req) => {
             "apikey": EVOLUTION_API_KEY,
           },
           body: JSON.stringify({
-            groupsIgnore: false,
+            rejectCall: instanceSettings.reject_call,
+            msgCall: instanceSettings.msg_call,
+            groupsIgnore: instanceSettings.groups_ignore,
+            alwaysOnline: instanceSettings.always_online,
+            readMessages: instanceSettings.read_messages,
+            readStatus: instanceSettings.read_status,
+            syncFullHistory: instanceSettings.sync_full_history,
           }),
         });
 
@@ -225,6 +242,7 @@ serve(async (req) => {
           manual_instance_number: manual_instance_number || null,
           manual_device_label: manual_device_label || null,
           display_name_for_team: display_name_for_team || null,
+          evolution_settings: instanceSettings, // Salvar settings no banco
         })
         .select()
         .single();
@@ -534,6 +552,78 @@ serve(async (req) => {
         .eq("id", instanceId);
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
+    // UPDATE EVOLUTION SETTINGS
+    // =====================
+    if (action === "update_settings") {
+      if (!instanceId) {
+        throw new Error("instanceId é obrigatório");
+      }
+
+      const { settings } = body;
+      if (!settings) {
+        throw new Error("settings é obrigatório");
+      }
+
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("id", instanceId)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (!instance?.evolution_instance_id) {
+        throw new Error("Instância não encontrada");
+      }
+
+      console.log("Updating Evolution settings:", { instanceId: instance.evolution_instance_id, settings });
+
+      // Atualizar settings no Evolution API
+      const settingsResponse = await fetch(`${EVOLUTION_API_URL}/settings/set/${instance.evolution_instance_id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({
+          rejectCall: settings.reject_call ?? true,
+          msgCall: settings.msg_call ?? "Não posso atender agora, me envie uma mensagem.",
+          groupsIgnore: settings.groups_ignore ?? false,
+          alwaysOnline: settings.always_online ?? false,
+          readMessages: settings.read_messages ?? true,
+          readStatus: settings.read_status ?? false,
+          syncFullHistory: settings.sync_full_history ?? false,
+        }),
+      });
+
+      const settingsResult = await settingsResponse.json().catch(() => ({}));
+      console.log("Evolution settings update result:", { status: settingsResponse.status, result: settingsResult });
+
+      if (!settingsResponse.ok) {
+        throw new Error(settingsResult?.message || settingsResult?.error || `Erro ao atualizar configurações: ${settingsResponse.status}`);
+      }
+
+      // Salvar no banco de dados
+      const { error: updateError } = await supabase
+        .from("whatsapp_instances")
+        .update({
+          evolution_settings: settings,
+        })
+        .eq("id", instanceId);
+
+      if (updateError) {
+        console.error("Error saving evolution_settings:", updateError);
+        throw new Error("Erro ao salvar configurações no banco");
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Configurações atualizadas com sucesso" 
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

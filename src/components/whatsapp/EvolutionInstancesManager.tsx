@@ -6,11 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useEvolutionInstances, InstanceFilter } from "@/hooks/useEvolutionInstances";
-import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info } from "lucide-react";
+import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { InstancePermissions } from "./InstancePermissions";
 import { InstanceSettingsDialog } from "./InstanceSettingsDialog";
+import { EvolutionSettingsDialog } from "./EvolutionSettingsDialog";
 
 interface EvolutionInstance {
   id: string;
@@ -70,7 +74,20 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   // Estado para permissões e configurações
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [evolutionSettingsDialogOpen, setEvolutionSettingsDialogOpen] = useState(false);
   const [selectedInstanceForDialog, setSelectedInstanceForDialog] = useState<EvolutionInstance | null>(null);
+
+  // Estado para configurações avançadas no dialog de criação
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [createSettings, setCreateSettings] = useState({
+    reject_call: true,
+    msg_call: "Não posso atender agora, me envie uma mensagem.",
+    groups_ignore: false,
+    always_online: false,
+    read_messages: true,
+    read_status: false,
+    sync_full_history: false,
+  });
 
   // Filtrar instâncias
   const filteredInstances = useMemo(() => {
@@ -131,9 +148,23 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     }
 
     try {
-      const result = await createInstance.mutateAsync(newInstanceName.trim());
+      const result = await createInstance.mutateAsync({
+        name: newInstanceName.trim(),
+        settings: createSettings,
+      });
       setNewInstanceName("");
       setCreateDialogOpen(false);
+      setShowAdvancedSettings(false);
+      // Reset settings to defaults
+      setCreateSettings({
+        reject_call: true,
+        msg_call: "Não posso atender agora, me envie uma mensagem.",
+        groups_ignore: false,
+        always_online: false,
+        read_messages: true,
+        read_status: false,
+        sync_full_history: false,
+      });
       
       // Abrir QR code automaticamente
       if (result?.instance) {
@@ -354,16 +385,126 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                   </span>
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                 <div className="space-y-2">
                   <Label>Nome da Instância</Label>
                   <Input
                     placeholder="Ex: Vendas, Suporte, Marketing..."
                     value={newInstanceName}
                     onChange={(e) => setNewInstanceName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                    onKeyDown={(e) => e.key === "Enter" && !showAdvancedSettings && handleCreate()}
                   />
                 </div>
+
+                {/* Configurações Avançadas (colapsável) */}
+                <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between">
+                      <span className="flex items-center gap-2">
+                        <Cog className="h-4 w-4" />
+                        Configurações Avançadas
+                      </span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedSettings ? "rotate-180" : ""}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 pt-4">
+                    <Separator />
+
+                    {/* Rejeitar Chamadas */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Rejeitar Chamadas</Label>
+                        <p className="text-xs text-muted-foreground">Rejeita automaticamente ligações</p>
+                      </div>
+                      <Switch
+                        checked={createSettings.reject_call}
+                        onCheckedChange={(checked) => setCreateSettings(prev => ({ ...prev, reject_call: checked }))}
+                      />
+                    </div>
+
+                    {createSettings.reject_call && (
+                      <div className="space-y-2 pl-4 border-l-2 border-muted">
+                        <Label className="text-sm">Mensagem ao rejeitar</Label>
+                        <Input
+                          placeholder="Mensagem automática..."
+                          value={createSettings.msg_call}
+                          onChange={(e) => setCreateSettings(prev => ({ ...prev, msg_call: e.target.value }))}
+                        />
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    {/* Ignorar Grupos */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Ignorar Grupos</Label>
+                        <p className="text-xs text-muted-foreground">Ignora mensagens de grupos</p>
+                      </div>
+                      <Switch
+                        checked={createSettings.groups_ignore}
+                        onCheckedChange={(checked) => setCreateSettings(prev => ({ ...prev, groups_ignore: checked }))}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Sempre Online */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Sempre Online</Label>
+                        <p className="text-xs text-muted-foreground">Mantém status "online"</p>
+                      </div>
+                      <Switch
+                        checked={createSettings.always_online}
+                        onCheckedChange={(checked) => setCreateSettings(prev => ({ ...prev, always_online: checked }))}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Marcar Mensagens como Lidas */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Marcar Mensagens como Lidas</Label>
+                        <p className="text-xs text-muted-foreground">Marca automaticamente como lidas</p>
+                      </div>
+                      <Switch
+                        checked={createSettings.read_messages}
+                        onCheckedChange={(checked) => setCreateSettings(prev => ({ ...prev, read_messages: checked }))}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Sincronizar Histórico Completo */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Sincronizar Histórico Completo</Label>
+                        <p className="text-xs text-muted-foreground">Sincroniza todo o histórico ao conectar</p>
+                      </div>
+                      <Switch
+                        checked={createSettings.sync_full_history}
+                        onCheckedChange={(checked) => setCreateSettings(prev => ({ ...prev, sync_full_history: checked }))}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Marcar Status como Lido */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Marcar Status como Lido</Label>
+                        <p className="text-xs text-muted-foreground">Visualiza status automaticamente</p>
+                      </div>
+                      <Switch
+                        checked={createSettings.read_status}
+                        onCheckedChange={(checked) => setCreateSettings(prev => ({ ...prev, read_status: checked }))}
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
                 <Button 
                   onClick={handleCreate} 
                   disabled={createInstance.isPending}
@@ -509,7 +650,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                             Desconectar
                           </Button>
                         )}
-                        {/* Botão Configurações */}
+                        {/* Botão Configurações do CRM */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -518,8 +659,22 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                             setSelectedInstanceForDialog(instance);
                             setSettingsDialogOpen(true);
                           }}
+                          title="Configurações do CRM"
                         >
                           <Settings className="h-4 w-4" />
+                        </Button>
+                        {/* Botão Configurações do Evolution */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInstanceForDialog(instance);
+                            setEvolutionSettingsDialogOpen(true);
+                          }}
+                          title="Configurações do WhatsApp (Evolution)"
+                        >
+                          <Cog className="h-4 w-4" />
                         </Button>
                         {/* Botão Permissões */}
                         <Button
@@ -617,13 +772,23 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
         />
       )}
 
-      {/* Dialog de Configurações */}
+      {/* Dialog de Configurações do CRM */}
       {selectedInstanceForDialog && (
         <InstanceSettingsDialog
           instanceId={selectedInstanceForDialog.id}
           instanceName={selectedInstanceForDialog.name}
           open={settingsDialogOpen}
           onOpenChange={setSettingsDialogOpen}
+        />
+      )}
+
+      {/* Dialog de Configurações do Evolution */}
+      {selectedInstanceForDialog && (
+        <EvolutionSettingsDialog
+          instanceId={selectedInstanceForDialog.id}
+          instanceName={selectedInstanceForDialog.name}
+          open={evolutionSettingsDialogOpen}
+          onOpenChange={setEvolutionSettingsDialogOpen}
         />
       )}
     </div>
