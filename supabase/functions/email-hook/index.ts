@@ -6,8 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-internal-secret",
 };
 
-// Internal secret for authentication - derived from service role key
-const INTERNAL_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.slice(0, 32);
+// Internal secret for service-to-service authentication
+const INTERNAL_SECRET = Deno.env.get("INTERNAL_AUTH_SECRET");
 
 interface EmailHookPayload {
   user: {

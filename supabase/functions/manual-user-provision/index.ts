@@ -246,7 +246,7 @@ serve(async (req) => {
     // Send welcome email if new user
     if (tempPassword) {
       try {
-        const internalSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.slice(0, 32);
+        const internalSecret = Deno.env.get("INTERNAL_AUTH_SECRET");
         
         await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`, {
           method: "POST",
