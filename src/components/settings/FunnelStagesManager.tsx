@@ -236,10 +236,14 @@ export function FunnelStagesManager() {
   );
 
   const cloudStage = stages.find(s => s.stage_type === 'cloud');
-  const funnelStages = stages.filter(s => s.stage_type === 'funnel').sort((a, b) => a.position - b.position);
+  // Filter only funnel stages and exclude any with position 0 (cloud) or 99 (trash)
+  const funnelStages = stages
+    .filter(s => s.stage_type === 'funnel' && s.position > 0 && s.position < 99)
+    .sort((a, b) => a.position - b.position);
   const trashStage = stages.find(s => s.stage_type === 'trash');
 
-  const maxPosition = Math.max(...stages.map(s => s.position), 0);
+  // Max position for funnel stages only (between 1 and 98)
+  const maxFunnelPosition = Math.max(...funnelStages.map(s => s.position), 0);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -253,10 +257,10 @@ export function FunnelStagesManager() {
 
     const reordered = arrayMove(funnelStages, oldIndex, newIndex);
     
-    // Update positions (funnel stages start at position 1)
+    // Update positions: funnel stages use positions 1-N (cloud=0, trash=99 are reserved)
     const updates = reordered.map((stage, index) => ({
       id: stage.id,
-      position: index + 1, // Position 0 is cloud, so funnel starts at 1
+      position: index + 1,
     }));
 
     await reorderStages.mutateAsync(updates);
@@ -337,7 +341,7 @@ export function FunnelStagesManager() {
               onCancel={() => setIsAddingNew(false)}
               isLoading={createStage.isPending}
               isNew
-              maxPosition={maxPosition}
+              maxPosition={maxFunnelPosition}
               organizationId={profile?.organization_id || ''}
             />
           </DialogContent>
@@ -396,7 +400,7 @@ export function FunnelStagesManager() {
               onSave={handleSaveEdit}
               onCancel={() => setEditingStage(null)}
               isLoading={updateStage.isPending}
-              maxPosition={maxPosition}
+              maxPosition={maxFunnelPosition}
               organizationId={profile?.organization_id || ''}
             />
           )}
