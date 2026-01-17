@@ -65,6 +65,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
+import { useAuth } from '@/hooks/useAuth';
 
 type TabFilter = 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking';
 type SortOrder = 'created' | 'delivery';
@@ -72,6 +73,8 @@ type SortOrder = 'created' | 'delivery';
 export default function Expedition() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id || null;
   const { data: sales = [], isLoading } = useExpeditionSales();
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
@@ -643,6 +646,9 @@ export default function Expedition() {
                               quantity: i.quantity
                             }))}
                             saleId={sale.id}
+                            organizationId={organizationId}
+                            stage={sale.status === 'returned' ? 'return' : sale.status === 'dispatched' ? 'dispatch' : 'separation'}
+                            showHistory={sale.status === 'dispatched' || sale.status === 'returned'}
                           />
                         )}
 
