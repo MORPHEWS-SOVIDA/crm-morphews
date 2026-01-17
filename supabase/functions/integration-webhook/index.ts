@@ -255,8 +255,32 @@ Deno.serve(async (req) => {
       }
     }
 
-    // TEST endpoint: just log and return 200 (no lead creation)
-    if (isTest) {
+    const isPayloadTest = Boolean(payload && typeof payload === 'object' && (payload.test === true || payload.mode === 'test'));
+    const effectiveTest = isTest || isPayloadTest;
+
+    // Some providers validate the webhook URL by sending POST with empty body.
+    // We should accept and respond 200 so they can save the URL.
+    const isEmptyBodyPing = !['GET', 'HEAD'].includes(req.method) && (!rawBodyText || rawBodyText.trim() === '');
+    if (isEmptyBodyPing) {
+      await supabase.from('integration_logs').insert({
+        integration_id: typedIntegration.id,
+        organization_id: typedIntegration.organization_id,
+        direction: 'inbound',
+        status: 'ping',
+        event_type: 'validation',
+        request_payload: requestPayloadForLog,
+        response_payload: { ok: true, mode: 'validation' },
+        processing_time_ms: Date.now() - startTime,
+      });
+
+      return new Response(JSON.stringify({ ok: true, mode: 'validation' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // TEST mode: just log and return 200 (no lead creation)
+    if (effectiveTest) {
       await supabase.from('integration_logs').insert({
         integration_id: typedIntegration.id,
         organization_id: typedIntegration.organization_id,
@@ -464,6 +488,92 @@ Deno.serve(async (req) => {
         leadData.name = leadData.whatsapp || leadData.email || 'Lead sem nome';
       }
 
+      // WhatsApp is required by schema
+      if (!leadData.whatsapp) {
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'error',
+          event_type: 'missing_required',
+          request_payload: payload,
+          error_message: 'Campo whatsapp é obrigatório para criar lead',
+          processing_time_ms: Date.now() - startTime,
+        });
+
+        return new Response(JSON.stringify({ error: 'Campo whatsapp é obrigatório para criar lead' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // assigned_to is NOT NULL in leads table; pick a default owner
+      let assignedTo: string | null = null;
+      if (typedIntegration.default_responsible_user_ids && typedIntegration.default_responsible_user_ids.length > 0) {
+        assignedTo = String(typedIntegration.default_responsible_user_ids[0]);
+      }
+
+      if (!assignedTo) {
+        const { data: ownerMember } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('organization_id', typedIntegration.organization_id)
+          .eq('role', 'owner')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (ownerMember?.user_id) assignedTo = String(ownerMember.user_id);
+      }
+
+      if (!assignedTo) {
+        const { data: adminMember } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('organization_id', typedIntegration.organization_id)
+          .eq('role', 'admin')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (adminMember?.user_id) assignedTo = String(adminMember.user_id);
+      }
+
+      if (!assignedTo) {
+        const { data: anyMember } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('organization_id', typedIntegration.organization_id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (anyMember?.user_id) assignedTo = String(anyMember.user_id);
+      }
+
+      if (!assignedTo) {
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'error',
+          event_type: 'missing_assigned_to',
+          request_payload: payload,
+          error_message: 'Nenhum usuário encontrado para atribuir o lead (assigned_to). Configure responsáveis padrão na integração.',
+          processing_time_ms: Date.now() - startTime,
+        });
+
+        return new Response(
+          JSON.stringify({
+            error: 'Não foi possível atribuir o lead automaticamente',
+            hint: 'Defina um vendedor responsável padrão na integração.',
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      leadData.assigned_to = assignedTo;
+
       // Add integration source to observations
       leadData.observations = `[Origem: Integração ${typedIntegration.name}]\n${JSON.stringify(payload, null, 2)}`;
       leadData.created_at = new Date().toISOString();
@@ -477,7 +587,7 @@ Deno.serve(async (req) => {
 
       if (insertError) {
         console.error('Error creating lead:', insertError);
-        
+
         await supabase.from('integration_logs').insert({
           integration_id: typedIntegration.id,
           organization_id: typedIntegration.organization_id,
