@@ -803,7 +803,7 @@ export default function SalesReport() {
                             >
                               Ver
                             </Button>
-                            <RomaneioPrintButtons saleId={sale.id} variant="ghost" showLabel={false} />
+                            <RomaneioPrintButtons saleId={sale.id} />
                           </div>
                         </TableCell>
                       </TableRow>

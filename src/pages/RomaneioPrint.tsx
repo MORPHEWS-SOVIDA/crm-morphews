@@ -2,18 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Printer, MapPin, Package, Truck, Store } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useSale, formatCurrency, getStatusLabel } from '@/hooks/useSales';
+import { useSale, formatCurrency } from '@/hooks/useSales';
 import { useAuth } from '@/hooks/useAuth';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '@/integrations/supabase/client';
 
 type PrintFormat = 'a5' | 'a5x2' | 'thermal';
 
-// Maximum items that fit on a single A5 page
-const MAX_ITEMS_A5 = 6;
+// Maximum items that fit on a single A5 page (optimized layout)
+const MAX_ITEMS_A5 = 10;
 
 export default function RomaneioPrint() {
   const { id } = useParams<{ id: string }>();
@@ -136,33 +136,30 @@ export default function RomaneioPrint() {
   const getShiftLabel = (shift: string | null) => {
     if (!shift) return '';
     const shifts: Record<string, string> = {
-      morning: 'MANHÃ',
-      afternoon: 'TARDE',
-      full_day: 'DIA TODO',
+      morning: 'M',
+      afternoon: 'T',
+      full_day: 'D',
     };
-    return shifts[shift] || shift.toUpperCase();
+    return shifts[shift] || '';
   };
 
   const formattedDeliveryDate = sale.scheduled_delivery_date 
-    ? format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
-    : null;
+    ? format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM', { locale: ptBR })
+    : '___';
 
-  // Determine delivery type label and icon
-  const getDeliveryInfo = () => {
+  // Determine delivery type label
+  const getDeliveryLabel = () => {
     if (!sale.delivery_type || sale.delivery_type === 'pickup') {
-      return { label: 'RETIRADA', icon: Store };
+      return 'RETIRADA';
     }
     if (sale.delivery_type === 'motoboy') {
-      return { label: `MOTOBOY${regionName ? ` - ${regionName}` : ''}`, icon: Truck };
+      return regionName ? regionName.toUpperCase() : 'ENTREGA';
     }
     if (sale.delivery_type === 'carrier') {
-      return { label: `TRANSP.${carrierName ? ` ${carrierName}` : ''}`, icon: Package };
+      return carrierName ? carrierName.toUpperCase() : 'TRANSPORTADORA';
     }
-    return { label: 'ENTREGA', icon: Truck };
+    return 'ENTREGA';
   };
-
-  const deliveryInfo = getDeliveryInfo();
-  const DeliveryIcon = deliveryInfo.icon;
 
   // Check if we need overflow page for A5 format
   const items = sale.items || [];
@@ -170,140 +167,143 @@ export default function RomaneioPrint() {
   const mainPageItems = needsOverflow ? items.slice(0, MAX_ITEMS_A5 - 1) : items;
   const overflowItems = needsOverflow ? items.slice(MAX_ITEMS_A5 - 1) : [];
 
-  // Render A5 content (single romaneio)
+  // Render optimized A5 content (single romaneio)
   const renderA5Content = (isSecondCopy = false) => (
-    <div className={`romaneio-a5 bg-white text-black p-3 ${isSecondCopy ? 'mt-0' : ''}`} style={{ 
+    <div className={`romaneio-a5 bg-white text-black`} style={{ 
       width: '148mm', 
-      minHeight: printFormat === 'a5x2' ? '105mm' : '210mm',
-      maxHeight: printFormat === 'a5x2' ? '105mm' : '210mm',
-      fontSize: '9px',
+      height: printFormat === 'a5x2' ? '104mm' : 'auto',
+      minHeight: printFormat === 'a5x2' ? '104mm' : '200mm',
+      maxHeight: printFormat === 'a5x2' ? '104mm' : 'none',
+      fontSize: '8px',
       overflow: 'hidden',
-      pageBreakInside: 'avoid'
+      padding: '2mm',
+      boxSizing: 'border-box',
     }}>
-      {/* Header */}
-      <div className="border border-black p-2 mb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-lg font-bold">ROM: #{sale.romaneio_number}</h1>
-            <p className="text-[8px]">
-              <strong>VEND:</strong> {sellerName || `${profile?.first_name} ${profile?.last_name}`}
-            </p>
-            <p className="text-[8px]">
-              <strong>EMISSÃO:</strong> {format(new Date(sale.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
-            </p>
-          </div>
-          <div className="text-right text-[8px]">
-            {deliveryUserName && <p><strong>ENTREG:</strong> {deliveryUserName}</p>}
-            <p><strong>ENTREGA:</strong> {formattedDeliveryDate || '___/___/___'}</p>
-            <p><strong>TURNO:</strong> {getShiftLabel(sale.scheduled_delivery_shift) || '______'}</p>
-          </div>
+      {/* Row 1: Header - ROM, VEND, EMISSÃO all in one line + ENTREGA date */}
+      <div className="flex justify-between items-center border-b border-black pb-1 mb-1" style={{ fontSize: '9px' }}>
+        <div className="flex items-center gap-3">
+          <span className="font-bold text-base">ROM: #{sale.romaneio_number}</span>
+          <span><strong>VEND:</strong> {sellerName || `${profile?.first_name} ${profile?.last_name}`}</span>
+          <span><strong>EMISSÃO:</strong> {format(new Date(sale.created_at), "dd/MM/yy HH:mm")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span><strong>ENT:</strong> {formattedDeliveryDate} {getShiftLabel(sale.scheduled_delivery_shift)}</span>
+          {deliveryUserName && <span>| {deliveryUserName}</span>}
         </div>
       </div>
 
-      {/* Client Info */}
-      <div className="border border-black p-2 mb-2">
-        <p className="font-bold text-sm">{sale.lead?.name}</p>
-        <p className="text-[8px]"><strong>TEL:</strong> {sale.lead?.whatsapp}</p>
-      </div>
-
-      {/* Address - Compact */}
-      <div className="border border-black p-2 mb-2">
-        {sale.lead?.street ? (
-          <>
-            <p className="text-[8px]">{sale.lead.street}, {sale.lead.street_number} {sale.lead.complement && `- ${sale.lead.complement}`}</p>
-            <p className="text-[8px]"><strong>BAIRRO:</strong> {sale.lead.neighborhood} | <strong>CEP:</strong> {sale.lead.cep}</p>
-            <p className="text-[8px]">{sale.lead.city}/{sale.lead.state}</p>
-          </>
-        ) : (
-          <p className="text-gray-500 text-[8px]">Endereço não cadastrado</p>
-        )}
-        {deliveryNotes && <p className="text-[8px] mt-1 bg-gray-100 p-1 rounded">{deliveryNotes}</p>}
-      </div>
-
-      {/* Delivery Type + QR Codes */}
-      <div className="border border-black p-2 mb-2 flex justify-between items-center">
-        <div className="flex items-center gap-1">
-          <DeliveryIcon className="w-4 h-4" />
-          <span className="font-semibold text-[10px]">{deliveryInfo.label}</span>
+      {/* Row 2: Client name + TEL in one line, with QR codes on the right */}
+      <div className="flex justify-between items-start mb-1">
+        <div className="flex-1">
+          <div className="flex items-center gap-2" style={{ fontSize: '11px' }}>
+            <span className="font-bold">{sale.lead?.name}</span>
+            <span className="text-gray-700">TEL: {sale.lead?.whatsapp}</span>
+          </div>
+          
+          {/* Address - compact single/dual line */}
+          <div style={{ fontSize: '9px' }} className="mt-0.5">
+            {sale.lead?.street ? (
+              <>
+                <span>{sale.lead.street}, {sale.lead.street_number}</span>
+                {sale.lead.complement && <span> - {sale.lead.complement}</span>}
+                <span className="ml-2"><strong>B:</strong> {sale.lead.neighborhood}</span>
+                <span className="ml-2"><strong>CEP:</strong> {sale.lead.cep}</span>
+                <span className="ml-2">{sale.lead.city}/{sale.lead.state}</span>
+              </>
+            ) : (
+              <span className="text-gray-500">Endereço não cadastrado</span>
+            )}
+          </div>
+          
+          {/* Delivery notes if any */}
+          {deliveryNotes && (
+            <div style={{ fontSize: '8px' }} className="mt-0.5 bg-gray-100 px-1 py-0.5 inline-block">
+              <strong>REF:</strong> {deliveryNotes}
+            </div>
+          )}
+          
+          {/* Delivery type badge */}
+          <div className="mt-1">
+            <span className="font-bold border border-black px-2 py-0.5" style={{ fontSize: '10px' }}>
+              {getDeliveryLabel()}
+            </span>
+            {sale.payment_confirmed_at && (
+              <span className="ml-2 bg-green-600 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
+                ✓ PAGO
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <QRCodeSVG value={saleQrData} size={35} />
-          {googleMapsLink && <QRCodeSVG value={googleMapsLink} size={35} />}
+        
+        {/* QR Codes - stacked on the right, larger */}
+        <div className="flex flex-col items-center gap-1 ml-2">
+          <QRCodeSVG value={saleQrData} size={45} />
+          {googleMapsLink && (
+            <QRCodeSVG value={googleMapsLink} size={35} />
+          )}
         </div>
       </div>
 
       {/* Products Table - Compact */}
-      <div className="border border-black mb-2">
-        <table className="w-full text-[8px]">
-          <thead>
-            <tr className="border-b border-black bg-gray-100">
-              <th className="p-1 text-left">PRODUTO</th>
-              <th className="p-1 text-center w-10">QTD</th>
-              <th className="p-1 text-right w-16">TOTAL</th>
+      <table className="w-full border-collapse border border-black" style={{ fontSize: '8px' }}>
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border border-black p-0.5 text-left">PRODUTO</th>
+            <th className="border border-black p-0.5 text-center" style={{ width: '25px' }}>QTD</th>
+            <th className="border border-black p-0.5 text-right" style={{ width: '55px' }}>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mainPageItems.map((item) => (
+            <tr key={item.id}>
+              <td className="border border-black p-0.5">
+                {item.product_name}
+                {item.requisition_number && (
+                  <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                )}
+              </td>
+              <td className="border border-black p-0.5 text-center">{item.quantity}</td>
+              <td className="border border-black p-0.5 text-right">{formatCurrency(item.total_cents)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {mainPageItems.map((item, index) => (
-              <tr key={item.id} className={index < mainPageItems.length - 1 ? 'border-b border-gray-300' : ''}>
-                <td className="p-1">
-                  {item.product_name}
-                  {item.requisition_number && <span className="text-[7px] text-amber-700 block">Req: {item.requisition_number}</span>}
-                </td>
-                <td className="p-1 text-center">{item.quantity}</td>
-                <td className="p-1 text-right">{formatCurrency(item.total_cents)}</td>
-              </tr>
-            ))}
-            {needsOverflow && (
-              <tr className="border-t border-black bg-yellow-50">
-                <td colSpan={3} className="p-1 text-center font-semibold text-[9px]">
-                  ⚠️ VER FOLHA EM ANEXO (+{overflowItems.length} itens)
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          ))}
+          {needsOverflow && (
+            <tr className="bg-yellow-100">
+              <td colSpan={3} className="border border-black p-0.5 text-center font-bold" style={{ fontSize: '9px' }}>
+                ⚠️ VER FOLHA EM ANEXO (+{overflowItems.length} itens)
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Total row */}
+      <div className="flex justify-between items-center border border-black border-t-0 px-1 py-0.5 bg-gray-100">
+        <span style={{ fontSize: '9px' }}>
+          {!sale.payment_confirmed_at && <strong>PAGO? NÃO</strong>}
+        </span>
+        <span className="font-bold" style={{ fontSize: '12px' }}>TOTAL: {formatCurrency(sale.total_cents)}</span>
       </div>
 
-      {/* Payment & Total */}
-      <div className="border border-black p-2 mb-2">
-        <div className="flex justify-between items-center text-[9px]">
-          <span><strong>PAGO?</strong> {sale.payment_confirmed_at ? '✓ SIM' : 'NÃO'}</span>
-          <span className="font-bold text-sm">TOTAL: {formatCurrency(sale.total_cents)}</span>
+      {/* Footer: Status checkboxes + Signatures - all compact */}
+      <div className="flex justify-between items-end mt-1 pt-1 border-t border-dashed border-gray-400">
+        <div className="flex gap-3" style={{ fontSize: '8px' }}>
+          <label>☐ Entregue</label>
+          <label>☐ Ausente</label>
+          <label>☐ Recusou</label>
+          <label>☐ Outro:___</label>
         </div>
-      </div>
-
-      {/* Delivery Status - Compact */}
-      <div className="border border-black p-2 mb-2">
-        <div className="flex flex-wrap gap-2 text-[7px]">
-          <label className="flex items-center gap-1">
-            <span className="w-2 h-2 border border-black inline-block"></span>Entregue
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="w-2 h-2 border border-black inline-block"></span>Ausente
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="w-2 h-2 border border-black inline-block"></span>Recusou
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="w-2 h-2 border border-black inline-block"></span>Outro:___
-          </label>
-        </div>
-      </div>
-
-      {/* Signatures - Compact */}
-      <div className="border border-black p-2">
-        <div className="grid grid-cols-3 gap-2 text-[7px]">
-          <div>
-            <p className="mb-4">Expedição:</p>
-            <div className="border-t border-black"></div>
+        <div className="flex gap-3" style={{ fontSize: '7px' }}>
+          <div className="text-center">
+            <div className="border-b border-black" style={{ width: '50px', marginBottom: '1px' }}></div>
+            <span>Expedição</span>
           </div>
-          <div>
-            <p className="mb-4">Recebido:</p>
-            <div className="border-t border-black"></div>
+          <div className="text-center">
+            <div className="border-b border-black" style={{ width: '50px', marginBottom: '1px' }}></div>
+            <span>Recebido</span>
           </div>
-          <div>
-            <p className="mb-4">Entregador:</p>
-            <div className="border-t border-black"></div>
+          <div className="text-center">
+            <div className="border-b border-black" style={{ width: '50px', marginBottom: '1px' }}></div>
+            <span>Entregador</span>
           </div>
         </div>
       </div>
@@ -312,77 +312,76 @@ export default function RomaneioPrint() {
 
   // Render overflow page with remaining items
   const renderOverflowPage = () => (
-    <div className="romaneio-overflow bg-white text-black p-3" style={{ 
+    <div className="romaneio-overflow bg-white text-black" style={{ 
       width: '148mm', 
-      minHeight: '210mm',
-      fontSize: '9px',
+      minHeight: '200mm',
+      fontSize: '8px',
+      padding: '2mm',
       pageBreakBefore: 'always'
     }}>
-      <div className="border border-black p-2 mb-2">
-        <h1 className="text-lg font-bold">ROM: #{sale.romaneio_number} - ITENS ADICIONAIS</h1>
-        <p className="text-[8px]">{sale.lead?.name}</p>
+      <div className="flex justify-between items-center border-b border-black pb-1 mb-2" style={{ fontSize: '9px' }}>
+        <span className="font-bold text-base">ROM: #{sale.romaneio_number} - ITENS ADICIONAIS</span>
+        <span>{sale.lead?.name}</span>
       </div>
 
-      <div className="border border-black">
-        <table className="w-full text-[8px]">
-          <thead>
-            <tr className="border-b border-black bg-gray-100">
-              <th className="p-1 text-left">PRODUTO</th>
-              <th className="p-1 text-center w-10">QTD</th>
-              <th className="p-1 text-right w-16">TOTAL</th>
+      <table className="w-full border-collapse border border-black" style={{ fontSize: '8px' }}>
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border border-black p-0.5 text-left">PRODUTO</th>
+            <th className="border border-black p-0.5 text-center" style={{ width: '25px' }}>QTD</th>
+            <th className="border border-black p-0.5 text-right" style={{ width: '55px' }}>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {overflowItems.map((item) => (
+            <tr key={item.id}>
+              <td className="border border-black p-0.5">
+                {item.product_name}
+                {item.requisition_number && (
+                  <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                )}
+              </td>
+              <td className="border border-black p-0.5 text-center">{item.quantity}</td>
+              <td className="border border-black p-0.5 text-right">{formatCurrency(item.total_cents)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {overflowItems.map((item, index) => (
-              <tr key={item.id} className={index < overflowItems.length - 1 ? 'border-b border-gray-300' : ''}>
-                <td className="p-1">
-                  {item.product_name}
-                  {item.requisition_number && <span className="text-[7px] text-amber-700 block">Req: {item.requisition_number}</span>}
-                </td>
-                <td className="p-1 text-center">{item.quantity}</td>
-                <td className="p-1 text-right">{formatCurrency(item.total_cents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 
   // Render thermal format (80mm receipt style)
   const renderThermalContent = () => (
-    <div className="romaneio-thermal bg-white text-black p-2" style={{ 
+    <div className="romaneio-thermal bg-white text-black p-1" style={{ 
       width: '80mm',
       fontSize: '10px',
       fontFamily: 'monospace'
     }}>
       {/* Header */}
-      <div className="text-center border-b-2 border-black border-dashed pb-2 mb-2">
-        <p className="font-bold text-lg">ROMANEIO #{sale.romaneio_number}</p>
-        <p className="text-[9px]">{format(new Date(sale.created_at), "dd/MM/yy HH:mm")}</p>
+      <div className="text-center border-b-2 border-black border-dashed pb-1 mb-1">
+        <p className="font-bold text-base">ROM #{sale.romaneio_number}</p>
+        <p style={{ fontSize: '9px' }}>{sellerName || `${profile?.first_name} ${profile?.last_name}`} | {format(new Date(sale.created_at), "dd/MM/yy HH:mm")}</p>
       </div>
 
-      {/* Seller/Delivery Info */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2 text-[9px]">
-        <p><strong>VEND:</strong> {sellerName || `${profile?.first_name} ${profile?.last_name}`}</p>
-        {deliveryUserName && <p><strong>ENTREG:</strong> {deliveryUserName}</p>}
-        <p><strong>ENTREGA:</strong> {formattedDeliveryDate || '-'} {getShiftLabel(sale.scheduled_delivery_shift)}</p>
+      {/* Delivery Info */}
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1" style={{ fontSize: '9px' }}>
+        <p><strong>ENT:</strong> {formattedDeliveryDate} {getShiftLabel(sale.scheduled_delivery_shift)} {deliveryUserName && `| ${deliveryUserName}`}</p>
       </div>
 
       {/* Client */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2">
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1">
         <p className="font-bold">{sale.lead?.name}</p>
-        <p className="text-[9px]">TEL: {sale.lead?.whatsapp}</p>
+        <p style={{ fontSize: '9px' }}>TEL: {sale.lead?.whatsapp}</p>
       </div>
 
       {/* Address */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2 text-[9px]">
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1" style={{ fontSize: '9px' }}>
         {sale.lead?.street ? (
           <>
             <p>{sale.lead.street}, {sale.lead.street_number}</p>
             {sale.lead.complement && <p>{sale.lead.complement}</p>}
-            <p>{sale.lead.neighborhood}</p>
-            <p>{sale.lead.city}/{sale.lead.state} - {sale.lead.cep}</p>
+            <p>{sale.lead.neighborhood} - {sale.lead.cep}</p>
+            <p>{sale.lead.city}/{sale.lead.state}</p>
           </>
         ) : (
           <p>Endereço não cadastrado</p>
@@ -391,19 +390,19 @@ export default function RomaneioPrint() {
       </div>
 
       {/* Delivery Type */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2 text-center">
-        <p className="font-bold">{deliveryInfo.label}</p>
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1 text-center">
+        <p className="font-bold">{getDeliveryLabel()}</p>
       </div>
 
       {/* Products */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2">
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1">
         <p className="font-bold text-center mb-1">PRODUTOS</p>
         <div className="border-t border-b border-gray-300 py-1">
           {items.map((item) => (
-            <div key={item.id} className="flex justify-between text-[9px] py-0.5">
+            <div key={item.id} className="flex justify-between py-0.5" style={{ fontSize: '9px' }}>
               <span className="flex-1">
                 {item.quantity}x {item.product_name}
-                {item.requisition_number && <span className="text-[8px] block text-amber-700">Req:{item.requisition_number}</span>}
+                {item.requisition_number && <span style={{ fontSize: '8px' }} className="block text-amber-700">Req:{item.requisition_number}</span>}
               </span>
               <span className="ml-2">{formatCurrency(item.total_cents)}</span>
             </div>
@@ -412,13 +411,13 @@ export default function RomaneioPrint() {
       </div>
 
       {/* Payment & Total */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2">
-        <div className="flex justify-between text-[10px]">
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1">
+        <div className="flex justify-between" style={{ fontSize: '10px' }}>
           <span>PAGO:</span>
           <span className="font-bold">{sale.payment_confirmed_at ? 'SIM ✓' : 'NÃO'}</span>
         </div>
         {sale.discount_cents > 0 && (
-          <div className="flex justify-between text-[9px]">
+          <div className="flex justify-between" style={{ fontSize: '9px' }}>
             <span>Desconto:</span>
             <span>-{formatCurrency(sale.discount_cents)}</span>
           </div>
@@ -430,13 +429,12 @@ export default function RomaneioPrint() {
       </div>
 
       {/* Delivery Status Checkboxes */}
-      <div className="border-b border-dashed border-gray-400 pb-2 mb-2 text-[9px]">
+      <div className="border-b border-dashed border-gray-400 pb-1 mb-1" style={{ fontSize: '9px' }}>
         <p className="font-bold mb-1">OCORRÊNCIA:</p>
         <div className="space-y-0.5">
           <p>[ ] Entregue</p>
           <p>[ ] Ausente</p>
           <p>[ ] Recusou</p>
-          <p>[ ] End. não encontrado</p>
           <p>[ ] Outro: ________</p>
         </div>
       </div>
@@ -444,11 +442,11 @@ export default function RomaneioPrint() {
       {/* QR Code */}
       <div className="text-center py-2">
         <QRCodeSVG value={saleQrData} size={50} />
-        <p className="text-[8px] mt-1">Escaneie para detalhes</p>
+        <p style={{ fontSize: '8px' }} className="mt-1">Escaneie para detalhes</p>
       </div>
 
       {/* Signatures */}
-      <div className="pt-2 text-[9px] space-y-3">
+      <div className="pt-2 space-y-3" style={{ fontSize: '9px' }}>
         <div>
           <p>Recebido por:</p>
           <div className="border-b border-black mt-4"></div>
@@ -491,9 +489,13 @@ export default function RomaneioPrint() {
         {printFormat === 'thermal' ? (
           renderThermalContent()
         ) : printFormat === 'a5x2' ? (
-          <div className="a5x2-container">
+          <div className="a5x2-container" style={{ width: '148mm' }}>
             {renderA5Content(false)}
-            <div className="a5-divider border-t-2 border-dashed border-gray-400 my-0" style={{ width: '148mm' }}></div>
+            <div className="a5-divider" style={{ 
+              width: '148mm', 
+              borderTop: '1px dashed #666',
+              margin: '0'
+            }}></div>
             {renderA5Content(true)}
           </div>
         ) : (
@@ -522,22 +524,33 @@ export default function RomaneioPrint() {
           ${printFormat === 'a5' ? `
             @page {
               size: A5 portrait;
-              margin: 5mm;
+              margin: 3mm;
+            }
+            .romaneio-a5 {
+              width: 142mm !important;
+              min-height: auto !important;
             }
           ` : ''}
           
           ${printFormat === 'a5x2' ? `
             @page {
               size: A4 portrait;
-              margin: 5mm;
+              margin: 3mm;
             }
             .a5x2-container {
-              display: flex;
-              flex-direction: column;
+              width: 148mm !important;
+            }
+            .romaneio-a5 {
+              width: 144mm !important;
+              height: 102mm !important;
+              min-height: 102mm !important;
+              max-height: 102mm !important;
+              overflow: hidden !important;
             }
             .a5-divider {
-              height: 0;
-              border-top: 1px dashed #999;
+              height: 0 !important;
+              border-top: 1px dashed #666 !important;
+              margin: 0 !important;
             }
           ` : ''}
           
@@ -555,7 +568,6 @@ export default function RomaneioPrint() {
         /* Preview styles */
         .romaneio-print {
           background: white;
-          padding: 10px;
         }
       `}</style>
     </>

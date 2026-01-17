@@ -778,7 +778,7 @@ export default function Sales() {
                             <Eye className="w-4 h-4" />
                             <span className="hidden sm:inline">Ver</span>
                           </Button>
-                          <RomaneioPrintButtons saleId={sale.id} variant="ghost" showLabel={false} />
+                          <RomaneioPrintButtons saleId={sale.id} />
                         </div>
                       </div>
                     </CardContent>
