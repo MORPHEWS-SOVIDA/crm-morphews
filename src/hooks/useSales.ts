@@ -81,6 +81,8 @@ export interface Sale {
   return_longitude: number | null;
   // Motoboy tracking status
   motoboy_tracking_status: string | null;
+  // Carrier tracking status
+  carrier_tracking_status: string | null;
   // Delivery position for route ordering
   delivery_position: number;
   // Joined data
