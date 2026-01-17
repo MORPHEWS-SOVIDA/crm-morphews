@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useProductConference } from '@/hooks/useProductConference';
-import { Loader2, CheckCircle2, User } from 'lucide-react';
+import { Loader2, CheckCircle2, User, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -27,7 +28,15 @@ interface ProductConferenceProps {
   onAllChecked?: (allChecked: boolean) => void;
   showHistory?: boolean;
   readOnly?: boolean;
+  allowAdditionalConference?: boolean;
+  compactMode?: boolean;
 }
+
+const stageLabels: Record<string, string> = {
+  separation: 'Separação',
+  dispatch: 'Despacho',
+  return: 'Devolução',
+};
 
 export function ProductConference({ 
   items, 
@@ -37,6 +46,8 @@ export function ProductConference({
   onAllChecked,
   showHistory = false,
   readOnly = false,
+  allowAdditionalConference = false,
+  compactMode = false,
 }: ProductConferenceProps) {
   const {
     conferencesWithUsers,
@@ -98,6 +109,12 @@ export function ProductConference({
     }
   };
 
+  // Additional conference when already fully checked
+  const handleAdditionalConference = (itemId: string) => {
+    if (readOnly || isAdding || isRemoving) return;
+    addConference({ saleItemId: itemId, stage });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-4">
@@ -118,21 +135,42 @@ export function ProductConference({
     return previousConferences;
   };
 
-  const stageLabels: Record<string, string> = {
-    separation: 'Separação',
-    dispatch: 'Despacho',
-    return: 'Devolução',
+  // Get all conferences for an item (for showing who conferenced)
+  const getAllConferencesForItem = (itemId: string) => {
+    const allStages = ['separation', 'dispatch', 'return'] as const;
+    return allStages.flatMap(s => getConferencesForItem(itemId, s));
   };
+
+  // Get unique conferencing users for summary
+  const getConferenceSummary = () => {
+    const usersByStage: Record<string, Set<string>> = {};
+    
+    items.forEach(item => {
+      const allStages = ['separation', 'dispatch', 'return'] as const;
+      allStages.forEach(s => {
+        const conferences = getConferencesForItem(item.id, s);
+        if (conferences.length > 0) {
+          if (!usersByStage[s]) usersByStage[s] = new Set();
+          conferences.forEach(c => usersByStage[s].add(c.user_name || 'Usuário'));
+        }
+      });
+    });
+    
+    return usersByStage;
+  };
+
+  const conferenceSummary = getConferenceSummary();
 
   return (
     <TooltipProvider>
-      <div className="space-y-1.5 bg-muted/50 rounded-md p-2">
+      <div className={cn("space-y-1.5 bg-muted/50 rounded-md", compactMode ? "p-1.5" : "p-2")}>
         {items.map((item) => {
           const serverCount = getConferenceCountForItem(item.id, stage);
           const effectiveCount = getEffectiveCount(item.id);
           const fullyChecked = effectiveCount >= item.quantity;
           const conferences = getConferencesForItem(item.id, stage);
           const previousConferences = showHistory ? getPreviousStageInfo(item.id) : [];
+          const allItemConferences = getAllConferencesForItem(item.id);
           
           return (
             <div key={item.id} className="space-y-1">
@@ -196,20 +234,45 @@ export function ProductConference({
                   {item.quantity}x {item.product_name}
                 </span>
 
-                {/* Status indicator */}
-                {fullyChecked && (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                )}
+                {/* Status indicator + Additional conference button */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {fullyChecked && (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  )}
+                  
+                  {allowAdditionalConference && fullyChecked && !readOnly && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleAdditionalConference(item.id)}
+                          disabled={isAdding}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <span>Você quer conferir também?</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
 
-              {/* Previous stage conferences info */}
-              {showHistory && previousConferences.length > 0 && (
+              {/* Conference history badges per item */}
+              {(showHistory || allItemConferences.length > 0) && (
                 <div className="ml-2 flex flex-wrap gap-1">
-                  {previousConferences.map((conf, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs py-0">
-                      <CheckCircle2 className="h-3 w-3 mr-1 text-green-600" />
+                  {allItemConferences.map((conf, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant="outline" 
+                      className="text-xs py-0 gap-1"
+                    >
+                      <CheckCircle2 className="h-3 w-3 text-green-600" />
                       {stageLabels[conf.stage] || conf.stage}: {conf.user_name}
-                      <span className="text-muted-foreground ml-1">
+                      <span className="text-muted-foreground">
                         {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
                       </span>
                     </Badge>
@@ -222,11 +285,24 @@ export function ProductConference({
 
         {/* Summary when all checked */}
         {allChecked && items.length > 0 && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-green-200 dark:border-green-800">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <span className="text-xs text-green-700 dark:text-green-400 font-medium">
-              Todos os itens conferidos
-            </span>
+          <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-xs text-green-700 dark:text-green-400 font-medium">
+                Todos os itens conferidos
+              </span>
+            </div>
+            
+            {/* Show who conferenced at each stage */}
+            {Object.keys(conferenceSummary).length > 0 && (
+              <div className="flex flex-wrap gap-1 ml-6">
+                {Object.entries(conferenceSummary).map(([stageName, users]) => (
+                  <Badge key={stageName} variant="secondary" className="text-xs py-0">
+                    {stageLabels[stageName]}: {Array.from(users).join(', ')}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

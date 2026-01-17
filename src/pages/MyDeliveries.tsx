@@ -46,6 +46,7 @@ import {
   CreditCard,
   Camera,
   MapPinned,
+  ClipboardCheck,
 } from 'lucide-react';
 import { format, isToday, isTomorrow, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -63,8 +64,12 @@ import {
   useMotoboyTrackingStatuses, 
   useUpdateMotoboyTracking,
   getMotoboyStatusLabel,
+  motoboyTrackingOrder,
+  motoboyTrackingLabels,
   type MotoboyTrackingStatus 
 } from '@/hooks/useMotoboyTracking';
+import { useAuth } from '@/hooks/useAuth';
+import { ProductConference } from '@/components/expedition/ProductConference';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -370,7 +375,8 @@ function DeliveryCard({
   isDragging,
   isUploadingProof,
   motoboyStatuses,
-  onUpdateMotoboyStatus
+  onUpdateMotoboyStatus,
+  organizationId
 }: { 
   sale: Sale; 
   onMarkDelivered: () => void;
@@ -382,6 +388,7 @@ function DeliveryCard({
   isUploadingProof?: boolean;
   motoboyStatuses?: { status_key: string; label: string; is_active: boolean }[];
   onUpdateMotoboyStatus?: (status: MotoboyTrackingStatus) => void;
+  organizationId?: string | null;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -556,13 +563,35 @@ function DeliveryCard({
           </div>
         )}
 
-        {/* Products summary */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Package className="w-4 h-4 text-primary" />
-            <span>{sale.items?.reduce((sum, i) => sum + i.quantity, 0) || 0} produto(s)</span>
+        {/* Products with Conference for Motoboy */}
+        {sale.items && sale.items.length > 0 && !isCompleted && organizationId && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <ClipboardCheck className="w-4 h-4" />
+              <span>Confira os produtos que está levando:</span>
+            </div>
+            <ProductConference 
+              items={sale.items.map(i => ({
+                id: i.id,
+                product_name: i.product_name,
+                quantity: i.quantity
+              }))}
+              saleId={sale.id}
+              organizationId={organizationId}
+              stage="dispatch"
+              showHistory={true}
+              compactMode={true}
+            />
           </div>
-          {sale.items && sale.items.length > 0 && (
+        )}
+
+        {/* Products summary - show for completed or when no organizationId */}
+        {sale.items && sale.items.length > 0 && (isCompleted || !organizationId) && (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Package className="w-4 h-4 text-primary" />
+              <span>{sale.items?.reduce((sum, i) => sum + i.quantity, 0) || 0} produto(s)</span>
+            </div>
             <ul className="ml-6 text-xs text-muted-foreground space-y-0.5">
               {sale.items.map((item, idx) => (
                 <li key={idx}>
@@ -570,8 +599,8 @@ function DeliveryCard({
                 </li>
               ))}
             </ul>
-          )}
-        </div>
+          </div>
+        )}
         
         {/* Payment status */}
         <div className="flex items-center gap-2">
@@ -604,24 +633,42 @@ function DeliveryCard({
           </div>
         )}
 
-        {/* Motoboy Quick Status Selector - only for motoboy deliveries */}
-        {sale.delivery_type === 'motoboy' && motoboyStatuses && motoboyStatuses.length > 0 && onUpdateMotoboyStatus && !isCompleted && (
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Status do Motoboy:</Label>
-            <div className="flex flex-wrap gap-1">
-              {motoboyStatuses
-                .filter(s => s.is_active && s.status_key !== 'delivered' && s.status_key !== 'returned')
-                .map(status => (
-                  <Badge
-                    key={status.status_key}
-                    variant={(sale as any).motoboy_tracking_status === status.status_key ? 'default' : 'outline'}
-                    className="cursor-pointer text-xs py-1"
-                    onClick={() => onUpdateMotoboyStatus(status.status_key as MotoboyTrackingStatus)}
-                  >
-                    {status.label}
-                  </Badge>
-                ))}
-            </div>
+        {/* Motoboy Quick Status Selector - Improved UI */}
+        {sale.delivery_type === 'motoboy' && onUpdateMotoboyStatus && !isCompleted && (
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs font-medium flex items-center gap-1.5">
+              <Truck className="w-3.5 h-3.5" />
+              Atualizar status:
+            </Label>
+            <Select 
+              value={(sale as any).motoboy_tracking_status || ''} 
+              onValueChange={(value) => onUpdateMotoboyStatus(value as MotoboyTrackingStatus)}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Selecione o status..." />
+              </SelectTrigger>
+              <SelectContent>
+                {motoboyTrackingOrder.map(statusKey => {
+                  // Get custom label if available from tenant config
+                  const customStatus = motoboyStatuses?.find(s => s.status_key === statusKey);
+                  const isActive = customStatus ? customStatus.is_active : true;
+                  if (!isActive) return null;
+                  
+                  const label = customStatus?.label || motoboyTrackingLabels[statusKey];
+                  const isDeliveredOrReturned = statusKey === 'delivered' || statusKey === 'returned';
+                  
+                  return (
+                    <SelectItem 
+                      key={statusKey} 
+                      value={statusKey}
+                      className={isDeliveredOrReturned ? 'font-semibold' : ''}
+                    >
+                      {label}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -738,11 +785,39 @@ export default function MyDeliveries() {
   const navigate = useNavigate();
   const { data: deliveries = [], isLoading, refetch } = useMyDeliveries();
   const updateSale = useUpdateSale();
+  const { profile } = useAuth();
+  const { data: motoboyStatuses = [] } = useMotoboyTrackingStatuses();
+  const updateMotoboyTracking = useUpdateMotoboyTracking();
+
+  const organizationId = profile?.organization_id || null;
 
   const [notDeliveredDialogOpen, setNotDeliveredDialogOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
   const [uploadingSaleId, setUploadingSaleId] = useState<string | null>(null);
+
+  // Handle motoboy status update
+  const handleUpdateMotoboyStatus = useCallback(async (saleId: string, status: MotoboyTrackingStatus) => {
+    try {
+      // If it's delivered or returned, also update sale status
+      if (status === 'delivered') {
+        await updateSale.mutateAsync({
+          id: saleId,
+          data: { status: 'delivered', delivery_status: 'delivered_normal' }
+        });
+      } else if (status === 'returned') {
+        await updateSale.mutateAsync({
+          id: saleId,
+          data: { status: 'returned' }
+        });
+      }
+      
+      await updateMotoboyTracking.mutateAsync({ saleId, status });
+      toast.success(`Status atualizado: ${motoboyTrackingLabels[status]}`);
+    } catch (error) {
+      toast.error('Erro ao atualizar status');
+    }
+  }, [updateMotoboyTracking, updateSale]);
 
   // Handle payment proof upload by motoboy
   const handleUploadPaymentProof = useCallback(async (saleId: string, file: File) => {
@@ -1043,6 +1118,9 @@ export default function MyDeliveries() {
                         onOpenWhatsApp={() => openWhatsApp(sale.lead?.whatsapp || '')}
                         onUploadPaymentProof={(file) => handleUploadPaymentProof(sale.id, file)}
                         isUploadingProof={uploadingSaleId === sale.id}
+                        motoboyStatuses={motoboyStatuses}
+                        onUpdateMotoboyStatus={(status) => handleUpdateMotoboyStatus(sale.id, status)}
+                        organizationId={organizationId}
                       />
                     ))}
                   </div>
