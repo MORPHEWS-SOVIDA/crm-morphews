@@ -231,10 +231,11 @@ export function SellerDashboard() {
               {formatCurrency(data.commissions.pending)}
             </div>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-              {data.commissions.pendingCount} vendas pagas aguardando entrega
+              Gerada de <span className="font-semibold">{data.commissions.pendingCount} vendas</span> TOTAIS {formatCurrency(data.commissions.pendingSalesTotal)}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Taxa: {data.commissions.commissionPercentage}%
+              Mês: {format(commissionMonth, 'MMMM yyyy', { locale: ptBR })}
+              <span className="ml-2">(Taxa padrão: {data.commissions.defaultCommissionPercentage}%)</span>
             </p>
           </CardContent>
         </Card>
@@ -274,7 +275,7 @@ export function SellerDashboard() {
               {formatCurrency(data.commissions.toReceiveThisMonth)}
             </div>
             <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-              {data.commissions.toReceiveCount} vendas entregues e pagas
+              Gerada de <span className="font-semibold">{data.commissions.toReceiveCount} vendas</span> Pagas e Entregues TOTAL {formatCurrency(data.commissions.toReceiveSalesTotal)}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               {format(commissionMonth, 'MMMM yyyy', { locale: ptBR })}
