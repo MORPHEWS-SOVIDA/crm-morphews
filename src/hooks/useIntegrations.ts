@@ -417,6 +417,6 @@ export function useDeleteIntegrationEvent() {
 }
 
 export function getWebhookUrl(token: string) {
-  // URL customizada usando o domínio do CRM
-  return `https://crm.morphews.com/functions/v1/webhook-proxy?token=${token}`;
+  // URL direta do Supabase para máxima confiabilidade
+  return `https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/integration-webhook?token=${token}`;
 }
