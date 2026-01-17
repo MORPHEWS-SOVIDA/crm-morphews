@@ -7348,6 +7348,7 @@ export type Database = {
         | "waiting_expedition"
         | "expedition_ready"
         | "handed_to_motoboy"
+        | "with_motoboy"
         | "next_delivery"
         | "special_delay"
         | "call_motoboy"
@@ -7592,6 +7593,7 @@ export const Constants = {
         "waiting_expedition",
         "expedition_ready",
         "handed_to_motoboy",
+        "with_motoboy",
         "next_delivery",
         "special_delay",
         "call_motoboy",
