@@ -5114,6 +5114,8 @@ export type Database = {
           motoboy_tracking_status:
             | Database["public"]["Enums"]["motoboy_tracking_status"]
             | null
+          observation_1: string | null
+          observation_2: string | null
           organization_id: string
           payment_confirmed_at: string | null
           payment_confirmed_by: string | null
@@ -5187,6 +5189,8 @@ export type Database = {
           motoboy_tracking_status?:
             | Database["public"]["Enums"]["motoboy_tracking_status"]
             | null
+          observation_1?: string | null
+          observation_2?: string | null
           organization_id: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null
@@ -5260,6 +5264,8 @@ export type Database = {
           motoboy_tracking_status?:
             | Database["public"]["Enums"]["motoboy_tracking_status"]
             | null
+          observation_1?: string | null
+          observation_2?: string | null
           organization_id?: string
           payment_confirmed_at?: string | null
           payment_confirmed_by?: string | null

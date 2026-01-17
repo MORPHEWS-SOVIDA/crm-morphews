@@ -23,6 +23,9 @@ interface Integration {
   auto_followup_days: number | null;
   non_purchase_reason_id: string | null;
   settings: Record<string, any>;
+  event_mode: 'lead' | 'sale' | 'both' | null;
+  sale_status_on_create: string | null;
+  sale_tag: string | null;
 }
 
 function normalizePhone(phone: string): string {
@@ -359,6 +362,7 @@ Deno.serve(async (req) => {
     };
 
     const addressData: Record<string, any> = {};
+    const saleData: Record<string, any> = {};
 
     for (const mapping of typedMappings) {
       const rawValue = findValueInPayload(payload, mapping.source_field);
@@ -368,6 +372,9 @@ Deno.serve(async (req) => {
         if (mapping.target_field.startsWith('address_')) {
           const addressField = mapping.target_field.replace('address_', '');
           addressData[addressField] = transformedValue;
+        } else if (mapping.target_field.startsWith('sale_')) {
+          const saleField = mapping.target_field.replace('sale_', '');
+          saleData[saleField] = transformedValue;
         } else {
           leadData[mapping.target_field] = transformedValue;
         }
@@ -392,6 +399,13 @@ Deno.serve(async (req) => {
         address_city: ['city', 'cidade', 'municipio'],
         address_state: ['state', 'estado', 'uf'],
         address_cep: ['cep', 'zipcode', 'zip', 'postal_code', 'postalCode', 'zip_code'],
+        // Sale auto-detection
+        sale_product_name: ['product.name', 'product_name', 'productName', 'link.title', 'item_name', 'item.name'],
+        sale_product_sku: ['product.sku', 'product_sku', 'productSku', 'sku', 'product.code', 'product_code'],
+        sale_quantity: ['quantity', 'quantidade', 'qty', 'qtd', 'product.quantity'],
+        sale_total_cents: ['total_cents', 'amount', 'value', 'total', 'price', 'preco'],
+        sale_external_id: ['order_id', 'orderId', 'external_id', 'transaction_id', 'transactionId', 'id_pedido'],
+        sale_external_url: ['order_url', 'orderUrl', 'external_url', 'link', 'url_pedido'],
       };
 
       for (const [targetField, aliases] of Object.entries(fieldAliases)) {
@@ -404,6 +418,8 @@ Deno.serve(async (req) => {
             
             if (targetField.startsWith('address_')) {
               addressData[targetField.replace('address_', '')] = transformed;
+            } else if (targetField.startsWith('sale_')) {
+              saleData[targetField.replace('sale_', '')] = transformed;
             } else {
               if (!leadData[targetField]) {
                 leadData[targetField] = transformed;
@@ -676,15 +692,155 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Check if we should create a sale
+    const eventMode = typedIntegration.event_mode || 'lead';
+    let saleId: string | null = null;
+    
+    if (eventMode === 'sale' || eventMode === 'both') {
+      console.log('Creating sale for integration mode:', eventMode);
+      
+      // Try to find product by SKU if provided
+      let productId = typedIntegration.default_product_id;
+      let productName = saleData.product_name || 'Produto via Integração';
+      let productSku = saleData.product_sku || null;
+      
+      if (productSku) {
+        console.log('Attempting to match product by SKU:', productSku);
+        const { data: matchedProduct } = await supabase
+          .from('lead_products')
+          .select('id, name, sku')
+          .eq('organization_id', typedIntegration.organization_id)
+          .eq('sku', productSku)
+          .maybeSingle();
+        
+        if (matchedProduct) {
+          console.log('Found product by SKU:', matchedProduct.name);
+          productId = matchedProduct.id;
+          productName = matchedProduct.name;
+        } else {
+          console.log('No product found with SKU:', productSku);
+        }
+      }
+      
+      // Parse total value
+      let totalCents = 0;
+      if (saleData.total_cents) {
+        const rawTotal = saleData.total_cents;
+        // If it's a string with comma (BR format), convert
+        if (typeof rawTotal === 'string') {
+          const cleanValue = rawTotal.replace(/[^\d,\.]/g, '').replace(',', '.');
+          const floatValue = parseFloat(cleanValue);
+          // Check if it's already in cents or needs conversion
+          totalCents = floatValue >= 100 ? Math.round(floatValue) : Math.round(floatValue * 100);
+        } else {
+          totalCents = typeof rawTotal === 'number' ? Math.round(rawTotal) : 0;
+        }
+      }
+      
+      // Parse quantity
+      let quantity = 1;
+      if (saleData.quantity) {
+        quantity = parseInt(String(saleData.quantity)) || 1;
+      }
+      
+      // Get seller user (first responsible)
+      const sellerUserId = typedIntegration.default_responsible_user_ids?.[0] || leadData.assigned_to;
+      
+      // Get first address for the lead
+      const { data: leadAddress } = await supabase
+        .from('lead_addresses')
+        .select('id')
+        .eq('lead_id', leadId)
+        .eq('is_primary', true)
+        .maybeSingle();
+      
+      // Create the sale
+      const salePayload: Record<string, any> = {
+        organization_id: typedIntegration.organization_id,
+        lead_id: leadId,
+        created_by: sellerUserId,
+        seller_user_id: sellerUserId,
+        status: typedIntegration.sale_status_on_create || 'draft',
+        subtotal_cents: totalCents,
+        discount_cents: 0,
+        total_cents: totalCents,
+        delivery_type: 'carrier', // Default to carrier for online sales
+        external_order_id: saleData.external_id || null,
+        external_order_url: saleData.external_url || null,
+        external_source: typedIntegration.name,
+        observation_1: saleData.observation_1 || productName || null,
+        observation_2: saleData.observation_2 || null,
+        payment_notes: typedIntegration.sale_tag ? `[${typedIntegration.sale_tag}]` : null,
+      };
+      
+      if (leadAddress?.id) {
+        salePayload.shipping_address_id = leadAddress.id;
+      }
+      
+      const { data: newSale, error: saleError } = await supabase
+        .from('sales')
+        .insert(salePayload)
+        .select('id, romaneio_number')
+        .single();
+      
+      if (saleError) {
+        console.error('Error creating sale:', saleError);
+        // Don't fail the whole webhook, just log the error
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'partial',
+          event_type: 'sale_creation_failed',
+          request_payload: payload,
+          error_message: `Lead criado, mas erro ao criar venda: ${saleError.message}`,
+          lead_id: leadId,
+          processing_time_ms: Date.now() - startTime,
+        });
+      } else {
+        saleId = newSale.id;
+        console.log(`Created sale: ${saleId} (romaneio: ${newSale.romaneio_number})`);
+        
+        // Create sale item if we have a product
+        if (productId) {
+          const unitPriceCents = Math.round(totalCents / quantity);
+          
+          const { error: itemError } = await supabase
+            .from('sale_items')
+            .insert({
+              sale_id: saleId,
+              product_id: productId,
+              product_name: productName,
+              quantity: quantity,
+              unit_price_cents: unitPriceCents,
+              discount_cents: 0,
+              total_cents: totalCents,
+              notes: productSku ? `SKU: ${productSku}` : null,
+            });
+          
+          if (itemError) {
+            console.error('Error creating sale item:', itemError);
+          }
+        } else {
+          // No product matched - create a placeholder item with observation
+          console.log('No product to attach to sale, observations will be used for manual matching');
+        }
+      }
+    }
+
     // Log success
+    const eventType = saleId 
+      ? (action === 'created' ? 'lead_and_sale_created' : 'lead_updated_sale_created')
+      : (action === 'created' ? 'lead_created' : 'lead_updated');
+    
     await supabase.from('integration_logs').insert({
       integration_id: typedIntegration.id,
       organization_id: typedIntegration.organization_id,
       direction: 'inbound',
       status: 'success',
-      event_type: action === 'created' ? 'lead_created' : 'lead_updated',
+      event_type: eventType,
       request_payload: payload,
-      response_payload: { lead_id: leadId, action },
+      response_payload: { lead_id: leadId, sale_id: saleId, action },
       lead_id: leadId,
       processing_time_ms: Date.now() - startTime,
     });
@@ -694,9 +850,10 @@ Deno.serve(async (req) => {
         success: true,
         action,
         lead_id: leadId,
-        message: action === 'created' 
-          ? 'Lead criado com sucesso' 
-          : 'Lead existente atualizado',
+        sale_id: saleId,
+        message: saleId 
+          ? `Lead ${action === 'created' ? 'criado' : 'atualizado'} e venda criada com sucesso` 
+          : `Lead ${action === 'created' ? 'criado' : 'atualizado'} com sucesso`,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
