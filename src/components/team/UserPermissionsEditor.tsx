@@ -9,6 +9,7 @@ import {
   UserPermissions, 
   PERMISSION_LABELS, 
   PERMISSION_GROUPS,
+  PermissionKey,
   useUserPermissions,
   useUpdateUserPermissions,
   useApplyRoleDefaults,
@@ -21,7 +22,7 @@ interface UserPermissionsEditorProps {
   onClose?: () => void;
 }
 
-type PermissionKey = keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>;
+// PermissionKey is now imported from useUserPermissions
 
 // Mapeia grupos de permissão para as features que precisam estar ativas
 const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {

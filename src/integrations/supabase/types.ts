@@ -5551,10 +5551,12 @@ export type Database = {
         Row: {
           ai_bots_view: boolean
           created_at: string
+          default_landing_page: string | null
           deliveries_view_all: boolean
           deliveries_view_own: boolean
           demands_view: boolean
           expedition_report_view: boolean | null
+          hide_sidebar: boolean | null
           id: string
           instagram_view: boolean
           leads_create: boolean
@@ -5615,10 +5617,12 @@ export type Database = {
         Insert: {
           ai_bots_view?: boolean
           created_at?: string
+          default_landing_page?: string | null
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
           demands_view?: boolean
           expedition_report_view?: boolean | null
+          hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
           leads_create?: boolean
@@ -5679,10 +5683,12 @@ export type Database = {
         Update: {
           ai_bots_view?: boolean
           created_at?: string
+          default_landing_page?: string | null
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
           demands_view?: boolean
           expedition_report_view?: boolean | null
+          hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
           leads_create?: boolean
