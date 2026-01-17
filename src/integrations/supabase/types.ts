@@ -4617,6 +4617,67 @@ export type Database = {
           },
         ]
       }
+      sale_item_conferences: {
+        Row: {
+          conferenced_at: string
+          conferenced_by: string
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          quantity_checked: number
+          sale_id: string
+          sale_item_id: string
+          stage: string
+        }
+        Insert: {
+          conferenced_at?: string
+          conferenced_by: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          quantity_checked?: number
+          sale_id: string
+          sale_item_id: string
+          stage?: string
+        }
+        Update: {
+          conferenced_at?: string
+          conferenced_by?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          quantity_checked?: number
+          sale_id?: string
+          sale_item_id?: string
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_item_conferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_item_conferences_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_item_conferences_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
           commission_cents: number | null
@@ -4772,6 +4833,8 @@ export type Database = {
           carrier_tracking_status:
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
+          conference_completed_at: string | null
+          conference_completed_by: string | null
           created_at: string
           created_by: string
           delivered_at: string | null
@@ -4838,6 +4901,8 @@ export type Database = {
           carrier_tracking_status?:
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
+          conference_completed_at?: string | null
+          conference_completed_by?: string | null
           created_at?: string
           created_by: string
           delivered_at?: string | null
@@ -4906,6 +4971,8 @@ export type Database = {
           carrier_tracking_status?:
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
+          conference_completed_at?: string | null
+          conference_completed_by?: string | null
           created_at?: string
           created_by?: string
           delivered_at?: string | null
