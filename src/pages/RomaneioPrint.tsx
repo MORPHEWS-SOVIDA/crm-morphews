@@ -131,6 +131,8 @@ export default function RomaneioPrint() {
   const saleQrData = `${window.location.origin}/vendas/${sale.id}`;
   const googleMapsLink = sale.lead?.google_maps_link;
   const deliveryNotes = sale.lead?.delivery_notes;
+  const observation1 = (sale as any).observation_1;
+  const observation2 = (sale as any).observation_2;
 
   // Format delivery date and shift
   const getShiftLabel = (shift: string | null) => {
@@ -219,6 +221,15 @@ export default function RomaneioPrint() {
           {deliveryNotes && (
             <div style={{ fontSize: '8px' }} className="mt-0.5 bg-gray-100 px-1 py-0.5 inline-block">
               <strong>REF:</strong> {deliveryNotes}
+            </div>
+          )}
+          
+          {/* Integration observations - important for expedition */}
+          {(observation1 || observation2) && (
+            <div style={{ fontSize: '8px' }} className="mt-0.5 bg-yellow-100 px-1 py-0.5 border border-yellow-500">
+              <strong>⚠️ ATENÇÃO EXPEDIÇÃO:</strong>
+              {observation1 && <span className="ml-1">{observation1}</span>}
+              {observation2 && <span className="ml-1">| {observation2}</span>}
             </div>
           )}
           
@@ -387,6 +398,11 @@ export default function RomaneioPrint() {
           <p>Endereço não cadastrado</p>
         )}
         {deliveryNotes && <p className="mt-1 p-1 bg-gray-100">REF: {deliveryNotes}</p>}
+        {(observation1 || observation2) && (
+          <p className="mt-1 p-1 bg-yellow-100 border border-yellow-400">
+            <strong>⚠️ ATENÇÃO:</strong> {observation1}{observation2 && ` | ${observation2}`}
+          </p>
+        )}
       </div>
 
       {/* Delivery Type */}
