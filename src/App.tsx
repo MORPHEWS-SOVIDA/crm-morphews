@@ -55,6 +55,7 @@ import Demands from "./pages/Demands";
 import DemandsSettings from "./pages/DemandsSettings";
 import SellerPanel from "./pages/SellerPanel";
 import DashboardKanban from "./pages/DashboardKanban";
+import Integrations from "./pages/Integrations";
 
 const queryClient = new QueryClient();
 
@@ -431,6 +432,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['settings_view']}>
                     <DemandsSettings />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Integrations - require settings_view (admin) */}
+              <Route
+                path="/integracoes"
+                element={
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <Integrations />
                   </ProtectedRoute>
                 }
               />

@@ -28,6 +28,7 @@ import {
   User,
   Filter,
   Columns3,
+  Plug2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -155,6 +156,9 @@ export function Sidebar() {
     
     // Demands (permission controlled)
     { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeDemands && hasFeature('demands') },
+    
+    // Integrations (admin only)
+    { icon: Plug2, label: 'Integrações', path: '/integracoes', visible: isAdmin && hasFeature('integrations') },
     
     // 2FA for managers
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
