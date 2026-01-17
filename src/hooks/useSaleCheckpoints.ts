@@ -35,6 +35,16 @@ export const checkpointLabels: Record<CheckpointType, string> = {
   payment_confirmed: 'Pagamento Confirmado',
 };
 
+export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned', string> = {
+  draft: '👀',
+  printed: '🖨️',
+  pending_expedition: '📦',
+  dispatched: '🚚',
+  returned: '⚠️',
+  delivered: '✅',
+  payment_confirmed: '💰',
+};
+
 export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
 
 export function useSaleCheckpoints(saleId: string | undefined) {
