@@ -17,7 +17,10 @@ export interface ExpeditionStats {
   separated: number;
   dispatched: number;
   returned: number;
+  delivered: number;
+  cancelled: number;
   carrierNoTracking: number;
+  carrierWithTracking: number;
   urgentToday: number;
   tomorrowPrep: number;
 }
@@ -38,8 +41,7 @@ export function useExpeditionSales() {
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at)
         `)
         .eq('organization_id', organizationId)
-        .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned'])
-        .neq('status', 'cancelled')
+        .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled'])
         .order('scheduled_delivery_date', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -62,7 +64,10 @@ export function useExpeditionStats(sales: Sale[]) {
     separated: 0,
     dispatched: 0,
     returned: 0,
+    delivered: 0,
+    cancelled: 0,
     carrierNoTracking: 0,
+    carrierWithTracking: 0,
     urgentToday: 0,
     tomorrowPrep: 0,
   };
@@ -86,11 +91,22 @@ export function useExpeditionStats(sales: Sale[]) {
       case 'returned':
         stats.returned++;
         break;
+      case 'delivered':
+        stats.delivered++;
+        break;
+      case 'cancelled':
+        stats.cancelled++;
+        break;
     }
 
     // Carrier without tracking
-    if (sale.delivery_type === 'carrier' && !sale.tracking_code && sale.status !== 'cancelled') {
+    if (sale.delivery_type === 'carrier' && !sale.tracking_code && sale.status !== 'cancelled' && sale.status !== 'delivered') {
       stats.carrierNoTracking++;
+    }
+    
+    // Carrier with tracking (for substatus updates)
+    if (sale.delivery_type === 'carrier' && sale.tracking_code && sale.status !== 'cancelled' && sale.status !== 'delivered') {
+      stats.carrierWithTracking++;
     }
 
     // Urgent today (drafts that should go out today)

@@ -73,7 +73,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
 import { useAuth } from '@/hooks/useAuth';
 
-type TabFilter = 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking';
+type TabFilter = 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
 
 export default function Expedition() {
@@ -135,7 +135,17 @@ export default function Expedition() {
         filtered = filtered.filter(s => s.status === 'returned');
         break;
       case 'carrier-no-tracking':
-        filtered = filtered.filter(s => s.delivery_type === 'carrier' && !s.tracking_code && s.status !== 'cancelled');
+        filtered = filtered.filter(s => s.delivery_type === 'carrier' && !s.tracking_code && s.status !== 'cancelled' && s.status !== 'delivered');
+        break;
+      case 'carrier-tracking':
+        // All carrier deliveries with tracking code (for updating substatus)
+        filtered = filtered.filter(s => s.delivery_type === 'carrier' && s.tracking_code && s.status !== 'delivered' && s.status !== 'cancelled');
+        break;
+      case 'delivered':
+        filtered = filtered.filter(s => s.status === 'delivered');
+        break;
+      case 'cancelled':
+        filtered = filtered.filter(s => s.status === 'cancelled');
         break;
     }
 
@@ -573,8 +583,8 @@ export default function Expedition() {
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+        {/* Stats Cards - Row 1: Main workflow */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <Card 
             className={`cursor-pointer transition-all ${activeTab === 'draft' ? 'ring-2 ring-primary' : ''}`}
             onClick={() => setActiveTab('draft')}
@@ -599,7 +609,7 @@ export default function Expedition() {
           >
             <CardContent className="p-3 text-center">
               <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">{stats.dispatched}</p>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400">🛵 Despachado</p>
+              <p className="text-xs text-indigo-600 dark:text-indigo-400">🚚 Despachado</p>
             </CardContent>
           </Card>
           <Card 
@@ -612,12 +622,43 @@ export default function Expedition() {
             </CardContent>
           </Card>
           <Card 
+            className={`cursor-pointer transition-all ${activeTab === 'delivered' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setActiveTab('delivered')}
+          >
+            <CardContent className="p-3 text-center">
+              <p className="text-xl font-bold text-green-700 dark:text-green-300">{stats.delivered}</p>
+              <p className="text-xs text-green-600 dark:text-green-400">✅ Entregue</p>
+            </CardContent>
+          </Card>
+          <Card 
+            className={`cursor-pointer transition-all ${activeTab === 'cancelled' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setActiveTab('cancelled')}
+          >
+            <CardContent className="p-3 text-center">
+              <p className="text-xl font-bold text-gray-500 dark:text-gray-500">{stats.cancelled}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-500">❌ Cancelado</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Stats Cards - Row 2: Carrier tracking */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Card 
             className={`cursor-pointer transition-all ${activeTab === 'carrier-no-tracking' ? 'ring-2 ring-primary' : ''}`}
             onClick={() => setActiveTab('carrier-no-tracking')}
           >
             <CardContent className="p-3 text-center">
               <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{stats.carrierNoTracking}</p>
               <p className="text-xs text-orange-600 dark:text-orange-400">📦 S/ Rastreio</p>
+            </CardContent>
+          </Card>
+          <Card 
+            className={`cursor-pointer transition-all ${activeTab === 'carrier-tracking' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setActiveTab('carrier-tracking')}
+          >
+            <CardContent className="p-3 text-center">
+              <p className="text-xl font-bold text-purple-700 dark:text-purple-300">{stats.carrierWithTracking}</p>
+              <p className="text-xs text-purple-600 dark:text-purple-400">📮 Correio c/ Rastreio</p>
             </CardContent>
           </Card>
           {stats.tomorrowPrep > 0 && (
