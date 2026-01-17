@@ -45,6 +45,7 @@ import SalesDashboard from "./pages/SalesDashboard";
 import SAC from "./pages/SAC";
 import ScheduledMessages from "./pages/ScheduledMessages";
 import ExpeditionReport from "./pages/ExpeditionReport";
+import Expedition from "./pages/Expedition";
 import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 import AuthError from "./pages/AuthError";
@@ -301,6 +302,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
                     <AllDeliveries />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/expedicao"
+                element={
+                  <ProtectedRoute requiredPermissions={['deliveries_view_all', 'sales_validate_expedition']}>
+                    <Expedition />
                   </ProtectedRoute>
                 }
               />

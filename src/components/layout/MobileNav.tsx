@@ -105,6 +105,7 @@ export function MobileNav() {
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
     { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
     { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
+    { icon: Package, label: 'Expedição', path: '/expedicao', visible: (canSeeAllDeliveries || permissions?.sales_validate_expedition) && hasFeature('deliveries') },
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
     { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries && hasFeature('deliveries') },
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
