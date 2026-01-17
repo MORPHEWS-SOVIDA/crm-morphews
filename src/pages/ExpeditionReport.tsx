@@ -126,11 +126,11 @@ export default function ExpeditionReport() {
           .lte('created_at', endDateTime);
       }
 
-      // Filter by status
+      // Filter by status - expedition reports should include pending_expedition orders ready to dispatch
       if (includeDispatched) {
-        query = query.in('status', ['draft', 'dispatched', 'delivered']);
+        query = query.in('status', ['pending_expedition', 'dispatched', 'delivered', 'returned']);
       } else {
-        query = query.eq('status', 'draft');
+        query = query.in('status', ['pending_expedition', 'draft']);
       }
 
       // Filter by shift (only applies to motoboy deliveries with scheduled date)

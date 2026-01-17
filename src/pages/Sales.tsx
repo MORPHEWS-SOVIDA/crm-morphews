@@ -41,6 +41,7 @@ import {
   Box,
   CircleAlert
 } from 'lucide-react';
+import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { 
   useSales, 
   SaleStatus, 
@@ -777,15 +778,7 @@ export default function Sales() {
                             <Eye className="w-4 h-4" />
                             <span className="hidden sm:inline">Ver</span>
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => navigate(`/vendas/${sale.id}/romaneio`)}
-                            className="gap-1"
-                          >
-                            <Printer className="w-4 h-4" />
-                            <span className="hidden sm:inline">Imprimir</span>
-                          </Button>
+                          <RomaneioPrintButtons saleId={sale.id} variant="ghost" showLabel={false} />
                         </div>
                       </div>
                     </CardContent>
