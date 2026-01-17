@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,23 +7,23 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   MessageSquare,
   Calendar,
   Pill,
-  DollarSign,
-  TrendingUp,
   Clock,
+  TrendingUp,
   Truck,
   Package,
   RotateCcw,
   XCircle,
   FileText,
   ChevronRight,
+  ChevronLeft,
   Loader2,
-  AlertTriangle,
 } from 'lucide-react';
-import { format, formatDistanceToNow, parseISO, isToday, isTomorrow } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, addMonths, subMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSellerDashboard, SaleSummary } from '@/hooks/useSellerDashboard';
 import { formatCurrency } from '@/hooks/useSales';
@@ -144,10 +144,50 @@ function SalesSection({
   );
 }
 
+// Custom hook for debouncing
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export function SellerDashboard() {
   const navigate = useNavigate();
-  const [treatmentDays, setTreatmentDays] = useState(5);
-  const { data, isLoading, error } = useSellerDashboard(treatmentDays);
+  const [treatmentDaysInput, setTreatmentDaysInput] = useState('5');
+  const [commissionMonth, setCommissionMonth] = useState(new Date());
+  
+  // Debounce the treatment days to avoid excessive re-renders
+  const debouncedTreatmentDays = useDebounce(parseInt(treatmentDaysInput) || 5, 500);
+  
+  const { data, isLoading, error } = useSellerDashboard({
+    treatmentDays: debouncedTreatmentDays,
+    commissionMonth,
+  });
+
+  const handlePreviousMonth = () => {
+    setCommissionMonth(prev => subMonths(prev, 1));
+  };
+
+  const handleNextMonth = () => {
+    const nextMonth = addMonths(commissionMonth, 1);
+    const now = new Date();
+    // Don't allow future months beyond current
+    if (nextMonth <= now) {
+      setCommissionMonth(nextMonth);
+    }
+  };
+
+  const isCurrentMonth = format(commissionMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
   if (isLoading) {
     return (
@@ -202,10 +242,32 @@ export function SellerDashboard() {
         {/* Commissions to Receive */}
         <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-200 dark:border-green-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-800 dark:text-green-200">
-              <TrendingUp className="w-4 h-4" />
-              Comissões a Receber (Mês)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-800 dark:text-green-200">
+                <TrendingUp className="w-4 h-4" />
+                Comissões a Receber (Mês)
+              </CardTitle>
+              {/* Month Navigation */}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={handlePreviousMonth}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={handleNextMonth}
+                  disabled={isCurrentMonth}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-700 dark:text-green-300">
@@ -215,7 +277,7 @@ export function SellerDashboard() {
               {data.commissions.toReceiveCount} vendas entregues e pagas
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              {format(new Date(), 'MMMM yyyy', { locale: ptBR })}
+              {format(commissionMonth, 'MMMM yyyy', { locale: ptBR })}
             </p>
           </CardContent>
         </Card>
@@ -258,11 +320,11 @@ export function SellerDashboard() {
                               {format(parseISO(followup.scheduled_at), 'HH:mm')}
                             </span>
                           </div>
-                      </div>
-                      <WhatsAppButton 
-                        phone={followup.lead_whatsapp} 
-                        variant="icon"
-                      />
+                        </div>
+                        <WhatsAppButton 
+                          phone={followup.lead_whatsapp} 
+                          variant="icon"
+                        />
                       </div>
                     ))}
                   </div>
@@ -330,13 +392,13 @@ export function SellerDashboard() {
               </CardTitle>
             </div>
             <div className="flex items-center gap-2 mt-2">
-              <Label className="text-xs text-muted-foreground">Próximos</Label>
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">Próximos</Label>
               <Input
                 type="number"
                 min={1}
-                max={30}
-                value={treatmentDays}
-                onChange={(e) => setTreatmentDays(Number(e.target.value) || 5)}
+                max={365}
+                value={treatmentDaysInput}
+                onChange={(e) => setTreatmentDaysInput(e.target.value)}
                 className="w-16 h-7 text-xs"
               />
               <Label className="text-xs text-muted-foreground">dias</Label>
@@ -345,7 +407,7 @@ export function SellerDashboard() {
           <CardContent>
             {data.treatmentsEnding.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhum tratamento terminando nos próximos {treatmentDays} dias
+                Nenhum tratamento terminando nos próximos {debouncedTreatmentDays} dias
               </p>
             ) : (
               <ScrollArea className="h-[400px]">

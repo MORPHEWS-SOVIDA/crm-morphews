@@ -53,6 +53,7 @@ import AuthError from "./pages/AuthError";
 import AIBots from "./pages/AIBots";
 import Demands from "./pages/Demands";
 import DemandsSettings from "./pages/DemandsSettings";
+import SellerPanel from "./pages/SellerPanel";
 
 const queryClient = new QueryClient();
 
@@ -243,6 +244,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['sales_view']}>
                     <SalesDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Seller Panel - personal seller dashboard */}
+              <Route
+                path="/meu-painel"
+                element={
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
+                    <SellerPanel />
                   </ProtectedRoute>
                 }
               />
