@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
-    
+
     if (!token) {
       return new Response(
         JSON.stringify({ error: 'Token de autenticação não fornecido' }),
@@ -26,40 +26,53 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the request body
-    let body = null;
-    if (req.method !== 'GET') {
-      try {
-        body = await req.text();
-      } catch (e) {
-        // No body
-      }
-    }
+    // Preserve any suffix after /webhook-proxy (e.g. /test)
+    const path = url.pathname;
+    const suffix = path.includes('/webhook-proxy')
+      ? (path.split('/webhook-proxy')[1] || '')
+      : '';
 
     // Forward to the integration-webhook function
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const targetUrl = `${supabaseUrl}/functions/v1/integration-webhook?token=${token}`;
+    const backendUrl = Deno.env.get('SUPABASE_URL')!;
+
+    const forwardParams = new URLSearchParams(url.searchParams);
+    forwardParams.set('token', token);
+
+    const targetUrl = `${backendUrl}/functions/v1/integration-webhook${suffix}?${forwardParams.toString()}`;
 
     console.log(`Proxying request to: ${targetUrl}`);
 
+    // Forward headers (preserve original Content-Type)
+    const headers = new Headers(req.headers);
+    headers.delete('host');
+    headers.delete('content-length');
+
+    // Forward body (raw) to support JSON/urlencoded payloads
+    let body: ArrayBuffer | undefined = undefined;
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      try {
+        body = await req.arrayBuffer();
+      } catch {
+        body = undefined;
+      }
+    }
+
     const response = await fetch(targetUrl, {
       method: req.method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: body,
+      headers,
+      body,
     });
 
     const responseData = await response.text();
-    
+    const responseContentType = response.headers.get('content-type') || 'application/json';
+
     return new Response(responseData, {
       status: response.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': responseContentType },
     });
-
   } catch (error) {
     console.error('Proxy error:', error);
-    
+
     return new Response(
       JSON.stringify({ error: 'Erro no proxy', details: String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

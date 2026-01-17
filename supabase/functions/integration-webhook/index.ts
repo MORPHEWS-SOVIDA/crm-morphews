@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 interface FieldMapping {
@@ -28,25 +29,25 @@ function normalizePhone(phone: string): string {
   if (!phone) return '';
   // Remove all non-digit characters
   let digits = phone.replace(/\D/g, '');
-  
+
   // If starts with country code, keep it
   if (digits.startsWith('55') && digits.length >= 12) {
     return digits;
   }
-  
+
   // Add Brazil country code if missing
   if (digits.length === 10 || digits.length === 11) {
     digits = '55' + digits;
   }
-  
+
   return digits;
 }
 
 function applyTransform(value: any, transformType: string): string {
   if (value === null || value === undefined) return '';
-  
+
   const strValue = String(value).trim();
-  
+
   switch (transformType) {
     case 'phone_normalize':
       return normalizePhone(strValue);
@@ -65,12 +66,12 @@ function extractNestedValue(obj: any, path: string): any {
   // Handle nested paths like "customer.name" or simple paths like "name"
   const parts = path.split('.');
   let value = obj;
-  
+
   for (const part of parts) {
     if (value === null || value === undefined) return null;
     value = value[part];
   }
-  
+
   return value;
 }
 
@@ -78,29 +79,31 @@ function findValueInPayload(payload: any, sourceField: string): any {
   // Try exact match first
   let value = extractNestedValue(payload, sourceField);
   if (value !== null && value !== undefined) return value;
-  
+
   // Try case-insensitive search
   const lowerField = sourceField.toLowerCase();
-  
+
   function searchObject(obj: any, targetField: string): any {
     if (obj === null || typeof obj !== 'object') return null;
-    
+
     for (const key of Object.keys(obj)) {
-      if (key.toLowerCase() === targetField || 
-          key.toLowerCase().replace(/[_\\s-]/g, '') === targetField.replace(/[_\\s-]/g, '')) {
+      if (
+        key.toLowerCase() === targetField ||
+        key.toLowerCase().replace(/[_\s-]/g, '') === targetField.replace(/[_\s-]/g, '')
+      ) {
         return obj[key];
       }
-      
+
       // Search nested objects
       if (typeof obj[key] === 'object' && obj[key] !== null) {
         const found = searchObject(obj[key], targetField);
         if (found !== null) return found;
       }
     }
-    
+
     return null;
   }
-  
+
   return searchObject(payload, lowerField);
 }
 
@@ -111,66 +114,172 @@ Deno.serve(async (req) => {
   }
 
   const startTime = Date.now();
-  
+
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
-    
+
+    const isTest =
+      url.pathname.endsWith('/test') ||
+      url.searchParams.get('test') === '1' ||
+      url.searchParams.get('mode') === 'test';
+
     if (!token) {
       console.error('No token provided');
-      return new Response(
-        JSON.stringify({ error: 'Token de autenticação não fornecido' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Token de autenticação não fornecido' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Create Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Create backend client with service role
+    const backendUrl = Deno.env.get('SUPABASE_URL')!;
+    const backendKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(backendUrl, backendKey);
 
-    // Find integration by token
+    // Find integration by token (log even if inactive)
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('auth_token', token)
-      .eq('status', 'active')
-      .single();
+      .maybeSingle();
 
     if (integrationError || !integration) {
-      console.error('Integration not found or inactive:', integrationError);
-      return new Response(
-        JSON.stringify({ error: 'Integração não encontrada ou inativa' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error('Integration not found:', integrationError);
+      return new Response(JSON.stringify({ error: 'Integração não encontrada' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const typedIntegration = integration as Integration;
+
+    // Read body once and try to parse (JSON or urlencoded). Always keep a log-friendly snapshot.
+    const contentType = (req.headers.get('content-type') || '').toLowerCase();
+    const headerSnapshot = {
+      'content-type': req.headers.get('content-type') || undefined,
+      'user-agent': req.headers.get('user-agent') || undefined,
+    };
+
+    let rawBodyText: string | null = null;
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      try {
+        rawBodyText = await req.text();
+      } catch {
+        rawBodyText = null;
+      }
+    }
+
+    const requestPayloadForLog: any = {
+      headers: headerSnapshot,
+      query: Object.fromEntries(url.searchParams.entries()),
+      body_raw: rawBodyText,
+    };
+
+    let payload: any = null;
+    if (rawBodyText && rawBodyText.length > 0) {
+      // Try JSON
+      const looksJson = rawBodyText.trim().startsWith('{') || rawBodyText.trim().startsWith('[');
+      if (contentType.includes('application/json') || looksJson) {
+        try {
+          payload = JSON.parse(rawBodyText);
+        } catch (e) {
+          // Log invalid JSON and return 400 (unless test mode)
+          await supabase.from('integration_logs').insert({
+            integration_id: typedIntegration.id,
+            organization_id: typedIntegration.organization_id,
+            direction: 'inbound',
+            status: isTest ? 'test' : 'error',
+            event_type: isTest ? 'test' : 'invalid_payload',
+            request_payload: requestPayloadForLog,
+            error_message: 'Invalid JSON payload',
+            processing_time_ms: Date.now() - startTime,
+          });
+
+          return new Response(
+            JSON.stringify({
+              ok: isTest,
+              mode: isTest ? 'test' : undefined,
+              error: 'Payload JSON inválido',
+              hint: 'Verifique se o provedor está enviando JSON válido ou use application/x-www-form-urlencoded.',
+            }),
+            { status: isTest ? 200 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
+        payload = Object.fromEntries(new URLSearchParams(rawBodyText).entries());
+      } else {
+        // Fallback: try JSON, else keep raw
+        try {
+          payload = JSON.parse(rawBodyText);
+        } catch {
+          payload = null;
+        }
+      }
+    }
+
+    // TEST endpoint: just log and return 200 (no lead creation)
+    if (isTest) {
+      await supabase.from('integration_logs').insert({
+        integration_id: typedIntegration.id,
+        organization_id: typedIntegration.organization_id,
+        direction: 'inbound',
+        status: 'test',
+        event_type: 'test',
+        request_payload: payload ?? requestPayloadForLog,
+        response_payload: { ok: true, mode: 'test' },
+        processing_time_ms: Date.now() - startTime,
+      });
+
+      return new Response(JSON.stringify({ ok: true, mode: 'test' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // If inactive, reject but still log what arrived
+    if (typedIntegration.status !== 'active') {
+      await supabase.from('integration_logs').insert({
+        integration_id: typedIntegration.id,
+        organization_id: typedIntegration.organization_id,
+        direction: 'inbound',
+        status: 'rejected',
+        event_type: 'inactive_integration',
+        request_payload: payload ?? requestPayloadForLog,
+        error_message: 'Integração inativa',
+        processing_time_ms: Date.now() - startTime,
+      });
+
+      return new Response(JSON.stringify({ error: 'Integração inativa' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log(`Processing webhook for integration: ${typedIntegration.name} (${typedIntegration.id})`);
 
-    // Parse payload
-    let payload: any;
-    try {
-      payload = await req.json();
-      console.log('Received payload:', JSON.stringify(payload));
-    } catch (e) {
-      console.error('Invalid JSON payload:', e);
-      
-      // Log the error
+    if (!payload || typeof payload !== 'object') {
       await supabase.from('integration_logs').insert({
         integration_id: typedIntegration.id,
         organization_id: typedIntegration.organization_id,
         direction: 'inbound',
         status: 'error',
-        error_message: 'Invalid JSON payload',
+        event_type: 'invalid_payload',
+        request_payload: requestPayloadForLog,
+        error_message: 'Payload não interpretável (esperado JSON ou urlencoded)',
         processing_time_ms: Date.now() - startTime,
       });
 
       return new Response(
-        JSON.stringify({ error: 'Payload JSON inválido' }),
+        JSON.stringify({
+          error: 'Payload inválido',
+          hint: 'O provedor precisa enviar JSON ou application/x-www-form-urlencoded.',
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Received payload:', JSON.stringify(payload));
 
     // Get field mappings
     const { data: mappings } = await supabase
