@@ -223,6 +223,7 @@ export default function ExpeditionReport() {
   };
 
   const handleGenerateReport = () => {
+    console.log('Gerando relatório...', { startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, includeDispatched });
     setShowReport(true);
   };
 
