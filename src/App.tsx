@@ -32,6 +32,7 @@ import NewSale from "./pages/NewSale";
 import EditSale from "./pages/EditSale";
 import SaleDetail from "./pages/SaleDetail";
 import RomaneioPrint from "./pages/RomaneioPrint";
+import RomaneioBatchPrint from "./pages/RomaneioBatchPrint";
 import MyDeliveries from "./pages/MyDeliveries";
 import AllDeliveries from "./pages/AllDeliveries";
 import SalesReport from "./pages/SalesReport";
@@ -284,6 +285,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['sales_view']}>
                     <RomaneioPrint />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/romaneios/lote"
+                element={
+                  <ProtectedRoute requiredPermissions={['sales_view']}>
+                    <RomaneioBatchPrint />
                   </ProtectedRoute>
                 }
               />
