@@ -37,6 +37,7 @@ import { ProductIngredientsManager, type ProductIngredient } from './ProductIngr
 import { useUsers } from '@/hooks/useUsers';
 import { useProductVisibility } from '@/hooks/useProductVisibility';
 import { useProductBrands } from '@/hooks/useProductBrands';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 
 // Categorias que usam o sistema de kits dinâmicos
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
@@ -99,6 +100,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   
   const { data: users = [] } = useUsers();
   const { data: brands = [] } = useProductBrands();
+  const { data: orgFeatures } = useOrgFeatures();
   
   // Sync state when initial values change - only sync if content actually changed
   // This prevents resetting state when empty arrays are recreated on parent re-renders
@@ -712,21 +714,23 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
           </CardContent>
         </Card>
 
-        {/* Perguntas Personalizadas - Dinâmicas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <HelpCircle className="h-5 w-5" />
-              Perguntas Personalizadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DynamicQuestionsManager
-              questions={questions}
-              onChange={setQuestions}
-            />
-          </CardContent>
-        </Card>
+        {/* Perguntas Personalizadas - Dinâmicas - only show if plan has custom_questions feature */}
+        {orgFeatures?.custom_questions !== false && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <HelpCircle className="h-5 w-5" />
+                Perguntas Personalizadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DynamicQuestionsManager
+                questions={questions}
+                onChange={setQuestions}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Kits de Preço Dinâmicos - Para categorias específicas */}
         {usesKits && (

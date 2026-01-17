@@ -420,6 +420,27 @@ export default function Settings() {
           </div>
         )}
 
+        {/* Custom Questions Info - only show if plan has custom_questions feature */}
+        {orgFeatures?.custom_questions !== false && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-purple-500/10">
+                <HelpCircle className="w-6 h-6 text-purple-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Perguntas Personalizadas</h2>
+                <p className="text-sm text-muted-foreground">Perguntas específicas por produto para qualificação do lead</p>
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm text-muted-foreground">
+                As Perguntas Personalizadas são configuradas diretamente no cadastro de cada produto.
+                Acesse <strong>Produtos</strong> → selecione um produto → seção <strong>Perguntas Personalizadas</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Product Brands */}
         {canAccess('settings_lead_sources') && (
           <div className="bg-card rounded-xl p-6 shadow-card">
