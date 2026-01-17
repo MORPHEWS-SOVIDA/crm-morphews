@@ -270,8 +270,8 @@ export function useSellerDashboard(treatmentDays: number = 5) {
 
       // Pending commissions: paid but not delivered
       const { data: pendingCommissionSales } = await supabase
-        .from('sales' as any)
-        .select('id, total_amount_cents')
+        .from('sales')
+        .select('id, total_cents')
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
         .eq('payment_status', 'paid_now')
@@ -279,12 +279,12 @@ export function useSellerDashboard(treatmentDays: number = 5) {
         .neq('status', 'cancelled');
 
       const pendingTotal = (pendingCommissionSales || [])
-        .reduce((sum, s: any) => sum + (s.total_cents || 0), 0);
+        .reduce((sum: number, s) => sum + (s.total_cents || 0), 0);
       const pendingCommission = Math.round(pendingTotal * (commissionPercentage / 100));
 
       // Commissions to receive this month: paid AND delivered in current month
       const { data: toReceiveSales } = await supabase
-        .from('sales' as any)
+        .from('sales')
         .select('id, total_cents, delivered_at')
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
@@ -294,7 +294,7 @@ export function useSellerDashboard(treatmentDays: number = 5) {
         .lte('delivered_at', monthEnd.toISOString());
 
       const toReceiveTotal = (toReceiveSales || [])
-        .reduce((sum, s: any) => sum + (s.total_cents || 0), 0);
+        .reduce((sum: number, s) => sum + (s.total_cents || 0), 0);
       const toReceiveCommission = Math.round(toReceiveTotal * (commissionPercentage / 100));
 
       return {
