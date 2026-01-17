@@ -55,14 +55,18 @@ export default function ExpeditionReport() {
   const { tenantId: organizationId } = useTenant();
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Filters
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [dateTypeFilter, setDateTypeFilter] = useState<DateTypeFilter>('delivery');
+  // Filters - default to created date and last 30 days for better initial results
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const [startDate, setStartDate] = useState(format(thirtyDaysAgo, 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(today, 'yyyy-MM-dd'));
+  const [dateTypeFilter, setDateTypeFilter] = useState<DateTypeFilter>('created');
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
   const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<DeliveryTypeFilter>('all');
   const [motoboyFilter, setMotoboyFilter] = useState<string>('all');
-  const [includeDispatched, setIncludeDispatched] = useState(false);
+  const [includeDispatched, setIncludeDispatched] = useState(true);
   const [showReport, setShowReport] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -114,6 +118,7 @@ export default function ExpeditionReport() {
 
       // Filter by date type
       if (dateTypeFilter === 'delivery') {
+        // Only filter if there are dates; don't exclude null scheduled dates unnecessarily  
         query = query
           .gte('scheduled_delivery_date', startDate)
           .lte('scheduled_delivery_date', endDate);
@@ -126,9 +131,9 @@ export default function ExpeditionReport() {
           .lte('created_at', endDateTime);
       }
 
-      // Filter by status - expedition reports should include pending_expedition orders ready to dispatch
+      // Filter by status - expedition reports should include all relevant statuses
       if (includeDispatched) {
-        query = query.in('status', ['pending_expedition', 'dispatched', 'delivered', 'returned']);
+        query = query.in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned']);
       } else {
         query = query.in('status', ['pending_expedition', 'draft']);
       }
