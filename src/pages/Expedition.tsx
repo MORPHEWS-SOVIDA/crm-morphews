@@ -60,6 +60,12 @@ import {
   motoboyTrackingOrder,
   MotoboyTrackingStatus 
 } from '@/hooks/useMotoboyTracking';
+import {
+  useUpdateCarrierTracking,
+  carrierTrackingLabels,
+  carrierTrackingOrder,
+  type CarrierTrackingStatus,
+} from '@/hooks/useCarrierTracking';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,6 +88,7 @@ export default function Expedition() {
   const { data: trackingStatuses = [] } = useMotoboyTrackingStatuses();
   const updateSale = useUpdateSale();
   const updateMotoboyTracking = useUpdateMotoboyTracking();
+  const updateCarrierTracking = useUpdateCarrierTracking();
 
   // State
   const [activeTab, setActiveTab] = useState<TabFilter>('draft');
@@ -291,7 +298,20 @@ export default function Expedition() {
     }
   };
 
-  const handleUpdateCarrierStatus = async (saleId: string, newStatus: 'draft' | 'pending_expedition' | 'dispatched' | 'delivered' | 'returned') => {
+  const handleUpdateCarrierSubStatus = async (saleId: string, status: CarrierTrackingStatus) => {
+    setIsUpdating(saleId);
+    try {
+      await updateCarrierTracking.mutateAsync({ saleId, status });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      toast.success(`Status atualizado: ${carrierTrackingLabels[status]}`);
+    } catch (error) {
+      toast.error('Erro ao atualizar status');
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleUpdateSaleStatus = async (saleId: string, newStatus: 'delivered' | 'returned') => {
     setIsUpdating(saleId);
     try {
       await supabase
@@ -299,7 +319,7 @@ export default function Expedition() {
         .update({ status: newStatus })
         .eq('id', saleId);
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
-      toast.success('Status atualizado');
+      toast.success(newStatus === 'delivered' ? 'Marcado como entregue!' : 'Marcado como voltou');
     } catch (error) {
       toast.error('Erro ao atualizar status');
     } finally {
@@ -790,22 +810,48 @@ export default function Expedition() {
                                 </>
                               )}
                               
-                              {/* Carrier status selector */}
+                              {/* Carrier sub-status selector (logistics tracking) */}
                               <Select
-                                value={sale.status}
-                                onValueChange={(v) => handleUpdateCarrierStatus(sale.id, v as 'draft' | 'pending_expedition' | 'dispatched' | 'delivered' | 'returned')}
+                                value={sale.carrier_tracking_status || ''}
+                                onValueChange={(v) => handleUpdateCarrierSubStatus(sale.id, v as CarrierTrackingStatus)}
                               >
-                                <SelectTrigger className="h-7 text-xs w-[130px]">
-                                  <SelectValue />
+                                <SelectTrigger className="h-7 text-xs w-[180px]">
+                                  <SelectValue placeholder="Status correio..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="draft">Rascunho</SelectItem>
-                                  <SelectItem value="pending_expedition">Impresso</SelectItem>
-                                  <SelectItem value="dispatched">Despachado</SelectItem>
-                                  <SelectItem value="delivered">Entregue</SelectItem>
-                                  <SelectItem value="returned">Voltou</SelectItem>
+                                  {carrierTrackingOrder.map(status => (
+                                    <SelectItem key={status} value={status}>
+                                      {carrierTrackingLabels[status]}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
+                            </div>
+                          )}
+
+                          {/* Status buttons for dispatched sales - Entregue / Voltou */}
+                          {sale.status === 'dispatched' && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs text-green-600 border-green-300 hover:bg-green-50"
+                                onClick={() => handleUpdateSaleStatus(sale.id, 'delivered')}
+                                disabled={isBeingUpdated}
+                              >
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Entregue
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                                onClick={() => handleUpdateSaleStatus(sale.id, 'returned')}
+                                disabled={isBeingUpdated}
+                              >
+                                <RotateCcw className="w-3 h-3 mr-1" />
+                                Voltou
+                              </Button>
                             </div>
                           )}
 
