@@ -81,7 +81,7 @@ export default function Expedition() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const organizationId = profile?.organization_id || null;
-  const { data: sales = [], isLoading } = useExpeditionSales();
+  const { data: sales = [], isLoading, refetch } = useExpeditionSales();
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
   const { data: carriers = [] } = useShippingCarriers();
@@ -91,7 +91,7 @@ export default function Expedition() {
   const updateCarrierTracking = useUpdateCarrierTracking();
 
   // State
-  const [activeTab, setActiveTab] = useState<TabFilter>('draft');
+  const [activeTab, setActiveTabState] = useState<TabFilter>('draft');
   const [sortOrder, setSortOrder] = useState<SortOrder>('delivery');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
@@ -99,6 +99,12 @@ export default function Expedition() {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   // Optimistic UI: track sales being marked as printed
   const [optimisticPrinted, setOptimisticPrinted] = useState<Set<string>>(new Set());
+
+  // Handle tab change with refetch
+  const setActiveTab = useCallback((tab: TabFilter) => {
+    setActiveTabState(tab);
+    refetch();
+  }, [refetch]);
 
   const stats = useExpeditionStats(sales);
 
