@@ -260,6 +260,7 @@ export default function Expedition() {
         .update({ tracking_code: tracking.trim() })
         .eq('id', saleId);
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
       toast.success('Rastreio salvo!');
       setTrackingInputs(prev => ({ ...prev, [saleId]: '' }));
     } catch (error) {
@@ -277,6 +278,7 @@ export default function Expedition() {
         .update({ assigned_delivery_user_id: userId })
         .eq('id', saleId);
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
       toast.success('Motoboy atribuído');
     } catch (error) {
       toast.error('Erro ao atribuir motoboy');
@@ -290,6 +292,8 @@ export default function Expedition() {
     try {
       await updateMotoboyTracking.mutateAsync({ saleId, status });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
+      queryClient.invalidateQueries({ queryKey: ['motoboy-tracking-history', saleId] });
       toast.success(`Status atualizado: ${getStatusLabel(status)}`);
     } catch (error) {
       toast.error('Erro ao atualizar status');
@@ -302,7 +306,10 @@ export default function Expedition() {
     setIsUpdating(saleId);
     try {
       await updateCarrierTracking.mutateAsync({ saleId, status });
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
+      queryClient.invalidateQueries({ queryKey: ['carrier-tracking-history', saleId] });
       toast.success(`Status atualizado: ${carrierTrackingLabels[status]}`);
     } catch (error) {
       toast.error('Erro ao atualizar status');
@@ -318,7 +325,11 @@ export default function Expedition() {
         .from('sales')
         .update({ status: newStatus })
         .eq('id', saleId);
+      // Invalidate all related queries so all pages stay in sync
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
       toast.success(newStatus === 'delivered' ? 'Marcado como entregue!' : 'Marcado como voltou');
     } catch (error) {
       toast.error('Erro ao atualizar status');
