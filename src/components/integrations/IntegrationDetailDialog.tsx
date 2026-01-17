@@ -437,12 +437,15 @@ export function IntegrationDetailDialog({
 
                   <div className="space-y-2">
                     <Label>Produto Associado</Label>
-                    <Select value={defaultProductId} onValueChange={setDefaultProductId}>
+                    <Select
+                      value={defaultProductId || '__none__'}
+                      onValueChange={(v) => setDefaultProductId(v === '__none__' ? '' : v)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Nenhum produto" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
                         {products?.filter(p => p.is_active).map(product => (
                           <SelectItem key={product.id} value={product.id}>
                             {product.name}
@@ -457,12 +460,15 @@ export function IntegrationDetailDialog({
 
                   <div className="space-y-2">
                     <Label>Motivo de Não Compra</Label>
-                    <Select value={nonPurchaseReasonId} onValueChange={setNonPurchaseReasonId}>
+                    <Select
+                      value={nonPurchaseReasonId || '__none__'}
+                      onValueChange={(v) => setNonPurchaseReasonId(v === '__none__' ? '' : v)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Nenhum motivo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
                         {nonPurchaseReasons?.filter(r => r.is_active).map(reason => (
                           <SelectItem key={reason.id} value={reason.id}>
                             {reason.name}
