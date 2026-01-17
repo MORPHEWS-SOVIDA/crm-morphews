@@ -10,20 +10,23 @@ import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { UpcomingMeetings } from '@/components/dashboard/UpcomingMeetings';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { OnboardingGuide } from '@/components/dashboard/OnboardingGuide';
+import { SellerDashboard } from '@/components/dashboard/SellerDashboard';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
-import { Loader2, Filter, Kanban, Truck } from 'lucide-react';
+import { Loader2, Filter, Kanban, Truck, User } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
+type DashboardMode = 'manager' | 'seller';
+
 export default function Dashboard() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const { data: leads = [], isLoading, error } = useLeads();
   const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
@@ -31,6 +34,8 @@ export default function Dashboard() {
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'funnel' | 'kanban'>('funnel');
+  // Dashboard mode: sellers see their personalized dashboard by default
+  const [dashboardMode, setDashboardMode] = useState<DashboardMode>('seller');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
@@ -184,26 +189,42 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
             <p className="text-muted-foreground mt-1 text-sm lg:text-base">
-              Visão geral dos seus leads e vendas
+              {dashboardMode === 'seller' ? 'Seu painel de vendas' : 'Visão geral dos seus leads e vendas'}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* View Mode Tabs */}
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'funnel' | 'kanban')}>
+            {/* Dashboard Mode Toggle */}
+            <Tabs value={dashboardMode} onValueChange={(v) => setDashboardMode(v as DashboardMode)}>
               <TabsList className="h-9">
-                <TabsTrigger value="funnel" className="text-xs px-3">
-                  <Filter className="w-4 h-4 mr-1.5" />
-                  Funil
+                <TabsTrigger value="seller" className="text-xs px-3">
+                  <User className="w-4 h-4 mr-1.5" />
+                  Meu Painel
                 </TabsTrigger>
-                <TabsTrigger value="kanban" className="text-xs px-3">
+                <TabsTrigger value="manager" className="text-xs px-3">
                   <Kanban className="w-4 h-4 mr-1.5" />
-                  Kanban
+                  Gestão
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {/* Mobile Filters */}
-            {isMobile && (
+            {/* View Mode Tabs - only in manager mode */}
+            {dashboardMode === 'manager' && (
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'funnel' | 'kanban')}>
+                <TabsList className="h-9">
+                  <TabsTrigger value="funnel" className="text-xs px-3">
+                    <Filter className="w-4 h-4 mr-1.5" />
+                    Funil
+                  </TabsTrigger>
+                  <TabsTrigger value="kanban" className="text-xs px-3">
+                    <Kanban className="w-4 h-4 mr-1.5" />
+                    Kanban
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+
+            {/* Mobile Filters - only in manager mode */}
+            {dashboardMode === 'manager' && isMobile && (
               <MobileFilters
                 selectedStars={selectedStars}
                 selectedStage={selectedStage}
@@ -214,7 +235,7 @@ export default function Dashboard() {
                 responsaveis={responsaveis}
               />
             )}
-            {hasFilters && (
+            {dashboardMode === 'manager' && hasFilters && (
               <button
                 onClick={() => {
                   setSelectedStars(null);
@@ -229,14 +250,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Onboarding Guide - Shows for new users */}
-        <OnboardingGuide leadsCount={leads.length} hasStageUpdates={hasStageUpdates} />
+        {/* Seller Dashboard Mode */}
+        {dashboardMode === 'seller' ? (
+          <SellerDashboard />
+        ) : (
+          <>
+            {/* Onboarding Guide - Shows for new users */}
+            <OnboardingGuide leadsCount={leads.length} hasStageUpdates={hasStageUpdates} />
 
-        {/* Stats */}
-        <StatsCards leads={leads} />
+            {/* Stats */}
+            <StatsCards leads={leads} />
 
-        {/* View Mode Content */}
-        {viewMode === 'kanban' ? (
+            {/* View Mode Content */}
+            {viewMode === 'kanban' ? (
           /* Kanban View */
           <div className="bg-card rounded-xl p-4 shadow-card">
             <div className="flex items-center justify-between mb-4">
