@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
+import { SmartLayout } from '@/components/layout/SmartLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1054,14 +1054,14 @@ export default function MyDeliveries() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <SmartLayout>
         <div className="space-y-4 p-4">
           <Skeleton className="h-12 w-48" />
           {[1, 2, 3].map(i => (
             <Skeleton key={i} className="h-48 rounded-xl" />
           ))}
         </div>
-      </Layout>
+      </SmartLayout>
     );
   }
 
@@ -1070,7 +1070,7 @@ export default function MyDeliveries() {
   const completedCount = allDeliveries.filter(d => d.status !== 'dispatched').length;
 
   return (
-    <Layout>
+    <SmartLayout>
       <div className="space-y-4 pb-24 lg:pb-8">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-4 px-1 -mx-1 border-b">
@@ -1159,6 +1159,6 @@ export default function MyDeliveries() {
         sale={selectedSale}
         onConfirm={handleMarkNotDelivered}
       />
-    </Layout>
+    </SmartLayout>
   );
 }

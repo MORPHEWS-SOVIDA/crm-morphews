@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Layout } from '@/components/layout/Layout';
+import { SmartLayout } from '@/components/layout/SmartLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -500,7 +500,7 @@ export default function Expedition() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <SmartLayout>
         <div className="container max-w-7xl py-6 space-y-4">
           <Skeleton className="h-10 w-64" />
           <div className="grid grid-cols-4 gap-2">
@@ -508,12 +508,12 @@ export default function Expedition() {
           </div>
           <Skeleton className="h-96" />
         </div>
-      </Layout>
+      </SmartLayout>
     );
   }
 
   return (
-    <Layout>
+    <SmartLayout>
       <div className="container max-w-7xl py-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1028,6 +1028,6 @@ export default function Expedition() {
           </div>
         )}
       </div>
-    </Layout>
+    </SmartLayout>
   );
 }
