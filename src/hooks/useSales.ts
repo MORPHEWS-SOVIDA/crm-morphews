@@ -192,6 +192,8 @@ export interface UpdateSaleData {
   shipping_carrier_id?: string | null;
   shipping_cost_cents?: number;
   tracking_code?: string | null;
+  // Motoboy tracking
+  motoboy_tracking_status?: string | null;
 }
 
 // Helper functions
