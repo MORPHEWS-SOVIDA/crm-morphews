@@ -679,7 +679,8 @@ export default function Expedition() {
                             saleId={sale.id}
                             organizationId={organizationId}
                             stage={sale.status === 'returned' ? 'return' : sale.status === 'dispatched' ? 'dispatch' : 'separation'}
-                            showHistory={sale.status === 'dispatched' || sale.status === 'returned'}
+                            showHistory={true}
+                            allowAdditionalConference={true}
                           />
                         )}
 
