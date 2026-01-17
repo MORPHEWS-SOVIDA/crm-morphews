@@ -263,93 +263,95 @@ export default function Dashboard() {
 
             {/* View Mode Content */}
             {viewMode === 'kanban' ? (
-          /* Kanban View */
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">Kanban</h3>
-              {!isMobile && (
-                <div className="flex items-center gap-4">
-                  <StarsFilter
-                    leads={leads}
-                    selectedStars={selectedStars}
-                    onSelectStars={setSelectedStars}
-                    compact
-                  />
-                  <ResponsavelFilter
-                    selectedResponsavel={selectedResponsavel}
-                    onSelectResponsavel={setSelectedResponsavel}
-                    compact
-                  />
+              /* Kanban View */
+              <div className="bg-card rounded-xl p-4 shadow-card">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">Kanban</h3>
+                  {!isMobile && (
+                    <div className="flex items-center gap-4">
+                      <StarsFilter
+                        leads={leads}
+                        selectedStars={selectedStars}
+                        onSelectStars={setSelectedStars}
+                        compact
+                      />
+                      <ResponsavelFilter
+                        selectedResponsavel={selectedResponsavel}
+                        onSelectResponsavel={setSelectedResponsavel}
+                        compact
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <KanbanBoard
-              leads={leads}
-              stages={stages}
-              selectedStars={selectedStars}
-              selectedResponsavel={selectedResponsavel}
-            />
-          </div>
-        ) : (
-          /* Funnel View */
-          <>
-            {/* Main Grid - Desktop */}
-            <div className="hidden lg:grid grid-cols-12 gap-6">
-              {/* Funnel */}
-              <div className="col-span-5">
-                <FunnelVisualization
+                <KanbanBoard
                   leads={leads}
                   stages={stages}
-                  selectedStage={selectedStage}
-                  onSelectStage={setSelectedStage}
-                  onSwitchToKanban={() => setViewMode('kanban')}
-                />
-              </div>
-
-              {/* Stars Filter */}
-              <div className="col-span-4">
-                <StarsFilter
-                  leads={leads}
                   selectedStars={selectedStars}
-                  onSelectStars={setSelectedStars}
+                  selectedResponsavel={selectedResponsavel}
                 />
               </div>
-
-              {/* Upcoming Meetings */}
-              <div className="col-span-3">
-                <UpcomingMeetings leads={leads} />
-              </div>
-            </div>
-
-            {/* Mobile Funnel & Meetings */}
-            {isMobile && (
-              <div className="space-y-4">
-                <FunnelVisualization
-                  leads={leads}
-                  stages={stages}
-                  selectedStage={selectedStage}
-                  onSelectStage={setSelectedStage}
-                  onSwitchToKanban={() => setViewMode('kanban')}
-                />
-                <UpcomingMeetings leads={leads} />
-              </div>
-            )}
-
-            {/* Leads Table / List */}
-            {isMobile ? (
-              <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
             ) : (
-              <LeadsTable 
-                leads={filteredLeads} 
-                title={getTableTitle()}
-                headerRight={
-                  <ResponsavelFilter
-                    selectedResponsavel={selectedResponsavel}
-                    onSelectResponsavel={setSelectedResponsavel}
-                    compact
+              /* Funnel View */
+              <>
+                {/* Main Grid - Desktop */}
+                <div className="hidden lg:grid grid-cols-12 gap-6">
+                  {/* Funnel */}
+                  <div className="col-span-5">
+                    <FunnelVisualization
+                      leads={leads}
+                      stages={stages}
+                      selectedStage={selectedStage}
+                      onSelectStage={setSelectedStage}
+                      onSwitchToKanban={() => setViewMode('kanban')}
+                    />
+                  </div>
+
+                  {/* Stars Filter */}
+                  <div className="col-span-4">
+                    <StarsFilter
+                      leads={leads}
+                      selectedStars={selectedStars}
+                      onSelectStars={setSelectedStars}
+                    />
+                  </div>
+
+                  {/* Upcoming Meetings */}
+                  <div className="col-span-3">
+                    <UpcomingMeetings leads={leads} />
+                  </div>
+                </div>
+
+                {/* Mobile Funnel & Meetings */}
+                {isMobile && (
+                  <div className="space-y-4">
+                    <FunnelVisualization
+                      leads={leads}
+                      stages={stages}
+                      selectedStage={selectedStage}
+                      onSelectStage={setSelectedStage}
+                      onSwitchToKanban={() => setViewMode('kanban')}
+                    />
+                    <UpcomingMeetings leads={leads} />
+                  </div>
+                )}
+
+                {/* Leads Table / List */}
+                {isMobile ? (
+                  <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
+                ) : (
+                  <LeadsTable 
+                    leads={filteredLeads} 
+                    title={getTableTitle()}
+                    headerRight={
+                      <ResponsavelFilter
+                        selectedResponsavel={selectedResponsavel}
+                        onSelectResponsavel={setSelectedResponsavel}
+                        compact
+                      />
+                    }
                   />
-                }
-              />
+                )}
+              </>
             )}
           </>
         )}
