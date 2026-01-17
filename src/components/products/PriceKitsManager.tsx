@@ -43,6 +43,7 @@ const generateKitId = () => `kit-${Date.now()}-${++kitIdCounter}`;
 const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPriceKitFormData & { _tempId: string } => ({
   _tempId: generateKitId(),
   quantity,
+  sku: null,
   regular_price_cents: 0,
   regular_use_default_commission: true,
   regular_custom_commission: null,
@@ -117,9 +118,16 @@ function SortableKitItem({
         
         <AccordionTrigger className="flex-1 px-2 hover:no-underline">
           <div className="flex items-center justify-between w-full pr-2">
-            <span className="font-medium">
-              Kit {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">
+                Kit {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
+              </span>
+              {kit.sku && (
+                <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
+                  {kit.sku}
+                </span>
+              )}
+            </div>
             <span className="text-sm text-muted-foreground">
               {formatPriceWithUnit(kit.regular_price_cents, kit.quantity)}
             </span>
@@ -128,16 +136,31 @@ function SortableKitItem({
       </div>
       <AccordionContent className="px-4 pb-4">
         <div className="space-y-6">
-          {/* Quantity */}
-          <div>
-            <Label>Quantidade de Unidades</Label>
-            <Input
-              type="number"
-              min="1"
-              value={kit.quantity}
-              onChange={(e) => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
-              className="mt-1 w-32"
-            />
+          {/* Quantity and SKU */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Quantidade de Unidades</Label>
+              <Input
+                type="number"
+                min="1"
+                value={kit.quantity}
+                onChange={(e) => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
+                className="mt-1 w-32"
+              />
+            </div>
+            <div>
+              <Label>SKU do Kit (Integração)</Label>
+              <Input
+                type="text"
+                value={kit.sku || ''}
+                onChange={(e) => onUpdate({ sku: e.target.value || null })}
+                placeholder="Ex: LIFE-5UN"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Usado para match automático em vendas online
+              </p>
+            </div>
           </div>
 
           <Separator />

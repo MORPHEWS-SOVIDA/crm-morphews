@@ -3956,6 +3956,7 @@ export type Database = {
           regular_custom_commission: number | null
           regular_price_cents: number
           regular_use_default_commission: boolean
+          sku: string | null
           updated_at: string
           usage_period_days: number | null
         }
@@ -3982,6 +3983,7 @@ export type Database = {
           regular_custom_commission?: number | null
           regular_price_cents?: number
           regular_use_default_commission?: boolean
+          sku?: string | null
           updated_at?: string
           usage_period_days?: number | null
         }
@@ -4008,6 +4010,7 @@ export type Database = {
           regular_custom_commission?: number | null
           regular_price_cents?: number
           regular_use_default_commission?: boolean
+          sku?: string | null
           updated_at?: string
           usage_period_days?: number | null
         }

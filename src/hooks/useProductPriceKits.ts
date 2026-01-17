@@ -8,6 +8,7 @@ export interface ProductPriceKit {
   product_id: string;
   organization_id: string;
   quantity: number;
+  sku: string | null;
   
   regular_price_cents: number;
   regular_use_default_commission: boolean;
@@ -41,6 +42,7 @@ export interface ProductPriceKit {
 
 export interface ProductPriceKitFormData {
   quantity: number;
+  sku?: string | null;
   
   regular_price_cents: number;
   regular_use_default_commission: boolean;
@@ -105,6 +107,7 @@ export function useCreateProductPriceKit() {
           product_id: productId,
           organization_id: profile.organization_id,
           quantity: data.quantity,
+          sku: data.sku || null,
           regular_price_cents: data.regular_price_cents,
           regular_use_default_commission: data.regular_use_default_commission,
           regular_custom_commission: data.regular_use_default_commission ? null : data.regular_custom_commission,
@@ -153,6 +156,7 @@ export function useUpdateProductPriceKit() {
       const updateData: Record<string, any> = {};
       
       if (data.quantity !== undefined) updateData.quantity = data.quantity;
+      if (data.sku !== undefined) updateData.sku = data.sku || null;
       if (data.regular_price_cents !== undefined) updateData.regular_price_cents = data.regular_price_cents;
       if (data.regular_use_default_commission !== undefined) {
         updateData.regular_use_default_commission = data.regular_use_default_commission;
@@ -240,6 +244,7 @@ export function useBulkSaveProductPriceKits() {
           product_id: productId,
           organization_id: profile.organization_id,
           quantity: kit.quantity,
+          sku: kit.sku || null,
           regular_price_cents: kit.regular_price_cents,
           regular_use_default_commission: kit.regular_use_default_commission,
           regular_custom_commission: kit.regular_use_default_commission ? null : kit.regular_custom_commission,
