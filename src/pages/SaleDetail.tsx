@@ -1119,11 +1119,12 @@ export default function SaleDetail() {
 
           {/* Right Column - Actions & Status */}
           <div className="space-y-6">
-            {/* NEW: Sale Checkpoints Card - Independent Tasks */}
+            {/* NEW: Sale Checkpoints Card - Independent Tasks with integrated actions */}
             <SaleCheckpointsCard 
               saleId={sale.id} 
               saleStatus={sale.status}
-              isCancelled={sale.status === 'cancelled'} 
+              isCancelled={sale.status === 'cancelled'}
+              deliveryRegionId={sale.delivery_region_id}
             />
 
             {/* Carrier Tracking Card - only for carrier delivery */}
@@ -1282,61 +1283,7 @@ export default function SaleDetail() {
               </CardContent>
             </Card>
 
-            {/* Expedition Actions */}
-            {(sale.status === 'draft' || sale.status === 'pending_expedition') && (canValidateExpedition || canDispatch) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="w-5 h-5" />
-                    Expedição
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {sale.status === 'draft' && canValidateExpedition && (
-                    <Button 
-                      className="w-full" 
-                      onClick={() => setShowExpeditionDialog(true)}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Validar Expedição
-                    </Button>
-                  )}
-
-                  {sale.status === 'pending_expedition' && canDispatch && (
-                    <>
-                      <div>
-                        <Label>Selecionar Entregador</Label>
-                      <Select 
-                        value={selectedDeliveryUser || "none"} 
-                        onValueChange={(v) => setSelectedDeliveryUser(v === "none" ? "" : v)}
-                      >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Selecione o entregador..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sem entregador definido</SelectItem>
-                            {deliveryUsers.map(member => (
-                              <SelectItem key={member.user_id} value={member.user_id}>
-                                {member.profile?.first_name} {member.profile?.last_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button 
-                        className="w-full" 
-                        onClick={handleDispatch}
-                        disabled={updateSale.isPending}
-                      >
-                        <Send className="w-4 h-4 mr-2" />
-                        Despachar
-                      </Button>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
+            {/* Expedition Actions Card removed - now integrated into SaleCheckpointsCard */}
             {/* Tracking Code Card removed - now included in CarrierTrackingCard above */}
             {/* DeliveryActionsCard removed - now integrated into SaleCheckpointsCard */}
 

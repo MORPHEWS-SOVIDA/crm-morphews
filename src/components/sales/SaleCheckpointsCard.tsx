@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, Clock, User, ChevronDown, ChevronUp, History, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Clock, User, ChevronDown, ChevronUp, History, RotateCcw, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -21,6 +21,7 @@ import {
   useSaleCheckpointHistory,
   checkpointLabels,
   checkpointOrder,
+  checkpointEmojis,
   getCheckpointStatus,
   type CheckpointType,
 } from '@/hooks/useSaleCheckpoints';
@@ -44,6 +45,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useUpdateSale } from '@/hooks/useSales';
+import { useTenantMembers } from '@/hooks/multi-tenant';
+import { useDeliveryRegions, type DeliveryRegion } from '@/hooks/useDeliveryConfig';
 
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
@@ -66,12 +69,15 @@ interface SaleCheckpointsCardProps {
   saleId: string;
   saleStatus?: string;
   isCancelled?: boolean;
+  deliveryRegionId?: string | null;
 }
 
-export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleCheckpointsCardProps) {
+export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryRegionId }: SaleCheckpointsCardProps) {
   const { data: checkpoints = [], isLoading } = useSaleCheckpoints(saleId);
   const { data: history = [] } = useSaleCheckpointHistory(saleId);
   const { data: returnReasons = [] } = useDeliveryReturnReasons();
+  const { data: regions = [] } = useDeliveryRegions();
+  const { data: members = [] } = useTenantMembers();
   const toggleMutation = useToggleSaleCheckpoint();
   const updateSale = useUpdateSale();
   const { data: permissions } = useMyPermissions();
@@ -82,6 +88,16 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [selectedReturnReason, setSelectedReturnReason] = useState<string>('');
   const [returnNotes, setReturnNotes] = useState('');
+  const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
+  const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
+
+  // Filter delivery users based on region
+  const deliveryUsers = members.filter(member => {
+    if (!deliveryRegionId) return true;
+    const region = (regions as DeliveryRegion[]).find(r => r.id === deliveryRegionId);
+    if (!region) return true;
+    return region.assigned_users?.some((dru) => dru.user_id === member.user_id);
+  });
 
   const handleToggle = async (type: CheckpointType, isCompleted: boolean) => {
     if (isCancelled) {
@@ -161,6 +177,42 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
     toast.success('Venda marcada como retornada');
   };
 
+  const handleValidateExpedition = async () => {
+    try {
+      await toggleMutation.mutateAsync({
+        saleId,
+        checkpointType: 'pending_expedition',
+        complete: true,
+      });
+      setShowExpeditionDialog(false);
+      toast.success('Expedição validada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao validar expedição');
+    }
+  };
+
+  const handleDispatch = async () => {
+    try {
+      await toggleMutation.mutateAsync({
+        saleId,
+        checkpointType: 'dispatched',
+        complete: true,
+      });
+      
+      // Also update assigned delivery user if selected
+      if (selectedDeliveryUser) {
+        await supabase
+          .from('sales')
+          .update({ assigned_delivery_user_id: selectedDeliveryUser })
+          .eq('id', saleId);
+      }
+      
+      toast.success('Pedido despachado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao despachar');
+    }
+  };
+
   const canEditCheckpoint = (type: CheckpointType) => {
     if (isCancelled) return false;
     if (type === 'printed') return permissions?.sales_mark_printed;
@@ -172,10 +224,67 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
   };
 
   // Check if "Entregue" is checked to show Voltou button
+  const dispatchedStatus = getCheckpointStatus(checkpoints, 'dispatched');
   const deliveredStatus = getCheckpointStatus(checkpoints, 'delivered');
-  const showReturnButton = !deliveredStatus.isCompleted && 
-    saleStatus === 'dispatched' && 
+  const showReturnButton = dispatchedStatus.isCompleted && 
+    !deliveredStatus.isCompleted && 
+    saleStatus !== 'returned' &&
     permissions?.sales_mark_delivered;
+
+  // Determine what action button to show for each checkpoint
+  const getActionButton = (type: CheckpointType) => {
+    const status = getCheckpointStatus(checkpoints, type);
+    
+    // Pending expedition needs confirmation dialog
+    if (type === 'pending_expedition' && !status.isCompleted && saleStatus === 'draft' && permissions?.sales_validate_expedition) {
+      return (
+        <Button
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => setShowExpeditionDialog(true)}
+          disabled={toggleMutation.isPending}
+        >
+          <CheckCircle2 className="w-4 h-4 mr-2" />
+          Validar Expedição
+        </Button>
+      );
+    }
+
+    // Dispatched needs delivery user selection
+    if (type === 'dispatched' && !status.isCompleted && saleStatus === 'pending_expedition' && permissions?.sales_dispatch) {
+      return (
+        <div className="mt-2 space-y-2">
+          <Select 
+            value={selectedDeliveryUser || "none"} 
+            onValueChange={(v) => setSelectedDeliveryUser(v === "none" ? "" : v)}
+          >
+            <SelectTrigger className="text-xs h-8">
+              <SelectValue placeholder="Selecionar entregador..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem entregador definido</SelectItem>
+              {deliveryUsers.map(member => (
+                <SelectItem key={member.user_id} value={member.user_id}>
+                  {member.profile?.first_name} {member.profile?.last_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={handleDispatch}
+            disabled={toggleMutation.isPending}
+          >
+            <Send className="w-4 h-4 mr-2" />
+            Despachar
+          </Button>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   if (isLoading) {
     return (
@@ -194,6 +303,8 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
     );
   }
 
+  const isReturned = saleStatus === 'returned';
+
   return (
     <>
       <Card>
@@ -204,129 +315,192 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {checkpointOrder.map(type => {
+          {/* Rascunho - Always shown as first step */}
+          <div
+            className={`p-3 rounded-lg border transition-colors ${
+              saleStatus === 'draft'
+                ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
+                : 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{checkpointEmojis.draft}</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`font-medium ${
+                      saleStatus !== 'draft' ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'
+                    }`}
+                  >
+                    Rascunho
+                  </span>
+                  {saleStatus === 'draft' ? (
+                    <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                      Atual
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">
+                      ✓
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {checkpointOrder.map((type, index) => {
             const status = getCheckpointStatus(checkpoints, type);
             const canEdit = canEditCheckpoint(type);
+            const actionButton = getActionButton(type);
+            
+            // Insert "Voltou" after "dispatched" if sale is returned
+            const showReturnedAfterThis = type === 'dispatched' && isReturned;
 
             return (
-              <div
-                key={type}
-                className={`p-3 rounded-lg border transition-colors ${
-                  status.isCompleted
-                    ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
-                    : 'bg-muted/30 border-border'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={status.isCompleted}
-                    disabled={!canEdit || toggleMutation.isPending}
-                    onCheckedChange={() => handleToggle(type, status.isCompleted)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`font-medium ${
-                          status.isCompleted ? 'text-green-700 dark:text-green-400' : 'text-foreground'
-                        }`}
-                      >
-                        {checkpointLabels[type]}
-                      </span>
-                      {status.isCompleted && (
-                        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-                          Concluído
-                        </Badge>
-                      )}
-                    </div>
-
-                    {status.isCompleted && status.completedAt && (
-                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {format(new Date(status.completedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              <div key={type}>
+                <div
+                  className={`p-3 rounded-lg border transition-colors ${
+                    status.isCompleted
+                      ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+                      : 'bg-muted/30 border-border'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl mt-0.5">{checkpointEmojis[type]}</span>
+                    {!actionButton && (
+                      <Checkbox
+                        checked={status.isCompleted}
+                        disabled={!canEdit || toggleMutation.isPending}
+                        onCheckedChange={() => handleToggle(type, status.isCompleted)}
+                        className="mt-1"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`font-medium ${
+                            status.isCompleted ? 'text-green-700 dark:text-green-400' : 'text-foreground'
+                          }`}
+                        >
+                          {checkpointLabels[type]}
                         </span>
-                        {status.completedBy && (
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {status.completedBy}
-                          </span>
+                        {status.isCompleted && (
+                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">
+                            ✓
+                          </Badge>
                         )}
                       </div>
-                    )}
 
-                    {status.notes && (
-                      <Collapsible
-                        open={expandedNotes[type]}
-                        onOpenChange={(open) => setExpandedNotes(prev => ({ ...prev, [type]: open }))}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 px-2 mt-1 text-xs">
-                            {expandedNotes[type] ? (
-                              <>
-                                <ChevronUp className="w-3 h-3 mr-1" /> Ocultar nota
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-3 h-3 mr-1" /> Ver nota
-                              </>
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <p className="text-sm text-muted-foreground mt-1 p-2 bg-muted/50 rounded">
-                            {status.notes}
-                          </p>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
+                      {status.isCompleted && status.completedAt && (
+                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {format(new Date(status.completedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                          {status.completedBy && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {status.completedBy}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                    {!status.isCompleted && canEdit && (
-                      <>
-                        {showNoteInput[type] ? (
-                          <div className="mt-2 space-y-2">
-                            <Textarea
-                              placeholder="Observação (opcional)"
-                              value={noteInputs[type] || ''}
-                              onChange={e => setNoteInputs(prev => ({ ...prev, [type]: e.target.value }))}
-                              className="h-16 text-sm"
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleToggle(type, false)}
-                                disabled={toggleMutation.isPending}
-                              >
-                                Confirmar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setShowNoteInput(prev => ({ ...prev, [type]: false }))}
-                              >
-                                Cancelar
-                              </Button>
+                      {status.notes && (
+                        <Collapsible
+                          open={expandedNotes[type]}
+                          onOpenChange={(open) => setExpandedNotes(prev => ({ ...prev, [type]: open }))}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 px-2 mt-1 text-xs">
+                              {expandedNotes[type] ? (
+                                <>
+                                  <ChevronUp className="w-3 h-3 mr-1" /> Ocultar nota
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3 h-3 mr-1" /> Ver nota
+                                </>
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <p className="text-sm text-muted-foreground mt-1 p-2 bg-muted/50 rounded">
+                              {status.notes}
+                            </p>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
+
+                      {/* Action button integrated directly in the step */}
+                      {actionButton}
+
+                      {!status.isCompleted && canEdit && !actionButton && (
+                        <>
+                          {showNoteInput[type] ? (
+                            <div className="mt-2 space-y-2">
+                              <Textarea
+                                placeholder="Observação (opcional)"
+                                value={noteInputs[type] || ''}
+                                onChange={e => setNoteInputs(prev => ({ ...prev, [type]: e.target.value }))}
+                                className="h-16 text-sm"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleToggle(type, false)}
+                                  disabled={toggleMutation.isPending}
+                                >
+                                  Confirmar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setShowNoteInput(prev => ({ ...prev, [type]: false }))}
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-1 h-7 text-xs"
-                            onClick={() => setShowNoteInput(prev => ({ ...prev, [type]: true }))}
-                          >
-                            Adicionar observação
-                          </Button>
-                        )}
-                      </>
-                    )}
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="mt-1 h-7 text-xs"
+                              onClick={() => setShowNoteInput(prev => ({ ...prev, [type]: true }))}
+                            >
+                              Adicionar observação
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Show "Voltou" step after dispatched if sale is returned */}
+                {showReturnedAfterThis && (
+                  <div className="p-3 rounded-lg border transition-colors bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 mt-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{checkpointEmojis.returned}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-amber-700 dark:text-amber-400">
+                            Voltou / Não Entregue
+                          </span>
+                          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                            Retornou
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
 
-          {/* Voltou / Não Entregue Button */}
+          {/* Voltou / Não Entregue Button - show after dispatched but before delivered */}
           {showReturnButton && (
             <Button 
               variant="outline"
@@ -335,7 +509,7 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
               disabled={updateSale.isPending}
             >
               <RotateCcw className="w-4 h-4 mr-2" />
-              Voltou / Não Entregue
+              {checkpointEmojis.returned} Voltou / Não Entregue
             </Button>
           )}
 
@@ -379,7 +553,7 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
                           {entry.action === 'completed' ? 'Marcado' : 'Desmarcado'}
                         </Badge>
                         <span className="font-medium text-xs">
-                          {checkpointLabels[entry.checkpoint_type]}
+                          {checkpointEmojis[entry.checkpoint_type]} {checkpointLabels[entry.checkpoint_type]}
                         </span>
                       </div>
                       {entry.notes && (
@@ -396,11 +570,29 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled }: SaleChe
         </CardContent>
       </Card>
 
+      {/* Expedition Validation Dialog */}
+      <AlertDialog open={showExpeditionDialog} onOpenChange={setShowExpeditionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{checkpointEmojis.pending_expedition} Validar Expedição</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirma que os produtos foram conferidos e estão prontos para despacho?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleValidateExpedition}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Return Dialog */}
       <AlertDialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Marcar como Não Entregue</AlertDialogTitle>
+            <AlertDialogTitle>{checkpointEmojis.returned} Marcar como Não Entregue</AlertDialogTitle>
             <AlertDialogDescription>
               Selecione o motivo pelo qual a entrega não foi concluída.
             </AlertDialogDescription>
