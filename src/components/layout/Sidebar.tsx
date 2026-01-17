@@ -25,6 +25,7 @@ import {
   Scale,
   Bot,
   ListTodo,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -90,6 +91,9 @@ export function Sidebar() {
   const navItems = [
     // Dashboard - everyone can see (but content will be filtered by permissions)
     { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: hasFeature('dashboard') },
+    
+    // Seller Panel - personal seller dashboard
+    { icon: User, label: 'Meu Painel', path: '/meu-painel', visible: canSeeSales && hasFeature('sales') },
     
     // Receptivo (special module) - requires receptive feature in plan
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
