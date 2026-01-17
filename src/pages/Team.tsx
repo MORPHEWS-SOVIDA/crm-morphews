@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
+import { UserUXPreferences } from "@/components/team/UserUXPreferences";
 import { useApplyRoleDefaults, useMyPermissions } from "@/hooks/useUserPermissions";
 import { AvatarUpload } from "@/components/team/AvatarUpload";
 import { useTeams } from "@/hooks/useTeams";
@@ -138,6 +139,11 @@ export default function Team() {
     isSalesManager: false,
     earnsTeamCommission: false,
     teamCommissionPercentage: 0,
+  });
+  // UX Preferences state
+  const [editUXPreferences, setEditUXPreferences] = useState({
+    defaultLandingPage: '/dashboard',
+    hideSidebar: false,
   });
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
@@ -455,6 +461,19 @@ export default function Team() {
       teamCommissionPercentage: member.team_commission_percentage || 0,
     });
     
+    // Fetch UX preferences from user_permissions
+    const { data: userPerms } = await supabase
+      .from("user_permissions")
+      .select("default_landing_page, hide_sidebar")
+      .eq("user_id", member.user_id)
+      .eq("organization_id", profile?.organization_id)
+      .single();
+    
+    setEditUXPreferences({
+      defaultLandingPage: userPerms?.default_landing_page || '/dashboard',
+      hideSidebar: userPerms?.hide_sidebar || false,
+    });
+    
     // Fetch team members if is sales manager
     if (member.is_sales_manager) {
       const { data: teamData } = await supabase
@@ -560,6 +579,18 @@ export default function Team() {
       if (profileError) throw profileError;
       
       console.log("Profile update result:", { profileCount, userId: editingMember.user_id });
+
+      // Update UX preferences in user_permissions
+      const { error: uxError } = await supabase
+        .from("user_permissions")
+        .update({
+          default_landing_page: editUXPreferences.defaultLandingPage,
+          hide_sidebar: editUXPreferences.hideSidebar,
+        })
+        .eq("user_id", editingMember.user_id)
+        .eq("organization_id", profile.organization_id);
+      
+      if (uxError) console.error("UX preferences update error:", uxError);
 
       // Handle sales manager team members
       if (editMemberData.isSalesManager && editMemberData.earnsTeamCommission) {
@@ -1844,7 +1875,15 @@ export default function Team() {
                             <Eye className="w-4 h-4 text-green-500" />
                           ) : (
                             <EyeOff className="w-4 h-4 text-amber-500" />
-                          )}
+                )}
+
+                {/* UX Preferences */}
+                <UserUXPreferences
+                  defaultLandingPage={editUXPreferences.defaultLandingPage}
+                  hideSidebar={editUXPreferences.hideSidebar}
+                  onLandingPageChange={(value) => setEditUXPreferences({ ...editUXPreferences, defaultLandingPage: value })}
+                  onHideSidebarChange={(value) => setEditUXPreferences({ ...editUXPreferences, hideSidebar: value })}
+                />
                           {editCanSeeAllLeads ? "Ver todos os leads" : "Apenas seus leads"}
                         </div>
                         <p className="text-xs text-muted-foreground">

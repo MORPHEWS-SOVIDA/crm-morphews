@@ -1,9 +1,7 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useMyPermissions, UserPermissions } from '@/hooks/useUserPermissions';
+import { useMyPermissions, PermissionKey } from '@/hooks/useUserPermissions';
 import { Loader2 } from 'lucide-react';
-
-type PermissionKey = keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>;
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -32,6 +30,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
+  const location = useLocation();
 
   // Show loading while auth or permissions are loading
   if (authLoading || (user && permissionsLoading)) {
@@ -45,6 +44,12 @@ export function ProtectedRoute({
   // Redirect to login if not authenticated
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Handle initial redirect based on user's default_landing_page
+  // Only do this for the root path to avoid loops
+  if (location.pathname === '/' && permissions?.default_landing_page && permissions.default_landing_page !== '/dashboard') {
+    return <Navigate to={permissions.default_landing_page} replace />;
   }
 
   // Check admin requirement

@@ -9,6 +9,10 @@ export interface UserPermissions {
   organization_id: string;
   user_id: string;
   
+  // User experience preferences
+  default_landing_page: string | null;
+  hide_sidebar: boolean;
+  
   // Leads
   leads_view: boolean;
   leads_view_only_own: boolean;
@@ -98,7 +102,12 @@ export interface UserPermissions {
   updated_at: string;
 }
 
-export const PERMISSION_LABELS: Record<keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>, { label: string; description: string; group: string }> = {
+// Campos que não são permissões (são preferências de UX)
+type NonPermissionFields = 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at' | 'default_landing_page' | 'hide_sidebar';
+
+export type PermissionKey = keyof Omit<UserPermissions, NonPermissionFields>;
+
+export const PERMISSION_LABELS: Record<PermissionKey, { label: string; description: string; group: string }> = {
   leads_view: { label: 'Ver Leads', description: 'Visualizar leads da empresa', group: 'Leads' },
   leads_view_only_own: { label: 'Ver Somente Seus Leads', description: 'Limitar visibilidade apenas aos leads que é responsável', group: 'Leads' },
   leads_create: { label: 'Criar Leads', description: 'Criar novos leads', group: 'Leads' },
@@ -297,13 +306,13 @@ export function useUpdateUserPermissions() {
 }
 
 // Helper hook to check if current user has a specific permission
-export function useHasPermission(permission: keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>) {
+export function useHasPermission(permission: PermissionKey) {
   const { data: permissions } = useMyPermissions();
   return permissions?.[permission] ?? false;
 }
 
 // Helper to check multiple permissions at once
-export function useHasAnyPermission(permissionList: (keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>)[]) {
+export function useHasAnyPermission(permissionList: PermissionKey[]) {
   const { data: permissions } = useMyPermissions();
   if (!permissions) return false;
   return permissionList.some(p => permissions[p]);
