@@ -831,22 +831,54 @@ Deno.serve(async (req) => {
       let productId = typedIntegration.default_product_id;
       let productName = saleData.product_name || 'Produto via Integração';
       let productSku = saleData.product_sku || null;
+      let matchedKitId: string | null = null;
+      let matchedKitQuantity: number | null = null;
+      let matchedKitPriceCents: number | null = null;
       
       if (productSku) {
-        console.log('Attempting to match product by SKU:', productSku);
-        const { data: matchedProduct } = await supabase
-          .from('lead_products')
-          .select('id, name, sku')
+        console.log('Attempting to match by SKU:', productSku);
+        
+        // FIRST: Try to match by kit SKU (more specific)
+        const { data: matchedKit } = await supabase
+          .from('product_price_kits')
+          .select('id, product_id, quantity, promotional_price_cents, regular_price_cents, sku')
           .eq('organization_id', typedIntegration.organization_id)
           .eq('sku', productSku)
           .maybeSingle();
         
-        if (matchedProduct) {
-          console.log('Found product by SKU:', matchedProduct.name);
-          productId = matchedProduct.id;
-          productName = matchedProduct.name;
+        if (matchedKit) {
+          console.log('Found kit by SKU:', productSku, 'Product ID:', matchedKit.product_id, 'Qty:', matchedKit.quantity);
+          productId = matchedKit.product_id;
+          matchedKitId = matchedKit.id;
+          matchedKitQuantity = matchedKit.quantity;
+          matchedKitPriceCents = matchedKit.promotional_price_cents || matchedKit.regular_price_cents;
+          
+          // Get product name
+          const { data: kitProduct } = await supabase
+            .from('lead_products')
+            .select('name')
+            .eq('id', matchedKit.product_id)
+            .single();
+          
+          if (kitProduct) {
+            productName = kitProduct.name;
+          }
         } else {
-          console.log('No product found with SKU:', productSku);
+          // FALLBACK: Try to match by product SKU
+          const { data: matchedProduct } = await supabase
+            .from('lead_products')
+            .select('id, name, sku')
+            .eq('organization_id', typedIntegration.organization_id)
+            .eq('sku', productSku)
+            .maybeSingle();
+          
+          if (matchedProduct) {
+            console.log('Found product by SKU:', matchedProduct.name);
+            productId = matchedProduct.id;
+            productName = matchedProduct.name;
+          } else {
+            console.log('No product or kit found with SKU:', productSku);
+          }
         }
       }
       
@@ -865,10 +897,16 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Parse quantity
-      let quantity = 1;
-      if (saleData.quantity) {
+      // Parse quantity - use kit quantity if matched, otherwise from payload
+      let quantity = matchedKitQuantity || 1;
+      if (!matchedKitQuantity && saleData.quantity) {
         quantity = parseInt(String(saleData.quantity)) || 1;
+      }
+      
+      // If we matched a kit and it has a price, use that for total if not provided
+      if (matchedKitPriceCents && totalCents === 0) {
+        totalCents = matchedKitPriceCents;
+        console.log('Using kit price:', totalCents / 100);
       }
       
       // Get seller user (first responsible)
