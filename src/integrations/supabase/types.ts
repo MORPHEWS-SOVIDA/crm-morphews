@@ -1611,10 +1611,13 @@ export type Database = {
           default_responsible_user_ids: string[] | null
           default_stage: string | null
           description: string | null
+          event_mode: string | null
           id: string
           name: string
           non_purchase_reason_id: string | null
           organization_id: string
+          sale_status_on_create: string | null
+          sale_tag: string | null
           settings: Json | null
           status: string
           type: string
@@ -1629,10 +1632,13 @@ export type Database = {
           default_responsible_user_ids?: string[] | null
           default_stage?: string | null
           description?: string | null
+          event_mode?: string | null
           id?: string
           name: string
           non_purchase_reason_id?: string | null
           organization_id: string
+          sale_status_on_create?: string | null
+          sale_tag?: string | null
           settings?: Json | null
           status?: string
           type?: string
@@ -1647,10 +1653,13 @@ export type Database = {
           default_responsible_user_ids?: string[] | null
           default_stage?: string | null
           description?: string | null
+          event_mode?: string | null
           id?: string
           name?: string
           non_purchase_reason_id?: string | null
           organization_id?: string
+          sale_status_on_create?: string | null
+          sale_tag?: string | null
           settings?: Json | null
           status?: string
           type?: string
@@ -5094,6 +5103,9 @@ export type Database = {
           dispatched_at: string | null
           expedition_validated_at: string | null
           expedition_validated_by: string | null
+          external_order_id: string | null
+          external_order_url: string | null
+          external_source: string | null
           id: string
           invoice_pdf_url: string | null
           invoice_xml_url: string | null
@@ -5164,6 +5176,9 @@ export type Database = {
           dispatched_at?: string | null
           expedition_validated_at?: string | null
           expedition_validated_by?: string | null
+          external_order_id?: string | null
+          external_order_url?: string | null
+          external_source?: string | null
           id?: string
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
@@ -5234,6 +5249,9 @@ export type Database = {
           dispatched_at?: string | null
           expedition_validated_at?: string | null
           expedition_validated_by?: string | null
+          external_order_id?: string | null
+          external_order_url?: string | null
+          external_source?: string | null
           id?: string
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null

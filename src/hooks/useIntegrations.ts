@@ -20,6 +20,10 @@ export interface Integration {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  // New fields for sales support
+  event_mode: 'lead' | 'sale' | 'both';
+  sale_status_on_create: string | null;
+  sale_tag: string | null;
 }
 
 export interface IntegrationFieldMapping {
@@ -76,20 +80,29 @@ export const EVENT_TYPES = [
 ];
 
 export const TARGET_FIELDS = [
-  { value: 'name', label: 'Nome' },
-  { value: 'email', label: 'Email' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'cpf', label: 'CPF' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'specialty', label: 'Especialidade' },
-  { value: 'observations', label: 'Observações' },
-  { value: 'address_street', label: 'Rua' },
-  { value: 'address_number', label: 'Número' },
-  { value: 'address_complement', label: 'Complemento' },
-  { value: 'address_neighborhood', label: 'Bairro' },
-  { value: 'address_city', label: 'Cidade' },
-  { value: 'address_state', label: 'Estado' },
-  { value: 'address_cep', label: 'CEP' },
+  // Lead fields
+  { value: 'name', label: 'Nome', group: 'lead' },
+  { value: 'email', label: 'Email', group: 'lead' },
+  { value: 'whatsapp', label: 'WhatsApp', group: 'lead' },
+  { value: 'cpf', label: 'CPF', group: 'lead' },
+  { value: 'instagram', label: 'Instagram', group: 'lead' },
+  { value: 'specialty', label: 'Especialidade', group: 'lead' },
+  { value: 'observations', label: 'Observações', group: 'lead' },
+  // Address fields
+  { value: 'address_street', label: 'Rua', group: 'address' },
+  { value: 'address_number', label: 'Número', group: 'address' },
+  { value: 'address_complement', label: 'Complemento', group: 'address' },
+  { value: 'address_neighborhood', label: 'Bairro', group: 'address' },
+  { value: 'address_city', label: 'Cidade', group: 'address' },
+  { value: 'address_state', label: 'Estado', group: 'address' },
+  { value: 'address_cep', label: 'CEP', group: 'address' },
+  // Sale fields
+  { value: 'sale_product_name', label: 'Nome do Produto (Venda)', group: 'sale' },
+  { value: 'sale_product_sku', label: 'SKU do Produto (Venda)', group: 'sale' },
+  { value: 'sale_total_cents', label: 'Valor Total (centavos)', group: 'sale' },
+  { value: 'sale_payment_method', label: 'Forma de Pagamento', group: 'sale' },
+  { value: 'sale_external_id', label: 'ID Pedido Externo', group: 'sale' },
+  { value: 'sale_external_url', label: 'Link Pedido Externo', group: 'sale' },
 ];
 
 export const TRANSFORM_TYPES = [

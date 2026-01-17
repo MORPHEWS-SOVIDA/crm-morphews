@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,11 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Wand2,
+  ShoppingCart,
+  Eye,
+  ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -69,6 +73,12 @@ interface FieldMappingRow {
   transform_type: string;
 }
 
+interface DetectedField {
+  key: string;
+  value: any;
+  suggested_target: string | null;
+}
+
 export function IntegrationDetailDialog({ 
   integration, 
   open, 
@@ -98,7 +108,20 @@ export function IntegrationDetailDialog({
     integration.non_purchase_reason_id || ''
   );
   
+  // New fields for sales support
+  const [eventMode, setEventMode] = useState<'lead' | 'sale' | 'both'>(
+    integration.event_mode || 'lead'
+  );
+  const [saleStatusOnCreate, setSaleStatusOnCreate] = useState(
+    integration.sale_status_on_create || 'rascunho'
+  );
+  const [saleTag, setSaleTag] = useState(
+    integration.sale_tag || 'VENDA ONLINE'
+  );
+  
   const [mappings, setMappings] = useState<FieldMappingRow[]>([]);
+  const [showPayloadViewer, setShowPayloadViewer] = useState(false);
+  const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
 
   // Initialize mappings from data
   useEffect(() => {
@@ -111,6 +134,103 @@ export function IntegrationDetailDialog({
       })));
     }
   }, [fieldMappings]);
+
+  // Get last successful payload for auto-mapping
+  const lastPayload = useMemo(() => {
+    const successLog = logs?.find(l => 
+      l.status === 'success' || (l.status as string) === 'test' || (l.status as string) === 'ping'
+    );
+    return successLog?.request_payload;
+  }, [logs]);
+
+  // Auto-detect fields from last payload
+  const autoDetectFields = () => {
+    if (!lastPayload) {
+      toast.error('Nenhum payload recebido ainda. Envie um webhook primeiro.');
+      return;
+    }
+
+    const payload = typeof lastPayload === 'object' ? lastPayload : {};
+    const detected: DetectedField[] = [];
+    
+    // Known field aliases for auto-suggestion
+    const fieldAliases: Record<string, string[]> = {
+      name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name'],
+      email: ['email', 'e-mail', 'mail', 'customer_email'],
+      whatsapp: ['whatsapp', 'phone', 'telefone', 'celular', 'mobile', 'tel', 'fone'],
+      cpf: ['cpf', 'documento', 'document'],
+      address_street: ['street', 'rua', 'endereco', 'address', 'logradouro'],
+      address_number: ['number', 'numero', 'street_number'],
+      address_neighborhood: ['neighborhood', 'bairro'],
+      address_city: ['city', 'cidade'],
+      address_state: ['state', 'estado', 'uf'],
+      address_cep: ['cep', 'zipcode', 'zip', 'postal_code'],
+      sale_total_cents: ['total', 'valor', 'value', 'amount', 'price'],
+      sale_external_id: ['order_id', 'pedido_id', 'transaction_id', 'external_id'],
+    };
+
+    const flattenPayload = (obj: any, prefix = ''): void => {
+      for (const key of Object.keys(obj)) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const value = obj[key];
+        
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          flattenPayload(value, fullKey);
+        } else {
+          // Try to suggest a target field
+          let suggested: string | null = null;
+          const lowerKey = key.toLowerCase().replace(/[_\s-]/g, '');
+          
+          for (const [target, aliases] of Object.entries(fieldAliases)) {
+            if (aliases.some(a => a.replace(/[_\s-]/g, '') === lowerKey)) {
+              suggested = target;
+              break;
+            }
+          }
+          
+          detected.push({
+            key: fullKey,
+            value: value,
+            suggested_target: suggested,
+          });
+        }
+      }
+    };
+
+    // Handle body_raw if present (from wrapped payload)
+    const actualPayload = payload.body_raw ? JSON.parse(payload.body_raw) : payload;
+    flattenPayload(actualPayload);
+    
+    setDetectedFields(detected);
+    setShowPayloadViewer(true);
+  };
+
+  // Apply detected field as mapping
+  const applyDetectedField = (field: DetectedField, targetField: string) => {
+    const existingIndex = mappings.findIndex(m => m.target_field === targetField);
+    
+    if (existingIndex >= 0) {
+      // Update existing mapping
+      setMappings(mappings.map((m, i) => 
+        i === existingIndex 
+          ? { ...m, source_field: field.key }
+          : m
+      ));
+    } else {
+      // Add new mapping
+      setMappings([
+        ...mappings,
+        {
+          id: `new-${Date.now()}`,
+          source_field: field.key,
+          target_field: targetField,
+          transform_type: targetField === 'whatsapp' ? 'phone_normalize' : 'direct',
+        },
+      ]);
+    }
+    
+    toast.success(`Campo "${field.key}" mapeado para "${targetField}"`);
+  };
 
   const webhookUrl = getWebhookUrl(integration.auth_token);
 
@@ -136,7 +256,10 @@ export function IntegrationDetailDialog({
       default_responsible_user_ids: defaultResponsibles.length > 0 ? defaultResponsibles : null,
       auto_followup_days: autoFollowupDays ? parseInt(autoFollowupDays) : null,
       non_purchase_reason_id: nonPurchaseReasonId || null,
-    });
+      event_mode: eventMode,
+      sale_status_on_create: saleStatusOnCreate,
+      sale_tag: saleTag,
+    } as any);
     toast.success('Configurações salvas!');
   };
 
@@ -188,6 +311,9 @@ export function IntegrationDetailDialog({
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'error':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'test':
+      case 'ping':
+        return <Eye className="h-4 w-4 text-blue-500" />;
       default:
         return <Clock className="h-4 w-4 text-yellow-500" />;
     }
@@ -200,6 +326,24 @@ export function IntegrationDetailDialog({
         label: (s as any).display_name || (s as any).label || (s as any).name 
       }))
     : Object.entries(FUNNEL_STAGES).map(([key, val]) => ({ value: key, label: val.label }));
+
+  // Group target fields
+  const groupedTargetFields = useMemo(() => {
+    const groups: Record<string, typeof TARGET_FIELDS> = {
+      lead: [],
+      address: [],
+      sale: [],
+    };
+    
+    TARGET_FIELDS.forEach(field => {
+      const group = (field as any).group || 'lead';
+      if (groups[group]) {
+        groups[group].push(field);
+      }
+    });
+    
+    return groups;
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,7 +370,7 @@ export function IntegrationDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="config" className="gap-2">
               <Settings className="h-4 w-4" />
               Configuração
@@ -238,6 +382,10 @@ export function IntegrationDetailDialog({
             <TabsTrigger value="lead" className="gap-2">
               <Users className="h-4 w-4" />
               Lead
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Vendas
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2">
               <Activity className="h-4 w-4" />
@@ -268,6 +416,39 @@ export function IntegrationDetailDialog({
                   <p className="text-xs text-muted-foreground">
                     Configure esta URL no sistema externo (Payt, Hotmart, etc) para receber webhooks.
                   </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Modo de Evento</CardTitle>
+                  <CardDescription>
+                    Defina o que esta integração irá criar
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { value: 'lead', label: 'Apenas Leads', desc: 'Cria leads para acompanhamento' },
+                      { value: 'sale', label: 'Apenas Vendas', desc: 'Cria vendas diretamente' },
+                      { value: 'both', label: 'Lead + Venda', desc: 'Cria lead e venda associada' },
+                    ].map(mode => (
+                      <div
+                        key={mode.value}
+                        onClick={() => setEventMode(mode.value as any)}
+                        className={`
+                          p-3 rounded-lg border-2 cursor-pointer transition-all
+                          ${eventMode === mode.value 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-muted hover:border-muted-foreground/50'
+                          }
+                        `}
+                      >
+                        <div className="font-medium text-sm">{mode.label}</div>
+                        <div className="text-xs text-muted-foreground">{mode.desc}</div>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -311,13 +492,84 @@ export function IntegrationDetailDialog({
                         Configure como os campos do webhook são mapeados para os campos do lead
                       </CardDescription>
                     </div>
-                    <Button size="sm" onClick={handleAddMapping}>
-                      <Plus className="h-4 w-4 mr-1" />
-                      Adicionar
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={autoDetectFields}
+                        disabled={!lastPayload}
+                      >
+                        <Wand2 className="h-4 w-4 mr-1" />
+                        Ver Dados Recebidos
+                      </Button>
+                      <Button size="sm" onClick={handleAddMapping}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Adicionar
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {!lastPayload && (
+                    <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                      <p>💡 <strong>Dica:</strong> Envie um webhook de teste para que possamos detectar automaticamente os campos disponíveis.</p>
+                    </div>
+                  )}
+
+                  {showPayloadViewer && detectedFields.length > 0 && (
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Campos Detectados no Último Payload</h4>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => setShowPayloadViewer(false)}
+                        >
+                          Fechar
+                        </Button>
+                      </div>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {detectedFields.map((field, idx) => (
+                          <div 
+                            key={idx}
+                            className="flex items-center gap-2 p-2 bg-background rounded border"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-mono text-sm truncate">{field.key}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {String(field.value).slice(0, 50)}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <Select
+                              value={field.suggested_target || ''}
+                              onValueChange={(v) => applyDetectedField(field, v)}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue placeholder="Mapear para..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__ignore__">Ignorar</SelectItem>
+                                {Object.entries(groupedTargetFields).map(([group, fields]) => (
+                                  <React.Fragment key={group}>
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
+                                      {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : 'Venda'}
+                                    </div>
+                                    {fields.map(f => (
+                                      <SelectItem key={f.value} value={f.value}>
+                                        {f.label}
+                                      </SelectItem>
+                                    ))}
+                                  </React.Fragment>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {mappings.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground">
                       <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -325,7 +577,7 @@ export function IntegrationDetailDialog({
                       <p className="text-sm">O sistema tentará detectar campos automaticamente</p>
                     </div>
                   ) : (
-                    mappings.map((mapping, index) => (
+                    mappings.map((mapping) => (
                       <div 
                         key={mapping.id}
                         className="grid grid-cols-12 gap-2 items-center p-2 border rounded-lg"
@@ -347,10 +599,17 @@ export function IntegrationDetailDialog({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {TARGET_FIELDS.map(f => (
-                                <SelectItem key={f.value} value={f.value}>
-                                  {f.label}
-                                </SelectItem>
+                              {Object.entries(groupedTargetFields).map(([group, fields]) => (
+                                <React.Fragment key={group}>
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
+                                    {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : 'Venda'}
+                                  </div>
+                                  {fields.map(f => (
+                                    <SelectItem key={f.value} value={f.value}>
+                                      {f.label}
+                                    </SelectItem>
+                                  ))}
+                                </React.Fragment>
                               ))}
                             </SelectContent>
                           </Select>
@@ -515,6 +774,104 @@ export function IntegrationDetailDialog({
                       {updateIntegration.isPending ? 'Salvando...' : 'Salvar Configurações'}
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="sales" className="space-y-4 mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Configuração de Vendas</CardTitle>
+                  <CardDescription>
+                    Configure como vendas serão criadas quando o webhook enviar dados de venda
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {eventMode === 'lead' && (
+                    <div className="p-4 bg-muted rounded-lg text-center">
+                      <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-muted-foreground">
+                        Esta integração está configurada apenas para criar leads.
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Altere o "Modo de Evento" na aba Configuração para habilitar vendas.
+                      </p>
+                    </div>
+                  )}
+
+                  {eventMode !== 'lead' && (
+                    <>
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm">
+                          <strong>📦 Vendas Online:</strong> Quando um webhook enviar dados de venda, 
+                          será criada uma venda com status <Badge variant="secondary">{saleStatusOnCreate}</Badge> 
+                          e tag <Badge>{saleTag}</Badge> para revisão antes de ir para expedição.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Status Inicial da Venda</Label>
+                          <Select value={saleStatusOnCreate} onValueChange={setSaleStatusOnCreate}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="rascunho">Rascunho (Aguardando Revisão)</SelectItem>
+                              <SelectItem value="pendente">Pendente (Aguardando Pagamento)</SelectItem>
+                              <SelectItem value="pago">Pago (Pronto para Expedição)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Recomendamos "Rascunho" para revisão manual
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Tag da Venda</Label>
+                          <Input
+                            value={saleTag}
+                            onChange={(e) => setSaleTag(e.target.value)}
+                            placeholder="Ex: VENDA ONLINE"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Tag para identificar vendas desta integração
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Campos de Venda no Mapeamento</Label>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="p-2 bg-muted rounded">
+                            <span className="font-mono text-xs">sale_total_cents</span>
+                            <span className="text-muted-foreground text-xs block">Valor em centavos</span>
+                          </div>
+                          <div className="p-2 bg-muted rounded">
+                            <span className="font-mono text-xs">sale_external_id</span>
+                            <span className="text-muted-foreground text-xs block">ID do pedido externo</span>
+                          </div>
+                          <div className="p-2 bg-muted rounded">
+                            <span className="font-mono text-xs">sale_external_url</span>
+                            <span className="text-muted-foreground text-xs block">Link para o pedido</span>
+                          </div>
+                          <div className="p-2 bg-muted rounded">
+                            <span className="font-mono text-xs">sale_product_name</span>
+                            <span className="text-muted-foreground text-xs block">Nome do produto</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Configure estes campos na aba "Mapeamento" para capturar dados de venda
+                        </p>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button onClick={handleSaveConfig} disabled={updateIntegration.isPending}>
+                          {updateIntegration.isPending ? 'Salvando...' : 'Salvar Configurações'}
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
