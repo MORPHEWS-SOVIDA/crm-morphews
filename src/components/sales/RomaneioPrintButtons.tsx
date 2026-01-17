@@ -19,7 +19,7 @@ export function RomaneioPrintButtons({
   const navigate = useNavigate();
 
   const handlePrint = (format: 'a5' | 'a5x2' | 'thermal') => {
-    navigate(`/vendas/${saleId}/romaneio?format=${format}&auto=true`);
+    window.open(`/vendas/${saleId}/romaneio?format=${format}&auto=true`, '_blank', 'noopener');
   };
 
   return (
