@@ -1435,6 +1435,251 @@ export type Database = {
           },
         ]
       }
+      integration_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          headers: Json | null
+          id: string
+          integration_id: string
+          is_active: boolean
+          method: string
+          organization_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          headers?: Json | null
+          id?: string
+          integration_id: string
+          is_active?: boolean
+          method?: string
+          organization_id: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          headers?: Json | null
+          id?: string
+          integration_id?: string
+          is_active?: boolean
+          method?: string
+          organization_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_events_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_field_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          integration_id: string
+          organization_id: string
+          source_field: string
+          target_field: string
+          transform_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          integration_id: string
+          organization_id: string
+          source_field: string
+          target_field: string
+          transform_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          integration_id?: string
+          organization_id?: string
+          source_field?: string
+          target_field?: string
+          transform_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_field_mappings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_field_mappings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_logs: {
+        Row: {
+          created_at: string
+          direction: string
+          error_message: string | null
+          event_type: string | null
+          id: string
+          integration_id: string
+          lead_id: string | null
+          organization_id: string
+          processing_time_ms: number | null
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          integration_id: string
+          lead_id?: string | null
+          organization_id: string
+          processing_time_ms?: number | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          integration_id?: string
+          lead_id?: string | null
+          organization_id?: string
+          processing_time_ms?: number | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          auth_token: string
+          auto_followup_days: number | null
+          created_at: string
+          created_by: string | null
+          default_product_id: string | null
+          default_responsible_user_ids: string[] | null
+          default_stage: string | null
+          description: string | null
+          id: string
+          name: string
+          non_purchase_reason_id: string | null
+          organization_id: string
+          settings: Json | null
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          auth_token?: string
+          auto_followup_days?: number | null
+          created_at?: string
+          created_by?: string | null
+          default_product_id?: string | null
+          default_responsible_user_ids?: string[] | null
+          default_stage?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          non_purchase_reason_id?: string | null
+          organization_id: string
+          settings?: Json | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_token?: string
+          auto_followup_days?: number | null
+          created_at?: string
+          created_by?: string | null
+          default_product_id?: string | null
+          default_responsible_user_ids?: string[] | null
+          default_stage?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          non_purchase_reason_id?: string | null
+          organization_id?: string
+          settings?: Json | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_default_product_id_fkey"
+            columns: ["default_product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integrations_non_purchase_reason_id_fkey"
+            columns: ["non_purchase_reason_id"]
+            isOneToOne: false
+            referencedRelation: "non_purchase_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interested_leads: {
         Row: {
           converted_at: string | null

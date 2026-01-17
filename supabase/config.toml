@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.add-subscription-item]
 verify_jwt = false
+
+[functions.integration-webhook]
+verify_jwt = false
