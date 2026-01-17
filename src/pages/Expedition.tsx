@@ -79,7 +79,7 @@ type SortOrder = 'created' | 'delivery';
 export default function Expedition() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const organizationId = profile?.organization_id || null;
   const { data: sales = [], isLoading, refetch } = useExpeditionSales();
   const { data: regions = [] } = useDeliveryRegions();
@@ -211,12 +211,41 @@ export default function Expedition() {
     // Optimistic update - immediately show as printed
     setOptimisticPrinted(prev => new Set(prev).add(saleId));
     setIsUpdating(saleId);
-    
+
     try {
       await updateSale.mutateAsync({
         id: saleId,
         data: { status: 'pending_expedition' as any },
       });
+
+      // Keep checkpoints in sync for SaleDetail "Etapas da Venda"
+      if (user?.id) {
+        const { data: existing } = await supabase
+          .from('sale_checkpoints')
+          .select('id')
+          .eq('sale_id', saleId)
+          .eq('checkpoint_type', 'printed')
+          .maybeSingle();
+
+        if (existing?.id) {
+          await supabase
+            .from('sale_checkpoints')
+            .update({ completed_at: new Date().toISOString(), completed_by: user.id })
+            .eq('id', existing.id);
+        } else if (organizationId) {
+          await supabase.from('sale_checkpoints').insert({
+            sale_id: saleId,
+            organization_id: organizationId,
+            checkpoint_type: 'printed',
+            completed_at: new Date().toISOString(),
+            completed_by: user.id,
+          });
+        }
+
+        // Refresh checkpoints UI everywhere
+        queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
+      }
+
       toast.success('Marcado como impresso');
     } catch (error) {
       // Revert optimistic update on error
@@ -234,26 +263,57 @@ export default function Expedition() {
   const handleDispatch = async (saleId: string, motoboyId?: string) => {
     setIsUpdating(saleId);
     try {
-      const updateData: any = {
-        status: 'dispatched',
-        dispatched_at: new Date().toISOString(),
-        motoboy_tracking_status: 'expedition_ready', // Auto-set status when dispatching
-      };
-      if (motoboyId) {
-        updateData.assigned_delivery_user_id = motoboyId;
-      }
       await updateSale.mutateAsync({
         id: saleId,
-        data: updateData,
+        data: {
+          status: 'dispatched' as any,
+          assigned_delivery_user_id: motoboyId || null,
+          motoboy_tracking_status: 'expedition_ready' as any,
+        },
       });
-      
-      // Also register in tracking history
-      await updateMotoboyTracking.mutateAsync({ 
-        saleId, 
-        status: 'expedition_ready',
-        assignedMotoboyId: motoboyId || null
-      });
-      
+
+      // Ensure checkpoint "Despachado" is checked in SaleDetail
+      if (user?.id) {
+        const { data: existing } = await supabase
+          .from('sale_checkpoints')
+          .select('id')
+          .eq('sale_id', saleId)
+          .eq('checkpoint_type', 'dispatched')
+          .maybeSingle();
+
+        if (existing?.id) {
+          await supabase
+            .from('sale_checkpoints')
+            .update({ completed_at: new Date().toISOString(), completed_by: user.id })
+            .eq('id', existing.id);
+        } else if (organizationId) {
+          await supabase.from('sale_checkpoints').insert({
+            sale_id: saleId,
+            organization_id: organizationId,
+            checkpoint_type: 'dispatched',
+            completed_at: new Date().toISOString(),
+            completed_by: user.id,
+          });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
+      }
+
+      // Register motoboy tracking only for motoboy deliveries
+      const { data: saleRow } = await supabase
+        .from('sales')
+        .select('delivery_type')
+        .eq('id', saleId)
+        .maybeSingle();
+
+      if (saleRow?.delivery_type === 'motoboy') {
+        await updateMotoboyTracking.mutateAsync({
+          saleId,
+          status: 'expedition_ready',
+          assignedMotoboyId: motoboyId || null,
+        });
+      }
+
       toast.success('Venda despachada!');
     } catch (error) {
       toast.error('Erro ao despachar');
@@ -336,15 +396,45 @@ export default function Expedition() {
   const handleUpdateSaleStatus = async (saleId: string, newStatus: 'delivered' | 'returned') => {
     setIsUpdating(saleId);
     try {
-      await supabase
-        .from('sales')
-        .update({ status: newStatus })
-        .eq('id', saleId);
+      // Use the central mutation so timestamps/stock/history stay consistent
+      await updateSale.mutateAsync({
+        id: saleId,
+        data: { status: newStatus as any },
+      });
+
+      // Keep checkpoints in sync for "Entregue"
+      if (newStatus === 'delivered' && user?.id) {
+        const { data: existing } = await supabase
+          .from('sale_checkpoints')
+          .select('id')
+          .eq('sale_id', saleId)
+          .eq('checkpoint_type', 'delivered')
+          .maybeSingle();
+
+        if (existing?.id) {
+          await supabase
+            .from('sale_checkpoints')
+            .update({ completed_at: new Date().toISOString(), completed_by: user.id })
+            .eq('id', existing.id);
+        } else if (organizationId) {
+          await supabase.from('sale_checkpoints').insert({
+            sale_id: saleId,
+            organization_id: organizationId,
+            checkpoint_type: 'delivered',
+            completed_at: new Date().toISOString(),
+            completed_by: user.id,
+          });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
+      }
+
       // Invalidate all related queries so all pages stay in sync
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
       queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
+
       toast.success(newStatus === 'delivered' ? 'Marcado como entregue!' : 'Marcado como voltou');
     } catch (error) {
       toast.error('Erro ao atualizar status');
