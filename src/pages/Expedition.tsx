@@ -182,12 +182,12 @@ export default function Expedition() {
 
   const handleBatchPrint = (format: 'a5' | 'a5x2' | 'thermal') => {
     const ids = selectedSales.size > 0 ? Array.from(selectedSales) : filteredSales.map(s => s.id);
-    // Open each in new tab (browser may block multiple popups)
-    ids.forEach((id, index) => {
-      setTimeout(() => {
-        window.open(`/vendas/${id}/romaneio?format=${format}&auto=true`, '_blank', 'noopener');
-      }, index * 300);
-    });
+    if (ids.length === 0) {
+      toast.error('Nenhuma venda para imprimir');
+      return;
+    }
+    // Open batch print page with all IDs
+    window.open(`/romaneios/lote?ids=${ids.join(',')}&format=${format}&auto=true`, '_blank', 'noopener');
     toast.success(`Abrindo ${ids.length} romaneios para impressão`);
   };
 
