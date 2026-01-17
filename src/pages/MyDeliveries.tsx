@@ -633,42 +633,63 @@ function DeliveryCard({
           </div>
         )}
 
-        {/* Motoboy Quick Status Selector - Improved UI */}
+        {/* Motoboy Quick Confirmation Button - "Recebeu esse pedido?" */}
         {sale.delivery_type === 'motoboy' && onUpdateMotoboyStatus && !isCompleted && (
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs font-medium flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5" />
-              Atualizar status:
-            </Label>
-            <Select 
-              value={(sale as any).motoboy_tracking_status || ''} 
-              onValueChange={(value) => onUpdateMotoboyStatus(value as MotoboyTrackingStatus)}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Selecione o status..." />
-              </SelectTrigger>
-              <SelectContent>
-                {motoboyTrackingOrder.map(statusKey => {
-                  // Get custom label if available from tenant config
-                  const customStatus = motoboyStatuses?.find(s => s.status_key === statusKey);
-                  const isActive = customStatus ? customStatus.is_active : true;
-                  if (!isActive) return null;
-                  
-                  const label = customStatus?.label || motoboyTrackingLabels[statusKey];
-                  const isDeliveredOrReturned = statusKey === 'delivered' || statusKey === 'returned';
-                  
-                  return (
-                    <SelectItem 
-                      key={statusKey} 
-                      value={statusKey}
-                      className={isDeliveredOrReturned ? 'font-semibold' : ''}
-                    >
-                      {label}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+          <div className="space-y-3 pt-2 border-t">
+            {/* Show "Recebeu esse pedido?" if status is handed_to_motoboy or expedition_ready */}
+            {((sale as any).motoboy_tracking_status === 'handed_to_motoboy' || 
+              (sale as any).motoboy_tracking_status === 'expedition_ready') && (
+              <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                <p className="text-sm font-medium text-primary mb-2">
+                  📦 Recebeu esse pedido?
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full bg-primary hover:bg-primary/90"
+                  onClick={() => onUpdateMotoboyStatus('with_motoboy' as MotoboyTrackingStatus)}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Sim, recebi o pedido!
+                </Button>
+              </div>
+            )}
+            
+            {/* Status selector for other updates */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5" />
+                Atualizar status:
+              </Label>
+              <Select 
+                value={(sale as any).motoboy_tracking_status || ''} 
+                onValueChange={(value) => onUpdateMotoboyStatus(value as MotoboyTrackingStatus)}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Selecione o status..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {motoboyTrackingOrder.map(statusKey => {
+                    // Get custom label if available from tenant config
+                    const customStatus = motoboyStatuses?.find(s => s.status_key === statusKey);
+                    const isActive = customStatus ? customStatus.is_active : true;
+                    if (!isActive) return null;
+                    
+                    const label = customStatus?.label || motoboyTrackingLabels[statusKey];
+                    const isDeliveredOrReturned = statusKey === 'delivered' || statusKey === 'returned';
+                    
+                    return (
+                      <SelectItem 
+                        key={statusKey} 
+                        value={statusKey}
+                        className={isDeliveredOrReturned ? 'font-semibold' : ''}
+                      >
+                        {label}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
       </div>

@@ -237,6 +237,7 @@ export default function Expedition() {
       const updateData: any = {
         status: 'dispatched',
         dispatched_at: new Date().toISOString(),
+        motoboy_tracking_status: 'expedition_ready', // Auto-set status when dispatching
       };
       if (motoboyId) {
         updateData.assigned_delivery_user_id = motoboyId;
@@ -245,6 +246,14 @@ export default function Expedition() {
         id: saleId,
         data: updateData,
       });
+      
+      // Also register in tracking history
+      await updateMotoboyTracking.mutateAsync({ 
+        saleId, 
+        status: 'expedition_ready',
+        assignedMotoboyId: motoboyId || null
+      });
+      
       toast.success('Venda despachada!');
     } catch (error) {
       toast.error('Erro ao despachar');
@@ -845,6 +854,24 @@ export default function Expedition() {
                                 </SelectContent>
                               </Select>
                             </div>
+                          )}
+
+                          {/* Quick action: Mark as handed to motoboy */}
+                          {sale.status === 'dispatched' && sale.delivery_type === 'motoboy' && 
+                           sale.motoboy_tracking_status !== 'handed_to_motoboy' && 
+                           sale.motoboy_tracking_status !== 'with_motoboy' &&
+                           sale.motoboy_tracking_status !== 'delivered' &&
+                           sale.motoboy_tracking_status !== 'returned' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs text-cyan-600 border-cyan-300 hover:bg-cyan-50"
+                              onClick={() => handleUpdateMotoboyStatus(sale.id, 'handed_to_motoboy' as MotoboyTrackingStatus)}
+                              disabled={isBeingUpdated}
+                            >
+                              <Package className="w-3 h-3 mr-1" />
+                              Entregar ao Motoboy
+                            </Button>
                           )}
 
                           {/* Status buttons for dispatched sales - Entregue / Voltou */}

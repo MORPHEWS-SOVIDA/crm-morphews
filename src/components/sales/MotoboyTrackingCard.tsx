@@ -37,6 +37,7 @@ const statusColors: Record<MotoboyTrackingStatus, string> = {
   waiting_expedition: 'bg-slate-100 text-slate-700 border-slate-300',
   expedition_ready: 'bg-blue-100 text-blue-700 border-blue-300',
   handed_to_motoboy: 'bg-cyan-100 text-cyan-700 border-cyan-300',
+  with_motoboy: 'bg-indigo-100 text-indigo-700 border-indigo-300',
   next_delivery: 'bg-purple-100 text-purple-700 border-purple-300',
   special_delay: 'bg-orange-100 text-orange-700 border-orange-300',
   call_motoboy: 'bg-amber-100 text-amber-700 border-amber-300',
