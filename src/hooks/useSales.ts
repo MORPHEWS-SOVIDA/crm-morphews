@@ -194,6 +194,9 @@ export interface UpdateSaleData {
   tracking_code?: string | null;
   // Motoboy tracking
   motoboy_tracking_status?: string | null;
+  // Integration observations
+  observation_1?: string | null;
+  observation_2?: string | null;
 }
 
 // Helper functions

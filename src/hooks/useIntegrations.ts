@@ -99,10 +99,13 @@ export const TARGET_FIELDS = [
   // Sale fields
   { value: 'sale_product_name', label: 'Nome do Produto (Venda)', group: 'sale' },
   { value: 'sale_product_sku', label: 'SKU do Produto (Venda)', group: 'sale' },
+  { value: 'sale_quantity', label: 'Quantidade (Venda)', group: 'sale' },
   { value: 'sale_total_cents', label: 'Valor Total (centavos)', group: 'sale' },
   { value: 'sale_payment_method', label: 'Forma de Pagamento', group: 'sale' },
   { value: 'sale_external_id', label: 'ID Pedido Externo', group: 'sale' },
   { value: 'sale_external_url', label: 'Link Pedido Externo', group: 'sale' },
+  { value: 'sale_observation_1', label: 'Observação 1 (Venda)', group: 'sale' },
+  { value: 'sale_observation_2', label: 'Observação 2 (Venda)', group: 'sale' },
 ];
 
 export const TRANSFORM_TYPES = [
