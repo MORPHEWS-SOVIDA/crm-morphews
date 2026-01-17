@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Product } from '@/hooks/useProducts';
+import { useProductBrands } from '@/hooks/useProductBrands';
 
 // Columns that can be exported/imported
 const CSV_COLUMNS = [
@@ -29,6 +30,7 @@ const CSV_COLUMNS = [
   { key: 'name', label: 'Nome', editable: true },
   { key: 'description', label: 'Descrição', editable: true },
   { key: 'category', label: 'Categoria', editable: true },
+  { key: 'brand_name', label: 'Marca', editable: true }, // Virtual column - maps to brand_id
   { key: 'sku', label: 'SKU', editable: true },
   { key: 'barcode_ean', label: 'Código de Barras (EAN)', editable: true },
   { key: 'price_1_unit', label: 'Preço 1 un (centavos)', editable: true },
@@ -69,8 +71,21 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const { data: brands = [] } = useProductBrands();
 
   const hasProducts = products.length > 0;
+
+  // Create a map of brand_id to brand_name for export
+  const brandIdToName = brands.reduce((acc, brand) => {
+    acc[brand.id] = brand.name;
+    return acc;
+  }, {} as Record<string, string>);
+
+  // Create a map of brand_name (lowercase) to brand_id for import
+  const brandNameToId = brands.reduce((acc, brand) => {
+    acc[brand.name.toLowerCase().trim()] = brand.id;
+    return acc;
+  }, {} as Record<string, string>);
 
   const escapeCSVField = (value: unknown): string => {
     if (value === null || value === undefined) return '';
@@ -85,9 +100,16 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
     // Header row
     const headers = CSV_COLUMNS.map(col => col.label);
     
-    // Data rows
+    // Data rows - handle brand_name virtual column
     const rows = products.map(product => 
-      CSV_COLUMNS.map(col => escapeCSVField(product[col.key as keyof Product]))
+      CSV_COLUMNS.map(col => {
+        if (col.key === 'brand_name') {
+          // Virtual column: get brand name from brand_id
+          const brandName = product.brand_id ? brandIdToName[product.brand_id] || '' : '';
+          return escapeCSVField(brandName);
+        }
+        return escapeCSVField(product[col.key as keyof Product]);
+      })
     );
 
     // Build CSV content with BOM for Excel compatibility
@@ -178,9 +200,23 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
               return;
             }
 
+            // Handle virtual brand_name column - convert to brand_id
+            if (col.key === 'brand_name') {
+              if (value) {
+                const brandId = brandNameToId[value.toLowerCase().trim()];
+                if (brandId) {
+                  productData['brand_id'] = brandId;
+                }
+                // If brand not found, we just skip it (don't set brand_id)
+              } else {
+                productData['brand_id'] = null;
+              }
+              return;
+            }
+
             if (!value && value !== '0') {
               // For nullable fields, set null
-              if (['description', 'sales_script', 'sku', 'barcode_ean', 'unit', 'hot_site_url', 'youtube_video_url'].includes(col.key)) {
+              if (['description', 'sales_script', 'sku', 'barcode_ean', 'unit', 'hot_site_url', 'youtube_video_url', 'brand_id'].includes(col.key)) {
                 productData[col.key] = null;
               }
               return;
