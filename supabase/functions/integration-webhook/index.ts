@@ -113,6 +113,11 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Handle HEAD/GET for URL validation (platforms like Payt test the URL before saving)
+  if (req.method === 'HEAD') {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
   const startTime = Date.now();
 
   try {
@@ -123,6 +128,38 @@ Deno.serve(async (req) => {
       url.pathname.endsWith('/test') ||
       url.searchParams.get('test') === '1' ||
       url.searchParams.get('mode') === 'test';
+
+    // For GET requests without body, treat as validation/ping
+    if (req.method === 'GET') {
+      if (!token) {
+        return new Response(JSON.stringify({ ok: true, message: 'Webhook endpoint ativo' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // If token provided, validate it exists
+      const backendUrl = Deno.env.get('SUPABASE_URL')!;
+      const backendKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(backendUrl, backendKey);
+      
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('id, name, status')
+        .eq('auth_token', token)
+        .maybeSingle();
+      
+      if (integration) {
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          integration: integration.name,
+          status: integration.status,
+          message: integration.status === 'active' ? 'Integração ativa e pronta para receber dados' : 'Integração encontrada (inativa)'
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     if (!token) {
       console.error('No token provided');
