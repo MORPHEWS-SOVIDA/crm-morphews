@@ -15,12 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -46,6 +40,7 @@ import {
   Sparkles,
   PackageCheck,
   PackageX,
+  Loader2,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -58,10 +53,18 @@ import { useUpdateSale, formatCurrency, Sale } from '@/hooks/useSales';
 import { useDeliveryRegions, type DeliveryRegion } from '@/hooks/useDeliveryConfig';
 import { useTenantMembers } from '@/hooks/multi-tenant';
 import { useShippingCarriers } from '@/hooks/useDeliveryConfig';
+import { 
+  useMotoboyTrackingStatuses, 
+  useUpdateMotoboyTracking,
+  motoboyTrackingLabels, 
+  motoboyTrackingOrder,
+  MotoboyTrackingStatus 
+} from '@/hooks/useMotoboyTracking';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { ProductConference } from '@/components/expedition/ProductConference';
 
 type TabFilter = 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking';
 type SortOrder = 'created' | 'delivery';
@@ -73,7 +76,9 @@ export default function Expedition() {
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
   const { data: carriers = [] } = useShippingCarriers();
+  const { data: trackingStatuses = [] } = useMotoboyTrackingStatuses();
   const updateSale = useUpdateSale();
+  const updateMotoboyTracking = useUpdateMotoboyTracking();
 
   // State
   const [activeTab, setActiveTab] = useState<TabFilter>('draft');
@@ -82,8 +87,16 @@ export default function Expedition() {
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  // Optimistic UI: track sales being marked as printed
+  const [optimisticPrinted, setOptimisticPrinted] = useState<Set<string>>(new Set());
 
   const stats = useExpeditionStats(sales);
+
+  // Get status labels (custom or default)
+  const getStatusLabel = useCallback((status: MotoboyTrackingStatus): string => {
+    const customStatus = trackingStatuses.find(s => s.status_key === status);
+    return customStatus?.label || motoboyTrackingLabels[status] || status;
+  }, [trackingStatuses]);
 
   // Filter and sort sales
   const filteredSales = useMemo(() => {
@@ -162,24 +175,27 @@ export default function Expedition() {
     setSelectedSales(new Set());
   };
 
-  // Actions
-  const handlePrintRomaneio = (saleId: string, format: 'a5' | 'a5x2' | 't') => {
-    window.open(`/vendas/${saleId}/romaneio?format=${format}&auto=true`, '_blank');
+  // Actions - Fixed: use 'thermal' format for thermal print
+  const handlePrintRomaneio = (saleId: string, format: 'a5' | 'a5x2' | 'thermal') => {
+    window.open(`/vendas/${saleId}/romaneio?format=${format}&auto=true`, '_blank', 'noopener');
   };
 
-  const handleBatchPrint = (format: 'a5' | 'a5x2' | 't') => {
+  const handleBatchPrint = (format: 'a5' | 'a5x2' | 'thermal') => {
     const ids = selectedSales.size > 0 ? Array.from(selectedSales) : filteredSales.map(s => s.id);
     // Open each in new tab (browser may block multiple popups)
     ids.forEach((id, index) => {
       setTimeout(() => {
-        window.open(`/vendas/${id}/romaneio?format=${format}&auto=true`, '_blank');
+        window.open(`/vendas/${id}/romaneio?format=${format}&auto=true`, '_blank', 'noopener');
       }, index * 300);
     });
     toast.success(`Abrindo ${ids.length} romaneios para impressão`);
   };
 
   const handleMarkAsPrinted = async (saleId: string) => {
+    // Optimistic update - immediately show as printed
+    setOptimisticPrinted(prev => new Set(prev).add(saleId));
     setIsUpdating(saleId);
+    
     try {
       await updateSale.mutateAsync({
         id: saleId,
@@ -187,6 +203,12 @@ export default function Expedition() {
       });
       toast.success('Marcado como impresso');
     } catch (error) {
+      // Revert optimistic update on error
+      setOptimisticPrinted(prev => {
+        const next = new Set(prev);
+        next.delete(saleId);
+        return next;
+      });
       toast.error('Erro ao atualizar status');
     } finally {
       setIsUpdating(null);
@@ -248,6 +270,35 @@ export default function Expedition() {
       toast.success('Motoboy atribuído');
     } catch (error) {
       toast.error('Erro ao atribuir motoboy');
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleUpdateMotoboyStatus = async (saleId: string, status: MotoboyTrackingStatus) => {
+    setIsUpdating(saleId);
+    try {
+      await updateMotoboyTracking.mutateAsync({ saleId, status });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      toast.success(`Status atualizado: ${getStatusLabel(status)}`);
+    } catch (error) {
+      toast.error('Erro ao atualizar status');
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleUpdateCarrierStatus = async (saleId: string, newStatus: 'draft' | 'pending_expedition' | 'dispatched' | 'delivered' | 'returned') => {
+    setIsUpdating(saleId);
+    try {
+      await supabase
+        .from('sales')
+        .update({ status: newStatus })
+        .eq('id', saleId);
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      toast.success('Status atualizado');
+    } catch (error) {
+      toast.error('Erro ao atualizar status');
     } finally {
       setIsUpdating(null);
     }
@@ -494,7 +545,7 @@ export default function Expedition() {
                   <DropdownMenuItem onClick={() => handleBatchPrint('a5x2')}>
                     A5x2 - Duas cópias
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleBatchPrint('t')}>
+                  <DropdownMenuItem onClick={() => handleBatchPrint('thermal')}>
                     T - Térmico 80mm
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -527,18 +578,22 @@ export default function Expedition() {
               const deliveryDate = sale.scheduled_delivery_date ? parseISO(sale.scheduled_delivery_date) : null;
               const isTodaySale = deliveryDate && isToday(deliveryDate);
               const isTomorrowSale = deliveryDate && isTomorrow(deliveryDate);
+              const isBeingUpdated = isUpdating === sale.id;
+              const isOptimisticPrinted = optimisticPrinted.has(sale.id);
 
               return (
                 <Card 
                   key={sale.id} 
                   className={`transition-all ${
-                    isSelected 
-                      ? 'ring-2 ring-primary bg-primary/5' 
-                      : isTodaySale
-                        ? 'border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10'
-                        : isTomorrowSale
-                          ? 'border-l-4 border-l-orange-400 bg-orange-50/30 dark:bg-orange-950/10'
-                          : ''
+                    isOptimisticPrinted
+                      ? 'bg-green-50/50 dark:bg-green-950/20 border-green-300'
+                      : isSelected 
+                        ? 'ring-2 ring-primary bg-primary/5' 
+                        : isTodaySale
+                          ? 'border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10'
+                          : isTomorrowSale
+                            ? 'border-l-4 border-l-orange-400 bg-orange-50/30 dark:bg-orange-950/10'
+                            : ''
                   }`}
                 >
                   <CardContent className="p-4">
@@ -564,6 +619,11 @@ export default function Expedition() {
                           <span className="text-sm font-medium text-primary">
                             {formatCurrency(sale.total_cents)}
                           </span>
+                          {sale.assigned_delivery_user_id && (
+                            <Badge variant="outline" className="text-xs">
+                              🛵 {getMemberName(sale.assigned_delivery_user_id)}
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Address */}
@@ -574,15 +634,20 @@ export default function Expedition() {
                           </p>
                         )}
 
-                        {/* Products */}
+                        {/* Products with Conference Checkboxes */}
                         {sale.items && sale.items.length > 0 && (
-                          <p className="text-xs text-muted-foreground mb-3">
-                            📦 {sale.items.map(i => `${i.quantity}x ${i.product_name}`).join(', ')}
-                          </p>
+                          <ProductConference 
+                            items={sale.items.map(i => ({
+                              id: i.id,
+                              product_name: i.product_name,
+                              quantity: i.quantity
+                            }))}
+                            saleId={sale.id}
+                          />
                         )}
 
                         {/* Actions Row */}
-                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                        <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t">
                           {/* Print buttons */}
                           <div className="flex gap-1">
                             <Button 
@@ -605,34 +670,46 @@ export default function Expedition() {
                               variant="outline" 
                               size="sm" 
                               className="h-7 text-xs px-2"
-                              onClick={() => handlePrintRomaneio(sale.id, 't')}
+                              onClick={() => handlePrintRomaneio(sale.id, 'thermal')}
                             >
                               T
                             </Button>
                           </div>
 
                           {/* Status actions */}
-                          {sale.status === 'draft' && (
+                          {sale.status === 'draft' && !isOptimisticPrinted && (
                             <Button
                               variant="secondary"
                               size="sm"
                               className="h-7 text-xs"
                               onClick={() => handleMarkAsPrinted(sale.id)}
-                              disabled={isUpdating === sale.id}
+                              disabled={isBeingUpdated}
                             >
-                              <Printer className="w-3 h-3 mr-1" />
+                              {isBeingUpdated ? (
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <Printer className="w-3 h-3 mr-1" />
+                              )}
                               Marcar Impresso
                             </Button>
                           )}
+                          
+                          {isOptimisticPrinted && sale.status === 'draft' && (
+                            <Badge className="bg-green-600 text-white text-xs">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Impresso ✓
+                            </Badge>
+                          )}
 
-                          {/* Motoboy selection for motoboy deliveries */}
+                          {/* Motoboy selection and status for motoboy deliveries */}
                           {sale.delivery_type === 'motoboy' && sale.status !== 'delivered' && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {/* Motoboy selector */}
                               <Select
                                 value={sale.assigned_delivery_user_id || 'none'}
                                 onValueChange={(v) => handleAssignMotoboy(sale.id, v === 'none' ? null : v)}
                               >
-                                <SelectTrigger className="h-7 text-xs w-[140px]">
+                                <SelectTrigger className="h-7 text-xs w-[130px]">
                                   <SelectValue placeholder="Motoboy..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -644,6 +721,8 @@ export default function Expedition() {
                                   ))}
                                 </SelectContent>
                               </Select>
+                              
+                              {/* AI Suggestion */}
                               {suggestedMotoboy && (
                                 <Button
                                   variant="ghost"
@@ -656,12 +735,31 @@ export default function Expedition() {
                                   {suggestedMotoboy.name.split(' ')[0]}
                                 </Button>
                               )}
+                              
+                              {/* Motoboy tracking status - show for dispatched */}
+                              {sale.status === 'dispatched' && (
+                                <Select
+                                  value={sale.motoboy_tracking_status || ''}
+                                  onValueChange={(v) => handleUpdateMotoboyStatus(sale.id, v as MotoboyTrackingStatus)}
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-[150px]">
+                                    <SelectValue placeholder="Status entrega..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {motoboyTrackingOrder.map(status => (
+                                      <SelectItem key={status} value={status}>
+                                        {getStatusLabel(status)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </div>
                           )}
 
-                          {/* Carrier tracking */}
+                          {/* Carrier tracking and status */}
                           {sale.delivery_type === 'carrier' && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-wrap">
                               {sale.tracking_code ? (
                                 <Badge variant="outline" className="text-xs">
                                   🔗 {sale.tracking_code}
@@ -679,25 +777,46 @@ export default function Expedition() {
                                     size="sm"
                                     className="h-7 text-xs"
                                     onClick={() => handleSaveTracking(sale.id)}
-                                    disabled={isUpdating === sale.id}
+                                    disabled={isBeingUpdated}
                                   >
                                     Salvar
                                   </Button>
                                 </>
                               )}
+                              
+                              {/* Carrier status selector */}
+                              <Select
+                                value={sale.status}
+                                onValueChange={(v) => handleUpdateCarrierStatus(sale.id, v as 'draft' | 'pending_expedition' | 'dispatched' | 'delivered' | 'returned')}
+                              >
+                                <SelectTrigger className="h-7 text-xs w-[130px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="draft">Rascunho</SelectItem>
+                                  <SelectItem value="pending_expedition">Impresso</SelectItem>
+                                  <SelectItem value="dispatched">Despachado</SelectItem>
+                                  <SelectItem value="delivered">Entregue</SelectItem>
+                                  <SelectItem value="returned">Voltou</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           )}
 
                           {/* Dispatch button */}
-                          {(sale.status === 'draft' || sale.status === 'pending_expedition') && (
+                          {(sale.status === 'draft' || sale.status === 'pending_expedition') && !isOptimisticPrinted && (
                             <Button
                               variant="default"
                               size="sm"
                               className="h-7 text-xs"
                               onClick={() => handleDispatch(sale.id, sale.assigned_delivery_user_id || undefined)}
-                              disabled={isUpdating === sale.id}
+                              disabled={isBeingUpdated}
                             >
-                              <Send className="w-3 h-3 mr-1" />
+                              {isBeingUpdated ? (
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <Send className="w-3 h-3 mr-1" />
+                              )}
                               Despachar
                             </Button>
                           )}
