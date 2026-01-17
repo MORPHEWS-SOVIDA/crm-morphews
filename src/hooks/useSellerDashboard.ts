@@ -218,6 +218,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
       treatmentsEnding.sort((a, b) => a.days_remaining - b.days_remaining);
 
       // 5. Pending sales by status (my sales as seller)
+      // Include all non-final statuses to show pending work
       const { data: salesData } = await supabase
         .from('sales')
         .select(`
@@ -236,7 +237,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         `)
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
-        .in('status', ['draft', 'pending_expedition', 'dispatched', 'returned', 'cancelled'])
+        .in('status', ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched', 'returned', 'cancelled'])
         .order('created_at', { ascending: false });
 
       const mapSale = (sale: any): SaleSummary => ({
@@ -258,10 +259,13 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
 
       const pendingSales = {
         draft: allSales.filter(s => s.status === 'draft'),
-        separated: allSales.filter(s => s.status === 'pending_expedition'),
+        // Separated includes both pending_expedition and payment_confirmed (awaiting dispatch)
+        separated: allSales.filter(s => s.status === 'pending_expedition' || s.status === 'payment_confirmed'),
+        // Motoboy dispatched (not yet delivered)
         motoboyDispatched: (salesData || [])
           .filter((s: any) => s.status === 'dispatched' && s.delivery_type === 'motoboy')
           .map(mapSale),
+        // Carrier dispatched (not yet delivered)
         carrierDispatched: (salesData || [])
           .filter((s: any) => s.status === 'dispatched' && s.delivery_type === 'carrier')
           .map(mapSale),
