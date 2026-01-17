@@ -91,11 +91,15 @@ export function MediaUploader({
 
       if (error) throw error;
 
-      const { data: urlData } = supabase.storage
+      // Generate a signed URL that expires in 1 year (for scheduled messages that may be sent later)
+      // The bucket is now private with org-scoped RLS policies
+      const { data: signedData, error: signedError } = await supabase.storage
         .from('scheduled-messages-media')
-        .getPublicUrl(path);
+        .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 year
 
-      return urlData.publicUrl;
+      if (signedError) throw signedError;
+
+      return signedData.signedUrl;
     } catch (error) {
       console.error('Upload error:', error);
       throw error;
