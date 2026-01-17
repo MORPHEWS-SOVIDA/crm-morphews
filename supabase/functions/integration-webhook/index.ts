@@ -6,6 +6,93 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+const RATE_LIMIT_MAX_REQUESTS_PER_TOKEN = 100; // 100 requests per minute per integration
+const RATE_LIMIT_MAX_REQUESTS_PER_IP = 200; // 200 requests per minute per IP (across all tokens)
+const DAILY_LEAD_LIMIT_DEFAULT = 1000; // Default daily lead limit per integration
+
+// In-memory rate limiting (resets on cold start, but provides basic protection)
+const tokenRateLimits = new Map<string, { count: number; resetAt: number; dailyCount: number; dailyResetAt: number }>();
+const ipRateLimits = new Map<string, { count: number; resetAt: number }>();
+
+interface RateLimitResult {
+  limited: boolean;
+  reason?: string;
+  retryAfterSeconds?: number;
+}
+
+function checkRateLimit(integrationId: string, clientIp: string): RateLimitResult {
+  const now = Date.now();
+  const today = new Date().toDateString();
+  
+  // Check IP-based rate limit first (protection against distributed attacks)
+  let ipEntry = ipRateLimits.get(clientIp);
+  if (!ipEntry || now > ipEntry.resetAt) {
+    ipEntry = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    ipRateLimits.set(clientIp, ipEntry);
+  } else {
+    ipEntry.count++;
+    if (ipEntry.count > RATE_LIMIT_MAX_REQUESTS_PER_IP) {
+      const retryAfter = Math.ceil((ipEntry.resetAt - now) / 1000);
+      return { 
+        limited: true, 
+        reason: 'IP rate limit exceeded',
+        retryAfterSeconds: retryAfter
+      };
+    }
+  }
+  
+  // Check per-token rate limit
+  let tokenEntry = tokenRateLimits.get(integrationId);
+  const dailyResetAt = new Date(today).getTime() + 24 * 60 * 60 * 1000;
+  
+  if (!tokenEntry || now > tokenEntry.resetAt) {
+    // Reset minute counter
+    const dailyCount = tokenEntry && tokenEntry.dailyResetAt === dailyResetAt 
+      ? tokenEntry.dailyCount + 1 
+      : 1;
+    tokenEntry = { 
+      count: 1, 
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+      dailyCount,
+      dailyResetAt
+    };
+    tokenRateLimits.set(integrationId, tokenEntry);
+  } else {
+    tokenEntry.count++;
+    
+    // Reset daily counter if new day
+    if (tokenEntry.dailyResetAt !== dailyResetAt) {
+      tokenEntry.dailyCount = 1;
+      tokenEntry.dailyResetAt = dailyResetAt;
+    } else {
+      tokenEntry.dailyCount++;
+    }
+    
+    // Check per-minute limit
+    if (tokenEntry.count > RATE_LIMIT_MAX_REQUESTS_PER_TOKEN) {
+      const retryAfter = Math.ceil((tokenEntry.resetAt - now) / 1000);
+      return { 
+        limited: true, 
+        reason: 'Token rate limit exceeded (max 100/minute)',
+        retryAfterSeconds: retryAfter
+      };
+    }
+    
+    // Check daily limit
+    if (tokenEntry.dailyCount > DAILY_LEAD_LIMIT_DEFAULT) {
+      return { 
+        limited: true, 
+        reason: 'Daily limit exceeded (max 1000 leads/day per integration)',
+        retryAfterSeconds: Math.ceil((dailyResetAt - now) / 1000)
+      };
+    }
+  }
+  
+  return { limited: false };
+}
+
 interface FieldMapping {
   source_field: string;
   target_field: string;
@@ -190,6 +277,47 @@ Deno.serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Get client IP for rate limiting
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+
+    // Check rate limiting (skip for test mode and validation pings)
+    if (!isTest) {
+      const rateLimitCheck = checkRateLimit(integration.id, clientIp);
+      if (rateLimitCheck.limited) {
+        console.warn(`Rate limited: ${rateLimitCheck.reason} - IP: ${clientIp}, Integration: ${integration.id}`);
+        
+        // Log the rate limit hit
+        await supabase.from('integration_logs').insert({
+          integration_id: integration.id,
+          organization_id: integration.organization_id,
+          direction: 'inbound',
+          status: 'rate_limited',
+          event_type: 'rate_limit',
+          request_payload: { ip: clientIp, reason: rateLimitCheck.reason },
+          error_message: rateLimitCheck.reason,
+          processing_time_ms: Date.now() - startTime,
+        });
+
+        return new Response(
+          JSON.stringify({ 
+            error: 'Rate limit exceeded', 
+            message: rateLimitCheck.reason,
+            retry_after_seconds: rateLimitCheck.retryAfterSeconds 
+          }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'Retry-After': String(rateLimitCheck.retryAfterSeconds || 60)
+            } 
+          }
+        );
+      }
     }
 
     const typedIntegration = integration as Integration;
@@ -643,7 +771,7 @@ Deno.serve(async (req) => {
 
       // Add responsible users
       if (typedIntegration.default_responsible_user_ids && typedIntegration.default_responsible_user_ids.length > 0) {
-        const responsibles = typedIntegration.default_responsible_user_ids.map(userId => ({
+        const responsibles = typedIntegration.default_responsible_user_ids.map((userId: string) => ({
           lead_id: leadId,
           user_id: userId,
           organization_id: typedIntegration.organization_id,
