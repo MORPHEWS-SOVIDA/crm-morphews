@@ -35,7 +35,7 @@ export const checkpointLabels: Record<CheckpointType, string> = {
   payment_confirmed: 'Pagamento Confirmado',
 };
 
-export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned', string> = {
+export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'cancelled', string> = {
   draft: '👀',
   printed: '🖨️',
   pending_expedition: '📦',
@@ -43,6 +43,7 @@ export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned', str
   returned: '⚠️',
   delivered: '✅',
   payment_confirmed: '💰',
+  cancelled: '😭💔',
 };
 
 export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
