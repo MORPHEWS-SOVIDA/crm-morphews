@@ -30,8 +30,8 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
   'Financeiro': ['financial'],
   'WhatsApp': ['whatsapp_v1', 'whatsapp_v2'],
   'Módulos': ['ai_bots', 'instagram', 'demands'],
-  'Produtos': ['products'],
-  'Configurações': ['settings'],
+  'Produtos': ['products', 'custom_questions'],
+  'Configurações': ['settings', 'standard_questions', 'custom_questions'],
   'Equipe': ['team'],
   'Relatórios': ['sales_report', 'expedition_report'],
   'Entregas': ['deliveries'],
@@ -41,6 +41,7 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
 };
 
 // Mapeia permissões individuais para features específicas
+// Se a feature está desativada para a org, a permissão não aparece
 const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
   'ai_bots_view': 'ai_bots',
   'instagram_view': 'instagram',
