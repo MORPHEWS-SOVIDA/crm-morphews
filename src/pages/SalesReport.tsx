@@ -41,6 +41,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { useSales } from "@/hooks/useSales";
 import { useUsers } from "@/hooks/useUsers";
 import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConfig";
@@ -802,16 +803,7 @@ export default function SalesReport() {
                             >
                               Ver
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                window.open(`/vendas/${sale.id}/romaneio?auto=true`, "_blank")
-                              }
-                              aria-label="Imprimir romaneio"
-                            >
-                              <Printer className="h-4 w-4" />
-                            </Button>
+                            <RomaneioPrintButtons saleId={sale.id} variant="ghost" showLabel={false} />
                           </div>
                         </TableCell>
                       </TableRow>

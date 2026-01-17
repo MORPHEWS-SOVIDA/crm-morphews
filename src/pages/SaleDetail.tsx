@@ -78,6 +78,7 @@ import { useSaleChangesLog, getChangeTypeLabel } from '@/hooks/useSaleChangesLog
 import { SaleCheckpointsCard } from '@/components/sales/SaleCheckpointsCard';
 import { CarrierTrackingCard } from '@/components/sales/CarrierTrackingCard';
 import { MotoboyTrackingCard } from '@/components/sales/MotoboyTrackingCard';
+import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 
 
 // Hook to fetch delivery return reasons
@@ -948,15 +949,7 @@ export default function SaleDetail() {
                 Editar
               </Button>
             )}
-            <Button 
-              variant="outline"
-              size="sm"
-              className="flex-1 sm:flex-none"
-              onClick={() => navigate(`/vendas/${sale.id}/romaneio`)}
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Imprimir </span>Romaneio
-            </Button>
+            <RomaneioPrintButtons saleId={sale.id} />
             {canCancel && sale.status !== 'cancelled' && sale.status !== 'payment_confirmed' && (
               <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => setShowCancelDialog(true)}>
                 <XCircle className="w-4 h-4 mr-2" />
