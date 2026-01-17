@@ -417,6 +417,6 @@ export function useDeleteIntegrationEvent() {
 }
 
 export function getWebhookUrl(token: string) {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'rriizlxqfpfpdflgxjtj';
-  return `https://${projectId}.supabase.co/functions/v1/integration-webhook?token=${token}`;
+  // URL customizada usando o domínio do CRM
+  return `https://crm.morphews.com/functions/v1/webhook-proxy?token=${token}`;
 }
