@@ -48,10 +48,10 @@ export interface SellerDashboardData {
   
   // Comissões
   commissions: {
-    pending: number; // Vendas pagas, mas não entregues
+    pending: number; // Vendas do mês que ainda não são entregues+pagas
     pendingCount: number;
     pendingTotal: number; // Total em vendas antes da comissão
-    toReceiveThisMonth: number; // Vendas pagas E entregues no mês
+    toReceiveThisMonth: number; // Vendas pagas E entregues no mês (pela data de entrega)
     toReceiveCount: number;
     toReceiveTotal: number; // Total em vendas antes da comissão
     commissionPercentage: number;
@@ -159,8 +159,8 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         final_message: m.final_message,
       }));
 
-      // 4. Treatments ending soon (based on last sale + usage_period_days)
-      // Get delivered sales for leads I'm responsible for
+      // 4. Treatments ending soon (based on delivered sales + kit's usage_period_days)
+      // Get delivered sales for leads I'm responsible for, including kit data
       const { data: treatmentsData } = myLeadIds.length > 0 ? await supabase
         .from('sales')
         .select(`
@@ -169,10 +169,9 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           delivered_at,
           lead:leads!sales_lead_id_fkey(name, whatsapp),
           sale_items(
-            product:lead_products!sale_items_product_id_fkey(
-              name,
-              usage_period_days
-            )
+            kit_id,
+            product:lead_products!sale_items_product_id_fkey(name),
+            kit:product_price_kits!sale_items_kit_id_fkey(usage_period_days)
           )
         `)
         .eq('organization_id', tenantId)
@@ -190,13 +189,16 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         const deliveredDate = new Date(sale.delivered_at);
         
         sale.sale_items.forEach((item: any) => {
-          const product = item.product;
-          if (!product?.usage_period_days) return;
+          // Use kit's usage_period_days (from product_price_kits table)
+          const usagePeriodDays = item.kit?.usage_period_days;
+          const productName = item.product?.name;
           
-          const key = `${sale.lead_id}-${product.name}`;
+          if (!usagePeriodDays || usagePeriodDays <= 0 || !productName) return;
+          
+          const key = `${sale.lead_id}-${productName}`;
           if (processedLeadProducts.has(key)) return;
           
-          const treatmentEnd = addDays(deliveredDate, product.usage_period_days);
+          const treatmentEnd = addDays(deliveredDate, usagePeriodDays);
           const daysRemaining = Math.ceil((treatmentEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           
           if (daysRemaining > 0 && daysRemaining <= treatmentDays) {
@@ -205,7 +207,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
               lead_id: sale.lead_id,
               lead_name: sale.lead?.name || 'Lead',
               lead_whatsapp: sale.lead?.whatsapp || '',
-              product_name: product.name,
+              product_name: productName,
               treatment_end_date: treatmentEnd.toISOString(),
               days_remaining: daysRemaining,
               sale_id: sale.id,
@@ -284,34 +286,47 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
 
       const commissionPercentage = Number(memberData?.commission_percentage) || 0;
 
-      // Pending commissions: paid but not yet delivered (any time)
-      // Uses payment_status = 'paid_now' and status is NOT delivered and NOT cancelled
+      // Comissões Pendentes: todas as vendas do mês que AINDA NÃO SÃO (entregues + pagas)
+      // Inclui: draft, separadas, despachadas, enviadas, pagas mas não entregues
+      // Exclui: canceladas e as que já são entregues+pagas
       const { data: pendingCommissionSales } = await supabase
         .from('sales')
-        .select('id, total_cents')
+        .select('id, total_cents, status, payment_status')
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
-        .eq('payment_status', 'paid_now')
-        .neq('status', 'delivered')
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .gte('created_at', monthStart.toISOString())
+        .lte('created_at', monthEnd.toISOString());
 
-      const pendingTotal = (pendingCommissionSales || [])
+      // Filter out sales that are both delivered AND paid (those go to "a receber")
+      const pendingSalesFiltered = (pendingCommissionSales || []).filter((s: any) => {
+        const isDelivered = s.status === 'delivered';
+        const isPaid = s.payment_status === 'paid_now' || s.payment_status === 'paid_in_delivery';
+        // If both delivered AND paid, it's not pending anymore
+        return !(isDelivered && isPaid);
+      });
+
+      const pendingTotal = pendingSalesFiltered
         .reduce((sum: number, s: any) => sum + (Number(s.total_cents) || 0), 0);
       const pendingCommission = Math.round(pendingTotal * (commissionPercentage / 100));
 
-      // Commissions to receive: paid AND delivered in selected month
-      // Commission is based on delivered_at date (when treatment starts)
+      // Comissões a Receber: vendas PAGAS e ENTREGUES, filtradas pela data de ENTREGA do mês
+      // A comissão é paga pela data de entrega, não pela data de pagamento
       const { data: toReceiveSales } = await supabase
         .from('sales')
-        .select('id, total_cents, delivered_at')
+        .select('id, total_cents, delivered_at, payment_status')
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
-        .eq('payment_status', 'paid_now')
         .eq('status', 'delivered')
         .gte('delivered_at', monthStart.toISOString())
         .lte('delivered_at', monthEnd.toISOString());
 
-      const toReceiveTotal = (toReceiveSales || [])
+      // Only count sales that are both delivered AND paid
+      const toReceiveSalesFiltered = (toReceiveSales || []).filter((s: any) => {
+        return s.payment_status === 'paid_now' || s.payment_status === 'paid_in_delivery';
+      });
+
+      const toReceiveTotal = toReceiveSalesFiltered
         .reduce((sum: number, s: any) => sum + (Number(s.total_cents) || 0), 0);
       const toReceiveCommission = Math.round(toReceiveTotal * (commissionPercentage / 100));
 
@@ -322,10 +337,10 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         pendingSales,
         commissions: {
           pending: pendingCommission,
-          pendingCount: pendingCommissionSales?.length || 0,
+          pendingCount: pendingSalesFiltered.length,
           pendingTotal,
           toReceiveThisMonth: toReceiveCommission,
-          toReceiveCount: toReceiveSales?.length || 0,
+          toReceiveCount: toReceiveSalesFiltered.length,
           toReceiveTotal,
           commissionPercentage,
         },
