@@ -538,7 +538,35 @@ export default function EditSale() {
               </CardContent>
             </Card>
 
-            {/* Discount */}
+            {/* Integration Observations - read only display */}
+            {((sale as any).observation_1 || (sale as any).observation_2) && (
+              <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                    ⚠️ Observações da Integração
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(sale as any).observation_1 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Observação 1:</Label>
+                      <p className="text-sm font-medium">{(sale as any).observation_1}</p>
+                    </div>
+                  )}
+                  {(sale as any).observation_2 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Observação 2:</Label>
+                      <p className="text-sm font-medium">{(sale as any).observation_2}</p>
+                    </div>
+                  )}
+                  {(sale as any).external_source && (
+                    <p className="text-xs text-muted-foreground">
+                      Origem: {(sale as any).external_source}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

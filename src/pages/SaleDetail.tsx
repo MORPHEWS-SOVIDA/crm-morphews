@@ -1106,6 +1106,43 @@ export default function SaleDetail() {
                     <span className="text-primary">{formatCurrency(sale.total_cents)}</span>
                   </div>
                 </div>
+
+                {/* Observation fields from integrations */}
+                {((sale as any).observation_1 || (sale as any).observation_2) && (
+                  <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                      ⚠️ Observações da Integração
+                    </p>
+                    {(sale as any).observation_1 && (
+                      <div className="mb-2">
+                        <p className="text-xs text-muted-foreground">Observação 1:</p>
+                        <p className="text-sm font-medium">{(sale as any).observation_1}</p>
+                      </div>
+                    )}
+                    {(sale as any).observation_2 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Observação 2:</p>
+                        <p className="text-sm font-medium">{(sale as any).observation_2}</p>
+                      </div>
+                    )}
+                    {(sale as any).external_source && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Origem: {(sale as any).external_source}
+                        {(sale as any).external_order_id && ` | Pedido: ${(sale as any).external_order_id}`}
+                      </p>
+                    )}
+                    {(sale as any).external_order_url && (
+                      <a 
+                        href={(sale as any).external_order_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Ver pedido externo
+                      </a>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

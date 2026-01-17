@@ -85,6 +85,13 @@ export interface Sale {
   carrier_tracking_status: string | null;
   // Delivery position for route ordering
   delivery_position: number;
+  // Integration observation fields
+  observation_1: string | null;
+  observation_2: string | null;
+  // External order fields
+  external_order_id: string | null;
+  external_order_url: string | null;
+  external_source: string | null;
   // Joined data
   lead?: {
     id: string;
@@ -170,6 +177,9 @@ export interface CreateSaleData {
   // Commission fields (total)
   seller_commission_percentage?: number;
   seller_commission_cents?: number;
+  // Observation fields
+  observation_1?: string | null;
+  observation_2?: string | null;
 }
 
 export interface UpdateSaleData {
@@ -482,6 +492,8 @@ export function useCreateSale() {
           payment_proof_url: data.payment_proof_url || null,
           seller_commission_percentage: sellerCommissionPercentage,
           seller_commission_cents: sellerCommissionCents,
+          observation_1: data.observation_1 || null,
+          observation_2: data.observation_2 || null,
         })
         .select()
         .single();
