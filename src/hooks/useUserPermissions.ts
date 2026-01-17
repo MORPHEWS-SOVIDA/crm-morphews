@@ -13,13 +13,18 @@ export interface UserPermissions {
   default_landing_page: string | null;
   hide_sidebar: boolean;
   
+  // Dashboard (separate views)
+  dashboard_funnel_view: boolean;
+  dashboard_kanban_view: boolean;
+  seller_panel_view: boolean;
+  
   // Leads
   leads_view: boolean;
   leads_view_only_own: boolean;
   leads_create: boolean;
   leads_edit: boolean;
   leads_delete: boolean;
-  leads_hide_new_button: boolean; // Hides "+ Novo Lead" button, forces use of Add Receptivo
+  leads_hide_new_button: boolean;
   
   // Sales
   sales_view: boolean;
@@ -32,7 +37,7 @@ export interface UserPermissions {
   sales_mark_delivered: boolean;
   sales_mark_printed: boolean;
   sales_cancel: boolean;
-  sales_hide_new_button: boolean; // Hides "+ Nova Venda" button, forces use of Add Receptivo
+  sales_hide_new_button: boolean;
   
   // WhatsApp
   whatsapp_view: boolean;
@@ -108,6 +113,12 @@ type NonPermissionFields = 'id' | 'organization_id' | 'user_id' | 'created_at' |
 export type PermissionKey = keyof Omit<UserPermissions, NonPermissionFields>;
 
 export const PERMISSION_LABELS: Record<PermissionKey, { label: string; description: string; group: string }> = {
+  // Dashboard
+  dashboard_funnel_view: { label: 'Dashboard Funil', description: 'Visualizar dashboard no modo funil', group: 'Dashboard' },
+  dashboard_kanban_view: { label: 'Dashboard Kanban', description: 'Visualizar dashboard no modo kanban', group: 'Dashboard' },
+  seller_panel_view: { label: 'Meu Painel', description: 'Acessar painel do vendedor', group: 'Dashboard' },
+  
+  // Leads
   leads_view: { label: 'Ver Leads', description: 'Visualizar leads da empresa', group: 'Leads' },
   leads_view_only_own: { label: 'Ver Somente Seus Leads', description: 'Limitar visibilidade apenas aos leads que é responsável', group: 'Leads' },
   leads_create: { label: 'Criar Leads', description: 'Criar novos leads', group: 'Leads' },
@@ -115,6 +126,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   leads_delete: { label: 'Excluir Leads', description: 'Remover leads', group: 'Leads' },
   leads_hide_new_button: { label: 'Ocultar Botão Novo Lead', description: 'Força o vendedor a cadastrar leads pelo Add Receptivo', group: 'Leads' },
   
+  // Vendas
   sales_view: { label: 'Ver Vendas', description: 'Visualizar vendas', group: 'Vendas' },
   sales_view_all: { label: 'Ver Vendas de Todos', description: 'Ver vendas de todos os vendedores', group: 'Vendas' },
   sales_create: { label: 'Criar Vendas', description: 'Criar novas vendas', group: 'Vendas' },
@@ -126,29 +138,28 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   sales_cancel: { label: 'Cancelar Vendas', description: 'Cancelar vendas', group: 'Vendas' },
   sales_hide_new_button: { label: 'Ocultar Botão Nova Venda', description: 'Força o vendedor a cadastrar vendas pelo Add Receptivo', group: 'Vendas' },
   
-  // Financeiro - agrupado
+  // Financeiro
   reports_view: { label: 'Ver Financeiro', description: 'Acessar módulo financeiro e relatórios', group: 'Financeiro' },
   sales_confirm_payment: { label: 'Confirmar Pagamento', description: 'Marcar recebimentos como pagos', group: 'Financeiro' },
   
-  // WhatsApp - separado 1.0 e 2.0
+  // WhatsApp
   whatsapp_view: { label: 'WhatsApp 1.0 (DMs)', description: 'Acessar Chat WhatsApp 1.0', group: 'WhatsApp' },
   whatsapp_send: { label: 'Enviar Mensagens', description: 'Enviar mensagens pelo WhatsApp', group: 'WhatsApp' },
   whatsapp_v2_view: { label: 'WhatsApp 2.0', description: 'Acessar WhatsApp 2.0 (novo)', group: 'WhatsApp' },
   whatsapp_manage_view: { label: 'Gerenciar WhatsApp', description: 'Acessar configurações e instâncias WhatsApp', group: 'WhatsApp' },
   
-  // Robôs de IA - no Módulos
+  // Módulos
   ai_bots_view: { label: 'Robôs de IA', description: 'Acessar e gerenciar robôs de IA', group: 'Módulos' },
-  
-  // Instagram - no Módulos
   instagram_view: { label: 'Ver Instagram DMs', description: 'Acessar Instagram DMs', group: 'Módulos' },
-  
-  // Demandas - no Módulos
   demands_view: { label: 'Demandas', description: 'Acessar módulo de demandas/tarefas', group: 'Módulos' },
+  receptive_module_access: { label: 'Módulo Receptivo', description: 'Acesso ao módulo de atendimento receptivo', group: 'Módulos' },
   
+  // Produtos
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
   products_manage: { label: 'Gerenciar Produtos', description: 'Criar/editar/excluir produtos', group: 'Produtos' },
   products_view_cost: { label: 'Ver Custo', description: 'Visualizar custo dos produtos', group: 'Produtos' },
   
+  // Configurações
   settings_view: { label: 'Ver Configurações', description: 'Acessar página de configurações', group: 'Configurações' },
   settings_manage: { label: 'Gerenciar Configurações', description: 'Alterar configurações gerais', group: 'Configurações' },
   settings_funnel_stages: { label: 'Etapas do Funil', description: 'Gerenciar etapas do funil de vendas', group: 'Configurações' },
@@ -160,16 +171,15 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   settings_teams: { label: 'Times', description: 'Gerenciar times da organização', group: 'Configurações' },
   settings_lead_sources: { label: 'Origens de Lead', description: 'Gerenciar origens de lead', group: 'Configurações' },
   
-  // Relatórios separados
+  // Relatórios
   sales_report_view: { label: 'Relatório de Vendas', description: 'Ver relatório de vendas', group: 'Relatórios' },
   expedition_report_view: { label: 'Relatório de Expedição', description: 'Ver relatório de expedição/romaneio', group: 'Relatórios' },
   
+  // Entregas
   deliveries_view_own: { label: 'Ver Minhas Entregas', description: 'Ver entregas atribuídas a mim', group: 'Entregas' },
   deliveries_view_all: { label: 'Ver Todas Entregas', description: 'Ver todas as entregas', group: 'Entregas' },
   
-  receptive_module_access: { label: 'Módulo Receptivo', description: 'Acesso ao módulo de atendimento receptivo', group: 'Módulos' },
-  
-  // Equipe - permissões granulares
+  // Equipe
   team_view: { label: 'Ver Minha Equipe', description: 'Visualizar página Minha Equipe', group: 'Equipe' },
   team_add_member: { label: 'Adicionar Usuário', description: 'Adicionar novos usuários à equipe', group: 'Equipe' },
   team_edit_member: { label: 'Editar Usuário', description: 'Editar dados de usuários da equipe', group: 'Equipe' },
@@ -187,12 +197,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   sac_view: { label: 'Ver SAC', description: 'Acessar módulo de SAC e chamados', group: 'SAC' },
   sac_manage: { label: 'Gerenciar SAC', description: 'Criar e gerenciar chamados SAC', group: 'SAC' },
   
-  // Mensagens Agendadas
+  // Mensagens
   scheduled_messages_view: { label: 'Ver Mensagens Agendadas', description: 'Visualizar mensagens agendadas', group: 'Mensagens' },
   scheduled_messages_manage: { label: 'Gerenciar Mensagens Agendadas', description: 'Cancelar e reagendar mensagens', group: 'Mensagens' },
 };
 
-export const PERMISSION_GROUPS = ['Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens'];
+export const PERMISSION_GROUPS = ['Dashboard', 'Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens'];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {
@@ -345,12 +355,18 @@ export function useApplyRoleDefaults() {
         .upsert({
           organization_id: tenantId,
           user_id: userId,
+          // Dashboard permissions
+          dashboard_funnel_view: permsObj.dashboard_funnel_view ?? true,
+          dashboard_kanban_view: permsObj.dashboard_kanban_view ?? true,
+          seller_panel_view: permsObj.seller_panel_view ?? true,
+          // Leads
           leads_view: permsObj.leads_view ?? true,
           leads_view_only_own: permsObj.leads_view_only_own ?? false,
           leads_create: permsObj.leads_create ?? true,
           leads_edit: permsObj.leads_edit ?? true,
           leads_delete: permsObj.leads_delete ?? false,
           leads_hide_new_button: permsObj.leads_hide_new_button ?? false,
+          // Sales
           sales_view: permsObj.sales_view ?? true,
           sales_view_all: permsObj.sales_view_all ?? false,
           sales_create: permsObj.sales_create ?? false,
@@ -362,15 +378,21 @@ export function useApplyRoleDefaults() {
           sales_mark_printed: permsObj.sales_mark_printed ?? false,
           sales_cancel: permsObj.sales_cancel ?? false,
           sales_hide_new_button: permsObj.sales_hide_new_button ?? false,
+          // WhatsApp
           whatsapp_view: permsObj.whatsapp_view ?? true,
           whatsapp_send: permsObj.whatsapp_send ?? false,
           whatsapp_v2_view: permsObj.whatsapp_v2_view ?? false,
           whatsapp_manage_view: permsObj.whatsapp_manage_view ?? false,
+          // Modules
           ai_bots_view: permsObj.ai_bots_view ?? false,
           demands_view: permsObj.demands_view ?? false,
+          instagram_view: permsObj.instagram_view ?? false,
+          receptive_module_access: permsObj.receptive_module_access ?? false,
+          // Products
           products_view: permsObj.products_view ?? true,
           products_manage: permsObj.products_manage ?? false,
           products_view_cost: permsObj.products_view_cost ?? false,
+          // Settings
           settings_view: permsObj.settings_view ?? false,
           settings_manage: permsObj.settings_manage ?? false,
           settings_funnel_stages: permsObj.settings_funnel_stages ?? false,
@@ -381,12 +403,14 @@ export function useApplyRoleDefaults() {
           settings_standard_questions: permsObj.settings_standard_questions ?? false,
           settings_teams: permsObj.settings_teams ?? false,
           settings_lead_sources: permsObj.settings_lead_sources ?? false,
+          // Reports
           reports_view: permsObj.reports_view ?? false,
           sales_report_view: permsObj.sales_report_view ?? false,
           expedition_report_view: permsObj.expedition_report_view ?? false,
+          // Deliveries
           deliveries_view_own: permsObj.deliveries_view_own ?? false,
           deliveries_view_all: permsObj.deliveries_view_all ?? false,
-          receptive_module_access: permsObj.receptive_module_access ?? false,
+          // Team
           team_view: permsObj.team_view ?? false,
           team_add_member: permsObj.team_add_member ?? false,
           team_edit_member: permsObj.team_edit_member ?? false,
@@ -395,11 +419,13 @@ export function useApplyRoleDefaults() {
           team_change_role: permsObj.team_change_role ?? false,
           team_change_commission: permsObj.team_change_commission ?? false,
           team_toggle_manager: permsObj.team_toggle_manager ?? false,
-          instagram_view: permsObj.instagram_view ?? false,
+          // Post-sale
           post_sale_view: permsObj.post_sale_view ?? false,
           post_sale_manage: permsObj.post_sale_manage ?? false,
+          // SAC
           sac_view: permsObj.sac_view ?? false,
           sac_manage: permsObj.sac_manage ?? false,
+          // Scheduled Messages
           scheduled_messages_view: permsObj.scheduled_messages_view ?? false,
           scheduled_messages_manage: permsObj.scheduled_messages_manage ?? false,
           updated_at: new Date().toISOString(),

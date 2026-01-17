@@ -5551,6 +5551,8 @@ export type Database = {
         Row: {
           ai_bots_view: boolean
           created_at: string
+          dashboard_funnel_view: boolean
+          dashboard_kanban_view: boolean
           default_landing_page: string | null
           deliveries_view_all: boolean
           deliveries_view_own: boolean
@@ -5589,6 +5591,7 @@ export type Database = {
           sales_view_all: boolean
           scheduled_messages_manage: boolean
           scheduled_messages_view: boolean
+          seller_panel_view: boolean
           settings_carriers: boolean
           settings_delivery_regions: boolean
           settings_funnel_stages: boolean
@@ -5617,6 +5620,8 @@ export type Database = {
         Insert: {
           ai_bots_view?: boolean
           created_at?: string
+          dashboard_funnel_view?: boolean
+          dashboard_kanban_view?: boolean
           default_landing_page?: string | null
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
@@ -5655,6 +5660,7 @@ export type Database = {
           sales_view_all?: boolean
           scheduled_messages_manage?: boolean
           scheduled_messages_view?: boolean
+          seller_panel_view?: boolean
           settings_carriers?: boolean
           settings_delivery_regions?: boolean
           settings_funnel_stages?: boolean
@@ -5683,6 +5689,8 @@ export type Database = {
         Update: {
           ai_bots_view?: boolean
           created_at?: string
+          dashboard_funnel_view?: boolean
+          dashboard_kanban_view?: boolean
           default_landing_page?: string | null
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
@@ -5721,6 +5729,7 @@ export type Database = {
           sales_view_all?: boolean
           scheduled_messages_manage?: boolean
           scheduled_messages_view?: boolean
+          seller_panel_view?: boolean
           settings_carriers?: boolean
           settings_delivery_regions?: boolean
           settings_funnel_stages?: boolean

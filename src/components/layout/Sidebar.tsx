@@ -26,6 +26,8 @@ import {
   Bot,
   ListTodo,
   User,
+  Filter,
+  Columns3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -59,6 +61,9 @@ export function Sidebar() {
   };
   
   // Permission-based visibility (user permissions within org)
+  const canSeeDashboardFunnel = isAdmin || permissions?.dashboard_funnel_view;
+  const canSeeDashboardKanban = isAdmin || permissions?.dashboard_kanban_view;
+  const canSeeSellerPanel = isAdmin || permissions?.seller_panel_view;
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canCreateLeads = (isAdmin || permissions?.leads_create) && !permissions?.leads_hide_new_button;
   const canSeeSales = isAdmin || permissions?.sales_view;
@@ -89,11 +94,14 @@ export function Sidebar() {
   // Build nav items based on permissions AND plan features
   // Each item checks: 1) User has permission, 2) Feature is in plan
   const navItems = [
-    // Dashboard - everyone can see (but content will be filtered by permissions)
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: hasFeature('dashboard') },
+    // Dashboard FUNIL - separate permission
+    { icon: Filter, label: 'Dashboard Funil', path: '/', visible: canSeeDashboardFunnel && hasFeature('dashboard') },
+    
+    // Dashboard KANBAN - separate permission
+    { icon: Columns3, label: 'Dashboard Kanban', path: '/dashboard-kanban', visible: canSeeDashboardKanban && hasFeature('dashboard') },
     
     // Seller Panel - personal seller dashboard
-    { icon: User, label: 'Meu Painel', path: '/meu-painel', visible: canSeeSales && hasFeature('sales') },
+    { icon: User, label: 'Meu Painel', path: '/meu-painel', visible: canSeeSellerPanel && canSeeSales && hasFeature('sales') },
     
     // Receptivo (special module) - requires receptive feature in plan
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
