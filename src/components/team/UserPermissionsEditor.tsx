@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import {
   useUpdateUserPermissions,
   useApplyRoleDefaults,
 } from '@/hooks/useUserPermissions';
+import { useOrgFeatures, FeatureKey } from '@/hooks/usePlanFeatures';
 
 interface UserPermissionsEditorProps {
   userId: string;
@@ -22,8 +23,46 @@ interface UserPermissionsEditorProps {
 
 type PermissionKey = keyof Omit<UserPermissions, 'id' | 'organization_id' | 'user_id' | 'created_at' | 'updated_at'>;
 
+// Mapeia grupos de permissão para as features que precisam estar ativas
+const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
+  'Leads': ['leads'],
+  'Vendas': ['sales'],
+  'Financeiro': ['financial'],
+  'WhatsApp': ['whatsapp_v1', 'whatsapp_v2'],
+  'Módulos': ['ai_bots', 'instagram', 'demands'],
+  'Produtos': ['products'],
+  'Configurações': ['settings'],
+  'Equipe': ['team'],
+  'Relatórios': ['sales_report', 'expedition_report'],
+  'Entregas': ['deliveries'],
+  'Pós-Venda': ['post_sale', 'post_sale_kanban'],
+  'SAC': ['sac'],
+  'Mensagens': ['scheduled_messages'],
+};
+
+// Mapeia permissões individuais para features específicas
+const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
+  'ai_bots_view': 'ai_bots',
+  'instagram_view': 'instagram',
+  'demands_view': 'demands',
+  'whatsapp_v2_view': 'whatsapp_v2',
+  'post_sale_view': 'post_sale',
+  'post_sale_manage': 'post_sale',
+  'sac_view': 'sac',
+  'sac_manage': 'sac',
+  'sales_report_view': 'sales_report',
+  'expedition_report_view': 'expedition_report',
+  'settings_standard_questions': 'standard_questions',
+  'scheduled_messages_view': 'scheduled_messages',
+  'scheduled_messages_manage': 'scheduled_messages',
+  'deliveries_view_own': 'deliveries',
+  'deliveries_view_all': 'deliveries',
+  'receptive_module_access': 'receptive',
+};
+
 export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermissionsEditorProps) {
   const { data: permissions, isLoading } = useUserPermissions(userId);
+  const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const updatePermissions = useUpdateUserPermissions();
   const applyDefaults = useApplyRoleDefaults();
   
@@ -58,6 +97,27 @@ export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermiss
     await applyDefaults.mutateAsync({ userId, role: userRole });
     setHasChanges(false);
   };
+
+  // Verifica se um grupo deve ser exibido baseado nas features da organização
+  const isGroupVisible = (group: string): boolean => {
+    if (!orgFeatures) return true; // Se ainda carregando, mostra tudo
+    
+    const requiredFeatures = GROUP_TO_FEATURES[group];
+    if (!requiredFeatures || requiredFeatures.length === 0) return true;
+    
+    // O grupo é visível se pelo menos uma das features está ativa
+    return requiredFeatures.some(feature => orgFeatures[feature] === true);
+  };
+
+  // Verifica se uma permissão individual deve ser exibida
+  const isPermissionVisible = (permKey: PermissionKey): boolean => {
+    if (!orgFeatures) return true;
+    
+    const requiredFeature = PERMISSION_TO_FEATURE[permKey];
+    if (!requiredFeature) return true; // Se não tem mapeamento, mostra
+    
+    return orgFeatures[requiredFeature] === true;
+  };
   
   const getPermissionsByGroup = () => {
     const grouped: Record<string, { key: PermissionKey; label: string; description: string }[]> = {};
@@ -69,10 +129,26 @@ export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermiss
     
     return grouped;
   };
+
+  // Filtra grupos e permissões baseado nas features ativas
+  const filteredGroups = useMemo(() => {
+    return PERMISSION_GROUPS.filter(group => isGroupVisible(group));
+  }, [orgFeatures]);
+
+  const filteredPermissions = useMemo(() => {
+    const grouped = getPermissionsByGroup();
+    const result: Record<string, { key: PermissionKey; label: string; description: string }[]> = {};
+    
+    Object.entries(grouped).forEach(([group, perms]) => {
+      if (isGroupVisible(group)) {
+        result[group] = perms.filter(p => isPermissionVisible(p.key));
+      }
+    });
+    
+    return result;
+  }, [orgFeatures]);
   
-  const groupedPermissions = getPermissionsByGroup();
-  
-  if (isLoading) {
+  if (isLoading || featuresLoading) {
     return (
       <div className="flex justify-center p-8">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -119,39 +195,44 @@ export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermiss
       </div>
       
       <Accordion type="multiple" defaultValue={['Leads', 'Vendas']} className="space-y-2">
-        {PERMISSION_GROUPS.map(group => (
-          <AccordionItem key={group} value={group} className="border rounded-lg px-4">
-            <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{group}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {groupedPermissions[group]?.filter(p => localPermissions[p.key]).length || 0} / {groupedPermissions[group]?.length || 0}
-                </Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2 pb-4">
-              <div className="space-y-3">
-                {groupedPermissions[group]?.map(({ key, label, description }) => (
-                  <div key={key} className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <Label htmlFor={key} className="text-sm font-medium cursor-pointer">
-                        {label}
-                      </Label>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {description}
-                      </p>
+        {filteredGroups.map(group => {
+          const groupPerms = filteredPermissions[group];
+          if (!groupPerms || groupPerms.length === 0) return null;
+          
+          return (
+            <AccordionItem key={group} value={group} className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{group}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {groupPerms.filter(p => localPermissions[p.key]).length} / {groupPerms.length}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2 pb-4">
+                <div className="space-y-3">
+                  {groupPerms.map(({ key, label, description }) => (
+                    <div key={key} className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor={key} className="text-sm font-medium cursor-pointer">
+                          {label}
+                        </Label>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {description}
+                        </p>
+                      </div>
+                      <Switch
+                        id={key}
+                        checked={localPermissions[key] ?? false}
+                        onCheckedChange={(checked) => handleToggle(key, checked)}
+                      />
                     </div>
-                    <Switch
-                      id={key}
-                      checked={localPermissions[key] ?? false}
-                      onCheckedChange={(checked) => handleToggle(key, checked)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
       </Accordion>
       
       {hasChanges && (
