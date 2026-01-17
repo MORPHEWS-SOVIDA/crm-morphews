@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useTenant } from '@/hooks/useTenant';
-import { addDays, startOfDay, endOfDay, startOfMonth, endOfMonth, format } from 'date-fns';
+import { addDays, startOfDay, endOfDay, startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
 
 export interface SellerDashboardData {
   // Follow-ups pendentes
@@ -33,6 +33,7 @@ export interface SellerDashboardData {
     product_name: string;
     treatment_end_date: string;
     days_remaining: number;
+    sale_id: string;
   }>;
   
   // Vendas pendentes por status
@@ -49,8 +50,10 @@ export interface SellerDashboardData {
   commissions: {
     pending: number; // Vendas pagas, mas não entregues
     pendingCount: number;
+    pendingTotal: number; // Total em vendas antes da comissão
     toReceiveThisMonth: number; // Vendas pagas E entregues no mês
     toReceiveCount: number;
+    toReceiveTotal: number; // Total em vendas antes da comissão
     commissionPercentage: number;
   };
 }
@@ -70,12 +73,20 @@ export interface SaleSummary {
   payment_status: string | null;
 }
 
-export function useSellerDashboard(treatmentDays: number = 5) {
+interface SellerDashboardOptions {
+  treatmentDays?: number;
+  commissionMonth?: Date;
+}
+
+export function useSellerDashboard(options: SellerDashboardOptions = {}) {
+  const { treatmentDays = 5, commissionMonth = new Date() } = options;
   const { user } = useAuth();
   const { tenantId } = useTenant();
   
+  const monthKey = format(commissionMonth, 'yyyy-MM');
+  
   return useQuery({
-    queryKey: ['seller-dashboard', tenantId, user?.id, treatmentDays],
+    queryKey: ['seller-dashboard', tenantId, user?.id, treatmentDays, monthKey],
     queryFn: async (): Promise<SellerDashboardData> => {
       if (!tenantId || !user?.id) {
         throw new Error('Missing tenant or user');
@@ -83,8 +94,8 @@ export function useSellerDashboard(treatmentDays: number = 5) {
 
       const now = new Date();
       const treatmentEndDate = addDays(startOfDay(now), treatmentDays);
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
+      const monthStart = startOfMonth(commissionMonth);
+      const monthEnd = endOfMonth(commissionMonth);
 
       // 1. Get leads where user is responsible
       const { data: responsibleLeads } = await supabase
@@ -149,7 +160,7 @@ export function useSellerDashboard(treatmentDays: number = 5) {
       }));
 
       // 4. Treatments ending soon (based on last sale + usage_period_days)
-      // Get sales with products that have usage_period_days, for leads I'm responsible for
+      // Get delivered sales for leads I'm responsible for
       const { data: treatmentsData } = myLeadIds.length > 0 ? await supabase
         .from('sales')
         .select(`
@@ -197,6 +208,7 @@ export function useSellerDashboard(treatmentDays: number = 5) {
               product_name: product.name,
               treatment_end_date: treatmentEnd.toISOString(),
               days_remaining: daysRemaining,
+              sale_id: sale.id,
             });
           }
         });
@@ -205,7 +217,7 @@ export function useSellerDashboard(treatmentDays: number = 5) {
       // Sort by days remaining
       treatmentsEnding.sort((a, b) => a.days_remaining - b.days_remaining);
 
-      // 5. Pending sales by status (my sales)
+      // 5. Pending sales by status (my sales as seller)
       const { data: salesData } = await supabase
         .from('sales')
         .select(`
@@ -258,7 +270,7 @@ export function useSellerDashboard(treatmentDays: number = 5) {
       };
 
       // 6. Commission calculation
-      // Get seller's commission percentage
+      // Get seller's commission percentage from organization_members
       const { data: memberData } = await supabase
         .from('organization_members')
         .select('commission_percentage')
@@ -266,9 +278,10 @@ export function useSellerDashboard(treatmentDays: number = 5) {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      const commissionPercentage = memberData?.commission_percentage || 0;
+      const commissionPercentage = Number(memberData?.commission_percentage) || 0;
 
-      // Pending commissions: paid but not delivered
+      // Pending commissions: paid but not yet delivered (any time)
+      // Uses payment_status = 'paid_now' and status is NOT delivered and NOT cancelled
       const { data: pendingCommissionSales } = await supabase
         .from('sales')
         .select('id, total_cents')
@@ -279,10 +292,11 @@ export function useSellerDashboard(treatmentDays: number = 5) {
         .neq('status', 'cancelled');
 
       const pendingTotal = (pendingCommissionSales || [])
-        .reduce((sum: number, s) => sum + (s.total_cents || 0), 0);
+        .reduce((sum: number, s: any) => sum + (Number(s.total_cents) || 0), 0);
       const pendingCommission = Math.round(pendingTotal * (commissionPercentage / 100));
 
-      // Commissions to receive this month: paid AND delivered in current month
+      // Commissions to receive: paid AND delivered in selected month
+      // Commission is based on delivered_at date (when treatment starts)
       const { data: toReceiveSales } = await supabase
         .from('sales')
         .select('id, total_cents, delivered_at')
@@ -294,7 +308,7 @@ export function useSellerDashboard(treatmentDays: number = 5) {
         .lte('delivered_at', monthEnd.toISOString());
 
       const toReceiveTotal = (toReceiveSales || [])
-        .reduce((sum: number, s) => sum + (s.total_cents || 0), 0);
+        .reduce((sum: number, s: any) => sum + (Number(s.total_cents) || 0), 0);
       const toReceiveCommission = Math.round(toReceiveTotal * (commissionPercentage / 100));
 
       return {
@@ -305,8 +319,10 @@ export function useSellerDashboard(treatmentDays: number = 5) {
         commissions: {
           pending: pendingCommission,
           pendingCount: pendingCommissionSales?.length || 0,
+          pendingTotal,
           toReceiveThisMonth: toReceiveCommission,
           toReceiveCount: toReceiveSales?.length || 0,
+          toReceiveTotal,
           commissionPercentage,
         },
       };
