@@ -54,6 +54,7 @@ import AIBots from "./pages/AIBots";
 import Demands from "./pages/Demands";
 import DemandsSettings from "./pages/DemandsSettings";
 import SellerPanel from "./pages/SellerPanel";
+import DashboardKanban from "./pages/DashboardKanban";
 
 const queryClient = new QueryClient();
 
@@ -77,8 +78,18 @@ const App = () => (
               <Route path="/auth/error" element={<AuthError />} />
               <Route path="/legal" element={<Legal />} />
 
-              {/* Home - shows landing for non-auth, dashboard for auth */}
+              {/* Home - shows landing for non-auth, dashboard funnel for auth */}
               <Route path="/" element={<Home />} />
+              
+              {/* Dashboard Kanban - separate view */}
+              <Route
+                path="/dashboard-kanban"
+                element={
+                  <ProtectedRoute requiredPermissions={['dashboard_kanban_view']}>
+                    <DashboardKanban />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Leads - require leads_view permission */}
               <Route
@@ -252,7 +263,7 @@ const App = () => (
               <Route
                 path="/meu-painel"
                 element={
-                  <ProtectedRoute requiredPermissions={['sales_view']}>
+                  <ProtectedRoute requiredPermissions={['seller_panel_view']}>
                     <SellerPanel />
                   </ProtectedRoute>
                 }

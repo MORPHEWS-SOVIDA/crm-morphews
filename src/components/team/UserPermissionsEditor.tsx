@@ -26,11 +26,12 @@ interface UserPermissionsEditorProps {
 
 // Mapeia grupos de permissão para as features que precisam estar ativas
 const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
+  'Dashboard': ['dashboard'],
   'Leads': ['leads'],
   'Vendas': ['sales'],
   'Financeiro': ['financial'],
   'WhatsApp': ['whatsapp_v1', 'whatsapp_v2'],
-  'Módulos': ['ai_bots', 'instagram', 'demands'],
+  'Módulos': ['ai_bots', 'instagram', 'demands', 'receptive'],
   'Produtos': ['products', 'custom_questions'],
   'Configurações': ['settings', 'standard_questions', 'custom_questions'],
   'Equipe': ['team'],
@@ -44,6 +45,9 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
 // Mapeia permissões individuais para features específicas
 // Se a feature está desativada para a org, a permissão não aparece
 const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
+  'dashboard_funnel_view': 'dashboard',
+  'dashboard_kanban_view': 'dashboard',
+  'seller_panel_view': 'sales',
   'ai_bots_view': 'ai_bots',
   'instagram_view': 'instagram',
   'demands_view': 'demands',

@@ -2,26 +2,22 @@ import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
-import { FunnelVisualization } from '@/components/dashboard/FunnelVisualization';
-import { LeadsTable } from '@/components/dashboard/LeadsTable';
-import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
+import { KanbanBoard } from '@/components/dashboard/KanbanBoard';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
-import { UpcomingMeetings } from '@/components/dashboard/UpcomingMeetings';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
-import { OnboardingGuide } from '@/components/dashboard/OnboardingGuide';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
-import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
-import { Loader2, Filter, Truck } from 'lucide-react';
+import { FunnelStage } from '@/types/lead';
+import { Loader2, Columns3, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
-export default function Dashboard() {
-  const { isAdmin, profile } = useAuth();
+export default function DashboardKanban() {
+  const { isAdmin } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const { data: leads = [], isLoading, error } = useLeads();
   const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
@@ -31,7 +27,6 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
-  // Check if user can see leads
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
 
@@ -40,58 +35,7 @@ export default function Dashboard() {
     return uniqueResponsaveis.filter(Boolean);
   }, [leads]);
 
-  const filteredLeads = useMemo(() => {
-    let filtered = [...leads];
-    
-    if (selectedStars !== null) {
-      filtered = filtered.filter((lead) => lead.stars === selectedStars);
-    }
-    
-    if (selectedStage !== null) {
-      filtered = filtered.filter((lead) => lead.stage === selectedStage);
-    }
-
-    if (selectedResponsavel !== null) {
-      filtered = filtered.filter((lead) => lead.assigned_to === selectedResponsavel);
-    }
-    
-    return filtered;
-  }, [leads, selectedStars, selectedStage, selectedResponsavel]);
-
-  const getTableTitle = () => {
-    const parts: string[] = [];
-    
-    if (selectedStage) {
-      const customStage = stages.find(s => {
-        const positionToEnum: Record<number, string> = {
-          0: 'cloud', 1: 'prospect', 2: 'contacted', 3: 'convincing',
-          4: 'scheduled', 5: 'positive', 6: 'waiting_payment', 7: 'success', 8: 'trash',
-        };
-        return positionToEnum[s.position] === selectedStage;
-      });
-      parts.push(customStage?.name || FUNNEL_STAGES[selectedStage].label);
-    }
-    
-    if (selectedStars) {
-      parts.push(`${selectedStars} estrela${selectedStars > 1 ? 's' : ''}`);
-    }
-
-    if (selectedResponsavel) {
-      parts.push(selectedResponsavel);
-    }
-    
-    if (parts.length === 0) {
-      return 'Todos os Leads';
-    }
-    
-    return parts.join(' - ');
-  };
-
   const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null;
-
-  const hasStageUpdates = useMemo(() => {
-    return leads.some(lead => lead.stage !== 'cloud' && lead.stage !== 'prospect');
-  }, [leads]);
 
   if (isLoading || loadingStages || permissionsLoading) {
     return (
@@ -109,7 +53,7 @@ export default function Dashboard() {
       <Layout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard Kanban</h1>
             <p className="text-muted-foreground mt-1 text-sm lg:text-base">
               Bem-vindo! Acesse suas entregas abaixo.
             </p>
@@ -142,7 +86,7 @@ export default function Dashboard() {
       <Layout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard Kanban</h1>
             <p className="text-muted-foreground mt-1 text-sm lg:text-base">
               Bem-vindo ao sistema!
             </p>
@@ -179,11 +123,11 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Filter className="w-8 h-8 text-primary" />
+            <Columns3 className="w-8 h-8 text-primary" />
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard Funil</h1>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard Kanban</h1>
               <p className="text-muted-foreground mt-1 text-sm lg:text-base">
-                Visão geral dos seus leads e vendas
+                Visualize leads por etapa do funil
               </p>
             </div>
           </div>
@@ -215,70 +159,36 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Onboarding Guide - Shows for new users */}
-        <OnboardingGuide leadsCount={leads.length} hasStageUpdates={hasStageUpdates} />
-
         {/* Stats */}
         <StatsCards leads={leads} />
 
-        {/* Main Grid - Desktop */}
-        <div className="hidden lg:grid grid-cols-12 gap-6">
-          {/* Funnel */}
-          <div className="col-span-5">
-            <FunnelVisualization
-              leads={leads}
-              stages={stages}
-              selectedStage={selectedStage}
-              onSelectStage={setSelectedStage}
-              onSwitchToKanban={() => navigate('/dashboard-kanban')}
-            />
+        {/* Kanban View */}
+        <div className="bg-card rounded-xl p-4 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">Kanban</h3>
+            {!isMobile && (
+              <div className="flex items-center gap-4">
+                <StarsFilter
+                  leads={leads}
+                  selectedStars={selectedStars}
+                  onSelectStars={setSelectedStars}
+                  compact
+                />
+                <ResponsavelFilter
+                  selectedResponsavel={selectedResponsavel}
+                  onSelectResponsavel={setSelectedResponsavel}
+                  compact
+                />
+              </div>
+            )}
           </div>
-
-          {/* Stars Filter */}
-          <div className="col-span-4">
-            <StarsFilter
-              leads={leads}
-              selectedStars={selectedStars}
-              onSelectStars={setSelectedStars}
-            />
-          </div>
-
-          {/* Upcoming Meetings */}
-          <div className="col-span-3">
-            <UpcomingMeetings leads={leads} />
-          </div>
-        </div>
-
-        {/* Mobile Funnel & Meetings */}
-        {isMobile && (
-          <div className="space-y-4">
-            <FunnelVisualization
-              leads={leads}
-              stages={stages}
-              selectedStage={selectedStage}
-              onSelectStage={setSelectedStage}
-              onSwitchToKanban={() => navigate('/dashboard-kanban')}
-            />
-            <UpcomingMeetings leads={leads} />
-          </div>
-        )}
-
-        {/* Leads Table / List */}
-        {isMobile ? (
-          <MobileLeadsList leads={filteredLeads} title={getTableTitle()} />
-        ) : (
-          <LeadsTable 
-            leads={filteredLeads} 
-            title={getTableTitle()}
-            headerRight={
-              <ResponsavelFilter
-                selectedResponsavel={selectedResponsavel}
-                onSelectResponsavel={setSelectedResponsavel}
-                compact
-              />
-            }
+          <KanbanBoard
+            leads={leads}
+            stages={stages}
+            selectedStars={selectedStars}
+            selectedResponsavel={selectedResponsavel}
           />
-        )}
+        </div>
       </div>
     </Layout>
   );
