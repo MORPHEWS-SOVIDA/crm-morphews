@@ -91,13 +91,27 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
 
-  // Filter delivery users based on region
-  const deliveryUsers = members.filter(member => {
-    if (!deliveryRegionId) return true;
-    const region = (regions as DeliveryRegion[]).find(r => r.id === deliveryRegionId);
-    if (!region) return true;
-    return region.assigned_users?.some((dru) => dru.user_id === member.user_id);
-  });
+  // Get the selected region
+  const selectedRegion = deliveryRegionId 
+    ? (regions as DeliveryRegion[]).find(r => r.id === deliveryRegionId) 
+    : null;
+
+  // Filter delivery users based on region - ONLY show users assigned to this region
+  const deliveryUsers = (() => {
+    // If no region selected, show all members
+    if (!deliveryRegionId || !selectedRegion) {
+      return members;
+    }
+    
+    // If region has assigned users, filter to only those users
+    if (selectedRegion.assigned_users && selectedRegion.assigned_users.length > 0) {
+      const assignedUserIds = new Set(selectedRegion.assigned_users.map(u => u.user_id));
+      return members.filter(member => assignedUserIds.has(member.user_id));
+    }
+    
+    // If region has no assigned users, show all (fallback)
+    return members;
+  })();
 
   const handleToggle = async (type: CheckpointType, isCompleted: boolean) => {
     if (isCancelled) {
