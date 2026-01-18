@@ -647,35 +647,38 @@ export default function ExpeditionReport() {
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="border border-gray-400 p-1 text-left w-12">ROM.</th>
-                          <th className="border border-gray-400 p-1 text-left w-20">DATA<br/>TURNO</th>
-                          <th className="border border-gray-400 p-1 text-left w-28">CLIENTE<br/>BAIRRO/CIDADE</th>
-                          <th className="border border-gray-400 p-1 text-left w-28">PRODUTOS<br/>CONFERIDO</th>
-                          <th className="border border-gray-400 p-1 text-center w-12">PAGO?</th>
-                          <th className="border border-gray-400 p-1 text-right w-16">VALOR</th>
-                          <th className="border border-gray-400 p-1 text-center w-16">STATUS</th>
-                          <th className="border border-gray-400 p-1 text-center w-12">RUB.<br/>BOY</th>
-                          <th className="border border-gray-400 p-1 text-left w-16">OBS:</th>
+                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '30px' }}>ROM.</th>
+                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '45px' }}>DATA<br/>TURNO</th>
+                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '70px' }}>CLIENTE<br/>BAIRRO/CIDADE</th>
+                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '75px' }}>PRODUTOS<br/>☐ CONFERIDO</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '30px' }}>PAGO?</th>
+                          <th className="border border-gray-400 p-1 text-right text-[8px]" style={{ width: '45px' }}>VALOR</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '50px' }}>STATUS</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '30px' }}>RUB.<br/>BOY</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '25px' }}>OBS:</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px] bg-yellow-50" style={{ width: '55px' }}>ENTREGUE?<br/>ou VOLTOU?</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px] bg-yellow-50" style={{ width: '70px' }}>FORMA PGTO<br/>VALOR + DESC</th>
+                          <th className="border border-gray-400 p-1 text-center text-[8px] bg-yellow-50" style={{ width: '60px' }}>ASSINATURA<br/>RECEBEDOR</th>
                         </tr>
                       </thead>
                       <tbody>
                         {motoboysSales.map((sale) => (
                           <tr key={sale.id}>
-                            <td className="border border-gray-400 p-1 font-semibold text-center">{sale.romaneio_number}</td>
+                            <td className="border border-gray-400 p-1 font-semibold text-center text-[9px]">{sale.romaneio_number}</td>
                             <td className="border border-gray-400 p-1 text-center">
-                              <span className="block font-medium">{formatDeliveryDate(sale.scheduled_delivery_date)}</span>
-                              <span className="block text-[9px] text-gray-600">{getShiftLabel(sale.scheduled_delivery_shift)}</span>
+                              <span className="block font-medium text-[9px]">{formatDeliveryDate(sale.scheduled_delivery_date)}</span>
+                              <span className="block text-[8px] text-gray-600">{getShiftLabel(sale.scheduled_delivery_shift)}</span>
                             </td>
                             <td className="border border-gray-400 p-1">
-                              <span className="font-medium block text-[10px] leading-tight">{sale.lead?.name}</span>
+                              <span className="font-medium block text-[9px] leading-tight">{sale.lead?.name}</span>
                               {sale.lead?.neighborhood && (
-                                <span className="text-gray-600 block text-[9px]">{sale.lead.neighborhood}</span>
+                                <span className="text-gray-600 block text-[8px]">{sale.lead.neighborhood}</span>
                               )}
                               {sale.lead?.city && (
-                                <span className="text-gray-600 block text-[9px]">{sale.lead.city}</span>
+                                <span className="text-gray-600 block text-[8px]">{sale.lead.city}</span>
                               )}
                             </td>
-                            <td className="border border-gray-400 p-1 text-[9px]">
+                            <td className="border border-gray-400 p-1 text-[8px]">
                               {getProductsList(sale.items).map((product, idx) => (
                                 <div key={idx} className="flex items-center gap-1">
                                   <span>☐</span>
@@ -683,36 +686,21 @@ export default function ExpeditionReport() {
                                 </div>
                               ))}
                             </td>
-                            <td className="border border-gray-400 p-1 text-center font-bold text-[10px]">
+                            <td className="border border-gray-400 p-1 text-center font-bold text-[9px]">
                               {sale.payment_confirmed_at ? '✓' : 'SIM'}
                             </td>
-                            <td className="border border-gray-400 p-1 text-right text-[10px]">{formatCurrency(sale.total_cents)}</td>
-                            <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
+                            <td className="border border-gray-400 p-1 text-right text-[9px]">{formatCurrency(sale.total_cents)}</td>
+                            <td className="border border-gray-400 p-1 text-center text-[7px]">{getStatusLabel(sale.status)}</td>
                             <td className="border border-gray-400 p-1"></td>
                             <td className="border border-gray-400 p-1"></td>
+                            {/* Colunas para preenchimento manual no retorno */}
+                            <td className="border border-gray-400 p-1 bg-yellow-50 min-h-[30px]"></td>
+                            <td className="border border-gray-400 p-1 bg-yellow-50 min-h-[30px]"></td>
+                            <td className="border border-gray-400 p-1 bg-yellow-50 min-h-[30px]"></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    
-                    {/* Campos para preenchimento no retorno do motoboy */}
-                    <div className="mt-3 border border-gray-400 p-2">
-                      <p className="font-semibold text-[10px] mb-2 bg-gray-100 p-1">📝 PREENCHIMENTO NO RETORNO DO MOTOBOY:</p>
-                      <div className="grid grid-cols-3 gap-2 text-[9px]">
-                        <div className="border border-gray-300 p-1">
-                          <p className="font-medium mb-1">Entregue? ou Voltou?</p>
-                          <div className="h-10 border-b border-dashed border-gray-400"></div>
-                        </div>
-                        <div className="border border-gray-300 p-1">
-                          <p className="font-medium mb-1">Forma Pgto + Valor + Descritivo</p>
-                          <div className="h-10 border-b border-dashed border-gray-400"></div>
-                        </div>
-                        <div className="border border-gray-300 p-1">
-                          <p className="font-medium mb-1">Assinatura Recebedor Retorno</p>
-                          <div className="h-10 border-b border-dashed border-gray-400"></div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 );
               })}
