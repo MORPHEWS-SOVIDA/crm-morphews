@@ -270,14 +270,14 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
             <div className="space-y-2">
               <Label className="text-muted-foreground">Produto de interesse (opcional)</Label>
               <Select 
-                value={selectedProductId || ''} 
-                onValueChange={(v) => setSelectedProductId(v || null)}
+                value={selectedProductId || '__none__'} 
+                onValueChange={(v) => setSelectedProductId(v === '__none__' ? null : v)}
               >
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Selecione um produto" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name}
