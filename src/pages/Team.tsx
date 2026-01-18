@@ -303,6 +303,21 @@ export default function Team() {
     setIsAddingUser(true);
 
     try {
+      // Check for duplicate WhatsApp across ALL organizations before calling backend
+      if (newUserData.whatsapp) {
+        const duplicate = await checkDuplicateUserWhatsApp(newUserData.whatsapp);
+        if (duplicate) {
+          toast({
+            title: "WhatsApp já cadastrado",
+            description: `Este número de WhatsApp já está associado a um usuário em outra empresa dentro do sistema MORPHEWS. Por favor, use outro número ou entre em contato com o suporte para resolver.`,
+            variant: "destructive",
+            duration: 15000, // Show for 15 seconds
+          });
+          setIsAddingUser(false);
+          return;
+        }
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
@@ -339,10 +354,21 @@ export default function Team() {
       refetchMembers();
     } catch (error: any) {
       console.error("Error adding user:", error);
+      
+      // Better error message parsing
+      let errorMessage = error.message || "Erro desconhecido";
+      
+      // Check if it's a WhatsApp duplicate error from backend
+      if (errorMessage.toLowerCase().includes('whatsapp') && 
+          (errorMessage.toLowerCase().includes('duplicat') || errorMessage.toLowerCase().includes('existe') || errorMessage.toLowerCase().includes('já'))) {
+        errorMessage = "Este número de WhatsApp já está associado a um usuário em outra empresa dentro do sistema MORPHEWS. Por favor, use outro número ou entre em contato com o suporte para resolver.";
+      }
+      
       toast({
         title: "Erro ao adicionar usuário",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
+        duration: 12000, // Show longer for errors
       });
     } finally {
       setIsAddingUser(false);
