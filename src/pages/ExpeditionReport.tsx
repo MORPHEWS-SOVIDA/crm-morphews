@@ -21,6 +21,7 @@ import jsPDF from 'jspdf';
 type ShiftFilter = 'morning' | 'afternoon' | 'full_day' | 'all';
 type DeliveryTypeFilter = 'motoboy' | 'carrier' | 'pickup' | 'all';
 type DateTypeFilter = 'delivery' | 'created';
+type StatusFilter = 'all' | 'draft' | 'pending_expedition' | 'dispatched' | 'delivered' | 'returned' | 'cancelled' | 'payment_confirmed';
 
 interface SaleWithDetails {
   id: string;
@@ -66,7 +67,7 @@ export default function ExpeditionReport() {
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
   const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<DeliveryTypeFilter>('all');
   const [motoboyFilter, setMotoboyFilter] = useState<string>('all');
-  const [includeDispatched, setIncludeDispatched] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showReport, setShowReport] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -90,7 +91,7 @@ export default function ExpeditionReport() {
 
   // Fetch sales for report
   const { data: sales, isLoading } = useQuery({
-    queryKey: ['expedition-report', organizationId, startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, includeDispatched],
+    queryKey: ['expedition-report', organizationId, startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, statusFilter],
     queryFn: async () => {
       if (!organizationId) return [];
 
@@ -131,11 +132,12 @@ export default function ExpeditionReport() {
           .lte('created_at', endDateTime);
       }
 
-      // Filter by status - expedition reports should include all relevant statuses
-      if (includeDispatched) {
-        query = query.in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned']);
+      // Filter by status
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
       } else {
-        query = query.in('status', ['pending_expedition', 'draft']);
+        // "Todos" includes all relevant statuses for expedition
+        query = query.in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed']);
       }
 
       // Filter by shift (only applies to motoboy deliveries with scheduled date)
@@ -228,7 +230,7 @@ export default function ExpeditionReport() {
   };
 
   const handleGenerateReport = () => {
-    console.log('Gerando relatório...', { startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, includeDispatched });
+    console.log('Gerando relatório...', { startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, statusFilter });
     setShowReport(true);
   };
 
@@ -403,16 +405,24 @@ export default function ExpeditionReport() {
               </div>
             )}
 
-            {/* Include Dispatched */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="include-dispatched"
-                checked={includeDispatched}
-                onCheckedChange={(checked) => setIncludeDispatched(!!checked)}
-              />
-              <Label htmlFor="include-dispatched" className="cursor-pointer">
-                Incluir romaneios já despachados (para reimpressão)
-              </Label>
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <Label>Etapa da Venda</Label>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+                <SelectTrigger className="w-full md:w-[300px]">
+                  <SelectValue placeholder="Todas as etapas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Etapas</SelectItem>
+                  <SelectItem value="draft">👀 Rascunho</SelectItem>
+                  <SelectItem value="pending_expedition">🖨️ Impresso</SelectItem>
+                  <SelectItem value="dispatched">🚚 Despachado</SelectItem>
+                  <SelectItem value="delivered">✅ Entregue</SelectItem>
+                  <SelectItem value="payment_confirmed">💰 Pago</SelectItem>
+                  <SelectItem value="returned">⚠️ Voltou</SelectItem>
+                  <SelectItem value="cancelled">😭 Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Action Buttons */}
