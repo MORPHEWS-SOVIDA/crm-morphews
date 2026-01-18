@@ -290,7 +290,7 @@ export function useCreateDemand() {
           demand_id: demand.id,
           user_id: userId,
           organization_id: profile.organization_id,
-          role: 'responsible' as const,
+          role: 'assignee', // Valid values: 'assignee' or 'watcher'
           assigned_by: profile.user_id,
         }));
 
@@ -301,7 +301,7 @@ export function useCreateDemand() {
         // If we cannot assign, rollback the demand creation so it doesn't stay "sem responsável".
         if (assignError) {
           await supabase.from('demands').delete().eq('id', demand.id);
-          throw assignError;
+          throw new Error('Não foi possível atribuir os responsáveis selecionados. Por favor, tente novamente.');
         }
 
         // Send WhatsApp notification to assignees
@@ -317,7 +317,16 @@ export function useCreateDemand() {
       toast({ title: 'Demanda criada com sucesso!' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao criar demanda', description: error.message, variant: 'destructive' });
+      // Translate common database errors to Portuguese
+      let message = error.message;
+      if (message.includes('demand_assignees_role_check')) {
+        message = 'Erro interno ao atribuir responsáveis. Por favor, tente novamente ou entre em contato com o suporte.';
+      } else if (message.includes('violates check constraint')) {
+        message = 'Dados inválidos. Por favor, verifique os campos e tente novamente.';
+      } else if (message.includes('violates foreign key')) {
+        message = 'Um dos itens selecionados não existe mais. Por favor, atualize a página e tente novamente.';
+      }
+      toast({ title: 'Erro ao criar demanda', description: message, variant: 'destructive', duration: 10000 });
     },
   });
 }
@@ -439,7 +448,7 @@ export function useAddDemandAssignee() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ demandId, userId, role = 'responsible' }: { demandId: string; userId: string; role?: string }) => {
+    mutationFn: async ({ demandId, userId, role = 'assignee' }: { demandId: string; userId: string; role?: string }) => {
       if (!profile?.organization_id || !profile?.user_id) {
         throw new Error('Usuário não autenticado');
       }
