@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
+import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/hooks/useSales';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -53,7 +54,7 @@ interface SaleWithDetails {
 
 export default function ExpeditionReport() {
   const navigate = useNavigate();
-  const { tenantId: organizationId } = useTenant();
+  const { tenantId: organizationId, isLoading: isLoadingTenant } = useTenant();
   const printRef = useRef<HTMLDivElement>(null);
 
   // Filters - default to created date and last 30 days for better initial results
@@ -90,7 +91,7 @@ export default function ExpeditionReport() {
   });
 
   // Fetch sales for report
-  const { data: sales, isLoading } = useQuery({
+  const { data: sales, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['expedition-report', organizationId, startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, statusFilter],
     queryFn: async () => {
       if (!organizationId) return [];
@@ -230,7 +231,20 @@ export default function ExpeditionReport() {
   };
 
   const handleGenerateReport = () => {
-    console.log('Gerando relatório...', { startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, statusFilter });
+    if (isLoadingTenant || !organizationId) {
+      toast({
+        title: 'Carregando empresa…',
+        description: 'Aguarde alguns segundos e tente novamente.',
+      });
+      return;
+    }
+
+    // Se já está visível, força atualizar
+    if (showReport) {
+      void refetch();
+      return;
+    }
+
     setShowReport(true);
   };
 
@@ -427,9 +441,9 @@ export default function ExpeditionReport() {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
-              <Button onClick={handleGenerateReport}>
+              <Button onClick={handleGenerateReport} disabled={isLoadingTenant || !organizationId}>
                 <FileText className="w-4 h-4 mr-2" />
-                Gerar Relatório
+                {showReport && (isLoading || isFetching) ? 'Gerando…' : 'Gerar Relatório'}
               </Button>
               {showReport && sales && sales.length > 0 && (
                 <Button onClick={handleDownloadPdf} variant="default" disabled={isGeneratingPdf}>
@@ -448,7 +462,19 @@ export default function ExpeditionReport() {
         {/* Preview */}
         {showReport && (
           <>
-            {isLoading ? (
+            {!organizationId ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  Carregando dados da empresa…
+                </CardContent>
+              </Card>
+            ) : error ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  Não foi possível gerar o relatório agora. Tente novamente.
+                </CardContent>
+              </Card>
+            ) : isLoading || isFetching ? (
               <Skeleton className="h-[600px] w-full" />
             ) : sales && sales.length === 0 ? (
               <Card>
