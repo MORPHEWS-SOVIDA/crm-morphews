@@ -1734,6 +1734,13 @@ export type Database = {
             referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "interested_leads_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       lead_addresses: {
@@ -3714,6 +3721,13 @@ export type Database = {
             referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       post_sale_surveys: {
@@ -5690,6 +5704,13 @@ export type Database = {
             referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       teams: {
@@ -7095,6 +7116,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_plans_public: {
+        Row: {
+          created_at: string | null
+          extra_energy_price_cents: number | null
+          extra_instance_price_cents: number | null
+          extra_user_price_cents: number | null
+          id: string | null
+          included_whatsapp_instances: number | null
+          is_active: boolean | null
+          max_leads: number | null
+          max_users: number | null
+          monthly_energy: number | null
+          name: string | null
+          price_cents: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          extra_energy_price_cents?: number | null
+          extra_instance_price_cents?: number | null
+          extra_user_price_cents?: number | null
+          id?: string | null
+          included_whatsapp_instances?: number | null
+          is_active?: boolean | null
+          max_leads?: number | null
+          max_users?: number | null
+          monthly_energy?: number | null
+          name?: string | null
+          price_cents?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          extra_energy_price_cents?: number | null
+          extra_instance_price_cents?: number | null
+          extra_user_price_cents?: number | null
+          id?: string | null
+          included_whatsapp_instances?: number | null
+          is_active?: boolean | null
+          max_leads?: number | null
+          max_users?: number | null
+          monthly_energy?: number | null
+          name?: string | null
+          price_cents?: number | null
+        }
+        Relationships: []
       }
       threads: {
         Row: {

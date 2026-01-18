@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
+// Public-facing plan data (no sensitive Stripe IDs)
 export interface SubscriptionPlan {
   id: string;
   name: string;
@@ -11,10 +12,15 @@ export interface SubscriptionPlan {
   max_leads: number | null;
   extra_user_price_cents: number;
   is_active: boolean;
-  stripe_price_id: string | null;
   included_whatsapp_instances: number;
   extra_instance_price_cents: number;
   extra_energy_price_cents: number;
+  monthly_energy?: number | null;
+}
+
+// Full plan data including Stripe IDs (for authenticated users with access)
+export interface SubscriptionPlanFull extends SubscriptionPlan {
+  stripe_price_id: string | null;
 }
 
 export interface Subscription {
@@ -33,16 +39,17 @@ export interface Subscription {
 
 export function useSubscriptionPlans() {
   return useQuery({
-    queryKey: ["subscription-plans"],
+    queryKey: ["subscription-plans-public"],
     queryFn: async () => {
+      // Use the public view that hides sensitive Stripe IDs
+      // The view is not in auto-generated types, so we cast through unknown
       const { data, error } = await supabase
-        .from("subscription_plans")
+        .from("subscription_plans_public" as any)
         .select("*")
-        .eq("is_active", true)
         .order("price_cents", { ascending: true });
 
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      return (data as unknown) as SubscriptionPlan[];
     },
   });
 }
