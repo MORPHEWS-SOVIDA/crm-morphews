@@ -133,9 +133,12 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
     let current = '';
     let inQuotes = false;
 
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
+    // Remove BOM if present at start
+    const cleanLine = line.replace(/^\uFEFF/, '');
+
+    for (let i = 0; i < cleanLine.length; i++) {
+      const char = cleanLine[i];
+      const nextChar = cleanLine[i + 1];
 
       if (char === '"') {
         if (inQuotes && nextChar === '"') {
@@ -152,6 +155,12 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
       }
     }
     result.push(current.trim());
+    
+    // Pad with empty strings if we have fewer columns than expected
+    while (result.length < CSV_COLUMNS.length) {
+      result.push('');
+    }
+    
     return result;
   };
 
@@ -180,8 +189,14 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
         try {
           const values = parseCSVLine(dataLines[i]);
           
-          if (values.length < CSV_COLUMNS.length) {
-            results.errors.push(`Linha ${lineNumber}: número de colunas incorreto`);
+          // Skip empty lines
+          if (values.every(v => !v.trim())) {
+            continue;
+          }
+          
+          // Check if we have at least the required name column (column index 1)
+          if (!values[1]?.trim()) {
+            results.errors.push(`Linha ${lineNumber}: nome do produto é obrigatório`);
             continue;
           }
 
