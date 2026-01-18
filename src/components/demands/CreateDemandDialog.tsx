@@ -15,7 +15,7 @@ import { useLeads } from '@/hooks/useLeads';
 import { useAssignDemandLabel, useDemandLabels } from '@/hooks/useDemandDetails';
 import { URGENCY_CONFIG, type DemandUrgency } from '@/types/demand';
 import { MultiSelect } from '@/components/MultiSelect';
-import { Check, ChevronsUpDown, User, Tag } from 'lucide-react';
+import { Check, ChevronsUpDown, User, Tag, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CreateDemandDialogProps {
@@ -86,6 +86,10 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
     onOpenChange(false);
   };
 
+  const handleAddNewLead = () => {
+    window.open('/leads/novo', '_blank');
+  };
+
   // IMPORTANT: Demand assignees expect auth user id (profiles.user_id)
   const userOptions = users?.map(u => ({
     value: u.user_id,
@@ -99,7 +103,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Nova Demanda</DialogTitle>
         </DialogHeader>
@@ -169,86 +173,102 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Data de Entrega</Label>
-              <Input
-                type="datetime-local"
-                value={form.due_at}
-                onChange={(e) => setForm(prev => ({ ...prev, due_at: e.target.value }))}
-              />
-            </div>
-
-            {/* Lead/Cliente selector - only show if not pre-selected */}
-            {!leadId && (
+            {/* Data de Entrega e Cliente/Lead na mesma linha */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Cliente/Lead</Label>
-                <Popover open={leadSearchOpen} onOpenChange={setLeadSearchOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={leadSearchOpen}
-                      className="w-full justify-between"
-                    >
-                      {selectedLead ? (
-                        <span className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {selectedLead.name}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Selecione um cliente...</span>
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar cliente..." />
-                      <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {leads?.slice(0, 50).map((lead) => (
-                            <CommandItem
-                              key={lead.id}
-                              value={lead.name || ''}
-                              onSelect={() => {
-                                setForm(prev => ({ ...prev, lead_id: lead.id }));
-                                setLeadSearchOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  form.lead_id === lead.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <div className="flex flex-col">
-                                <span>{lead.name}</span>
-                                {lead.whatsapp && (
-                                  <span className="text-xs text-muted-foreground">{lead.whatsapp}</span>
-                                )}
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Label>Data de Entrega</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.due_at}
+                  onChange={(e) => setForm(prev => ({ ...prev, due_at: e.target.value }))}
+                />
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label>Responsáveis</Label>
-              <MultiSelect
-                options={userOptions}
-                selected={form.assignee_ids}
-                onChange={(ids) => setForm(prev => ({ ...prev, assignee_ids: ids }))}
-                placeholder="Selecione responsáveis..."
-              />
+              {/* Lead/Cliente selector - only show if not pre-selected */}
+              {!leadId && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Cliente/Lead</Label>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleAddNewLead}
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Novo Lead
+                    </Button>
+                  </div>
+                  <Popover open={leadSearchOpen} onOpenChange={setLeadSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={leadSearchOpen}
+                        className="w-full justify-between"
+                      >
+                        {selectedLead ? (
+                          <span className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            {selectedLead.name}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Selecione um cliente...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar cliente..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                          <CommandGroup>
+                            {leads?.slice(0, 50).map((lead) => (
+                              <CommandItem
+                                key={lead.id}
+                                value={lead.name || ''}
+                                onSelect={() => {
+                                  setForm(prev => ({ ...prev, lead_id: lead.id }));
+                                  setLeadSearchOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    form.lead_id === lead.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{lead.name}</span>
+                                  {lead.whatsapp && (
+                                    <span className="text-xs text-muted-foreground">{lead.whatsapp}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
 
-            {labelOptions.length > 0 && (
+            {/* Responsáveis e Etiquetas na mesma linha */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Responsáveis</Label>
+                <MultiSelect
+                  options={userOptions}
+                  selected={form.assignee_ids}
+                  onChange={(ids) => setForm(prev => ({ ...prev, assignee_ids: ids }))}
+                  placeholder="Selecione responsáveis..."
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />
@@ -261,7 +281,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
                   placeholder="Selecione etiquetas..."
                 />
               </div>
-            )}
+            </div>
           </div>
         </ScrollArea>
 
