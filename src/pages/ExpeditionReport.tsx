@@ -22,7 +22,25 @@ import jsPDF from 'jspdf';
 type ShiftFilter = 'morning' | 'afternoon' | 'full_day' | 'all';
 type DeliveryTypeFilter = 'motoboy' | 'carrier' | 'pickup' | 'all';
 type DateTypeFilter = 'delivery' | 'created';
-type StatusFilter = 'all' | 'draft' | 'pending_expedition' | 'dispatched' | 'delivered' | 'returned' | 'cancelled' | 'payment_confirmed';
+type StatusFilter =
+  | 'all'
+  | 'draft'
+  | 'pending_expedition'
+  | 'dispatched'
+  | 'delivered'
+  | 'returned'
+  | 'cancelled'
+  | 'payment_confirmed';
+
+type AppliedReportFilters = {
+  startDate: string;
+  endDate: string;
+  dateTypeFilter: DateTypeFilter;
+  shiftFilter: ShiftFilter;
+  deliveryTypeFilter: DeliveryTypeFilter;
+  motoboyFilter: string;
+  statusFilter: StatusFilter;
+};
 
 interface SaleWithDetails {
   id: string;
@@ -34,7 +52,7 @@ interface SaleWithDetails {
   scheduled_delivery_shift: string | null;
   delivery_type: string | null;
   shipping_carrier_id: string | null;
-  carrier_tracking_code: string | null;
+  tracking_code: string | null;
   carrier_tracking_status: string | null;
   assigned_delivery_user_id: string | null;
   created_at: string;
@@ -52,6 +70,27 @@ interface SaleWithDetails {
   }[];
 }
 
+function getReportErrorMessage(err: unknown): string {
+  const anyErr = err as any;
+  const message =
+    typeof anyErr?.message === 'string'
+      ? anyErr.message
+      : typeof anyErr?.error?.message === 'string'
+        ? anyErr.error.message
+        : 'Erro desconhecido.';
+
+  // Mensagens mais “humanas” para casos comuns
+  if (message.toLowerCase().includes('does not exist')) {
+    return 'Falha interna de configuração do relatório. Por favor, avise o suporte.';
+  }
+
+  if (message.toLowerCase().includes('permission') || message.toLowerCase().includes('not allowed')) {
+    return 'Seu usuário não tem permissão para acessar os romaneios desse relatório.';
+  }
+
+  return message;
+}
+
 export default function ExpeditionReport() {
   const navigate = useNavigate();
   const { tenantId: organizationId, isLoading: isLoadingTenant } = useTenant();
@@ -61,7 +100,7 @@ export default function ExpeditionReport() {
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
+
   const [startDate, setStartDate] = useState(format(thirtyDaysAgo, 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(today, 'yyyy-MM-dd'));
   const [dateTypeFilter, setDateTypeFilter] = useState<DateTypeFilter>('created');
@@ -69,32 +108,62 @@ export default function ExpeditionReport() {
   const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<DeliveryTypeFilter>('all');
   const [motoboyFilter, setMotoboyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // IMPORTANTE: o relatório só deve “rodar” quando clicar no botão.
   const [showReport, setShowReport] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<AppliedReportFilters | null>(null);
+  const [reportRunId, setReportRunId] = useState(0);
+
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const reportFilters =
+    appliedFilters ??
+    ({
+      startDate,
+      endDate,
+      dateTypeFilter,
+      shiftFilter,
+      deliveryTypeFilter,
+      motoboyFilter,
+      statusFilter,
+    } satisfies AppliedReportFilters);
 
   // Fetch delivery users (motoboys)
   const { data: deliveryUsers } = useQuery({
     queryKey: ['delivery-users-list', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      
+
       const { data } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name');
-      
-      return data?.map(u => ({
-        id: u.user_id,
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Usuário'
-      })) || [];
+        .select('user_id, first_name, last_name')
+        .eq('organization_id', organizationId);
+
+      return (
+        data?.map((u) => ({
+          id: u.user_id,
+          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Usuário',
+        })) || []
+      );
     },
     enabled: !!organizationId,
   });
 
-  // Fetch sales for report
-  const { data: sales, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['expedition-report', organizationId, startDate, endDate, dateTypeFilter, shiftFilter, deliveryTypeFilter, motoboyFilter, statusFilter],
+  // Fetch sales for report (só executa quando clicar em “Gerar Relatório”)
+  const { data: sales, isLoading, isFetching, error } = useQuery({
+    queryKey: ['expedition-report', organizationId, reportRunId, appliedFilters],
     queryFn: async () => {
-      if (!organizationId) return [];
+      if (!organizationId || !appliedFilters) return [];
+
+      const {
+        startDate,
+        endDate,
+        dateTypeFilter,
+        shiftFilter,
+        deliveryTypeFilter,
+        motoboyFilter,
+        statusFilter,
+      } = appliedFilters;
 
       let query = supabase
         .from('sales')
@@ -108,7 +177,7 @@ export default function ExpeditionReport() {
           scheduled_delivery_shift,
           delivery_type,
           shipping_carrier_id,
-          carrier_tracking_code,
+          tracking_code,
           carrier_tracking_status,
           assigned_delivery_user_id,
           created_at,
@@ -120,28 +189,29 @@ export default function ExpeditionReport() {
 
       // Filter by date type
       if (dateTypeFilter === 'delivery') {
-        // Only filter if there are dates; don't exclude null scheduled dates unnecessarily  
-        query = query
-          .gte('scheduled_delivery_date', startDate)
-          .lte('scheduled_delivery_date', endDate);
+        query = query.gte('scheduled_delivery_date', startDate).lte('scheduled_delivery_date', endDate);
       } else {
-        // Created date - use created_at
         const startDateTime = `${startDate}T00:00:00`;
         const endDateTime = `${endDate}T23:59:59`;
-        query = query
-          .gte('created_at', startDateTime)
-          .lte('created_at', endDateTime);
+        query = query.gte('created_at', startDateTime).lte('created_at', endDateTime);
       }
 
       // Filter by status
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       } else {
-        // "Todos" includes all relevant statuses for expedition
-        query = query.in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed']);
+        query = query.in('status', [
+          'draft',
+          'pending_expedition',
+          'dispatched',
+          'delivered',
+          'returned',
+          'cancelled',
+          'payment_confirmed',
+        ]);
       }
 
-      // Filter by shift (only applies to motoboy deliveries with scheduled date)
+      // Filter by shift
       if (shiftFilter !== 'all') {
         query = query.eq('scheduled_delivery_shift', shiftFilter);
       }
@@ -161,28 +231,29 @@ export default function ExpeditionReport() {
 
       return data as unknown as SaleWithDetails[];
     },
-    enabled: !!organizationId && showReport,
+    enabled: !!organizationId && showReport && !!appliedFilters,
   });
 
   // Delivery users map for display
-  const deliveryUsersMap = deliveryUsers?.reduce((acc, u) => {
-    acc[u.id] = u.name;
-    return acc;
-  }, {} as Record<string, string>) || {};
+  const deliveryUsersMap =
+    deliveryUsers?.reduce((acc, u) => {
+      acc[u.id] = u.name;
+      return acc;
+    }, {} as Record<string, string>) || {};
 
   // Fetch carriers
   const { data: carriers } = useQuery({
     queryKey: ['carriers', organizationId],
     queryFn: async () => {
       if (!organizationId) return {};
-      
+
       const { data } = await supabase
         .from('shipping_carriers')
         .select('id, name')
         .eq('organization_id', organizationId);
-      
+
       const carriersMap: Record<string, string> = {};
-      data?.forEach(c => {
+      data?.forEach((c) => {
         carriersMap[c.id] = c.name;
       });
       return carriersMap;
@@ -191,26 +262,33 @@ export default function ExpeditionReport() {
   });
 
   const handleDownloadPdf = async () => {
-    if (!printRef.current) return;
-    
+    if (!printRef.current) {
+      toast({
+        title: 'Relatório ainda não está pronto',
+        description: 'Clique em “Gerar Relatório” e aguarde carregar para então baixar o PDF.',
+        variant: 'destructive',
+        duration: 10000,
+      });
+      return;
+    }
+
     setIsGeneratingPdf(true);
     try {
       const element = printRef.current;
-      
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
       });
-      
+
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
         format: 'a4',
       });
-      
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
@@ -218,13 +296,19 @@ export default function ExpeditionReport() {
       const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
       const imgX = (pdfWidth - imgWidth * ratio) / 2;
       const imgY = 5;
-      
+
       pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      
+
       const fileName = `relatorio-expedicao-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
       pdf.save(fileName);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast({
+        title: 'Não foi possível gerar o PDF',
+        description: 'Tente novamente. Se continuar, contate o suporte e informe que houve falha na geração do PDF.',
+        variant: 'destructive',
+        duration: 12000,
+      });
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -239,13 +323,18 @@ export default function ExpeditionReport() {
       return;
     }
 
-    // Se já está visível, força atualizar
-    if (showReport) {
-      void refetch();
-      return;
-    }
+    setAppliedFilters({
+      startDate,
+      endDate,
+      dateTypeFilter,
+      shiftFilter,
+      deliveryTypeFilter,
+      motoboyFilter,
+      statusFilter,
+    });
 
     setShowReport(true);
+    setReportRunId((v) => v + 1);
   };
 
   const getShiftLabel = (shift: string | null) => {
@@ -471,7 +560,11 @@ export default function ExpeditionReport() {
             ) : error ? (
               <Card>
                 <CardContent className="p-8 text-center text-muted-foreground">
-                  Não foi possível gerar o relatório agora. Tente novamente.
+                  <p className="font-medium">Não foi possível gerar o relatório.</p>
+                  <p className="mt-2 text-sm">Motivo: {getReportErrorMessage(error)}</p>
+                  <p className="mt-3 text-xs">
+                    Dica: alterações nos filtros <strong>não</strong> geram relatório automaticamente — clique novamente em “Gerar Relatório”.
+                  </p>
                 </CardContent>
               </Card>
             ) : isLoading || isFetching ? (
@@ -494,9 +587,10 @@ export default function ExpeditionReport() {
           <div className="text-center border-b-2 border-black pb-2 mb-4">
             <h1 className="text-xl font-bold">RESUMO DA ENTREGA DE ROMANEIOS</h1>
             <p className="text-sm">
-              Período: {format(new Date(startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })} a {format(new Date(endDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
-              {' '}({dateTypeFilter === 'delivery' ? 'Data de Entrega' : 'Data de Criação'})
-              {shiftFilter !== 'all' && ` | Turno: ${getShiftLabel(shiftFilter)}`}
+              Período: {format(new Date(reportFilters.startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })} a{' '}
+              {format(new Date(reportFilters.endDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+              {' '}({reportFilters.dateTypeFilter === 'delivery' ? 'Data de Entrega' : 'Data de Criação'})
+              {reportFilters.shiftFilter !== 'all' && ` | Turno: ${getShiftLabel(reportFilters.shiftFilter)}`}
             </p>
             <p className="text-xs text-gray-600">
               Gerado em: {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -624,7 +718,7 @@ export default function ExpeditionReport() {
                           : '-'}
                       </td>
                       <td className="border border-gray-400 p-1 text-[10px] font-mono">
-                        {sale.carrier_tracking_code || '-'}
+                        {sale.tracking_code || '-'}
                       </td>
                       <td className="border border-gray-400 p-1 text-[10px]">
                         {sale.carrier_tracking_status || 'Pendente'}
