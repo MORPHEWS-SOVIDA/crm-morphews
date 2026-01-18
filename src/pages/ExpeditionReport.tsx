@@ -347,8 +347,26 @@ export default function ExpeditionReport() {
     return shifts[shift] || shift;
   };
 
-  const getProductsSummary = (items: SaleWithDetails['items']) => {
-    return items.map(item => `${item.quantity}x ${item.product_name}`).join(', ');
+  const getProductsList = (items: SaleWithDetails['items']) => {
+    return items.map(item => `${item.quantity}x ${item.product_name}`);
+  };
+
+  const getStatusLabel = (status: string) => {
+    const statuses: Record<string, string> = {
+      draft: '👀 Rascunho',
+      pending_expedition: '🖨️ Impresso',
+      dispatched: '🚚 Despachado',
+      delivered: '✅ Entregue',
+      returned: '⚠️ Voltou',
+      cancelled: '😭 Cancelado',
+      payment_confirmed: '💰 Pago',
+    };
+    return statuses[status] || status;
+  };
+
+  const formatDeliveryDate = (date: string | null) => {
+    if (!date) return '-';
+    return format(new Date(date + 'T12:00:00'), 'dd/MM', { locale: ptBR });
   };
 
   // Group by motoboy for motoboy deliveries
@@ -629,30 +647,47 @@ export default function ExpeditionReport() {
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="border border-gray-400 p-1 text-left w-16">ROM.</th>
-                          <th className="border border-gray-400 p-1 text-left">CLIENTE / BAIRRO</th>
-                          <th className="border border-gray-400 p-1 text-left">PRODUTOS</th>
-                          <th className="border border-gray-400 p-1 text-center w-14">PAGO?</th>
+                          <th className="border border-gray-400 p-1 text-left w-12">ROM.</th>
+                          <th className="border border-gray-400 p-1 text-left w-20">DATA<br/>TURNO</th>
+                          <th className="border border-gray-400 p-1 text-left w-28">CLIENTE<br/>BAIRRO/CIDADE</th>
+                          <th className="border border-gray-400 p-1 text-left w-28">PRODUTOS<br/>CONFERIDO</th>
+                          <th className="border border-gray-400 p-1 text-center w-12">PAGO?</th>
                           <th className="border border-gray-400 p-1 text-right w-16">VALOR</th>
-                          <th className="border border-gray-400 p-1 text-center w-16">RUBRICA</th>
-                          <th className="border border-gray-400 p-1 text-left w-24">OCORRÊNCIA</th>
+                          <th className="border border-gray-400 p-1 text-center w-16">STATUS</th>
+                          <th className="border border-gray-400 p-1 text-center w-12">RUB.<br/>BOY</th>
+                          <th className="border border-gray-400 p-1 text-left w-16">OBS:</th>
                         </tr>
                       </thead>
                       <tbody>
                         {motoboysSales.map((sale) => (
                           <tr key={sale.id}>
-                            <td className="border border-gray-400 p-1 font-semibold">{sale.romaneio_number}</td>
+                            <td className="border border-gray-400 p-1 font-semibold text-center">{sale.romaneio_number}</td>
+                            <td className="border border-gray-400 p-1 text-center">
+                              <span className="block font-medium">{formatDeliveryDate(sale.scheduled_delivery_date)}</span>
+                              <span className="block text-[9px] text-gray-600">{getShiftLabel(sale.scheduled_delivery_shift)}</span>
+                            </td>
                             <td className="border border-gray-400 p-1">
-                              <span className="font-medium">{sale.lead?.name}</span>
+                              <span className="font-medium block text-[10px] leading-tight">{sale.lead?.name}</span>
                               {sale.lead?.neighborhood && (
-                                <span className="text-gray-600 block text-[10px]">{sale.lead.neighborhood}</span>
+                                <span className="text-gray-600 block text-[9px]">{sale.lead.neighborhood}</span>
+                              )}
+                              {sale.lead?.city && (
+                                <span className="text-gray-600 block text-[9px]">{sale.lead.city}</span>
                               )}
                             </td>
-                            <td className="border border-gray-400 p-1 text-[10px]">{getProductsSummary(sale.items)}</td>
-                            <td className="border border-gray-400 p-1 text-center font-bold">
-                              {sale.payment_confirmed_at ? '✓ SIM' : 'NÃO'}
+                            <td className="border border-gray-400 p-1 text-[9px]">
+                              {getProductsList(sale.items).map((product, idx) => (
+                                <div key={idx} className="flex items-center gap-1">
+                                  <span>☐</span>
+                                  <span>{product}</span>
+                                </div>
+                              ))}
                             </td>
-                            <td className="border border-gray-400 p-1 text-right">{formatCurrency(sale.total_cents)}</td>
+                            <td className="border border-gray-400 p-1 text-center font-bold text-[10px]">
+                              {sale.payment_confirmed_at ? '✓' : 'SIM'}
+                            </td>
+                            <td className="border border-gray-400 p-1 text-right text-[10px]">{formatCurrency(sale.total_cents)}</td>
+                            <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
                             <td className="border border-gray-400 p-1"></td>
                             <td className="border border-gray-400 p-1"></td>
                           </tr>
@@ -660,19 +695,22 @@ export default function ExpeditionReport() {
                       </tbody>
                     </table>
                     
-                    {/* Signature line for motoboy */}
-                    <div className="mt-2 flex gap-8 text-xs">
-                      <div className="flex-1">
-                        <p className="mb-4">Assinatura do Motoboy (Saída):</p>
-                        <div className="border-t border-black w-48"></div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="mb-4">Assinatura do Motoboy (Retorno):</p>
-                        <div className="border-t border-black w-48"></div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="mb-4">Conferência Expedição:</p>
-                        <div className="border-t border-black w-48"></div>
+                    {/* Campos para preenchimento no retorno do motoboy */}
+                    <div className="mt-3 border border-gray-400 p-2">
+                      <p className="font-semibold text-[10px] mb-2 bg-gray-100 p-1">📝 PREENCHIMENTO NO RETORNO DO MOTOBOY:</p>
+                      <div className="grid grid-cols-3 gap-2 text-[9px]">
+                        <div className="border border-gray-300 p-1">
+                          <p className="font-medium mb-1">Entregue? ou Voltou?</p>
+                          <div className="h-10 border-b border-dashed border-gray-400"></div>
+                        </div>
+                        <div className="border border-gray-300 p-1">
+                          <p className="font-medium mb-1">Forma Pgto + Valor + Descritivo</p>
+                          <div className="h-10 border-b border-dashed border-gray-400"></div>
+                        </div>
+                        <div className="border border-gray-300 p-1">
+                          <p className="font-medium mb-1">Assinatura Recebedor Retorno</p>
+                          <div className="h-10 border-b border-dashed border-gray-400"></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -691,53 +729,59 @@ export default function ExpeditionReport() {
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-blue-50">
-                    <th className="border border-gray-400 p-1 text-left w-16">ROM.</th>
-                    <th className="border border-gray-400 p-1 text-left">CLIENTE / CIDADE</th>
-                    <th className="border border-gray-400 p-1 text-left">PRODUTOS</th>
-                    <th className="border border-gray-400 p-1 text-left w-24">TRANSP.</th>
-                    <th className="border border-gray-400 p-1 text-left w-28">RASTREIO</th>
-                    <th className="border border-gray-400 p-1 text-left w-20">STATUS</th>
-                    <th className="border border-gray-400 p-1 text-center w-14">PAGO?</th>
+                    <th className="border border-gray-400 p-1 text-left w-12">ROM.</th>
+                    <th className="border border-gray-400 p-1 text-left w-28">CLIENTE<br/>CIDADE</th>
+                    <th className="border border-gray-400 p-1 text-left w-28">PRODUTOS<br/>CONFERIDO</th>
+                    <th className="border border-gray-400 p-1 text-left w-20">TRANSP.</th>
+                    <th className="border border-gray-400 p-1 text-left w-24">RASTREIO</th>
+                    <th className="border border-gray-400 p-1 text-left w-16">STATUS RASTREIO</th>
+                    <th className="border border-gray-400 p-1 text-center w-12">PAGO?</th>
                     <th className="border border-gray-400 p-1 text-right w-16">VALOR</th>
+                    <th className="border border-gray-400 p-1 text-center w-16">STATUS VENDA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {carrierSales.map((sale) => (
                     <tr key={sale.id}>
-                      <td className="border border-gray-400 p-1 font-semibold">{sale.romaneio_number}</td>
+                      <td className="border border-gray-400 p-1 font-semibold text-center">{sale.romaneio_number}</td>
                       <td className="border border-gray-400 p-1">
-                        <span className="font-medium">{sale.lead?.name}</span>
+                        <span className="font-medium block text-[10px] leading-tight">{sale.lead?.name}</span>
                         {sale.lead?.city && (
-                          <span className="text-gray-600 block text-[10px]">{sale.lead.city}</span>
+                          <span className="text-gray-600 block text-[9px]">{sale.lead.city}</span>
                         )}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[10px]">{getProductsSummary(sale.items)}</td>
-                      <td className="border border-gray-400 p-1 text-[10px]">
+                      <td className="border border-gray-400 p-1 text-[9px]">
+                        {getProductsList(sale.items).map((product, idx) => (
+                          <div key={idx} className="flex items-center gap-1">
+                            <span>☐</span>
+                            <span>{product}</span>
+                          </div>
+                        ))}
+                      </td>
+                      <td className="border border-gray-400 p-1 text-[9px]">
                         {sale.shipping_carrier_id && carriers?.[sale.shipping_carrier_id] 
                           ? carriers[sale.shipping_carrier_id] 
                           : '-'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[10px] font-mono">
+                      <td className="border border-gray-400 p-1 text-[9px] font-mono">
                         {sale.tracking_code || '-'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[10px]">
+                      <td className="border border-gray-400 p-1 text-[9px]">
                         {sale.carrier_tracking_status || 'Pendente'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-center font-bold">
-                        {sale.payment_confirmed_at ? '✓ SIM' : 'NÃO'}
+                      <td className="border border-gray-400 p-1 text-center font-bold text-[10px]">
+                        {sale.payment_confirmed_at ? '✓' : 'SIM'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-right">{formatCurrency(sale.total_cents)}</td>
+                      <td className="border border-gray-400 p-1 text-right text-[10px]">{formatCurrency(sale.total_cents)}</td>
+                      <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               
-              {/* Signature line */}
-              <div className="mt-2 flex gap-8 text-xs">
-                <div className="flex-1">
-                  <p className="mb-4">Conferência Expedição:</p>
-                  <div className="border-t border-black w-48"></div>
-                </div>
+              {/* Conferência */}
+              <div className="mt-2 text-xs">
+                <p className="mb-2">Conferência Expedição: _______________________________________________</p>
               </div>
             </div>
           )}
@@ -752,25 +796,34 @@ export default function ExpeditionReport() {
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-green-50">
-                    <th className="border border-gray-400 p-1 text-left w-16">ROM.</th>
-                    <th className="border border-gray-400 p-1 text-left">CLIENTE</th>
-                    <th className="border border-gray-400 p-1 text-left">PRODUTOS</th>
-                    <th className="border border-gray-400 p-1 text-center w-14">PAGO?</th>
+                    <th className="border border-gray-400 p-1 text-left w-12">ROM.</th>
+                    <th className="border border-gray-400 p-1 text-left w-28">CLIENTE</th>
+                    <th className="border border-gray-400 p-1 text-left w-28">PRODUTOS<br/>CONFERIDO</th>
+                    <th className="border border-gray-400 p-1 text-center w-12">PAGO?</th>
                     <th className="border border-gray-400 p-1 text-right w-16">VALOR</th>
-                    <th className="border border-gray-400 p-1 text-center w-20">RETIRADO</th>
-                    <th className="border border-gray-400 p-1 text-left w-24">RUBRICA</th>
+                    <th className="border border-gray-400 p-1 text-center w-16">STATUS</th>
+                    <th className="border border-gray-400 p-1 text-center w-14">RETIRADO</th>
+                    <th className="border border-gray-400 p-1 text-left w-16">RUB.<br/>RETIRADA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pickupSales.map((sale) => (
                     <tr key={sale.id}>
-                      <td className="border border-gray-400 p-1 font-semibold">{sale.romaneio_number}</td>
-                      <td className="border border-gray-400 p-1 font-medium">{sale.lead?.name}</td>
-                      <td className="border border-gray-400 p-1 text-[10px]">{getProductsSummary(sale.items)}</td>
-                      <td className="border border-gray-400 p-1 text-center font-bold">
-                        {sale.payment_confirmed_at ? '✓ SIM' : 'NÃO'}
+                      <td className="border border-gray-400 p-1 font-semibold text-center">{sale.romaneio_number}</td>
+                      <td className="border border-gray-400 p-1 font-medium text-[10px]">{sale.lead?.name}</td>
+                      <td className="border border-gray-400 p-1 text-[9px]">
+                        {getProductsList(sale.items).map((product, idx) => (
+                          <div key={idx} className="flex items-center gap-1">
+                            <span>☐</span>
+                            <span>{product}</span>
+                          </div>
+                        ))}
                       </td>
-                      <td className="border border-gray-400 p-1 text-right">{formatCurrency(sale.total_cents)}</td>
+                      <td className="border border-gray-400 p-1 text-center font-bold text-[10px]">
+                        {sale.payment_confirmed_at ? '✓' : 'SIM'}
+                      </td>
+                      <td className="border border-gray-400 p-1 text-right text-[10px]">{formatCurrency(sale.total_cents)}</td>
+                      <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
                       <td className="border border-gray-400 p-1 text-center">☐</td>
                       <td className="border border-gray-400 p-1"></td>
                     </tr>
