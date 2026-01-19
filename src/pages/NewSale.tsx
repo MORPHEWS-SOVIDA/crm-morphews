@@ -618,8 +618,8 @@ export default function NewSale() {
               </Card>
             )}
 
-            {/* Address Selection - show for delivery types that need shipping */}
-            {selectedItems.length > 0 && selectedLead && deliveryConfig.type !== 'pickup' && (
+            {/* Address Selection - show early to get region for delivery options */}
+            {selectedItems.length > 0 && selectedLead && (
               <Card>
                 <CardContent className="pt-6">
                   <AddressSelector
@@ -631,7 +631,7 @@ export default function NewSale() {
               </Card>
             )}
 
-            {/* Delivery Type Selection */}
+            {/* Delivery Type Selection - uses region from selected address */}
             {selectedItems.length > 0 && (
               <DeliveryTypeSelector
                 leadRegionId={selectedAddress?.delivery_region_id || selectedLead?.delivery_region_id || null}
