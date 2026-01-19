@@ -347,7 +347,7 @@ export function IntegrationDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -393,7 +393,7 @@ export function IntegrationDetailDialog({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 pr-4 touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
             <TabsContent value="config" className="space-y-4 mt-4">
               <Card>
                 <CardHeader>
