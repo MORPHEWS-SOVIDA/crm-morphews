@@ -31,7 +31,8 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  Send
+  Send,
+  Clock
 } from 'lucide-react';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
@@ -45,6 +46,9 @@ import { useUsers } from '@/hooks/useUsers';
 import { toast } from '@/hooks/use-toast';
 import { FunnelStage } from '@/types/lead';
 import { cn } from '@/lib/utils';
+import { format, addHours } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { FollowupDateTimeEditor } from './FollowupDateTimeEditor';
 
 interface LeadNonPurchaseProps {
   leadId: string;
@@ -84,6 +88,8 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(false);
+  const [customFollowupDate, setCustomFollowupDate] = useState<Date | null>(null);
+  const [followupConfirmed, setFollowupConfirmed] = useState(false);
 
   if (isLoading) {
     return (
@@ -104,6 +110,18 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
   const targetStage = selectedReason?.target_stage_id 
     ? funnelStages.find(s => s.id === selectedReason.target_stage_id)
     : null;
+  
+  // When reason changes, reset followup confirmation
+  const handleReasonSelect = (reasonId: string) => {
+    setSelectedReasonId(reasonId);
+    setCustomFollowupDate(null);
+    setFollowupConfirmed(false);
+  };
+  
+  const handleFollowupConfirm = (date: Date) => {
+    setCustomFollowupDate(date);
+    setFollowupConfirmed(true);
+  };
 
   const handleConfirmReason = async () => {
     if (!selectedReasonId || !lead) return;
@@ -163,6 +181,7 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
         productName: selectedProduct?.name,
         productBrand,
         sellerName,
+        customScheduledAt: customFollowupDate || undefined,
       });
 
       if (scheduleError) {
@@ -208,6 +227,8 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
       setSelectedProductId(null);
       setConfirmDialog(false);
       setExpanded(false);
+      setCustomFollowupDate(null);
+      setFollowupConfirmed(false);
     } catch (error: any) {
       toast({
         title: 'Erro ao registrar',
@@ -309,7 +330,7 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
                           ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500" 
                           : "hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                       )}
-                      onClick={() => setSelectedReasonId(reason.id)}
+                      onClick={() => handleReasonSelect(reason.id)}
                     >
                       <div className="flex-1 space-y-1">
                         <p className="font-medium text-sm">{reason.name}</p>
@@ -317,7 +338,7 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
                           {reason.followup_hours > 0 && (
                             <Badge variant="secondary" className="text-xs">
                               <Calendar className="w-3 h-3 mr-1" />
-                              {reason.followup_hours}h
+                              {reason.followup_hours}h sugerido
                             </Badge>
                           )}
                           {reasonTargetStage && (
@@ -340,6 +361,15 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
               </div>
             </div>
 
+            {/* Follow-up Date/Time Editor - Only show when reason has followup_hours */}
+            {selectedReason && selectedReason.followup_hours > 0 && (
+              <FollowupDateTimeEditor
+                suggestedHours={selectedReason.followup_hours}
+                onConfirm={handleFollowupConfirm}
+                disabled={isSaving}
+              />
+            )}
+
             {/* Selected Reason Preview */}
             {selectedReason && (
               <div className="p-3 bg-amber-100/50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 space-y-2">
@@ -360,10 +390,22 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
                       Etapa mudará para "{targetStage.name}"
                     </li>
                   )}
-                  {selectedReason.followup_hours > 0 && (
+                  {selectedReason.followup_hours > 0 && customFollowupDate && (
+                    <li className="flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-blue-500" />
+                      Follow-up em {format(customFollowupDate, "dd/MM 'às' HH:mm", { locale: ptBR })}
+                    </li>
+                  )}
+                  {selectedReason.followup_hours > 0 && followupConfirmed && (
                     <li className="flex items-center gap-2">
                       <Send className="w-3 h-3 text-green-500" />
                       Mensagens WhatsApp serão agendadas automaticamente
+                    </li>
+                  )}
+                  {selectedReason.exclusivity_hours > 0 && selectedReason.lead_visibility === 'assigned_only' && (
+                    <li className="flex items-center gap-2 text-amber-600">
+                      <Clock className="w-3 h-3" />
+                      Você tem {selectedReason.exclusivity_hours}h de exclusividade após o follow-up
                     </li>
                   )}
                 </ul>
@@ -373,7 +415,7 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
             {/* Confirm Button */}
             <Button 
               className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-              disabled={!selectedReasonId || isSaving}
+              disabled={!selectedReasonId || isSaving || (selectedReason?.followup_hours > 0 && !followupConfirmed)}
               onClick={() => setConfirmDialog(true)}
             >
               {isSaving ? (
@@ -381,7 +423,10 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
               ) : (
                 <MessageSquare className="w-4 h-4 mr-2" />
               )}
-              Confirmar Classificação
+              {selectedReason?.followup_hours > 0 && !followupConfirmed 
+                ? 'Confirme a data do follow-up acima'
+                : 'Confirmar Classificação'
+              }
             </Button>
           </CardContent>
         )}
@@ -404,9 +449,19 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
                     </span>
                   </p>
                 )}
-                {selectedReason && selectedReason.followup_hours > 0 && (
+                {selectedReason && selectedReason.followup_hours > 0 && customFollowupDate && (
+                  <p className="text-sm text-blue-600">
+                    ✓ Follow-up agendado para {format(customFollowupDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                )}
+                {selectedReason && selectedReason.followup_hours > 0 && followupConfirmed && (
                   <p className="text-sm text-green-600">
                     ✓ Mensagens de follow-up serão agendadas automaticamente
+                  </p>
+                )}
+                {selectedReason && selectedReason.exclusivity_hours > 0 && selectedReason.lead_visibility === 'assigned_only' && (
+                  <p className="text-sm text-amber-600">
+                    ⏱️ Você terá {selectedReason.exclusivity_hours}h de exclusividade para atender após o follow-up
                   </p>
                 )}
               </div>

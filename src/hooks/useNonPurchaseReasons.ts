@@ -8,6 +8,7 @@ export interface NonPurchaseReason {
   name: string;
   target_stage_id: string | null;
   followup_hours: number;
+  exclusivity_hours: number;
   webhook_url: string | null;
   followup_webhook_url: string | null;
   lead_visibility: 'assigned_only' | 'all_sellers';
