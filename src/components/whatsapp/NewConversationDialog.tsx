@@ -360,13 +360,17 @@ export function NewConversationDialog({
                       const label = displayName && number ? `${displayName} - ${number}` : displayName || number || instance.name;
                       
                       // Status visual baseado na verificação em tempo real
+                      // 'unknown' = não conseguiu verificar, tratamos como neutro (amarelo) e permitimos envio
                       const statusColor = instance.realTimeStatus === 'connected' 
                         ? 'bg-green-500' 
                         : instance.realTimeStatus === 'checking' 
                           ? 'bg-yellow-400 animate-pulse'
-                          : 'bg-red-500';
+                          : instance.realTimeStatus === 'disconnected'
+                            ? 'bg-red-500'
+                            : 'bg-amber-400'; // unknown
                       
-                      const isDisconnected = instance.realTimeStatus === 'disconnected' || instance.realTimeStatus === 'error';
+                      // Só bloqueia se CONFIRMOU que está desconectado
+                      const isDisconnected = instance.realTimeStatus === 'disconnected';
                       
                       return (
                         <SelectItem 
