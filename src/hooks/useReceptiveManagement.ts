@@ -36,6 +36,7 @@ export interface ReceptiveFilters {
   hasTranscription?: 'all' | 'yes' | 'no';
   outcome?: 'all' | 'sale' | 'no_purchase';
   nonPurchaseReasonId?: string;
+  conversationMode?: string;
 }
 
 export function useReceptiveManagement(filters: ReceptiveFilters) {
@@ -95,6 +96,9 @@ export function useReceptiveManagement(filters: ReceptiveFilters) {
       }
       if (filters.nonPurchaseReasonId) {
         query = query.eq('non_purchase_reason_id', filters.nonPurchaseReasonId);
+      }
+      if (filters.conversationMode) {
+        query = query.eq('conversation_mode', filters.conversationMode);
       }
 
       // Limit to prevent too many results
