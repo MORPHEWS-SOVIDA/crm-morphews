@@ -45,6 +45,7 @@ interface ProductPriceKit {
   minimum_use_default_commission: boolean;
   minimum_custom_commission: number | null;
   position: number;
+  sales_hack?: string | null;
 }
 
 interface ProductOfferCardProps {
@@ -660,6 +661,23 @@ export function ProductOfferCard({
                     </Badge>
                   </div>
                 </div>
+
+                {/* Sales Hack - Tip for seller */}
+                {currentVisibleKit.sales_hack && currentKitId === currentVisibleKit.id && (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">💡</span>
+                      <div>
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-1">
+                          Hack para Vender Mais
+                        </p>
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                          {currentVisibleKit.sales_hack}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Price Options */}
                 <div className="space-y-3">
