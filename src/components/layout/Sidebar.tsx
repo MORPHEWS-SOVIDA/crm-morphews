@@ -66,6 +66,7 @@ export function Sidebar() {
   const canSeeDashboardFunnel = isAdmin || permissions?.dashboard_funnel_view;
   const canSeeDashboardKanban = isAdmin || permissions?.dashboard_kanban_view;
   const canSeeSellerPanel = isAdmin || permissions?.seller_panel_view;
+  const canSeeSalesDashboard = isAdmin || permissions?.sales_dashboard_view;
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canCreateLeads = (isAdmin || permissions?.leads_create) && !permissions?.leads_hide_new_button;
   const canSeeSales = isAdmin || permissions?.sales_view;
@@ -73,6 +74,7 @@ export function Sidebar() {
   const canSeeSettings = isAdmin || permissions?.settings_view;
   const canSeeReports = isAdmin || permissions?.reports_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
+  const canSeeExpedition = isAdmin || permissions?.expedition_view || permissions?.deliveries_view_all || permissions?.sales_validate_expedition;
   const canSeeFinanceiro = isAdmin || permissions?.reports_view || permissions?.sales_confirm_payment;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
@@ -87,6 +89,7 @@ export function Sidebar() {
   const canSeeAIBots = isAdmin || permissions?.ai_bots_view;
   const canSeeDemands = isAdmin || permissions?.demands_view;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
+  const canSeeIntegrations = isAdmin || permissions?.integrations_view;
 
   const handleSignOut = async () => {
     await signOut();
@@ -116,8 +119,8 @@ export function Sidebar() {
     // Products
     { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts && hasFeature('products') },
     
-    // Sales Dashboard - requires sales + sales_dashboard features
-    { icon: Trophy, label: 'Dashboard Vendas', path: '/dashboard-vendas', visible: canSeeSales && hasFeature('sales') && hasFeature('sales_dashboard') },
+    // Sales Dashboard - requires sales + sales_dashboard features + permission
+    { icon: Trophy, label: 'Dashboard Vendas', path: '/dashboard-vendas', visible: canSeeSalesDashboard && hasFeature('sales') && hasFeature('sales_dashboard') },
     
     // Sales
     { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales && hasFeature('sales') },
@@ -139,7 +142,7 @@ export function Sidebar() {
     { icon: FileText, label: 'Relatório Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
     
     // Deliveries & Expedition
-    { icon: Package, label: 'Expedição', path: '/expedicao', visible: (permissions?.deliveries_view_all || permissions?.sales_validate_expedition) && hasFeature('deliveries') },
+    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('deliveries') },
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
     { icon: Truck, label: 'Todas as Entregas', path: '/todas-entregas', visible: permissions?.deliveries_view_all && hasFeature('deliveries') },
     
@@ -159,8 +162,8 @@ export function Sidebar() {
     // Demands (permission controlled)
     { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeDemands && hasFeature('demands') },
     
-    // Integrations (admin only)
-    { icon: Plug2, label: 'Integrações', path: '/integracoes', visible: isAdmin && hasFeature('integrations') },
+    // Integrations (permission controlled)
+    { icon: Plug2, label: 'Integrações', path: '/integracoes', visible: canSeeIntegrations && hasFeature('settings') },
     
     // 2FA for managers
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
