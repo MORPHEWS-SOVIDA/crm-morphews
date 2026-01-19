@@ -44,6 +44,7 @@ import { ConversationStatusTabs } from '@/components/whatsapp/ConversationStatus
 import { ConversationTransferDialog } from '@/components/whatsapp/ConversationTransferDialog';
 import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
+import { WavoipCallButton } from '@/components/whatsapp/WavoipCallButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
@@ -1239,6 +1240,16 @@ export default function WhatsAppChat() {
                       ASSUMIR DO ROBÔ
                     </Button>
                   )}
+                  {/* Botão Ligar via WhatsApp - Wavoip */}
+                  <WavoipCallButton
+                    instanceId={activeInstanceId || selectedConversation.instance_id}
+                    contactPhone={selectedConversation.phone_number}
+                    contactName={selectedConversation.contact_name || undefined}
+                    leadId={selectedConversation.lead_id || undefined}
+                    conversationId={selectedConversation.id}
+                    size="sm"
+                    className="h-8"
+                  />
                   <Button 
                     variant="ghost" 
                     size="icon" 
