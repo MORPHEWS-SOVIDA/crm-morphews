@@ -981,6 +981,13 @@ export default function WhatsAppChat() {
     }
   };
 
+  // Instâncias (daquele telefone) que estão com conversas não lidas (visível no cabeçalho)
+  const unreadInstancesForSelectedPhone = useMemo(() => {
+    if (!selectedConversation?.phone_number) return [] as { instance_id: string; unread_count: number; instance_display_name: string | null; instance_name: string }[];
+    const convs = crossInstanceMap?.[selectedConversation.phone_number] || [];
+    return (convs as any[]).filter((c) => (c.unread_count || 0) > 0);
+  }, [crossInstanceMap, selectedConversation?.phone_number]);
+
   return (
     <Layout>
       <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
@@ -1246,53 +1253,70 @@ export default function WhatsAppChat() {
 
               {/* Dropdown de instância (quando contato está em múltiplas instâncias) */}
               {samePhoneConversations.length > 1 && (
-                <div className="border-b border-border bg-muted/30 px-4 py-1.5 flex items-center gap-2">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
-                    Instância ({samePhoneConversations.length}):
-                  </span>
-                  <Select
-                    value={activeInstanceId ?? selectedConversation.instance_id}
-                    onValueChange={(instId) => setActiveInstanceId(instId)}
-                  >
-                    <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {samePhoneConversations.map((instId) => {
-                        const label = getInstanceTabLabel(instId);
-                        const isConnected = getInstanceIsConnected(instId);
-                        
-                        // Verificar se tem mensagens não lidas nesta instância
-                        const otherConvs = crossInstanceMap?.[selectedConversation.phone_number] || [];
-                        const thisInstConv = otherConvs.find(c => c.instance_id === instId);
-                        const hasUnread = thisInstConv && thisInstConv.unread_count > 0;
+                <div className="border-b border-border bg-muted/30 px-4 py-1.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                      Instância ({samePhoneConversations.length}):
+                    </span>
+                    <Select
+                      value={activeInstanceId ?? selectedConversation.instance_id}
+                      onValueChange={(instId) => setActiveInstanceId(instId)}
+                    >
+                      <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {samePhoneConversations.map((instId) => {
+                          const label = getInstanceTabLabel(instId);
+                          const isConnected = getInstanceIsConnected(instId);
 
-                        return (
-                          <SelectItem key={instId} value={instId} className="text-xs">
-                            <div className="flex items-center gap-2">
-                              {/* Bolinha verde/vermelha conexão OU bolinha vermelha de não lida */}
-                              {hasUnread ? (
-                                <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                              ) : isConnected !== null ? (
-                                <div
-                                  className={cn(
-                                    "w-2 h-2 rounded-full",
-                                    isConnected ? "bg-funnel-positive" : "bg-destructive"
-                                  )}
-                                />
-                              ) : null}
-                              <span>{label}</span>
-                              {hasUnread && thisInstConv && (
-                                <Badge variant="destructive" className="h-4 px-1 text-[9px] ml-1">
-                                  {thisInstConv.unread_count}
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                          // Verificar se tem mensagens não lidas nesta instância
+                          const otherConvs = crossInstanceMap?.[selectedConversation.phone_number] || [];
+                          const thisInstConv = otherConvs.find(c => c.instance_id === instId);
+                          const hasUnread = thisInstConv && thisInstConv.unread_count > 0;
+
+                          return (
+                            <SelectItem key={instId} value={instId} className="text-xs">
+                              <div className="flex items-center gap-2">
+                                {/* Bolinha verde/vermelha conexão OU bolinha vermelha de não lida */}
+                                {hasUnread ? (
+                                  <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                                ) : isConnected !== null ? (
+                                  <div
+                                    className={cn(
+                                      "w-2 h-2 rounded-full",
+                                      isConnected ? "bg-funnel-positive" : "bg-destructive"
+                                    )}
+                                  />
+                                ) : null}
+                                <span>{label}</span>
+                                {hasUnread && thisInstConv && (
+                                  <Badge variant="destructive" className="h-4 px-1 text-[9px] ml-1">
+                                    {thisInstConv.unread_count}
+                                  </Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>\n                    </Select>
+                  </div>
+
+                  {unreadInstancesForSelectedPhone.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Não lida em:</span>
+                      {unreadInstancesForSelectedPhone.slice(0, 2).map((c: any) => (
+                        <Badge key={c.instance_id} variant="destructive" className="h-4 px-1 text-[9px]">
+                          {(c.instance_display_name || c.instance_name)} ({c.unread_count > 99 ? '99+' : c.unread_count})
+                        </Badge>
+                      ))}
+                      {unreadInstancesForSelectedPhone.length > 2 && (
+                        <Badge variant="outline" className="h-4 px-1 text-[9px]">
+                          +{unreadInstancesForSelectedPhone.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
  

@@ -90,6 +90,11 @@ export function ConversationItem({
   
   // Verificar se alguma outra instância tem mensagens não lidas
   const hasUnreadInOtherInstances = totalUnreadOtherInstances > 0;
+
+  // Lista das instâncias (outras) que estão com não lidas
+  const unreadOtherInstances = (otherInstanceConversations || []).filter(
+    (c) => (c.unread_count || 0) > 0
+  );
   
   const getStatusIcon = () => {
     switch (status) {
@@ -287,11 +292,33 @@ export function ConversationItem({
                 </span>
               )}
             </div>
+
             {/* Instância - "Falando com:" */}
             {instanceLabel && (
               <span className="text-[10px] text-muted-foreground truncate">
                 Falando com: <span className="font-medium text-foreground/70">{instanceLabel}</span>
               </span>
+            )}
+
+            {/* Não lidas em outras instâncias (texto sempre visível) */}
+            {unreadOtherInstances.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Não lida em:</span>
+                {unreadOtherInstances.slice(0, 2).map((conv) => (
+                  <Badge
+                    key={conv.id}
+                    variant="destructive"
+                    className="h-4 px-1 text-[9px]"
+                  >
+                    {(conv.instance_display_name || conv.instance_name)} ({conv.unread_count > 99 ? '99+' : conv.unread_count})
+                  </Badge>
+                ))}
+                {unreadOtherInstances.length > 2 && (
+                  <Badge variant="outline" className="h-4 px-1 text-[9px]">
+                    +{unreadOtherInstances.length - 2}
+                  </Badge>
+                )}
+              </div>
             )}
           </div>
           
