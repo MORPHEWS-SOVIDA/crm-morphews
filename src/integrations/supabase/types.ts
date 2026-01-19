@@ -224,6 +224,79 @@ export type Database = {
           },
         ]
       }
+      carrier_tracking_statuses: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          media_filename: string | null
+          media_type: string | null
+          media_url: string | null
+          message_template: string | null
+          organization_id: string
+          position: number
+          status_key: string
+          updated_at: string
+          webhook_url: string | null
+          whatsapp_instance_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_template?: string | null
+          organization_id: string
+          position?: number
+          status_key: string
+          updated_at?: string
+          webhook_url?: string | null
+          whatsapp_instance_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_template?: string | null
+          organization_id?: string
+          position?: number
+          status_key?: string
+          updated_at?: string
+          webhook_url?: string | null
+          whatsapp_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_tracking_statuses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_tracking_statuses_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_tracking_statuses_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_identities: {
         Row: {
           contact_id: string
@@ -2866,33 +2939,48 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          media_filename: string | null
+          media_type: string | null
+          media_url: string | null
+          message_template: string | null
           organization_id: string
           position: number
           status_key: string
           updated_at: string
           webhook_url: string | null
+          whatsapp_instance_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_active?: boolean
           label: string
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_template?: string | null
           organization_id: string
           position?: number
           status_key: string
           updated_at?: string
           webhook_url?: string | null
+          whatsapp_instance_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           is_active?: boolean
           label?: string
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_template?: string | null
           organization_id?: string
           position?: number
           status_key?: string
           updated_at?: string
           webhook_url?: string | null
+          whatsapp_instance_id?: string | null
         }
         Relationships: [
           {
@@ -2900,6 +2988,20 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "motoboy_tracking_statuses_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "motoboy_tracking_statuses_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
         ]

@@ -9,26 +9,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Bike, Pencil, Check, X, Webhook, MessageSquare } from 'lucide-react';
+import { Loader2, Truck, Pencil, Check, X, Webhook, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
-  useMotoboyTrackingStatuses,
-  useUpdateMotoboyTrackingStatus,
-  MotoboyTrackingStatusConfig,
-} from '@/hooks/useMotoboyTracking';
+  useCarrierTrackingStatuses,
+  useUpdateCarrierTrackingStatus,
+} from '@/hooks/useCarrierTrackingStatuses';
 import { TrackingStatusMessageEditor } from './TrackingStatusMessageEditor';
 import { toast } from 'sonner';
 
-export function MotoboyTrackingStatusesManager() {
-  const { data: statuses = [], isLoading } = useMotoboyTrackingStatuses();
-  const updateStatus = useUpdateMotoboyTrackingStatus();
+export function CarrierTrackingStatusesManager() {
+  const { data: statuses = [], isLoading } = useCarrierTrackingStatuses();
+  const updateStatus = useUpdateCarrierTrackingStatus();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editWebhook, setEditWebhook] = useState('');
-  const [messageEditorStatus, setMessageEditorStatus] = useState<MotoboyTrackingStatusConfig | null>(null);
+  const [messageEditorStatus, setMessageEditorStatus] = useState<typeof statuses[0] | null>(null);
 
-  const startEdit = (status: MotoboyTrackingStatusConfig) => {
+  const startEdit = (status: typeof statuses[0]) => {
     setEditingId(status.id);
     setEditLabel(status.label);
     setEditWebhook(status.webhook_url || '');
@@ -56,7 +55,7 @@ export function MotoboyTrackingStatusesManager() {
     }
   };
 
-  const handleToggleActive = async (status: MotoboyTrackingStatusConfig) => {
+  const handleToggleActive = async (status: typeof statuses[0]) => {
     try {
       await updateStatus.mutateAsync({
         id: status.id,
@@ -95,10 +94,10 @@ export function MotoboyTrackingStatusesManager() {
   if (statuses.length === 0) {
     return (
       <div className="text-center p-8 border rounded-lg border-dashed">
-        <Bike className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">Nenhum status de motoboy configurado</p>
+        <Truck className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Nenhum status de transportadora configurado</p>
         <p className="text-sm text-muted-foreground mt-2">
-          Os status serão criados automaticamente quando você criar uma nova organização.
+          Os status serão criados automaticamente.
         </p>
       </div>
     );
@@ -108,7 +107,7 @@ export function MotoboyTrackingStatusesManager() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">
-          Configure os status de rastreio para entregas via motoboy. Cada status pode ter uma mensagem automática para o cliente.
+          Configure os status de rastreio para envios via transportadora. Cada status pode ter uma mensagem automática para o cliente.
         </p>
       </div>
 
@@ -234,11 +233,11 @@ export function MotoboyTrackingStatusesManager() {
           onClose={() => setMessageEditorStatus(null)}
           statusLabel={messageEditorStatus.label}
           currentConfig={{
-            whatsapp_instance_id: messageEditorStatus.whatsapp_instance_id || null,
-            message_template: messageEditorStatus.message_template || null,
-            media_type: messageEditorStatus.media_type || null,
-            media_url: messageEditorStatus.media_url || null,
-            media_filename: messageEditorStatus.media_filename || null,
+            whatsapp_instance_id: messageEditorStatus.whatsapp_instance_id,
+            message_template: messageEditorStatus.message_template,
+            media_type: messageEditorStatus.media_type,
+            media_url: messageEditorStatus.media_url,
+            media_filename: messageEditorStatus.media_filename,
           }}
           onSave={handleSaveMessage}
           isSaving={updateStatus.isPending}

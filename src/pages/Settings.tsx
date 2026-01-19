@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users, Bike, Award, Database } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users, Bike, Award, Database, Package } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ import { NonPurchaseReasonsManager } from '@/components/settings/NonPurchaseReas
 import { TeamsManager } from '@/components/settings/TeamsManager';
 import { StandardQuestionsManager } from '@/components/settings/StandardQuestionsManager';
 import { MotoboyTrackingStatusesManager } from '@/components/settings/MotoboyTrackingStatusesManager';
+import { CarrierTrackingStatusesManager } from '@/components/settings/CarrierTrackingStatusesManager';
 import { ProductBrandsManager } from '@/components/settings/ProductBrandsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
@@ -365,10 +366,26 @@ export default function Settings() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Rastreio de Motoboy</h2>
-                <p className="text-sm text-muted-foreground">Configure os status de entrega e webhooks para motoboy</p>
+                <p className="text-sm text-muted-foreground">Configure os status de entrega e mensagens automáticas para motoboy</p>
               </div>
             </div>
             <MotoboyTrackingStatusesManager />
+          </div>
+        )}
+
+        {/* Carrier Tracking Statuses */}
+        {canAccess('settings_carriers') && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-orange-500/10">
+                <Package className="w-6 h-6 text-orange-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Rastreio de Transportadora</h2>
+                <p className="text-sm text-muted-foreground">Configure os status de entrega e mensagens automáticas para Correios e transportadoras</p>
+              </div>
+            </div>
+            <CarrierTrackingStatusesManager />
           </div>
         )}
 
