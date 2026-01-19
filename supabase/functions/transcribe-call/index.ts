@@ -9,6 +9,7 @@ const corsHeaders = {
 interface TranscribeRequest {
   attendanceId: string;
   audioUrl: string;
+  storagePath?: string; // If provided, delete from storage after transcription
 }
 
 interface CallQualityScore {
@@ -34,7 +35,7 @@ serve(async (req) => {
   }
 
   try {
-    const { attendanceId, audioUrl }: TranscribeRequest = await req.json();
+    const { attendanceId, audioUrl, storagePath }: TranscribeRequest = await req.json();
 
     if (!attendanceId || !audioUrl) {
       return new Response(
@@ -262,12 +263,35 @@ ${transcription}`
         transcription,
         transcription_status: "completed",
         call_quality_score: callQualityScore,
+        // Clear the recording URL after transcription if it was from storage
+        // (we keep transcription, don't need the audio anymore)
+        call_recording_url: storagePath ? null : undefined,
       })
       .eq("id", attendanceId);
 
     if (updateError) {
       console.error("Error updating attendance:", updateError);
       throw updateError;
+    }
+
+    // Delete the audio file from storage if it was uploaded (not an external URL)
+    if (storagePath) {
+      try {
+        console.log(`🗑️ Deleting audio file from storage: ${storagePath}`);
+        const { error: deleteError } = await supabase.storage
+          .from('receptive-recordings')
+          .remove([storagePath]);
+        
+        if (deleteError) {
+          console.error('Error deleting audio file:', deleteError);
+          // Don't throw - transcription was successful, deletion is cleanup
+        } else {
+          console.log(`✅ Audio file deleted successfully: ${storagePath}`);
+        }
+      } catch (deleteErr) {
+        console.error('Error in deletion process:', deleteErr);
+        // Continue - transcription was successful
+      }
     }
 
     return new Response(

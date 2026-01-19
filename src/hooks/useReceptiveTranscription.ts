@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 interface TranscribeParams {
   attendanceId: string;
   audioUrl: string;
+  storagePath?: string; // If provided, delete from storage after transcription
 }
 
 interface CallQualityScore {
@@ -31,9 +32,9 @@ export function useTranscribeCall() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ attendanceId, audioUrl }: TranscribeParams): Promise<TranscribeResult> => {
+    mutationFn: async ({ attendanceId, audioUrl, storagePath }: TranscribeParams): Promise<TranscribeResult> => {
       const { data, error } = await supabase.functions.invoke('transcribe-call', {
-        body: { attendanceId, audioUrl },
+        body: { attendanceId, audioUrl, storagePath },
       });
 
       if (error) {
