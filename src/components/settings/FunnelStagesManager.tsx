@@ -23,9 +23,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const STAGE_COLORS = [
   { value: 'bg-slate-200', label: 'Cinza', textColor: 'text-slate-700' },
@@ -55,6 +56,7 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
   const [name, setName] = useState(stage?.name || '');
   const [color, setColor] = useState(stage?.color || 'bg-slate-200');
   const [stageType, setStageType] = useState<'funnel' | 'cloud' | 'trash'>(stage?.stage_type || 'funnel');
+  const [requiresContact, setRequiresContact] = useState(stage?.requires_contact || false);
 
   const selectedColorInfo = STAGE_COLORS.find(c => c.value === color);
 
@@ -66,6 +68,7 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
       color,
       text_color: selectedColorInfo?.textColor || 'text-slate-700',
       stage_type: stageType,
+      requires_contact: requiresContact,
     };
 
     if (isNew) {
@@ -124,6 +127,24 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
             <SelectItem value="trash">Sem interesse (ao lado do funil)</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Requires Contact Checkbox */}
+      <div className="flex items-center space-x-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+        <Checkbox
+          id="requires-contact"
+          checked={requiresContact}
+          onCheckedChange={(checked) => setRequiresContact(checked === true)}
+        />
+        <div className="flex-1">
+          <Label htmlFor="requires-contact" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+            <Phone className="w-4 h-4 text-orange-600" />
+            Clientes sem contato
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Leads nesta etapa aparecem em "Clientes sem contato" para vendedores assumirem
+          </p>
+        </div>
       </div>
 
       {/* Preview */}

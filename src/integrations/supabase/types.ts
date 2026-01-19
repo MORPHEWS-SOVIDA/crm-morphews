@@ -3186,6 +3186,7 @@ export type Database = {
           name: string
           organization_id: string
           position: number
+          requires_contact: boolean
           stage_type: string
           text_color: string
           updated_at: string
@@ -3199,6 +3200,7 @@ export type Database = {
           name: string
           organization_id: string
           position: number
+          requires_contact?: boolean
           stage_type?: string
           text_color?: string
           updated_at?: string
@@ -3212,6 +3214,7 @@ export type Database = {
           name?: string
           organization_id?: string
           position?: number
+          requires_contact?: boolean
           stage_type?: string
           text_color?: string
           updated_at?: string
