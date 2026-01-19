@@ -5903,9 +5903,11 @@ export type Database = {
           deliveries_view_own: boolean
           demands_view: boolean
           expedition_report_view: boolean | null
+          expedition_view: boolean
           hide_sidebar: boolean | null
           id: string
           instagram_view: boolean
+          integrations_view: boolean
           leads_create: boolean
           leads_delete: boolean
           leads_edit: boolean
@@ -5925,6 +5927,7 @@ export type Database = {
           sales_cancel: boolean
           sales_confirm_payment: boolean
           sales_create: boolean
+          sales_dashboard_view: boolean
           sales_dispatch: boolean
           sales_edit_draft: boolean
           sales_hide_new_button: boolean
@@ -5972,9 +5975,11 @@ export type Database = {
           deliveries_view_own?: boolean
           demands_view?: boolean
           expedition_report_view?: boolean | null
+          expedition_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
+          integrations_view?: boolean
           leads_create?: boolean
           leads_delete?: boolean
           leads_edit?: boolean
@@ -5994,6 +5999,7 @@ export type Database = {
           sales_cancel?: boolean
           sales_confirm_payment?: boolean
           sales_create?: boolean
+          sales_dashboard_view?: boolean
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
           sales_hide_new_button?: boolean
@@ -6041,9 +6047,11 @@ export type Database = {
           deliveries_view_own?: boolean
           demands_view?: boolean
           expedition_report_view?: boolean | null
+          expedition_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
+          integrations_view?: boolean
           leads_create?: boolean
           leads_delete?: boolean
           leads_edit?: boolean
@@ -6063,6 +6071,7 @@ export type Database = {
           sales_cancel?: boolean
           sales_confirm_payment?: boolean
           sales_create?: boolean
+          sales_dashboard_view?: boolean
           sales_dispatch?: boolean
           sales_edit_draft?: boolean
           sales_hide_new_button?: boolean
