@@ -31,6 +31,7 @@ import { format, parseISO, isToday, isTomorrow, addMonths, subMonths, startOfMon
 import { ptBR } from 'date-fns/locale';
 import { useSellerDashboard, SaleSummary } from '@/hooks/useSellerDashboard';
 import { useUncontactedLeads, useClaimLead } from '@/hooks/useUncontactedLeads';
+import { useLeadIntelligence, LeadSuggestion } from '@/hooks/useLeadIntelligence';
 import { formatCurrency } from '@/hooks/useSales';
 import { motoboyTrackingLabels } from '@/hooks/useMotoboyTracking';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
@@ -182,6 +183,16 @@ export function SellerDashboard() {
   
   const { data: uncontactedLeads = [], isLoading: loadingUncontacted } = useUncontactedLeads();
   const claimLead = useClaimLead();
+  
+  const {
+    followupSuggestions,
+    productSuggestions,
+    isLoading: loadingIntelligence,
+    generateFollowupSuggestions,
+    generateProductSuggestions,
+    dismissFollowupSuggestion,
+    dismissProductSuggestion,
+  } = useLeadIntelligence();
 
   const handleClaimLead = async (leadId: string) => {
     setClaimingLeadId(leadId);
@@ -306,26 +317,80 @@ export function SellerDashboard() {
             <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700 dark:text-blue-300">
               <Sparkles className="w-4 h-4" />
               Sugestões de Follow-up
+              {followupSuggestions.length > 0 && (
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {followupSuggestions.length}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-3">
-                <Sparkles className="w-6 h-6 text-blue-500" />
+            {followupSuggestions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-4 text-center">
+                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-2">
+                  <Sparkles className="w-5 h-5 text-blue-500" />
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  IA analisa seus leads e sugere quem contatar
+                </p>
+                <Button 
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={generateFollowupSuggestions}
+                  disabled={loadingIntelligence}
+                >
+                  {loadingIntelligence ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Gerar Sugestões
+                </Button>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                IA analisa seus leads e sugere quem contatar
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                disabled
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Em breve
-              </Button>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <ScrollArea className="h-28">
+                  <div className="space-y-2">
+                    {followupSuggestions.slice(0, 3).map((suggestion) => (
+                      <div 
+                        key={suggestion.lead_id}
+                        className="p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        onClick={() => navigate(`/leads/${suggestion.lead_id}`)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium truncate">{suggestion.lead_name}</span>
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              suggestion.priority === 'high' ? 'text-red-600 border-red-300' :
+                              suggestion.priority === 'medium' ? 'text-amber-600 border-amber-300' :
+                              'text-gray-600 border-gray-300'
+                            }
+                          >
+                            {suggestion.priority === 'high' ? 'Alta' : suggestion.priority === 'medium' ? 'Média' : 'Baixa'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{suggestion.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-blue-300 text-blue-700"
+                  onClick={generateFollowupSuggestions}
+                  disabled={loadingIntelligence}
+                >
+                  {loadingIntelligence ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Mais Sugestões
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -335,26 +400,79 @@ export function SellerDashboard() {
             <CardTitle className="text-sm font-medium flex items-center gap-2 text-purple-700 dark:text-purple-300">
               <ShoppingBag className="w-4 h-4" />
               Recomendação de Produtos
+              {productSuggestions.length > 0 && (
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {productSuggestions.length}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mb-3">
-                <ShoppingBag className="w-6 h-6 text-purple-500" />
+            {productSuggestions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-4 text-center">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mb-2">
+                  <ShoppingBag className="w-5 h-5 text-purple-500" />
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  IA recomenda produtos para cada cliente
+                </p>
+                <Button 
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={generateProductSuggestions}
+                  disabled={loadingIntelligence}
+                >
+                  {loadingIntelligence ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Recomendar
+                </Button>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                IA recomenda produtos para cada cliente
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                disabled
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Em breve
-              </Button>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <ScrollArea className="h-28">
+                  <div className="space-y-2">
+                    {productSuggestions.slice(0, 3).map((suggestion) => (
+                      <div 
+                        key={suggestion.lead_id}
+                        className="p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/30"
+                        onClick={() => navigate(`/leads/${suggestion.lead_id}`)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium truncate">{suggestion.lead_name}</span>
+                        </div>
+                        {suggestion.recommended_products && suggestion.recommended_products.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {suggestion.recommended_products.slice(0, 2).map((product, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">
+                                {product}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{suggestion.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-purple-300 text-purple-700"
+                  onClick={generateProductSuggestions}
+                  disabled={loadingIntelligence}
+                >
+                  {loadingIntelligence ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Mais Recomendações
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
