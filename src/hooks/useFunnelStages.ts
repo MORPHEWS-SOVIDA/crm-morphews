@@ -144,35 +144,43 @@ export function useReorderFunnelStages() {
 
   return useMutation({
     mutationFn: async (stages: { id: string; position: number }[]) => {
-      // First, set all positions to negative values to avoid constraint conflicts
-      // This works because we're moving them out of the way temporarily
-      const tempUpdates = stages.map(({ id }, index) =>
-        supabase
+      // Use a much larger offset to avoid any possible collision
+      const TEMP_OFFSET = -100000;
+      
+      // Step 1: Move all stages to very negative temporary positions
+      // Process sequentially to avoid race conditions
+      for (let i = 0; i < stages.length; i++) {
+        const { id } = stages[i];
+        const { error } = await supabase
           .from('organization_funnel_stages')
-          .update({ position: -(index + 1000) })
-          .eq('id', id)
-      );
+          .update({ position: TEMP_OFFSET - i })
+          .eq('id', id);
+        
+        if (error) {
+          console.error('Error setting temp position:', error);
+          throw error;
+        }
+      }
 
-      const tempResults = await Promise.all(tempUpdates);
-      const tempErrors = tempResults.filter(r => r.error);
-      if (tempErrors.length > 0) throw tempErrors[0].error;
-
-      // Now update to the final positions
-      const finalUpdates = stages.map(({ id, position }) =>
-        supabase
+      // Step 2: Now update to the final positions
+      // Process sequentially to ensure order is maintained
+      for (const { id, position } of stages) {
+        const { error } = await supabase
           .from('organization_funnel_stages')
           .update({ position })
-          .eq('id', id)
-      );
-
-      const finalResults = await Promise.all(finalUpdates);
-      const finalErrors = finalResults.filter(r => r.error);
-      if (finalErrors.length > 0) throw finalErrors[0].error;
+          .eq('id', id);
+        
+        if (error) {
+          console.error('Error setting final position:', error);
+          throw error;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['funnel-stages'] });
     },
     onError: (error: any) => {
+      queryClient.invalidateQueries({ queryKey: ['funnel-stages'] });
       toast({
         title: 'Erro ao reordenar etapas',
         description: error.message,
