@@ -85,19 +85,16 @@ serve(async (req) => {
 
     const { data: perm, error: permError } = await supabaseAdmin
       .from("whatsapp_instance_users")
-      .select("id, can_use_phone, can_view, organization_id")
+      .select("id, can_use_phone, can_view")
       .eq("instance_id", instanceId)
       .eq("user_id", userId)
       .maybeSingle();
 
+    console.log("wavoip-call-offer: perm check", { instanceId, userId, perm, permError });
+
     if (permError || !perm?.can_view || !perm?.can_use_phone) {
       console.log("wavoip-call-offer: permission denied", { instanceId, userId, permError, perm });
       return jsonResponse({ ok: false, error: "Sem permissão de telefone para esta instância", code: 403 });
-    }
-
-    // Extra guard: enforce same organization.
-    if (perm.organization_id && instance.organization_id && perm.organization_id !== instance.organization_id) {
-      return jsonResponse({ ok: false, error: "Sem permissão para esta organização", code: 403 });
     }
 
     const serverUrl = normalizeUrl(String(instance.wavoip_server_url || FALLBACK_EVOLUTION_API_URL || ""));
