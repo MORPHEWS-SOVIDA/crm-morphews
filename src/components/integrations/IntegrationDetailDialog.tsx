@@ -112,14 +112,25 @@ export function IntegrationDetailDialog({
   );
   
   // New fields for sales support
-  const [eventMode, setEventMode] = useState<'lead' | 'sale' | 'both'>(
-    integration.event_mode || 'lead'
+  const [eventMode, setEventMode] = useState<'lead' | 'sale' | 'both' | 'sac'>(
+    (integration as any).event_mode || 'lead'
   );
   const [saleStatusOnCreate, setSaleStatusOnCreate] = useState(
     integration.sale_status_on_create || 'rascunho'
   );
   const [saleTag, setSaleTag] = useState(
     integration.sale_tag || 'VENDA ONLINE'
+  );
+  
+  // SAC configuration
+  const [sacCategory, setSacCategory] = useState<string>(
+    (integration as any).sac_category || ''
+  );
+  const [sacSubcategory, setSacSubcategory] = useState<string>(
+    (integration as any).sac_subcategory || ''
+  );
+  const [sacPriority, setSacPriority] = useState<string>(
+    (integration as any).sac_priority || 'normal'
   );
   
   const [mappings, setMappings] = useState<FieldMappingRow[]>([]);
@@ -311,6 +322,9 @@ export function IntegrationDetailDialog({
       event_mode: eventMode,
       sale_status_on_create: saleStatusOnCreate,
       sale_tag: saleTag,
+      sac_category: sacCategory || null,
+      sac_subcategory: sacSubcategory || null,
+      sac_priority: sacPriority || 'normal',
     } as any);
     toast.success('Configurações salvas!');
   };
@@ -570,12 +584,13 @@ export function IntegrationDetailDialog({
                     Defina o que esta integração irá criar
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-3">
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { value: 'lead', label: 'Apenas Leads', desc: 'Cria leads para acompanhamento' },
-                      { value: 'sale', label: 'Apenas Vendas', desc: 'Cria vendas diretamente' },
-                      { value: 'both', label: 'Lead + Venda', desc: 'Cria lead e venda associada' },
+                      { value: 'lead', label: 'Apenas Leads', desc: 'Cria leads para acompanhamento', icon: '👤' },
+                      { value: 'sale', label: 'Apenas Vendas', desc: 'Cria vendas diretamente', icon: '💰' },
+                      { value: 'both', label: 'Lead + Venda', desc: 'Cria lead e venda associada', icon: '📦' },
+                      { value: 'sac', label: 'Chamado SAC', desc: 'Cria chamado de atendimento', icon: '🎧' },
                     ].map(mode => (
                       <div
                         key={mode.value}
@@ -588,11 +603,111 @@ export function IntegrationDetailDialog({
                           }
                         `}
                       >
+                        <div className="text-xl mb-1">{mode.icon}</div>
                         <div className="font-medium text-sm">{mode.label}</div>
                         <div className="text-xs text-muted-foreground">{mode.desc}</div>
                       </div>
                     ))}
                   </div>
+                  
+                  {/* SAC Configuration - only show when SAC mode is selected */}
+                  {eventMode === 'sac' && (
+                    <div className="border-t pt-4 space-y-4">
+                      <div className="flex items-center gap-2 text-sm font-medium text-purple-600">
+                        <span>🎧</span>
+                        Configuração do Chamado SAC
+                      </div>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Categoria do Chamado *</Label>
+                          <Select value={sacCategory} onValueChange={(v) => {
+                            setSacCategory(v);
+                            setSacSubcategory(''); // Reset subcategory when category changes
+                          }}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a categoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="complaint">Reclamação</SelectItem>
+                              <SelectItem value="question">Dúvida</SelectItem>
+                              <SelectItem value="request">Solicitação</SelectItem>
+                              <SelectItem value="financial">Financeiro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Subcategoria *</Label>
+                          <Select value={sacSubcategory} onValueChange={setSacSubcategory}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a subcategoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sacCategory === 'complaint' && (
+                                <>
+                                  <SelectItem value="Produto não entregue">Produto não entregue</SelectItem>
+                                  <SelectItem value="Produto divergente">Produto divergente</SelectItem>
+                                  <SelectItem value="Cobrança indevida">Cobrança indevida</SelectItem>
+                                  <SelectItem value="Promessa não cumprida">Promessa não cumprida</SelectItem>
+                                  <SelectItem value="Mal atendimento">Mal atendimento</SelectItem>
+                                </>
+                              )}
+                              {sacCategory === 'question' && (
+                                <>
+                                  <SelectItem value="Como usar o produto">Como usar o produto</SelectItem>
+                                  <SelectItem value="Como rastrear">Como rastrear</SelectItem>
+                                  <SelectItem value="Como pagar">Como pagar</SelectItem>
+                                </>
+                              )}
+                              {sacCategory === 'request' && (
+                                <>
+                                  <SelectItem value="2ª via boleto">2ª via boleto</SelectItem>
+                                  <SelectItem value="Troca">Troca</SelectItem>
+                                  <SelectItem value="Reenvio">Reenvio</SelectItem>
+                                  <SelectItem value="Ajuste de cadastro">Ajuste de cadastro</SelectItem>
+                                </>
+                              )}
+                              {sacCategory === 'financial' && (
+                                <>
+                                  <SelectItem value="Renegociação">Renegociação</SelectItem>
+                                  <SelectItem value="Cancelamento">Cancelamento</SelectItem>
+                                  <SelectItem value="Estorno">Estorno</SelectItem>
+                                  <SelectItem value="Chargeback">Chargeback</SelectItem>
+                                </>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Prioridade</Label>
+                        <Select value={sacPriority} onValueChange={setSacPriority}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Baixa</SelectItem>
+                            <SelectItem value="normal">Normal</SelectItem>
+                            <SelectItem value="high">Alta</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="p-3 bg-purple-500/10 rounded-lg text-sm">
+                        <p className="font-medium text-purple-700 dark:text-purple-400 mb-1">
+                          ℹ️ Como funciona o modo SAC:
+                        </p>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          <li>• O webhook irá criar/encontrar o lead pelo WhatsApp ou email</li>
+                          <li>• Um chamado SAC será criado na coluna "Não Tratados"</li>
+                          <li>• A equipe de SAC poderá visualizar e tratar o chamado</li>
+                          <li>• Ideal para: chargebacks, cancelamentos, reclamações externas</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

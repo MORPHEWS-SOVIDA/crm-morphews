@@ -110,9 +110,13 @@ interface Integration {
   auto_followup_days: number | null;
   non_purchase_reason_id: string | null;
   settings: Record<string, any>;
-  event_mode: 'lead' | 'sale' | 'both' | null;
+  event_mode: 'lead' | 'sale' | 'both' | 'sac' | null;
   sale_status_on_create: string | null;
   sale_tag: string | null;
+  // SAC fields
+  sac_category: string | null;
+  sac_subcategory: string | null;
+  sac_priority: string | null;
 }
 
 function normalizePhone(phone: string): string {
@@ -994,10 +998,108 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ========== SAC TICKET CREATION ==========
+    let sacTicketId: string | null = null;
+    
+    if (typedIntegration.event_mode === 'sac') {
+      console.log('SAC mode - creating ticket');
+      
+      if (!typedIntegration.sac_category || !typedIntegration.sac_subcategory) {
+        console.warn('SAC mode enabled but category/subcategory not configured');
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'error',
+          event_type: 'sac_config_missing',
+          request_payload: payload,
+          error_message: 'Modo SAC ativado mas categoria/subcategoria não configuradas',
+          lead_id: leadId,
+          processing_time_ms: Date.now() - startTime,
+        });
+      } else {
+        // Get a user ID for created_by - use first responsible or find org owner
+        let createdByUserId = typedIntegration.default_responsible_user_ids?.[0];
+        
+        if (!createdByUserId) {
+          const { data: orgOwner } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('organization_id', typedIntegration.organization_id)
+            .eq('role', 'owner')
+            .maybeSingle();
+          
+          createdByUserId = orgOwner?.id;
+          
+          if (!createdByUserId) {
+            const { data: anyMember } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('organization_id', typedIntegration.organization_id)
+              .limit(1)
+              .maybeSingle();
+            
+            createdByUserId = anyMember?.id;
+          }
+        }
+        
+        if (!createdByUserId) {
+          console.error('No user found to create SAC ticket');
+        } else {
+          // Build description from payload
+          const description = `Chamado criado automaticamente via integração: ${typedIntegration.name}\n\n` +
+            `Dados recebidos:\n${JSON.stringify(payload, null, 2)}`;
+          
+          // Create the SAC ticket
+          const { data: ticket, error: ticketError } = await supabase
+            .from('sac_tickets')
+            .insert({
+              organization_id: typedIntegration.organization_id,
+              lead_id: leadId,
+              sale_id: saleId || null,
+              created_by: createdByUserId,
+              category: typedIntegration.sac_category,
+              subcategory: typedIntegration.sac_subcategory,
+              priority: typedIntegration.sac_priority || 'normal',
+              description: description,
+              status: 'pending', // Goes to "Não Tratados" column
+              source: 'integration',
+              source_integration_id: typedIntegration.id,
+              external_reference: saleData.external_id || null,
+            })
+            .select('id')
+            .single();
+          
+          if (ticketError) {
+            console.error('Error creating SAC ticket:', ticketError);
+            await supabase.from('integration_logs').insert({
+              integration_id: typedIntegration.id,
+              organization_id: typedIntegration.organization_id,
+              direction: 'inbound',
+              status: 'partial',
+              event_type: 'sac_creation_failed',
+              request_payload: payload,
+              error_message: `Lead processado, mas erro ao criar chamado SAC: ${ticketError.message}`,
+              lead_id: leadId,
+              processing_time_ms: Date.now() - startTime,
+            });
+          } else {
+            sacTicketId = ticket.id;
+            console.log(`Created SAC ticket: ${sacTicketId}`);
+          }
+        }
+      }
+    }
+
     // Log success
-    const eventType = saleId 
-      ? (action === 'created' ? 'lead_and_sale_created' : 'lead_updated_sale_created')
-      : (action === 'created' ? 'lead_created' : 'lead_updated');
+    let eventType = 'lead_created';
+    if (sacTicketId) {
+      eventType = 'sac_ticket_created';
+    } else if (saleId) {
+      eventType = action === 'created' ? 'lead_and_sale_created' : 'lead_updated_sale_created';
+    } else {
+      eventType = action === 'created' ? 'lead_created' : 'lead_updated';
+    }
     
     await supabase.from('integration_logs').insert({
       integration_id: typedIntegration.id,
@@ -1006,10 +1108,20 @@ Deno.serve(async (req) => {
       status: 'success',
       event_type: eventType,
       request_payload: payload,
-      response_payload: { lead_id: leadId, sale_id: saleId, action },
+      response_payload: { lead_id: leadId, sale_id: saleId, sac_ticket_id: sacTicketId, action },
       lead_id: leadId,
       processing_time_ms: Date.now() - startTime,
     });
+
+    // Build response message
+    let message = '';
+    if (sacTicketId) {
+      message = 'Chamado SAC criado com sucesso';
+    } else if (saleId) {
+      message = `Lead ${action === 'created' ? 'criado' : 'atualizado'} e venda criada com sucesso`;
+    } else {
+      message = `Lead ${action === 'created' ? 'criado' : 'atualizado'} com sucesso`;
+    }
 
     return new Response(
       JSON.stringify({
@@ -1017,9 +1129,8 @@ Deno.serve(async (req) => {
         action,
         lead_id: leadId,
         sale_id: saleId,
-        message: saleId 
-          ? `Lead ${action === 'created' ? 'criado' : 'atualizado'} e venda criada com sucesso` 
-          : `Lead ${action === 'created' ? 'criado' : 'atualizado'} com sucesso`,
+        sac_ticket_id: sacTicketId,
+        message,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
