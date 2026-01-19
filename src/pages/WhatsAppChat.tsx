@@ -45,8 +45,7 @@ import { ConversationTransferDialog } from '@/components/whatsapp/ConversationTr
 import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
 import { WavoipCallButton } from '@/components/whatsapp/WavoipCallButton';
-import { WavoipAvailabilityToggle } from '@/components/whatsapp/WavoipSettings';
-import { WavoipDialpad } from '@/components/whatsapp/WavoipDialpad';
+import { WavoipPhoneButton } from '@/components/whatsapp/WavoipPhoneButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
@@ -1009,13 +1008,9 @@ export default function WhatsAppChat() {
                 )}
               </h2>
               <div className="flex items-center gap-1 flex-wrap">
-                {/* Toggle de disponibilidade para chamadas */}
+                {/* Botão de telefone com dialpad e fila */}
                 {selectedInstance && selectedInstance !== 'all' && (
-                  <WavoipAvailabilityToggle instanceId={selectedInstance} />
-                )}
-                {/* Dialpad para chamadas outbound */}
-                {selectedInstance && selectedInstance !== 'all' && (
-                  <WavoipDialpad instanceId={selectedInstance} />
+                  <WavoipPhoneButton instanceId={selectedInstance} />
                 )}
                 <Button 
                   variant="ghost" 
