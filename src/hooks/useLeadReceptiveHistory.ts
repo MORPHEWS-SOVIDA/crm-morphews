@@ -1,6 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface CallQualityScore {
+  followed_script: boolean;
+  offered_kits: boolean;
+  proper_greeting: boolean;
+  asked_needs: boolean;
+  handled_objections: boolean;
+  clear_next_steps: boolean;
+  overall_score: number;
+  summary: string;
+  improvements: string[];
+}
+
 export interface ReceptiveHistoryItem {
   id: string;
   user_id: string;
@@ -11,6 +23,12 @@ export interface ReceptiveHistoryItem {
   completed: boolean;
   purchase_potential_cents: number | null;
   created_at: string;
+  // New transcription fields
+  call_recording_url: string | null;
+  transcription: string | null;
+  transcription_status: string | null;
+  call_quality_score: CallQualityScore | null;
+  notes: string | null;
   // Joined data
   user_name?: string;
   product_name?: string;
@@ -34,7 +52,12 @@ export function useLeadReceptiveHistory(leadId: string | undefined) {
           non_purchase_reason_id,
           completed,
           purchase_potential_cents,
-          created_at
+          created_at,
+          call_recording_url,
+          transcription,
+          transcription_status,
+          call_quality_score,
+          notes
         `)
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false });
@@ -74,6 +97,7 @@ export function useLeadReceptiveHistory(leadId: string | undefined) {
 
       return (data || []).map(item => ({
         ...item,
+        call_quality_score: item.call_quality_score as unknown as CallQualityScore | null,
         user_name: userMap.get(item.user_id) || 'Desconhecido',
         product_name: item.product_id ? productMap.get(item.product_id) : undefined,
         reason_name: item.non_purchase_reason_id ? reasonMap.get(item.non_purchase_reason_id) : undefined,

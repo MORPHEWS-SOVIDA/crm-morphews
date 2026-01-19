@@ -4281,6 +4281,8 @@ export type Database = {
       }
       receptive_attendances: {
         Row: {
+          call_quality_score: Json | null
+          call_recording_url: string | null
           completed: boolean
           conversation_mode: string
           created_at: string
@@ -4288,16 +4290,21 @@ export type Database = {
           lead_existed: boolean
           lead_id: string | null
           non_purchase_reason_id: string | null
+          notes: string | null
           organization_id: string
           phone_searched: string
           product_answers: Json | null
           product_id: string | null
           purchase_potential_cents: number | null
           sale_id: string | null
+          transcription: string | null
+          transcription_status: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          call_quality_score?: Json | null
+          call_recording_url?: string | null
           completed?: boolean
           conversation_mode: string
           created_at?: string
@@ -4305,16 +4312,21 @@ export type Database = {
           lead_existed?: boolean
           lead_id?: string | null
           non_purchase_reason_id?: string | null
+          notes?: string | null
           organization_id: string
           phone_searched: string
           product_answers?: Json | null
           product_id?: string | null
           purchase_potential_cents?: number | null
           sale_id?: string | null
+          transcription?: string | null
+          transcription_status?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          call_quality_score?: Json | null
+          call_recording_url?: string | null
           completed?: boolean
           conversation_mode?: string
           created_at?: string
@@ -4322,12 +4334,15 @@ export type Database = {
           lead_existed?: boolean
           lead_id?: string | null
           non_purchase_reason_id?: string | null
+          notes?: string | null
           organization_id?: string
           phone_searched?: string
           product_answers?: Json | null
           product_id?: string | null
           purchase_potential_cents?: number | null
           sale_id?: string | null
+          transcription?: string | null
+          transcription_status?: string | null
           updated_at?: string
           user_id?: string
         }
