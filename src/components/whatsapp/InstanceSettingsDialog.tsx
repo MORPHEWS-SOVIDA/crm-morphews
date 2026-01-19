@@ -12,9 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Settings, Clock, RefreshCw, Hand, Bot } from "lucide-react";
+import { Loader2, Settings, Clock, RefreshCw, Hand, Bot, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { WavoipSettings } from "./WavoipSettings";
 
 interface InstanceSettingsDialogProps {
   instanceId: string;
@@ -32,12 +33,12 @@ export function InstanceSettingsDialog({
   const queryClient = useQueryClient();
 
   // Buscar configurações atuais
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading, refetch } = useQuery({
     queryKey: ["instance-settings", instanceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number, redistribution_timeout_minutes")
+        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number, redistribution_timeout_minutes, wavoip_enabled")
         .eq("id", instanceId)
         .single();
 
@@ -48,6 +49,7 @@ export function InstanceSettingsDialog({
         display_name_for_team: string | null;
         manual_instance_number: string | null;
         redistribution_timeout_minutes: number | null;
+        wavoip_enabled: boolean;
       };
     },
     enabled: open,
@@ -226,6 +228,22 @@ export function InstanceSettingsDialog({
                   </p>
                 </div>
               )}
+            </div>
+
+            <Separator />
+
+            {/* Chamadas via WhatsApp - Wavoip */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                Chamadas via WhatsApp
+              </Label>
+              <WavoipSettings 
+                instanceId={instanceId}
+                instanceName={instanceName}
+                wavoipEnabled={settings?.wavoip_enabled ?? false}
+                onUpdate={() => refetch()}
+              />
             </div>
 
             <Separator />
