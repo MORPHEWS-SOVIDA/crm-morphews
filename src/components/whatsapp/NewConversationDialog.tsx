@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Phone, MessageSquare, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Phone, MessageSquare, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +17,15 @@ interface WhatsAppInstance {
   is_connected: boolean;
   display_name_for_team: string | null;
   manual_instance_number: string | null;
+  status: string | null;
+  realTimeStatus?: 'checking' | 'connected' | 'disconnected' | 'error';
 }
 
 interface NewConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  phoneNumber?: string; // Telefone pré-preenchido (quando vem do botão WhatsApp)
-  message?: string; // Mensagem pré-preenchida
+  phoneNumber?: string;
+  message?: string;
   onConversationCreated?: (conversationId: string, instanceId: string) => void;
 }
 
@@ -42,8 +44,8 @@ export function NewConversationDialog({
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
-  // Atualiza o telefone e mensagem quando mudam as props
   useEffect(() => {
     if (phoneNumber) {
       setPhone(phoneNumber);
@@ -56,28 +58,70 @@ export function NewConversationDialog({
     }
   }, [message]);
 
-  // Buscar instâncias conectadas
+  // Verificar status real de uma instância na Evolution API
+  const checkInstanceRealStatus = useCallback(async (instance: WhatsAppInstance): Promise<'connected' | 'disconnected' | 'error'> => {
+    try {
+      const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "check_status", instanceId: instance.id },
+      });
+      
+      if (error) {
+        console.error("Error checking instance status:", error);
+        return 'error';
+      }
+      
+      return data?.is_connected ? 'connected' : 'disconnected';
+    } catch (e) {
+      console.error("Failed to check instance status:", e);
+      return 'error';
+    }
+  }, []);
+
+  // Buscar instâncias e verificar status real
   useEffect(() => {
     if (!open || !profile?.organization_id) return;
 
     const fetchInstances = async () => {
       setIsLoading(true);
       try {
+        // Buscar instâncias que estão marcadas como conectadas OU ativas (não arquivadas)
         const { data, error } = await supabase
           .from("whatsapp_instances")
-          .select("id, name, phone_number, is_connected, display_name_for_team, manual_instance_number")
+          .select("id, name, phone_number, is_connected, display_name_for_team, manual_instance_number, status")
           .eq("organization_id", profile.organization_id)
-          .eq("is_connected", true)
+          .is("deleted_at", null)
+          .in("status", ["active", "connected"])
           .order("name");
 
         if (error) throw error;
 
-        setInstances(data || []);
+        // Marcar todas como "checking" inicialmente
+        const instancesWithStatus = (data || []).map(inst => ({
+          ...inst,
+          realTimeStatus: 'checking' as const,
+        }));
         
-        // Auto-selecionar se só tem uma instância
+        setInstances(instancesWithStatus);
+        
         if (data && data.length === 1) {
           setSelectedInstanceId(data[0].id);
         }
+
+        // Verificar status real de cada instância em paralelo (max 5 simultâneos)
+        setIsCheckingStatus(true);
+        const checkPromises = instancesWithStatus.map(async (inst) => {
+          const realStatus = await checkInstanceRealStatus(inst);
+          return { id: inst.id, realTimeStatus: realStatus };
+        });
+
+        const results = await Promise.all(checkPromises);
+        
+        setInstances(prev => prev.map(inst => {
+          const result = results.find(r => r.id === inst.id);
+          return result ? { ...inst, realTimeStatus: result.realTimeStatus } : inst;
+        }));
+        
+        setIsCheckingStatus(false);
       } catch (error: any) {
         console.error("Error fetching instances:", error);
         toast({
@@ -91,7 +135,7 @@ export function NewConversationDialog({
     };
 
     fetchInstances();
-  }, [open, profile?.organization_id]);
+  }, [open, profile?.organization_id, checkInstanceRealStatus]);
 
   // Limpar estado ao fechar
   const handleClose = () => {
@@ -130,6 +174,17 @@ export function NewConversationDialog({
       toast({
         title: "Selecione a instância",
         description: "Escolha qual número usar para enviar a mensagem",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se a instância selecionada está realmente conectada
+    const selectedInstance = instances.find(i => i.id === selectedInstanceId);
+    if (selectedInstance?.realTimeStatus === 'disconnected' || selectedInstance?.realTimeStatus === 'error') {
+      toast({
+        title: "Instância desconectada",
+        description: "A instância selecionada não está conectada. Reconecte-a em WhatsApp DMs.",
         variant: "destructive",
       });
       return;
@@ -280,7 +335,15 @@ export function NewConversationDialog({
 
           {/* Seletor de Instância */}
           <div className="space-y-2">
-            <Label>Enviar de qual número? *</Label>
+            <div className="flex items-center justify-between">
+              <Label>Enviar de qual número? *</Label>
+              {isCheckingStatus && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Verificando conexões...
+                </span>
+              )}
+            </div>
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -292,27 +355,54 @@ export function NewConversationDialog({
                 <span className="text-xs">Conecte um número no WhatsApp DMs primeiro.</span>
               </div>
             ) : (
-              <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a instância" />
-                </SelectTrigger>
-                <SelectContent>
-                  {instances.map((instance) => {
-                    const displayName = instance.display_name_for_team || instance.name;
-                    const number = instance.manual_instance_number || instance.phone_number;
-                    const label = displayName && number ? `${displayName} - ${number}` : displayName || number || instance.name;
-                    
-                    return (
-                      <SelectItem key={instance.id} value={instance.id}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-funnel-positive" />
-                          <span>{label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <>
+                <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a instância" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instances.map((instance) => {
+                      const displayName = instance.display_name_for_team || instance.name;
+                      const number = instance.manual_instance_number || instance.phone_number;
+                      const label = displayName && number ? `${displayName} - ${number}` : displayName || number || instance.name;
+                      
+                      // Status visual baseado na verificação em tempo real
+                      const statusColor = instance.realTimeStatus === 'connected' 
+                        ? 'bg-green-500' 
+                        : instance.realTimeStatus === 'checking' 
+                          ? 'bg-yellow-400 animate-pulse'
+                          : 'bg-red-500';
+                      
+                      const isDisconnected = instance.realTimeStatus === 'disconnected' || instance.realTimeStatus === 'error';
+                      
+                      return (
+                        <SelectItem 
+                          key={instance.id} 
+                          value={instance.id}
+                          disabled={isDisconnected}
+                          className={isDisconnected ? 'opacity-60' : ''}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+                            <span>{label}</span>
+                            {isDisconnected && (
+                              <span className="text-xs text-red-500 ml-1">(desconectado)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                
+                {/* Aviso se a instância selecionada está desconectada */}
+                {selectedInstanceId && instances.find(i => i.id === selectedInstanceId)?.realTimeStatus === 'disconnected' && (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                    <span>Esta instância está desconectada. Reconecte-a em WhatsApp DMs.</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
