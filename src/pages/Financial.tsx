@@ -31,8 +31,8 @@ export default function Financial() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
-  // Check permissions
-  if (!permissionsLoading && !permissions?.reports_view && !permissions?.sales_confirm_payment) {
+  // Check permissions - only reports_view grants access to Financial module
+  if (!permissionsLoading && !permissions?.reports_view) {
     return <Navigate to="/" replace />;
   }
   

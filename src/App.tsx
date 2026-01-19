@@ -369,11 +369,11 @@ const App = () => (
                 }
               />
               
-              {/* Financial - require reports_view or sales_confirm_payment */}
+              {/* Financial - require reports_view only (sales_confirm_payment is for motoboy actions, not menu access) */}
               <Route
                 path="/financeiro"
                 element={
-                  <ProtectedRoute requiredPermissions={['reports_view', 'sales_confirm_payment']}>
+                  <ProtectedRoute requiredPermissions={['reports_view']}>
                     <Financial />
                   </ProtectedRoute>
                 }
