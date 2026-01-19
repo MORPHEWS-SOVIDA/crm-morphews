@@ -563,6 +563,16 @@ function DeliveryCard({
           </div>
         )}
 
+        {/* Sale Observation for Delivery */}
+        {((sale as any).observation_1 || (sale as any).observation_2) && (
+          <div className="p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-400 dark:border-yellow-700">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <strong>⚠️ Obs Entrega:</strong> {(sale as any).observation_1}
+              {(sale as any).observation_2 && ` | ${(sale as any).observation_2}`}
+            </p>
+          </div>
+        )}
+
         {/* Products with Conference for Motoboy */}
         {sale.items && sale.items.length > 0 && !isCompleted && organizationId && (
           <div className="space-y-2">
