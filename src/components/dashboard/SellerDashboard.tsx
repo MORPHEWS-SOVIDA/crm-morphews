@@ -22,10 +22,15 @@ import {
   ChevronRight,
   ChevronLeft,
   Loader2,
+  Phone,
+  Sparkles,
+  ShoppingBag,
+  UserPlus,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, addMonths, subMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSellerDashboard, SaleSummary } from '@/hooks/useSellerDashboard';
+import { useUncontactedLeads, useClaimLead } from '@/hooks/useUncontactedLeads';
 import { formatCurrency } from '@/hooks/useSales';
 import { motoboyTrackingLabels } from '@/hooks/useMotoboyTracking';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
@@ -165,6 +170,7 @@ export function SellerDashboard() {
   const navigate = useNavigate();
   const [treatmentDaysInput, setTreatmentDaysInput] = useState('5');
   const [commissionMonth, setCommissionMonth] = useState(new Date());
+  const [claimingLeadId, setClaimingLeadId] = useState<string | null>(null);
   
   // Debounce the treatment days to avoid excessive re-renders
   const debouncedTreatmentDays = useDebounce(parseInt(treatmentDaysInput) || 5, 500);
@@ -173,6 +179,20 @@ export function SellerDashboard() {
     treatmentDays: debouncedTreatmentDays,
     commissionMonth,
   });
+  
+  const { data: uncontactedLeads = [], isLoading: loadingUncontacted } = useUncontactedLeads();
+  const claimLead = useClaimLead();
+
+  const handleClaimLead = async (leadId: string) => {
+    setClaimingLeadId(leadId);
+    try {
+      await claimLead.mutateAsync(leadId);
+      // Navigate to lead detail after claiming
+      navigate(`/leads/${leadId}`);
+    } finally {
+      setClaimingLeadId(null);
+    }
+  };
 
   const handlePreviousMonth = () => {
     setCommissionMonth(prev => subMonths(prev, 1));
@@ -192,6 +212,12 @@ export function SellerDashboard() {
   if (isLoading) {
     return (
       <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
         <Skeleton className="h-32 w-full" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Skeleton className="h-64" />
@@ -216,6 +242,180 @@ export function SellerDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* TOP 4 OPPORTUNITY CARDS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Clientes sem Contato - Big Red Button */}
+        <Card className="relative overflow-hidden border-2 border-red-300 dark:border-red-700 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/40 dark:to-rose-950/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-red-700 dark:text-red-300">
+              <Phone className="w-4 h-4" />
+              Clientes sem Contato
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loadingUncontacted ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-red-500" />
+              </div>
+            ) : uncontactedLeads.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum lead aguardando
+              </p>
+            ) : (
+              <ScrollArea className="h-32">
+                <div className="space-y-2">
+                  {uncontactedLeads.slice(0, 5).map((lead) => (
+                    <div key={lead.id} className="flex items-center justify-between gap-2 p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{lead.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {format(parseISO(lead.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
+                        onClick={() => handleClaimLead(lead.id)}
+                        disabled={claimingLeadId === lead.id}
+                      >
+                        {claimingLeadId === lead.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4 mr-1" />
+                            Assumir
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            {uncontactedLeads.length > 0 && (
+              <Badge className="bg-red-600 text-white text-lg px-4 py-1 w-full justify-center">
+                {uncontactedLeads.length} aguardando
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 2. Sugestões de Follow-up com IA */}
+        <Card className="relative overflow-hidden border-2 border-blue-300 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700 dark:text-blue-300">
+              <Sparkles className="w-4 h-4" />
+              Sugestões de Follow-up
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-3">
+                <Sparkles className="w-6 h-6 text-blue-500" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                IA analisa seus leads e sugere quem contatar
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                disabled
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Em breve
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 3. Recomendação de Produtos com IA */}
+        <Card className="relative overflow-hidden border-2 border-purple-300 dark:border-purple-700 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-purple-700 dark:text-purple-300">
+              <ShoppingBag className="w-4 h-4" />
+              Recomendação de Produtos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mb-3">
+                <ShoppingBag className="w-6 h-6 text-purple-500" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                IA recomenda produtos para cada cliente
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                disabled
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Em breve
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 4. Follow-ups a Fazer */}
+        <Card className="relative overflow-hidden border-2 border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-amber-700 dark:text-amber-300">
+              <Calendar className="w-4 h-4" />
+              Follow-ups a Fazer
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {data.pendingFollowups.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.pendingFollowups.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Nenhum follow-up pendente
+              </p>
+            ) : (
+              <ScrollArea className="h-32">
+                <div className="space-y-2">
+                  {data.pendingFollowups.slice(0, 5).map(followup => (
+                    <div 
+                      key={followup.id}
+                      className="flex items-center justify-between p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/30 cursor-pointer"
+                      onClick={() => navigate(`/leads/${followup.lead_id}`)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{followup.lead_name}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <DateBadge date={followup.scheduled_at} />
+                          <span className="text-xs text-muted-foreground">
+                            {format(parseISO(followup.scheduled_at), 'HH:mm')}
+                          </span>
+                        </div>
+                      </div>
+                      <WhatsAppButton 
+                        phone={followup.lead_whatsapp} 
+                        variant="icon"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            {data.pendingFollowups.length > 5 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full mt-2 text-amber-700"
+                onClick={() => navigate('/leads')}
+              >
+                Ver todos ({data.pendingFollowups.length})
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Commission Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Pending Commissions */}

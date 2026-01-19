@@ -13,6 +13,7 @@ export interface FunnelStageCustom {
   stage_type: 'funnel' | 'cloud' | 'trash';
   is_default: boolean;
   enum_value: FunnelStage | null; // NEW: maps to lead.stage
+  requires_contact: boolean; // Leads in this stage appear in "Clientes sem contato"
   created_at: string;
   updated_at: string;
 }
