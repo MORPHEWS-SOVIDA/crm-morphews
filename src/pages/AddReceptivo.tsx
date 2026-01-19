@@ -93,6 +93,7 @@ import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { useUpdateLead } from '@/hooks/useLeads';
+import { FollowupDateTimeEditor } from '@/components/leads/FollowupDateTimeEditor';
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
 interface LeadData {
@@ -199,6 +200,8 @@ export default function AddReceptivo() {
   const [selectedSourceId, setSelectedSourceId] = useState('');
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
   const [selectedReasonId, setSelectedReasonId] = useState('');
+  const [pendingReasonId, setPendingReasonId] = useState<string | null>(null); // Reason selected but not confirmed
+  const [customFollowupDate, setCustomFollowupDate] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [sourceHistory, setSourceHistory] = useState<Array<{
@@ -1226,12 +1229,41 @@ export default function AddReceptivo() {
     }
   };
 
+  // When a reason is selected, check if it needs followup date confirmation
   const handleSelectReason = async (reasonId: string) => {
     if (purchasePotential <= 0) {
       toast({ title: 'Informe o potencial de compra', variant: 'destructive' });
       return;
     }
     
+    const reason = nonPurchaseReasons.find(r => r.id === reasonId);
+    
+    // If reason has followup_hours, show the date picker first
+    if (reason && reason.followup_hours > 0) {
+      setPendingReasonId(reasonId);
+      setCustomFollowupDate(null);
+      return;
+    }
+    
+    // Otherwise, confirm immediately
+    await confirmReasonSelection(reasonId, null);
+  };
+
+  // When user confirms the followup date
+  const handleFollowupConfirm = async (date: Date) => {
+    if (!pendingReasonId) return;
+    setCustomFollowupDate(date);
+    await confirmReasonSelection(pendingReasonId, date);
+  };
+
+  // Cancel pending reason selection
+  const handleCancelPendingReason = () => {
+    setPendingReasonId(null);
+    setCustomFollowupDate(null);
+  };
+
+  // Execute the actual reason confirmation (was handleSelectReason before)
+  const confirmReasonSelection = async (reasonId: string, followupDate: Date | null) => {
     setSelectedReasonId(reasonId);
     setIsSaving(true);
 
@@ -1265,15 +1297,15 @@ export default function AddReceptivo() {
           .update({ negotiated_value: newNegotiated })
           .eq('id', leadId);
 
+        // Create followup with custom date if provided, otherwise calculate
         if (reason && reason.followup_hours > 0 && tenantId && user) {
-          const followupDate = new Date();
-          followupDate.setHours(followupDate.getHours() + reason.followup_hours);
+          const followupDateTime = followupDate || new Date(Date.now() + reason.followup_hours * 60 * 60 * 1000);
           
           await supabase.from('lead_followups').insert({
             organization_id: tenantId,
             lead_id: leadId,
             user_id: user.id,
-            scheduled_at: followupDate.toISOString(),
+            scheduled_at: followupDateTime.toISOString(),
             reason: `Follow-up: ${reason.name}`,
             source_type: 'receptive',
             source_id: attendanceId,
@@ -1302,6 +1334,7 @@ export default function AddReceptivo() {
                 product_id: currentProductId,
                 product_name: currentProduct?.name,
                 followup_hours: reason.followup_hours,
+                custom_followup_date: followupDate?.toISOString(),
                 timestamp: new Date().toISOString(),
               }),
             });
@@ -1328,6 +1361,7 @@ export default function AddReceptivo() {
           productName: currentProduct?.name,
           productBrand,
           sellerName,
+          customScheduledAt: followupDate || undefined,
         });
 
         if (scheduleError) {
@@ -1356,6 +1390,8 @@ export default function AddReceptivo() {
         description: `Motivo: ${reason?.name}` 
       });
       
+      setPendingReasonId(null);
+      setCustomFollowupDate(null);
       navigate('/');
     } catch (error: any) {
       toast({ title: 'Erro ao finalizar', description: error.message, variant: 'destructive' });
@@ -2143,46 +2179,90 @@ export default function AddReceptivo() {
 
                 <Separator />
 
-                <p className="text-sm text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {nonPurchaseReasons.slice(0, 4).map((reason) => (
-                    <Button
-                      key={reason.id}
-                      variant="outline"
-                      size="sm"
-                      className={`justify-start h-auto p-3 ${
-                        selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
-                      }`}
-                      onClick={() => handleSelectReason(reason.id)}
-                      disabled={isSaving || purchasePotential <= 0}
-                    >
-                      <div className="flex-1 text-left">
-                        <p className="font-medium text-sm">{reason.name}</p>
-                        {reason.followup_hours > 0 && (
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            Follow-up: {reason.followup_hours}h
-                          </Badge>
-                        )}
+                {/* Show FollowupDateTimeEditor if a reason with followup is pending */}
+                {pendingReasonId && (() => {
+                  const pendingReason = nonPurchaseReasons.find(r => r.id === pendingReasonId);
+                  if (!pendingReason) return null;
+                  return (
+                    <div className="space-y-3 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                            Motivo: {pendingReason.name}
+                          </p>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            Confirme a data/hora do follow-up
+                          </p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={handleCancelPendingReason}
+                          disabled={isSaving}
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
                       </div>
-                      {isSaving && selectedReasonId === reason.id && (
-                        <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                      <FollowupDateTimeEditor
+                        suggestedHours={pendingReason.followup_hours}
+                        onConfirm={handleFollowupConfirm}
+                        disabled={isSaving}
+                      />
+                      {pendingReason.exclusivity_hours > 0 && (
+                        <p className="text-xs text-amber-600 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Você terá {pendingReason.exclusivity_hours}h de exclusividade após o follow-up
+                        </p>
                       )}
-                    </Button>
-                  ))}
-                </div>
-                {purchasePotential <= 0 && (
-                  <p className="text-xs text-red-500 text-center">Informe o potencial de compra para selecionar um motivo</p>
-                )}
-                {nonPurchaseReasons.length > 4 && (
-                  <Button
-                    variant="ghost"
-                    className="w-full mt-2 text-amber-700"
-                    onClick={() => setCurrentStep('sale_or_reason')}
-                  >
-                    Ver todos os motivos ({nonPurchaseReasons.length})
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+                    </div>
+                  );
+                })()}
+
+                {/* Show reason selection only when no pending reason */}
+                {!pendingReasonId && (
+                  <>
+                    <p className="text-sm text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {nonPurchaseReasons.slice(0, 4).map((reason) => (
+                        <Button
+                          key={reason.id}
+                          variant="outline"
+                          size="sm"
+                          className={`justify-start h-auto p-3 ${
+                            selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
+                          }`}
+                          onClick={() => handleSelectReason(reason.id)}
+                          disabled={isSaving || purchasePotential <= 0}
+                        >
+                          <div className="flex-1 text-left">
+                            <p className="font-medium text-sm">{reason.name}</p>
+                            {reason.followup_hours > 0 && (
+                              <Badge variant="secondary" className="text-xs mt-1">
+                                <Calendar className="w-3 h-3 mr-1" />
+                                Sugestão: {reason.followup_hours}h
+                              </Badge>
+                            )}
+                          </div>
+                          {isSaving && selectedReasonId === reason.id && (
+                            <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                    {purchasePotential <= 0 && (
+                      <p className="text-xs text-red-500 text-center">Informe o potencial de compra para selecionar um motivo</p>
+                    )}
+                    {nonPurchaseReasons.length > 4 && (
+                      <Button
+                        variant="ghost"
+                        className="w-full mt-2 text-amber-700"
+                        onClick={() => setCurrentStep('sale_or_reason')}
+                      >
+                        Ver todos os motivos ({nonPurchaseReasons.length})
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -2577,38 +2657,80 @@ export default function AddReceptivo() {
 
                 <Separator />
 
-                <div className="space-y-3">
-                  {nonPurchaseReasons.map((reason) => (
-                    <Button
-                      key={reason.id}
-                      variant="outline"
-                      className={`w-full justify-start h-auto p-4 ${
-                        selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
-                      }`}
-                      onClick={() => handleSelectReason(reason.id)}
-                      disabled={isSaving || purchasePotential <= 0}
-                    >
-                      <div className="flex-1 text-left">
-                        <p className="font-medium">{reason.name}</p>
-                        {reason.followup_hours > 0 && (
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            Follow-up: {reason.followup_hours}h
-                          </Badge>
-                        )}
+                {/* Show FollowupDateTimeEditor if a reason with followup is pending */}
+                {pendingReasonId && (() => {
+                  const pendingReason = nonPurchaseReasons.find(r => r.id === pendingReasonId);
+                  if (!pendingReason) return null;
+                  return (
+                    <div className="space-y-3 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                            Motivo: {pendingReason.name}
+                          </p>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            Confirme a data/hora do follow-up
+                          </p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={handleCancelPendingReason}
+                          disabled={isSaving}
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
                       </div>
-                      {isSaving && selectedReasonId === reason.id && (
-                        <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                      <FollowupDateTimeEditor
+                        suggestedHours={pendingReason.followup_hours}
+                        onConfirm={handleFollowupConfirm}
+                        disabled={isSaving}
+                      />
+                      {pendingReason.exclusivity_hours > 0 && (
+                        <p className="text-xs text-amber-600 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Você terá {pendingReason.exclusivity_hours}h de exclusividade após o follow-up
+                        </p>
                       )}
-                    </Button>
-                  ))}
+                    </div>
+                  );
+                })()}
 
-                  {nonPurchaseReasons.length === 0 && (
-                    <p className="text-center text-muted-foreground py-4">
-                      Nenhum motivo cadastrado. Configure em Configurações.
-                    </p>
-                  )}
-                </div>
+                {/* Show reason list only when no pending reason */}
+                {!pendingReasonId && (
+                  <div className="space-y-3">
+                    {nonPurchaseReasons.map((reason) => (
+                      <Button
+                        key={reason.id}
+                        variant="outline"
+                        className={`w-full justify-start h-auto p-4 ${
+                          selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
+                        }`}
+                        onClick={() => handleSelectReason(reason.id)}
+                        disabled={isSaving || purchasePotential <= 0}
+                      >
+                        <div className="flex-1 text-left">
+                          <p className="font-medium">{reason.name}</p>
+                          {reason.followup_hours > 0 && (
+                            <Badge variant="secondary" className="text-xs mt-1">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              Sugestão: {reason.followup_hours}h
+                            </Badge>
+                          )}
+                        </div>
+                        {isSaving && selectedReasonId === reason.id && (
+                          <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                        )}
+                      </Button>
+                    ))}
+
+                    {nonPurchaseReasons.length === 0 && (
+                      <p className="text-center text-muted-foreground py-4">
+                        Nenhum motivo cadastrado. Configure em Configurações.
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
