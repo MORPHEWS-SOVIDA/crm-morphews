@@ -91,6 +91,8 @@ import { LeadAddress } from '@/hooks/useLeadAddresses';
 import { ProductOfferCard } from '@/components/receptive/ProductOfferCard';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
+import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
+import { useUpdateLead } from '@/hooks/useLeads';
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
 interface LeadData {
@@ -118,6 +120,9 @@ interface LeadData {
   stars?: number;
   negotiated_value?: number;
   paid_value?: number;
+  birth_date?: string | null;
+  gender?: string | null;
+  favorite_team?: string | null;
 }
 
 interface DeliveryConfig {
@@ -185,6 +190,7 @@ export default function AddReceptivo() {
   const updateAttendance = useUpdateReceptiveAttendance();
   const createSale = useCreateSale();
   const { scheduleMessagesForReason } = useScheduleMessages();
+  const updateLead = useUpdateLead();
 
   const [currentStep, setCurrentStep] = useState<FlowStep>('phone');
   const [phoneInput, setPhoneInput] = useState('55');
@@ -2235,6 +2241,21 @@ export default function AddReceptivo() {
                     </div>
                   )}
                 </>
+              )}
+
+              {/* Profile Prompt - for missing birth_date, gender, favorite_team */}
+              {leadData.id && (
+                <LeadProfilePrompt
+                  leadId={leadData.id}
+                  leadName={leadData.name}
+                  currentBirthDate={leadData.birth_date}
+                  currentGender={leadData.gender}
+                  currentFavoriteTeam={leadData.favorite_team}
+                  onUpdate={async (updates) => {
+                    await updateLead.mutateAsync({ id: leadData.id!, ...updates });
+                    setLeadData(prev => ({ ...prev, ...updates }));
+                  }}
+                />
               )}
 
               <Separator />
