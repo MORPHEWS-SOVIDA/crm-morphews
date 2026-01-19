@@ -4,9 +4,10 @@ import { useTenant } from './useTenant';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-export type SacTicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type SacTicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type SacTicketPriority = 'low' | 'normal' | 'high';
 export type SacCategory = 'complaint' | 'question' | 'request' | 'financial';
+export type SacTicketSource = 'manual' | 'integration' | 'whatsapp';
 
 export interface SacTicket {
   id: string;
@@ -109,6 +110,7 @@ export const SAC_CATEGORIES: Record<SacCategory, { label: string; icon: string; 
 };
 
 export const SAC_STATUS_LABELS: Record<SacTicketStatus, { label: string; color: string }> = {
+  pending: { label: 'Não Tratados', color: 'bg-purple-500' },
   open: { label: 'Aberto', color: 'bg-blue-500' },
   in_progress: { label: 'Em Atendimento', color: 'bg-yellow-500' },
   resolved: { label: 'Resolvido', color: 'bg-green-500' },

@@ -1616,6 +1616,9 @@ export type Database = {
           name: string
           non_purchase_reason_id: string | null
           organization_id: string
+          sac_category: string | null
+          sac_priority: string | null
+          sac_subcategory: string | null
           sale_status_on_create: string | null
           sale_tag: string | null
           settings: Json | null
@@ -1637,6 +1640,9 @@ export type Database = {
           name: string
           non_purchase_reason_id?: string | null
           organization_id: string
+          sac_category?: string | null
+          sac_priority?: string | null
+          sac_subcategory?: string | null
           sale_status_on_create?: string | null
           sale_tag?: string | null
           settings?: Json | null
@@ -1658,6 +1664,9 @@ export type Database = {
           name?: string
           non_purchase_reason_id?: string | null
           organization_id?: string
+          sac_category?: string | null
+          sac_priority?: string | null
+          sac_subcategory?: string | null
           sale_status_on_create?: string | null
           sale_tag?: string | null
           settings?: Json | null
@@ -4487,6 +4496,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string
+          external_reference: string | null
           id: string
           lead_id: string
           organization_id: string
@@ -4495,6 +4505,8 @@ export type Database = {
           resolved_at: string | null
           resolved_by: string | null
           sale_id: string | null
+          source: string | null
+          source_integration_id: string | null
           status: Database["public"]["Enums"]["sac_ticket_status"]
           subcategory: string
           updated_at: string
@@ -4506,6 +4518,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description: string
+          external_reference?: string | null
           id?: string
           lead_id: string
           organization_id: string
@@ -4514,6 +4527,8 @@ export type Database = {
           resolved_at?: string | null
           resolved_by?: string | null
           sale_id?: string | null
+          source?: string | null
+          source_integration_id?: string | null
           status?: Database["public"]["Enums"]["sac_ticket_status"]
           subcategory: string
           updated_at?: string
@@ -4525,6 +4540,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string
+          external_reference?: string | null
           id?: string
           lead_id?: string
           organization_id?: string
@@ -4533,6 +4549,8 @@ export type Database = {
           resolved_at?: string | null
           resolved_by?: string | null
           sale_id?: string | null
+          source?: string | null
+          source_integration_id?: string | null
           status?: Database["public"]["Enums"]["sac_ticket_status"]
           subcategory?: string
           updated_at?: string
@@ -4557,6 +4575,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sac_tickets_source_integration_id_fkey"
+            columns: ["source_integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
             referencedColumns: ["id"]
           },
         ]
@@ -7740,7 +7765,12 @@ export type Database = {
         | "not_needed"
       sac_category: "complaint" | "question" | "request" | "financial"
       sac_ticket_priority: "low" | "normal" | "high"
-      sac_ticket_status: "open" | "in_progress" | "resolved" | "closed"
+      sac_ticket_status:
+        | "pending"
+        | "open"
+        | "in_progress"
+        | "resolved"
+        | "closed"
       sale_status:
         | "draft"
         | "pending_expedition"
@@ -7989,7 +8019,13 @@ export const Constants = {
       ],
       sac_category: ["complaint", "question", "request", "financial"],
       sac_ticket_priority: ["low", "normal", "high"],
-      sac_ticket_status: ["open", "in_progress", "resolved", "closed"],
+      sac_ticket_status: [
+        "pending",
+        "open",
+        "in_progress",
+        "resolved",
+        "closed",
+      ],
       sale_status: [
         "draft",
         "pending_expedition",

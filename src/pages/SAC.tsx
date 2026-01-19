@@ -15,6 +15,7 @@ import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 
 const KANBAN_COLUMNS: { status: SacTicketStatus; label: string; color: string }[] = [
+  { status: 'pending', label: 'Não Tratados', color: 'border-purple-500' },
   { status: 'open', label: 'Aberto', color: 'border-blue-500' },
   { status: 'in_progress', label: 'Em Atendimento', color: 'border-yellow-500' },
   { status: 'resolved', label: 'Resolvido', color: 'border-green-500' },
