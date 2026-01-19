@@ -28,6 +28,11 @@ export interface MotoboyTrackingStatusConfig {
   webhook_url: string | null;
   position: number;
   is_active: boolean;
+  whatsapp_instance_id: string | null;
+  message_template: string | null;
+  media_type: 'image' | 'audio' | 'document' | null;
+  media_url: string | null;
+  media_filename: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -95,17 +100,32 @@ export function useUpdateMotoboyTrackingStatus() {
       id, 
       label, 
       webhook_url, 
-      is_active 
+      is_active,
+      whatsapp_instance_id,
+      message_template,
+      media_type,
+      media_url,
+      media_filename,
     }: { 
       id: string; 
       label?: string; 
       webhook_url?: string | null;
       is_active?: boolean;
+      whatsapp_instance_id?: string | null;
+      message_template?: string | null;
+      media_type?: 'image' | 'audio' | 'document' | null;
+      media_url?: string | null;
+      media_filename?: string | null;
     }) => {
-      const updateData: Partial<MotoboyTrackingStatusConfig> = {};
+      const updateData: Record<string, unknown> = {};
       if (label !== undefined) updateData.label = label;
       if (webhook_url !== undefined) updateData.webhook_url = webhook_url;
       if (is_active !== undefined) updateData.is_active = is_active;
+      if (whatsapp_instance_id !== undefined) updateData.whatsapp_instance_id = whatsapp_instance_id;
+      if (message_template !== undefined) updateData.message_template = message_template;
+      if (media_type !== undefined) updateData.media_type = media_type;
+      if (media_url !== undefined) updateData.media_url = media_url;
+      if (media_filename !== undefined) updateData.media_filename = media_filename;
       
       const { error } = await supabase
         .from('motoboy_tracking_statuses')
@@ -170,14 +190,52 @@ export function useUpdateMotoboyTracking() {
 
   return useMutation({
     mutationFn: async ({ saleId, status, notes, assignedMotoboyId }: UpdateTrackingData) => {
-      // Get organization_id from sale
+      // Get sale info including lead data for message variables
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .select('organization_id')
+        .select(`
+          organization_id,
+          lead_id,
+          seller_user_id
+        `)
         .eq('id', saleId)
         .single();
 
       if (saleError) throw saleError;
+
+      // Get lead info separately
+      let leadData: { name: string | null; whatsapp: string | null; product_name: string | null } = { 
+        name: null, 
+        whatsapp: null, 
+        product_name: null 
+      };
+      if (sale.lead_id) {
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('name, whatsapp, lead_products(name)')
+          .eq('id', sale.lead_id)
+          .single();
+        if (lead) {
+          leadData = {
+            name: lead.name,
+            whatsapp: lead.whatsapp,
+            product_name: (lead.lead_products as any)?.name || null,
+          };
+        }
+      }
+
+      // Get seller info
+      let sellerName = '';
+      if (sale.seller_user_id) {
+        const { data: seller } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.seller_user_id)
+          .single();
+        if (seller) {
+          sellerName = `${seller.first_name || ''} ${seller.last_name || ''}`.trim();
+        }
+      }
 
       // Insert tracking history entry
       const { error: insertError } = await supabase
@@ -205,17 +263,17 @@ export function useUpdateMotoboyTracking() {
 
       if (updateError) throw updateError;
 
-      // Check if there's a webhook configured for this status
+      // Check if there's a webhook or message configured for this status
       if (tenantId) {
         const { data: statusConfig } = await supabase
           .from('motoboy_tracking_statuses')
-          .select('webhook_url')
+          .select('webhook_url, whatsapp_instance_id, message_template, media_type, media_url, media_filename')
           .eq('organization_id', tenantId)
           .eq('status_key', status)
           .single();
 
+        // Send webhook in background (don't await)
         if (statusConfig?.webhook_url) {
-          // Send webhook in background (don't await)
           fetch(statusConfig.webhook_url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -228,6 +286,41 @@ export function useUpdateMotoboyTracking() {
             }),
           }).catch(console.error);
         }
+
+        // Schedule automatic message if configured
+        if (statusConfig?.message_template && statusConfig?.whatsapp_instance_id && sale.lead_id) {
+          // Replace variables in message
+          let finalMessage = statusConfig.message_template;
+          const leadName = leadData.name || '';
+          const firstName = leadName.split(' ')[0] || '';
+          const productName = leadData.product_name || '';
+          
+          finalMessage = finalMessage
+            .replace(/\{\{nome\}\}/g, leadName)
+            .replace(/\{\{primeiro_nome\}\}/g, firstName)
+            .replace(/\{\{vendedor\}\}/g, sellerName)
+            .replace(/\{\{produto\}\}/g, productName);
+
+          // Create scheduled message (immediate send)
+          const { error: messageError } = await supabase
+            .from('lead_scheduled_messages')
+            .insert({
+              lead_id: sale.lead_id!,
+              organization_id: sale.organization_id,
+              created_by: user?.id || null,
+              whatsapp_instance_id: statusConfig.whatsapp_instance_id,
+              final_message: finalMessage,
+              scheduled_at: new Date().toISOString(),
+              status: 'pending' as const,
+              media_type: statusConfig.media_type || null,
+              media_url: statusConfig.media_url || null,
+              media_filename: statusConfig.media_filename || null,
+            } as any);
+
+          if (messageError) {
+            console.error('Error scheduling tracking message:', messageError);
+          }
+        }
       }
 
       return { saleId, status };
@@ -236,6 +329,7 @@ export function useUpdateMotoboyTracking() {
       queryClient.invalidateQueries({ queryKey: ['motoboy-tracking-history', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['my-deliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
     },
   });
 }

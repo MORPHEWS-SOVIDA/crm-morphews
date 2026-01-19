@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useTenant } from './useTenant';
 import type { Database } from '@/integrations/supabase/types';
 
 export type CarrierTrackingStatus = Database['public']['Enums']['carrier_tracking_status'];
@@ -93,13 +94,14 @@ export function useCarrierTrackingHistory(saleId: string | undefined) {
 export function useUpdateCarrierTracking() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { tenantId } = useTenant();
 
   return useMutation({
     mutationFn: async ({ saleId, status, notes }: UpdateTrackingData) => {
-      // Get organization_id from sale
+      // Get sale info
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .select('organization_id')
+        .select('organization_id, lead_id, seller_user_id')
         .eq('id', saleId)
         .single();
 
@@ -126,11 +128,67 @@ export function useUpdateCarrierTracking() {
 
       if (updateError) throw updateError;
 
+      // Check if there's a message configured for this status
+      if (tenantId && sale.lead_id) {
+        const { data: statusConfig } = await supabase
+          .from('carrier_tracking_statuses')
+          .select('whatsapp_instance_id, message_template, media_type, media_url, media_filename')
+          .eq('organization_id', tenantId)
+          .eq('status_key', status)
+          .single();
+
+        if (statusConfig?.message_template && statusConfig?.whatsapp_instance_id) {
+          // Get lead info
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('name, lead_products(name)')
+            .eq('id', sale.lead_id)
+            .single();
+
+          let sellerName = '';
+          if (sale.seller_user_id) {
+            const { data: seller } = await supabase
+              .from('profiles')
+              .select('first_name, last_name')
+              .eq('user_id', sale.seller_user_id)
+              .single();
+            if (seller) sellerName = `${seller.first_name || ''} ${seller.last_name || ''}`.trim();
+          }
+
+          let finalMessage = statusConfig.message_template;
+          const leadName = lead?.name || '';
+          const firstName = leadName.split(' ')[0] || '';
+          const productName = (lead?.lead_products as any)?.name || '';
+
+          finalMessage = finalMessage
+            .replace(/\{\{nome\}\}/g, leadName)
+            .replace(/\{\{primeiro_nome\}\}/g, firstName)
+            .replace(/\{\{vendedor\}\}/g, sellerName)
+            .replace(/\{\{produto\}\}/g, productName);
+
+          await supabase
+            .from('lead_scheduled_messages')
+            .insert({
+              lead_id: sale.lead_id,
+              organization_id: sale.organization_id,
+              created_by: user?.id || null,
+              whatsapp_instance_id: statusConfig.whatsapp_instance_id,
+              final_message: finalMessage,
+              scheduled_at: new Date().toISOString(),
+              status: 'pending' as const,
+              media_type: statusConfig.media_type || null,
+              media_url: statusConfig.media_url || null,
+              media_filename: statusConfig.media_filename || null,
+            } as any);
+        }
+      }
+
       return { saleId, status };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['carrier-tracking-history', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale', data.saleId] });
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
     },
   });
 }
