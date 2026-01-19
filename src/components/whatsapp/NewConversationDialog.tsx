@@ -18,7 +18,7 @@ interface WhatsAppInstance {
   display_name_for_team: string | null;
   manual_instance_number: string | null;
   status: string | null;
-  realTimeStatus?: 'checking' | 'connected' | 'disconnected' | 'error';
+  realTimeStatus?: 'checking' | 'connected' | 'disconnected' | 'unknown';
 }
 
 interface NewConversationDialogProps {
@@ -59,23 +59,31 @@ export function NewConversationDialog({
   }, [message]);
 
   // Verificar status real de uma instância na Evolution API
-  const checkInstanceRealStatus = useCallback(async (instance: WhatsAppInstance): Promise<'connected' | 'disconnected' | 'error'> => {
-    try {
-      const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
-        body: { action: "check_status", instanceId: instance.id },
-      });
-      
-      if (error) {
-        console.error("Error checking instance status:", error);
-        return 'error';
+  const checkInstanceRealStatus = useCallback(
+    async (instance: WhatsAppInstance): Promise<'connected' | 'disconnected' | 'unknown'> => {
+      try {
+        // A SDK já envia o JWT automaticamente; se falhar, caímos para "unknown" (não bloquear operação).
+        const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
+          body: { action: "check_status", instanceId: instance.id },
+        });
+
+        if (error) {
+          console.error("Error checking instance status:", error);
+          return 'unknown';
+        }
+
+        if (typeof data?.is_connected === 'boolean') {
+          return data.is_connected ? 'connected' : 'disconnected';
+        }
+
+        return 'unknown';
+      } catch (e) {
+        console.error("Failed to check instance status:", e);
+        return 'unknown';
       }
-      
-      return data?.is_connected ? 'connected' : 'disconnected';
-    } catch (e) {
-      console.error("Failed to check instance status:", e);
-      return 'error';
-    }
-  }, []);
+    },
+    []
+  );
 
   // Buscar instâncias e verificar status real
   useEffect(() => {
@@ -84,13 +92,12 @@ export function NewConversationDialog({
     const fetchInstances = async () => {
       setIsLoading(true);
       try {
-        // Buscar instâncias que estão marcadas como conectadas OU ativas (não arquivadas)
+        // Buscar instâncias (não arquivadas)
         const { data, error } = await supabase
           .from("whatsapp_instances")
           .select("id, name, phone_number, is_connected, display_name_for_team, manual_instance_number, status")
           .eq("organization_id", profile.organization_id)
           .is("deleted_at", null)
-          .in("status", ["active", "connected"])
           .order("name");
 
         if (error) throw error;
@@ -181,7 +188,7 @@ export function NewConversationDialog({
 
     // Verificar se a instância selecionada está realmente conectada
     const selectedInstance = instances.find(i => i.id === selectedInstanceId);
-    if (selectedInstance?.realTimeStatus === 'disconnected' || selectedInstance?.realTimeStatus === 'error') {
+    if (selectedInstance?.realTimeStatus === 'disconnected') {
       toast({
         title: "Instância desconectada",
         description: "A instância selecionada não está conectada. Reconecte-a em WhatsApp DMs.",
@@ -192,11 +199,11 @@ export function NewConversationDialog({
 
     setIsSending(true);
     try {
-      // Verificar se já existe conversa com esse número nessa instância
+      // Verificar se já existe conversa com esse número na organização (conversa é única por org + phone)
       const { data: existingConversation } = await supabase
         .from("whatsapp_conversations")
         .select("id")
-        .eq("instance_id", selectedInstanceId)
+        .eq("organization_id", profile?.organization_id)
         .eq("phone_number", cleanPhone)
         .maybeSingle();
 
@@ -208,10 +215,12 @@ export function NewConversationDialog({
           .from("whatsapp_conversations")
           .insert({
             instance_id: selectedInstanceId,
+            current_instance_id: selectedInstanceId,
             organization_id: profile?.organization_id,
             phone_number: cleanPhone,
             chat_id: `${cleanPhone}@s.whatsapp.net`,
             is_group: false,
+            unread_count: 0,
             // ENVIO ATIVO: Conversa já nasce atribuída ao usuário que iniciou
             status: 'assigned',
             assigned_user_id: profile?.user_id,
@@ -222,29 +231,11 @@ export function NewConversationDialog({
 
         if (createError) throw createError;
         conversationId = newConversation.id;
-      } else {
-        // Se a conversa existe mas estava pendente/fechada, atribuir ao usuário
-        const { data: existingConv } = await supabase
-          .from("whatsapp_conversations")
-          .select("status, assigned_user_id")
-          .eq("id", conversationId)
-          .single();
-
-        if (existingConv && (existingConv.status !== 'assigned' || !existingConv.assigned_user_id)) {
-          await supabase
-            .from("whatsapp_conversations")
-            .update({
-              status: 'assigned',
-              assigned_user_id: profile?.user_id,
-              assigned_at: new Date().toISOString(),
-            })
-            .eq("id", conversationId);
-        }
       }
 
       // Se tem mensagem, enviar
       if (messageText.trim() && conversationId) {
-        await supabase.functions.invoke("whatsapp-send-message", {
+        const { error: sendError } = await supabase.functions.invoke("whatsapp-send-message", {
           body: {
             organizationId: profile?.organization_id,
             conversationId,
@@ -255,6 +246,8 @@ export function NewConversationDialog({
             senderUserId: profile?.user_id,
           },
         });
+
+        if (sendError) throw sendError;
       }
 
       toast({
