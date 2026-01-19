@@ -31,7 +31,7 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
   'Vendas': ['sales'],
   'Financeiro': ['financial'],
   'WhatsApp': ['whatsapp_v1', 'whatsapp_v2'],
-  'Módulos': ['ai_bots', 'instagram', 'demands', 'receptive', 'integrations'],
+  'Módulos': ['ai_bots', 'instagram', 'demands', 'receptive', 'settings'],
   'Produtos': ['products', 'custom_questions'],
   'Configurações': ['settings', 'standard_questions', 'custom_questions'],
   'Equipe': ['team'],
@@ -66,7 +66,7 @@ const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
   'deliveries_view_all': 'deliveries',
   'expedition_view': 'deliveries',
   'receptive_module_access': 'receptive',
-  'integrations_view': 'integrations',
+  'integrations_view': 'settings',
 };
 
 export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermissionsEditorProps) {
