@@ -1008,10 +1008,8 @@ export default function WhatsAppChat() {
                 )}
               </h2>
               <div className="flex items-center gap-1 flex-wrap">
-                {/* Botão de telefone com dialpad e fila */}
-                {selectedInstance && selectedInstance !== 'all' && (
-                  <WavoipPhoneButton instanceId={selectedInstance} />
-                )}
+                {/* Telefone (receptivo) — funciona mesmo com "Todas as instâncias" selecionado */}
+                <WavoipPhoneButton instanceId={selectedInstance !== 'all' ? selectedInstance : null} />
                 <Button 
                   variant="ghost" 
                   size="icon"

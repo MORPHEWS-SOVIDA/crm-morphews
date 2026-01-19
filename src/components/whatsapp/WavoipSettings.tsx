@@ -38,19 +38,29 @@ export function WavoipSettings({
   const { data: phoneUsers, isLoading: loadingPhoneUsers } = useQuery({
     queryKey: ['instance-phone-users', instanceId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: rows, error } = await supabase
         .from('whatsapp_instance_users')
-        .select(`
-          id,
-          user_id,
-          can_use_phone,
-          profiles:user_id (id, first_name, last_name, avatar_url)
-        `)
+        .select('id, user_id')
         .eq('instance_id', instanceId)
         .eq('can_use_phone', true);
 
       if (error) throw error;
-      return data || [];
+
+      const userIds = (rows || []).map((r) => r.user_id);
+      if (userIds.length === 0) return [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, avatar_url')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const byUserId = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      return (rows || []).map((r: any) => ({
+        ...r,
+        profiles: byUserId.get(r.user_id) || null,
+      }));
     },
     enabled: !!instanceId && wavoipEnabled,
   });
