@@ -62,9 +62,9 @@ export function NewConversationDialog({
   const checkInstanceRealStatus = useCallback(
     async (instance: WhatsAppInstance): Promise<'connected' | 'disconnected' | 'unknown'> => {
       try {
-        // A SDK já envia o JWT automaticamente; se falhar, caímos para "unknown" (não bloquear operação).
+        // Usar action "status" - é o nome correto na Edge Function
         const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
-          body: { action: "check_status", instanceId: instance.id },
+          body: { action: "status", instanceId: instance.id },
         });
 
         if (error) {
@@ -72,8 +72,16 @@ export function NewConversationDialog({
           return 'unknown';
         }
 
+        // Verificar o campo is_connected ou status
         if (typeof data?.is_connected === 'boolean') {
           return data.is_connected ? 'connected' : 'disconnected';
+        }
+        
+        // Fallback: verificar status textual
+        if (data?.status === 'connected' || data?.status === 'open') {
+          return 'connected';
+        } else if (data?.status === 'disconnected' || data?.status === 'close') {
+          return 'disconnected';
         }
 
         return 'unknown';
