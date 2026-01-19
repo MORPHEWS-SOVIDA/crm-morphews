@@ -207,6 +207,9 @@ export interface UpdateSaleData {
   // Integration observations
   observation_1?: string | null;
   observation_2?: string | null;
+  // Delivery timestamps (for manual date selection)
+  delivered_at?: string | null;
+  returned_at?: string | null;
 }
 
 // Helper functions
@@ -689,7 +692,8 @@ export function useUpdateSale() {
       } else if (data.status === 'dispatched') {
         updateData.dispatched_at = new Date().toISOString();
       } else if (data.status === 'delivered') {
-        updateData.delivered_at = new Date().toISOString();
+        // Use provided delivered_at or default to now
+        updateData.delivered_at = data.delivered_at || new Date().toISOString();
       } else if (data.status === 'payment_confirmed') {
         updateData.payment_confirmed_at = new Date().toISOString();
         updateData.payment_confirmed_by = user?.id;
@@ -717,7 +721,8 @@ export function useUpdateSale() {
             .eq('id', saleData.lead_id);
         }
       } else if (data.status === 'returned') {
-        updateData.returned_at = new Date().toISOString();
+        // Use provided returned_at or default to now
+        updateData.returned_at = data.returned_at || new Date().toISOString();
         updateData.returned_by = user?.id;
       } else if (data.status === 'draft' && previousStatus === 'returned') {
         // When rescheduling from returned, clear delivery/return data for fresh start

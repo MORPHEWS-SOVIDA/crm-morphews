@@ -24,6 +24,7 @@ interface UpdateTrackingData {
   saleId: string;
   status: CarrierTrackingStatus;
   notes?: string;
+  occurredAt?: string; // ISO date string for when the status change actually happened
 }
 
 export const carrierTrackingLabels: Record<CarrierTrackingStatus, string> = {
@@ -97,7 +98,7 @@ export function useUpdateCarrierTracking() {
   const { tenantId } = useTenant();
 
   return useMutation({
-    mutationFn: async ({ saleId, status, notes }: UpdateTrackingData) => {
+    mutationFn: async ({ saleId, status, notes, occurredAt }: UpdateTrackingData) => {
       // Get sale info
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -106,6 +107,9 @@ export function useUpdateCarrierTracking() {
         .single();
 
       if (saleError) throw saleError;
+
+      // Use provided occurredAt date or default to now
+      const trackingDate = occurredAt || new Date().toISOString();
 
       // Insert tracking history entry
       const { error: insertError } = await supabase
@@ -116,6 +120,7 @@ export function useUpdateCarrierTracking() {
           status,
           changed_by: user?.id,
           notes,
+          created_at: trackingDate, // Use custom date if provided
         });
 
       if (insertError) throw insertError;
