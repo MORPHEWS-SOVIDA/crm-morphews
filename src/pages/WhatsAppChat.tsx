@@ -1402,60 +1402,94 @@ export default function WhatsAppChat() {
                 </div>
               )}
 
-              {/* Input */}
-              <div className="p-3 border-t border-border bg-card">
-                <div className="flex items-center gap-2">
-                  <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-                  <ImageUpload 
-                    onImageSelect={handleImageSelect}
-                    isUploading={false}
-                    selectedImage={null}
-                    onClear={clearSelectedImage}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => documentInputRef.current?.click()}
-                    className="inline-flex items-center justify-center rounded-md h-9 w-9 border border-border bg-background hover:bg-accent"
-                    title="Enviar documento"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
-                  <input
-                    ref={documentInputRef}
-                    type="file"
-                    className="hidden"
-                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
-                    onChange={handleDocumentSelect}
-                  />
-                  <AudioRecorder 
-                    onAudioReady={handleAudioReady}
-                    isRecording={isRecordingAudio}
-                    setIsRecording={setIsRecordingAudio}
-                  />
-                  <Input
-                    ref={inputRef}
-                    placeholder="Digite sua mensagem..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
-                    disabled={isSending || isRecordingAudio}
-                    className="flex-1 bg-background"
-                  />
-                  <Button 
-                    onClick={sendMessage} 
-                    disabled={isSending || isRecordingAudio || (!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument)}
-                    size="icon"
-                    className="bg-green-600 hover:bg-green-700 h-9 w-9"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              {/* Input - Verificação se pode responder */}
+              {(() => {
+                const isAssignedToMe = selectedConversation?.status === 'assigned' && selectedConversation?.assigned_user_id === user?.id;
+                const canReply = isAssignedToMe;
+                
+                if (!canReply) {
+                  return (
+                    <div className="p-3 border-t border-border bg-amber-50 dark:bg-amber-950/30">
+                      <div className="flex items-center justify-center gap-3 py-2">
+                        <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                          Você precisa assumir esta conversa para responder
+                        </span>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (selectedConversation) {
+                              claimConversation.mutate({
+                                conversationId: selectedConversation.id,
+                                userId: user?.id || ''
+                              });
+                            }
+                          }}
+                          disabled={claimConversation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {claimConversation.isPending ? 'Assumindo...' : 'Assumir Conversa'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="p-3 border-t border-border bg-card">
+                    <div className="flex items-center gap-2">
+                      <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+                      <ImageUpload 
+                        onImageSelect={handleImageSelect}
+                        isUploading={false}
+                        selectedImage={null}
+                        onClear={clearSelectedImage}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => documentInputRef.current?.click()}
+                        className="inline-flex items-center justify-center rounded-md h-9 w-9 border border-border bg-background hover:bg-accent"
+                        title="Enviar documento"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      <input
+                        ref={documentInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+                        onChange={handleDocumentSelect}
+                      />
+                      <AudioRecorder 
+                        onAudioReady={handleAudioReady}
+                        isRecording={isRecordingAudio}
+                        setIsRecording={setIsRecordingAudio}
+                      />
+                      <Input
+                        ref={inputRef}
+                        placeholder="Digite sua mensagem..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
+                        disabled={isSending || isRecordingAudio}
+                        className="flex-1 bg-background"
+                      />
+                      <Button 
+                        onClick={sendMessage} 
+                        disabled={isSending || isRecordingAudio || (!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument)}
+                        size="icon"
+                        className="bg-green-600 hover:bg-green-700 h-9 w-9"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center">

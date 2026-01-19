@@ -24,6 +24,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { DeliveryDateDialog } from './DeliveryDateDialog';
 
 interface CarrierTrackingCardProps {
   saleId: string;
@@ -59,6 +60,7 @@ export function CarrierTrackingCard({
   const [showHistory, setShowHistory] = useState(false);
   const [editingTrackingCode, setEditingTrackingCode] = useState(false);
   const [newTrackingCode, setNewTrackingCode] = useState(trackingCode || '');
+  const [showDateDialog, setShowDateDialog] = useState(false);
 
   const canUpdate = permissions?.sales_dispatch || permissions?.sales_view_all;
 
@@ -75,7 +77,7 @@ export function CarrierTrackingCard({
     }
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (occurredAt?: Date) => {
     if (!selectedStatus) {
       toast.error('Selecione um status');
       return;
@@ -91,12 +93,23 @@ export function CarrierTrackingCard({
         saleId,
         status: selectedStatus,
         notes: notes || undefined,
+        occurredAt: occurredAt?.toISOString(),
       });
       toast.success('Status de rastreio atualizado');
       setSelectedStatus('');
       setNotes('');
+      setShowDateDialog(false);
     } catch (error) {
       toast.error('Erro ao atualizar status');
+    }
+  };
+
+  const handleClickUpdate = () => {
+    // If status is delivered or returning, show date dialog
+    if (selectedStatus === 'delivered' || selectedStatus === 'returning_to_sender') {
+      setShowDateDialog(true);
+    } else {
+      handleUpdate();
     }
   };
 
@@ -218,7 +231,7 @@ export function CarrierTrackingCard({
                 />
                 <Button
                   size="sm"
-                  onClick={handleUpdate}
+                  onClick={handleClickUpdate}
                   disabled={updateMutation.isPending}
                   className="w-full"
                 >
@@ -228,6 +241,16 @@ export function CarrierTrackingCard({
             )}
           </div>
         )}
+
+        {/* Date Dialog for delivered/returned statuses */}
+        <DeliveryDateDialog
+          open={showDateDialog}
+          onOpenChange={setShowDateDialog}
+          title={selectedStatus === 'delivered' ? 'Data da Entrega' : 'Data da Devolução'}
+          description="Em qual data realmente aconteceu? (importante para comissões)"
+          onConfirm={(date) => handleUpdate(date)}
+          isLoading={updateMutation.isPending}
+        />
 
         {/* History */}
         {history.length > 0 && (
