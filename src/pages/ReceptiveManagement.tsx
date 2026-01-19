@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Percent,
   Upload,
+  MessageSquare,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -43,9 +44,14 @@ import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
 import { RecordingUploader } from '@/components/receptive/RecordingUploader';
+import { WhatsAppContentSection } from '@/components/receptive/WhatsAppContentSection';
 import { useAuth } from '@/hooks/useAuth';
 import { extractReceptiveRecordingStoragePath } from '@/lib/receptive-recordings';
 import { toast } from 'sonner';
+
+// Modos que suportam upload de gravação de áudio
+const CALL_MODES = ['receptive_call', 'active_call'];
+const WHATSAPP_MODES = ['receptive_whatsapp', 'active_whatsapp'];
 
 export default function ReceptiveManagement() {
   const { profile } = useAuth();
@@ -217,6 +223,25 @@ export default function ReceptiveManagement() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Modo de Conversa</Label>
+                <Select
+                  value={filters.conversationMode || 'all'}
+                  onValueChange={(v) => setFilters(prev => ({ ...prev, conversationMode: v === 'all' ? undefined : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {CONVERSATION_MODES.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Resultado</Label>
                 <Select
                   value={filters.outcome || 'all'}
@@ -313,6 +338,10 @@ export default function ReceptiveManagement() {
                 const isTranscribing = item.transcription_status === 'processing' ||
                   (transcribeCall.isPending && transcribeCall.variables?.attendanceId === item.id);
 
+                // Determina o tipo de atendimento
+                const isCallMode = CALL_MODES.includes(item.conversation_mode);
+                const isWhatsAppMode = WHATSAPP_MODES.includes(item.conversation_mode);
+
                 return (
                   <Collapsible key={item.id} open={isExpanded} onOpenChange={() => toggleExpanded(item.id)}>
                     <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
@@ -393,50 +422,62 @@ export default function ReceptiveManagement() {
                       </div>
 
                       <CollapsibleContent className="mt-4 pt-4 border-t border-border/50 space-y-4">
-                        {/* Recording Section */}
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium flex items-center gap-2">
-                            <Mic className="w-4 h-4" />
-                            Gravação
-                          </p>
+                        {/* Recording Section - Only for Call modes */}
+                        {isCallMode && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium flex items-center gap-2">
+                              <Mic className="w-4 h-4" />
+                              Gravação
+                            </p>
 
-                          {hasRecording ? (
-                            <div className="flex items-center gap-2">
-                              <audio controls src={item.call_recording_url!} className="flex-1 h-10" />
-                              <a
-                                href={item.call_recording_url!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-muted-foreground hover:text-foreground"
+                            {hasRecording ? (
+                              <div className="flex items-center gap-2">
+                                <audio controls src={item.call_recording_url!} className="flex-1 h-10" />
+                                <a
+                                  href={item.call_recording_url!}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              </div>
+                            ) : editingRecording === item.id ? (
+                              <RecordingUploader
+                                attendanceId={item.id}
+                                organizationId={item.organization_id}
+                                onUploadComplete={(url, storagePath) => {
+                                  handleRecordingUploaded(item.id, url, storagePath);
+                                }}
+                                onCancel={() => setEditingRecording(null)}
+                                isUploading={uploadingRecording[item.id] || false}
+                                setIsUploading={(value) => setUploadingRecording(prev => ({ ...prev, [item.id]: value }))}
+                              />
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingRecording(item.id)}
                               >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                            </div>
-                          ) : editingRecording === item.id ? (
-                            <RecordingUploader
-                              attendanceId={item.id}
-                              organizationId={item.organization_id}
-                              onUploadComplete={(url, storagePath) => {
-                                handleRecordingUploaded(item.id, url, storagePath);
-                              }}
-                              onCancel={() => setEditingRecording(null)}
-                              isUploading={uploadingRecording[item.id] || false}
-                              setIsUploading={(value) => setUploadingRecording(prev => ({ ...prev, [item.id]: value }))}
-                            />
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingRecording(item.id)}
-                            >
-                              <Upload className="w-4 h-4 mr-2" />
-                              Enviar Gravação
-                            </Button>
-                          )}
-                        </div>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Enviar Gravação
+                              </Button>
+                            )}
+                          </div>
+                        )}
 
-                        {/* Transcription Section */}
-                        {hasRecording && (
+                        {/* WhatsApp Content Section - Only for WhatsApp modes */}
+                        {isWhatsAppMode && (
+                          <WhatsAppContentSection
+                            attendanceId={item.id}
+                            leadId={item.lead_id}
+                            phoneSearched={item.phone_searched}
+                            existingNotes={item.notes}
+                          />
+                        )}
+
+                        {/* Transcription Section - Only for Call modes with recording */}
+                        {isCallMode && hasRecording && (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <p className="text-sm font-medium flex items-center gap-2">
@@ -471,8 +512,8 @@ export default function ReceptiveManagement() {
                           </div>
                         )}
 
-                        {/* Quality Score */}
-                        {item.call_quality_score && (
+                        {/* Quality Score - Only for Call modes */}
+                        {isCallMode && item.call_quality_score && (
                           <div className="p-3 bg-muted/30 rounded-lg space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium">Análise de Qualidade</span>
@@ -489,7 +530,7 @@ export default function ReceptiveManagement() {
                           </div>
                         )}
 
-                        {/* Notes Section */}
+                        {/* Notes Section - Always visible */}
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Observações</p>
                           {editingNotes === item.id ? (
