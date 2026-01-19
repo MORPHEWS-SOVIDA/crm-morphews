@@ -325,18 +325,33 @@ export function useCallQueue(instanceId?: string | null) {
     queryKey: ['call-queue', instanceId],
     queryFn: async () => {
       if (!instanceId) return [];
-      
-      const { data, error } = await supabase
+
+      const { data: rows, error } = await supabase
         .from('whatsapp_call_queue')
-        .select(`
-          *,
-          profiles:user_id (id, first_name, last_name, avatar_url)
-        `)
+        .select('*')
         .eq('instance_id', instanceId)
         .order('position', { ascending: true });
 
       if (error) throw error;
-      return data;
+
+      const userIds = Array.from(
+        new Set((rows || []).map((r: any) => r.user_id).filter(Boolean))
+      ) as string[];
+
+      if (userIds.length === 0) return rows || [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, avatar_url')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const byUserId = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      return (rows || []).map((r: any) => ({
+        ...r,
+        profiles: byUserId.get(r.user_id) || null,
+      }));
     },
     enabled: !!instanceId,
   });
