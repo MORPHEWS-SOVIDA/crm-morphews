@@ -42,34 +42,42 @@ export function useTranscribeCall() {
         throw new Error('Sessão expirada. Faça login novamente e tente transcrever.');
       }
 
-      const { data, error } = await supabase.functions.invoke('transcribe-call', {
-        body: { attendanceId, audioUrl, storagePath },
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-call`;
+
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ attendanceId, audioUrl, storagePath }),
       });
 
-      if (error) {
-        const anyErr = error as any;
-        const ctx = anyErr?.context;
-        const ctxBody = ctx?.body;
-
-        if (ctxBody) {
+      if (!resp.ok) {
+        let message = resp.statusText || 'Erro ao transcrever áudio';
+        try {
+          const parsed = await resp.json();
+          message = parsed?.error || parsed?.message || message;
+          if (parsed?.details) message = `${message} (${parsed.details})`;
+        } catch {
           try {
-            const parsed = typeof ctxBody === 'string' ? JSON.parse(ctxBody) : ctxBody;
-            const message = parsed?.error || parsed?.message;
-            if (message) throw new Error(String(message));
+            const t = await resp.text();
+            if (t) message = t;
           } catch {
-            // fall through to default
+            // ignore
           }
         }
-
-        throw new Error(error.message || 'Erro ao transcrever áudio');
+        throw new Error(String(message));
       }
+
+      const data = (await resp.json()) as TranscribeResult;
 
       if ((data as any)?.error) {
         throw new Error((data as any).error);
       }
 
-      return data as TranscribeResult;
+      return data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lead-receptive-history'] });
