@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand } from "lucide-react";
+import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InstanceBotSchedulesManager } from "./InstanceBotSchedulesManager";
+import { WavoipSettings } from "./WavoipSettings";
 
 interface InstancePermissionsProps {
   instanceId: string;
@@ -103,12 +104,12 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   });
 
   // Fetch instance distribution mode and settings
-  const { data: instanceSettings } = useQuery({
+  const { data: instanceSettings, refetch: refetchSettings } = useQuery({
     queryKey: ["instance-distribution-mode", instanceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode, redistribution_timeout_minutes")
+        .select("distribution_mode, redistribution_timeout_minutes, wavoip_enabled")
         .eq("id", instanceId)
         .single();
 
@@ -116,6 +117,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
       return data as { 
         distribution_mode: string | null; 
         redistribution_timeout_minutes: number | null;
+        wavoip_enabled: boolean;
       };
     },
     enabled: open,
@@ -591,6 +593,20 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Chamadas via WhatsApp - Wavoip */}
+            <div className="bg-green-50/50 dark:bg-green-950/30 rounded-lg p-4 border-2 border-green-200 dark:border-green-800">
+              <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+                <Phone className="h-5 w-5 text-green-600" />
+                Chamadas via WhatsApp (Wavoip)
+              </Label>
+              <WavoipSettings 
+                instanceId={instanceId}
+                instanceName={instanceName}
+                wavoipEnabled={instanceSettings?.wavoip_enabled ?? false}
+                onUpdate={() => refetchSettings()}
+              />
             </div>
 
             {/* Legenda */}
