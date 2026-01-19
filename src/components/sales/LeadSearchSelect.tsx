@@ -31,6 +31,10 @@ interface Lead {
   neighborhood: string | null;
   cep: string | null;
   delivery_region_id: string | null;
+  // Profile fields
+  birth_date: string | null;
+  gender: string | null;
+  favorite_team: string | null;
 }
 
 interface LeadSearchSelectProps {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Plus, MapPin, Info } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, MapPin, Info, Cake, Users, Heart } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { StarRating } from '@/components/StarRating';
 import { MultiSelect } from '@/components/MultiSelect';
@@ -29,6 +29,22 @@ import { useCreateLeadAddress, LeadAddress } from '@/hooks/useLeadAddresses';
 import { leadSchema } from '@/lib/validations';
 import { toast } from '@/hooks/use-toast';
 import { checkLeadExistsForOtherUser, ExistingLeadWithOwner } from '@/hooks/useLeadOwnership';
+
+// Brazilian football teams
+const BRAZILIAN_TEAMS = [
+  'Flamengo', 'Corinthians', 'São Paulo', 'Palmeiras', 'Santos',
+  'Grêmio', 'Internacional', 'Cruzeiro', 'Atlético-MG', 'Fluminense',
+  'Vasco', 'Botafogo', 'Bahia', 'Sport', 'Fortaleza',
+  'Ceará', 'Athletico-PR', 'Coritiba', 'Goiás', 'Vitória',
+  'Não torço', 'Outro'
+];
+
+const GENDER_OPTIONS = [
+  { value: 'masculino', label: 'Masculino', emoji: '👨' },
+  { value: 'feminino', label: 'Feminino', emoji: '👩' },
+  { value: 'outro', label: 'Outro', emoji: '🧑' },
+  { value: 'prefiro_nao_informar', label: 'Prefiro não informar', emoji: '🤐' },
+];
 
 export default function NewLead() {
   const navigate = useNavigate();
@@ -95,6 +111,10 @@ export default function NewLead() {
     site: '',
     lead_source: '',
     products: [] as string[],
+    // New profile fields
+    birth_date: '',
+    gender: '',
+    favorite_team: '',
   });
 
   // Update formData when URL params or profile changes
@@ -199,6 +219,10 @@ export default function NewLead() {
         site: formData.site || null,
         lead_source: formData.lead_source || null,
         products: formData.products.length > 0 ? formData.products : null,
+        // New profile fields
+        birth_date: formData.birth_date || null,
+        gender: formData.gender || null,
+        favorite_team: formData.favorite_team || null,
       } as any);
       
       // Create addresses for the new lead
@@ -407,8 +431,72 @@ export default function NewLead() {
                   className={errors.site ? 'border-destructive' : ''}
                 />
                 {errors.site && <p className="text-sm text-destructive">{errors.site}</p>}
+            </div>
+
+            {/* Personal Profile Section */}
+            <div className="bg-gradient-to-r from-purple-50/50 via-pink-50/50 to-orange-50/50 dark:from-purple-950/20 dark:via-pink-950/20 dark:to-orange-950/20 rounded-lg p-4 border-2 border-dashed border-purple-200 dark:border-purple-800">
+              <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
+                ✨ Conheça melhor seu cliente
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="birth_date" className="text-xs flex items-center gap-1.5 text-pink-600 dark:text-pink-400">
+                    <Cake className="w-3.5 h-3.5" />
+                    Data de Nascimento
+                  </Label>
+                  <Input
+                    id="birth_date"
+                    type="date"
+                    value={formData.birth_date}
+                    onChange={(e) => updateField('birth_date', e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="gender" className="text-xs flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                    <Users className="w-3.5 h-3.5" />
+                    Gênero
+                  </Label>
+                  <Select value={formData.gender} onValueChange={(v) => updateField('gender', v)}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GENDER_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{opt.emoji}</span>
+                            <span>{opt.label}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="favorite_team" className="text-xs flex items-center gap-1.5 text-orange-600 dark:text-orange-400">
+                    <Heart className="w-3.5 h-3.5" />
+                    Time do Coração
+                  </Label>
+                  <Select value={formData.favorite_team} onValueChange={(v) => updateField('favorite_team', v)}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Qual time?" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BRAZILIAN_TEAMS.map(team => (
+                        <SelectItem key={team} value={team}>
+                          {team === 'Flamengo' ? '🔴⚫ ' : team === 'Corinthians' ? '⚫⚪ ' : team === 'Palmeiras' ? '💚 ' : team === 'São Paulo' ? '🔴⚪⚫ ' : team === 'Grêmio' ? '🔵⚫⚪ ' : team === 'Internacional' ? '🔴⚪ ' : '⚽ '}
+                          {team}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
+          </div>
           </div>
 
           {/* Addresses Section */}
