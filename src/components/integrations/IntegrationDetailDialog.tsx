@@ -449,13 +449,49 @@ export function IntegrationDetailDialog({
             <TabsContent value="config" className="space-y-4 mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">URL do Webhook</CardTitle>
+                  <CardTitle className="text-lg">URLs do Webhook</CardTitle>
                   <CardDescription>
-                    Cole esta URL no sistema externo (Payt, Hotmart, etc)
+                    Cole estas URLs no sistema externo (Payt, Hotmart, etc)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
+                  {/* URL de Teste */}
+                  <div className="p-4 border-2 border-dashed border-blue-500/50 rounded-lg bg-blue-500/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 dark:text-blue-400">
+                        1º PASSO - TESTE
+                      </Badge>
+                    </div>
+                    <Label className="text-sm font-medium mb-2 block">URL de Teste (use primeiro!)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={webhookTestUrl}
+                        className="font-mono text-xs bg-background"
+                      />
+                      <Button 
+                        size="icon" 
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(webhookTestUrl);
+                          toast.success('URL de teste copiada!');
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      ✅ Use esta URL para testar na Payt. Ela registra nos logs mas <strong>não cria leads/vendas</strong>.
+                    </p>
+                  </div>
+
+                  {/* URL de Produção */}
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary" className="bg-green-500/20 text-green-700 dark:text-green-400">
+                        2º PASSO - PRODUÇÃO
+                      </Badge>
+                    </div>
                     <Label className="text-sm font-medium mb-2 block">URL de Produção</Label>
                     <div className="flex items-center gap-2">
                       <Input
@@ -467,14 +503,18 @@ export function IntegrationDetailDialog({
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Use esta URL para receber dados reais (leads/vendas serão criados)
+                    <p className="text-xs text-muted-foreground mt-2">
+                      ⚠️ Após validar o teste, troque para esta URL. Ela <strong>cria leads/vendas de verdade</strong>.
                     </p>
                   </div>
-                  
+
+                  {/* Testar conexão do CRM */}
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-medium">Testar Conexão</Label>
+                      <div>
+                        <Label className="text-sm font-medium">Testar Conexão (do CRM)</Label>
+                        <p className="text-xs text-muted-foreground">Verifica se nosso servidor está funcionando</p>
+                      </div>
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -486,7 +526,7 @@ export function IntegrationDetailDialog({
                         ) : (
                           <Play className="h-4 w-4 mr-1" />
                         )}
-                        {isTesting ? 'Testando...' : 'Testar Agora'}
+                        {isTesting ? 'Testando...' : 'Testar'}
                       </Button>
                     </div>
                     
@@ -504,22 +544,19 @@ export function IntegrationDetailDialog({
                         <span className="text-sm">{testResult.message}</span>
                       </div>
                     )}
-                    
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Isso envia um evento de teste para verificar se a URL está acessível.
-                    </p>
                   </div>
 
                   <div className="p-3 bg-muted rounded-lg">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                       <div className="text-xs text-muted-foreground">
-                        <p className="font-medium mb-1">Se a plataforma externa não aceitar a URL:</p>
-                        <ul className="list-disc list-inside space-y-0.5">
-                          <li>Verifique se copiou a URL completa (incluindo o token)</li>
-                          <li>Algumas plataformas adicionam <code className="bg-background px-1 rounded">?test=1</code> automaticamente</li>
-                          <li>Se continuar falhando, entre em contato com o suporte da plataforma</li>
-                        </ul>
+                        <p className="font-medium mb-1">Como configurar na Payt:</p>
+                        <ol className="list-decimal list-inside space-y-0.5">
+                          <li>Copie a <strong>URL de Teste</strong> acima</li>
+                          <li>Cole na Payt e clique em Salvar</li>
+                          <li>Volte aqui e veja a aba "Logs" - deve aparecer o evento de teste</li>
+                          <li>Se funcionou, troque para a <strong>URL de Produção</strong> na Payt</li>
+                        </ol>
                       </div>
                     </div>
                   </div>
