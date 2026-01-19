@@ -29,6 +29,7 @@ import { Progress } from '@/components/ui/progress';
 import { useLeadReceptiveHistory, CallQualityScore } from '@/hooks/useLeadReceptiveHistory';
 import { useTranscribeCall, useUpdateAttendanceRecording } from '@/hooks/useReceptiveTranscription';
 import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
+import { extractReceptiveRecordingStoragePath } from '@/lib/receptive-recordings';
 import { toast } from 'sonner';
 
 interface LeadReceptiveHistorySectionProps {
@@ -174,9 +175,11 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
       toast.error('Nenhuma gravação disponível para transcrever');
       return;
     }
-    
-    await transcribeCall.mutateAsync({ attendanceId, audioUrl });
+
+    const storagePath = extractReceptiveRecordingStoragePath(audioUrl) || undefined;
+    await transcribeCall.mutateAsync({ attendanceId, audioUrl, storagePath });
   };
+
 
   if (isLoading) {
     return (
