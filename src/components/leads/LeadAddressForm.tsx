@@ -1,16 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Truck, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AddressFields } from '@/components/AddressFields';
 import { 
   useCreateLeadAddress, 
   useUpdateLeadAddress,
   LeadAddress 
 } from '@/hooks/useLeadAddresses';
+import { useActiveDeliveryRegions } from '@/hooks/useDeliveryConfig';
 
 interface LeadAddressFormProps {
   leadId: string;
@@ -23,6 +31,7 @@ interface LeadAddressFormProps {
 export function LeadAddressForm({ leadId, address, onSuccess, onCancel, isNewLeadMode = false }: LeadAddressFormProps) {
   const createAddress = useCreateLeadAddress();
   const updateAddress = useUpdateLeadAddress();
+  const deliveryRegions = useActiveDeliveryRegions();
   const isEditing = !!address;
 
   const [formData, setFormData] = useState({
@@ -37,6 +46,7 @@ export function LeadAddressForm({ leadId, address, onSuccess, onCancel, isNewLea
     state: '',
     google_maps_link: '',
     delivery_notes: '',
+    delivery_region_id: '' as string,
   });
 
   useEffect(() => {
@@ -54,6 +64,7 @@ export function LeadAddressForm({ leadId, address, onSuccess, onCancel, isNewLea
         state: address.state || '',
         google_maps_link: address.google_maps_link || '',
         delivery_notes: address.delivery_notes || '',
+        delivery_region_id: address.delivery_region_id || '',
       });
     }
   }, [address]);
@@ -73,6 +84,7 @@ export function LeadAddressForm({ leadId, address, onSuccess, onCancel, isNewLea
       state: formData.state || undefined,
       google_maps_link: formData.google_maps_link || undefined,
       delivery_notes: formData.delivery_notes || undefined,
+      delivery_region_id: formData.delivery_region_id || null,
     };
 
     // In new lead mode, just return the data without saving
@@ -131,6 +143,33 @@ export function LeadAddressForm({ leadId, address, onSuccess, onCancel, isNewLea
           state={formData.state}
           onFieldChange={(field, value) => updateField(field, value)}
         />
+      </div>
+
+      {/* Delivery Region Selection */}
+      <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+        <Label htmlFor="delivery_region_id" className="flex items-center gap-2">
+          <Truck className="w-4 h-4 text-primary" />
+          Região de Entrega (Motoboy)
+        </Label>
+        <Select
+          value={formData.delivery_region_id || '__none__'}
+          onValueChange={(value) => updateField('delivery_region_id', value === '__none__' ? '' : value)}
+        >
+          <SelectTrigger id="delivery_region_id">
+            <SelectValue placeholder="Selecione a região de entrega..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Sem região definida</SelectItem>
+            {deliveryRegions.map((region) => (
+              <SelectItem key={region.id} value={region.id}>
+                {region.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Ao definir a região, as próximas vendas mostrarão automaticamente os dias/turnos de entrega disponíveis.
+        </p>
       </div>
 
       <div className="space-y-2">

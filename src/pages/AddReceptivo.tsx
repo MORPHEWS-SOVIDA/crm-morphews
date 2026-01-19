@@ -2210,38 +2210,35 @@ export default function AddReceptivo() {
               {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
               <Separator />
 
-              {/* First: Delivery Type Selection */}
+              {/* FIRST: Address selection - select address before delivery type */}
+              {leadData.id ? (
+                <AddressSelector
+                  leadId={leadData.id}
+                  value={selectedAddressId}
+                  onChange={handleAddressChange}
+                />
+              ) : (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                      Lead não salvo
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-500">
+                      Volte à etapa anterior para salvar os dados do lead e poder gerenciar endereços.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* THEN: Delivery Type Selection - uses region from selected address */}
               <DeliveryTypeSelector
                 value={deliveryConfig}
                 onChange={setDeliveryConfig}
                 leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
               />
-
-              {/* Then: Address selection - only show if delivery requires shipping */}
-              {(deliveryConfig.type === 'motoboy' || deliveryConfig.type === 'carrier') && (
-                <>
-                  <Separator />
-                  {leadData.id ? (
-                    <AddressSelector
-                      leadId={leadData.id}
-                      value={selectedAddressId}
-                      onChange={handleAddressChange}
-                    />
-                  ) : (
-                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                      <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
-                          Lead não salvo
-                        </p>
-                        <p className="text-xs text-amber-700 dark:text-amber-500">
-                          Volte à etapa anterior para salvar os dados do lead e poder gerenciar endereços.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
 
               {/* Profile Prompt - for missing birth_date, gender, favorite_team */}
               {leadData.id && (

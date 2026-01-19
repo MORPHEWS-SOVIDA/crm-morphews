@@ -478,16 +478,32 @@ export function getAvailableDeliveryDates(
   if (!region || !region.schedules || region.schedules.length === 0) return [];
 
   const availableDates: { date: Date; shift: 'morning' | 'afternoon' | 'full_day' }[] = [];
+  const now = new Date();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  
+  // Current hour to filter today's shifts
+  const currentHour = now.getHours();
+  // Morning shift cutoff: before 12:00, Afternoon cutoff: before 18:00
+  const MORNING_CUTOFF = 12;
 
-  for (let i = 1; i <= daysAhead; i++) {
+  // Start from i=0 to include today
+  for (let i = 0; i <= daysAhead; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
     const dayOfWeek = date.getDay();
 
     const matchingSchedules = region.schedules.filter(s => s.day_of_week === dayOfWeek);
     for (const schedule of matchingSchedules) {
+      // For today, filter out shifts that have already passed
+      if (i === 0) {
+        if (schedule.shift === 'morning' && currentHour >= MORNING_CUTOFF) {
+          // Morning shift has passed
+          continue;
+        }
+        // Afternoon and full_day are available as long as it's before cutoff
+        // We allow afternoon/full_day even in the afternoon for urgent orders
+      }
       availableDates.push({ date, shift: schedule.shift });
     }
   }
