@@ -30,14 +30,19 @@ function normalizeUrl(url: string) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
+
+  // IMPORTANT: always reply 200 so the frontend doesn't get a hard error from invoke()
+  // (we still enforce auth/permissions inside the function).
+  if (req.method !== "POST") {
+    return jsonResponse({ ok: false, error: "Method not allowed", code: 405 });
+  }
 
   try {
     const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
-    if (!authHeader) return jsonResponse({ ok: false, error: "Não autenticado" }, 401);
+    if (!authHeader) return jsonResponse({ ok: false, error: "Não autenticado", code: 401 });
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      return jsonResponse({ ok: false, error: "Backend auth config missing" }, 500);
+      return jsonResponse({ ok: false, error: "Backend auth config missing", code: 500 });
     }
 
     const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -46,7 +51,7 @@ serve(async (req) => {
     });
 
     const { data: userData, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !userData?.user) return jsonResponse({ ok: false, error: "Não autenticado" }, 401);
+    if (userError || !userData?.user) return jsonResponse({ ok: false, error: "Não autenticado", code: 401 });
 
     const userId = userData.user.id;
 
@@ -56,8 +61,10 @@ serve(async (req) => {
     const isVideo = Boolean(body?.isVideo);
     const callDuration = typeof body?.callDuration === "number" ? body.callDuration : 30;
 
-    if (!instanceId) return jsonResponse({ ok: false, error: "instanceId é obrigatório" }, 400);
-    if (!number) return jsonResponse({ ok: false, error: "number é obrigatório" }, 400);
+    if (!instanceId) return jsonResponse({ ok: false, error: "instanceId é obrigatório", code: 400 });
+    if (!number) return jsonResponse({ ok: false, error: "number é obrigatório", code: 400 });
+
+    console.log("wavoip-call-offer: request", { instanceId, userId, isVideo, callDuration });
 
     const { data: instance, error: instanceError } = await supabaseAdmin
       .from("whatsapp_instances")
@@ -68,11 +75,12 @@ serve(async (req) => {
       .single();
 
     if (instanceError || !instance) {
-      return jsonResponse({ ok: false, error: "Instância não encontrada" }, 404);
+      console.log("wavoip-call-offer: instance not found", { instanceId, instanceError });
+      return jsonResponse({ ok: false, error: "Instância não encontrada", code: 404 });
     }
 
     if (!instance.wavoip_enabled) {
-      return jsonResponse({ ok: false, error: "Chamadas não habilitadas para esta instância" }, 400);
+      return jsonResponse({ ok: false, error: "Chamadas não habilitadas para esta instância", code: 400 });
     }
 
     const { data: perm, error: permError } = await supabaseAdmin
@@ -83,22 +91,25 @@ serve(async (req) => {
       .maybeSingle();
 
     if (permError || !perm?.can_view || !perm?.can_use_phone) {
-      return jsonResponse({ ok: false, error: "Sem permissão de telefone para esta instância" }, 403);
+      console.log("wavoip-call-offer: permission denied", { instanceId, userId, permError, perm });
+      return jsonResponse({ ok: false, error: "Sem permissão de telefone para esta instância", code: 403 });
     }
 
     // Extra guard: enforce same organization.
     if (perm.organization_id && instance.organization_id && perm.organization_id !== instance.organization_id) {
-      return jsonResponse({ ok: false, error: "Sem permissão para esta organização" }, 403);
+      return jsonResponse({ ok: false, error: "Sem permissão para esta organização", code: 403 });
     }
 
     const serverUrl = normalizeUrl(String(instance.wavoip_server_url || FALLBACK_EVOLUTION_API_URL || ""));
     const apiKey = String(instance.wavoip_api_key || instance.evolution_api_token || FALLBACK_EVOLUTION_API_KEY || "");
 
-    if (!serverUrl) return jsonResponse({ ok: false, error: "Servidor de chamadas não configurado" }, 500);
-    if (!apiKey) return jsonResponse({ ok: false, error: "Chave de autenticação do servidor não configurada" }, 500);
+    if (!serverUrl) return jsonResponse({ ok: false, error: "Servidor de chamadas não configurado", code: 500 });
+    if (!apiKey) return jsonResponse({ ok: false, error: "Chave de autenticação do servidor não configurada", code: 500 });
 
     const instanceName = String(instance.evolution_instance_id || instance.name);
     const upstreamUrl = `${serverUrl}/call/offer/${encodeURIComponent(instanceName)}`;
+
+    console.log("wavoip-call-offer: upstream", { upstreamUrl, instanceName });
 
     const upstreamResp = await fetch(upstreamUrl, {
       method: "POST",
@@ -117,16 +128,19 @@ serve(async (req) => {
       // keep as text
     }
 
+    console.log("wavoip-call-offer: upstream response", { ok: upstreamResp.ok, status: upstreamResp.status });
+
     // Always return 200 so the frontend can handle upstream errors deterministically.
     return jsonResponse({
       ok: upstreamResp.ok,
       upstreamStatus: upstreamResp.status,
       instanceName,
+      upstreamUrl,
       raw,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Erro desconhecido";
     console.error("wavoip-call-offer error:", msg);
-    return jsonResponse({ ok: false, error: msg }, 500);
+    return jsonResponse({ ok: false, error: msg, code: 500 });
   }
 });

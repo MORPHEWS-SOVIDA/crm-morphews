@@ -111,10 +111,15 @@ export function useWavoip(instanceId?: string | null) {
       isVideo,
     });
     
-    if (!instanceName) {
-      console.error('❌ Instance name não disponível');
-      toast.error('Erro: Instância não encontrada');
+    if (!instanceId) {
+      console.error('❌ instanceId não disponível');
+      toast.error('Erro: selecione uma instância');
       return false;
+    }
+
+    if (!instanceName) {
+      // Not fatal: the backend resolves the instance name from instanceId.
+      console.warn('⚠️ instanceName vazio; prosseguindo via instanceId');
     }
     
     if (!contactPhone) {
@@ -146,15 +151,15 @@ export function useWavoip(instanceId?: string | null) {
         },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      // With our proxy always returning 200, we should not hit `error` in normal cases.
+      if (error) throw new Error(error.message);
 
       const ok = Boolean((data as any)?.ok);
       const upstreamStatus = Number((data as any)?.upstreamStatus ?? 0);
       const responseData = (data as any)?.raw;
+      const proxyError = (data as any)?.error as string | undefined;
 
-      console.log('📞 Resposta recebida (proxy):', { ok, upstreamStatus, responseData });
+      console.log('📞 Resposta recebida (proxy):', { ok, upstreamStatus, proxyError, responseData });
 
       // Log the call
       if (profile?.organization_id && instanceId) {
@@ -171,7 +176,7 @@ export function useWavoip(instanceId?: string | null) {
           is_video: isVideo,
           error_message: ok
             ? null
-            : (responseData?.message || responseData?.error || `Status ${upstreamStatus}`),
+            : (proxyError || responseData?.message || responseData?.error || `Status ${upstreamStatus}`),
         });
       }
 
@@ -181,26 +186,29 @@ export function useWavoip(instanceId?: string | null) {
         return true;
       }
 
-      let errorMessage = 'Erro ao iniciar chamada';
-      if (upstreamStatus === 404) {
-        errorMessage =
-          responseData?.message ||
-          responseData?.error ||
-          'O servidor retornou 404 ao iniciar a chamada. Verifique se o endpoint de ligações está habilitado.';
-      } else if (upstreamStatus === 401 || upstreamStatus === 403) {
-        errorMessage = 'Erro de autenticação no servidor de chamadas.';
-      } else if (upstreamStatus === 400) {
-        errorMessage = responseData?.message || responseData?.error || 'Dados inválidos';
-      } else if (upstreamStatus >= 500) {
-        errorMessage = 'Erro interno do servidor de chamadas.';
-      } else if (responseData?.error) {
-        errorMessage = responseData.error;
-      } else if (responseData?.message) {
-        errorMessage = responseData.message;
+      let errorMessage = proxyError || 'Erro ao iniciar chamada';
+
+      if (!proxyError) {
+        if (upstreamStatus === 404) {
+          errorMessage =
+            responseData?.message ||
+            responseData?.error ||
+            'O servidor retornou 404 ao iniciar a chamada. Verifique o endpoint de ligações no Evolution.';
+        } else if (upstreamStatus === 401 || upstreamStatus === 403) {
+          errorMessage = 'Erro de autenticação no servidor de chamadas.';
+        } else if (upstreamStatus === 400) {
+          errorMessage = responseData?.message || responseData?.error || 'Dados inválidos';
+        } else if (upstreamStatus >= 500) {
+          errorMessage = 'Erro interno do servidor de chamadas.';
+        } else if (responseData?.error) {
+          errorMessage = responseData.error;
+        } else if (responseData?.message) {
+          errorMessage = responseData.message;
+        }
       }
 
       toast.error(errorMessage);
-      console.error('❌ ===== CHAMADA FALHOU =====', { upstreamStatus, errorMessage, responseData });
+      console.error('❌ ===== CHAMADA FALHOU =====', { upstreamStatus, errorMessage, proxyError, responseData });
       setIsLoadingCall(false);
       return false;
     } catch (error: any) {
