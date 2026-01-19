@@ -20,6 +20,7 @@ import {
   BarChart3,
   TrendingUp,
   Percent,
+  Upload,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -41,9 +42,12 @@ import { useTranscribeCall } from '@/hooks/useReceptiveTranscription';
 import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
+import { RecordingUploader } from '@/components/receptive/RecordingUploader';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 export default function ReceptiveManagement() {
+  const { profile } = useAuth();
   const [filters, setFilters] = useState<ReceptiveFilters>({
     hasRecording: 'all',
     hasTranscription: 'all',
@@ -51,7 +55,8 @@ export default function ReceptiveManagement() {
   });
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [editingRecording, setEditingRecording] = useState<string | null>(null);
-  const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
+  const [uploadingRecording, setUploadingRecording] = useState<Record<string, boolean>>({});
+  const [storagePaths, setStoragePaths] = useState<Record<string, string>>({});
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [notesValues, setNotesValues] = useState<Record<string, string>>({});
 
@@ -79,15 +84,13 @@ export default function ReceptiveManagement() {
     });
   };
 
-  const handleSaveRecordingUrl = async (id: string) => {
-    const url = recordingUrls[id];
-    if (!url) {
-      toast.error('Digite a URL da gravação');
-      return;
+  const handleRecordingUploaded = async (attendanceId: string, url: string, storagePath?: string) => {
+    await updateAttendance.mutateAsync({ id: attendanceId, updates: { call_recording_url: url } });
+    if (storagePath) {
+      // Store the storage path to pass to transcription later
+      setStoragePaths(prev => ({ ...prev, [attendanceId]: storagePath }));
     }
-    await updateAttendance.mutateAsync({ id, updates: { call_recording_url: url } });
     setEditingRecording(null);
-    setRecordingUrls(prev => ({ ...prev, [id]: '' }));
   };
 
   const handleSaveNotes = async (id: string) => {
@@ -97,7 +100,8 @@ export default function ReceptiveManagement() {
   };
 
   const handleTranscribe = async (id: string, audioUrl: string) => {
-    await transcribeCall.mutateAsync({ attendanceId: id, audioUrl });
+    const storagePath = storagePaths[id];
+    await transcribeCall.mutateAsync({ attendanceId: id, audioUrl, storagePath });
   };
 
   const getScoreColor = (score: number) => {
@@ -407,32 +411,24 @@ export default function ReceptiveManagement() {
                               </a>
                             </div>
                           ) : editingRecording === item.id ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                placeholder="Cole a URL da gravação..."
-                                value={recordingUrls[item.id] || ''}
-                                onChange={(e) => setRecordingUrls(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                className="flex-1"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveRecordingUrl(item.id)}
-                                disabled={updateAttendance.isPending}
-                              >
-                                Salvar
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setEditingRecording(null)}>
-                                Cancelar
-                              </Button>
-                            </div>
+                            <RecordingUploader
+                              attendanceId={item.id}
+                              organizationId={item.organization_id}
+                              onUploadComplete={(url, storagePath) => {
+                                handleRecordingUploaded(item.id, url, storagePath);
+                              }}
+                              onCancel={() => setEditingRecording(null)}
+                              isUploading={uploadingRecording[item.id] || false}
+                              setIsUploading={(value) => setUploadingRecording(prev => ({ ...prev, [item.id]: value }))}
+                            />
                           ) : (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setEditingRecording(item.id)}
                             >
-                              <Mic className="w-4 h-4 mr-2" />
-                              Adicionar Gravação
+                              <Upload className="w-4 h-4 mr-2" />
+                              Enviar Gravação
                             </Button>
                           )}
                         </div>
