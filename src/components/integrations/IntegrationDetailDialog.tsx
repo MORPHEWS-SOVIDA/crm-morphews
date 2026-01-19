@@ -581,16 +581,16 @@ export function IntegrationDetailDialog({
                 <CardHeader>
                   <CardTitle className="text-lg">Modo de Evento</CardTitle>
                   <CardDescription>
-                    Defina o que esta integração irá criar
+                    O sistema sempre busca o lead pelo WhatsApp antes de criar ou atualizar
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { value: 'lead', label: 'Apenas Leads', desc: 'Cria leads para acompanhamento', icon: '👤' },
-                      { value: 'sale', label: 'Apenas Vendas', desc: 'Cria vendas diretamente', icon: '💰' },
-                      { value: 'both', label: 'Lead + Venda', desc: 'Cria lead e venda associada', icon: '📦' },
-                      { value: 'sac', label: 'Chamado SAC', desc: 'Cria chamado de atendimento', icon: '🎧' },
+                      { value: 'lead', label: 'Criar/Atualizar Lead', desc: 'Cria ou atualiza lead existente', icon: '👤' },
+                      { value: 'sale', label: 'Lead + Venda', desc: 'Cria/atualiza lead e gera venda', icon: '💰' },
+                      { value: 'both', label: 'Lead + Venda (Completo)', desc: 'Lead + venda com todos os dados', icon: '📦' },
+                      { value: 'sac', label: 'Lead + SAC', desc: 'Cria/atualiza lead e abre chamado', icon: '🎧' },
                     ].map(mode => (
                       <div
                         key={mode.value}
@@ -608,6 +608,19 @@ export function IntegrationDetailDialog({
                         <div className="text-xs text-muted-foreground">{mode.desc}</div>
                       </div>
                     ))}
+                  </div>
+                  
+                  {/* Info box explaining the logic */}
+                  <div className="p-3 bg-blue-500/10 rounded-lg text-sm">
+                    <p className="font-medium text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1">
+                      <span>💡</span> Como funciona:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      <li>• O WhatsApp é a <strong>chave única</strong> para identificar o cliente</li>
+                      <li>• Se o lead já existe: atualiza os dados e adiciona observações</li>
+                      <li>• Se não existe: cria um novo lead automaticamente</li>
+                      <li>• Vendas e SAC são sempre vinculados ao lead encontrado/criado</li>
+                    </ul>
                   </div>
                   
                   {/* SAC Configuration - only show when SAC mode is selected */}
