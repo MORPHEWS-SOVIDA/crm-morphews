@@ -17,6 +17,7 @@ export interface UserPermissions {
   dashboard_funnel_view: boolean;
   dashboard_kanban_view: boolean;
   seller_panel_view: boolean;
+  sales_dashboard_view: boolean;
   
   // Leads
   leads_view: boolean;
@@ -73,13 +74,15 @@ export interface UserPermissions {
   sales_report_view: boolean;
   expedition_report_view: boolean;
   
-  // Deliveries
+  // Deliveries / Expedition
   deliveries_view_own: boolean;
   deliveries_view_all: boolean;
+  expedition_view: boolean;
   
   // Modules
   receptive_module_access: boolean;
   instagram_view: boolean;
+  integrations_view: boolean;
   
   // Team Management
   team_view: boolean;
@@ -117,6 +120,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   dashboard_funnel_view: { label: 'Dashboard Funil', description: 'Visualizar dashboard no modo funil', group: 'Dashboard' },
   dashboard_kanban_view: { label: 'Dashboard Kanban', description: 'Visualizar dashboard no modo kanban', group: 'Dashboard' },
   seller_panel_view: { label: 'Meu Painel', description: 'Acessar painel do vendedor', group: 'Dashboard' },
+  sales_dashboard_view: { label: 'Dashboard Vendas', description: 'Acessar ranking de vendas e métricas', group: 'Dashboard' },
   
   // Leads
   leads_view: { label: 'Ver Leads', description: 'Visualizar leads da empresa', group: 'Leads' },
@@ -132,7 +136,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   sales_create: { label: 'Criar Vendas', description: 'Criar novas vendas', group: 'Vendas' },
   sales_edit_draft: { label: 'Editar Rascunhos', description: 'Editar vendas em rascunho', group: 'Vendas' },
   sales_mark_printed: { label: 'Marcar Impresso', description: 'Marcar venda como impressa para expedição', group: 'Vendas' },
-  sales_validate_expedition: { label: 'Validar Expedição', description: 'Marcar pedido como separado', group: 'Vendas' },
   sales_dispatch: { label: 'Despachar', description: 'Marcar como despachado/enviado', group: 'Vendas' },
   sales_mark_delivered: { label: 'Marcar Entregue', description: 'Confirmar entrega ao cliente', group: 'Vendas' },
   sales_cancel: { label: 'Cancelar Vendas', description: 'Cancelar vendas', group: 'Vendas' },
@@ -153,6 +156,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   instagram_view: { label: 'Ver Instagram DMs', description: 'Acessar Instagram DMs', group: 'Módulos' },
   demands_view: { label: 'Demandas', description: 'Acessar módulo de demandas/tarefas', group: 'Módulos' },
   receptive_module_access: { label: 'Módulo Receptivo', description: 'Acesso ao módulo de atendimento receptivo', group: 'Módulos' },
+  integrations_view: { label: 'Integrações', description: 'Acessar página de integrações e webhooks', group: 'Módulos' },
   
   // Produtos
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
@@ -178,6 +182,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   // Entregas
   deliveries_view_own: { label: 'Ver Minhas Entregas', description: 'Ver entregas atribuídas a mim', group: 'Entregas' },
   deliveries_view_all: { label: 'Ver Todas Entregas', description: 'Ver todas as entregas', group: 'Entregas' },
+  expedition_view: { label: 'Expedição', description: 'Acessar tela de separação/conferência de pedidos', group: 'Entregas' },
+  sales_validate_expedition: { label: 'Validar Expedição', description: 'Marcar pedido como separado', group: 'Entregas' },
   
   // Equipe
   team_view: { label: 'Ver Minha Equipe', description: 'Visualizar página Minha Equipe', group: 'Equipe' },
