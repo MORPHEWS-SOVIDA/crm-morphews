@@ -93,6 +93,9 @@ export function ProductSelectionDialog({
   const [negotiatedPriceCents, setNegotiatedPriceCents] = useState<number | null>(null);
   const [negotiatedInstallments, setNegotiatedInstallments] = useState<number>(12);
   const [negotiatedCommission, setNegotiatedCommission] = useState<number | null>(null);
+  
+  // Quantity multiplier for selling multiple units of a kit/product
+  const [quantityMultiplier, setQuantityMultiplier] = useState(1);
 
   // Fetch data
   const { data: productQuestions = [] } = useProductQuestions(product?.id);
@@ -174,6 +177,8 @@ export function ProductSelectionDialog({
     setNegotiatedPriceCents(null);
     setNegotiatedInstallments(12);
     setNegotiatedCommission(null);
+    // Reset quantity multiplier
+    setQuantityMultiplier(1);
   }, [product?.id]);
 
   // Handler for kit rejection (progressive reveal)
@@ -302,11 +307,21 @@ export function ProductSelectionDialog({
     };
   };
 
-  const { quantity, unitPrice, commission: baseCommission, isCustomCommission } = getSelectedValues();
+  const { quantity: baseQuantity, unitPrice: baseUnitPrice, commission: baseCommission, isCustomCommission } = getSelectedValues();
+  
+  // Apply quantity multiplier - for selling multiple units/kits
+  const finalQuantity = baseQuantity * quantityMultiplier;
+  
   // For kit system: unitPrice is already the TOTAL kit price (e.g., R$240 for 6 bottles)
-  // So subtotal should NOT multiply by quantity again
+  // When multiplier > 1, we multiply the kit price
   // For legacy/manipulado: unitPrice is per-unit, so we DO multiply by quantity
-  const subtotal = (usesKitSystem && selectedKit) ? unitPrice : (unitPrice * quantity);
+  const baseSubtotal = (usesKitSystem && selectedKit) ? baseUnitPrice : (baseUnitPrice * baseQuantity);
+  const subtotal = baseSubtotal * quantityMultiplier;
+  
+  // Calculate the effective unit price for the final item
+  const effectiveUnitPrice = quantityMultiplier > 1 
+    ? Math.round(baseUnitPrice / baseQuantity) // Per-unit price when multiplying
+    : baseUnitPrice;
   
   let discountCents = 0;
   if (!isManipulado) {
@@ -322,14 +337,21 @@ export function ProductSelectionDialog({
   // BUSINESS RULE: Commission calculation with discount protection
   // 1. If any discount is applied → use default commission (not the kit custom commission)
   // 2. If final price is at or below minimum → use minimum price commission
+  // 3. If quantity multiplier > 1 → use default commission (custom quantity = custom price = default commission)
   const hasDiscount = discountCents > 0;
+  const hasCustomQuantity = quantityMultiplier > 1;
   const minPriceForKit = selectedKit?.minimum_price_cents || 0;
-  const isBelowOrAtMinimum = usesKitSystem && minPriceForKit > 0 && total <= minPriceForKit;
+  const minPriceTotal = minPriceForKit * quantityMultiplier; // Scale minimum for quantity
+  const isBelowOrAtMinimum = usesKitSystem && minPriceTotal > 0 && total <= minPriceTotal;
   
   let effectiveCommission = baseCommission;
   let commissionNote = '';
   
-  if (usesKitSystem && selectedKit) {
+  if (hasCustomQuantity) {
+    // Custom quantity uses default commission
+    effectiveCommission = sellerDefaultCommission;
+    commissionNote = 'Comissão padrão (quantidade customizada)';
+  } else if (usesKitSystem && selectedKit) {
     if (isBelowOrAtMinimum) {
       // Use minimum price commission
       effectiveCommission = selectedKit.minimum_use_default_commission 
@@ -366,7 +388,7 @@ export function ProductSelectionDialog({
     ? manipuladoPrice > 0 
     : usesKitSystem
       ? (!isBelowMinimum || authorizationId)
-      : (unitPrice >= (product.minimum_price || 0) || (product.minimum_price || 0) === 0);
+      : (baseUnitPrice >= (product.minimum_price || 0) || (product.minimum_price || 0) === 0);
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -439,8 +461,8 @@ export function ProductSelectionDialog({
     onConfirm({
       product_id: product.id,
       product_name: product.name,
-      quantity,
-      unit_price_cents: unitPrice,
+      quantity: finalQuantity,
+      unit_price_cents: quantityMultiplier > 1 ? effectiveUnitPrice : baseUnitPrice,
       discount_cents: discountCents,
       requisition_number: isManipulado ? requisitionNumber : null,
       commission_percentage: commission,
@@ -987,18 +1009,69 @@ export function ProductSelectionDialog({
           {/* Summary */}
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="pt-4">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {isManipulado && requisitionNumber && (
                   <div className="flex justify-between text-sm text-amber-700">
                     <span>Requisição</span>
                     <span className="font-medium">{requisitionNumber}</span>
                   </div>
                 )}
+                
+                {/* Quantity Multiplier - allows selling multiple units/kits */}
+                <div className="flex items-center justify-between p-2 bg-background/80 rounded-lg border">
+                  <div className="text-sm">
+                    <span className="font-medium">Quantidade</span>
+                    {usesKitSystem && selectedKit && (
+                      <span className="text-muted-foreground ml-1">
+                        (x Kit {baseQuantity} un. = {finalQuantity} un. total)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setQuantityMultiplier(Math.max(1, quantityMultiplier - 1))}
+                      disabled={quantityMultiplier <= 1}
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={quantityMultiplier}
+                      onChange={(e) => setQuantityMultiplier(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 h-8 text-center font-bold"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setQuantityMultiplier(quantityMultiplier + 1)}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {hasCustomQuantity && (
+                  <p className="text-xs text-amber-600 text-center">
+                    💡 Quantidade customizada: comissão padrão ({sellerDefaultCommission}%) será aplicada
+                  </p>
+                )}
+                
+                <Separator />
+                
                 <div className="flex justify-between text-sm">
                   {usesKitSystem && selectedKit ? (
-                    <span>Kit {quantity} {quantity === 1 ? 'unidade' : 'unidades'}</span>
+                    quantityMultiplier > 1 
+                      ? <span>{quantityMultiplier}x Kit {baseQuantity} un. = {finalQuantity} un.</span>
+                      : <span>Kit {baseQuantity} {baseQuantity === 1 ? 'unidade' : 'unidades'}</span>
                   ) : (
-                    <span>Subtotal ({quantity} x {formatPrice(unitPrice)})</span>
+                    <span>Subtotal ({finalQuantity} x {formatPrice(effectiveUnitPrice)})</span>
                   )}
                   <span>{formatPrice(subtotal)}</span>
                 </div>
@@ -1021,7 +1094,7 @@ export function ProductSelectionDialog({
                       <p className="text-xs text-amber-600">{commissionNote}</p>
                     )}
                   </div>
-                  <CommissionBadge comparison={hasDiscount || isBelowOrAtMinimum ? 'equal' : getCommissionComparison()} value={commissionValue} />
+                  <CommissionBadge comparison={hasDiscount || isBelowOrAtMinimum || hasCustomQuantity ? 'equal' : getCommissionComparison()} value={commissionValue} />
                 </div>
               </div>
             </CardContent>
@@ -1094,16 +1167,16 @@ export function ProductSelectionDialog({
         <NegotiationDialog
           open={showNegotiationDialog}
           onOpenChange={setShowNegotiationDialog}
-          originalPriceCents={unitPrice}
+          originalPriceCents={baseUnitPrice}
           minimumPriceCents={selectedKit.minimum_price_cents}
           quantity={selectedKit.quantity}
           originalCommission={baseCommission}
           defaultCommission={sellerDefaultCommission}
           minimumCommission={selectedKit.minimum_custom_commission}
-          onConfirm={(price, installments, commission) => {
+          onConfirm={(price, installments, commissionValue) => {
             setNegotiatedPriceCents(price);
             setNegotiatedInstallments(installments);
-            setNegotiatedCommission(commission);
+            setNegotiatedCommission(commissionValue);
           }}
         />
       )}
