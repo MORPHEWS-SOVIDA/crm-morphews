@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sheet,
   SheetContent,
@@ -38,10 +40,50 @@ export function WavoipPhoneButton({ instanceId, instanceName, className }: Wavoi
   const { wavoipStatus, isLoadingCall, makeCall, instanceConfig } = useWavoip(instanceId);
   const { callQueue, isLoading: loadingQueue } = useCallQueue(instanceId);
   const { isInQueue, isAvailable, setAvailable, queuePosition } = useUserCallAvailability(instanceId);
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
-  // Only show if wavoip is available
-  if (wavoipStatus !== 'available') {
+  // Check if current user has phone permission for this instance
+  const { data: hasPhonePermission, isLoading: checkingPermission } = useQuery({
+    queryKey: ['user-phone-permission', instanceId, user?.id],
+    queryFn: async () => {
+      if (!user?.id || !instanceId) return false;
+      
+      const { data, error } = await supabase
+        .from('whatsapp_instance_users')
+        .select('can_use_phone')
+        .eq('instance_id', instanceId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) return false;
+      return data?.can_use_phone ?? false;
+    },
+    enabled: !!instanceId && !!user?.id,
+  });
+
+  // Fetch users with phone permission (for queue display)
+  const { data: phoneUsers, isLoading: loadingPhoneUsers } = useQuery({
+    queryKey: ['phone-users', instanceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whatsapp_instance_users')
+        .select(`
+          id,
+          user_id,
+          can_use_phone,
+          profiles:user_id (id, first_name, last_name, avatar_url)
+        `)
+        .eq('instance_id', instanceId)
+        .eq('can_use_phone', true);
+
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!instanceId && open,
+  });
+
+  // Only show if wavoip is available and user has permission
+  if (wavoipStatus !== 'available' || checkingPermission || !hasPhonePermission) {
     return null;
   }
 
@@ -97,6 +139,7 @@ export function WavoipPhoneButton({ instanceId, instanceName, className }: Wavoi
               : "border-muted hover:bg-muted",
             className
           )}
+          title="Telefone WhatsApp"
         >
           <Phone className="h-4 w-4" />
           {/* Status indicator */}
@@ -146,9 +189,9 @@ export function WavoipPhoneButton({ instanceId, instanceName, className }: Wavoi
             <TabsTrigger value="queue" className="gap-1">
               <Users className="h-4 w-4" />
               Fila
-              {callQueue && callQueue.length > 0 && (
+              {phoneUsers && phoneUsers.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                  {callQueue.length}
+                  {phoneUsers.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -282,65 +325,73 @@ export function WavoipPhoneButton({ instanceId, instanceName, className }: Wavoi
               </p>
             </div>
 
-            {/* Queue list */}
+            {/* Users with phone permission */}
             <div className="flex-1 flex flex-col min-h-0">
               <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Ordem de distribuição
+                Usuários com acesso ao telefone
               </h4>
               <ScrollArea className="flex-1 -mx-4 px-4">
-                {loadingQueue ? (
+                {loadingPhoneUsers ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : callQueue && callQueue.length > 0 ? (
+                ) : phoneUsers && phoneUsers.length > 0 ? (
                   <div className="space-y-2">
-                    {callQueue.map((entry, index) => (
-                      <div
-                        key={entry.id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border transition-colors",
-                          entry.is_available 
-                            ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" 
-                            : "bg-muted/50 border-muted"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
+                    {phoneUsers.map((entry, index) => {
+                      const isCurrentUser = entry.user_id === user?.id;
+                      const queueEntry = callQueue?.find(q => q.user_id === entry.user_id);
+                      const userIsAvailable = queueEntry?.is_available ?? false;
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-lg border transition-colors",
+                            userIsAvailable 
+                              ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" 
+                              : "bg-muted/50 border-muted",
+                            isCurrentUser && "ring-2 ring-primary/30"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                              userIsAvailable 
+                                ? "bg-green-600 text-white" 
+                                : "bg-muted-foreground/20 text-muted-foreground"
+                            )}>
+                              {index + 1}
+                            </div>
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={(entry.profiles as any)?.avatar_url} />
+                              <AvatarFallback className="text-xs">
+                                {(entry.profiles as any)?.first_name?.[0] || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {(entry.profiles as any)?.first_name} {(entry.profiles as any)?.last_name}
+                                {isCurrentUser && <span className="text-xs text-muted-foreground ml-1">(você)</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {userIsAvailable ? 'Online' : 'Offline'}
+                              </p>
+                            </div>
+                          </div>
                           <div className={cn(
-                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
-                            entry.is_available 
-                              ? "bg-green-600 text-white" 
-                              : "bg-muted-foreground/20 text-muted-foreground"
-                          )}>
-                            {index + 1}
-                          </div>
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={(entry.profiles as any)?.avatar_url} />
-                            <AvatarFallback className="text-xs">
-                              {(entry.profiles as any)?.first_name?.[0] || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">
-                              {(entry.profiles as any)?.first_name} {(entry.profiles as any)?.last_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {entry.calls_received} chamadas recebidas
-                            </p>
-                          </div>
+                            "w-3 h-3 rounded-full",
+                            userIsAvailable ? "bg-green-500" : "bg-muted-foreground/30"
+                          )} />
                         </div>
-                        <div className={cn(
-                          "w-3 h-3 rounded-full",
-                          entry.is_available ? "bg-green-500" : "bg-muted-foreground/30"
-                        )} />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm font-medium">Nenhum usuário na fila</p>
-                    <p className="text-xs mt-1">Ative seu status para entrar na fila</p>
+                    <p className="text-sm font-medium">Nenhum usuário com permissão</p>
+                    <p className="text-xs mt-1">Configure permissões nas configurações da instância</p>
                   </div>
                 )}
               </ScrollArea>
