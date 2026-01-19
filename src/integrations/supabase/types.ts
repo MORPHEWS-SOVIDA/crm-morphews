@@ -6320,6 +6320,177 @@ export type Database = {
           },
         ]
       }
+      whatsapp_call_logs: {
+        Row: {
+          answered_at: string | null
+          call_direction: string
+          call_status: string
+          contact_name: string | null
+          contact_phone: string
+          conversation_id: string | null
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          error_message: string | null
+          id: string
+          instance_id: string
+          is_video: boolean
+          lead_id: string | null
+          organization_id: string
+          started_at: string
+          user_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          call_direction: string
+          call_status?: string
+          contact_name?: string | null
+          contact_phone: string
+          conversation_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          instance_id: string
+          is_video?: boolean
+          lead_id?: string | null
+          organization_id: string
+          started_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          call_direction?: string
+          call_status?: string
+          contact_name?: string | null
+          contact_phone?: string
+          conversation_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          instance_id?: string
+          is_video?: boolean
+          lead_id?: string | null
+          organization_id?: string
+          started_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_call_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_logs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_logs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_call_queue: {
+        Row: {
+          calls_received: number
+          created_at: string
+          id: string
+          instance_id: string
+          is_available: boolean
+          last_call_at: string | null
+          organization_id: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calls_received?: number
+          created_at?: string
+          id?: string
+          instance_id: string
+          is_available?: boolean
+          last_call_at?: string | null
+          organization_id: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calls_received?: number
+          created_at?: string
+          id?: string
+          instance_id?: string
+          is_available?: boolean
+          last_call_at?: string | null
+          organization_id?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_call_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_call_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_conversation_assignments: {
         Row: {
           action: string
@@ -6701,6 +6872,9 @@ export type Database = {
           updated_at: string
           wasender_api_key: string | null
           wasender_session_id: string | null
+          wavoip_api_key: string | null
+          wavoip_enabled: boolean
+          wavoip_server_url: string | null
           z_api_client_token: string | null
           z_api_instance_id: string | null
           z_api_token: string | null
@@ -6736,6 +6910,9 @@ export type Database = {
           updated_at?: string
           wasender_api_key?: string | null
           wasender_session_id?: string | null
+          wavoip_api_key?: string | null
+          wavoip_enabled?: boolean
+          wavoip_server_url?: string | null
           z_api_client_token?: string | null
           z_api_instance_id?: string | null
           z_api_token?: string | null
@@ -6771,6 +6948,9 @@ export type Database = {
           updated_at?: string
           wasender_api_key?: string | null
           wasender_session_id?: string | null
+          wavoip_api_key?: string | null
+          wavoip_enabled?: boolean
+          wavoip_server_url?: string | null
           z_api_client_token?: string | null
           z_api_instance_id?: string | null
           z_api_token?: string | null
