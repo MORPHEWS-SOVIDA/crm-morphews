@@ -3092,6 +3092,7 @@ export type Database = {
       non_purchase_reasons: {
         Row: {
           created_at: string
+          exclusivity_hours: number | null
           followup_hours: number | null
           followup_webhook_url: string | null
           id: string
@@ -3106,6 +3107,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          exclusivity_hours?: number | null
           followup_hours?: number | null
           followup_webhook_url?: string | null
           id?: string
@@ -3120,6 +3122,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          exclusivity_hours?: number | null
           followup_hours?: number | null
           followup_webhook_url?: string | null
           id?: string

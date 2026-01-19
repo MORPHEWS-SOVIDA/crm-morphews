@@ -50,6 +50,7 @@ interface ReasonFormData {
   name: string;
   target_stage_id: string;
   followup_hours: number;
+  exclusivity_hours: number;
   webhook_url: string;
   followup_webhook_url: string;
   lead_visibility: 'assigned_only' | 'all_sellers';
@@ -59,6 +60,7 @@ const initialFormData: ReasonFormData = {
   name: '',
   target_stage_id: '',
   followup_hours: 0,
+  exclusivity_hours: 0,
   webhook_url: '',
   followup_webhook_url: '',
   lead_visibility: 'assigned_only',
@@ -94,6 +96,7 @@ export function NonPurchaseReasonsManager() {
         name: formData.name.trim(),
         target_stage_id: formData.target_stage_id || null,
         followup_hours: formData.followup_hours || 0,
+        exclusivity_hours: formData.exclusivity_hours || 0,
         webhook_url: formData.webhook_url.trim() || null,
         followup_webhook_url: formData.followup_webhook_url.trim() || null,
         lead_visibility: formData.lead_visibility,
@@ -120,6 +123,7 @@ export function NonPurchaseReasonsManager() {
           name: formData.name.trim(),
           target_stage_id: formData.target_stage_id || null,
           followup_hours: formData.followup_hours || 0,
+          exclusivity_hours: formData.exclusivity_hours || 0,
           webhook_url: formData.webhook_url.trim() || null,
           followup_webhook_url: formData.followup_webhook_url.trim() || null,
           lead_visibility: formData.lead_visibility,
@@ -147,6 +151,7 @@ export function NonPurchaseReasonsManager() {
       name: reason.name,
       target_stage_id: reason.target_stage_id || '',
       followup_hours: reason.followup_hours || 0,
+      exclusivity_hours: reason.exclusivity_hours || 0,
       webhook_url: reason.webhook_url || '',
       followup_webhook_url: reason.followup_webhook_url || '',
       lead_visibility: reason.lead_visibility as 'assigned_only' | 'all_sellers',
@@ -387,7 +392,10 @@ function ReasonForm({ formData, setFormData, stages }: ReasonFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="followup_hours">Horas para Follow-up</Label>
+        <Label htmlFor="followup_hours" className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-blue-500" />
+          Sugestão de Follow-up (horas)
+        </Label>
         <Input
           id="followup_hours"
           type="number"
@@ -397,9 +405,54 @@ function ReasonForm({ formData, setFormData, stages }: ReasonFormProps) {
           onChange={(e) => setFormData(prev => ({ ...prev, followup_hours: parseInt(e.target.value) || 0 }))}
         />
         <p className="text-xs text-muted-foreground">
-          Após esse tempo, o lead aparecerá na lista de follow-up do vendedor.
+          Este tempo será sugerido ao vendedor, mas ele pode alterar antes de confirmar.
         </p>
       </div>
+
+      <div className="space-y-2">
+        <Label>Visibilidade do Lead</Label>
+        <Select 
+          value={formData.lead_visibility} 
+          onValueChange={(value: 'assigned_only' | 'all_sellers') => 
+            setFormData(prev => ({ ...prev, lead_visibility: value }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="assigned_only">
+              Apenas o vendedor responsável
+            </SelectItem>
+            <SelectItem value="all_sellers">
+              Todos os vendedores da equipe
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Define quem poderá ver o lead após ser classificado com este motivo.
+        </p>
+      </div>
+
+      {formData.lead_visibility === 'assigned_only' && (
+        <div className="space-y-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+          <Label htmlFor="exclusivity_hours" className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-amber-500" />
+            Horas de exclusividade para o vendedor
+          </Label>
+          <Input
+            id="exclusivity_hours"
+            type="number"
+            min="0"
+            placeholder="0"
+            value={formData.exclusivity_hours || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, exclusivity_hours: parseInt(e.target.value) || 0 }))}
+          />
+          <p className="text-xs text-muted-foreground">
+            Após o follow-up, o vendedor tem esse tempo para atender. Se não atender, o lead fica visível para outros vendedores.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="webhook_url">Webhook ao Cadastrar</Label>
@@ -426,31 +479,6 @@ function ReasonForm({ formData, setFormData, stages }: ReasonFormProps) {
         />
         <p className="text-xs text-muted-foreground">
           Chamado quando chegar a hora do follow-up.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Visibilidade do Lead</Label>
-        <Select 
-          value={formData.lead_visibility} 
-          onValueChange={(value: 'assigned_only' | 'all_sellers') => 
-            setFormData(prev => ({ ...prev, lead_visibility: value }))
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="assigned_only">
-              Apenas o vendedor responsável
-            </SelectItem>
-            <SelectItem value="all_sellers">
-              Todos os vendedores da equipe
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Define quem poderá ver o lead após ser classificado com este motivo.
         </p>
       </div>
     </div>

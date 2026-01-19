@@ -11,6 +11,8 @@ interface ScheduleMessagesParams {
   productName?: string;
   productBrand?: string;
   sellerName?: string;
+  /** Custom scheduled date/time for the follow-up. If provided, overrides the default delay calculation. */
+  customScheduledAt?: Date;
 }
 
 /**
@@ -105,15 +107,25 @@ export function useScheduleMessages() {
         return { scheduled: 0, error: null };
       }
 
-      const now = new Date();
+      const baseTime = params.customScheduledAt || new Date();
       const scheduledMessages = [];
 
       for (const template of templates) {
         // Calculate scheduled time
-        let scheduledAt = new Date(now.getTime() + template.delay_minutes * 60 * 1000);
+        // If customScheduledAt is provided, use it as the base and add template delay
+        // Otherwise, use now + template delay
+        let scheduledAt: Date;
+        
+        if (params.customScheduledAt) {
+          // For custom date, add template delay to the custom date
+          scheduledAt = new Date(params.customScheduledAt.getTime() + template.delay_minutes * 60 * 1000);
+        } else {
+          // Default behavior: now + delay
+          scheduledAt = new Date(new Date().getTime() + template.delay_minutes * 60 * 1000);
+        }
 
-        // Check business hours constraint
-        if (template.send_start_hour !== null && template.send_end_hour !== null) {
+        // Check business hours constraint (only apply if not custom scheduled)
+        if (!params.customScheduledAt && template.send_start_hour !== null && template.send_end_hour !== null) {
           const hour = scheduledAt.getHours();
           
           // If outside business hours, adjust to next valid time
