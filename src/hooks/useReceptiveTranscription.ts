@@ -33,16 +33,40 @@ export function useTranscribeCall() {
 
   return useMutation({
     mutationFn: async ({ attendanceId, audioUrl, storagePath }: TranscribeParams): Promise<TranscribeResult> => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        throw new Error('Sessão expirada. Faça login novamente e tente transcrever.');
+      }
+
       const { data, error } = await supabase.functions.invoke('transcribe-call', {
         body: { attendanceId, audioUrl, storagePath },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
       if (error) {
+        const anyErr = error as any;
+        const ctx = anyErr?.context;
+        const ctxBody = ctx?.body;
+
+        if (ctxBody) {
+          try {
+            const parsed = typeof ctxBody === 'string' ? JSON.parse(ctxBody) : ctxBody;
+            const message = parsed?.error || parsed?.message;
+            if (message) throw new Error(String(message));
+          } catch {
+            // fall through to default
+          }
+        }
+
         throw new Error(error.message || 'Erro ao transcrever áudio');
       }
 
-      if (data.error) {
-        throw new Error(data.error);
+      if ((data as any)?.error) {
+        throw new Error((data as any).error);
       }
 
       return data as TranscribeResult;
