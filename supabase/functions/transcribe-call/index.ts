@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -164,7 +165,7 @@ serve(async (req) => {
       const audioResponse = await fetch(effectiveAudioUrl);
       if (!audioResponse.ok) throw new Error(`Failed to fetch audio: ${audioResponse.status}`);
       const audioBuffer = await audioResponse.arrayBuffer();
-      audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+      audioBase64 = encodeBase64(audioBuffer);
     } catch (audioError) {
       console.error("Error fetching audio:", audioError);
       await supabase.from("receptive_attendances").update({ transcription_status: "failed" }).eq("id", attendanceId);
