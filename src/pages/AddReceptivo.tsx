@@ -256,6 +256,9 @@ export default function AddReceptivo() {
   const [purchasePotential, setPurchasePotential] = useState<number>(0);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
   
+  // Delivery observation
+  const [deliveryObservation, setDeliveryObservation] = useState('');
+  
   // Selected address for delivery
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<LeadAddress | null>(null);
@@ -1194,6 +1197,7 @@ export default function AddReceptivo() {
         payment_installments: selectedInstallments,
         payment_status: paymentStatus,
         payment_proof_url: null,
+        observation_1: deliveryObservation || null,
       });
 
       if (attendanceId) {
@@ -2239,6 +2243,23 @@ export default function AddReceptivo() {
                 onChange={setDeliveryConfig}
                 leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
               />
+
+              {/* Delivery Observation Field */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Observação para Entrega
+                </Label>
+                <Textarea
+                  value={deliveryObservation}
+                  onChange={(e) => setDeliveryObservation(e.target.value)}
+                  placeholder="Ex: Colocar em embalagem de presente, será recebido pelo filho, campainha não funciona - buzinar, dividir em duas sacolas..."
+                  className="min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Essa informação aparecerá no romaneio e para o entregador.
+                </p>
+              </div>
 
               {/* Profile Prompt - for missing birth_date, gender, favorite_team */}
               {leadData.id && (
