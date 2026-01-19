@@ -48,7 +48,7 @@ export function ProtectedRoute({
 
   // Handle initial redirect based on user's default_landing_page
   // Only do this for the root path to avoid loops
-  if (location.pathname === '/' && permissions?.default_landing_page && permissions.default_landing_page !== '/dashboard') {
+  if (location.pathname === '/' && permissions?.default_landing_page && permissions.default_landing_page !== '/' && permissions.default_landing_page !== '/dashboard') {
     return <Navigate to={permissions.default_landing_page} replace />;
   }
 

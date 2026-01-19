@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Layout } from '@/components/layout/Layout';
+import { SmartLayout } from '@/components/layout/SmartLayout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
 import { FunnelVisualization } from '@/components/dashboard/FunnelVisualization';
@@ -95,18 +95,18 @@ export default function Dashboard() {
 
   if (isLoading || loadingStages || permissionsLoading) {
     return (
-      <Layout>
+      <SmartLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </Layout>
+      </SmartLayout>
     );
   }
 
   // If user only has delivery permissions, show simplified dashboard
   if (!canSeeLeads && canSeeDeliveries) {
     return (
-      <Layout>
+      <SmartLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
@@ -132,14 +132,14 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-      </Layout>
+      </SmartLayout>
     );
   }
 
   // If user has no relevant permissions at all
   if (!canSeeLeads && !canSeeDeliveries) {
     return (
-      <Layout>
+      <SmartLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
@@ -156,25 +156,25 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-      </Layout>
+      </SmartLayout>
     );
   }
 
   if (error) {
     return (
-      <Layout>
+      <SmartLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <p className="text-destructive mb-2">Erro ao carregar leads</p>
             <p className="text-sm text-muted-foreground">{error.message}</p>
           </div>
         </div>
-      </Layout>
+      </SmartLayout>
     );
   }
 
   return (
-    <Layout>
+    <SmartLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -280,6 +280,6 @@ export default function Dashboard() {
           />
         )}
       </div>
-    </Layout>
+    </SmartLayout>
   );
 }
