@@ -2710,6 +2710,7 @@ export type Database = {
       leads: {
         Row: {
           assigned_to: string
+          birth_date: string | null
           cep: string | null
           city: string | null
           complement: string | null
@@ -2720,7 +2721,9 @@ export type Database = {
           delivery_region_id: string | null
           desired_products: string | null
           email: string | null
+          favorite_team: string | null
           followers: number | null
+          gender: string | null
           google_maps_link: string | null
           id: string
           instagram: string | null
@@ -2752,6 +2755,7 @@ export type Database = {
         }
         Insert: {
           assigned_to: string
+          birth_date?: string | null
           cep?: string | null
           city?: string | null
           complement?: string | null
@@ -2762,7 +2766,9 @@ export type Database = {
           delivery_region_id?: string | null
           desired_products?: string | null
           email?: string | null
+          favorite_team?: string | null
           followers?: number | null
+          gender?: string | null
           google_maps_link?: string | null
           id?: string
           instagram?: string | null
@@ -2794,6 +2800,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string
+          birth_date?: string | null
           cep?: string | null
           city?: string | null
           complement?: string | null
@@ -2804,7 +2811,9 @@ export type Database = {
           delivery_region_id?: string | null
           desired_products?: string | null
           email?: string | null
+          favorite_team?: string | null
           followers?: number | null
+          gender?: string | null
           google_maps_link?: string | null
           id?: string
           instagram?: string | null

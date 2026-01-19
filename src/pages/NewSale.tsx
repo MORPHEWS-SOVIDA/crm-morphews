@@ -50,12 +50,14 @@ import {
 import { toast } from 'sonner';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useCreateSale, formatCurrency, DeliveryType } from '@/hooks/useSales';
+import { useUpdateLead } from '@/hooks/useLeads';
 import { LeadSearchSelect } from '@/components/sales/LeadSearchSelect';
 import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialog';
 import { ProductSelectorForSale } from '@/components/products/ProductSelectorForSale';
 import { ProductLabelViewer } from '@/components/products/ProductLabelViewer';
 import { DeliveryTypeSelector } from '@/components/sales/DeliveryTypeSelector';
 import { AddressSelector } from '@/components/sales/AddressSelector';
+import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { LeadAddress } from '@/hooks/useLeadAddresses';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
@@ -88,6 +90,10 @@ interface SelectedLead {
   neighborhood: string | null;
   cep: string | null;
   delivery_region_id: string | null;
+  // Profile fields
+  birth_date: string | null;
+  gender: string | null;
+  favorite_team: string | null;
 }
 
 interface DeliveryConfig {
@@ -110,6 +116,7 @@ export default function NewSale() {
   const { user } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const createSale = useCreateSale();
+  const updateLead = useUpdateLead();
   
   // Permission check
   const canCreateSale = permissions?.sales_create;
@@ -411,6 +418,20 @@ export default function NewSale() {
                         </div>
                       </div>
                     )}
+
+                    {/* Profile Prompt - Animated section to gather customer info */}
+                    <LeadProfilePrompt
+                      leadId={selectedLead.id}
+                      leadName={selectedLead.name}
+                      currentBirthDate={selectedLead.birth_date}
+                      currentGender={selectedLead.gender}
+                      currentFavoriteTeam={selectedLead.favorite_team}
+                      onUpdate={async (data) => {
+                        await updateLead.mutateAsync({ id: selectedLead.id, ...data });
+                        // Update local state to reflect changes
+                        setSelectedLead(prev => prev ? { ...prev, ...data } : prev);
+                      }}
+                    />
 
                     {/* Client Details */}
                     <div className="grid grid-cols-2 gap-4 text-sm">
