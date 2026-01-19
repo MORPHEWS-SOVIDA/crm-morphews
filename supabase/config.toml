@@ -64,7 +64,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.transcribe-call]
-verify_jwt = true
+verify_jwt = false
 
 [functions.lead-intelligence]
-verify_jwt = true
+verify_jwt = false
