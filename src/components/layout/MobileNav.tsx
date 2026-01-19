@@ -64,10 +64,10 @@ export function MobileNav() {
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeAllDeliveries = permissions?.deliveries_view_all;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
-  // Financial: requires explicit reports_view permission - sales_confirm_payment alone is for motoboy uploads, not dashboard access
+  // Financial menu: requires reports_view permission - NOT sales_confirm_payment (which is for motoboy payment actions only)
   const canSeeFinanceiro = isAdmin || permissions?.reports_view;
-  // Expedition: requires explicit permission - motoboy with deliveries_view_own should NOT see expedition
-  const canSeeExpedition = isAdmin || permissions?.expedition_view || permissions?.sales_validate_expedition;
+  // Expedition: requires ONLY expedition_view - validate_expedition is an action, not menu access
+  const canSeeExpedition = isAdmin || permissions?.expedition_view;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
   const canSeeTeam = isAdmin || permissions?.team_view;
