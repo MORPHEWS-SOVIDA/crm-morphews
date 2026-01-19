@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Accordion,
   AccordionContent,
@@ -61,6 +62,7 @@ const createEmptyKit = (quantity: number = 1, position: number = 0): ProductPric
   points_promotional_2: 0,
   points_minimum: 0,
   usage_period_days: null,
+  sales_hack: null,
   position,
 });
 
@@ -348,6 +350,27 @@ function SortableKitItem({
                   />
                 </div>
               )}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Hack para Vender Mais */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              💡 Hack para Vender Mais
+            </h4>
+            <div>
+              <Label>Script / Dica para o Vendedor</Label>
+              <Textarea
+                value={kit.sales_hack || ''}
+                onChange={(e) => onUpdate({ sales_hack: e.target.value || null })}
+                placeholder="Ex: 'Esse kit dá pra 3 meses, cliente economiza 40% em relação a comprar avulso...' ou 'Fala que esse kit vem com brinde surpresa!'"
+                className="mt-1 min-h-[80px]"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Essa frase aparece para o vendedor durante a negociação
+              </p>
             </div>
           </div>
 

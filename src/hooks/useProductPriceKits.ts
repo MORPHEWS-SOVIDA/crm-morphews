@@ -35,6 +35,9 @@ export interface ProductPriceKit {
   // Período de uso por kit
   usage_period_days: number | null;
   
+  // Hack para vender mais
+  sales_hack: string | null;
+  
   position: number;
   created_at: string;
   updated_at: string;
@@ -68,6 +71,9 @@ export interface ProductPriceKitFormData {
   
   // Período de uso por kit
   usage_period_days?: number | null;
+  
+  // Hack para vender mais
+  sales_hack?: string | null;
   
   position?: number;
 }
@@ -125,6 +131,7 @@ export function useCreateProductPriceKit() {
           points_promotional_2: data.points_promotional_2 || 0,
           points_minimum: data.points_minimum || 0,
           usage_period_days: data.usage_period_days || null,
+          sales_hack: data.sales_hack || null,
           position: data.position || 0,
         })
         .select()
@@ -262,6 +269,7 @@ export function useBulkSaveProductPriceKits() {
           points_promotional_2: kit.points_promotional_2 || 0,
           points_minimum: kit.points_minimum || 0,
           usage_period_days: kit.usage_period_days || null,
+          sales_hack: kit.sales_hack || null,
           position: index,
         }));
 
