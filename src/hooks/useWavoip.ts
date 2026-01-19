@@ -28,9 +28,8 @@ interface MakeCallParams {
   isVideo?: boolean;
 }
 
-// Hard-coded Evolution API credentials (from memory)
-const EVOLUTION_API_URL = 'https://evo.farmaciasovida.com.br';
-const EVOLUTION_API_KEY = '6CKgZJL57Er3xfnXFe03FV7ECrnjVl6';
+// Calls are proxied through a backend function (keeps server URL/API key private)
+// and allows per-instance configuration for multi-tenant setups.
 
 /**
  * Hook para gerenciar chamadas Wavoip via Evolution API
@@ -68,85 +67,18 @@ export function useWavoip(instanceId?: string | null) {
     enabled: !!instanceId,
   });
 
-  // Check Wavoip availability
+  // Check Wavoip availability (client-side): if enabled on the instance, we allow dialing.
+  // Real integration errors are surfaced when attempting a call (handled by the backend function).
   const checkWavoipAvailability = useCallback(async () => {
-    console.log('🔍 ===== DIAGNÓSTICO WAVOIP INICIADO =====');
-    
-    // If instance doesn't have Wavoip enabled, skip check
+    // If instance doesn't have Wavoip enabled, skip
     if (!instanceConfig?.wavoipEnabled) {
-      console.log('⚠️ Wavoip não habilitado para esta instância');
       setWavoipStatus('disabled');
       setWavoipError('Chamadas não habilitadas para esta instância');
       return;
     }
 
-    console.log('🔍 Testando endpoint:', `${EVOLUTION_API_URL}/call/offer/diagnostic-test`);
-    
-    try {
-      const response = await fetch(
-        `${EVOLUTION_API_URL}/call/offer/diagnostic-test`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY
-          },
-          body: JSON.stringify({
-            number: '5500000000000@s.whatsapp.net',
-            isVideo: false,
-            callDuration: 1
-          })
-        }
-      );
-      
-      console.log('🔍 Status da resposta:', response.status);
-      
-      let data: any = null;
-      try {
-        data = await response.json();
-        console.log('🔍 Dados da resposta:', data);
-      } catch {
-        console.log('🔍 Resposta sem JSON válido');
-      }
-      
-      if (response.status === 404) {
-        console.error('❌ ===== WAVOIP NÃO INTEGRADO =====');
-        console.error('❌ O endpoint /call/offer retornou 404');
-        console.error('❌ Isso significa que o script sync_wavoip_docker.sh NÃO RODOU');
-        console.error('❌ SOLUÇÃO: Modificar o Dockerfile da Evolution API para executar o script do Wavoip');
-        
-        setWavoipStatus('unavailable');
-        setWavoipError('Endpoint /call/offer não encontrado (404). O Wavoip não foi integrado.');
-        
-      } else if (response.status === 401 || response.status === 403) {
-        console.error('❌ ===== ERRO DE AUTENTICAÇÃO =====');
-        console.error('❌ API Key pode estar incorreta');
-        
-        setWavoipStatus('error');
-        setWavoipError(`Erro de autenticação (${response.status}). Verifique a API Key.`);
-        
-      } else {
-        // Any other response means the endpoint EXISTS
-        console.log('✅ ===== WAVOIP INTEGRADO COM SUCESSO =====');
-        console.log('✅ O endpoint /call/offer respondeu');
-        console.log('✅ Status:', response.status);
-        console.log('✅ O erro "Instance not found" ou similar é ESPERADO neste teste');
-        console.log('✅ Funcionalidade de chamadas está DISPONÍVEL');
-        
-        setWavoipStatus('available');
-        setWavoipError(null);
-      }
-      
-    } catch (error: any) {
-      console.error('❌ ===== ERRO DE REDE =====');
-      console.error('❌ Não foi possível conectar com a API:', error);
-      console.error('❌ Verifique se a Evolution API está rodando');
-      
-      setWavoipStatus('error');
-      setWavoipError(`Erro de conexão: ${error.message}`);
-    }
-    
-    console.log('🔍 ===== DIAGNÓSTICO CONCLUÍDO =====');
+    setWavoipStatus('available');
+    setWavoipError(null);
   }, [instanceConfig?.wavoipEnabled]);
 
   // Check availability when instance config changes
