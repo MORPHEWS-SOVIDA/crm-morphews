@@ -37,7 +37,10 @@ import {
   Wand2,
   ShoppingCart,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Play,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -122,6 +125,8 @@ export function IntegrationDetailDialog({
   const [mappings, setMappings] = useState<FieldMappingRow[]>([]);
   const [showPayloadViewer, setShowPayloadViewer] = useState(false);
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Initialize mappings from data
   useEffect(() => {
@@ -233,10 +238,57 @@ export function IntegrationDetailDialog({
   };
 
   const webhookUrl = getWebhookUrl(integration.auth_token);
+  const webhookTestUrl = `${webhookUrl}&test=1`;
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(webhookUrl);
     toast.success('URL copiada!');
+  };
+
+  const handleTestWebhook = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    
+    try {
+      const response = await fetch(webhookTestUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          test: true, 
+          source: 'crm_test',
+          timestamp: new Date().toISOString(),
+          sample_data: {
+            name: 'Teste CRM',
+            whatsapp: '5511999999999',
+            email: 'teste@exemplo.com'
+          }
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setTestResult({ 
+          success: true, 
+          message: 'Webhook funcionando! O teste foi registrado nos logs.' 
+        });
+        toast.success('Webhook funcionando corretamente!');
+      } else {
+        setTestResult({ 
+          success: false, 
+          message: data.error || 'Erro ao testar webhook' 
+        });
+        toast.error(data.error || 'Erro ao testar webhook');
+      }
+    } catch (error) {
+      setTestResult({ 
+        success: false, 
+        message: 'Erro de conexão. Verifique sua internet.' 
+      });
+      toast.error('Erro ao conectar com o webhook');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const handleToggleStatus = async () => {
@@ -399,23 +451,78 @@ export function IntegrationDetailDialog({
                 <CardHeader>
                   <CardTitle className="text-lg">URL do Webhook</CardTitle>
                   <CardDescription>
-                    Use esta URL para receber dados de sistemas externos
+                    Cole esta URL no sistema externo (Payt, Hotmart, etc)
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      readOnly
-                      value={webhookUrl}
-                      className="font-mono text-sm"
-                    />
-                    <Button size="icon" variant="outline" onClick={handleCopyUrl}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">URL de Produção</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={webhookUrl}
+                        className="font-mono text-xs"
+                      />
+                      <Button size="icon" variant="outline" onClick={handleCopyUrl}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use esta URL para receber dados reais (leads/vendas serão criados)
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Configure esta URL no sistema externo (Payt, Hotmart, etc) para receber webhooks.
-                  </p>
+                  
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm font-medium">Testar Conexão</Label>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={handleTestWebhook}
+                        disabled={isTesting}
+                      >
+                        {isTesting ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4 mr-1" />
+                        )}
+                        {isTesting ? 'Testando...' : 'Testar Agora'}
+                      </Button>
+                    </div>
+                    
+                    {testResult && (
+                      <div className={`p-3 rounded-lg flex items-start gap-2 ${
+                        testResult.success 
+                          ? 'bg-green-500/10 text-green-700 dark:text-green-400' 
+                          : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                      }`}>
+                        {testResult.success ? (
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                        )}
+                        <span className="text-sm">{testResult.message}</span>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Isso envia um evento de teste para verificar se a URL está acessível.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                      <div className="text-xs text-muted-foreground">
+                        <p className="font-medium mb-1">Se a plataforma externa não aceitar a URL:</p>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          <li>Verifique se copiou a URL completa (incluindo o token)</li>
+                          <li>Algumas plataformas adicionam <code className="bg-background px-1 rounded">?test=1</code> automaticamente</li>
+                          <li>Se continuar falhando, entre em contato com o suporte da plataforma</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
