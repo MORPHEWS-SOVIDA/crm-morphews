@@ -45,6 +45,7 @@ interface InstanceUser {
   user_id: string;
   can_view: boolean;
   can_send: boolean;
+  can_use_phone: boolean;
   is_instance_admin: boolean;
   participates_in_distribution: boolean;
   is_always_available: boolean;
@@ -418,6 +419,12 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                         <span className="text-[10px]">Admin</span>
                       </div>
                     </TableHead>
+                    <TableHead className="text-center w-[70px]">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Phone className="h-4 w-4" />
+                        <span className="text-[10px]">Telefone</span>
+                      </div>
+                    </TableHead>
                     {distributionMode === "auto" && (
                       <>
                         <TableHead className="text-center w-[90px]">
@@ -504,6 +511,19 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                                 updatePermissionMutation.mutate({
                                   id: permission.id,
                                   is_instance_admin: checked,
+                                })
+                              }
+                            />
+                          </TableCell>
+
+                          {/* Telefone */}
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={permission.can_use_phone}
+                              onCheckedChange={(checked) =>
+                                updatePermissionMutation.mutate({
+                                  id: permission.id,
+                                  can_use_phone: checked,
                                 })
                               }
                             />

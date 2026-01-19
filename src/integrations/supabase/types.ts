@@ -6788,6 +6788,7 @@ export type Database = {
           available_from: string | null
           available_until: string | null
           can_send: boolean
+          can_use_phone: boolean
           can_view: boolean
           created_at: string
           id: string
@@ -6801,6 +6802,7 @@ export type Database = {
           available_from?: string | null
           available_until?: string | null
           can_send?: boolean
+          can_use_phone?: boolean
           can_view?: boolean
           created_at?: string
           id?: string
@@ -6814,6 +6816,7 @@ export type Database = {
           available_from?: string | null
           available_until?: string | null
           can_send?: boolean
+          can_use_phone?: boolean
           can_view?: boolean
           created_at?: string
           id?: string

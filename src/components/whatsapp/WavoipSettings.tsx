@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Phone, PhoneCall, Users, Loader2, Check, X, AlertTriangle, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import { Phone, PhoneCall, Users, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -34,56 +33,27 @@ export function WavoipSettings({
   const [isUpdating, setIsUpdating] = useState(false);
   const [showQueueDialog, setShowQueueDialog] = useState(false);
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
 
-  // Fetch instance users (users with permission on this instance)
-  const { data: instanceUsers } = useQuery({
-    queryKey: ['instance-users-for-wavoip', instanceId],
+  // Fetch users with phone permission
+  const { data: phoneUsers, isLoading: loadingPhoneUsers } = useQuery({
+    queryKey: ['instance-phone-users', instanceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('whatsapp_instance_users')
         .select(`
+          id,
           user_id,
-          can_view,
-          can_send,
+          can_use_phone,
           profiles:user_id (id, first_name, last_name, avatar_url)
         `)
-        .eq('instance_id', instanceId);
+        .eq('instance_id', instanceId)
+        .eq('can_use_phone', true);
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
-    enabled: !!instanceId,
+    enabled: !!instanceId && wavoipEnabled,
   });
-
-  // Add all instance users to call queue when Wavoip is enabled
-  const addAllUsersToQueue = async () => {
-    if (!instanceUsers || !profile?.organization_id) return;
-
-    const usersToAdd = instanceUsers.filter(u => u.can_send); // Only users who can send messages
-    
-    for (let i = 0; i < usersToAdd.length; i++) {
-      const user = usersToAdd[i];
-      try {
-        await supabase
-          .from('whatsapp_call_queue')
-          .upsert({
-            organization_id: profile.organization_id,
-            instance_id: instanceId,
-            user_id: user.user_id,
-            position: i,
-            is_available: false, // Start as unavailable, user needs to enable
-          }, {
-            onConflict: 'instance_id,user_id',
-            ignoreDuplicates: true,
-          });
-      } catch (error) {
-        console.error('Error adding user to queue:', error);
-      }
-    }
-    
-    queryClient.invalidateQueries({ queryKey: ['call-queue', instanceId] });
-  };
 
   const handleToggleWavoip = async (enabled: boolean) => {
     setIsUpdating(true);
@@ -95,16 +65,15 @@ export function WavoipSettings({
 
       if (error) throw error;
 
-      // If enabling, add all instance users to the call queue
       if (enabled) {
-        await addAllUsersToQueue();
-        toast.success('Chamadas habilitadas! Usuários adicionados à fila.');
+        toast.success('Chamadas habilitadas! Habilite a permissão de telefone para os usuários na tabela acima.');
       } else {
         toast.success('Chamadas desabilitadas');
       }
       
       queryClient.invalidateQueries({ queryKey: ['whatsapp-instances'] });
       queryClient.invalidateQueries({ queryKey: ['wavoip-instance-config'] });
+      queryClient.invalidateQueries({ queryKey: ['instance-phone-users'] });
       onUpdate?.();
     } catch (error: any) {
       toast.error('Erro ao atualizar configuração');
@@ -128,7 +97,7 @@ export function WavoipSettings({
             <div>
               <p className="font-medium text-sm">Habilitar Chamadas</p>
               <p className="text-xs text-muted-foreground">
-                {wavoipEnabled ? 'Usuários podem fazer e receber chamadas' : 'Chamadas desabilitadas'}
+                {wavoipEnabled ? 'Usuários com permissão podem fazer e receber chamadas' : 'Chamadas desabilitadas'}
               </p>
             </div>
           </div>
@@ -145,10 +114,10 @@ export function WavoipSettings({
               <div>
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  Fila de Atendimento
+                  Usuários com Acesso
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Usuários que podem receber chamadas
+                  Habilite a permissão "Telefone" na tabela acima
                 </p>
               </div>
               <Button
@@ -156,11 +125,11 @@ export function WavoipSettings({
                 size="sm"
                 onClick={() => setShowQueueDialog(true)}
               >
-                Gerenciar Fila
+                Ver Fila
               </Button>
             </div>
             
-            <CallQueuePreview instanceId={instanceId} />
+            <PhoneUsersPreview users={phoneUsers} isLoading={loadingPhoneUsers} />
           </div>
         )}
       </div>
@@ -176,11 +145,9 @@ export function WavoipSettings({
 }
 
 /**
- * Preview of users in the call queue
+ * Preview of users with phone permission
  */
-function CallQueuePreview({ instanceId }: { instanceId: string }) {
-  const { callQueue, isLoading } = useCallQueue(instanceId);
-
+function PhoneUsersPreview({ users, isLoading }: { users: any[] | undefined; isLoading: boolean }) {
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -190,22 +157,20 @@ function CallQueuePreview({ instanceId }: { instanceId: string }) {
     );
   }
 
-  const availableUsers = callQueue?.filter(u => u.is_available) || [];
-  const totalUsers = callQueue?.length || 0;
+  const totalUsers = users?.length || 0;
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {totalUsers === 0 ? (
-        <p className="text-xs text-muted-foreground">Nenhum usuário na fila</p>
+        <p className="text-xs text-muted-foreground">
+          Nenhum usuário com permissão de telefone. Habilite na coluna "Telefone" acima.
+        </p>
       ) : (
         <>
           {/* Avatar stack */}
           <div className="flex -space-x-2">
-            {callQueue?.slice(0, 5).map((entry) => (
-              <Avatar key={entry.id} className={cn(
-                "h-8 w-8 border-2 border-background",
-                !entry.is_available && "opacity-50"
-              )}>
+            {users?.slice(0, 5).map((entry) => (
+              <Avatar key={entry.id} className="h-8 w-8 border-2 border-background">
                 <AvatarImage src={(entry.profiles as any)?.avatar_url} />
                 <AvatarFallback className="text-xs">
                   {(entry.profiles as any)?.first_name?.[0] || 'U'}
@@ -219,8 +184,8 @@ function CallQueuePreview({ instanceId }: { instanceId: string }) {
             )}
           </div>
           <div className="text-xs text-muted-foreground">
-            <span className="text-green-600 font-medium">{availableUsers.length}</span>
-            <span> de {totalUsers} online</span>
+            <span className="text-primary font-medium">{totalUsers}</span>
+            <span> usuário(s) com permissão</span>
           </div>
         </>
       )}
@@ -236,7 +201,7 @@ interface CallQueueDialogProps {
 }
 
 /**
- * Dialog for managing the call queue (round-robin distribution)
+ * Dialog for viewing the call queue
  */
 function CallQueueDialog({ 
   open, 
@@ -244,8 +209,8 @@ function CallQueueDialog({
   instanceId, 
   instanceName 
 }: CallQueueDialogProps) {
-  const { callQueue, isLoading, toggleAvailability, removeFromQueue } = useCallQueue(instanceId);
-  const { isInQueue, isAvailable, setAvailable, leaveQueue, queuePosition } = useUserCallAvailability(instanceId);
+  const { callQueue, isLoading } = useCallQueue(instanceId);
+  const { isInQueue, isAvailable, setAvailable, queuePosition } = useUserCallAvailability(instanceId);
   const { profile } = useAuth();
 
   return (
@@ -333,18 +298,15 @@ function CallQueueDialog({
                           <p className="text-sm font-medium">
                             {(entry.profiles as any)?.first_name} {(entry.profiles as any)?.last_name}
                           </p>
-                          <div className="flex items-center gap-1">
-                            {entry.is_available ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <X className="h-3 w-3 text-muted-foreground" />
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                              {entry.calls_received} chamadas
-                            </span>
-                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.calls_received} chamadas
+                          </p>
                         </div>
                       </div>
+                      <div className={cn(
+                        "w-2.5 h-2.5 rounded-full",
+                        entry.is_available ? "bg-green-500" : "bg-muted-foreground/30"
+                      )} />
                     </div>
                   ))}
                 </div>
@@ -383,7 +345,7 @@ function CallQueueDialog({
  * Floating availability toggle for the user
  */
 export function WavoipAvailabilityToggle({ instanceId }: { instanceId: string }) {
-  const { isInQueue, isAvailable, setAvailable } = useUserCallAvailability(instanceId);
+  const { isAvailable, setAvailable } = useUserCallAvailability(instanceId);
   const { wavoipStatus } = useWavoip(instanceId);
 
   if (wavoipStatus !== 'available') {
