@@ -44,6 +44,7 @@ import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
 import { RecordingUploader } from '@/components/receptive/RecordingUploader';
 import { useAuth } from '@/hooks/useAuth';
+import { extractReceptiveRecordingStoragePath } from '@/lib/receptive-recordings';
 import { toast } from 'sonner';
 
 export default function ReceptiveManagement() {
@@ -100,7 +101,8 @@ export default function ReceptiveManagement() {
   };
 
   const handleTranscribe = async (id: string, audioUrl: string) => {
-    const storagePath = storagePaths[id];
+    // IMPORTANT: signed URLs expire; try to recover the storage path from the URL when possible
+    const storagePath = storagePaths[id] || extractReceptiveRecordingStoragePath(audioUrl) || undefined;
     await transcribeCall.mutateAsync({ attendanceId: id, audioUrl, storagePath });
   };
 
