@@ -1081,21 +1081,19 @@ export default function MyDeliveries() {
 
   return (
     <SmartLayout>
-      <div className="space-y-4 pb-24 lg:pb-8">
+      <div className="space-y-4 pb-8">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-4 px-1 -mx-1 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <Truck className="w-5 h-5 text-primary" />
-                Minhas Entregas
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {pendingCount} pendente{pendingCount !== 1 ? 's' : ''} 
-                {completedCount > 0 && ` • ${completedCount} concluída${completedCount !== 1 ? 's' : ''}`}
-                {pendingCount > 0 && ' • Arraste para reordenar'}
-              </p>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <Truck className="w-5 h-5 text-primary" />
+              Minhas Entregas
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {pendingCount} pendente{pendingCount !== 1 ? 's' : ''} 
+              {completedCount > 0 && ` • ${completedCount} concluída${completedCount !== 1 ? 's' : ''}`}
+              {pendingCount > 0 && ' • Arraste para reordenar'}
+            </p>
           </div>
         </div>
 

@@ -1,12 +1,28 @@
 import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
+  const { data: permissions } = useMyPermissions();
+  
+  // If user has hide_sidebar preference, show minimal layout
+  if (permissions?.hide_sidebar) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="min-h-screen">
+          <div className="p-4">
+            {children}
+          </div>
+        </main>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />

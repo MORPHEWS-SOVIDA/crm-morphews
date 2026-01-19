@@ -64,7 +64,10 @@ export function MobileNav() {
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeAllDeliveries = permissions?.deliveries_view_all;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
-  const canSeeFinanceiro = isAdmin || permissions?.reports_view || permissions?.sales_confirm_payment;
+  // Financial: requires explicit reports_view permission - sales_confirm_payment alone is for motoboy uploads, not dashboard access
+  const canSeeFinanceiro = isAdmin || permissions?.reports_view;
+  // Expedition: requires explicit permission - motoboy with deliveries_view_own should NOT see expedition
+  const canSeeExpedition = isAdmin || permissions?.expedition_view || permissions?.sales_validate_expedition;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
   const canSeeTeam = isAdmin || permissions?.team_view;
@@ -105,7 +108,7 @@ export function MobileNav() {
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
     { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
     { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
-    { icon: Package, label: 'Expedição', path: '/expedicao', visible: (canSeeAllDeliveries || permissions?.sales_validate_expedition) && hasFeature('deliveries') },
+    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('deliveries') },
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
     { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries && hasFeature('deliveries') },
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
