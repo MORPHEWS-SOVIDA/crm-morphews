@@ -14,6 +14,7 @@ import {
   Package,
   ShoppingCart as SalesIcon,
   Truck,
+  BarChart3,
   Headphones,
   DollarSign,
   UserPlus,
@@ -106,6 +107,7 @@ export function Sidebar() {
     
     // Receptivo (special module) - requires receptive feature in plan
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
+    { icon: BarChart3, label: 'Gerência Receptivo', path: '/gerencia-receptivo', visible: (isAdmin || isManager) && canSeeReceptive && hasFeature('receptive') },
     
     // Leads
     { icon: Users, label: 'Todos os Leads', path: '/leads', visible: canSeeLeads && hasFeature('leads') },

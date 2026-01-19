@@ -36,49 +36,73 @@ interface LeadReceptiveHistorySectionProps {
 }
 
 function QualityScoreDisplay({ score }: { score: CallQualityScore }) {
+  // Helper to get numeric score (supports both new numeric and legacy boolean format)
+  const getScore = (numericKey: keyof CallQualityScore, legacyKey?: keyof CallQualityScore): number => {
+    const numericValue = score[numericKey];
+    if (typeof numericValue === 'number') return numericValue;
+    // Fallback for legacy boolean format
+    if (legacyKey) {
+      const legacyValue = score[legacyKey];
+      if (typeof legacyValue === 'boolean') return legacyValue ? 8 : 3;
+    }
+    return 5;
+  };
+
   const criteria = [
-    { key: 'proper_greeting', label: 'Saudação adequada', value: score.proper_greeting },
-    { key: 'asked_needs', label: 'Perguntou necessidades', value: score.asked_needs },
-    { key: 'followed_script', label: 'Seguiu script', value: score.followed_script },
-    { key: 'offered_kits', label: 'Ofereceu kits', value: score.offered_kits },
-    { key: 'handled_objections', label: 'Contornou objeções', value: score.handled_objections },
-    { key: 'clear_next_steps', label: 'Próximos passos claros', value: score.clear_next_steps },
+    { key: 'proper_greeting_score' as const, legacyKey: 'proper_greeting' as const, label: 'Saudação adequada' },
+    { key: 'asked_needs_score' as const, legacyKey: 'asked_needs' as const, label: 'Perguntou necessidades' },
+    { key: 'followed_script_score' as const, legacyKey: 'followed_script' as const, label: 'Seguiu script' },
+    { key: 'offered_kits_score' as const, legacyKey: 'offered_kits' as const, label: 'Ofereceu kits' },
+    { key: 'handled_objections_score' as const, legacyKey: 'handled_objections' as const, label: 'Contornou objeções' },
+    { key: 'clear_next_steps_score' as const, legacyKey: 'clear_next_steps' as const, label: 'Próximos passos claros' },
   ];
 
-  const scoreColor = score.overall_score >= 8 ? 'text-green-600' : 
-                     score.overall_score >= 5 ? 'text-yellow-600' : 'text-red-600';
+  const getScoreColor = (value: number) => {
+    if (value >= 8) return 'text-green-600';
+    if (value >= 5) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBg = (value: number) => {
+    if (value >= 8) return 'bg-green-100 text-green-700';
+    if (value >= 5) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
+  };
+
+  const overallScoreColor = getScoreColor(score.overall_score);
 
   return (
     <div className="mt-3 p-3 bg-muted/30 rounded-lg space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Nota da Ligação</span>
+        <span className="text-sm font-medium">Nota Geral da Ligação</span>
         <div className="flex items-center gap-1">
-          <Star className={`w-4 h-4 ${scoreColor} fill-current`} />
-          <span className={`text-lg font-bold ${scoreColor}`}>{score.overall_score}/10</span>
+          <Star className={`w-5 h-5 ${overallScoreColor} fill-current`} />
+          <span className={`text-xl font-bold ${overallScoreColor}`}>{score.overall_score}/10</span>
         </div>
       </div>
       
       <Progress value={score.overall_score * 10} className="h-2" />
       
-      <div className="grid grid-cols-2 gap-2">
-        {criteria.map(({ key, label, value }) => (
-          <div key={key} className="flex items-center gap-2 text-xs">
-            {value ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-            ) : (
-              <XCircleIcon className="w-3.5 h-3.5 text-red-400" />
-            )}
-            <span className={value ? 'text-foreground' : 'text-muted-foreground'}>{label}</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+        {criteria.map(({ key, legacyKey, label }) => {
+          const value = getScore(key, legacyKey);
+          return (
+            <div key={key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-background border">
+              <span className="text-xs text-muted-foreground">{label}</span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${getScoreBg(value)}`}>
+                {value}/10
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {score.summary && (
-        <p className="text-xs text-muted-foreground italic">"{score.summary}"</p>
+        <p className="text-xs text-muted-foreground italic mt-2">"{score.summary}"</p>
       )}
 
       {score.improvements && score.improvements.length > 0 && (
-        <div className="space-y-1">
+        <div className="space-y-1 mt-2">
           <p className="text-xs font-medium flex items-center gap-1 text-amber-600">
             <AlertTriangle className="w-3 h-3" />
             Sugestões de melhoria:

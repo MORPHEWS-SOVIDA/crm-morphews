@@ -2,12 +2,21 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CallQualityScore {
-  followed_script: boolean;
-  offered_kits: boolean;
-  proper_greeting: boolean;
-  asked_needs: boolean;
-  handled_objections: boolean;
-  clear_next_steps: boolean;
+  // Individual scores 1-10
+  proper_greeting_score: number;
+  asked_needs_score: number;
+  followed_script_score: number;
+  offered_kits_score: number;
+  handled_objections_score: number;
+  clear_next_steps_score: number;
+  // Legacy boolean fields (for backward compatibility)
+  followed_script?: boolean;
+  offered_kits?: boolean;
+  proper_greeting?: boolean;
+  asked_needs?: boolean;
+  handled_objections?: boolean;
+  clear_next_steps?: boolean;
+  // Overall
   overall_score: number;
   summary: string;
   improvements: string[];

@@ -39,6 +39,7 @@ import SalesReport from "./pages/SalesReport";
 import Financial from "./pages/Financial";
 import SignupSuccess from "./pages/SignupSuccess";
 import AddReceptivo from "./pages/AddReceptivo";
+import ReceptiveManagement from "./pages/ReceptiveManagement";
 import WhatsAppV2 from "./pages/WhatsAppV2";
 import TwoFactorAuth from "./pages/TwoFactorAuth";
 import PostSaleKanban from "./pages/PostSaleKanban";
@@ -384,6 +385,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['receptive_module_access']}>
                     <AddReceptivo />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gerencia-receptivo"
+                element={
+                  <ProtectedRoute requiredPermissions={['receptive_module_access']}>
+                    <ReceptiveManagement />
                   </ProtectedRoute>
                 }
               />

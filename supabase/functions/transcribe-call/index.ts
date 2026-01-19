@@ -12,16 +12,21 @@ interface TranscribeRequest {
 }
 
 interface CallQualityScore {
-  followed_script: boolean;
-  offered_kits: boolean;
-  proper_greeting: boolean;
-  asked_needs: boolean;
-  handled_objections: boolean;
-  clear_next_steps: boolean;
+  // Individual scores 1-10
+  proper_greeting_score: number;
+  asked_needs_score: number;
+  followed_script_score: number;
+  offered_kits_score: number;
+  handled_objections_score: number;
+  clear_next_steps_score: number;
+  // Overall
   overall_score: number;
   summary: string;
   improvements: string[];
 }
+
+const ENERGY_COST_TRANSCRIPTION = 50; // Base cost for transcription
+const ENERGY_COST_ANALYSIS = 20; // Cost for quality analysis
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -47,6 +52,60 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get the attendance to find the organization_id
+    const { data: attendance, error: attendanceError } = await supabase
+      .from("receptive_attendances")
+      .select("organization_id")
+      .eq("id", attendanceId)
+      .single();
+
+    if (attendanceError || !attendance) {
+      return new Response(
+        JSON.stringify({ error: "Attendance not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const organizationId = attendance.organization_id;
+
+    // Check and consume energy for transcription
+    const totalEnergyCost = ENERGY_COST_TRANSCRIPTION + ENERGY_COST_ANALYSIS;
+    const { data: energyResult, error: energyError } = await supabase.rpc('consume_energy', {
+      p_organization_id: organizationId,
+      p_bot_id: null,
+      p_conversation_id: null,
+      p_action_type: 'call_transcription',
+      p_energy_amount: totalEnergyCost,
+      p_tokens_used: null,
+      p_details: { 
+        attendance_id: attendanceId,
+        timestamp: new Date().toISOString() 
+      },
+    });
+
+    if (energyError) {
+      console.error('Energy consumption error:', energyError);
+      return new Response(
+        JSON.stringify({ error: "Erro ao verificar energia. Tente novamente." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if energy was sufficient
+    const energyOk = typeof energyResult === 'boolean' ? energyResult : (energyResult?.success ?? true);
+    if (!energyOk) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Energia insuficiente para transcrição. Entre em contato com o administrador.",
+          available_energy: energyResult?.available_energy,
+          required_energy: totalEnergyCost
+        }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`⚡ Energy consumed: ${totalEnergyCost} for org ${organizationId}`);
 
     // Update status to processing
     await supabase
@@ -135,7 +194,7 @@ Formate a transcrição de forma clara com quebras de linha entre as falas.`
     const transcriptionResult = await transcriptionResponse.json();
     const transcription = transcriptionResult.choices?.[0]?.message?.content || "";
 
-    // Step 2: Analyze call quality
+    // Step 2: Analyze call quality with individual scores
     const analysisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -147,23 +206,31 @@ Formate a transcrição de forma clara com quebras de linha entre as falas.`
         messages: [
           {
             role: "system",
-            content: `Você é um analista de qualidade de vendas. Analise a transcrição de uma ligação de vendas e avalie os seguintes critérios.
+            content: `Você é um analista de qualidade de vendas. Analise a transcrição de uma ligação de vendas e avalie cada critério com uma nota de 1 a 10.
 Retorne APENAS um JSON válido sem markdown ou explicações adicionais.`
           },
           {
             role: "user",
-            content: `Analise esta transcrição de ligação de vendas e retorne um JSON com a seguinte estrutura:
+            content: `Analise esta transcrição de ligação de vendas e retorne um JSON com notas de 1-10 para cada critério:
+
 {
-  "followed_script": boolean (vendedor seguiu um script estruturado?),
-  "offered_kits": boolean (vendedor ofereceu kits/produtos promocionais?),
-  "proper_greeting": boolean (saudação adequada e profissional?),
-  "asked_needs": boolean (vendedor perguntou sobre necessidades do cliente?),
-  "handled_objections": boolean (vendedor lidou bem com objeções?),
-  "clear_next_steps": boolean (próximos passos ficaram claros?),
-  "overall_score": number 1-10 (nota geral da ligação),
+  "proper_greeting_score": number 1-10 (saudação adequada e profissional?),
+  "asked_needs_score": number 1-10 (vendedor perguntou sobre necessidades do cliente?),
+  "followed_script_score": number 1-10 (vendedor seguiu um script estruturado?),
+  "offered_kits_score": number 1-10 (vendedor ofereceu kits/produtos promocionais?),
+  "handled_objections_score": number 1-10 (vendedor lidou bem com objeções?),
+  "clear_next_steps_score": number 1-10 (próximos passos ficaram claros?),
+  "overall_score": number 1-10 (nota geral calculada como média ponderada),
   "summary": string (resumo de 2-3 frases da ligação),
   "improvements": string[] (lista de melhorias sugeridas, max 3)
 }
+
+Critérios de avaliação:
+- 1-3: Muito fraco, não realizado ou muito mal executado
+- 4-5: Abaixo do esperado, precisa melhorar significativamente  
+- 6-7: Adequado, mas com espaço para melhoria
+- 8-9: Bom, bem executado
+- 10: Excelente, exemplar
 
 Transcrição:
 ${transcription}`
@@ -208,6 +275,7 @@ ${transcription}`
         success: true,
         transcription,
         callQualityScore,
+        energyConsumed: totalEnergyCost,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
