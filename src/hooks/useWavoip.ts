@@ -129,53 +129,33 @@ export function useWavoip(instanceId?: string | null) {
       // Add 9th digit if missing for Brazilian mobiles
       cleanPhone = cleanPhone.slice(0, 4) + '9' + cleanPhone.slice(4);
     }
-    const formattedNumber = cleanPhone.includes('@s.whatsapp.net') 
-      ? cleanPhone 
-      : `${cleanPhone}@s.whatsapp.net`;
-    
+    const formattedNumber = `${cleanPhone}@s.whatsapp.net`;
+
     console.log('📞 Número formatado:', formattedNumber);
 
-    const apiUrl = `${EVOLUTION_API_URL}/call/offer/${instanceName}`;
-    
-    const requestBody = {
-      number: formattedNumber,
-      isVideo,
-      callDuration: 30
-    };
-    
-    console.log('📞 Requisição preparada:', {
-      url: apiUrl,
-      method: 'POST',
-      body: requestBody
-    });
-    
     setIsLoadingCall(true);
     toast.info('📞 Iniciando chamada...');
-    
+
     try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_API_KEY
+      const { data, error } = await supabase.functions.invoke('wavoip-call-offer', {
+        body: {
+          instanceId,
+          number: formattedNumber,
+          isVideo,
+          callDuration: 30,
         },
-        body: JSON.stringify(requestBody)
       });
-      
-      let responseData: any = null;
-      try {
-        responseData = await response.json();
-      } catch {
-        // No JSON response
+
+      if (error) {
+        throw new Error(error.message);
       }
-      
-      console.log('📞 Resposta recebida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        data: responseData
-      });
-      
+
+      const ok = Boolean((data as any)?.ok);
+      const upstreamStatus = Number((data as any)?.upstreamStatus ?? 0);
+      const responseData = (data as any)?.raw;
+
+      console.log('📞 Resposta recebida (proxy):', { ok, upstreamStatus, responseData });
+
       // Log the call
       if (profile?.organization_id && instanceId) {
         await supabase.from('whatsapp_call_logs').insert({
@@ -187,51 +167,47 @@ export function useWavoip(instanceId?: string | null) {
           lead_id: leadId || null,
           conversation_id: conversationId || null,
           call_direction: 'outbound',
-          call_status: response.ok ? 'initiated' : 'failed',
+          call_status: ok ? 'initiated' : 'failed',
           is_video: isVideo,
-          error_message: response.ok ? null : (responseData?.message || responseData?.error || `Status ${response.status}`),
+          error_message: ok
+            ? null
+            : (responseData?.message || responseData?.error || `Status ${upstreamStatus}`),
         });
       }
-      
-      if (response.ok) {
-        console.log('✅ ===== CHAMADA INICIADA COM SUCESSO =====');
+
+      if (ok) {
         toast.success('Chamada iniciada com sucesso!');
         setIsLoadingCall(false);
         return true;
-        
-      } else {
-        let errorMessage = 'Erro ao iniciar chamada';
-        
-        if (response.status === 404) {
-          errorMessage = 'Endpoint não encontrado. Wavoip não está configurado.';
-        } else if (response.status === 401 || response.status === 403) {
-          errorMessage = 'Erro de autenticação. API Key inválida.';
-        } else if (response.status === 400) {
-          errorMessage = responseData?.message || responseData?.error || 'Dados inválidos';
-        } else if (response.status === 500) {
-          errorMessage = 'Erro interno do servidor Evolution';
-        } else if (responseData?.error) {
-          errorMessage = responseData.error;
-        } else if (responseData?.message) {
-          errorMessage = responseData.message;
-        }
-        
-        toast.error(errorMessage);
-        console.error('❌ ===== CHAMADA FALHOU =====');
-        console.error('❌ Status:', response.status);
-        console.error('❌ Erro:', errorMessage);
-        setIsLoadingCall(false);
-        return false;
       }
-      
-    } catch (error: any) {
-      console.error('❌ ===== EXCEÇÃO/ERRO DE REDE =====');
-      console.error('❌ Tipo de erro:', error.name);
-      console.error('❌ Mensagem:', error.message);
-      toast.error('Erro de conexão. Verifique sua internet.');
+
+      let errorMessage = 'Erro ao iniciar chamada';
+      if (upstreamStatus === 404) {
+        errorMessage =
+          responseData?.message ||
+          responseData?.error ||
+          'O servidor retornou 404 ao iniciar a chamada. Verifique se o endpoint de ligações está habilitado.';
+      } else if (upstreamStatus === 401 || upstreamStatus === 403) {
+        errorMessage = 'Erro de autenticação no servidor de chamadas.';
+      } else if (upstreamStatus === 400) {
+        errorMessage = responseData?.message || responseData?.error || 'Dados inválidos';
+      } else if (upstreamStatus >= 500) {
+        errorMessage = 'Erro interno do servidor de chamadas.';
+      } else if (responseData?.error) {
+        errorMessage = responseData.error;
+      } else if (responseData?.message) {
+        errorMessage = responseData.message;
+      }
+
+      toast.error(errorMessage);
+      console.error('❌ ===== CHAMADA FALHOU =====', { upstreamStatus, errorMessage, responseData });
       setIsLoadingCall(false);
       return false;
-      
+    } catch (error: any) {
+      console.error('❌ ===== EXCEÇÃO/ERRO DE REDE =====', error);
+      toast.error(error?.message || 'Erro de conexão.');
+      setIsLoadingCall(false);
+      return false;
     }
   }, [instanceId, profile]);
 
