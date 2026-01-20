@@ -110,10 +110,10 @@ export function AdminWhatsAppInstanceTab() {
               apikey: newConfig.api_key as string,
             },
             body: JSON.stringify({
+              enabled: true,
               url: webhookUrl,
-              byEvents: false,
-              base64: true,
-              headers: { 'Content-Type': 'application/json' },
+              webhookByEvents: false,
+              webhookBase64: true,
               events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
             }),
           });
@@ -223,10 +223,10 @@ export function AdminWhatsAppInstanceTab() {
             apikey: formData.api_key,
           },
           body: JSON.stringify({
+            enabled: true,
             url: webhookUrl,
-            byEvents: false,
-            base64: true,
-            headers: { 'Content-Type': 'application/json' },
+            webhookByEvents: false,
+            webhookBase64: true,
             events: [
               'MESSAGES_UPSERT',
               'CONNECTION_UPDATE',
