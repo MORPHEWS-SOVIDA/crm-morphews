@@ -358,7 +358,7 @@ export function useSale(id: string | undefined) {
           shipping_address:lead_addresses(id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link, delivery_region_id),
           delivery_region:delivery_regions!sales_delivery_region_id_fkey(id, name),
           shipping_carrier:shipping_carriers(id, name),
-          payment_method_data:payment_methods!sales_payment_method_id_fkey(id, name, type)
+          payment_method_data:payment_methods!sales_payment_method_id_fkey(id, name, category)
         `)
         .eq('id', id)
         .eq('organization_id', organizationId)
