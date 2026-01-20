@@ -59,7 +59,6 @@ async function sendEvolutionText(
   const phone = normalizeWhatsApp(toPhone);
   if (!phone) return { ok: false, error: "Invalid phone" };
 
-  // Remove trailing slash from URL
   const baseUrl = config.apiUrl.replace(/\/$/, "");
   const url = `${baseUrl}/message/sendText/${config.instanceName}`;
 
@@ -106,7 +105,72 @@ async function reply(toPhone: string, message: string) {
 }
 
 // ============================================================================
-// COMMAND TYPES - Expanded for full CRM functionality
+// CONVERSATION STATE MANAGEMENT
+// ============================================================================
+
+interface ConversationState {
+  stage: "idle" | "awaiting_stars" | "awaiting_stage" | "awaiting_followup" | "awaiting_more_data";
+  lead_id?: string;
+  lead_name?: string;
+  last_action?: string;
+  expires_at: number;
+}
+
+// In-memory state (resets on function cold start, but that's OK for short flows)
+const conversationStates: Map<string, ConversationState> = new Map();
+
+function getState(phone: string): ConversationState | null {
+  const state = conversationStates.get(phone);
+  if (!state) return null;
+  if (Date.now() > state.expires_at) {
+    conversationStates.delete(phone);
+    return null;
+  }
+  return state;
+}
+
+function setState(phone: string, state: Partial<ConversationState>) {
+  const current = getState(phone) || { stage: "idle", expires_at: 0 };
+  conversationStates.set(phone, {
+    ...current,
+    ...state,
+    expires_at: Date.now() + 10 * 60 * 1000, // 10 min TTL
+  });
+}
+
+function clearState(phone: string) {
+  conversationStates.delete(phone);
+}
+
+// ============================================================================
+// STAR RATING DESCRIPTIONS
+// ============================================================================
+
+function getStarDescription(stars: number): string {
+  switch (stars) {
+    case 1: return "⭐ 1 estrela = Lead frio, baixo potencial";
+    case 2: return "⭐⭐ 2 estrelas = Algum interesse, acompanhar";
+    case 3: return "⭐⭐⭐ 3 estrelas = Potencial médio, trabalhar";
+    case 4: return "⭐⭐⭐⭐ 4 estrelas = Muito interessado, priorizar";
+    case 5: return "⭐⭐⭐⭐⭐ 5 estrelas = CLIENTE TOP! Fechar agora!";
+    default: return "";
+  }
+}
+
+function getAllStarDescriptions(): string {
+  return `*Quantas estrelas esse lead merece?*
+
+${getStarDescription(1)}
+${getStarDescription(2)}
+${getStarDescription(3)}
+${getStarDescription(4)}
+${getStarDescription(5)}
+
+Digite de 1 a 5:`;
+}
+
+// ============================================================================
+// COMMAND TYPES
 // ============================================================================
 
 type ParsedCommand =
@@ -119,17 +183,29 @@ type ParsedCommand =
   | { action: "change_stage"; lead_identifier: string; stage: string; }
   | { action: "help"; }
   | { action: "stats"; }
+  | { action: "quick_star"; stars: number; }
+  | { action: "quick_stage"; stage: string; }
+  | { action: "quick_followup"; option: string; }
+  | { action: "skip_step"; }
   | { action: "unknown"; reply?: string; };
 
 // ============================================================================
-// AI COMMAND PARSER - Full CRM understanding
+// AI COMMAND PARSER
 // ============================================================================
 
-async function parseCommandWithAI(text: string, conversationHistory: string[] = []): Promise<ParsedCommand | null> {
+async function parseCommandWithAI(text: string, hasActiveState: boolean): Promise<ParsedCommand | null> {
   if (!LOVABLE_API_KEY) return null;
 
   const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM inteligente.
 Analise a mensagem do usuário e retorne APENAS JSON válido (sem markdown, sem \`\`\`).
+
+${hasActiveState ? `
+O USUÁRIO ESTÁ EM UM FLUXO DE CADASTRO. Interprete respostas curtas:
+- Números de 1-5 = {"action":"quick_star","stars":X}
+- Nome de etapa do funil = {"action":"quick_stage","stage":"..."}
+- "1", "2", "3" quando oferecido opções = {"action":"quick_followup","option":"1"}
+- "pular", "skip", "não", "depois" = {"action":"skip_step"}
+` : ""}
 
 AÇÕES DISPONÍVEIS:
 
@@ -138,25 +214,21 @@ AÇÕES DISPONÍVEIS:
 
 2. BUSCAR LEAD (por nome, telefone ou parte):
 {"action":"search_lead","query":"Maria"}
-{"action":"search_lead","query":"51999"}
 
 3. ATUALIZAR LEAD (estrelas, status, notas):
 {"action":"update_lead","lead_identifier":"Maria","updates":{"stars":5}}
-{"action":"update_lead","lead_identifier":"51999","updates":{"notes":"Adicionou interesse"}}
 
 4. LISTAR LEADS:
 {"action":"list_leads","filter":"hoje","limit":10}
-{"action":"list_leads","stars":5}
 
 5. AGENDAR FOLLOWUP:
-{"action":"schedule_followup","lead_identifier":"João","date":"2026-01-21","time":"14:00","notes":"ligar para confirmar"}
+{"action":"schedule_followup","lead_identifier":"João","date":"2026-01-21","time":"14:00","notes":"ligar"}
 
 6. CRIAR REUNIÃO:
-{"action":"create_meeting","lead_identifier":"Dr. Pedro","date":"amanhã","time":"15:00","link":"https://meet.google.com/xxx"}
+{"action":"create_meeting","lead_identifier":"Dr. Pedro","date":"amanhã","time":"15:00"}
 
 7. MUDAR ETAPA DO FUNIL:
 {"action":"change_stage","lead_identifier":"Ana","stage":"reunião agendada"}
-{"action":"change_stage","lead_identifier":"Pedro","stage":"positivo"}
 
 8. AJUDA:
 {"action":"help"}
@@ -165,38 +237,23 @@ AÇÕES DISPONÍVEIS:
 {"action":"stats"}
 
 10. NÃO ENTENDI:
-{"action":"unknown","reply":"Desculpe, não entendi. Você pode cadastrar leads, buscar, atualizar estrelas, agendar reuniões..."}
+{"action":"unknown","reply":"Desculpe, não entendi. Pode reformular?"}
 
 REGRAS:
 - lead_identifier pode ser nome parcial, telefone ou @instagram
 - stars: 1 a 5
-- stage pode ser: "não classificado", "prospectando", "contatado", "convencendo", "reunião agendada", "positivo", "aguardando pgto", "sucesso"
-- Interprete linguagem natural! Ex: "coloca 5 estrelas na Maria" = update_lead
-- "busca" ou "procura" = search_lead
-- "lista" ou "mostra" = list_leads
+- Interprete linguagem natural!
+- "busca" = search_lead
+- "lista" = list_leads
 - "cadastra" ou "adiciona" = create_lead
-- Mensagem de áudio transcrita ou descrição de imagem também deve ser interpretada
 
-EXEMPLOS DE ENTRADA -> SAÍDA:
-"Cadastrar lead 51999908088 nome Guilherme 5 estrelas" -> create_lead
-"Busca a Dra. Maria" -> search_lead
+EXEMPLOS:
+"Cadastrar lead 51999908088 nome Guilherme" -> create_lead
+"Busca a Maria" -> search_lead
 "Coloca 5 estrelas no João" -> update_lead
-"Lista todos os 5 estrelas" -> list_leads
-"Marca reunião com Pedro amanhã às 15h" -> create_meeting
-"O Dr. Pedro fechou, coloca como positivo" -> change_stage
-"Acabei de sair de reunião com Ana, muito interessada, 4 estrelas" -> update_lead (estrelas + notas)
-"Oi" -> unknown com saudação`;
-
-  const messages: any[] = [
-    { role: "system", content: systemPrompt },
-  ];
-  
-  // Add conversation history for context
-  for (const msg of conversationHistory.slice(-5)) {
-    messages.push({ role: "user", content: msg });
-  }
-  
-  messages.push({ role: "user", content: text });
+"3" (durante fluxo) -> quick_star ou quick_followup
+"positivo" (durante fluxo) -> quick_stage
+"não precisa" -> skip_step`;
 
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -207,8 +264,11 @@ EXEMPLOS DE ENTRADA -> SAÍDA:
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages,
-        temperature: 0.3,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: text },
+        ],
+        temperature: 0.2,
       }),
     });
 
@@ -221,7 +281,6 @@ EXEMPLOS DE ENTRADA -> SAÍDA:
     let content = data?.choices?.[0]?.message?.content;
     if (!content || typeof content !== "string") return null;
 
-    // Clean markdown if present
     content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     
     const parsed = JSON.parse(content);
@@ -241,7 +300,6 @@ EXEMPLOS DE ENTRADA -> SAÍDA:
 async function findLeadByIdentifier(organizationId: string, identifier: string) {
   const normalized = normalizeWhatsApp(identifier);
   
-  // Try by phone variations
   if (normalized && normalized.length >= 10) {
     const variants = [
       normalized,
@@ -253,7 +311,7 @@ async function findLeadByIdentifier(organizationId: string, identifier: string) 
     for (const v of variants) {
       const { data } = await supabase
         .from("leads")
-        .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, created_at")
+        .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, created_at")
         .eq("organization_id", organizationId)
         .or(`whatsapp.ilike.%${v}%,secondary_phone.ilike.%${v}%`)
         .limit(1)
@@ -262,21 +320,19 @@ async function findLeadByIdentifier(organizationId: string, identifier: string) 
     }
   }
 
-  // Try by name (partial match)
   const { data: byName } = await supabase
     .from("leads")
-    .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, created_at")
+    .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, created_at")
     .eq("organization_id", organizationId)
     .ilike("name", `%${identifier}%`)
     .limit(1)
     .maybeSingle();
   if (byName) return byName;
 
-  // Try by Instagram
   if (identifier.startsWith("@")) {
     const { data: byInsta } = await supabase
       .from("leads")
-      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, created_at")
+      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, created_at")
       .eq("organization_id", organizationId)
       .ilike("instagram", `%${identifier}%`)
       .limit(1)
@@ -333,7 +389,7 @@ async function listLeadsByFilter(organizationId: string, filter?: string, stars?
 async function getFunnelStages(organizationId: string) {
   const { data } = await supabase
     .from("funnel_stages")
-    .select("id, name, position")
+    .select("id, name, position, color")
     .eq("organization_id", organizationId)
     .order("position", { ascending: true });
   return data || [];
@@ -343,7 +399,6 @@ async function findStageByName(organizationId: string, stageName: string) {
   const stages = await getFunnelStages(organizationId);
   const lower = stageName.toLowerCase();
   
-  // Map common names to stage names
   const stageMap: Record<string, string[]> = {
     "não classificado": ["não classificado", "nao classificado", "novo"],
     "prospectando": ["prospectando", "prospect", "prospecção"],
@@ -361,7 +416,6 @@ async function findStageByName(organizationId: string, stageName: string) {
       return stage;
     }
     
-    // Check mapped names
     for (const [key, aliases] of Object.entries(stageMap)) {
       if (aliases.some(a => lower.includes(a)) && stageLower.includes(key)) {
         return stage;
@@ -372,6 +426,105 @@ async function findStageByName(organizationId: string, stageName: string) {
   return null;
 }
 
+async function getNonPurchaseReasons(organizationId: string) {
+  const { data } = await supabase
+    .from("non_purchase_reasons")
+    .select("id, name, is_featured")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .order("is_featured", { ascending: false })
+    .order("position", { ascending: true })
+    .limit(5);
+  return data || [];
+}
+
+// ============================================================================
+// FLOW CONTINUATION BUILDERS
+// ============================================================================
+
+function buildStarsPrompt(leadName: string): string {
+  return `✅ *${leadName}* cadastrado!
+
+Agora me conta: ${getAllStarDescriptions()}
+
+_(ou digite "pular" para depois)_`;
+}
+
+async function buildStagePrompt(organizationId: string, leadName: string): Promise<string> {
+  const stages = await getFunnelStages(organizationId);
+  const stageList = stages
+    .filter(s => !["Cloud", "Trash"].includes(s.name))
+    .slice(0, 8)
+    .map((s, i) => `${i + 1}. ${s.name}`)
+    .join("\n");
+
+  return `⭐ Anotado!
+
+Em qual *etapa do funil* o *${leadName}* está?
+
+${stageList}
+
+_Digite o número ou nome da etapa (ou "pular"):_`;
+}
+
+async function buildFollowupPrompt(organizationId: string, leadName: string): Promise<string> {
+  const reasons = await getNonPurchaseReasons(organizationId);
+  
+  let options = "1. Amanhã às 9h\n2. Amanhã às 14h\n3. Em 3 dias";
+  
+  if (reasons.length > 0) {
+    options += "\n\n_Ou agendar por motivo:_\n";
+    reasons.slice(0, 3).forEach((r, i) => {
+      options += `${i + 4}. ${r.name}\n`;
+    });
+  }
+
+  return `📍 *${leadName}* atualizado!
+
+Quer que eu agende um *follow-up*? 📅
+
+${options}
+
+_Digite o número da opção (ou "não precisa"):_`;
+}
+
+function buildFinalMessage(leadName: string): string {
+  return `✅ Tudo certo com *${leadName}*!
+
+🎯 *Como posso te ajudar a vender mais?*
+
+• Cadastrar outro lead
+• Buscar algum lead específico
+• Ver estatísticas do dia
+• Listar leads 5 estrelas
+
+_O que você precisa?_`;
+}
+
+function buildMissingDataPrompt(lead: any): string | null {
+  const missing: string[] = [];
+  
+  if (!lead.birth_date) missing.push("📅 Data de nascimento");
+  if (!lead.gender) missing.push("👤 Gênero");
+  if (!lead.favorite_team) missing.push("⚽ Time que torce");
+  if (!lead.instagram) missing.push("📸 Instagram");
+  if (!lead.email) missing.push("📧 Email");
+  
+  if (missing.length === 0) return null;
+  
+  return `💡 *Dica para vender mais!*
+
+Quanto mais você conhece o lead, mais fácil a venda.
+*${lead.name}* ainda não tem:
+
+${missing.join("\n")}
+
+Quer adicionar algum dado agora?
+_(Ex: "aniversário dele é 15/03" ou "ele torce pro Grêmio")_
+
+_Ou digite "pular" para continuar:_`;
+}
+
 // ============================================================================
 // COMMAND HANDLERS
 // ============================================================================
@@ -379,14 +532,14 @@ async function findStageByName(organizationId: string, stageName: string) {
 async function handleCreateLead(
   command: Extract<ParsedCommand, { action: "create_lead" }>,
   organizationId: string,
-  userId: string
+  userId: string,
+  fromPhone: string
 ): Promise<string> {
   const leadPhoneNorm = normalizeWhatsApp(command.lead_phone || "");
   if (!leadPhoneNorm) {
     return "❌ Não encontrei o WhatsApp do lead. Exemplo: Cadastrar lead 51999998888 nome João";
   }
 
-  // Check for existing
   const existing = await findLeadByIdentifier(organizationId, leadPhoneNorm);
   if (existing) {
     return `✅ Lead já existe: *${existing.name}* (${existing.whatsapp})${existing.stars ? ` ⭐${existing.stars}` : ""}`;
@@ -416,10 +569,27 @@ async function handleCreateLead(
     return "❌ Não consegui cadastrar o lead. Tente novamente.";
   }
 
-  let msg = `✅ Lead cadastrado!\n\n📋 *${newLead.name}*\n📱 ${newLead.whatsapp}`;
-  if (stars) msg += `\n⭐ ${stars} estrelas`;
-  if (command.instagram) msg += `\n📸 ${command.instagram}`;
-  
+  // If stars were NOT provided, start the interactive flow
+  if (!command.stars || command.stars === 0) {
+    setState(fromPhone, {
+      stage: "awaiting_stars",
+      lead_id: newLead.id,
+      lead_name: newLead.name,
+      last_action: "create",
+    });
+    return buildStarsPrompt(newLead.name);
+  }
+
+  // Stars provided - ask for stage
+  setState(fromPhone, {
+    stage: "awaiting_stage",
+    lead_id: newLead.id,
+    lead_name: newLead.name,
+    last_action: "create",
+  });
+
+  let msg = `✅ *${newLead.name}* cadastrado com ${stars} estrelas!`;
+  msg += "\n\n" + await buildStagePrompt(organizationId, newLead.name);
   return msg;
 }
 
@@ -559,7 +729,6 @@ async function handleScheduleFollowup(
     return `❌ Lead não encontrado: "${command.lead_identifier}"`;
   }
 
-  // Parse date
   let followupDate: Date;
   const dateStr = command.date || "amanhã";
   
@@ -585,7 +754,7 @@ async function handleScheduleFollowup(
       organization_id: organizationId,
       lead_id: lead.id,
       user_id: userId,
-      scheduled_date: followupDate.toISOString(),
+      scheduled_at: followupDate.toISOString(),
       notes: command.notes || "Follow-up agendado via WhatsApp",
       status: "pending",
     });
@@ -612,7 +781,6 @@ async function handleCreateMeeting(
     return `❌ Lead não encontrado: "${command.lead_identifier}"`;
   }
 
-  // Parse date
   let meetingDate: Date;
   const dateStr = command.date || "amanhã";
   
@@ -632,7 +800,6 @@ async function handleCreateMeeting(
     meetingDate.setHours(10, 0, 0, 0);
   }
 
-  // Update lead with meeting info
   const meetingNotes = `Reunião: ${meetingDate.toLocaleDateString('pt-BR')} ${command.time || "10:00"}${command.link ? ` - ${command.link}` : ""}`;
   
   const { error } = await supabase
@@ -666,67 +833,230 @@ async function handleStats(organizationId: string): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Count leads today
   const { count: todayCount } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId)
     .gte("created_at", today);
 
-  // Count leads this week
   const { count: weekCount } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId)
     .gte("created_at", weekAgo);
 
-  // Count 5-star leads
   const { count: fiveStarCount } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId)
     .eq("stars", 5);
 
-  // Count total leads
   const { count: totalCount } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId);
 
-  return `📊 *Estatísticas*\n\n📅 Hoje: ${todayCount || 0} leads\n📅 Esta semana: ${weekCount || 0} leads\n⭐ 5 estrelas: ${fiveStarCount || 0}\n📋 Total: ${totalCount || 0} leads`;
+  return `📊 *Estatísticas*\n\n📅 Hoje: ${todayCount || 0} leads\n📅 Esta semana: ${weekCount || 0} leads\n⭐ 5 estrelas: ${fiveStarCount || 0}\n📋 Total: ${totalCount || 0} leads\n\n💡 _Quer que eu liste os 5 estrelas?_`;
 }
 
 function getHelpMessage(): string {
   return `👋 *Oi! Sou sua Secretária Morphews!*
 
-Posso te ajudar a gerenciar seus leads pelo WhatsApp:
+Meu objetivo é te ajudar a *vender mais*! 💰
 
 📝 *Cadastrar lead:*
-"Cadastrar lead 51999998888 nome João 5 estrelas"
+"Cadastrar 51999998888 João"
 
 🔍 *Buscar lead:*
-"Busca a Dra. Maria"
-"Procura lead 51999"
+"Busca Maria" ou "Procura 51999"
 
-⭐ *Atualizar estrelas:*
-"Coloca 5 estrelas no João"
-"Atualiza Maria com 4 estrelas"
+⭐ *Dar estrelas:*
+"5 estrelas na Maria"
 
-📋 *Listar leads:*
-"Lista meus leads 5 estrelas"
-"Mostra leads de hoje"
+📍 *Mover no funil:*
+"João fechou, coloca como positivo"
 
-📅 *Agendar reunião:*
-"Marca reunião com Pedro amanhã às 15h"
+📅 *Agendar follow-up:*
+"Ligar para Pedro amanhã às 14h"
 
-📍 *Mudar etapa do funil:*
-"Coloca o João como positivo"
-"Move Maria para reunião agendada"
+📊 *Estatísticas:*
+"Stats" ou "Estatísticas"
 
-📊 *Ver estatísticas:*
-"Estatísticas" ou "Stats"
+💡 *Dica:* Fala naturalmente! Eu entendo você 😊`;
+}
 
-💡 *Dica:* Fale naturalmente! Eu entendo linguagem humana 😊`;
+// ============================================================================
+// STATE FLOW HANDLERS
+// ============================================================================
+
+async function handleQuickStar(
+  stars: number,
+  state: ConversationState,
+  organizationId: string,
+  fromPhone: string
+): Promise<string> {
+  if (!state.lead_id) {
+    clearState(fromPhone);
+    return "❌ Perdi o contexto do lead. Pode repetir o cadastro?";
+  }
+
+  const validStars = Math.min(5, Math.max(1, stars));
+  
+  const { error } = await supabase
+    .from("leads")
+    .update({ stars: validStars })
+    .eq("id", state.lead_id);
+
+  if (error) {
+    console.error("Star update error:", error);
+    return "❌ Erro ao salvar estrelas. Tente novamente.";
+  }
+
+  // Move to next step: ask for stage
+  setState(fromPhone, { ...state, stage: "awaiting_stage" });
+  
+  return await buildStagePrompt(organizationId, state.lead_name || "Lead");
+}
+
+async function handleQuickStage(
+  stageName: string,
+  state: ConversationState,
+  organizationId: string,
+  fromPhone: string
+): Promise<string> {
+  if (!state.lead_id) {
+    clearState(fromPhone);
+    return "❌ Perdi o contexto do lead. Pode repetir?";
+  }
+
+  // Try to find stage by number or name
+  const stages = await getFunnelStages(organizationId);
+  const filtered = stages.filter(s => !["Cloud", "Trash"].includes(s.name));
+  
+  let selectedStage = filtered.find(s => s.name.toLowerCase().includes(stageName.toLowerCase()));
+  
+  // Try by number
+  if (!selectedStage) {
+    const num = parseInt(stageName);
+    if (num >= 1 && num <= filtered.length) {
+      selectedStage = filtered[num - 1];
+    }
+  }
+
+  if (!selectedStage) {
+    return `❌ Não encontrei essa etapa. Digite o número (1-${filtered.length}) ou o nome:`;
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .update({ funnel_stage: selectedStage.name })
+    .eq("id", state.lead_id);
+
+  if (error) {
+    console.error("Stage update error:", error);
+    return "❌ Erro ao atualizar etapa. Tente novamente.";
+  }
+
+  // Move to next step: offer followup
+  setState(fromPhone, { ...state, stage: "awaiting_followup" });
+  
+  return await buildFollowupPrompt(organizationId, state.lead_name || "Lead");
+}
+
+async function handleQuickFollowup(
+  option: string,
+  state: ConversationState,
+  organizationId: string,
+  userId: string,
+  fromPhone: string
+): Promise<string> {
+  if (!state.lead_id) {
+    clearState(fromPhone);
+    return "❌ Perdi o contexto. Pode repetir?";
+  }
+
+  const optNum = parseInt(option);
+  let followupDate = new Date();
+  let notes = "Follow-up via Secretária";
+
+  switch (optNum) {
+    case 1:
+      followupDate.setDate(followupDate.getDate() + 1);
+      followupDate.setHours(9, 0, 0, 0);
+      notes = "Amanhã às 9h";
+      break;
+    case 2:
+      followupDate.setDate(followupDate.getDate() + 1);
+      followupDate.setHours(14, 0, 0, 0);
+      notes = "Amanhã às 14h";
+      break;
+    case 3:
+      followupDate.setDate(followupDate.getDate() + 3);
+      followupDate.setHours(9, 0, 0, 0);
+      notes = "Em 3 dias";
+      break;
+    default:
+      // Check if it's a non-purchase reason
+      const reasons = await getNonPurchaseReasons(organizationId);
+      const reasonIdx = optNum - 4;
+      if (reasonIdx >= 0 && reasonIdx < reasons.length) {
+        notes = reasons[reasonIdx].name;
+        followupDate.setDate(followupDate.getDate() + 2);
+        followupDate.setHours(10, 0, 0, 0);
+      } else {
+        // Invalid option, skip
+        clearState(fromPhone);
+        return buildFinalMessage(state.lead_name || "Lead");
+      }
+  }
+
+  const { error } = await supabase
+    .from("lead_followups")
+    .insert({
+      organization_id: organizationId,
+      lead_id: state.lead_id,
+      user_id: userId,
+      scheduled_at: followupDate.toISOString(),
+      notes,
+      status: "pending",
+    });
+
+  if (error) {
+    console.error("Followup error:", error);
+    clearState(fromPhone);
+    return "❌ Erro ao agendar. Mas o lead foi salvo!\n\n" + buildFinalMessage(state.lead_name || "Lead");
+  }
+
+  clearState(fromPhone);
+
+  const dateFormatted = followupDate.toLocaleDateString('pt-BR');
+  const timeFormatted = followupDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  return `✅ Follow-up agendado!\n📅 ${dateFormatted} às ${timeFormatted}\n📝 ${notes}\n\n` + buildFinalMessage(state.lead_name || "Lead");
+}
+
+async function handleSkipStep(
+  state: ConversationState,
+  organizationId: string,
+  fromPhone: string
+): Promise<string> {
+  const leadName = state.lead_name || "Lead";
+
+  switch (state.stage) {
+    case "awaiting_stars":
+      setState(fromPhone, { ...state, stage: "awaiting_stage" });
+      return await buildStagePrompt(organizationId, leadName);
+    
+    case "awaiting_stage":
+      setState(fromPhone, { ...state, stage: "awaiting_followup" });
+      return await buildFollowupPrompt(organizationId, leadName);
+    
+    case "awaiting_followup":
+    case "awaiting_more_data":
+    default:
+      clearState(fromPhone);
+      return buildFinalMessage(leadName);
+  }
 }
 
 // ============================================================================
@@ -747,8 +1077,6 @@ function extractIncoming(body: any): {
   isFromMe: boolean;
   hasAudio: boolean;
   hasImage: boolean;
-  mediaBase64?: string;
-  mediaMimeType?: string;
 } {
   const event = String(body?.event || body?.type || "");
   const data = body?.data || body;
@@ -767,24 +1095,10 @@ function extractIncoming(body: any): {
   );
   
   const isFromMe = key?.fromMe === true || data?.fromMe === true;
-  
-  // Check for audio
   const hasAudio = !!(message?.audioMessage || message?.pttMessage);
-  
-  // Check for image
   const hasImage = !!(message?.imageMessage);
-  
-  // Get media base64 if available
-  const mediaBase64 = message?.audioMessage?.base64 || 
-                      message?.pttMessage?.base64 || 
-                      message?.imageMessage?.base64 ||
-                      data?.base64;
-  
-  const mediaMimeType = message?.audioMessage?.mimetype ||
-                        message?.pttMessage?.mimetype ||
-                        message?.imageMessage?.mimetype;
 
-  return { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage, mediaBase64, mediaMimeType };
+  return { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage };
 }
 
 // ============================================================================
@@ -798,7 +1112,6 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-
     const { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage } = extractIncoming(body);
 
     console.log("🤖 Secretária Morphews received:", {
@@ -810,16 +1123,8 @@ serve(async (req) => {
       hasImage,
     });
 
-    // Ignore status events
     const isStatusEvent = ["messages.update", "connection.update", "qrcode.updated"].includes(event);
-    if (isStatusEvent) {
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Ignore messages from the instance itself
-    if (isFromMe) {
+    if (isStatusEvent || isFromMe) {
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -844,7 +1149,7 @@ serve(async (req) => {
     if (!profile?.user_id || !profile?.organization_id) {
       await reply(
         fromPhone,
-        "👋 Olá! Não encontrei seu cadastro no Morphews.\n\nPor favor, verifique se seu WhatsApp está cadastrado corretamente no seu perfil do CRM ou entre em contato com o suporte."
+        "👋 Olá! Não encontrei seu cadastro no Morphews.\n\nPor favor, verifique se seu WhatsApp está cadastrado no seu perfil do CRM."
       );
       return new Response(JSON.stringify({ success: true, unlinked: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -855,16 +1160,16 @@ serve(async (req) => {
     const userId = profile.user_id;
     const userName = profile.first_name || "você";
 
-    // Handle audio/image (inform user to use text for now)
+    // Handle audio/image
     if (hasAudio) {
-      await reply(fromPhone, "🎤 Recebi seu áudio! Em breve vou poder transcrever áudios automaticamente. Por enquanto, me manda por texto o que você precisa! 😊");
+      await reply(fromPhone, "🎤 Recebi seu áudio! Em breve vou transcrever automaticamente. Por enquanto, me manda por texto! 😊");
       return new Response(JSON.stringify({ success: true, pending_audio: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (hasImage) {
-      await reply(fromPhone, "📸 Recebi sua imagem! Em breve vou poder extrair dados de prints do Instagram automaticamente. Por enquanto, me conta o que você quer cadastrar! 😊");
+      await reply(fromPhone, "📸 Recebi sua imagem! Em breve vou extrair dados automaticamente. Me conta o que quer cadastrar! 😊");
       return new Response(JSON.stringify({ success: true, pending_image: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -877,66 +1182,50 @@ serve(async (req) => {
       });
     }
 
-    // Parse command with AI
-    const parsed = await parseCommandWithAI(rawText);
+    // Check for active conversation state
+    const state = getState(fromPhone);
+    const hasActiveState = !!state && state.stage !== "idle";
+
+    // Parse command with AI (tell AI if we have active state for context)
+    const parsed = await parseCommandWithAI(rawText, hasActiveState);
     
     if (!parsed) {
-      await reply(fromPhone, "🤔 Desculpe, tive um problema para entender. Pode tentar de novo?");
+      await reply(fromPhone, "🤔 Desculpe, tive um problema. Pode tentar de novo?");
       return new Response(JSON.stringify({ success: true, action: "parse_error" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("📋 Parsed command:", parsed);
+    console.log("📋 Parsed command:", parsed, "State:", state?.stage);
 
-    // Handle each action type
     let response: string;
 
-    switch (parsed.action) {
-      case "create_lead":
-        response = await handleCreateLead(parsed, organizationId, userId);
-        break;
-      
-      case "search_lead":
-        response = await handleSearchLead(parsed, organizationId);
-        break;
-      
-      case "update_lead":
-        response = await handleUpdateLead(parsed, organizationId);
-        break;
-      
-      case "list_leads":
-        response = await handleListLeads(parsed, organizationId);
-        break;
-      
-      case "change_stage":
-        response = await handleChangeStage(parsed, organizationId);
-        break;
-      
-      case "schedule_followup":
-        response = await handleScheduleFollowup(parsed, organizationId, userId);
-        break;
-      
-      case "create_meeting":
-        response = await handleCreateMeeting(parsed, organizationId, userId);
-        break;
-      
-      case "stats":
-        response = await handleStats(organizationId);
-        break;
-      
-      case "help":
-        response = getHelpMessage();
-        break;
-      
-      case "unknown":
-      default:
-        if (parsed.action === "unknown" && parsed.reply) {
-          response = parsed.reply;
-        } else {
-          response = `Oi ${userName}! 👋 ${getHelpMessage()}`;
-        }
-        break;
+    // Handle state-based responses first
+    if (hasActiveState && state) {
+      switch (parsed.action) {
+        case "quick_star":
+          response = await handleQuickStar(parsed.stars, state, organizationId, fromPhone);
+          break;
+        
+        case "quick_stage":
+          response = await handleQuickStage(parsed.stage, state, organizationId, fromPhone);
+          break;
+        
+        case "quick_followup":
+          response = await handleQuickFollowup(parsed.option, state, organizationId, userId, fromPhone);
+          break;
+        
+        case "skip_step":
+          response = await handleSkipStep(state, organizationId, fromPhone);
+          break;
+        
+        default:
+          // User wants to do something else, clear state and proceed
+          clearState(fromPhone);
+          response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
+      }
+    } else {
+      response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
     }
 
     await reply(fromPhone, response);
@@ -954,3 +1243,48 @@ serve(async (req) => {
     });
   }
 });
+
+// Helper to handle standard commands
+async function handleCommand(
+  parsed: ParsedCommand,
+  organizationId: string,
+  userId: string,
+  fromPhone: string,
+  userName: string
+): Promise<string> {
+  switch (parsed.action) {
+    case "create_lead":
+      return await handleCreateLead(parsed, organizationId, userId, fromPhone);
+    
+    case "search_lead":
+      return await handleSearchLead(parsed, organizationId);
+    
+    case "update_lead":
+      return await handleUpdateLead(parsed, organizationId);
+    
+    case "list_leads":
+      return await handleListLeads(parsed, organizationId);
+    
+    case "change_stage":
+      return await handleChangeStage(parsed, organizationId);
+    
+    case "schedule_followup":
+      return await handleScheduleFollowup(parsed, organizationId, userId);
+    
+    case "create_meeting":
+      return await handleCreateMeeting(parsed, organizationId, userId);
+    
+    case "stats":
+      return await handleStats(organizationId);
+    
+    case "help":
+      return getHelpMessage();
+    
+    case "unknown":
+    default:
+      if (parsed.action === "unknown" && parsed.reply) {
+        return parsed.reply;
+      }
+      return `Oi ${userName}! 👋\n\n${getHelpMessage()}`;
+  }
+}
