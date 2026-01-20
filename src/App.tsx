@@ -58,6 +58,7 @@ import DemandsSettings from "./pages/DemandsSettings";
 import SellerPanel from "./pages/SellerPanel";
 import DashboardKanban from "./pages/DashboardKanban";
 import Integrations from "./pages/Integrations";
+import Power from "./pages/Power";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="/force-password-change" element={<ForcePasswordChange />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/planos" element={<Planos />} />
+              <Route path="/power" element={<Power />} />
               <Route path="/checkout" element={<DirectCheckout />} />
               <Route path="/signup-success" element={<SignupSuccess />} />
               <Route path="/auth/error" element={<AuthError />} />
