@@ -90,6 +90,7 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [customFollowupDate, setCustomFollowupDate] = useState<Date | null>(null);
   const [followupConfirmed, setFollowupConfirmed] = useState(false);
+  const [showAllReasons, setShowAllReasons] = useState(false);
 
   if (isLoading) {
     return (
@@ -264,24 +265,37 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
 
         {expanded && (
           <CardContent className="space-y-4">
-            {/* Purchase Potential */}
+            {/* Purchase Potential - Optional */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Coins className="w-4 h-4 text-amber-500" />
-                Potencial de Compra
+                Potencial de Compra <span className="text-muted-foreground text-xs">(opcional)</span>
               </Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0,00"
-                value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^\d,]/g, '').replace(',', '.');
-                  const parsed = parseFloat(value) || 0;
-                  setPurchasePotential(Math.round(parsed * 100));
-                }}
-                className="bg-background"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
+                  R$
+                </span>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0,00"
+                  value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
+                  onChange={(e) => {
+                    const rawValue = e.target.value;
+                    // Se apagou tudo, limpa
+                    if (!rawValue.trim()) {
+                      setPurchasePotential(0);
+                      return;
+                    }
+                    // Remove tudo exceto dígitos
+                    const onlyDigits = rawValue.replace(/\D/g, '');
+                    const cents = parseInt(onlyDigits || '0', 10);
+                    setPurchasePotential(cents);
+                  }}
+                  onFocus={(e) => setTimeout(() => e.target.select(), 0)}
+                  className="bg-background pl-10 text-right"
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
                 Este valor será adicionado ao "Valor Negociado" do lead
               </p>
@@ -310,55 +324,127 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
 
             <Separator className="bg-amber-200/50 dark:bg-amber-800/30" />
 
-            {/* Reason Selection */}
+            {/* Reason Selection with Featured + Scrollable List */}
             <div className="space-y-2">
-              <Label>Selecione o motivo</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {reasons.map((reason) => {
-                  const isSelected = selectedReasonId === reason.id;
-                  const reasonTargetStage = reason.target_stage_id 
-                    ? funnelStages.find(s => s.id === reason.target_stage_id)
-                    : null;
+              <Label>Selecione o motivo para acompanhamento futuro</Label>
+              
+              {/* Featured Reasons */}
+              {reasons.filter((r: any) => r.is_featured).length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {reasons.filter((r: any) => r.is_featured).map((reason) => {
+                    const isSelected = selectedReasonId === reason.id;
+                    const reasonTargetStage = reason.target_stage_id 
+                      ? funnelStages.find(s => s.id === reason.target_stage_id)
+                      : null;
 
-                  return (
-                    <Button
-                      key={reason.id}
-                      variant="outline"
-                      className={cn(
-                        "justify-start h-auto p-3 text-left transition-all",
-                        isSelected 
-                          ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500" 
-                          : "hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                      )}
-                      onClick={() => handleReasonSelect(reason.id)}
-                    >
-                      <div className="flex-1 space-y-1">
-                        <p className="font-medium text-sm">{reason.name}</p>
-                        <div className="flex flex-wrap gap-1">
-                          {reason.followup_hours > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {reason.followup_hours}h sugerido
-                            </Badge>
-                          )}
-                          {reasonTargetStage && (
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs"
-                              style={{ 
-                                borderColor: reasonTargetStage.color,
-                                color: reasonTargetStage.color 
-                              }}
-                            >
-                              → {reasonTargetStage.name}
-                            </Badge>
-                          )}
+                    return (
+                      <Button
+                        key={reason.id}
+                        variant="outline"
+                        className={cn(
+                          "justify-start h-auto p-3 text-left transition-all",
+                          isSelected 
+                            ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500" 
+                            : "hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                        )}
+                        onClick={() => handleReasonSelect(reason.id)}
+                      >
+                        <div className="flex-1 space-y-1">
+                          <p className="font-medium text-sm">{reason.name}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {reason.followup_hours > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Calendar className="w-3 h-3 mr-1" />
+                                Sugestão: {reason.followup_hours}h
+                              </Badge>
+                            )}
+                            {reasonTargetStage && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs"
+                                style={{ 
+                                  borderColor: reasonTargetStage.color,
+                                  color: reasonTargetStage.color 
+                                }}
+                              >
+                                → {reasonTargetStage.name}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* All Reasons in Scrollable Area */}
+              {reasons.filter((r: any) => !r.is_featured).length > 0 && (
+                <>
+                  <Button
+                    variant="link"
+                    className="text-xs text-muted-foreground p-0 h-auto"
+                    onClick={() => setShowAllReasons(!showAllReasons)}
+                  >
+                    {showAllReasons ? (
+                      <>Ocultar lista completa <ChevronUp className="w-3 h-3 ml-1" /></>
+                    ) : (
+                      <>Ver todos os motivos ({reasons.filter((r: any) => !r.is_featured).length}) <ChevronDown className="w-3 h-3 ml-1" /></>
+                    )}
+                  </Button>
+                  
+                  {showAllReasons && (
+                    <div className="max-h-48 overflow-y-auto border rounded-lg p-2 bg-muted/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {reasons.filter((r: any) => !r.is_featured).map((reason) => {
+                          const isSelected = selectedReasonId === reason.id;
+                          const reasonTargetStage = reason.target_stage_id 
+                            ? funnelStages.find(s => s.id === reason.target_stage_id)
+                            : null;
+
+                          return (
+                            <Button
+                              key={reason.id}
+                              variant="outline"
+                              className={cn(
+                                "justify-start h-auto p-3 text-left transition-all",
+                                isSelected 
+                                  ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500" 
+                                  : "hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              )}
+                              onClick={() => handleReasonSelect(reason.id)}
+                            >
+                              <div className="flex-1 space-y-1">
+                                <p className="font-medium text-sm">{reason.name}</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {reason.followup_hours > 0 && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      Sugestão: {reason.followup_hours}h
+                                    </Badge>
+                                  )}
+                                  {reasonTargetStage && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-xs"
+                                      style={{ 
+                                        borderColor: reasonTargetStage.color,
+                                        color: reasonTargetStage.color 
+                                      }}
+                                    >
+                                      → {reasonTargetStage.name}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </Button>
+                          );
+                        })}
                       </div>
-                    </Button>
-                  );
-                })}
-              </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Follow-up Date/Time Editor - Only show when reason has followup_hours */}

@@ -28,7 +28,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Pencil, Trash2, GripVertical, Clock, Webhook, Users, HelpCircle } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, GripVertical, Clock, Webhook, Users, HelpCircle, Star } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import {
   Tooltip,
   TooltipContent,
@@ -54,6 +55,7 @@ interface ReasonFormData {
   webhook_url: string;
   followup_webhook_url: string;
   lead_visibility: 'assigned_only' | 'all_sellers';
+  is_featured: boolean;
 }
 
 const initialFormData: ReasonFormData = {
@@ -64,6 +66,7 @@ const initialFormData: ReasonFormData = {
   webhook_url: '',
   followup_webhook_url: '',
   lead_visibility: 'assigned_only',
+  is_featured: false,
 };
 
 export function NonPurchaseReasonsManager() {
@@ -100,6 +103,7 @@ export function NonPurchaseReasonsManager() {
         webhook_url: formData.webhook_url.trim() || null,
         followup_webhook_url: formData.followup_webhook_url.trim() || null,
         lead_visibility: formData.lead_visibility,
+        is_featured: formData.is_featured,
         is_active: true,
         position: reasons.length,
       });
@@ -127,6 +131,7 @@ export function NonPurchaseReasonsManager() {
           webhook_url: formData.webhook_url.trim() || null,
           followup_webhook_url: formData.followup_webhook_url.trim() || null,
           lead_visibility: formData.lead_visibility,
+          is_featured: formData.is_featured,
         },
       });
       toast({ title: 'Motivo atualizado!' });
@@ -155,6 +160,7 @@ export function NonPurchaseReasonsManager() {
       webhook_url: reason.webhook_url || '',
       followup_webhook_url: reason.followup_webhook_url || '',
       lead_visibility: reason.lead_visibility as 'assigned_only' | 'all_sellers',
+      is_featured: (reason as any).is_featured || false,
     });
     setEditingReason(reason.id);
   };
@@ -241,8 +247,19 @@ export function NonPurchaseReasonsManager() {
                 <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
                 
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{reason.name}</div>
+                  <div className="flex items-center gap-2 font-medium truncate">
+                    {(reason as any).is_featured && (
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    )}
+                    {reason.name}
+                  </div>
                   <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                    {(reason as any).is_featured && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600">
+                        <Star className="w-3 h-3" />
+                        Destaque
+                      </span>
+                    )}
                     {reason.target_stage_id && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary">
                         → {getStageLabel(reason.target_stage_id)}
@@ -260,7 +277,7 @@ export function NonPurchaseReasonsManager() {
                         Webhook
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-600">
                       <Users className="w-3 h-3" />
                       {reason.lead_visibility === 'all_sellers' ? 'Todos' : 'Vendedor'}
                     </span>
@@ -355,6 +372,23 @@ interface ReasonFormProps {
 function ReasonForm({ formData, setFormData, stages }: ReasonFormProps) {
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20">
+        <div className="space-y-0.5">
+          <Label htmlFor="is_featured" className="flex items-center gap-2 cursor-pointer">
+            <Star className="w-4 h-4 text-amber-500" />
+            Em Destaque
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Motivos em destaque aparecem primeiro na seleção
+          </p>
+        </div>
+        <Switch
+          id="is_featured"
+          checked={formData.is_featured}
+          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_featured: checked }))}
+        />
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="name">Nome do Motivo *</Label>
         <Input

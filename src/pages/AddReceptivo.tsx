@@ -2160,18 +2160,29 @@ export default function AddReceptivo() {
                     <Coins className="w-4 h-4 text-amber-500" />
                     Potencial de Compra *
                   </Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^\d,]/g, '').replace(',', '.');
-                      const parsed = parseFloat(value) || 0;
-                      setPurchasePotential(Math.round(parsed * 100));
-                    }}
-                    className="text-left"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
+                      R$
+                    </span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0,00"
+                      value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
+                      onChange={(e) => {
+                        const rawValue = e.target.value;
+                        if (!rawValue.trim()) {
+                          setPurchasePotential(0);
+                          return;
+                        }
+                        const onlyDigits = rawValue.replace(/\D/g, '');
+                        const cents = parseInt(onlyDigits || '0', 10);
+                        setPurchasePotential(cents);
+                      }}
+                      onFocus={(e) => setTimeout(() => e.target.select(), 0)}
+                      className="pl-10 text-right"
+                    />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Este valor será adicionado ao "Valor Negociado" do lead
                   </p>
@@ -2638,17 +2649,29 @@ export default function AddReceptivo() {
                     <Coins className="w-4 h-4 text-amber-500" />
                     Potencial de Compra *
                   </Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^\d,]/g, '').replace(',', '.');
-                      const parsed = parseFloat(value) || 0;
-                      setPurchasePotential(Math.round(parsed * 100));
-                    }}
-                    className="text-left"
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
+                      R$
+                    </span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0,00"
+                      value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
+                      onChange={(e) => {
+                        const rawValue = e.target.value;
+                        if (!rawValue.trim()) {
+                          setPurchasePotential(0);
+                          return;
+                        }
+                        const onlyDigits = rawValue.replace(/\D/g, '');
+                        const cents = parseInt(onlyDigits || '0', 10);
+                        setPurchasePotential(cents);
+                      }}
+                      onFocus={(e) => setTimeout(() => e.target.select(), 0)}
+                      className="pl-10 text-right"
+                    />
+                  </div>
                   />
                   <p className="text-xs text-muted-foreground">
                     Este valor será adicionado ao "Valor Negociado" do lead
