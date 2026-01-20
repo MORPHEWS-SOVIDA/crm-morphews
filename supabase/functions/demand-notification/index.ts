@@ -7,8 +7,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
-const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 
 interface NotificationPayload {
   organizationId: string;
@@ -18,13 +16,48 @@ interface NotificationPayload {
   extraData?: Record<string, any>;
 }
 
-async function sendEvolutionText(instanceName: string, to: string, text: string) {
+interface AdminConfig {
+  api_url: string;
+  api_key: string;
+  instance_name: string;
+}
+
+// Get admin WhatsApp config from database
+async function getAdminWhatsAppConfig(supabaseAdmin: any): Promise<AdminConfig | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("system_settings")
+      .select("value")
+      .eq("key", "admin_whatsapp_instance")
+      .maybeSingle();
+
+    if (error || !data?.value) {
+      return null;
+    }
+
+    const config = data.value;
+    if (!config.api_url || !config.api_key || !config.instance_name) {
+      return null;
+    }
+
+    return {
+      api_url: config.api_url,
+      api_key: config.api_key,
+      instance_name: config.instance_name,
+    };
+  } catch (err) {
+    console.error("Error fetching admin WhatsApp config:", err);
+    return null;
+  }
+}
+
+async function sendEvolutionText(apiUrl: string, apiKey: string, instanceName: string, to: string, text: string) {
   const number = to.replace(/\D/g, "");
-  const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
+  const response = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": EVOLUTION_API_KEY,
+      "apikey": apiKey,
     },
     body: JSON.stringify({ number, text }),
   });
@@ -112,14 +145,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get instance details
+    // Get instance details OR use admin config
+    let apiUrl = "";
+    let apiKey = "";
+    let evolutionInstanceName = "";
+
     const { data: instance } = await supabaseAdmin
       .from("whatsapp_instances")
-      .select("evolution_instance_id")
+      .select("evolution_instance_id, evolution_api_token")
       .eq("id", instanceId)
       .single();
 
-    if (!instance?.evolution_instance_id) {
+    if (instance?.evolution_instance_id) {
+      // Use organization's instance
+      const adminConfig = await getAdminWhatsAppConfig(supabaseAdmin);
+      apiUrl = adminConfig?.api_url || "";
+      apiKey = instance.evolution_api_token || adminConfig?.api_key || "";
+      evolutionInstanceName = instance.evolution_instance_id;
+    } else {
+      // Fallback to admin instance
+      const adminConfig = await getAdminWhatsAppConfig(supabaseAdmin);
+      if (!adminConfig) {
+        console.log(`[${requestId}] No instance or admin config available`);
+        return new Response(
+          JSON.stringify({ success: true, message: "No instance configured" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      apiUrl = adminConfig.api_url;
+      apiKey = adminConfig.api_key;
+      evolutionInstanceName = adminConfig.instance_name;
+    }
+
+    if (!apiUrl || !apiKey || !evolutionInstanceName) {
       console.log(`[${requestId}] Instance not configured`);
       return new Response(
         JSON.stringify({ success: true, message: "Instance not configured" }),
@@ -130,7 +188,6 @@ Deno.serve(async (req) => {
     // Get target users
     let userIds = targetUserIds || [];
     if (!userIds.length) {
-      // Get all assignees
       const { data: assignees } = await supabaseAdmin
         .from("demand_assignees")
         .select("user_id")
@@ -147,7 +204,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get user phones
     const { data: users } = await supabaseAdmin
       .from("profiles")
       .select("id, first_name, whatsapp")
@@ -161,7 +217,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build message based on type
     const urgencyLabels: Record<string, string> = {
       low: "🟢 Baixa",
       medium: "🟡 Média", 
@@ -173,24 +228,20 @@ Deno.serve(async (req) => {
       case "assignment":
         messageTemplate = `📋 *Nova Demanda Atribuída*\n\n*Título:* ${demand.title}\n*Quadro:* ${demand.board?.name || "N/A"}\n*Coluna:* ${demand.column?.name || "N/A"}\n*Urgência:* ${urgencyLabels[demand.urgency] || demand.urgency}\n${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}${demand.lead?.name ? `*Cliente:* ${demand.lead.name}\n` : ""}\n_Acesse o sistema para mais detalhes._`;
         break;
-      
       case "status_change":
         const newColumn = extraData?.newColumn || demand.column?.name;
         messageTemplate = `🔄 *Demanda Movida*\n\n*Título:* ${demand.title}\n*Nova Coluna:* ${newColumn}\n${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}\n_Acesse o sistema para mais detalhes._`;
         break;
-      
       case "sla_warning":
         const hoursLeft = extraData?.hoursLeft || 0;
         messageTemplate = `⚠️ *Alerta de SLA*\n\n*Título:* ${demand.title}\n*Tempo Restante:* ${hoursLeft} horas\n*Prazo:* ${demand.sla_deadline ? new Date(demand.sla_deadline).toLocaleString("pt-BR") : "N/A"}\n\n_Esta demanda está próxima do prazo!_`;
         break;
-      
       case "comment":
         const commenterName = extraData?.commenterName || "Alguém";
         messageTemplate = `💬 *Novo Comentário*\n\n*Demanda:* ${demand.title}\n*Por:* ${commenterName}\n\n_Acesse o sistema para ver o comentário._`;
         break;
     }
 
-    // Send to each user
     let sentCount = 0;
     for (const user of users) {
       if (!user.whatsapp) continue;
@@ -199,7 +250,9 @@ Deno.serve(async (req) => {
       
       try {
         const sent = await sendEvolutionText(
-          instance.evolution_instance_id,
+          apiUrl,
+          apiKey,
+          evolutionInstanceName,
           user.whatsapp,
           personalMessage
         );

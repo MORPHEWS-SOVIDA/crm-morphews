@@ -7819,6 +7819,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_admin_whatsapp_config: { Args: never; Returns: Json }
       get_any_bot_for_instance: {
         Args: { p_instance_id: string }
         Returns: string
@@ -7979,6 +7980,7 @@ export type Database = {
         Args: { _sale_id: string }
         Returns: undefined
       }
+      save_admin_whatsapp_config: { Args: { p_config: Json }; Returns: boolean }
       save_onboarding_data: {
         Args: {
           _business_description?: string

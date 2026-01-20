@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -25,6 +25,7 @@ import { ErrorLogsTab } from "@/components/super-admin/ErrorLogsTab";
 import { PlanEditor } from "@/components/super-admin/PlanEditor";
 import { OrgFeatureOverridesEditor } from "@/components/super-admin/OrgFeatureOverridesEditor";
 import { EnergyManagementTab } from "@/components/super-admin/EnergyManagementTab";
+import { AdminWhatsAppInstanceTab } from "@/components/super-admin/AdminWhatsAppInstanceTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -783,6 +784,10 @@ export default function SuperAdmin() {
               <Zap className="h-3 w-3" />
               Energia IA
             </TabsTrigger>
+            <TabsTrigger value="admin-whatsapp" className="gap-1">
+              <Smartphone className="h-3 w-3" />
+              WhatsApp Admin
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="organizations">
@@ -1230,6 +1235,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="energy">
             <EnergyManagementTab />
+          </TabsContent>
+
+          <TabsContent value="admin-whatsapp">
+            <AdminWhatsAppInstanceTab />
           </TabsContent>
         </Tabs>
       </div>
