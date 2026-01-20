@@ -241,7 +241,7 @@ export function RomaneioImporter() {
         .from('profiles')
         .select('user_id')
         .eq('organization_id', organizationId)
-        .ilike('email', '%thiago@soantura.com.br%')
+        .ilike('email', '%thiago@sonatura.com.br%')
         .single();
 
       const importerUserId = thiagoProfile?.user_id || profile?.user_id;
