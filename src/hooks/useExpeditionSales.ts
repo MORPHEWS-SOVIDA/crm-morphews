@@ -39,8 +39,7 @@ export function useExpeditionSales() {
           *,
           lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at),
-          seller:profiles!sales_seller_user_id_fkey(id, first_name, last_name),
-          delivery_region:delivery_regions(id, name)
+          delivery_region:delivery_regions!sales_delivery_region_id_fkey(id, name)
         `)
         .eq('organization_id', organizationId)
         .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled'])
@@ -49,10 +48,40 @@ export function useExpeditionSales() {
 
       if (error) throw error;
 
-      return (data || []) as unknown as Sale[];
+      const sales = (data || []) as unknown as Sale[];
+
+      // Enrich seller names (sales.seller_user_id -> profiles.user_id)
+      const sellerIds = Array.from(
+        new Set(sales.map(s => s.seller_user_id).filter(Boolean) as string[])
+      );
+
+      if (sellerIds.length === 0) return sales;
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', sellerIds);
+
+      if (profilesError) throw profilesError;
+
+      const sellerMap = (profiles || []).reduce((acc, p) => {
+        acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+        return acc;
+      }, {} as Record<string, { first_name: string; last_name: string }>);
+
+      return sales.map(s => ({
+        ...s,
+        seller_profile: s.seller_user_id ? sellerMap[s.seller_user_id] : undefined,
+      })) as Sale[];
     },
     enabled: !!organizationId,
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time feel
+    // Keep UI responsive and avoid flicker on refetch/errors
+    staleTime: 10_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
+    retry: 1,
+    placeholderData: (prev) => prev ?? [],
   });
 }
 

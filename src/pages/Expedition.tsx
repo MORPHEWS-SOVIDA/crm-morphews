@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { SmartLayout } from '@/components/layout/SmartLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -101,7 +101,7 @@ export default function Expedition() {
   const queryClient = useQueryClient();
   const { profile, user } = useAuth();
   const organizationId = profile?.organization_id || null;
-  const { data: sales = [], isLoading, refetch } = useExpeditionSales();
+  const { data: sales = [], isLoading, error } = useExpeditionSales();
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
   const { data: carriers = [] } = useShippingCarriers();
@@ -110,8 +110,19 @@ export default function Expedition() {
   const updateMotoboyTracking = useUpdateMotoboyTracking();
   const updateCarrierTracking = useUpdateCarrierTracking();
 
+  // Avoid spamming toast on retries
+  const shownErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!error) return;
+    const msg = (error as any)?.message || 'Erro ao carregar vendas da expedição';
+    if (shownErrorRef.current === msg) return;
+    shownErrorRef.current = msg;
+    console.error('[Expedicao] fetch error', error);
+    toast.error('Falha ao carregar vendas. Atualize a página.');
+  }, [error]);
+
   // State
-  const [activeTab, setActiveTabState] = useState<TabFilter>('todo');
+  const [activeTab, setActiveTabState] = useState<TabFilter>('printed');
   const [sortOrder, setSortOrder] = useState<SortOrder>('delivery');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
@@ -120,11 +131,10 @@ export default function Expedition() {
   // Optimistic UI: track sales being marked as printed
   const [optimisticPrinted, setOptimisticPrinted] = useState<Set<string>>(new Set());
 
-  // Handle tab change with refetch
+  // Handle tab change (local only - filtering is client-side)
   const setActiveTab = useCallback((tab: TabFilter) => {
     setActiveTabState(tab);
-    refetch();
-  }, [refetch]);
+  }, []);
 
   const stats = useExpeditionStats(sales);
 
@@ -157,8 +167,8 @@ export default function Expedition() {
       s.romaneio_number?.toString().includes(query) ||
       s.lead?.neighborhood?.toLowerCase().includes(query) ||
       s.lead?.city?.toLowerCase().includes(query) ||
-      (s as any).seller?.first_name?.toLowerCase().includes(query) ||
-      (s as any).seller?.last_name?.toLowerCase().includes(query) ||
+      s.seller_profile?.first_name?.toLowerCase().includes(query) ||
+      s.seller_profile?.last_name?.toLowerCase().includes(query) ||
       (s as any).delivery_region?.name?.toLowerCase().includes(query) ||
       s.items?.some((item: any) => item.requisition_number?.toLowerCase().includes(query))
     );
@@ -889,7 +899,7 @@ export default function Expedition() {
 
               const saleCategory = getSaleCategory(sale);
               const statusBgColor = STATUS_BG_COLORS[saleCategory] || '';
-              const sellerName = (sale as any).seller ? `${(sale as any).seller.first_name || ''} ${(sale as any).seller.last_name || ''}`.trim() : null;
+              const sellerName = sale.seller_profile ? `${sale.seller_profile.first_name || ''} ${sale.seller_profile.last_name || ''}`.trim() : null;
               const regionName = (sale as any).delivery_region?.name;
               const requisitionNumbers = sale.items?.filter((i: any) => i.requisition_number).map((i: any) => i.requisition_number) || [];
 
