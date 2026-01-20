@@ -27,36 +27,15 @@ export default function DirectCheckout() {
   const [isAnnual, setIsAnnual] = useState(isAnnualParam);
 
   const handleSelectPlan = () => {
-    // For AtomicPay plans, redirect directly to checkout URL
-    if (plan?.payment_provider === "atomicpay") {
-      const checkoutUrl = isAnnual 
-        ? plan.atomicpay_annual_url 
-        : plan.atomicpay_monthly_url;
-      
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
-        return;
-      }
-    }
-    
-    // For Stripe plans, show lead modal
+    // Always show lead modal first to capture customer info
     setShowLeadModal(true);
   };
 
-  const handleLeadSubmit = async () => {
-    if (!leadForm.name.trim() || !leadForm.whatsapp.trim()) {
+  const handleLeadSubmitForAtomicPay = async () => {
+    if (!leadForm.name.trim() || !leadForm.whatsapp.trim() || !leadForm.email.trim()) {
       toast({
-        title: "Preencha os campos obrigatórios",
-        description: "Nome e WhatsApp são necessários para continuar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!leadForm.email.trim()) {
-      toast({
-        title: "E-mail é obrigatório",
-        description: "Informe seu e-mail para receber as credenciais de acesso.",
+        title: "Preencha todos os campos",
+        description: "Nome, WhatsApp e E-mail são necessários para continuar.",
         variant: "destructive",
       });
       return;
@@ -65,6 +44,7 @@ export default function DirectCheckout() {
     setIsSubmitting(true);
 
     try {
+      // Save lead data first
       await supabase.from("interested_leads").insert({
         name: leadForm.name.trim(),
         whatsapp: leadForm.whatsapp.trim(),
@@ -76,6 +56,23 @@ export default function DirectCheckout() {
 
       setShowLeadModal(false);
 
+      // For AtomicPay plans, redirect to their checkout URL
+      if (plan?.payment_provider === "atomicpay") {
+        const checkoutUrl = isAnnual 
+          ? plan.atomicpay_annual_url 
+          : plan.atomicpay_monthly_url;
+        
+        if (checkoutUrl) {
+          const url = new URL(checkoutUrl);
+          url.searchParams.set("customer_name", leadForm.name.trim());
+          url.searchParams.set("customer_email", leadForm.email.trim());
+          url.searchParams.set("customer_phone", leadForm.whatsapp.trim());
+          window.location.href = url.toString();
+          return;
+        }
+      }
+
+      // Fallback to Stripe checkout
       const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
         body: {
           planId: plan?.id,
@@ -90,7 +87,6 @@ export default function DirectCheckout() {
       if (checkoutError) throw checkoutError;
       if (data?.error) throw new Error(data.error);
       
-      // For free plan, redirect to success page
       if (data?.success) {
         toast({
           title: "Conta criada com sucesso! 🎉",
@@ -100,7 +96,6 @@ export default function DirectCheckout() {
         return;
       }
       
-      // For paid plans, redirect to Stripe
       if (data?.url) {
         window.location.href = data.url;
       }
@@ -115,6 +110,9 @@ export default function DirectCheckout() {
       setIsSubmitting(false);
     }
   };
+
+  // Keep original handleLeadSubmit for backward compatibility (Stripe only)
+  const handleLeadSubmit = handleLeadSubmitForAtomicPay;
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("pt-BR", {
