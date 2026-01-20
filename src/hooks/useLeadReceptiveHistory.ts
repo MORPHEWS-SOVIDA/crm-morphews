@@ -32,8 +32,10 @@ export interface ReceptiveHistoryItem {
   completed: boolean;
   purchase_potential_cents: number | null;
   created_at: string;
-  // New transcription fields
+  // Recording fields
   call_recording_url: string | null;
+  recording_storage_path: string | null;
+  // Transcription fields
   transcription: string | null;
   transcription_status: string | null;
   call_quality_score: CallQualityScore | null;
@@ -63,6 +65,7 @@ export function useLeadReceptiveHistory(leadId: string | undefined) {
           purchase_potential_cents,
           created_at,
           call_recording_url,
+          recording_storage_path,
           transcription,
           transcription_status,
           call_quality_score,
