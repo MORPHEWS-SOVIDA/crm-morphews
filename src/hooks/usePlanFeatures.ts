@@ -6,8 +6,13 @@ import { toast } from "@/hooks/use-toast";
 // Define all available features that can be enabled/disabled per plan
 // This should mirror the modules available in user_permissions
 export const AVAILABLE_FEATURES = {
+  // Dashboards
+  dashboard_funnel: { label: "Dashboard Funil", group: "Dashboards" },
+  dashboard_kanban: { label: "Dashboard Kanban", group: "Dashboards" },
+  seller_panel: { label: "Meu Painel (Vendedor)", group: "Dashboards" },
+  sales_dashboard: { label: "Dashboard Vendas (Gamificação)", group: "Dashboards" },
+  
   // Módulos Principais
-  dashboard: { label: "Dashboard", group: "Módulos Principais" },
   leads: { label: "Leads / CRM", group: "Módulos Principais" },
   products: { label: "Produtos", group: "Módulos Principais" },
   standard_questions: { label: "Perguntas Sovida", group: "Módulos Principais" },
@@ -16,8 +21,9 @@ export const AVAILABLE_FEATURES = {
   // Vendas
   sales: { label: "Vendas", group: "Vendas" },
   deliveries: { label: "Entregas", group: "Vendas" },
+  expedition: { label: "Expedição", group: "Vendas" },
   receptive: { label: "Add Receptivo", group: "Vendas" },
-  sales_dashboard: { label: "Painel de Vendas (Gamificação)", group: "Vendas" },
+  receptive_manage: { label: "Gerência Receptivo", group: "Vendas" },
   
   // Pós-Venda & SAC
   post_sale: { label: "Pós-Venda", group: "Pós-Venda & SAC" },
@@ -49,6 +55,7 @@ export const AVAILABLE_FEATURES = {
   // Gerenciamento
   team: { label: "Minha Equipe", group: "Gerenciamento" },
   settings: { label: "Configurações", group: "Gerenciamento" },
+  integrations: { label: "Integrações", group: "Gerenciamento" },
   
   // Super Admin (interno)
   new_organization: { label: "Nova Organização", group: "Super Admin" },
