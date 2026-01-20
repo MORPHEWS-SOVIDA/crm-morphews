@@ -160,15 +160,23 @@ export function IntegrationDetailDialog({
     }
   }, [fieldMappings]);
 
-  // Get last successful payload for auto-mapping
+  // Get last payload for auto-mapping - look at ANY log, not just success
+  // This allows field detection even when webhooks are failing
   const lastPayload = useMemo(() => {
-    const successLog = logs?.find(l => 
+    if (!logs || logs.length === 0) return null;
+    
+    // Priority: success/test logs first, then any log with request_payload
+    const successLog = logs.find(l => 
       l.status === 'success' || (l.status as string) === 'test' || (l.status as string) === 'ping'
     );
-    return successLog?.request_payload;
+    if (successLog?.request_payload) return successLog.request_payload;
+    
+    // Fall back to any log with a payload (including errors)
+    const anyLogWithPayload = logs.find(l => l.request_payload && typeof l.request_payload === 'object');
+    return anyLogWithPayload?.request_payload || null;
   }, [logs]);
 
-  // Auto-detect fields from last payload
+  // Auto-detect fields from last payload - ALWAYS works, shows ALL fields
   const autoDetectFields = () => {
     if (!lastPayload) {
       toast.error('Nenhum payload recebido ainda. Envie um webhook primeiro.');
@@ -178,12 +186,12 @@ export function IntegrationDetailDialog({
     const payload = typeof lastPayload === 'object' ? lastPayload : {};
     const detected: DetectedField[] = [];
     
-    // Known field aliases for auto-suggestion (comprehensive list for common webhooks)
+    // Known field aliases for auto-suggestion - only suggest fields that EXIST in our schema
+    // Note: 'cpf' is NOT a valid field in leads table, so we removed it
     const fieldAliases: Record<string, string[]> = {
       name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'buyer_name', 'buyerName', 'contact_name'],
       email: ['email', 'e-mail', 'mail', 'customer_email', 'customerEmail', 'buyer_email', 'buyerEmail', 'contact_email'],
       whatsapp: ['whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone', 'buyer_phone', 'contact_phone', 'numero_telefone', 'numero_whatsapp'],
-      cpf: ['cpf', 'documento', 'document', 'customer_cpf', 'customerCpf', 'buyer_cpf', 'doc', 'tax_id', 'taxId'],
       observations: ['observations', 'observacoes', 'notes', 'notas', 'observacao', 'comments', 'comentarios', 'message', 'mensagem'],
       address_street: ['street', 'rua', 'endereco', 'address', 'logradouro', 'street_name', 'streetName'],
       address_number: ['number', 'numero', 'street_number', 'streetNumber', 'num', 'house_number'],
@@ -199,6 +207,8 @@ export function IntegrationDetailDialog({
     };
 
     const flattenPayload = (obj: any, prefix = ''): void => {
+      if (!obj || typeof obj !== 'object') return;
+      
       for (const key of Object.keys(obj)) {
         const fullKey = prefix ? `${prefix}.${key}` : key;
         const value = obj[key];
@@ -206,7 +216,7 @@ export function IntegrationDetailDialog({
         if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
           flattenPayload(value, fullKey);
         } else {
-          // Try to suggest a target field
+          // Try to suggest a target field based on key name
           let suggested: string | null = null;
           const lowerKey = key.toLowerCase().replace(/[_\s-]/g, '');
           
@@ -217,21 +227,37 @@ export function IntegrationDetailDialog({
             }
           }
           
+          // Add ALL fields to detected list - user will choose to map or ignore
           detected.push({
             key: fullKey,
             value: value,
-            suggested_target: suggested,
+            suggested_target: suggested, // null means user needs to decide
           });
         }
       }
     };
 
     // Handle body_raw if present (from wrapped payload)
-    const actualPayload = payload.body_raw ? JSON.parse(payload.body_raw) : payload;
+    let actualPayload = payload;
+    try {
+      if (payload.body_raw && typeof payload.body_raw === 'string') {
+        actualPayload = JSON.parse(payload.body_raw);
+      }
+    } catch {
+      // Keep original payload if parsing fails
+    }
+    
     flattenPayload(actualPayload);
     
+    // Always show results, even if empty
     setDetectedFields(detected);
     setShowPayloadViewer(true);
+    
+    if (detected.length === 0) {
+      toast.info('Nenhum campo encontrado no payload. Verifique os logs.');
+    } else {
+      toast.success(`${detected.length} campos detectados! Configure o mapeamento abaixo.`);
+    }
   };
 
   // Apply detected field as mapping

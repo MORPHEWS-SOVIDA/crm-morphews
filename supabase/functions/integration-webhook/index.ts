@@ -486,6 +486,12 @@ Deno.serve(async (req) => {
     const typedMappings = (mappings || []) as FieldMapping[];
     console.log(`Found ${typedMappings.length} field mappings`);
 
+    // VALID lead table columns - only these will be written to leads table
+    const VALID_LEAD_COLUMNS = new Set([
+      'name', 'email', 'whatsapp', 'observations', 'stage', 'stars', 
+      'organization_id', 'assigned_to', 'webhook_data', 'created_at', 'updated_at'
+    ]);
+    
     // Build lead data from mappings
     const leadData: Record<string, any> = {
       organization_id: typedIntegration.organization_id,
@@ -508,7 +514,12 @@ Deno.serve(async (req) => {
           const saleField = mapping.target_field.replace('sale_', '');
           saleData[saleField] = transformedValue;
         } else {
-          leadData[mapping.target_field] = transformedValue;
+          // Only add to leadData if it's a valid column (ignore unknown fields like 'cpf')
+          if (VALID_LEAD_COLUMNS.has(mapping.target_field)) {
+            leadData[mapping.target_field] = transformedValue;
+          } else {
+            console.log(`Ignoring unknown lead field: ${mapping.target_field} (not in schema)`);
+          }
         }
       }
     }
@@ -517,13 +528,13 @@ Deno.serve(async (req) => {
     if (typedMappings.length === 0) {
       console.log('No mappings configured, attempting auto-detection...');
       
-      // Common field name variations
+      // Common field name variations - ONLY for fields that exist in leads table
       const fieldAliases: Record<string, string[]> = {
         name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'nome completo'],
         email: ['email', 'e-mail', 'mail', 'customer_email', 'customerEmail'],
         whatsapp: ['whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone'],
-        cpf: ['cpf', 'documento', 'document', 'customer_cpf', 'customerCpf'],
         observations: ['observations', 'observacoes', 'notes', 'notas', 'observacao'],
+        // Address fields
         address_street: ['street', 'rua', 'endereco', 'address', 'logradouro'],
         address_number: ['number', 'numero', 'num', 'street_number'],
         address_complement: ['complement', 'complemento', 'comp'],
@@ -553,7 +564,8 @@ Deno.serve(async (req) => {
             } else if (targetField.startsWith('sale_')) {
               saleData[targetField.replace('sale_', '')] = transformed;
             } else {
-              if (!leadData[targetField]) {
+              // Only set valid lead columns
+              if (VALID_LEAD_COLUMNS.has(targetField) && !leadData[targetField]) {
                 leadData[targetField] = transformed;
               }
             }
