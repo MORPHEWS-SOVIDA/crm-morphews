@@ -11,9 +11,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-// Fallback global Evolution credentials (optional). Prefer per-instance fields.
-const FALLBACK_EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
-const FALLBACK_EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
+// Wavoip SaaS API base URL
+const WAVOIP_API_URL = "https://api.wavoip.com";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -24,20 +23,16 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function normalizeUrl(url: string) {
-  return url.replace(/\/+$/, "");
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // IMPORTANT: always reply 200 so the frontend doesn't get a hard error from invoke()
-  // (we still enforce auth/permissions inside the function).
+  // Always return 200 so frontend can handle errors gracefully
   if (req.method !== "POST") {
     return jsonResponse({ ok: false, error: "Method not allowed", code: 405 });
   }
 
   try {
+    // Authenticate user
     const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
     if (!authHeader) return jsonResponse({ ok: false, error: "Não autenticado", code: 401 });
 
@@ -55,6 +50,7 @@ serve(async (req) => {
 
     const userId = userData.user.id;
 
+    // Parse request body
     const body = await req.json().catch(() => ({}));
     const instanceId = body?.instanceId as string | undefined;
     const number = body?.number as string | undefined;
@@ -66,11 +62,10 @@ serve(async (req) => {
 
     console.log("wavoip-call-offer: request", { instanceId, userId, isVideo, callDuration });
 
+    // Fetch instance with Wavoip device token
     const { data: instance, error: instanceError } = await supabaseAdmin
       .from("whatsapp_instances")
-      .select(
-        "id, organization_id, name, evolution_instance_id, wavoip_enabled, wavoip_server_url, wavoip_api_key, evolution_api_token"
-      )
+      .select("id, organization_id, name, wavoip_enabled, wavoip_device_token")
       .eq("id", instanceId)
       .single();
 
@@ -83,6 +78,15 @@ serve(async (req) => {
       return jsonResponse({ ok: false, error: "Chamadas não habilitadas para esta instância", code: 400 });
     }
 
+    if (!instance.wavoip_device_token) {
+      return jsonResponse({ 
+        ok: false, 
+        error: "Token Wavoip não configurado. Acesse as configurações da instância.", 
+        code: 400 
+      });
+    }
+
+    // Check user permission
     const { data: perm, error: permError } = await supabaseAdmin
       .from("whatsapp_instance_users")
       .select("id, can_use_phone, can_view")
@@ -97,24 +101,23 @@ serve(async (req) => {
       return jsonResponse({ ok: false, error: "Sem permissão de telefone para esta instância", code: 403 });
     }
 
-    const serverUrl = normalizeUrl(String(instance.wavoip_server_url || FALLBACK_EVOLUTION_API_URL || ""));
-    const apiKey = String(instance.wavoip_api_key || instance.evolution_api_token || FALLBACK_EVOLUTION_API_KEY || "");
+    // Make call via Wavoip SaaS API
+    // Documentation: https://docs.wavoip.com (adjust endpoint as per actual docs)
+    const wavoipUrl = `${WAVOIP_API_URL}/v1/calls/offer`;
 
-    if (!serverUrl) return jsonResponse({ ok: false, error: "Servidor de chamadas não configurado", code: 500 });
-    if (!apiKey) return jsonResponse({ ok: false, error: "Chave de autenticação do servidor não configurada", code: 500 });
+    console.log("wavoip-call-offer: calling Wavoip SaaS", { wavoipUrl, number: number.substring(0, 8) + "..." });
 
-    const instanceName = String(instance.evolution_instance_id || instance.name);
-    const upstreamUrl = `${serverUrl}/call/offer/${encodeURIComponent(instanceName)}`;
-
-    console.log("wavoip-call-offer: upstream", { upstreamUrl, instanceName });
-
-    const upstreamResp = await fetch(upstreamUrl, {
+    const upstreamResp = await fetch(wavoipUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: apiKey,
+        "Authorization": `Bearer ${instance.wavoip_device_token}`,
       },
-      body: JSON.stringify({ number, isVideo, callDuration }),
+      body: JSON.stringify({
+        number: number,
+        isVideo: isVideo,
+        duration: callDuration,
+      }),
     });
 
     const rawText = await upstreamResp.text();
@@ -125,14 +128,17 @@ serve(async (req) => {
       // keep as text
     }
 
-    console.log("wavoip-call-offer: upstream response", { ok: upstreamResp.ok, status: upstreamResp.status });
+    console.log("wavoip-call-offer: upstream response", { 
+      ok: upstreamResp.ok, 
+      status: upstreamResp.status,
+      raw: typeof raw === 'string' ? raw.substring(0, 200) : raw,
+    });
 
-    // Always return 200 so the frontend can handle upstream errors deterministically.
+    // Return result
     return jsonResponse({
       ok: upstreamResp.ok,
       upstreamStatus: upstreamResp.status,
-      instanceName,
-      upstreamUrl,
+      instanceName: instance.name,
       raw,
     });
   } catch (error: unknown) {

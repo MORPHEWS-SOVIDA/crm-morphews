@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, PhoneCall, Users, Loader2, AlertTriangle } from 'lucide-react';
+import { Phone, PhoneCall, Users, Loader2, AlertTriangle, ExternalLink, Check, X, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useCallQueue, useUserCallAvailability, useWavoip } from '@/hooks/useWavoip';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,7 +34,24 @@ export function WavoipSettings({
 }: WavoipSettingsProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showQueueDialog, setShowQueueDialog] = useState(false);
+  const [showTokenDialog, setShowTokenDialog] = useState(false);
   const queryClient = useQueryClient();
+
+  // Fetch instance token
+  const { data: instanceData, isLoading: loadingInstance } = useQuery({
+    queryKey: ['wavoip-instance-token', instanceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whatsapp_instances')
+        .select('wavoip_device_token')
+        .eq('id', instanceId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!instanceId,
+  });
 
   // Fetch users with phone permission
   const { data: phoneUsers, isLoading: loadingPhoneUsers } = useQuery({
@@ -76,7 +95,8 @@ export function WavoipSettings({
       if (error) throw error;
 
       if (enabled) {
-        toast.success('Chamadas habilitadas! Habilite a permissão de telefone para os usuários na tabela acima.');
+        toast.success('Chamadas habilitadas! Configure o token do Wavoip.');
+        setShowTokenDialog(true);
       } else {
         toast.success('Chamadas desabilitadas');
       }
@@ -84,6 +104,7 @@ export function WavoipSettings({
       queryClient.invalidateQueries({ queryKey: ['whatsapp-instances'] });
       queryClient.invalidateQueries({ queryKey: ['wavoip-instance-config'] });
       queryClient.invalidateQueries({ queryKey: ['instance-phone-users'] });
+      queryClient.invalidateQueries({ queryKey: ['wavoip-instance-token'] });
       onUpdate?.();
     } catch (error: any) {
       toast.error('Erro ao atualizar configuração');
@@ -93,6 +114,8 @@ export function WavoipSettings({
     }
   };
 
+  const hasToken = !!instanceData?.wavoip_device_token;
+
   return (
     <>
       <div className="space-y-3">
@@ -100,14 +123,18 @@ export function WavoipSettings({
           <div className="flex items-center gap-3">
             <div className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center",
-              wavoipEnabled ? "bg-green-100 text-green-600" : "bg-muted text-muted-foreground"
+              wavoipEnabled && hasToken ? "bg-green-100 text-green-600" : 
+              wavoipEnabled ? "bg-amber-100 text-amber-600" : 
+              "bg-muted text-muted-foreground"
             )}>
               <Phone className="h-5 w-5" />
             </div>
             <div>
               <p className="font-medium text-sm">Habilitar Chamadas</p>
               <p className="text-xs text-muted-foreground">
-                {wavoipEnabled ? 'Usuários com permissão podem fazer e receber chamadas' : 'Chamadas desabilitadas'}
+                {wavoipEnabled && hasToken ? 'Chamadas habilitadas via Wavoip' : 
+                 wavoipEnabled ? 'Configure o token do Wavoip' : 
+                 'Chamadas desabilitadas'}
               </p>
             </div>
           </div>
@@ -119,30 +146,82 @@ export function WavoipSettings({
         </div>
 
         {wavoipEnabled && (
-          <div className="p-3 bg-background rounded-lg border space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Usuários com Acesso
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Habilite a permissão "Telefone" na tabela acima
-                </p>
+          <>
+            {/* Token Status */}
+            <div 
+              className={cn(
+                "p-3 rounded-lg border cursor-pointer transition-colors",
+                hasToken 
+                  ? "bg-green-50 border-green-200 hover:bg-green-100 dark:bg-green-950/30 dark:border-green-800" 
+                  : "bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/30 dark:border-amber-800"
+              )}
+              onClick={() => setShowTokenDialog(true)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {hasToken ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">
+                      {hasToken ? 'Token Wavoip Configurado' : 'Token Wavoip Pendente'}
+                    </p>
+                    {hasToken && (
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {instanceData.wavoip_device_token?.substring(0, 20)}...
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm">
+                  {hasToken ? 'Alterar' : 'Configurar'}
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowQueueDialog(true)}
-              >
-                Ver Fila
-              </Button>
             </div>
-            
-            <PhoneUsersPreview users={phoneUsers} isLoading={loadingPhoneUsers} />
-          </div>
+
+            {/* Users with phone permission */}
+            {hasToken && (
+              <div className="p-3 bg-background rounded-lg border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Usuários com Acesso
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Habilite a permissão "Telefone" na tabela acima
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowQueueDialog(true)}
+                  >
+                    Ver Fila
+                  </Button>
+                </div>
+                
+                <PhoneUsersPreview users={phoneUsers} isLoading={loadingPhoneUsers} />
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      <WavoipTokenDialog
+        open={showTokenDialog}
+        onOpenChange={setShowTokenDialog}
+        instanceId={instanceId}
+        instanceName={instanceName}
+        currentToken={instanceData?.wavoip_device_token}
+        onSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ['wavoip-instance-token', instanceId] });
+          queryClient.invalidateQueries({ queryKey: ['wavoip-instance-config', instanceId] });
+          onUpdate?.();
+        }}
+      />
 
       <CallQueueDialog
         open={showQueueDialog}
@@ -151,6 +230,252 @@ export function WavoipSettings({
         instanceName={instanceName}
       />
     </>
+  );
+}
+
+/**
+ * Dialog for configuring Wavoip device token
+ */
+interface WavoipTokenDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  instanceId: string;
+  instanceName: string;
+  currentToken?: string | null;
+  onSaved?: () => void;
+}
+
+function WavoipTokenDialog({
+  open,
+  onOpenChange,
+  instanceId,
+  instanceName,
+  currentToken,
+  onSaved,
+}: WavoipTokenDialogProps) {
+  const [token, setToken] = useState(currentToken || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+
+  // Update local state when currentToken changes
+  useState(() => {
+    if (currentToken) setToken(currentToken);
+  });
+
+  const handleSave = async () => {
+    if (!token.trim()) {
+      toast.error('Cole o token do dispositivo Wavoip');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('whatsapp_instances')
+        .update({ wavoip_device_token: token.trim() })
+        .eq('id', instanceId);
+
+      if (error) throw error;
+
+      toast.success('Token Wavoip salvo com sucesso! 📞');
+      onSaved?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error('Erro ao salvar token');
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClear = async () => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('whatsapp_instances')
+        .update({ wavoip_device_token: null })
+        .eq('id', instanceId);
+
+      if (error) throw error;
+
+      setToken('');
+      setTestResult(null);
+      toast.success('Token removido');
+      onSaved?.();
+    } catch (error: any) {
+      toast.error('Erro ao remover token');
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!token.trim()) {
+      toast.error('Preencha o token primeiro');
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+    toast.info('🧪 Testando conexão com Wavoip...');
+
+    try {
+      // Test via our backend function
+      const { data, error } = await supabase.functions.invoke('wavoip-test-connection', {
+        body: { deviceToken: token.trim() },
+      });
+
+      if (error) throw error;
+
+      if (data?.ok) {
+        setTestResult('success');
+        toast.success('✅ Token válido! Conexão com Wavoip funcionando.');
+      } else {
+        setTestResult('error');
+        toast.error(data?.error || 'Token inválido ou sem conexão');
+      }
+    } catch (error: any) {
+      console.error('Erro ao testar:', error);
+      setTestResult('error');
+      toast.error('Erro ao testar conexão. Verifique o token.');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Phone className="h-5 w-5 text-green-600" />
+            Configurar Wavoip - {instanceName}
+          </DialogTitle>
+          <DialogDescription>
+            Configure o token do dispositivo Wavoip para habilitar chamadas
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Instructions */}
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+              ℹ️ Como obter o token:
+            </p>
+            <ol className="text-xs text-blue-700 dark:text-blue-300 space-y-1.5 list-decimal list-inside">
+              <li>
+                Acesse{' '}
+                <a 
+                  href="https://app.wavoip.com/devices" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="underline font-medium inline-flex items-center gap-1"
+                >
+                  app.wavoip.com/devices
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </li>
+              <li>Clique em "Novo Dispositivo"</li>
+              <li>Dê um nome (ex: "{instanceName}")</li>
+              <li>Copie o TOKEN gerado</li>
+              <li>Cole aqui neste campo</li>
+            </ol>
+          </div>
+
+          {/* Token Input */}
+          <div className="space-y-2">
+            <Label htmlFor="wavoip-token">Wavoip Device Token</Label>
+            <div className="flex gap-2">
+              <Input
+                id="wavoip-token"
+                type="text"
+                placeholder="Cole o token do dispositivo Wavoip aqui"
+                value={token}
+                onChange={(e) => {
+                  setToken(e.target.value);
+                  setTestResult(null);
+                }}
+                className="font-mono text-sm"
+              />
+              {token && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClear}
+                  disabled={isSaving}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Token Preview */}
+          {token && (
+            <div className={cn(
+              "flex items-center gap-2 p-3 rounded-lg border",
+              testResult === 'success' ? "bg-green-50 border-green-200 dark:bg-green-950/30" :
+              testResult === 'error' ? "bg-red-50 border-red-200 dark:bg-red-950/30" :
+              "bg-muted"
+            )}>
+              <div className="flex-1">
+                <p className="text-xs font-mono break-all text-muted-foreground">
+                  {token.substring(0, 40)}{token.length > 40 ? '...' : ''}
+                </p>
+              </div>
+              {testResult === 'success' && <Check className="h-4 w-4 text-green-600" />}
+              {testResult === 'error' && <X className="h-4 w-4 text-red-600" />}
+            </div>
+          )}
+
+          {/* Test Button */}
+          {token && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={isTesting || !token.trim()}
+              className="w-full"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Testando...
+                </>
+              ) : (
+                '🧪 Testar Conexão Wavoip'
+              )}
+            </Button>
+          )}
+
+          {/* Important note */}
+          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Importante:</strong> O Wavoip é um serviço separado. 
+                Cada instância precisa de seu próprio token de dispositivo.
+                A Evolution API continua gerenciando apenas as mensagens.
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !token.trim()}>
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Salvar Token
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
