@@ -17,7 +17,10 @@ import {
   MessageSquare,
   Settings,
   Wifi,
-  WifiOff
+  WifiOff,
+  Webhook,
+  Send,
+  Check
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -37,6 +40,9 @@ export function AdminWhatsAppInstanceTab() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isFetchingQr, setIsFetchingQr] = useState(false);
+  const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<'unknown' | 'ok' | 'error'>('unknown');
   
   const [formData, setFormData] = useState({
     instance_name: "",
@@ -165,6 +171,112 @@ export function AdminWhatsAppInstanceTab() {
     }
   };
 
+  // Configure webhook for Secretária Morphews
+  const configureWebhook = async () => {
+    if (!formData.api_url || !formData.instance_name || !formData.api_key) {
+      toast({
+        title: "Configuração incompleta",
+        description: "Preencha URL, nome da instância e token primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsConfiguringWebhook(true);
+    try {
+      const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`;
+      
+      const response = await fetch(
+        `${formData.api_url.replace(/\/$/, '')}/webhook/set/${formData.instance_name}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: formData.api_key,
+          },
+          body: JSON.stringify({
+            url: webhookUrl,
+            byEvents: false,
+            base64: true,
+            headers: { 'Content-Type': 'application/json' },
+            events: [
+              'MESSAGES_UPSERT',
+              'CONNECTION_UPDATE',
+              'QRCODE_UPDATED',
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.message || `HTTP ${response.status}`);
+      }
+
+      setWebhookStatus('ok');
+      toast({
+        title: "Webhook configurado! ✅",
+        description: "A Secretária Morphews agora pode receber mensagens desta instância.",
+      });
+    } catch (error: any) {
+      setWebhookStatus('error');
+      toast({
+        title: "Erro ao configurar webhook",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsConfiguringWebhook(false);
+    }
+  };
+
+  // Send test message
+  const sendTestMessage = async () => {
+    if (!formData.phone_number) {
+      toast({
+        title: "Número não configurado",
+        description: "Configure o número do WhatsApp primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      const response = await fetch(
+        `${formData.api_url.replace(/\/$/, '')}/message/sendText/${formData.instance_name}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: formData.api_key,
+          },
+          body: JSON.stringify({
+            number: formData.phone_number,
+            text: `✅ *Teste da Secretária Morphews*\n\nSe você recebeu esta mensagem, o sistema está funcionando!\n\n📅 ${new Date().toLocaleString('pt-BR')}`,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Falha ao enviar mensagem');
+      }
+
+      toast({
+        title: "Mensagem de teste enviada! 📱",
+        description: `Enviada para ${formData.phone_number}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao enviar teste",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
   // Fetch QR Code
   const fetchQrCode = async () => {
     if (!formData.api_url || !formData.instance_name || !formData.api_key) {
@@ -282,7 +394,7 @@ export function AdminWhatsAppInstanceTab() {
                 </Badge>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -308,6 +420,35 @@ export function AdminWhatsAppInstanceTab() {
                   <QrCode className="h-4 w-4" />
                 )}
                 Ler QR Code
+              </Button>
+              <Button
+                variant={webhookStatus === 'ok' ? 'default' : 'secondary'}
+                size="sm"
+                onClick={configureWebhook}
+                disabled={isConfiguringWebhook}
+                className={webhookStatus === 'ok' ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                {isConfiguringWebhook ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : webhookStatus === 'ok' ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Webhook className="h-4 w-4" />
+                )}
+                {webhookStatus === 'ok' ? 'Webhook OK' : 'Configurar Webhook'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={sendTestMessage}
+                disabled={isSendingTest || !config?.is_connected}
+              >
+                {isSendingTest ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Enviar Teste
               </Button>
             </div>
           </div>
@@ -428,6 +569,28 @@ export function AdminWhatsAppInstanceTab() {
                 </Button>
               </div>
             )}
+          </div>
+
+          <Separator />
+
+          {/* Secretária Morphews Info */}
+          <div className="p-4 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800">
+            <h4 className="font-medium text-purple-800 dark:text-purple-200 mb-2">
+              🤖 Secretária Morphews (IA)
+            </h4>
+            <p className="text-sm text-purple-700 dark:text-purple-300 mb-3">
+              Quando o webhook está configurado, usuários podem gerenciar o CRM enviando mensagens para este número:
+            </p>
+            <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
+              <li>• <strong>Cadastrar lead:</strong> "Cadastrar lead 51999998888 nome João 5 estrelas"</li>
+              <li>• <strong>Buscar lead:</strong> "Busca a Dra. Maria"</li>
+              <li>• <strong>Atualizar estrelas:</strong> "Coloca 5 estrelas no João"</li>
+              <li>• <strong>Mudar etapa:</strong> "Coloca o Pedro como positivo"</li>
+              <li>• <strong>Ver estatísticas:</strong> "Estatísticas"</li>
+            </ul>
+            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
+              ⚠️ O usuário precisa ter o WhatsApp cadastrado no perfil para ser identificado.
+            </p>
           </div>
 
           <Separator />
