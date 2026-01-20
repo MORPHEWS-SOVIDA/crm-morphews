@@ -96,11 +96,39 @@ export function AdminWhatsAppInstanceTab() {
       });
 
       if (error) throw error;
+      
+      // Auto-configure webhook when saving
+      if (newConfig.api_url && newConfig.instance_name && newConfig.api_key) {
+        try {
+          const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`;
+          const baseUrl = (newConfig.api_url as string).replace(/\/$/, '');
+          
+          await fetch(`${baseUrl}/webhook/set/${newConfig.instance_name}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: newConfig.api_key as string,
+            },
+            body: JSON.stringify({
+              url: webhookUrl,
+              byEvents: false,
+              base64: true,
+              headers: { 'Content-Type': 'application/json' },
+              events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+            }),
+          });
+          console.log('Webhook configured automatically');
+        } catch (webhookError) {
+          console.warn('Could not auto-configure webhook:', webhookError);
+        }
+      }
+      
       return configToSave;
     },
     onSuccess: () => {
-      toast({ title: "Configuração salva com sucesso!" });
+      toast({ title: "Configuração salva e webhook configurado! ✅" });
       setIsEditing(false);
+      setWebhookStatus('ok');
       queryClient.invalidateQueries({ queryKey: ["admin-whatsapp-instance"] });
     },
     onError: (error: Error) => {
