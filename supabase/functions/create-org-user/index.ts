@@ -47,14 +47,47 @@ function normalizeWhatsApp(phone: string | null | undefined): string | null {
   return clean;
 }
 
-// Send welcome WhatsApp message via Z-API
-async function sendWelcomeWhatsApp(phone: string, firstName: string, tempPassword: string): Promise<void> {
-  const zapiInstanceId = Deno.env.get("ZAPI_INSTANCE_ID");
-  const zapiToken = Deno.env.get("ZAPI_TOKEN");
-  const zapiClientToken = Deno.env.get("ZAPI_CLIENT_TOKEN");
+// Get admin WhatsApp config from database
+async function getAdminWhatsAppConfig(supabaseAdmin: any): Promise<{
+  api_url: string;
+  api_key: string;
+  instance_name: string;
+} | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("system_settings")
+      .select("value")
+      .eq("key", "admin_whatsapp_instance")
+      .maybeSingle();
 
-  if (!zapiInstanceId || !zapiToken) {
-    console.log("Z-API credentials not configured, skipping WhatsApp welcome message");
+    if (error || !data?.value) {
+      console.log("No admin WhatsApp config found in database");
+      return null;
+    }
+
+    const config = data.value;
+    if (!config.api_url || !config.api_key || !config.instance_name) {
+      console.log("Admin WhatsApp config incomplete");
+      return null;
+    }
+
+    return {
+      api_url: config.api_url,
+      api_key: config.api_key,
+      instance_name: config.instance_name,
+    };
+  } catch (err) {
+    console.error("Error fetching admin WhatsApp config:", err);
+    return null;
+  }
+}
+
+// Send welcome WhatsApp message via Evolution API (using DB config)
+async function sendWelcomeWhatsApp(phone: string, firstName: string, tempPassword: string, supabaseAdmin: any): Promise<void> {
+  const config = await getAdminWhatsAppConfig(supabaseAdmin);
+  
+  if (!config) {
+    console.log("Evolution API not configured, skipping WhatsApp welcome message");
     return;
   }
 
@@ -78,7 +111,7 @@ Você foi adicionado à equipe e já pode começar a usar o sistema.
 
 ---
 
-💡 *Dica:* Este número (555130760100) é seu assistente virtual! Você pode atualizar seus leads via conversa aqui pelo WhatsApp.
+💡 *Dica:* Este número é seu assistente virtual! Você pode atualizar seus leads via conversa aqui pelo WhatsApp.
 
 Basta enviar uma mensagem como:
 • "Adicionar lead João 51999998888"
@@ -87,31 +120,26 @@ Basta enviar uma mensagem como:
 Qualquer dúvida, estamos por aqui! 🚀`;
 
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    
-    if (zapiClientToken) {
-      headers["Client-Token"] = zapiClientToken;
-    }
-
     const response = await fetch(
-      `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`,
+      `${config.api_url}/message/sendText/${config.instance_name}`,
       {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": config.api_key,
+        },
         body: JSON.stringify({
-          phone: normalizedPhone,
-          message: welcomeMessage,
+          number: normalizedPhone,
+          text: welcomeMessage,
         }),
       }
     );
 
     if (response.ok) {
-      console.log("Welcome WhatsApp sent successfully to", normalizedPhone);
+      console.log("Welcome WhatsApp sent successfully via Evolution API to", normalizedPhone);
     } else {
       const errorData = await response.text();
-      console.error("Error sending WhatsApp:", errorData);
+      console.error("Error sending WhatsApp via Evolution:", errorData);
     }
   } catch (error) {
     console.error("Error sending welcome WhatsApp:", error);
@@ -455,7 +483,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send welcome WhatsApp message (only for additional users)
     if (isAdditionalUser && ownerPhone) {
-      await sendWelcomeWhatsApp(ownerPhone, firstName, tempPassword);
+      await sendWelcomeWhatsApp(ownerPhone, firstName, tempPassword, supabaseAdmin);
     }
 
     return new Response(

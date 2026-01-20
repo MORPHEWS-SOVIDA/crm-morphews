@@ -30,15 +30,6 @@ interface AdminInstanceConfig {
   updated_at: string;
 }
 
-interface SystemSetting {
-  id: string;
-  key: string;
-  value: AdminInstanceConfig;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export function AdminWhatsAppInstanceTab() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -54,21 +45,19 @@ export function AdminWhatsAppInstanceTab() {
     phone_number: "",
   });
 
-  // Fetch current admin instance config from system_settings
+  // Fetch current admin instance config using RPC
   const { data: config, isLoading } = useQuery({
     queryKey: ["admin-whatsapp-instance"],
     queryFn: async () => {
-      // Use raw RPC or direct fetch since types aren't updated yet
-      const { data, error } = await supabase.rpc("get_admin_whatsapp_config" as any);
+      const { data, error } = await supabase.rpc("get_admin_whatsapp_config");
 
       if (error) {
-        // Table might not exist yet or no config - return null
         console.log("No admin config found:", error.message);
         return null;
       }
       
       if (data) {
-        return data as AdminInstanceConfig;
+        return data as unknown as AdminInstanceConfig;
       }
       
       return null;
@@ -87,24 +76,18 @@ export function AdminWhatsAppInstanceTab() {
     }
   }, [config]);
 
-  // Save config mutation
+  // Save config mutation using RPC
   const saveConfigMutation = useMutation({
     mutationFn: async (newConfig: Partial<AdminInstanceConfig>) => {
       const configToSave = {
         ...newConfig,
         updated_at: new Date().toISOString(),
-        is_connected: false, // Reset connection status when saving new config
+        is_connected: false,
       };
 
-      const { error } = await supabase
-        .from("system_settings" as any)
-        .upsert({
-          key: "admin_whatsapp_instance",
-          value: configToSave,
-          updated_at: new Date().toISOString(),
-        } as any, {
-          onConflict: "key",
-        });
+      const { error } = await supabase.rpc("save_admin_whatsapp_config", {
+        p_config: configToSave,
+      });
 
       if (error) throw error;
       return configToSave;
@@ -159,15 +142,9 @@ export function AdminWhatsAppInstanceTab() {
         updated_at: new Date().toISOString(),
       };
 
-      await supabase
-        .from("system_settings" as any)
-        .upsert({
-          key: "admin_whatsapp_instance",
-          value: updatedConfig,
-          updated_at: new Date().toISOString(),
-        } as any, {
-          onConflict: "key",
-        });
+      await supabase.rpc("save_admin_whatsapp_config", {
+        p_config: updatedConfig,
+      });
 
       queryClient.invalidateQueries({ queryKey: ["admin-whatsapp-instance"] });
 
@@ -224,7 +201,6 @@ export function AdminWhatsAppInstanceTab() {
       } else if (data.code) {
         setQrCode(data.code);
       } else {
-        // Instance might already be connected
         toast({
           title: "Instância já conectada",
           description: "A instância já está conectada ao WhatsApp.",
@@ -281,8 +257,8 @@ export function AdminWhatsAppInstanceTab() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Status Card */}
-          <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg border bg-muted/30">
+            <div className="flex flex-wrap items-center gap-3">
               {config?.is_connected ? (
                 <div className="flex items-center gap-2 text-green-600">
                   <Wifi className="h-5 w-5" />
