@@ -104,56 +104,48 @@ export function useUncontactedLeads() {
   });
 }
 
+export interface ClaimLeadResult {
+  success: boolean;
+  alreadyClaimed?: boolean;
+  leadId?: string;
+}
+
 export function useClaimLead() {
   const { user } = useAuth();
   const { tenantId } = useTenant();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (leadId: string) => {
+    mutationFn: async (leadId: string): Promise<ClaimLeadResult> => {
       if (!tenantId || !user?.id) throw new Error('Missing tenant or user');
 
-      // First check if lead already has responsibles
-      const { data: existing } = await supabase
-        .from('lead_responsibles')
-        .select('id')
-        .eq('lead_id', leadId)
-        .limit(1);
-
-      if (existing && existing.length > 0) {
-        throw new Error('Este lead já foi assumido por outro vendedor');
-      }
-
-      // Claim the lead
-      const { error } = await supabase
-        .from('lead_responsibles')
-        .insert({
-          lead_id: leadId,
-          user_id: user.id,
-          organization_id: tenantId,
-          is_primary: true,
-        });
+      // Use atomic claim function to prevent race conditions
+      const { data, error } = await supabase.rpc('claim_lead', {
+        p_lead_id: leadId,
+        p_user_id: user.id,
+        p_organization_id: tenantId,
+      });
 
       if (error) throw error;
 
-      // Update the lead stage to 'contacted' (first contact made)
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ stage: 'contacted' })
-        .eq('id', leadId);
+      const result = data as { success: boolean; error?: string; message?: string; lead_id?: string };
 
-      if (updateError) throw updateError;
+      if (!result.success) {
+        if (result.error === 'already_claimed') {
+          return { success: false, alreadyClaimed: true };
+        }
+        throw new Error(result.message || 'Erro ao assumir lead');
+      }
 
-      return leadId;
+      return { success: true, leadId };
     },
-    onSuccess: (leadId) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['uncontacted-leads'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      queryClient.invalidateQueries({ queryKey: ['lead', leadId] });
-      toast({
-        title: 'Lead assumido!',
-        description: 'Você agora é responsável por este cliente.',
-      });
+      if (result.leadId) {
+        queryClient.invalidateQueries({ queryKey: ['lead', result.leadId] });
+      }
+      // Toast is handled in the component for custom behavior
     },
     onError: (error: any) => {
       toast({

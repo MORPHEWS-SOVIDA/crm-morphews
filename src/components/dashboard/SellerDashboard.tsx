@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   MessageSquare,
   Calendar,
@@ -36,6 +37,8 @@ import { formatCurrency } from '@/hooks/useSales';
 import { motoboyTrackingLabels } from '@/hooks/useMotoboyTracking';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { toast } from '@/hooks/use-toast';
+import slothRaceImage from '@/assets/sloth-race.png';
 
 function DateBadge({ date }: { date: string }) {
   const parsedDate = parseISO(date);
@@ -194,15 +197,36 @@ export function SellerDashboard() {
     dismissProductSuggestion,
   } = useLeadIntelligence();
 
+  // State for sloth race modal (someone else claimed)
+  const [showSlothModal, setShowSlothModal] = useState(false);
+
   const handleClaimLead = async (leadId: string) => {
     setClaimingLeadId(leadId);
     try {
-      await claimLead.mutateAsync(leadId);
-      // Navigate to lead detail after claiming
-      navigate(`/leads/${leadId}`);
+      const result = await claimLead.mutateAsync(leadId);
+      
+      if (result.success) {
+        // Success! Navigate to Add Receptivo with the lead
+        toast({
+          title: 'Lead assumido!',
+          description: 'Você agora é responsável por este cliente.',
+        });
+        navigate(`/add-receptivo?lead_id=${leadId}`);
+      } else if (result.alreadyClaimed) {
+        // Someone else was faster - show sloth modal
+        setShowSlothModal(true);
+      }
+    } catch (error: any) {
+      // Error is handled in the hook
     } finally {
       setClaimingLeadId(null);
     }
+  };
+
+  const handleCloseSlothModal = () => {
+    setShowSlothModal(false);
+    // Refresh the list to remove the claimed lead
+    window.location.reload();
   };
 
   const handlePreviousMonth = () => {
@@ -839,6 +863,25 @@ export function SellerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sloth Race Modal - Someone else claimed the lead */}
+      <Dialog open={showSlothModal} onOpenChange={handleCloseSlothModal}>
+        <DialogContent 
+          className="max-w-md p-0 overflow-hidden bg-transparent border-none shadow-none"
+          onClick={handleCloseSlothModal}
+        >
+          <div className="relative cursor-pointer">
+            <img 
+              src={slothRaceImage} 
+              alt="Seja mais rápido da próxima vez!" 
+              className="w-full h-auto rounded-xl shadow-2xl"
+            />
+            <p className="absolute bottom-4 left-0 right-0 text-center text-white text-sm font-medium bg-black/30 py-2 backdrop-blur-sm">
+              Clique em qualquer lugar para voltar
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
