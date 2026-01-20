@@ -9,6 +9,8 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  DragOverEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -155,18 +157,41 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({ stage, leads }: KanbanColumnProps) {
+  // Make the column droppable using the stage ID
+  const { setNodeRef, isOver } = useDroppable({
+    id: stage.id,
+  });
+
+  // Check if stage uses custom hex color or Tailwind class
+  const isCustomColor = stage.color.startsWith('#') || stage.color.startsWith('rgb');
+
   return (
-    <div className="flex-shrink-0 w-72 flex flex-col bg-muted/30 rounded-xl">
+    <div 
+      ref={setNodeRef}
+      className={cn(
+        "flex-shrink-0 w-72 flex flex-col bg-muted/30 rounded-xl transition-all",
+        isOver && "ring-2 ring-primary ring-offset-2"
+      )}
+    >
       {/* Header */}
-      <div className={cn('p-3 rounded-t-xl', stage.color)}>
+      <div 
+        className={cn('p-3 rounded-t-xl', !isCustomColor && stage.color)}
+        style={isCustomColor ? { backgroundColor: stage.color } : undefined}
+      >
         <div className="flex items-center justify-between">
-          <h3 className={cn('font-semibold text-sm truncate', stage.text_color)}>
+          <h3 
+            className={cn('font-semibold text-sm truncate', !isCustomColor && stage.text_color)}
+            style={isCustomColor ? { color: stage.text_color } : undefined}
+          >
             {stage.name}
           </h3>
-          <span className={cn(
-            'px-2 py-0.5 rounded-full text-xs font-bold bg-white/30',
-            stage.text_color
-          )}>
+          <span 
+            className={cn(
+              'px-2 py-0.5 rounded-full text-xs font-bold bg-white/30',
+              !isCustomColor && stage.text_color
+            )}
+            style={isCustomColor ? { color: stage.text_color } : undefined}
+          >
             {leads.length}
           </span>
         </div>
@@ -175,7 +200,7 @@ function KanbanColumn({ stage, leads }: KanbanColumnProps) {
       {/* Cards */}
       <ScrollArea className="flex-1 p-2 max-h-[calc(100vh-320px)]">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
+          <div className="space-y-2 min-h-[100px]">
             {leads.map((lead) => (
               <KanbanCard
                 key={lead.id}
@@ -199,6 +224,7 @@ interface PendingStageChange {
   lead: Lead;
   previousStage: FunnelStage;
   newStage: FunnelStage;
+  targetStageId?: string; // The custom stage ID the lead is being moved to
 }
 
 export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel }: KanbanBoardProps) {
@@ -214,11 +240,14 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5,
       },
     }),
     useSensor(KeyboardSensor)
   );
+
+  // State to track the column being hovered during drag
+  const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
 
   // Filter leads
   const filteredLeads = useMemo(() => {
@@ -251,9 +280,36 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     if (lead) setActiveLead(lead);
   };
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setActiveColumnId(null);
+      return;
+    }
+
+    // Check if over a column directly
+    const overColumn = stages.find(s => s.id === over.id);
+    if (overColumn) {
+      setActiveColumnId(overColumn.id);
+      return;
+    }
+
+    // Check if over a card - find its column
+    for (const stage of stages) {
+      const leadsInStage = leadsByStage[stage.id];
+      if (leadsInStage?.some(l => l.id === over.id)) {
+        setActiveColumnId(stage.id);
+        return;
+      }
+    }
+    
+    setActiveColumnId(null);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveLead(null);
+    setActiveColumnId(null);
 
     if (!over) return;
 
@@ -262,10 +318,19 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     if (!lead) return;
 
     // Find which column the card was dropped in
-    const overStage = stages.find((s) => {
-      const leadsInStage = leadsByStage[s.id];
-      return leadsInStage.some((l) => l.id === over.id) || over.id === s.id;
-    });
+    // First check if dropped directly on a column
+    let overStage = stages.find((s) => s.id === over.id);
+    
+    // If not, check if dropped on a card within a column
+    if (!overStage) {
+      for (const stage of stages) {
+        const leadsInStage = leadsByStage[stage.id];
+        if (leadsInStage?.some((l) => l.id === over.id)) {
+          overStage = stage;
+          break;
+        }
+      }
+    }
 
     if (!overStage) return;
 
@@ -278,6 +343,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
         lead,
         previousStage: lead.stage as FunnelStage,
         newStage: newStageEnum,
+        targetStageId: overStage.id,
       });
     }
   };
@@ -331,6 +397,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="overflow-x-auto pb-4">
@@ -351,16 +418,37 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
       </DndContext>
 
       {/* Stage Change Dialog */}
-      {pendingChange && (
-        <StageChangeDialog
-          open={!!pendingChange}
-          onOpenChange={(open) => !open && handleCancelStageChange()}
-          previousStage={pendingChange.previousStage}
-          newStage={pendingChange.newStage}
-          onConfirm={handleConfirmStageChange}
-          isLoading={isUpdating}
-        />
-      )}
+      {pendingChange && (() => {
+        // Find tenant custom stage info for the dialog
+        // For previous stage, find by current lead stage
+        const prevCustomStage = stages.find(s => s.enum_value === pendingChange.previousStage);
+        // For new stage, use the target stage ID (the column they dropped into) for accuracy
+        // This handles the case where multiple custom stages map to the same enum_value
+        const newCustomStage = pendingChange.targetStageId 
+          ? stages.find(s => s.id === pendingChange.targetStageId)
+          : stages.find(s => s.enum_value === pendingChange.newStage);
+        
+        return (
+          <StageChangeDialog
+            open={!!pendingChange}
+            onOpenChange={(open) => !open && handleCancelStageChange()}
+            previousStage={pendingChange.previousStage}
+            newStage={pendingChange.newStage}
+            onConfirm={handleConfirmStageChange}
+            isLoading={isUpdating}
+            previousStageInfo={prevCustomStage ? {
+              name: prevCustomStage.name,
+              color: prevCustomStage.color,
+              textColor: prevCustomStage.text_color,
+            } : undefined}
+            newStageInfo={newCustomStage ? {
+              name: newCustomStage.name,
+              color: newCustomStage.color,
+              textColor: newCustomStage.text_color,
+            } : undefined}
+          />
+        );
+      })()}
     </>
   );
 }

@@ -835,16 +835,32 @@ export default function LeadDetail() {
       </div>
 
       {/* Stage Change Dialog */}
-      {lead && stageChangeDialog.newStage && (
-        <StageChangeDialog
-          open={stageChangeDialog.open}
-          onOpenChange={(open) => !open && setStageChangeDialog({ open: false, newStage: null })}
-          previousStage={lead.stage}
-          newStage={stageChangeDialog.newStage}
-          onConfirm={handleStageChange}
-          isLoading={updateLead.isPending || addStageHistory.isPending}
-        />
-      )}
+      {lead && stageChangeDialog.newStage && (() => {
+        // Find tenant custom stage info for the dialog
+        const prevCustomStage = funnelStages.find(s => s.enum_value === lead.stage);
+        const newCustomStage = funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
+        
+        return (
+          <StageChangeDialog
+            open={stageChangeDialog.open}
+            onOpenChange={(open) => !open && setStageChangeDialog({ open: false, newStage: null })}
+            previousStage={lead.stage}
+            newStage={stageChangeDialog.newStage}
+            onConfirm={handleStageChange}
+            isLoading={updateLead.isPending || addStageHistory.isPending}
+            previousStageInfo={prevCustomStage ? {
+              name: prevCustomStage.name,
+              color: prevCustomStage.color,
+              textColor: prevCustomStage.text_color,
+            } : undefined}
+            newStageInfo={newCustomStage ? {
+              name: newCustomStage.name,
+              color: newCustomStage.color,
+              textColor: newCustomStage.text_color,
+            } : undefined}
+          />
+        );
+      })()}
     </Layout>
   );
 }

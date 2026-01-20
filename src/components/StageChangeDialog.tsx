@@ -13,6 +13,12 @@ import { Label } from '@/components/ui/label';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { cn } from '@/lib/utils';
 
+interface StageInfo {
+  name: string;
+  color: string;
+  textColor: string;
+}
+
 interface StageChangeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -20,6 +26,9 @@ interface StageChangeDialogProps {
   newStage: FunnelStage;
   onConfirm: (reason: string | null) => void;
   isLoading?: boolean;
+  // Custom stage info from tenant (optional - falls back to FUNNEL_STAGES)
+  previousStageInfo?: StageInfo;
+  newStageInfo?: StageInfo;
 }
 
 export function StageChangeDialog({
@@ -29,11 +38,26 @@ export function StageChangeDialog({
   newStage,
   onConfirm,
   isLoading,
+  previousStageInfo,
+  newStageInfo,
 }: StageChangeDialogProps) {
   const [reason, setReason] = useState('');
 
-  const previousStageInfo = FUNNEL_STAGES[previousStage];
-  const newStageInfo = FUNNEL_STAGES[newStage];
+  // Use custom stage info if provided, otherwise fallback to FUNNEL_STAGES
+  const fallbackPrevious = FUNNEL_STAGES[previousStage];
+  const fallbackNew = FUNNEL_STAGES[newStage];
+
+  const prevInfo = previousStageInfo || {
+    name: fallbackPrevious?.label || previousStage,
+    color: fallbackPrevious?.color || 'bg-muted',
+    textColor: fallbackPrevious?.textColor || 'text-foreground',
+  };
+
+  const newInfo = newStageInfo || {
+    name: fallbackNew?.label || newStage,
+    color: fallbackNew?.color || 'bg-muted',
+    textColor: fallbackNew?.textColor || 'text-foreground',
+  };
 
   const handleConfirm = () => {
     onConfirm(reason.trim() || null);
@@ -44,6 +68,10 @@ export function StageChangeDialog({
     setReason('');
     onOpenChange(false);
   };
+
+  // Determine if using custom colors (hex) or Tailwind classes
+  const isCustomPrevColor = prevInfo.color.startsWith('#') || prevInfo.color.startsWith('rgb');
+  const isCustomNewColor = newInfo.color.startsWith('#') || newInfo.color.startsWith('rgb');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,20 +86,32 @@ export function StageChangeDialog({
         <div className="py-4">
           {/* Stage change visualization */}
           <div className="flex items-center gap-3 mb-6 flex-wrap justify-center">
-            <span className={cn(
-              "inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium",
-              previousStageInfo.color,
-              previousStageInfo.textColor
-            )}>
-              {previousStageInfo.label}
+            <span 
+              className={cn(
+                "inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium",
+                !isCustomPrevColor && prevInfo.color,
+                !isCustomPrevColor && prevInfo.textColor
+              )}
+              style={isCustomPrevColor ? { 
+                backgroundColor: prevInfo.color, 
+                color: prevInfo.textColor 
+              } : undefined}
+            >
+              {prevInfo.name}
             </span>
             <span className="text-2xl text-muted-foreground">→</span>
-            <span className={cn(
-              "inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium",
-              newStageInfo.color,
-              newStageInfo.textColor
-            )}>
-              {newStageInfo.label}
+            <span 
+              className={cn(
+                "inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium",
+                !isCustomNewColor && newInfo.color,
+                !isCustomNewColor && newInfo.textColor
+              )}
+              style={isCustomNewColor ? { 
+                backgroundColor: newInfo.color, 
+                color: newInfo.textColor 
+              } : undefined}
+            >
+              {newInfo.name}
             </span>
           </div>
 
