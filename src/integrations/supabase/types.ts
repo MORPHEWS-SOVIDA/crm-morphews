@@ -7723,6 +7723,14 @@ export type Database = {
         Args: { _organization_id: string }
         Returns: number
       }
+      claim_lead: {
+        Args: {
+          p_lead_id: string
+          p_organization_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       claim_whatsapp_conversation: {
         Args: { p_conversation_id: string; p_user_id: string }
         Returns: Json
