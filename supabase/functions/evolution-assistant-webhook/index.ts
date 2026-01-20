@@ -21,10 +21,27 @@ function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
   if (!clean) return "";
   if (!clean.startsWith("55")) clean = `55${clean}`;
-  if (clean.length === 12 && clean.startsWith("55")) {
-    clean = clean.slice(0, 4) + "9" + clean.slice(4);
-  }
   return clean;
+}
+
+// Returns both possible formats: with and without 9th digit
+function getWhatsAppVariants(phone: string): string[] {
+  const clean = normalizeWhatsApp(phone);
+  if (!clean) return [];
+  
+  const variants: string[] = [clean];
+  
+  // If 12 digits (without 9th digit), also try with 9
+  if (clean.length === 12 && clean.startsWith("55")) {
+    variants.push(clean.slice(0, 4) + "9" + clean.slice(4));
+  }
+  
+  // If 13 digits (with 9th digit), also try without 9
+  if (clean.length === 13 && clean.startsWith("55") && clean[4] === "9") {
+    variants.push(clean.slice(0, 4) + clean.slice(5));
+  }
+  
+  return variants;
 }
 
 async function getAdminInstanceConfig(): Promise<{
@@ -1394,13 +1411,26 @@ serve(async (req) => {
     }
 
     // Map sender -> user -> organization
-    const { data: profile, error: profileError } = await supabase
+    // Try both with and without 9th digit to handle phone format variations
+    const phoneVariants = getWhatsAppVariants(fromPhone);
+    
+    console.log("🔍 Looking up profile for phone variants:", phoneVariants);
+    
+    const { data: profiles, error: profileError } = await supabase
       .from("profiles")
-      .select("user_id, organization_id, first_name")
-      .eq("whatsapp", fromPhone)
-      .maybeSingle();
+      .select("user_id, organization_id, first_name, whatsapp")
+      .in("whatsapp", phoneVariants);
 
     if (profileError) console.error("Profile lookup error:", profileError);
+    
+    // Prefer exact match, then any match
+    const profile = profiles?.find(p => p.whatsapp === fromPhone) || profiles?.[0];
+    
+    console.log("📋 Profile found:", profile ? { 
+      first_name: profile.first_name, 
+      organization_id: profile.organization_id,
+      whatsapp: profile.whatsapp 
+    } : "none");
 
     if (!profile?.user_id || !profile?.organization_id) {
       await reply(
