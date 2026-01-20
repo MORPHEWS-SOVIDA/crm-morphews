@@ -430,7 +430,8 @@ export function FunnelStagesManager() {
     .sort((a, b) => a.position - b.position);
   const trashStage = stages.find(s => s.stage_type === 'trash');
 
-  const maxFunnelPosition = Math.max(...funnelStages.map(s => s.position), 0);
+  // Use max across ALL stages (including cloud=0, trash=99) to avoid unique constraint clash
+  const maxFunnelPosition = Math.max(...stages.map(s => s.position), 0);
   
   // Get all used enum_values for duplicate prevention
   const usedEnumValues = useMemo(() => 
