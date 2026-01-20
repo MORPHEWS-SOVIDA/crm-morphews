@@ -521,7 +521,7 @@ Deno.serve(async (req) => {
       const fieldAliases: Record<string, string[]> = {
         name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'nome completo'],
         email: ['email', 'e-mail', 'mail', 'customer_email', 'customerEmail'],
-        whatsapp: ['whatsapp', 'phone', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone'],
+        whatsapp: ['whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone'],
         cpf: ['cpf', 'documento', 'document', 'customer_cpf', 'customerCpf'],
         observations: ['observations', 'observacoes', 'notes', 'notas', 'observacao'],
         address_street: ['street', 'rua', 'endereco', 'address', 'logradouro'],
