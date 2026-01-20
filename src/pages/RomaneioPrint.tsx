@@ -128,9 +128,13 @@ export default function RomaneioPrint() {
     );
   }
 
-  const saleQrData = `${window.location.origin}/vendas/${sale.id}`;
-  const googleMapsLink = sale.lead?.google_maps_link;
-  const deliveryNotes = sale.lead?.delivery_notes;
+  // Use production URL for QR code so it works when scanned
+  const saleQrData = `https://sales.morphews.com/vendas/${sale.id}`;
+  
+  // Use shipping_address if available, otherwise use lead address
+  const shippingAddress = (sale as any).shipping_address;
+  const addressData = shippingAddress || sale.lead;
+  const deliveryNotes = shippingAddress?.delivery_notes || sale.lead?.delivery_notes;
   const observation1 = (sale as any).observation_1;
   const observation2 = (sale as any).observation_2;
 
@@ -204,13 +208,13 @@ export default function RomaneioPrint() {
           
           {/* Address - compact single/dual line */}
           <div style={{ fontSize: '9px' }} className="mt-0.5">
-            {sale.lead?.street ? (
+            {addressData?.street ? (
               <>
-                <span>{sale.lead.street}, {sale.lead.street_number}</span>
-                {sale.lead.complement && <span> - {sale.lead.complement}</span>}
-                <span className="ml-2"><strong>B:</strong> {sale.lead.neighborhood}</span>
-                <span className="ml-2"><strong>CEP:</strong> {sale.lead.cep}</span>
-                <span className="ml-2">{sale.lead.city}/{sale.lead.state}</span>
+                <span>{addressData.street}, {addressData.street_number}</span>
+                {addressData.complement && <span> - {addressData.complement}</span>}
+                <span className="ml-2"><strong>B:</strong> {addressData.neighborhood}</span>
+                <span className="ml-2"><strong>CEP:</strong> {addressData.cep}</span>
+                <span className="ml-2">{addressData.city}/{addressData.state}</span>
               </>
             ) : (
               <span className="text-gray-500">Endereço não cadastrado</span>
@@ -246,12 +250,10 @@ export default function RomaneioPrint() {
           </div>
         </div>
         
-        {/* QR Codes - stacked on the right, larger */}
-        <div className="flex flex-col items-center gap-1 ml-2">
-          <QRCodeSVG value={saleQrData} size={45} />
-          {googleMapsLink && (
-            <QRCodeSVG value={googleMapsLink} size={35} />
-          )}
+        {/* QR Code - link to sale page for quick access */}
+        <div className="flex flex-col items-center ml-2">
+          <QRCodeSVG value={saleQrData} size={70} />
+          <span style={{ fontSize: '6px' }} className="text-gray-500 mt-0.5">Escanear p/ detalhes</span>
         </div>
       </div>
 
@@ -387,12 +389,12 @@ export default function RomaneioPrint() {
 
       {/* Address */}
       <div className="border-b border-dashed border-gray-400 pb-1 mb-1" style={{ fontSize: '9px' }}>
-        {sale.lead?.street ? (
+        {addressData?.street ? (
           <>
-            <p>{sale.lead.street}, {sale.lead.street_number}</p>
-            {sale.lead.complement && <p>{sale.lead.complement}</p>}
-            <p>{sale.lead.neighborhood} - {sale.lead.cep}</p>
-            <p>{sale.lead.city}/{sale.lead.state}</p>
+            <p>{addressData.street}, {addressData.street_number}</p>
+            {addressData.complement && <p>{addressData.complement}</p>}
+            <p>{addressData.neighborhood} - {addressData.cep}</p>
+            <p>{addressData.city}/{addressData.state}</p>
           </>
         ) : (
           <p>Endereço não cadastrado</p>
@@ -455,9 +457,9 @@ export default function RomaneioPrint() {
         </div>
       </div>
 
-      {/* QR Code */}
+      {/* QR Code - larger for easier scanning */}
       <div className="text-center py-2">
-        <QRCodeSVG value={saleQrData} size={50} />
+        <QRCodeSVG value={saleQrData} size={80} />
         <p style={{ fontSize: '8px' }} className="mt-1">Escaneie para detalhes</p>
       </div>
 

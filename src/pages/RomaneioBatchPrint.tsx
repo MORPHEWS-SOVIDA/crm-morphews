@@ -84,8 +84,10 @@ export default function RomaneioBatchPrint() {
           assigned_delivery_user_id,
           delivery_region_id,
           shipping_carrier_id,
+          shipping_address_id,
           lead:leads(name, whatsapp, street, street_number, complement, neighborhood, city, state, cep, google_maps_link, delivery_notes),
-          items:sale_items(id, product_name, quantity, total_cents, requisition_number)
+          items:sale_items(id, product_name, quantity, total_cents, requisition_number),
+          shipping_address:lead_addresses(id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link)
         `)
         .in('id', saleIds);
 
@@ -207,9 +209,13 @@ export default function RomaneioBatchPrint() {
   };
 
   const renderA5Content = (sale: SaleData, isSecondCopy = false) => {
-    const saleQrData = `${window.location.origin}/vendas/${sale.id}`;
-    const googleMapsLink = sale.lead?.google_maps_link;
-    const deliveryNotes = sale.lead?.delivery_notes;
+    // Use production URL for QR code
+    const saleQrData = `https://sales.morphews.com/vendas/${sale.id}`;
+    
+    // Use shipping_address if available
+    const shippingAddress = (sale as any).shipping_address;
+    const addressData = shippingAddress || sale.lead;
+    const deliveryNotes = shippingAddress?.delivery_notes || sale.lead?.delivery_notes;
     const items = sale.items || [];
     const needsOverflow = printFormat !== 'thermal' && items.length > MAX_ITEMS_A5;
     const mainPageItems = needsOverflow ? items.slice(0, MAX_ITEMS_A5 - 1) : items;
@@ -252,13 +258,13 @@ export default function RomaneioBatchPrint() {
             </div>
             
             <div style={{ fontSize: '9px' }} className="mt-0.5">
-              {sale.lead?.street ? (
+              {addressData?.street ? (
                 <>
-                  <span>{sale.lead.street}, {sale.lead.street_number}</span>
-                  {sale.lead.complement && <span> - {sale.lead.complement}</span>}
-                  <span className="ml-2"><strong>B:</strong> {sale.lead.neighborhood}</span>
-                  <span className="ml-2"><strong>CEP:</strong> {sale.lead.cep}</span>
-                  <span className="ml-2">{sale.lead.city}/{sale.lead.state}</span>
+                  <span>{addressData.street}, {addressData.street_number}</span>
+                  {addressData.complement && <span> - {addressData.complement}</span>}
+                  <span className="ml-2"><strong>B:</strong> {addressData.neighborhood}</span>
+                  <span className="ml-2"><strong>CEP:</strong> {addressData.cep}</span>
+                  <span className="ml-2">{addressData.city}/{addressData.state}</span>
                 </>
               ) : (
                 <span className="text-gray-500">Endereço não cadastrado</span>
@@ -283,11 +289,10 @@ export default function RomaneioBatchPrint() {
             </div>
           </div>
           
-          <div className="flex flex-col items-center gap-1 ml-2">
-            <QRCodeSVG value={saleQrData} size={45} />
-            {googleMapsLink && (
-              <QRCodeSVG value={googleMapsLink} size={35} />
-            )}
+          {/* QR Code - link to sale page */}
+          <div className="flex flex-col items-center ml-2">
+            <QRCodeSVG value={saleQrData} size={70} />
+            <span style={{ fontSize: '6px' }} className="text-gray-500 mt-0.5">Escanear p/ detalhes</span>
           </div>
         </div>
 
@@ -355,8 +360,13 @@ export default function RomaneioBatchPrint() {
   };
 
   const renderThermalContent = (sale: SaleData) => {
-    const saleQrData = `${window.location.origin}/vendas/${sale.id}`;
-    const deliveryNotes = sale.lead?.delivery_notes;
+    // Use production URL for QR code
+    const saleQrData = `https://sales.morphews.com/vendas/${sale.id}`;
+    
+    // Use shipping_address if available
+    const shippingAddress = (sale as any).shipping_address;
+    const addressData = shippingAddress || sale.lead;
+    const deliveryNotes = shippingAddress?.delivery_notes || sale.lead?.delivery_notes;
 
     const formattedDeliveryDate = sale.scheduled_delivery_date 
       ? format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM', { locale: ptBR })
@@ -377,14 +387,14 @@ export default function RomaneioBatchPrint() {
         <div className="mb-2">
           <div className="font-bold">{sale.lead?.name}</div>
           <div>{sale.lead?.whatsapp}</div>
-          {sale.lead?.street && (
+          {addressData?.street && (
             <div style={{ fontSize: '9px' }}>
-              {sale.lead.street}, {sale.lead.street_number}
-              {sale.lead.complement && ` - ${sale.lead.complement}`}
+              {addressData.street}, {addressData.street_number}
+              {addressData.complement && ` - ${addressData.complement}`}
               <br />
-              {sale.lead.neighborhood} - {sale.lead.cep}
+              {addressData.neighborhood} - {addressData.cep}
               <br />
-              {sale.lead.city}/{sale.lead.state}
+              {addressData.city}/{addressData.state}
             </div>
           )}
           {deliveryNotes && (
@@ -420,8 +430,10 @@ export default function RomaneioBatchPrint() {
           <div className="text-center mt-1 font-bold">✓ PAGO</div>
         )}
 
+        {/* QR Code - larger for easier scanning */}
         <div className="text-center mt-2">
-          <QRCodeSVG value={saleQrData} size={60} />
+          <QRCodeSVG value={saleQrData} size={80} />
+          <p style={{ fontSize: '7px' }} className="mt-1">Escanear p/ detalhes</p>
         </div>
 
         <div className="text-center mt-2 border-t border-dashed border-black pt-1" style={{ fontSize: '8px' }}>
