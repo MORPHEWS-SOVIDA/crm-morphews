@@ -33,6 +33,26 @@ interface AdminInstanceConfig {
   updated_at: string;
 }
 
+function describeInvokeError(err: unknown) {
+  const anyErr = err as any;
+  const status = anyErr?.context?.status;
+  const body = anyErr?.context?.body;
+
+  let details: string | undefined;
+  if (body) {
+    try {
+      const parsed = typeof body === "string" ? JSON.parse(body) : body;
+      details = parsed?.error || parsed?.message || parsed?.details;
+    } catch {
+      details = typeof body === "string" ? body : JSON.stringify(body);
+    }
+  }
+
+  const base = details || anyErr?.message || "Erro desconhecido";
+  return `${status ? `[${status}] ` : ""}${base}`.trim();
+}
+
+
 export function AdminWhatsAppInstanceTab() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -103,26 +123,29 @@ export function AdminWhatsAppInstanceTab() {
         const accessToken = sessionData.session?.access_token;
         if (accessToken) {
           const { data: res, error: fnError } = await supabase.functions.invoke(
-            'admin-configure-evolution-webhook',
+            "admin-configure-evolution-webhook",
             {
               headers: {
-                authorization: `Bearer ${accessToken}`,
+                Authorization: `Bearer ${accessToken}`,
               },
             }
           );
-          if (fnError) throw fnError;
-          if (!(res as any)?.ok) throw new Error((res as any)?.error || 'Falha ao configurar webhook');
+
+          if (fnError) throw new Error(describeInvokeError(fnError));
+          if (!(res as any)?.ok) {
+            throw new Error((res as any)?.error || "Falha ao configurar webhook");
+          }
         }
       } catch (webhookError) {
-        console.warn('Could not auto-configure webhook:', webhookError);
+        console.warn("Could not auto-configure webhook:", webhookError);
       }
       
       return configToSave;
     },
     onSuccess: () => {
-      toast({ title: "Configuração salva e webhook configurado! ✅" });
+      toast({ title: "Configuração salva! ✅" });
       setIsEditing(false);
-      setWebhookStatus('ok');
+      setWebhookStatus('unknown');
       queryClient.invalidateQueries({ queryKey: ["admin-whatsapp-instance"] });
     },
     onError: (error: Error) => {
@@ -202,18 +225,19 @@ export function AdminWhatsAppInstanceTab() {
       if (!accessToken) throw new Error('Sessão expirada. Faça login novamente.');
 
       const { data: res, error: fnError } = await supabase.functions.invoke(
-        'admin-configure-evolution-webhook',
+        "admin-configure-evolution-webhook",
         {
           headers: {
-            authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
 
-      if (fnError) throw fnError;
+      if (fnError) throw new Error(describeInvokeError(fnError));
 
       if (!(res as any)?.ok) {
-        const details = (res as any)?.attempts?.[0]?.bodyText || (res as any)?.error || 'HTTP 400';
+        const attempts = (res as any)?.result?.attempts || (res as any)?.attempts;
+        const details = attempts?.[0]?.bodyText || (res as any)?.error || "Falha ao configurar webhook";
         throw new Error(details);
       }
 
