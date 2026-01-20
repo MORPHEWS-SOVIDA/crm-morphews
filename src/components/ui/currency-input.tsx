@@ -8,6 +8,7 @@ export interface CurrencyInputProps
 }
 
 function formatCurrency(cents: number): string {
+  if (cents === 0) return '';
   const reais = cents / 100;
   return reais.toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
@@ -22,33 +23,53 @@ function parseCurrency(formattedValue: string): number {
 }
 
 const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ className, value, onChange, ...props }, ref) => {
+  ({ className, value, onChange, placeholder = '0,00', ...props }, ref) => {
     const [displayValue, setDisplayValue] = React.useState(() => formatCurrency(value || 0));
+    const [isFocused, setIsFocused] = React.useState(false);
 
-    // Atualiza display quando value externo muda
+    // Atualiza display quando value externo muda (e não está focado)
     React.useEffect(() => {
-      setDisplayValue(formatCurrency(value || 0));
-    }, [value]);
+      if (!isFocused) {
+        setDisplayValue(formatCurrency(value || 0));
+      }
+    }, [value, isFocused]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const rawValue = e.target.value;
+      
+      // Se apagou tudo, limpa
+      if (!rawValue.trim()) {
+        setDisplayValue('');
+        onChange(0);
+        return;
+      }
+      
       const cents = parseCurrency(rawValue);
       
       // Limita a 10 dígitos (R$ 99.999.999,99)
       if (cents > 9999999999) return;
       
-      setDisplayValue(formatCurrency(cents));
+      // Formata e exibe
+      const formatted = formatCurrency(cents);
+      setDisplayValue(formatted);
       onChange(cents);
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Seleciona todo o texto ao focar
-      e.target.select();
+      setIsFocused(true);
+      // Seleciona todo o texto ao focar para facilitar digitação
+      setTimeout(() => e.target.select(), 0);
+    };
+
+    const handleBlur = () => {
+      setIsFocused(false);
+      // Reformata ao sair do campo
+      setDisplayValue(formatCurrency(value || 0));
     };
 
     return (
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
           R$
         </span>
         <input
@@ -60,8 +81,10 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
           )}
           ref={ref}
           value={displayValue}
+          placeholder={placeholder}
           onChange={handleChange}
           onFocus={handleFocus}
+          onBlur={handleBlur}
           {...props}
         />
       </div>
