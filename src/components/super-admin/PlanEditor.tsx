@@ -623,7 +623,7 @@ export function PlanEditor() {
                         <div className="flex items-center gap-2">
                           <Input
                             readOnly
-                            value={`${window.location.origin}/planos?plan=${selectedPlanId}`}
+                            value={`${window.location.origin}/checkout?plan=${selectedPlanId}`}
                             className="font-mono text-xs"
                           />
                           <Button
@@ -631,7 +631,7 @@ export function PlanEditor() {
                             variant="outline"
                             size="icon"
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/planos?plan=${selectedPlanId}`);
+                              navigator.clipboard.writeText(`${window.location.origin}/checkout?plan=${selectedPlanId}`);
                               toast({
                                 title: "Link copiado!",
                                 description: "O link de checkout foi copiado para a área de transferência.",
