@@ -8,11 +8,34 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
-const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
-const EVOLUTION_INSTANCE_NAME = Deno.env.get("EVOLUTION_INSTANCE_NAME") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+interface AdminConfig {
+  api_url: string;
+  api_key: string;
+  instance_name: string;
+  phone_number?: string;
+  is_connected?: boolean;
+}
+
+async function getAdminWhatsAppConfig(): Promise<AdminConfig | null> {
+  try {
+    const { data } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "admin_whatsapp_instance")
+      .single();
+
+    if (data?.value) {
+      return data.value as AdminConfig;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching admin whatsapp config:", error);
+    return null;
+  }
+}
 
 function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
@@ -33,11 +56,12 @@ serve(async (req) => {
     const { 
       phone, 
       message, 
-      instanceId,           // UUID da instância no banco
+      instanceId,           // UUID da instância no banco (para instâncias de org)
       evolutionInstanceId,  // Nome da instância no Evolution (alternativo)
       mediaUrl,
       mediaType,
       fileName,
+      useAdminInstance,     // Se true, usa a instância administrativa
     } = await req.json();
 
     if (!phone) {
@@ -48,28 +72,60 @@ serve(async (req) => {
       throw new Error("message ou mediaUrl é obrigatório");
     }
 
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new Error("Evolution API credentials not configured");
-    }
-
     const normalizedPhone = normalizeWhatsApp(phone);
     if (!normalizedPhone) {
       throw new Error("Telefone inválido");
     }
 
-    // Determinar qual instância usar
-    let targetInstanceName = evolutionInstanceId || EVOLUTION_INSTANCE_NAME;
+    let apiUrl: string = "";
+    let apiKey: string = "";
+    let targetInstanceName: string = "";
 
-    // Se passou instanceId (UUID), buscar o nome da instância no banco
-    if (instanceId && !evolutionInstanceId) {
-      const { data: instance } = await supabase
-        .from("whatsapp_instances")
-        .select("evolution_instance_id")
-        .eq("id", instanceId)
-        .single();
+    // Se useAdminInstance = true ou não passou instanceId/evolutionInstanceId, usa a instância admin
+    if (useAdminInstance || (!instanceId && !evolutionInstanceId)) {
+      const adminConfig = await getAdminWhatsAppConfig();
+      
+      if (!adminConfig || !adminConfig.api_url || !adminConfig.api_key || !adminConfig.instance_name) {
+        throw new Error("Instância WhatsApp administrativa não configurada. Configure em Super Admin > WhatsApp Admin.");
+      }
 
-      if (instance?.evolution_instance_id) {
+      apiUrl = adminConfig.api_url.replace(/\/$/, ""); // Remove trailing slash
+      apiKey = adminConfig.api_key;
+      targetInstanceName = adminConfig.instance_name;
+      
+      console.log("Usando instância administrativa:", targetInstanceName);
+    } else {
+      // Usa instância específica da organização
+      if (evolutionInstanceId) {
+        targetInstanceName = evolutionInstanceId;
+      } else if (instanceId) {
+        const { data: instance } = await supabase
+          .from("whatsapp_instances")
+          .select("evolution_instance_id, evolution_api_url, evolution_api_key")
+          .eq("id", instanceId)
+          .single();
+
+        if (!instance?.evolution_instance_id) {
+          throw new Error("Instância não encontrada");
+        }
+        
         targetInstanceName = instance.evolution_instance_id;
+        
+        // Se a instância tem API própria configurada, usa ela
+        if (instance.evolution_api_url && instance.evolution_api_key) {
+          apiUrl = instance.evolution_api_url.replace(/\/$/, "");
+          apiKey = instance.evolution_api_key;
+        }
+      }
+
+      // Se não definiu apiUrl/apiKey, busca da instância admin como fallback
+      if (!apiUrl! || !apiKey!) {
+        const adminConfig = await getAdminWhatsAppConfig();
+        if (!adminConfig?.api_url || !adminConfig?.api_key) {
+          throw new Error("Configuração de API Evolution não encontrada");
+        }
+        apiUrl = adminConfig.api_url.replace(/\/$/, "");
+        apiKey = adminConfig.api_key;
       }
     }
 
@@ -80,6 +136,7 @@ serve(async (req) => {
     console.log("Enviando mensagem Evolution:", { 
       phone: normalizedPhone, 
       instanceName: targetInstanceName,
+      apiUrl,
       hasMedia: !!mediaUrl,
     });
 
@@ -88,7 +145,7 @@ serve(async (req) => {
 
     // Enviar texto ou mídia
     if (mediaUrl) {
-      url = `${EVOLUTION_API_URL}/message/sendMedia/${targetInstanceName}`;
+      url = `${apiUrl}/message/sendMedia/${targetInstanceName}`;
       body = {
         number: normalizedPhone,
         mediatype: mediaType || "image",
@@ -97,7 +154,7 @@ serve(async (req) => {
         fileName: fileName || undefined,
       };
     } else {
-      url = `${EVOLUTION_API_URL}/message/sendText/${targetInstanceName}`;
+      url = `${apiUrl}/message/sendText/${targetInstanceName}`;
       body = {
         number: normalizedPhone,
         text: message,
@@ -108,7 +165,7 @@ serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": EVOLUTION_API_KEY,
+        "apikey": apiKey,
       },
       body: JSON.stringify(body),
     });
