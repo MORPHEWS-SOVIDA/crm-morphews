@@ -400,7 +400,21 @@ Digite de 1 a 5:`;
 type ParsedCommand =
   | { action: "create_lead"; lead_phone: string; lead_name?: string; stars?: number; cep?: string; notes?: string; instagram?: string; email?: string; }
   | { action: "search_lead"; query: string; }
-  | { action: "update_lead"; lead_identifier: string; updates: { stars?: number; status?: string; notes?: string; name?: string; }; }
+  | { action: "update_lead"; lead_identifier: string; updates: { 
+      stars?: number; 
+      status?: string; 
+      notes?: string; 
+      name?: string; 
+      cpf_cnpj?: string;
+      favorite_team?: string;
+      lead_source?: string;
+      instagram?: string;
+      email?: string;
+      birth_date?: string;
+      gender?: string;
+      city?: string;
+      state?: string;
+    }; }
   | { action: "list_leads"; filter?: string; stars?: number; limit?: number; }
   | { action: "schedule_followup"; lead_identifier: string; date?: string; time?: string; notes?: string; }
   | { action: "create_meeting"; lead_identifier: string; date: string; time?: string; link?: string; notes?: string; }
@@ -417,11 +431,17 @@ type ParsedCommand =
 // AI COMMAND PARSER
 // ============================================================================
 
-async function parseCommandWithAI(text: string, hasActiveState: boolean): Promise<ParsedCommand | null> {
+async function parseCommandWithAI(text: string, hasActiveState: boolean, contextLeadName?: string): Promise<ParsedCommand | null> {
   if (!LOVABLE_API_KEY) return null;
 
-  const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM inteligente.
+  const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM MUITO inteligente.
 Analise a mensagem do usuário e retorne APENAS JSON válido (sem markdown, sem \`\`\`).
+
+${hasActiveState && contextLeadName ? `
+⚠️ CONTEXTO IMPORTANTE: O usuário está em um fluxo com o lead "${contextLeadName}".
+Se o usuário mencionar atualizações sem especificar outro lead, USE "${contextLeadName}" como lead_identifier.
+Exemplo: "Esse cliente é gremista" -> {"action":"update_lead","lead_identifier":"${contextLeadName}","updates":{"favorite_team":"Grêmio"}}
+` : ""}
 
 ${hasActiveState ? `
 O USUÁRIO ESTÁ EM UM FLUXO DE CADASTRO. Interprete respostas curtas:
@@ -431,16 +451,45 @@ O USUÁRIO ESTÁ EM UM FLUXO DE CADASTRO. Interprete respostas curtas:
 - "pular", "skip", "não", "depois" = {"action":"skip_step"}
 ` : ""}
 
+🔥 CAMPOS DO CRM QUE VOCÊ CONHECE:
+- stars: Classificação de 1 a 5 estrelas
+- cpf_cnpj: CPF ou CNPJ do cliente (documento)
+- favorite_team: Time de futebol que o cliente torce (Grêmio, Inter, Flamengo, etc.)
+- lead_source: Origem do lead (Instagram, Facebook, Indicação, Caiçara, etc.)
+- instagram: @ do Instagram
+- email: E-mail do cliente
+- birth_date: Data de nascimento (formato YYYY-MM-DD)
+- gender: Gênero (masculino/feminino)
+- city: Cidade
+- state: Estado (RS, SP, RJ, etc.)
+- notes: Observações gerais
+
 AÇÕES DISPONÍVEIS:
 
 1. CRIAR LEAD:
-{"action":"create_lead","lead_phone":"5551999998888","lead_name":"Nome","stars":5,"notes":"observações","instagram":"@user","email":"email@x.com"}
+{"action":"create_lead","lead_phone":"5551999998888","lead_name":"Nome","stars":5,"notes":"observações"}
 
-2. BUSCAR LEAD (por nome, telefone ou parte):
+2. BUSCAR LEAD (PRIORIZE ESTA AÇÃO para encontrar leads antes de atualizar):
 {"action":"search_lead","query":"Maria"}
+- Use quando o usuário quer encontrar um lead específico
+- O query pode ser nome parcial, telefone ou @instagram
 
-3. ATUALIZAR LEAD (estrelas, status, notas):
-{"action":"update_lead","lead_identifier":"Maria","updates":{"stars":5}}
+3. ATUALIZAR LEAD (AÇÃO MAIS COMPLETA - todos os campos!):
+{"action":"update_lead","lead_identifier":"Maria","updates":{
+  "stars": 5,
+  "cpf_cnpj": "00315751029",
+  "favorite_team": "Grêmio",
+  "lead_source": "Instagram",
+  "instagram": "@usuario",
+  "email": "email@x.com",
+  "birth_date": "1990-05-15",
+  "gender": "masculino",
+  "city": "Porto Alegre",
+  "state": "RS",
+  "notes": "observação adicional"
+}}
+- lead_identifier: MUITO FLEXÍVEL - pode ser nome parcial ("Matheus"), nome completo ("Matheus Lopes"), telefone ou @instagram
+- updates: Inclua APENAS os campos mencionados pelo usuário
 
 4. LISTAR LEADS:
 {"action":"list_leads","filter":"hoje","limit":10}
@@ -454,30 +503,33 @@ AÇÕES DISPONÍVEIS:
 7. MUDAR ETAPA DO FUNIL:
 {"action":"change_stage","lead_identifier":"Ana","stage":"reunião agendada"}
 
-8. AJUDA:
-{"action":"help"}
+8. AJUDA: {"action":"help"}
+9. ESTATÍSTICAS: {"action":"stats"}
+10. NÃO ENTENDI: {"action":"unknown","reply":"Desculpe, não entendi. Pode reformular?"}
 
-9. ESTATÍSTICAS:
-{"action":"stats"}
+🎯 REGRAS CRÍTICAS:
+- CPF/CNPJ são DOCUMENTOS, NUNCA confunda com telefone!
+- "cpf é 00315751029" → updates.cpf_cnpj = "00315751029"
+- "time/torce/torcedor" → updates.favorite_team
+- "origem/veio de/fonte" → updates.lead_source
+- Se não encontrar o lead, sugira busca primeiro
+- Se o usuário já está em um fluxo com um lead, use esse lead como contexto
 
-10. NÃO ENTENDI:
-{"action":"unknown","reply":"Desculpe, não entendi. Pode reformular?"}
+💡 EXEMPLOS DE INTERPRETAÇÃO:
+"Atualizar Matheus Lopes time grêmio e cpf 00315751029" → 
+  {"action":"update_lead","lead_identifier":"Matheus Lopes","updates":{"favorite_team":"Grêmio","cpf_cnpj":"00315751029"}}
 
-REGRAS:
-- lead_identifier pode ser nome parcial, telefone ou @instagram
-- stars: 1 a 5
-- Interprete linguagem natural!
-- "busca" = search_lead
-- "lista" = list_leads
-- "cadastra" ou "adiciona" = create_lead
+"Matheus Lopes origem caiçara" →
+  {"action":"update_lead","lead_identifier":"Matheus Lopes","updates":{"lead_source":"caiçara"}}
 
-EXEMPLOS:
-"Cadastrar lead 51999908088 nome Guilherme" -> create_lead
-"Busca a Maria" -> search_lead
-"Coloca 5 estrelas no João" -> update_lead
-"3" (durante fluxo) -> quick_star ou quick_followup
-"positivo" (durante fluxo) -> quick_stage
-"não precisa" -> skip_step`;
+"Esse cliente é gremista e cpf é 00315751029" (com contexto de lead) →
+  {"action":"update_lead","lead_identifier":"${contextLeadName || "[lead do contexto]"}","updates":{"favorite_team":"Grêmio","cpf_cnpj":"00315751029"}}
+
+"Mudar etapa funil Matheus para Call agendada" →
+  {"action":"change_stage","lead_identifier":"Matheus","stage":"Call agendada"}
+
+"Busca Matheus" →
+  {"action":"search_lead","query":"Matheus"}`;
 
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -522,8 +574,12 @@ EXEMPLOS:
 // ============================================================================
 
 async function findLeadByIdentifier(organizationId: string, identifier: string) {
-  const normalized = normalizeWhatsApp(identifier);
+  const trimmed = (identifier || "").trim();
+  if (!trimmed) return null;
   
+  const normalized = normalizeWhatsApp(trimmed);
+  
+  // Try by phone first if looks like a phone
   if (normalized && normalized.length >= 10) {
     const variants = [
       normalized,
@@ -535,7 +591,7 @@ async function findLeadByIdentifier(organizationId: string, identifier: string) 
     for (const v of variants) {
       const { data } = await supabase
         .from("leads")
-        .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, created_at")
+        .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
         .eq("organization_id", organizationId)
         .or(`whatsapp.ilike.%${v}%,secondary_phone.ilike.%${v}%`)
         .limit(1)
@@ -544,21 +600,49 @@ async function findLeadByIdentifier(organizationId: string, identifier: string) 
     }
   }
 
-  const { data: byName } = await supabase
+  // Try EXACT name match first
+  const { data: exactName } = await supabase
     .from("leads")
-    .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, created_at")
+    .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
     .eq("organization_id", organizationId)
-    .ilike("name", `%${identifier}%`)
+    .ilike("name", trimmed)
     .limit(1)
     .maybeSingle();
-  if (byName) return byName;
+  if (exactName) return exactName;
 
-  if (identifier.startsWith("@")) {
+  // Try PARTIAL name match (contains)
+  const { data: partialName } = await supabase
+    .from("leads")
+    .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
+    .eq("organization_id", organizationId)
+    .ilike("name", `%${trimmed}%`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (partialName) return partialName;
+
+  // Try each word in the identifier (for "Matheus Lopes" -> try "Matheus" then "Lopes")
+  const words = trimmed.split(/\s+/).filter(w => w.length >= 3);
+  for (const word of words) {
+    const { data: byWord } = await supabase
+      .from("leads")
+      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
+      .eq("organization_id", organizationId)
+      .ilike("name", `%${word}%`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byWord) return byWord;
+  }
+
+  // Try by Instagram
+  if (trimmed.startsWith("@") || !trimmed.includes(" ")) {
+    const instaQuery = trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
     const { data: byInsta } = await supabase
       .from("leads")
-      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, created_at")
+      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
       .eq("organization_id", organizationId)
-      .ilike("instagram", `%${identifier}%`)
+      .ilike("instagram", `%${instaQuery}%`)
       .limit(1)
       .maybeSingle();
     if (byInsta) return byInsta;
@@ -840,22 +924,109 @@ async function handleSearchLead(
 
 async function handleUpdateLead(
   command: Extract<ParsedCommand, { action: "update_lead" }>,
-  organizationId: string
+  organizationId: string,
+  contextLeadId?: string
 ): Promise<string> {
-  const lead = await findLeadByIdentifier(organizationId, command.lead_identifier);
+  // Use context lead if identifier matches or is generic
+  let lead = null;
+  
+  if (contextLeadId && command.lead_identifier) {
+    // Try to find the lead first
+    lead = await findLeadByIdentifier(organizationId, command.lead_identifier);
+  } else if (contextLeadId) {
+    // Use context lead directly
+    const { data } = await supabase
+      .from("leads")
+      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
+      .eq("id", contextLeadId)
+      .maybeSingle();
+    lead = data;
+  } else {
+    lead = await findLeadByIdentifier(organizationId, command.lead_identifier);
+  }
   
   if (!lead) {
-    return `❌ Lead não encontrado: "${command.lead_identifier}"`;
+    // Try a fuzzy search and suggest
+    const suggestions = await searchLeads(organizationId, command.lead_identifier, 3);
+    if (suggestions.length > 0) {
+      let msg = `❌ Lead não encontrado: "${command.lead_identifier}"\n\n🔍 Você quis dizer?\n`;
+      suggestions.forEach(s => {
+        msg += `• *${s.name}*${s.stars ? ` ⭐${s.stars}` : ""}\n`;
+      });
+      msg += `\n_Tente: "Atualizar ${suggestions[0].name} ..."_`;
+      return msg;
+    }
+    return `❌ Lead não encontrado: "${command.lead_identifier}"\n\n💡 Tente buscar primeiro: "Busca ${command.lead_identifier}"`;
   }
 
   const updates: any = {};
   const changes: string[] = [];
 
+  // STARS
   if (command.updates.stars !== undefined) {
     updates.stars = command.updates.stars;
     changes.push(`⭐ ${command.updates.stars} estrelas`);
   }
   
+  // CPF/CNPJ
+  if (command.updates.cpf_cnpj) {
+    const cleanCpf = command.updates.cpf_cnpj.replace(/\D/g, "");
+    updates.cpf_cnpj = cleanCpf;
+    changes.push(`📄 CPF/CNPJ: ${cleanCpf}`);
+  }
+  
+  // FAVORITE TEAM
+  if (command.updates.favorite_team) {
+    updates.favorite_team = command.updates.favorite_team;
+    changes.push(`⚽ Time: ${command.updates.favorite_team}`);
+  }
+  
+  // LEAD SOURCE (ORIGEM)
+  if (command.updates.lead_source) {
+    updates.lead_source = command.updates.lead_source;
+    changes.push(`📍 Origem: ${command.updates.lead_source}`);
+  }
+  
+  // INSTAGRAM
+  if (command.updates.instagram) {
+    const insta = command.updates.instagram.startsWith("@") 
+      ? command.updates.instagram 
+      : `@${command.updates.instagram}`;
+    updates.instagram = insta;
+    changes.push(`📸 Instagram: ${insta}`);
+  }
+  
+  // EMAIL
+  if (command.updates.email) {
+    updates.email = command.updates.email;
+    changes.push(`📧 Email: ${command.updates.email}`);
+  }
+  
+  // BIRTH DATE
+  if (command.updates.birth_date) {
+    updates.birth_date = command.updates.birth_date;
+    changes.push(`🎂 Nascimento: ${command.updates.birth_date}`);
+  }
+  
+  // GENDER
+  if (command.updates.gender) {
+    updates.gender = command.updates.gender;
+    changes.push(`👤 Gênero: ${command.updates.gender}`);
+  }
+  
+  // CITY
+  if (command.updates.city) {
+    updates.city = command.updates.city;
+    changes.push(`🏙️ Cidade: ${command.updates.city}`);
+  }
+  
+  // STATE
+  if (command.updates.state) {
+    updates.state = command.updates.state;
+    changes.push(`📍 Estado: ${command.updates.state}`);
+  }
+  
+  // NOTES (append)
   if (command.updates.notes) {
     const newNotes = lead.observations 
       ? `${lead.observations}\n\n---\n${new Date().toLocaleString('pt-BR')}: ${command.updates.notes}`
@@ -864,13 +1035,14 @@ async function handleUpdateLead(
     changes.push(`📝 Nota adicionada`);
   }
 
+  // NAME
   if (command.updates.name) {
     updates.name = command.updates.name;
     changes.push(`✏️ Nome: ${command.updates.name}`);
   }
 
   if (Object.keys(updates).length === 0) {
-    return `ℹ️ Nenhuma atualização para fazer em *${lead.name}*`;
+    return `ℹ️ Nenhuma atualização para fazer em *${lead.name}*\n\n💡 Campos disponíveis: estrelas, cpf, time, origem, instagram, email, nascimento, gênero, cidade, estado, notas`;
   }
 
   const { error } = await supabase
@@ -1606,7 +1778,8 @@ serve(async (req) => {
     const hasActiveState = !!state && state.stage !== "idle";
 
     // Parse command with AI (tell AI if we have active state for context)
-    const parsed = await parseCommandWithAI(rawText, hasActiveState);
+    const contextLeadName = state?.lead_name;
+    const parsed = await parseCommandWithAI(rawText, hasActiveState, contextLeadName);
     
     if (!parsed) {
       await reply(fromPhone, "🤔 Desculpe, tive um problema. Pode tentar de novo?");
@@ -1639,9 +1812,10 @@ serve(async (req) => {
           break;
         
         default:
-          // User wants to do something else, clear state and proceed
+          // User wants to do something else - pass context lead for update commands
+          const ctxLeadId = state.lead_id;
           clearState(fromPhone);
-          response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
+          response = await handleCommand(parsed, organizationId, userId, fromPhone, userName, ctxLeadId);
       }
     } else {
       response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
@@ -1669,7 +1843,8 @@ async function handleCommand(
   organizationId: string,
   userId: string,
   fromPhone: string,
-  userName: string
+  userName: string,
+  contextLeadId?: string
 ): Promise<string> {
   switch (parsed.action) {
     case "create_lead":
@@ -1679,7 +1854,7 @@ async function handleCommand(
       return await handleSearchLead(parsed, organizationId);
     
     case "update_lead":
-      return await handleUpdateLead(parsed, organizationId);
+      return await handleUpdateLead(parsed, organizationId, contextLeadId);
     
     case "list_leads":
       return await handleListLeads(parsed, organizationId);
