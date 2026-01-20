@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,17 @@ import {
   Menu, 
   Truck, 
   Scale,
-  User
+  Package,
+  MessageSquare,
+  Users,
+  ShoppingCart,
+  ClipboardList,
+  TicketCheck,
+  DollarSign,
+  FileText,
 } from 'lucide-react';
 import logoMorphews from '@/assets/logo-morphews.png';
+import { cn } from '@/lib/utils';
 
 interface LayoutMinimalProps {
   children: ReactNode;
@@ -26,6 +34,7 @@ export function LayoutMinimal({ children }: LayoutMinimalProps) {
   const { user, profile, signOut } = useAuth();
   const { data: permissions } = useMyPermissions();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   
   const handleSignOut = async () => {
@@ -33,7 +42,74 @@ export function LayoutMinimal({ children }: LayoutMinimalProps) {
     navigate('/login');
   };
 
-  const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
+  // Build nav items based on user permissions
+  const navItems = [
+    { 
+      icon: Package, 
+      label: 'Expedição', 
+      path: '/expedicao', 
+      visible: permissions?.expedition_view 
+    },
+    { 
+      icon: Truck, 
+      label: 'Minhas Entregas', 
+      path: '/minhas-entregas', 
+      visible: permissions?.deliveries_view_own || permissions?.deliveries_view_all 
+    },
+    { 
+      icon: Truck, 
+      label: 'Todas as Entregas', 
+      path: '/todas-entregas', 
+      visible: permissions?.deliveries_view_all 
+    },
+    { 
+      icon: Users, 
+      label: 'Leads', 
+      path: '/leads', 
+      visible: permissions?.leads_view 
+    },
+    { 
+      icon: ShoppingCart, 
+      label: 'Vendas', 
+      path: '/vendas', 
+      visible: permissions?.sales_view 
+    },
+    { 
+      icon: ClipboardList, 
+      label: 'Pós-Venda', 
+      path: '/pos-venda', 
+      visible: permissions?.post_sale_view 
+    },
+    { 
+      icon: TicketCheck, 
+      label: 'SAC', 
+      path: '/sac', 
+      visible: permissions?.sac_view 
+    },
+    { 
+      icon: MessageSquare, 
+      label: 'WhatsApp', 
+      path: '/whatsapp/chat', 
+      visible: permissions?.whatsapp_view 
+    },
+    { 
+      icon: DollarSign, 
+      label: 'Financeiro', 
+      path: '/financeiro', 
+      visible: permissions?.reports_view 
+    },
+    { 
+      icon: FileText, 
+      label: 'Relatório Expedição', 
+      path: '/relatorios/expedicao', 
+      visible: permissions?.expedition_report_view 
+    },
+  ].filter(item => item.visible);
+
+  const handleNavClick = (path: string) => {
+    navigate(path);
+    setIsOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,35 +139,33 @@ export function LayoutMinimal({ children }: LayoutMinimalProps) {
                         {profile ? `${profile.first_name} ${profile.last_name}` : user.email}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Entregador
+                        {permissions?.expedition_view ? 'Expedição' : 'Usuário'}
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Quick Links */}
-                <nav className="flex-1 space-y-1">
-                  {canSeeDeliveries && (
+                {/* Navigation Links */}
+                <nav className="flex-1 space-y-1 overflow-y-auto">
+                  {navItems.map((item) => (
                     <Button
+                      key={item.path}
                       variant="ghost"
-                      className="w-full justify-start gap-3"
-                      onClick={() => {
-                        navigate('/minhas-entregas');
-                        setIsOpen(false);
-                      }}
+                      className={cn(
+                        "w-full justify-start gap-3",
+                        location.pathname === item.path && "bg-primary/10 text-primary"
+                      )}
+                      onClick={() => handleNavClick(item.path)}
                     >
-                      <Truck className="w-5 h-5" />
-                      Minhas Entregas
+                      <item.icon className="w-5 h-5" />
+                      {item.label}
                     </Button>
-                  )}
+                  ))}
                   
                   <Button
                     variant="ghost"
                     className="w-full justify-start gap-3"
-                    onClick={() => {
-                      navigate('/legal');
-                      setIsOpen(false);
-                    }}
+                    onClick={() => handleNavClick('/legal')}
                   >
                     <Scale className="w-5 h-5" />
                     Termos e Privacidade
