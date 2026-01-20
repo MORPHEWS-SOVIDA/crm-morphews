@@ -52,6 +52,64 @@ function describeInvokeError(err: unknown) {
   return `${status ? `[${status}] ` : ""}${base}`.trim();
 }
 
+const BACKEND_URL = (import.meta as any)?.env?.VITE_SUPABASE_URL as string | undefined;
+const BACKEND_ANON_KEY = (import.meta as any)?.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+function backendFunctionUrl(functionName: string) {
+  if (!BACKEND_URL) return null;
+  return `${BACKEND_URL.replace(/\/$/, "")}/functions/v1/${functionName}`;
+}
+
+async function invokeFunctionDetailed(functionName: string, accessToken: string) {
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!error) return { ok: true as const, data };
+
+  const described = describeInvokeError(error);
+  const ctxStatus = (error as any)?.context?.status as number | undefined;
+  const ctxBody = (error as any)?.context?.body as unknown;
+
+  // If we already have structured context, return it.
+  if (ctxStatus) {
+    return {
+      ok: false as const,
+      status: ctxStatus,
+      error: described,
+      contextBody: ctxBody,
+    };
+  }
+
+  // Fallback to raw fetch to extract the real status/body.
+  const url = backendFunctionUrl(functionName);
+  if (!url || !BACKEND_ANON_KEY) {
+    return { ok: false as const, error: described };
+  }
+
+  const resp = await fetch(url, {
+    method: "GET",
+    headers: {
+      apikey: BACKEND_ANON_KEY,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const text = await resp.text().catch(() => "");
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (resp.ok) return { ok: true as const, data: json ?? text };
+
+  const msg = json?.error || json?.message || described || text || "Falha ao executar função";
+  return { ok: false as const, status: resp.status, error: msg, raw: text };
+}
 
 export function AdminWhatsAppInstanceTab() {
   const queryClient = useQueryClient();
@@ -70,6 +128,24 @@ export function AdminWhatsAppInstanceTab() {
     api_key: "",
     phone_number: "",
   });
+
+  const webhookUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL
+    ? `${String((import.meta as any).env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1/evolution-webhook`
+    : "";
+
+  const copyWebhookUrl = async () => {
+    if (!webhookUrl) return;
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      toast({ title: "URL do webhook copiada ✅" });
+    } catch {
+      toast({
+        title: "Não consegui copiar",
+        description: "Copie manualmente o texto do campo.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Fetch current admin instance config using RPC
   const { data: config, isLoading } = useQuery({
@@ -122,19 +198,9 @@ export function AdminWhatsAppInstanceTab() {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (accessToken) {
-          const { data: res, error: fnError } = await supabase.functions.invoke(
-            "admin-configure-evolution-webhook",
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            }
-          );
-
-          if (fnError) throw new Error(describeInvokeError(fnError));
-          if (!(res as any)?.ok) {
-            throw new Error((res as any)?.error || "Falha ao configurar webhook");
-          }
+          const res = await invokeFunctionDetailed("admin-configure-evolution-webhook", accessToken);
+          if (!res.ok) throw new Error(res.error || "Falha ao configurar webhook");
+          if (!(res.data as any)?.ok) throw new Error((res.data as any)?.error || "Falha ao configurar webhook");
         }
       } catch (webhookError) {
         console.warn("Could not auto-configure webhook:", webhookError);
@@ -222,36 +288,31 @@ export function AdminWhatsAppInstanceTab() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error('Sessão expirada. Faça login novamente.');
+      if (!accessToken) throw new Error("Sessão expirada. Faça login novamente.");
 
-      const { data: res, error: fnError } = await supabase.functions.invoke(
-        "admin-configure-evolution-webhook",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const res = await invokeFunctionDetailed("admin-configure-evolution-webhook", accessToken);
 
-      if (fnError) throw new Error(describeInvokeError(fnError));
+      if (!res.ok) {
+        throw new Error(`${res.status ? `[${res.status}] ` : ""}${res.error}`.trim());
+      }
 
-      if (!(res as any)?.ok) {
-        const attempts = (res as any)?.result?.attempts || (res as any)?.attempts;
-        const details = attempts?.[0]?.bodyText || (res as any)?.error || "Falha ao configurar webhook";
+      if (!(res.data as any)?.ok) {
+        const attempts = (res.data as any)?.result?.attempts || (res.data as any)?.attempts;
+        const details = attempts?.[0]?.bodyText || (res.data as any)?.error || "Falha ao configurar webhook";
         throw new Error(details);
       }
 
-      setWebhookStatus('ok');
+      setWebhookStatus("ok");
       toast({
-        title: 'Webhook configurado! ✅',
-        description: 'A Secretária Morphews agora pode receber mensagens desta instância.',
+        title: "Webhook configurado! ✅",
+        description: "A Secretária Morphews agora pode receber mensagens desta instância.",
       });
     } catch (error: any) {
-      setWebhookStatus('error');
+      setWebhookStatus("error");
       toast({
-        title: 'Erro ao configurar webhook',
+        title: "Erro ao configurar webhook",
         description: error?.message || String(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsConfiguringWebhook(false);
@@ -566,6 +627,19 @@ export function AdminWhatsAppInstanceTab() {
                   onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                   disabled={!isEditing}
                 />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="webhook_url">URL do Webhook (colar manualmente)</Label>
+                <div className="flex gap-2">
+                  <Input id="webhook_url" value={webhookUrl} readOnly />
+                  <Button type="button" variant="outline" size="sm" onClick={copyWebhookUrl} disabled={!webhookUrl}>
+                    Copiar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cole essa URL no painel da Evolution API (na mesma instância acima).
+                </p>
               </div>
             </div>
 
