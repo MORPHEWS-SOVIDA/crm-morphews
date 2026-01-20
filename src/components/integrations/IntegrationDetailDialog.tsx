@@ -138,6 +138,7 @@ export function IntegrationDetailDialog({
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [hasUnsavedMappings, setHasUnsavedMappings] = useState(false);
 
   // Initialize mappings from data
   useEffect(() => {
@@ -148,6 +149,14 @@ export function IntegrationDetailDialog({
         target_field: m.target_field,
         transform_type: m.transform_type,
       })));
+      setHasUnsavedMappings(false);
+    }
+  }, [fieldMappings]);
+
+  // Show payload viewer automatically if there are mappings (keep configuration visible)
+  useEffect(() => {
+    if (fieldMappings && fieldMappings.length > 0) {
+      setShowPayloadViewer(false); // Keep closed initially but show mappings
     }
   }, [fieldMappings]);
 
@@ -223,6 +232,8 @@ export function IntegrationDetailDialog({
 
   // Apply detected field as mapping
   const applyDetectedField = (field: DetectedField, targetField: string) => {
+    if (targetField === '__ignore__') return;
+    
     const existingIndex = mappings.findIndex(m => m.target_field === targetField);
     
     if (existingIndex >= 0) {
@@ -245,7 +256,17 @@ export function IntegrationDetailDialog({
       ]);
     }
     
+    setHasUnsavedMappings(true);
     toast.success(`Campo "${field.key}" mapeado para "${targetField}"`);
+  };
+
+  // Reset mappings to detect new fields
+  const resetMappings = () => {
+    setMappings([]);
+    setDetectedFields([]);
+    setShowPayloadViewer(false);
+    setHasUnsavedMappings(true);
+    toast.info('Mapeamentos resetados. Clique em "Ver Dados Recebidos" para recomeçar.');
   };
 
   const webhookUrl = getWebhookUrl(integration.auth_token);
@@ -349,6 +370,7 @@ export function IntegrationDetailDialog({
     setMappings(mappings.map(m => 
       m.id === id ? { ...m, [field]: value } : m
     ));
+    setHasUnsavedMappings(true);
   };
 
   const handleSaveMappings = async () => {
@@ -361,6 +383,7 @@ export function IntegrationDetailDialog({
         transform_type: m.transform_type,
       })),
     });
+    setHasUnsavedMappings(false);
   };
 
   const handleToggleResponsible = (userId: string) => {
@@ -765,6 +788,17 @@ export function IntegrationDetailDialog({
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
+                      {mappings.length > 0 && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={resetMappings}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Resetar Mapeamentos
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -772,7 +806,7 @@ export function IntegrationDetailDialog({
                         disabled={!lastPayload}
                       >
                         <Wand2 className="h-4 w-4 mr-1" />
-                        Ver Dados Recebidos
+                        {mappings.length > 0 ? 'Ver Dados Recebidos' : 'Detectar Campos'}
                       </Button>
                       <Button size="sm" onClick={handleAddMapping}>
                         <Plus className="h-4 w-4 mr-1" />
@@ -917,9 +951,25 @@ export function IntegrationDetailDialog({
                     ))
                   )}
                   
-                  {mappings.length > 0 && (
-                    <div className="flex justify-end pt-2">
-                      <Button onClick={handleSaveMappings} disabled={saveFieldMappings.isPending}>
+                  {(mappings.length > 0 || hasUnsavedMappings) && (
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        {hasUnsavedMappings && (
+                          <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-950/30">
+                            Alterações não salvas
+                          </Badge>
+                        )}
+                        {!hasUnsavedMappings && mappings.length > 0 && (
+                          <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Mapeamentos salvos
+                          </Badge>
+                        )}
+                      </div>
+                      <Button 
+                        onClick={handleSaveMappings} 
+                        disabled={saveFieldMappings.isPending || !hasUnsavedMappings}
+                      >
                         {saveFieldMappings.isPending ? 'Salvando...' : 'Salvar Mapeamentos'}
                       </Button>
                     </div>

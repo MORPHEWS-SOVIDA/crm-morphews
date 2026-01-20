@@ -2823,6 +2823,7 @@ export type Database = {
           street_number: string | null
           tiktok: string | null
           updated_at: string
+          webhook_data: Json | null
           whatsapp: string
           whatsapp_group: string | null
         }
@@ -2868,6 +2869,7 @@ export type Database = {
           street_number?: string | null
           tiktok?: string | null
           updated_at?: string
+          webhook_data?: Json | null
           whatsapp: string
           whatsapp_group?: string | null
         }
@@ -2913,6 +2915,7 @@ export type Database = {
           street_number?: string | null
           tiktok?: string | null
           updated_at?: string
+          webhook_data?: Json | null
           whatsapp?: string
           whatsapp_group?: string | null
         }

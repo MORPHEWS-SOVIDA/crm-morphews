@@ -604,13 +604,14 @@ Deno.serve(async (req) => {
     let action: string;
 
     if (existingLead) {
-      // Update existing lead with new observations
+      // Update existing lead with webhook data (preserve webhook_data)
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
+        webhook_data: payload, // Store raw webhook payload in dedicated field
       };
       
-      // Append to observations
-      const newObservation = `[Integração ${typedIntegration.name} - ${new Date().toLocaleString('pt-BR')}]\n${JSON.stringify(payload, null, 2)}`;
+      // Only append minimal note to observations, not full JSON
+      const integrationNote = `[Integração ${typedIntegration.name} - ${new Date().toLocaleString('pt-BR')}]`;
       
       const { data: currentLead } = await supabase
         .from('leads')
@@ -618,9 +619,14 @@ Deno.serve(async (req) => {
         .eq('id', existingLead.id)
         .single();
       
-      updateData.observations = currentLead?.observations 
-        ? `${currentLead.observations}\n\n${newObservation}`
-        : newObservation;
+      // Append short note if not already present
+      if (currentLead?.observations) {
+        if (!currentLead.observations.includes(`Integração ${typedIntegration.name}`)) {
+          updateData.observations = `${currentLead.observations}\n\n${integrationNote}`;
+        }
+      } else {
+        updateData.observations = integrationNote;
+      }
 
       await supabase
         .from('leads')
@@ -722,9 +728,11 @@ Deno.serve(async (req) => {
 
       leadData.assigned_to = assignedTo;
 
-      // Add integration source to observations
-      leadData.observations = `[Origem: Integração ${typedIntegration.name}]\n${JSON.stringify(payload, null, 2)}`;
+      // Store raw webhook payload in dedicated field, keep observations clean
+      leadData.webhook_data = payload;
+      leadData.observations = `[Origem: Integração ${typedIntegration.name}]`;
       leadData.created_at = new Date().toISOString();
+      leadData.updated_at = new Date().toISOString();
       leadData.updated_at = new Date().toISOString();
 
       const { data: newLead, error: insertError } = await supabase
