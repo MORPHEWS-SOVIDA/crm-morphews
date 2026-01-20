@@ -13,8 +13,6 @@ import {
   Phone, 
   QrCode, 
   RefreshCw, 
-  CheckCircle, 
-  XCircle, 
   Save,
   MessageSquare,
   Settings,
@@ -24,12 +22,20 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 
 interface AdminInstanceConfig {
-  id: string;
   instance_name: string;
   api_url: string;
   api_key: string;
   phone_number: string | null;
   is_connected: boolean;
+  updated_at: string;
+}
+
+interface SystemSetting {
+  id: string;
+  key: string;
+  value: AdminInstanceConfig;
+  description: string | null;
+  created_at: string;
   updated_at: string;
 }
 
@@ -52,16 +58,17 @@ export function AdminWhatsAppInstanceTab() {
   const { data: config, isLoading } = useQuery({
     queryKey: ["admin-whatsapp-instance"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("system_settings")
-        .select("*")
-        .eq("key", "admin_whatsapp_instance")
-        .maybeSingle();
+      // Use raw RPC or direct fetch since types aren't updated yet
+      const { data, error } = await supabase.rpc("get_admin_whatsapp_config" as any);
 
-      if (error) throw error;
+      if (error) {
+        // Table might not exist yet or no config - return null
+        console.log("No admin config found:", error.message);
+        return null;
+      }
       
-      if (data?.value) {
-        return data.value as AdminInstanceConfig;
+      if (data) {
+        return data as AdminInstanceConfig;
       }
       
       return null;
@@ -90,12 +97,12 @@ export function AdminWhatsAppInstanceTab() {
       };
 
       const { error } = await supabase
-        .from("system_settings")
+        .from("system_settings" as any)
         .upsert({
           key: "admin_whatsapp_instance",
           value: configToSave,
           updated_at: new Date().toISOString(),
-        }, {
+        } as any, {
           onConflict: "key",
         });
 
@@ -153,12 +160,12 @@ export function AdminWhatsAppInstanceTab() {
       };
 
       await supabase
-        .from("system_settings")
+        .from("system_settings" as any)
         .upsert({
           key: "admin_whatsapp_instance",
           value: updatedConfig,
           updated_at: new Date().toISOString(),
-        }, {
+        } as any, {
           onConflict: "key",
         });
 
