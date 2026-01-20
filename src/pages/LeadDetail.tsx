@@ -41,6 +41,7 @@ import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMe
 import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
 import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
 import { LeadNonPurchaseSection } from '@/components/leads/LeadNonPurchaseSection';
+import { LeadWebhookDataSection } from '@/components/leads/LeadWebhookDataSection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
@@ -689,6 +690,13 @@ export default function LeadDetail() {
                 <LeadOwnershipHistory leadId={id!} />
               </div>
             </SectionErrorBoundary>
+
+            {/* Webhook Data - if present */}
+            {(lead as any).webhook_data && (
+              <SectionErrorBoundary title="Dados de Webhook">
+                <LeadWebhookDataSection webhookData={(lead as any).webhook_data} />
+              </SectionErrorBoundary>
+            )}
           </div>
 
           {/* Right Column - Financial & Actions */}
