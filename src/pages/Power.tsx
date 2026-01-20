@@ -190,7 +190,13 @@ export default function Power() {
   const [searchParams] = useSearchParams();
   
   const [showLeadModal, setShowLeadModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<{ id: string; name: string } | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<{ 
+    id: string; 
+    name: string; 
+    payment_provider?: "stripe" | "atomicpay" | null;
+    atomicpay_monthly_url?: string | null;
+    atomicpay_annual_url?: string | null;
+  } | null>(null);
   const [leadForm, setLeadForm] = useState({ name: "", whatsapp: "", email: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -204,11 +210,21 @@ export default function Power() {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
 
-  const handleSelectPlan = (planId: string, planName: string) => {
+  const handleSelectPlan = (planId: string, planName: string, plan?: any) => {
     if (user) {
+      // For logged users, check if AtomicPay
+      if (plan?.payment_provider === "atomicpay") {
+        const checkoutUrl = isAnnual 
+          ? plan.atomicpay_annual_url 
+          : plan.atomicpay_monthly_url;
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+          return;
+        }
+      }
       createCheckout.mutate({ planId, mode: 'new' });
     } else {
-      setSelectedPlan({ id: planId, name: planName });
+      setSelectedPlan({ id: planId, name: planName, ...plan });
       setShowLeadModal(true);
     }
   };
@@ -226,6 +242,7 @@ export default function Power() {
     setIsSubmitting(true);
 
     try {
+      // Save lead data first
       await supabase.from("interested_leads").insert({
         name: leadForm.name.trim(),
         whatsapp: leadForm.whatsapp.trim(),
@@ -237,6 +254,24 @@ export default function Power() {
 
       setShowLeadModal(false);
 
+      // Check if AtomicPay plan - redirect directly to their checkout
+      if (selectedPlan?.payment_provider === "atomicpay") {
+        const checkoutUrl = isAnnual 
+          ? selectedPlan.atomicpay_annual_url 
+          : selectedPlan.atomicpay_monthly_url;
+        
+        if (checkoutUrl) {
+          // Add customer info as query params for AtomicPay
+          const url = new URL(checkoutUrl);
+          url.searchParams.set("customer_name", leadForm.name.trim());
+          url.searchParams.set("customer_email", leadForm.email.trim());
+          url.searchParams.set("customer_phone", leadForm.whatsapp.trim());
+          window.location.href = url.toString();
+          return;
+        }
+      }
+
+      // For Stripe plans, use create-checkout function
       const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
         body: {
           planId: selectedPlan?.id,
@@ -1425,7 +1460,8 @@ export default function Power() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {plans?.map((plan, index) => {
-              const isPopular = plan.name.toLowerCase() === "pro" || plan.name.toLowerCase() === "growth";
+              const isPro = plan.name.toLowerCase() === "pro";
+              const isGrowth = plan.name.toLowerCase() === "growth";
               const gradients = [
                 "from-gray-500 to-gray-600",
                 "from-blue-500 to-cyan-500",
@@ -1449,12 +1485,13 @@ export default function Power() {
                 >
                   <Card className={cn(
                     "relative h-full flex flex-col",
-                    isPopular && "border-primary shadow-xl shadow-primary/10"
+                    isPro && "border-primary shadow-xl shadow-primary/10"
                   )}>
-                    {isPopular && (
+                    {isPro && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <Badge className="bg-gradient-to-r from-primary to-purple-600 text-white">
-                          Mais Popular
+                        <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                          <Crown className="h-3 w-3 mr-1" />
+                          VOCÊ MERECE O MELHOR
                         </Badge>
                       </div>
                     )}
@@ -1498,10 +1535,10 @@ export default function Power() {
                       <Button 
                         className={cn(
                           "w-full",
-                          isPopular && "bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                          isPro && "bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
                         )}
-                        variant={isPopular ? "default" : "outline"}
-                        onClick={() => handleSelectPlan(plan.id, plan.name)}
+                        variant={isPro ? "default" : "outline"}
+                        onClick={() => handleSelectPlan(plan.id, plan.name, plan)}
                       >
                         {plan.price_cents === 0 ? "Começar Grátis" : "Contratar"}
                       </Button>
