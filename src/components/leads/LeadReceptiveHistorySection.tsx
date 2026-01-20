@@ -14,119 +14,32 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-  CheckCircle2,
-  XCircle as XCircleIcon,
   Star,
-  AlertTriangle,
-  ExternalLink
+  Upload
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { useLeadReceptiveHistory, CallQualityScore } from '@/hooks/useLeadReceptiveHistory';
-import { useTranscribeCall, useUpdateAttendanceRecording } from '@/hooks/useReceptiveTranscription';
+import { useLeadReceptiveHistory } from '@/hooks/useLeadReceptiveHistory';
+import { useTranscribeCall } from '@/hooks/useReceptiveTranscription';
 import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
 import { extractReceptiveRecordingStoragePath } from '@/lib/receptive-recordings';
-import { toast } from 'sonner';
+import { AudioPlayer } from '@/components/receptive/AudioPlayer';
+import { CallQualityAnalysis } from '@/components/receptive/CallQualityAnalysis';
 
 interface LeadReceptiveHistorySectionProps {
   leadId: string;
 }
 
-function QualityScoreDisplay({ score }: { score: CallQualityScore }) {
-  // Helper to get numeric score (supports both new numeric and legacy boolean format)
-  const getScore = (numericKey: keyof CallQualityScore, legacyKey?: keyof CallQualityScore): number => {
-    const numericValue = score[numericKey];
-    if (typeof numericValue === 'number') return numericValue;
-    // Fallback for legacy boolean format
-    if (legacyKey) {
-      const legacyValue = score[legacyKey];
-      if (typeof legacyValue === 'boolean') return legacyValue ? 8 : 3;
-    }
-    return 5;
-  };
-
-  const criteria = [
-    { key: 'proper_greeting_score' as const, legacyKey: 'proper_greeting' as const, label: 'Saudação adequada' },
-    { key: 'asked_needs_score' as const, legacyKey: 'asked_needs' as const, label: 'Perguntou necessidades' },
-    { key: 'followed_script_score' as const, legacyKey: 'followed_script' as const, label: 'Seguiu script' },
-    { key: 'offered_kits_score' as const, legacyKey: 'offered_kits' as const, label: 'Ofereceu kits' },
-    { key: 'handled_objections_score' as const, legacyKey: 'handled_objections' as const, label: 'Contornou objeções' },
-    { key: 'clear_next_steps_score' as const, legacyKey: 'clear_next_steps' as const, label: 'Próximos passos claros' },
-  ];
-
-  const getScoreColor = (value: number) => {
-    if (value >= 8) return 'text-green-600';
-    if (value >= 5) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getScoreBg = (value: number) => {
-    if (value >= 8) return 'bg-green-100 text-green-700';
-    if (value >= 5) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-red-100 text-red-700';
-  };
-
-  const overallScoreColor = getScoreColor(score.overall_score);
-
-  return (
-    <div className="mt-3 p-3 bg-muted/30 rounded-lg space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Nota Geral da Ligação</span>
-        <div className="flex items-center gap-1">
-          <Star className={`w-5 h-5 ${overallScoreColor} fill-current`} />
-          <span className={`text-xl font-bold ${overallScoreColor}`}>{score.overall_score}/10</span>
-        </div>
-      </div>
-      
-      <Progress value={score.overall_score * 10} className="h-2" />
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-        {criteria.map(({ key, legacyKey, label }) => {
-          const value = getScore(key, legacyKey);
-          return (
-            <div key={key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-background border">
-              <span className="text-xs text-muted-foreground">{label}</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${getScoreBg(value)}`}>
-                {value}/10
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {score.summary && (
-        <p className="text-xs text-muted-foreground italic mt-2">"{score.summary}"</p>
-      )}
-
-      {score.improvements && score.improvements.length > 0 && (
-        <div className="space-y-1 mt-2">
-          <p className="text-xs font-medium flex items-center gap-1 text-amber-600">
-            <AlertTriangle className="w-3 h-3" />
-            Sugestões de melhoria:
-          </p>
-          <ul className="text-xs text-muted-foreground list-disc list-inside">
-            {score.improvements.map((imp, i) => (
-              <li key={i}>{imp}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
+// Modos que suportam upload de gravação de áudio
+const CALL_MODES = ['receptive_call', 'active_call'];
 
 export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySectionProps) {
   const { data: history = [], isLoading } = useLeadReceptiveHistory(leadId);
   const transcribeCall = useTranscribeCall();
-  const updateRecording = useUpdateAttendanceRecording();
   
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
-  const [editingRecording, setEditingRecording] = useState<string | null>(null);
 
   const getModeLabel = (mode: string) => {
     const found = CONVERSATION_MODES.find(m => m.value === mode);
@@ -158,28 +71,23 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
     });
   };
 
-  const handleSaveRecordingUrl = async (attendanceId: string) => {
-    const url = recordingUrls[attendanceId];
-    if (!url) {
-      toast.error('Digite a URL da gravação');
-      return;
-    }
-    
-    await updateRecording.mutateAsync({ attendanceId, recordingUrl: url });
-    setEditingRecording(null);
-    setRecordingUrls(prev => ({ ...prev, [attendanceId]: '' }));
-  };
-
-  const handleTranscribe = async (attendanceId: string, audioUrl: string) => {
-    if (!audioUrl) {
-      toast.error('Nenhuma gravação disponível para transcrever');
+  const handleTranscribe = async (attendanceId: string, storagePath: string | null, fallbackUrl: string | null) => {
+    if (!storagePath && !fallbackUrl) {
       return;
     }
 
-    const storagePath = extractReceptiveRecordingStoragePath(audioUrl) || undefined;
-    await transcribeCall.mutateAsync({ attendanceId, audioUrl, storagePath });
+    await transcribeCall.mutateAsync({ 
+      attendanceId, 
+      audioUrl: fallbackUrl || undefined, 
+      storagePath: storagePath || undefined 
+    });
   };
 
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return 'text-green-600 border-green-500/30';
+    if (score >= 5) return 'text-yellow-600 border-yellow-500/30';
+    return 'text-red-600 border-red-500/30';
+  };
 
   if (isLoading) {
     return (
@@ -187,11 +95,14 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Phone className="w-5 h-5" />
-            Histórico Receptivo
+            Histórico de Ligações e Atendimentos
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-sm">Carregando...</p>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Carregando...
+          </div>
         </CardContent>
       </Card>
     );
@@ -206,7 +117,7 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Phone className="w-5 h-5" />
-          Histórico Receptivo
+          Histórico de Ligações e Atendimentos
           <Badge variant="secondary">{history.length}</Badge>
         </CardTitle>
       </CardHeader>
@@ -215,7 +126,13 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
           const ModeIcon = getModeIcon(item.conversation_mode);
           const isExpanded = expandedItems.has(item.id);
           const hasTranscription = !!item.transcription;
-          const hasRecording = !!item.call_recording_url;
+          const isCallMode = CALL_MODES.includes(item.conversation_mode);
+          
+          // Get storage path - prefer recording_storage_path, fallback to extracting from URL
+          const storagePath = (item as any).recording_storage_path || 
+            extractReceptiveRecordingStoragePath(item.call_recording_url);
+          const hasRecording = !!storagePath || !!item.call_recording_url;
+          
           const isTranscribing = item.transcription_status === 'processing' || 
                                  (transcribeCall.isPending && transcribeCall.variables?.attendanceId === item.id);
           
@@ -280,11 +197,7 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
                       {item.call_quality_score && (
                         <Badge 
                           variant="outline" 
-                          className={
-                            item.call_quality_score.overall_score >= 8 ? 'text-green-600 border-green-500/30' :
-                            item.call_quality_score.overall_score >= 5 ? 'text-yellow-600 border-yellow-500/30' :
-                            'text-red-600 border-red-500/30'
-                          }
+                          className={getScoreColor(item.call_quality_score.overall_score)}
                         >
                           <Star className="w-3 h-3 mr-1" />
                           Nota: {item.call_quality_score.overall_score}/10
@@ -309,67 +222,36 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
                   </CollapsibleTrigger>
                 </div>
 
-                <CollapsibleContent className="mt-3 pt-3 border-t border-border/50 space-y-3">
-                  {/* Recording Section */}
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium flex items-center gap-2">
-                      <Mic className="w-4 h-4" />
-                      Gravação da Ligação
-                    </p>
-                    
-                    {hasRecording ? (
-                      <div className="flex items-center gap-2">
+                <CollapsibleContent className="mt-3 pt-3 border-t border-border/50 space-y-4">
+                  {/* Recording Section - Only for Call modes */}
+                  {isCallMode && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Mic className="w-4 h-4" />
+                        Gravação da Ligação
+                      </p>
+                      
+                      {hasRecording && storagePath ? (
+                        <AudioPlayer 
+                          storagePath={storagePath} 
+                          fallbackUrl={item.call_recording_url}
+                        />
+                      ) : hasRecording ? (
                         <audio 
                           controls 
                           src={item.call_recording_url!} 
-                          className="flex-1 h-8"
+                          className="w-full h-10"
                         />
-                        <a 
-                          href={item.call_recording_url!} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    ) : editingRecording === item.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          placeholder="Cole a URL da gravação aqui..."
-                          value={recordingUrls[item.id] || ''}
-                          onChange={(e) => setRecordingUrls(prev => ({ ...prev, [item.id]: e.target.value }))}
-                          className="flex-1 text-sm"
-                        />
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleSaveRecordingUrl(item.id)}
-                          disabled={updateRecording.isPending}
-                        >
-                          {updateRecording.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar'}
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => setEditingRecording(null)}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => setEditingRecording(item.id)}
-                      >
-                        <Mic className="w-4 h-4 mr-2" />
-                        Adicionar gravação
-                      </Button>
-                    )}
-                  </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          Nenhuma gravação disponível
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-                  {/* Transcription Section */}
-                  {hasRecording && (
+                  {/* Transcription Section - Only for Call modes with recording */}
+                  {isCallMode && hasRecording && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium flex items-center gap-2">
@@ -380,9 +262,8 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
                         {!hasTranscription && !isTranscribing && (
                           <Button
                             size="sm"
-                            variant="default"
-                            onClick={() => handleTranscribe(item.id, item.call_recording_url!)}
-                            disabled={transcribeCall.isPending}
+                            onClick={() => handleTranscribe(item.id, storagePath, item.call_recording_url)}
+                            disabled={transcribeCall.isPending || !storagePath}
                           >
                             <FileText className="w-4 h-4 mr-2" />
                             Transcrever com IA
@@ -405,16 +286,21 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
                     </div>
                   )}
 
-                  {/* Quality Score */}
-                  {item.call_quality_score && (
-                    <QualityScoreDisplay score={item.call_quality_score} />
+                  {/* Quality Score Analysis */}
+                  {isCallMode && item.call_quality_score && (
+                    <CallQualityAnalysis 
+                      score={item.call_quality_score as any} 
+                      hasSale={!!item.sale_id} 
+                    />
                   )}
 
                   {/* Notes */}
                   {item.notes && (
                     <div className="space-y-1">
                       <p className="text-sm font-medium">Observações</p>
-                      <p className="text-sm text-muted-foreground">{item.notes}</p>
+                      <p className="text-sm text-muted-foreground bg-background p-2 rounded border">
+                        {item.notes}
+                      </p>
                     </div>
                   )}
                 </CollapsibleContent>
