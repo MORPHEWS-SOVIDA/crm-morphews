@@ -193,9 +193,16 @@ export function useCreateProduct() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Produto criado com sucesso!');
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       console.error('Erro ao criar produto:', error);
-      toast.error('Erro ao criar produto. Verifique se você tem permissão.');
+      const message = error?.message || '';
+      if (message.includes('lead_products_organization_name_key') || message.includes('duplicate key')) {
+        toast.error('Já existe um produto com esse nome.');
+      } else if (message.includes('row-level security') || message.includes('permission')) {
+        toast.error('Você não tem permissão para criar produtos.');
+      } else {
+        toast.error('Erro ao criar produto. Tente novamente.');
+      }
     },
   });
 }
