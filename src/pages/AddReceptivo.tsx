@@ -2672,7 +2672,6 @@ export default function AddReceptivo() {
                       className="pl-10 text-right"
                     />
                   </div>
-                  />
                   <p className="text-xs text-muted-foreground">
                     Este valor será adicionado ao "Valor Negociado" do lead
                   </p>
