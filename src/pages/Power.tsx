@@ -9,7 +9,7 @@ import {
   ChevronDown, Menu, X, Heart, Flame, Award, Gauge, MousePointer,
   Workflow, ListTodo, HeartHandshake, AlertCircle, HelpCircle, DollarSign,
   Timer, Repeat, AudioLines, ImageIcon, Share2, Link2, Package,
-  Building2, GraduationCap, ShoppingCart, Wrench
+  Building2, GraduationCap, ShoppingCart, Wrench, TrendingDown, Percent
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useSubscriptionPlans, useCreateCheckout } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import teamImage from "@/assets/team-collaboration.webp";
 
 // Animated counter component
 const AnimatedCounter = ({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) => {
@@ -133,6 +135,53 @@ const RobotPersonalityCard = ({ age, style, icon: Icon }: { age: string; style: 
   </div>
 );
 
+// Sales funnel visualization component
+const SalesFunnel = () => {
+  const stages = [
+    { label: "Prospectando", count: 45, color: "bg-orange-500", width: "100%" },
+    { label: "Contatado", count: 38, color: "bg-orange-400", width: "85%" },
+    { label: "Convencendo", count: 28, color: "bg-yellow-500", width: "70%" },
+    { label: "Reunião Agendada", count: 18, color: "bg-blue-500", width: "55%" },
+    { label: "Positivo", count: 12, color: "bg-green-500", width: "40%" },
+    { label: "Aguardando Pgto", count: 8, color: "bg-green-400", width: "30%" },
+    { label: "SUCESSO! 🎉", count: 5, color: "bg-green-600", width: "20%" },
+  ];
+
+  return (
+    <div className="bg-card rounded-2xl border p-6 shadow-xl">
+      <h3 className="text-lg font-semibold text-center mb-2">Funil de Vendas Visual</h3>
+      <Badge variant="outline" className="mx-auto block w-fit mb-6 border-orange-300 text-orange-600 bg-orange-50">
+        ↺ Não classificado (3)
+      </Badge>
+      <div className="space-y-3">
+        {stages.map((stage, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.1 }}
+            className="flex items-center gap-3"
+          >
+            <div
+              className={cn("h-10 rounded-lg flex items-center justify-between px-4 text-white font-medium text-sm", stage.color)}
+              style={{ width: stage.width }}
+            >
+              <span>{stage.label}</span>
+              <span className="bg-white/20 px-2 py-0.5 rounded">{stage.count}</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <Badge variant="outline" className="border-red-300 text-red-600 bg-red-50">
+          🗑️ Sem interesse (2)
+        </Badge>
+      </div>
+    </div>
+  );
+};
+
 export default function Power() {
   const { user, isLoading: authLoading } = useAuth();
   const { data: plans, isLoading: plansLoading } = useSubscriptionPlans();
@@ -145,6 +194,7 @@ export default function Power() {
   const [leadForm, setLeadForm] = useState({ name: "", whatsapp: "", email: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(true);
 
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -195,6 +245,7 @@ export default function Power() {
           customerWhatsapp: leadForm.whatsapp.trim(),
           successUrl: `${window.location.origin}/?subscription=success`,
           cancelUrl: `${window.location.origin}/power`,
+          billingCycle: isAnnual ? 'annual' : 'monthly',
         },
       });
 
@@ -232,9 +283,62 @@ export default function Power() {
     }).format(cents / 100);
   };
 
+  const getAnnualPrice = (monthlyCents: number) => {
+    const annualDiscount = 0.40; // 40% discount
+    const discountedMonthly = monthlyCents * (1 - annualDiscount);
+    return Math.round(discountedMonthly);
+  };
+
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     setMobileMenuOpen(false);
+  };
+
+  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://sales.morphews.com/power e queria tirar uma dúvida")}`;
+
+  // Custom plan features for display
+  const getPlanFeatures = (planName: string) => {
+    const name = planName.toLowerCase();
+    if (name === "grátis" || name === "starter" || name === "start") {
+      return [
+        "1 usuário",
+        "100 leads",
+        "1 instância WhatsApp",
+        "SAC integrado",
+        "Funil de vendas visual",
+      ];
+    }
+    if (name === "growth") {
+      return [
+        "3 usuários",
+        "1.000 leads",
+        "1 instância WhatsApp",
+        "Criação de 2 Robôs WhatsApp",
+        "Sugestão de follow-up com IA",
+        "Mensagens automáticas de follow-up",
+        "Demandas & SAC",
+        "Pós-venda completo",
+      ];
+    }
+    if (name === "pro") {
+      return [
+        "10 usuários",
+        "10.000 leads",
+        "3 instâncias WhatsApp",
+        "Robôs WhatsApp ilimitados",
+        "Sugestão de follow-up com IA",
+        "Mensagens automáticas de follow-up",
+        "Vendas e expedição",
+        "Demandas & SAC",
+        "Pós-venda completo",
+        "Integrações webhook",
+      ];
+    }
+    return [
+      `${planName} usuário(s)`,
+      "Leads",
+      "WhatsApp",
+    ];
   };
 
   if (plansLoading || authLoading) {
@@ -276,6 +380,9 @@ export default function Power() {
             <nav className="hidden md:flex items-center gap-8">
               <button onClick={() => scrollToSection("recursos")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Recursos
+              </button>
+              <button onClick={() => scrollToSection("secretaria")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Secretária IA
               </button>
               <button onClick={() => scrollToSection("robos")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Robôs IA
@@ -326,6 +433,9 @@ export default function Power() {
             <div className="container mx-auto px-4 py-4 space-y-3">
               <button onClick={() => scrollToSection("recursos")} className="block w-full text-left py-2 text-muted-foreground">
                 Recursos
+              </button>
+              <button onClick={() => scrollToSection("secretaria")} className="block w-full text-left py-2 text-muted-foreground">
+                Secretária IA
               </button>
               <button onClick={() => scrollToSection("robos")} className="block w-full text-left py-2 text-muted-foreground">
                 Robôs IA
@@ -481,8 +591,205 @@ export default function Power() {
         </div>
       </section>
 
-      {/* Problem / Solution Section */}
+      {/* Secretary AI Section - Dobra 2 */}
+      <section id="secretaria" className="py-20 md:py-32 bg-gradient-to-b from-green-50/50 to-background dark:from-green-950/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+              >
+                <Badge variant="outline" className="mb-4 border-green-500/50 text-green-600 bg-green-50">
+                  <Bot className="h-3 w-3 mr-2" />
+                  Sua Secretária Comercial com IA
+                </Badge>
+                <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                  Gerencie seus leads
+                  <br />
+                  pelo <span className="text-green-600">WhatsApp</span>
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Converse com sua secretária por <strong>áudio</strong>, <strong>mensagem</strong> ou até <strong>print screen</strong>. 
+                  Ela atualiza seu CRM automaticamente enquanto você foca no que importa: <strong>vender</strong>.
+                </p>
+
+                <div className="flex flex-wrap gap-4 mb-8">
+                  <Button 
+                    onClick={() => scrollToSection("precos")}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Quero Minha Secretária
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => scrollToSection("robos")}>
+                    <Play className="mr-2 h-4 w-4" />
+                    Ver Como Funciona
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Mic className="h-4 w-4 text-green-600" />
+                    Fale por áudio
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-green-600" />
+                    Envie mensagens
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-green-600" />
+                    Mande prints
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                {/* WhatsApp Mock */}
+                <div className="bg-gray-900 rounded-[2.5rem] p-3 shadow-2xl max-w-sm mx-auto">
+                  <div className="bg-gray-800 rounded-[2rem] overflow-hidden">
+                    {/* Header */}
+                    <div className="bg-green-700 px-4 py-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center">
+                        <Bot className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold text-sm">Secretária Morphews</p>
+                        <p className="text-green-200 text-xs">online</p>
+                      </div>
+                    </div>
+                    
+                    {/* Messages */}
+                    <div className="bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
+                      {/* Audio badge */}
+                      <div className="absolute -left-12 top-20 hidden lg:block">
+                        <div className="bg-white rounded-full px-3 py-1.5 shadow-lg text-sm flex items-center gap-2">
+                          <Mic className="h-4 w-4 text-primary" />
+                          Áudio de 15s
+                        </div>
+                      </div>
+
+                      {/* User message */}
+                      <div className="flex justify-end">
+                        <div className="bg-green-700 text-white rounded-lg rounded-tr-none px-3 py-2 max-w-[80%] text-sm">
+                          Acabei de falar com a Dra. Ana, cirurgiã plástica, @draana no insta, 50k seguidores. Muito interessada, marcamos call pra amanhã!
+                        </div>
+                      </div>
+
+                      {/* Bot response */}
+                      <div className="flex justify-start">
+                        <div className="bg-gray-700 text-white rounded-lg rounded-tl-none px-3 py-2 max-w-[85%] text-sm">
+                          <p className="font-medium mb-1">✅ Lead cadastrado!</p>
+                          <p className="text-gray-300 text-xs space-y-0.5">
+                            👤 Dra. Ana<br/>
+                            📍 Reunião Agendada<br/>
+                            ⭐ 4 estrelas (50k seguidores)<br/>
+                            📸 @draana<br/>
+                            <span className="text-green-400">🔗 Clique para ver no CRM</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Print badge */}
+                      <div className="absolute -right-12 top-52 hidden lg:block">
+                        <div className="bg-white rounded-full px-3 py-1.5 shadow-lg text-sm flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4 text-primary" />
+                          Print do Instagram
+                        </div>
+                      </div>
+
+                      {/* User message 2 */}
+                      <div className="flex justify-end">
+                        <div className="bg-green-700 text-white rounded-lg rounded-tr-none px-3 py-2 max-w-[80%] text-sm">
+                          Coloca ela como 5 estrelas
+                        </div>
+                      </div>
+
+                      {/* Bot response 2 */}
+                      <div className="flex justify-start">
+                        <div className="bg-gray-700 text-white rounded-lg rounded-tl-none px-3 py-2 text-sm">
+                          ✅ Atualizado! Dra. Ana agora
+                        </div>
+                      </div>
+
+                      {/* Input */}
+                      <div className="flex items-center gap-2 mt-4">
+                        <div className="flex-1 bg-gray-700 rounded-full px-4 py-2 text-gray-400 text-sm">
+                          Digite uma mensagem...
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center">
+                          <Mic className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sales Funnel Section - Dobra 3 */}
       <section className="py-20 md:py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+              >
+                <Badge variant="outline" className="mb-4">
+                  <TrendingDown className="h-3 w-3 mr-2 rotate-180" />
+                  Funil de Vendas Visual
+                </Badge>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                  Visualize todo seu <GradientText>pipeline</GradientText>
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Funil visual com etapas personalizáveis. Saiba exatamente onde cada lead está 
+                  no processo de compra e nunca perca uma oportunidade.
+                </p>
+                <ul className="space-y-4">
+                  {[
+                    { icon: Layers, text: "Etapas customizáveis por tipo de venda" },
+                    { icon: Star, text: "Qualificação por estrelas (1-5)" },
+                    { icon: Users, text: "Atribuição de responsáveis" },
+                    { icon: Clock, text: "Tempo em cada etapa" },
+                    { icon: BarChart3, text: "Taxa de conversão por etapa" },
+                    { icon: Bell, text: "Alertas de leads parados" },
+                  ].map(({ icon: Icon, text }, i) => (
+                    <li key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+              >
+                <SalesFunnel />
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Problem / Solution Section */}
+      <section className="py-20 md:py-32 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -555,7 +862,7 @@ export default function Power() {
       </section>
 
       {/* Main Features Section */}
-      <section id="recursos" className="py-20 md:py-32 bg-muted/30">
+      <section id="recursos" className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge variant="outline" className="mb-4">Recursos Completos</Badge>
@@ -615,7 +922,7 @@ export default function Power() {
       </section>
 
       {/* Demandas Deep Dive */}
-      <section className="py-20 md:py-32">
+      <section className="py-20 md:py-32 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -662,11 +969,12 @@ export default function Power() {
                 viewport={{ once: true }}
                 className="relative"
               >
-                <div className="aspect-square bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border-2 border-dashed border-primary/20 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <Kanban className="h-20 w-20 text-primary/50 mx-auto mb-4" />
-                    <p className="text-muted-foreground">Preview do Kanban de Demandas</p>
-                  </div>
+                <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
+                  <img 
+                    src={teamImage} 
+                    alt="Equipe colaborando" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <FloatingElement delay={0} className="absolute -top-4 -right-4">
                   <div className="bg-destructive text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg">
@@ -685,7 +993,7 @@ export default function Power() {
       </section>
 
       {/* SAC Section */}
-      <section className="py-20 md:py-32 bg-muted/30">
+      <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -760,7 +1068,7 @@ export default function Power() {
       </section>
 
       {/* AI Robots Section */}
-      <section id="robos" className="py-20 md:py-32">
+      <section id="robos" className="py-20 md:py-32 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge variant="outline" className="mb-4">
@@ -803,103 +1111,82 @@ export default function Power() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-3">
-                    <RobotPersonalityCard age="💰 Vendas" style="Fechar vendas" icon={ShoppingCart} />
+                    <RobotPersonalityCard age="💰 Vendas" style="Apresentar e fechar" icon={ShoppingCart} />
                     <RobotPersonalityCard age="🔧 Suporte" style="Resolver problemas" icon={Wrench} />
-                    <RobotPersonalityCard age="📞 SAC" style="Atender reclamações" icon={Headphones} />
+                    <RobotPersonalityCard age="📞 SAC" style="Atender solicitações" icon={Phone} />
                     <RobotPersonalityCard age="📋 Qualificação" style="Qualificar leads" icon={ClipboardCheck} />
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Response style */}
+            <Card className="mt-8">
+              <CardHeader>
+                <CardTitle className="text-lg">Como seu robô responde?</CardTitle>
+                <CardDescription>Define o tamanho das mensagens</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="border rounded-xl p-4 hover:border-primary/50 transition-all cursor-pointer">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      <span className="font-medium">Respostas Curtas</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Direto ao ponto, máximo 50 palavras</p>
+                    <p className="text-xs mt-2 p-2 bg-muted rounded italic">"Oi! Tudo bem? Como posso ajudar?"</p>
+                  </div>
+                  <div className="border-2 border-primary rounded-xl p-4 bg-primary/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span className="font-medium">Respostas Médias</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Equilibrado, 50-100 palavras</p>
+                    <p className="text-xs mt-2 p-2 bg-muted rounded italic">"Olá! Seja bem-vindo! Estou aqui para ajudar..."</p>
+                  </div>
+                  <div className="border rounded-xl p-4 hover:border-primary/50 transition-all cursor-pointer">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span className="font-medium">Respostas Detalhadas</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Completo e explicativo</p>
+                    <p className="text-xs mt-2 p-2 bg-muted rounded italic">"Olá! É um prazer recebê-lo! Meu nome é..."</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* AI Capabilities */}
-          <div className="max-w-5xl mx-auto">
+          {/* Robot capabilities */}
+          <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { 
-                  icon: AudioLines, 
-                  title: "Entende Áudios", 
-                  description: "Transcrição automática e interpretação de áudios do WhatsApp",
-                  gradient: "from-green-500 to-emerald-600"
-                },
-                { 
-                  icon: ImageIcon, 
-                  title: "Lê Imagens", 
-                  description: "Analisa prints, fotos de produtos e documentos enviados",
-                  gradient: "from-blue-500 to-cyan-600"
-                },
-                { 
-                  icon: Brain, 
-                  title: "IA Avançada", 
-                  description: "Memória de contexto, qualificação e transferência inteligente",
-                  gradient: "from-purple-500 to-pink-600"
-                },
-              ].map(({ icon: Icon, title, description, gradient }, i) => (
+                { icon: Mic, title: "Escuta Áudio", description: "Transcreve e entende mensagens de voz" },
+                { icon: ImageIcon, title: "Lê Imagens", description: "Interpreta prints e fotos enviadas" },
+                { icon: Brain, title: "Aprende", description: "Melhora com base nas interações" },
+              ].map(({ icon: Icon, title, description }, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
+                  className="text-center"
                 >
-                  <Card className="text-center h-full hover:shadow-xl transition-all group">
-                    <CardContent className="pt-8">
-                      <div className={cn("w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br flex items-center justify-center mb-4 group-hover:scale-110 transition-transform", gradient)}>
-                        <Icon className="h-8 w-8 text-white" />
-                      </div>
-                      <h3 className="font-bold text-lg mb-2">{title}</h3>
-                      <p className="text-muted-foreground text-sm">{description}</p>
-                    </CardContent>
-                  </Card>
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mb-4">
+                    <Icon className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold mb-2">{title}</h3>
+                  <p className="text-sm text-muted-foreground">{description}</p>
                 </motion.div>
               ))}
             </div>
-          </div>
-
-          {/* Response styles */}
-          <div className="max-w-4xl mx-auto mt-12">
-            <Card>
-              <CardHeader className="text-center">
-                <CardTitle>Estilo de Resposta</CardTitle>
-                <CardDescription>Defina como seu robô se comunica</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  {[
-                    { 
-                      style: "⚡ Curtas", 
-                      description: "Direto ao ponto, máximo 50 palavras",
-                      example: '"Oi! Tudo bem? Como posso ajudar?"'
-                    },
-                    { 
-                      style: "📝 Médias", 
-                      description: "Equilibrado, 50-100 palavras",
-                      example: '"Olá! Seja bem-vindo! Estou aqui para ajudar com qualquer dúvida..."'
-                    },
-                    { 
-                      style: "📚 Detalhadas", 
-                      description: "Completo e explicativo",
-                      example: '"Olá! É um prazer recebê-lo! Meu nome é [Nome] e sou..."'
-                    },
-                  ].map(({ style, description, example }, i) => (
-                    <div key={i} className="border rounded-xl p-4 hover:border-primary/50 transition-colors cursor-pointer">
-                      <p className="font-semibold mb-1">{style}</p>
-                      <p className="text-xs text-muted-foreground mb-3">{description}</p>
-                      <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs italic">{example}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </section>
 
       {/* AI Intelligence Section */}
-      <section className="py-20 md:py-32 bg-gradient-to-b from-background to-muted/30">
+      <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -999,7 +1286,7 @@ export default function Power() {
       </section>
 
       {/* Integrations Section */}
-      <section id="integracoes" className="py-20 md:py-32">
+      <section id="integracoes" className="py-20 md:py-32 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge variant="outline" className="mb-4">
@@ -1063,10 +1350,6 @@ export default function Power() {
                         em minutos. Suporte a autenticação, retry automático e logs detalhados.
                       </p>
                     </div>
-                    <Button variant="outline" className="flex-shrink-0">
-                      Ver Documentação
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1076,7 +1359,7 @@ export default function Power() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-20 md:py-32 bg-muted/30">
+      <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge variant="outline" className="mb-4">Depoimentos</Badge>
@@ -1089,21 +1372,21 @@ export default function Power() {
             <TestimonialCard
               name="Ricardo Silva"
               role="CEO"
-              company="Clínica Exemplo"
+              company="Franquia Claro MG"
               quote="O robô atende 80% dos leads automaticamente. Nossa equipe foca só nos casos complexos. Vendas aumentaram 40%."
               avatar="RS"
             />
             <TestimonialCard
               name="Ana Paula"
-              role="Gerente Comercial"
-              company="Loja Virtual"
+              role="InfoProdutora"
+              company=""
               quote="Nunca mais esquecemos um follow-up. O sistema lembra tudo. Recuperamos clientes que estavam perdidos."
               avatar="AP"
             />
             <TestimonialCard
               name="Carlos Eduardo"
-              role="Diretor"
-              company="Distribuidora"
+              role="Ecom de Nutraceuticos"
+              company=""
               quote="Integração perfeita com nosso ERP. Vendas entram automaticamente, expedição é notificada. Zero retrabalho."
               avatar="CE"
             />
@@ -1112,17 +1395,32 @@ export default function Power() {
       </section>
 
       {/* Pricing Section */}
-      <section id="precos" className="py-20 md:py-32">
+      <section id="precos" className="py-20 md:py-32 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge variant="outline" className="mb-4">Planos</Badge>
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
               Investimento que <GradientText>se paga</GradientText>
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
               Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
               O Morphews custa menos que um café por dia.
             </p>
+
+            {/* Annual/Monthly Toggle */}
+            <div className="inline-flex items-center gap-4 bg-card border rounded-full px-6 py-3">
+              <span className={cn("text-sm font-medium", !isAnnual && "text-primary")}>Mensal</span>
+              <Switch
+                checked={isAnnual}
+                onCheckedChange={setIsAnnual}
+              />
+              <span className={cn("text-sm font-medium flex items-center gap-2", isAnnual && "text-primary")}>
+                Anual
+                <Badge className="bg-green-500 text-white text-xs">
+                  40% OFF
+                </Badge>
+              </span>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
@@ -1134,6 +1432,12 @@ export default function Power() {
                 "from-purple-500 to-pink-500",
                 "from-amber-500 to-orange-500",
               ];
+
+              const displayPrice = isAnnual && plan.price_cents > 0 
+                ? getAnnualPrice(plan.price_cents)
+                : plan.price_cents;
+
+              const features = getPlanFeatures(plan.name);
               
               return (
                 <motion.div
@@ -1166,36 +1470,28 @@ export default function Power() {
                       </div>
                       <CardTitle>{plan.name}</CardTitle>
                       <div className="mt-4">
-                        <span className="text-4xl font-bold">{formatPrice(plan.price_cents)}</span>
+                        {isAnnual && plan.price_cents > 0 && (
+                          <div className="text-sm text-muted-foreground line-through mb-1">
+                            {formatPrice(plan.price_cents)}/mês
+                          </div>
+                        )}
+                        <span className="text-4xl font-bold">{formatPrice(displayPrice)}</span>
                         <span className="text-muted-foreground">/mês</span>
+                        {isAnnual && plan.price_cents > 0 && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Economia de {formatPrice((plan.price_cents - displayPrice) * 12)}/ano
+                          </p>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="flex-1">
                       <ul className="space-y-3">
-                        <li className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{plan.max_users} usuário{plan.max_users > 1 ? "s" : ""}</span>
-                        </li>
-                        <li className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{plan.max_leads?.toLocaleString() || "Ilimitados"} leads</span>
-                        </li>
-                        <li className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{plan.included_whatsapp_instances} instância{plan.included_whatsapp_instances > 1 ? "s" : ""} WhatsApp</span>
-                        </li>
-                        <li className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{plan.monthly_energy?.toLocaleString() || 0} energia IA/mês</span>
-                        </li>
-                        <li className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>Demandas & SAC</span>
-                        </li>
-                        <li className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>Pós-venda completo</span>
-                        </li>
+                        {features.map((feature, i) => (
+                          <li key={i} className="flex items-center gap-2 text-sm">
+                            <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
                       </ul>
                     </CardContent>
                     <CardFooter>
@@ -1223,7 +1519,7 @@ export default function Power() {
             viewport={{ once: true }}
             className="max-w-2xl mx-auto mt-12 text-center"
           >
-            <div className="inline-flex items-center gap-3 bg-muted/50 border rounded-full px-6 py-3">
+            <div className="inline-flex items-center gap-3 bg-card border rounded-full px-6 py-3">
               <Shield className="h-6 w-6 text-primary" />
               <span>
                 <strong>Garantia de 7 dias.</strong> Não gostou? Devolvemos seu dinheiro. Sem perguntas.
@@ -1266,8 +1562,8 @@ export default function Power() {
                   className="text-lg h-14 px-8"
                   asChild
                 >
-                  <a href="https://wa.me/5551999999999" target="_blank" rel="noopener noreferrer">
-                    <MessageCircle className="mr-2 h-5 w-5" />
+                  <a href={whatsappConsultorLink} target="_blank" rel="noopener noreferrer">
+                    <Phone className="mr-2 h-5 w-5" />
                     Falar com Consultor
                   </a>
                 </Button>
@@ -1315,6 +1611,11 @@ export default function Power() {
             </DialogTitle>
             <DialogDescription className="text-center">
               Preencha seus dados para ativar o plano <strong>{selectedPlan?.name}</strong>
+              {isAnnual && selectedPlan && (
+                <span className="block mt-1 text-green-600 font-medium">
+                  com 40% de desconto no plano anual
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
 
