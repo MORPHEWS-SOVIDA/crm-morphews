@@ -1377,22 +1377,29 @@ async function handleQuickStage(
     return "❌ Perdi o contexto do lead. Pode repetir?";
   }
 
-  // Try to find stage by number or name
-  const stages = await getFunnelStages(organizationId);
-  const filtered = stages.filter(s => !["Cloud", "Trash"].includes(s.name));
-  
-  let selectedStage = filtered.find(s => s.name.toLowerCase().includes(stageName.toLowerCase()));
-  
-  // Try by number
-  if (!selectedStage) {
-    const num = parseInt(stageName);
-    if (num >= 1 && num <= filtered.length) {
-      selectedStage = filtered[num - 1];
-    }
-  }
+  const input = String(stageName || "").trim();
+  if (!input) return "❌ Me diga o número ou nome da etapa (ou 'pular').";
 
+  // Prefer our synonym-aware matcher (handles things like "venda concluída")
+  let selectedStage = await findStageByName(organizationId, input);
+
+  // Fallback: match by name contains or number (based on prompt list)
   if (!selectedStage) {
-    return `❌ Não encontrei essa etapa. Digite o número (1-${filtered.length}) ou o nome:`;
+    const stages = await getFunnelStages(organizationId);
+    const filtered = stages.filter((s) => !["Cloud", "Trash"].includes(s.name));
+
+    selectedStage = filtered.find((s) => s.name.toLowerCase().includes(input.toLowerCase()));
+
+    if (!selectedStage) {
+      const num = parseInt(input);
+      if (Number.isFinite(num) && num >= 1 && num <= filtered.length) {
+        selectedStage = filtered[num - 1];
+      }
+    }
+
+    if (!selectedStage) {
+      return `❌ Não encontrei essa etapa. Digite o número (1-${filtered.length}) ou o nome:`;
+    }
   }
 
   const { error } = await supabase
@@ -1407,7 +1414,7 @@ async function handleQuickStage(
 
   // Move to next step: offer followup
   await setState(fromPhone, { ...state, stage: "awaiting_followup" });
-  
+
   return await buildFollowupPrompt(organizationId, state.lead_name || "Lead");
 }
 
@@ -1838,20 +1845,27 @@ serve(async (req) => {
     // HANDLE CONFIRMATION RESPONSES (sim/yes/não/no) WITH CONTEXT
     // =========================================================================
     const lowerText = rawText.toLowerCase().trim();
-    const isConfirmation = ["sim", "yes", "s", "ok", "pode", "cadastra", "quero", "bora"].includes(lowerText);
-    const isDenial = ["não", "nao", "no", "n", "cancel", "cancela", "deixa"].includes(lowerText);
-    
+    const firstToken = lowerText
+      .split(/\s+/)[0]
+      ?.replace(/[^\p{L}\p{N}]/gu, "")
+      .trim();
+
+    const isConfirmation = ["sim", "s", "yes", "ok", "pode", "quero", "bora", "cadastra", "cadastrar"].includes(
+      firstToken
+    );
+    const isDenial = ["não", "nao", "n", "no", "cancel", "cancela", "cancelar", "deixa"].includes(firstToken);
+
     // If user confirms and we have pending data from image extraction
     if (isConfirmation && state?.stage === "awaiting_confirm_create" && state.lead_name) {
       console.log("📸 Confirming lead creation from image:", state);
-      
+
       if (!state.lead_phone) {
         await reply(fromPhone, `❌ Preciso do WhatsApp do lead para cadastrar.\n\nDigite: "cadastrar ${state.lead_name} [número do WhatsApp]"`);
         return new Response(JSON.stringify({ success: true, action: "need_phone" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
       // Create the lead with all extracted data
       const { data: newLead, error } = await supabase
         .from("leads")
@@ -1867,7 +1881,7 @@ serve(async (req) => {
         })
         .select("id, name, whatsapp, stars")
         .single();
-      
+
       if (error) {
         console.error("Lead create error:", error);
         await clearState(fromPhone);
@@ -1876,7 +1890,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
       // Move to stars flow
       await setState(fromPhone, {
         stage: "awaiting_stars",
@@ -1884,13 +1898,13 @@ serve(async (req) => {
         lead_name: newLead.name,
         last_action: "create",
       });
-      
+
       await reply(fromPhone, buildStarsPrompt(newLead.name));
       return new Response(JSON.stringify({ success: true, action: "lead_created_from_image", lead_id: newLead.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    
+
     // If user denies
     if (isDenial && state?.stage === "awaiting_confirm_create") {
       await clearState(fromPhone);
@@ -1898,6 +1912,62 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, action: "cancelled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // =========================================================================
+    // DETERMINISTIC FLOW HANDLING (saves credits + prevents misparsing)
+    // =========================================================================
+    const isSkip = ["pular", "skip", "depois", "mais tarde"].includes(firstToken);
+
+    if (hasActiveState && state) {
+      if (isSkip) {
+        const r = await handleSkipStep(state, organizationId, fromPhone);
+        await reply(fromPhone, r);
+        return new Response(JSON.stringify({ success: true, action: "skip_step" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (state.stage === "awaiting_stars") {
+        const n = parseInt(firstToken);
+        if (Number.isFinite(n) && n >= 1 && n <= 5) {
+          const r = await handleQuickStar(n, state, organizationId, fromPhone);
+          await reply(fromPhone, r);
+          return new Response(JSON.stringify({ success: true, action: "quick_star" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      if (state.stage === "awaiting_stage") {
+        // Whatever the user types here should be treated as the stage selection for the SAME lead.
+        const r = await handleQuickStage(rawText, state, organizationId, fromPhone);
+        await reply(fromPhone, r);
+        return new Response(JSON.stringify({ success: true, action: "quick_stage" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (state.stage === "awaiting_followup") {
+        // Interpret common negatives as "no followup"
+        if (["nao", "não", "no", "n"].includes(firstToken) || lowerText.includes("não precisa") || lowerText.includes("nao precisa")) {
+          await clearState(fromPhone);
+          const r = buildFinalMessage(state.lead_name || "Lead");
+          await reply(fromPhone, r);
+          return new Response(JSON.stringify({ success: true, action: "followup_skipped" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const n = parseInt(firstToken);
+        if (Number.isFinite(n)) {
+          const r = await handleQuickFollowup(String(n), state, organizationId, userId, fromPhone);
+          await reply(fromPhone, r);
+          return new Response(JSON.stringify({ success: true, action: "quick_followup" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
     }
 
     // Parse command with AI (tell AI if we have active state for context)
