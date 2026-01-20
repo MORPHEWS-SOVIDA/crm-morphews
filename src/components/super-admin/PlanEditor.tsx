@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, 
   Pencil, 
@@ -24,7 +25,8 @@ import {
   EyeOff,
   Copy,
   Trash2,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { AVAILABLE_FEATURES, FeatureKey, usePlanFeatures, useBulkUpdatePlanFeatures } from "@/hooks/usePlanFeatures";
@@ -44,6 +46,10 @@ interface SubscriptionPlan {
   extra_instance_price_cents: number;
   extra_energy_price_cents: number;
   created_at: string;
+  payment_provider: "stripe" | "atomicpay" | null;
+  atomicpay_monthly_url: string | null;
+  atomicpay_annual_url: string | null;
+  annual_price_cents: number | null;
 }
 
 interface PlanFormData {
@@ -59,6 +65,10 @@ interface PlanFormData {
   included_whatsapp_instances: number;
   extra_instance_price_cents: number;
   extra_energy_price_cents: number;
+  payment_provider: "stripe" | "atomicpay";
+  atomicpay_monthly_url: string;
+  atomicpay_annual_url: string;
+  annual_price_cents: number | null;
 }
 
 const defaultFormData: PlanFormData = {
@@ -74,6 +84,10 @@ const defaultFormData: PlanFormData = {
   included_whatsapp_instances: 0,
   extra_instance_price_cents: 4900,
   extra_energy_price_cents: 500,
+  payment_provider: "stripe",
+  atomicpay_monthly_url: "",
+  atomicpay_annual_url: "",
+  annual_price_cents: null,
 };
 
 export function PlanEditor() {
@@ -119,6 +133,10 @@ export function PlanEditor() {
           included_whatsapp_instances: data.included_whatsapp_instances,
           extra_instance_price_cents: data.extra_instance_price_cents,
           extra_energy_price_cents: data.extra_energy_price_cents,
+          payment_provider: data.payment_provider,
+          atomicpay_monthly_url: data.atomicpay_monthly_url || null,
+          atomicpay_annual_url: data.atomicpay_annual_url || null,
+          annual_price_cents: data.annual_price_cents,
         })
         .select()
         .single();
@@ -155,6 +173,10 @@ export function PlanEditor() {
           included_whatsapp_instances: data.included_whatsapp_instances,
           extra_instance_price_cents: data.extra_instance_price_cents,
           extra_energy_price_cents: data.extra_energy_price_cents,
+          payment_provider: data.payment_provider,
+          atomicpay_monthly_url: data.atomicpay_monthly_url || null,
+          atomicpay_annual_url: data.atomicpay_annual_url || null,
+          annual_price_cents: data.annual_price_cents,
         })
         .eq("id", id);
       if (error) throw error;
@@ -187,6 +209,10 @@ export function PlanEditor() {
           included_whatsapp_instances: plan.included_whatsapp_instances || 0,
           extra_instance_price_cents: plan.extra_instance_price_cents || 4900,
           extra_energy_price_cents: plan.extra_energy_price_cents || 500,
+          payment_provider: (plan.payment_provider as "stripe" | "atomicpay") || "stripe",
+          atomicpay_monthly_url: plan.atomicpay_monthly_url || "",
+          atomicpay_annual_url: plan.atomicpay_annual_url || "",
+          annual_price_cents: plan.annual_price_cents,
         });
         setHasChanges(false);
       }
@@ -456,14 +482,84 @@ export function PlanEditor() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Stripe Price ID</Label>
-                          <Input
-                            value={formData.stripe_price_id}
-                            onChange={(e) => handleFormChange("stripe_price_id", e.target.value)}
-                            placeholder="price_..."
-                          />
+                          <Label>Provedor de Pagamento</Label>
+                          <Tabs 
+                            value={formData.payment_provider} 
+                            onValueChange={(v) => handleFormChange("payment_provider", v as "stripe" | "atomicpay")}
+                          >
+                            <TabsList className="grid w-full grid-cols-2">
+                              <TabsTrigger value="stripe">Stripe</TabsTrigger>
+                              <TabsTrigger value="atomicpay">AtomicPay</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
                         </div>
                       </div>
+                      
+                      {/* Stripe config */}
+                      {formData.payment_provider === "stripe" && (
+                        <div className="mt-4 p-4 rounded-lg border bg-muted/30">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Configuração Stripe</Label>
+                          <div className="mt-2 space-y-2">
+                            <Label>Stripe Price ID</Label>
+                            <Input
+                              value={formData.stripe_price_id}
+                              onChange={(e) => handleFormChange("stripe_price_id", e.target.value)}
+                              placeholder="price_..."
+                            />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* AtomicPay config */}
+                      {formData.payment_provider === "atomicpay" && (
+                        <div className="mt-4 p-4 rounded-lg border bg-muted/30 space-y-4">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Configuração AtomicPay</Label>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>URL Checkout Mensal</Label>
+                              <Input
+                                value={formData.atomicpay_monthly_url}
+                                onChange={(e) => handleFormChange("atomicpay_monthly_url", e.target.value)}
+                                placeholder="https://checkout.atomicpay.com.br/..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>URL Checkout Anual</Label>
+                              <Input
+                                value={formData.atomicpay_annual_url}
+                                onChange={(e) => handleFormChange("atomicpay_annual_url", e.target.value)}
+                                placeholder="https://checkout.atomicpay.com.br/..."
+                              />
+                            </div>
+                          </div>
+                          <div className="p-3 rounded bg-blue-500/10 border border-blue-500/20">
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              <strong>Webhook URL:</strong> Configure no painel AtomicPay para receber eventos
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Input
+                                readOnly
+                                value={`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/atomicpay-webhook`}
+                                className="font-mono text-xs"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/atomicpay-webhook`);
+                                  toast({
+                                    title: "URL copiada!",
+                                    description: "Cole esta URL no painel de webhooks da AtomicPay.",
+                                  });
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <Separator />
@@ -473,7 +569,7 @@ export function PlanEditor() {
                       <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-4">
                         Preços e Limites
                       </h3>
-                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div className="space-y-2">
                           <Label className="flex items-center gap-2">
                             <CreditCard className="h-4 w-4" />
@@ -486,6 +582,23 @@ export function PlanEditor() {
                           />
                           <p className="text-xs text-muted-foreground">
                             = {formatPrice(formData.price_cents)}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            Preço Anual
+                          </Label>
+                          <Input
+                            type="number"
+                            value={formData.annual_price_cents ?? ""}
+                            onChange={(e) => handleFormChange("annual_price_cents", e.target.value ? parseInt(e.target.value) : null)}
+                            placeholder="Ex: 40% off"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {formData.annual_price_cents 
+                              ? `= ${formatPrice(formData.annual_price_cents)}/ano` 
+                              : `Sugestão: ${formatPrice(Math.round(formData.price_cents * 12 * 0.6))}`}
                           </p>
                         </div>
                         <div className="space-y-2">
