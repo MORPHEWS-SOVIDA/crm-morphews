@@ -17,14 +17,29 @@ export default function DirectCheckout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const planId = searchParams.get("plan");
+  const isAnnualParam = searchParams.get("annual") === "true";
   
   const { data: plan, isLoading: planLoading, error: planError } = useSubscriptionPlanById(planId);
   
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [leadForm, setLeadForm] = useState({ name: "", whatsapp: "", email: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(isAnnualParam);
 
   const handleSelectPlan = () => {
+    // For AtomicPay plans, redirect directly to checkout URL
+    if (plan?.payment_provider === "atomicpay") {
+      const checkoutUrl = isAnnual 
+        ? plan.atomicpay_annual_url 
+        : plan.atomicpay_monthly_url;
+      
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+    }
+    
+    // For Stripe plans, show lead modal
     setShowLeadModal(true);
   };
 
@@ -173,12 +188,40 @@ export default function DirectCheckout() {
             <CardHeader className="relative text-center pb-4">
               <CardTitle className="text-2xl">{plan.name}</CardTitle>
               
+              {/* Billing toggle */}
+              {plan.annual_price_cents && plan.price_cents > 0 && (
+                <div className="flex items-center justify-center gap-3 mt-4 p-2 bg-muted/50 rounded-lg">
+                  <button
+                    onClick={() => setIsAnnual(false)}
+                    className={`px-4 py-2 rounded-md transition-all ${!isAnnual ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    onClick={() => setIsAnnual(true)}
+                    className={`px-4 py-2 rounded-md transition-all flex items-center gap-2 ${isAnnual ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                  >
+                    Anual
+                    <Badge variant="secondary" className="bg-green-500/20 text-green-600 text-xs">40% OFF</Badge>
+                  </button>
+                </div>
+              )}
+              
               <div className="mt-6">
                 <span className="text-5xl font-bold text-primary">
-                  {plan.price_cents === 0 ? "Grátis" : formatPrice(plan.price_cents)}
+                  {plan.price_cents === 0 
+                    ? "Grátis" 
+                    : isAnnual && plan.annual_price_cents
+                      ? formatPrice(Math.round(plan.annual_price_cents / 12))
+                      : formatPrice(plan.price_cents)}
                 </span>
                 {plan.price_cents > 0 && (
                   <span className="text-muted-foreground">/mês</span>
+                )}
+                {isAnnual && plan.annual_price_cents && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Cobrado {formatPrice(plan.annual_price_cents)}/ano
+                  </p>
                 )}
               </div>
             </CardHeader>

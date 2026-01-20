@@ -5757,6 +5757,9 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          annual_price_cents: number | null
+          atomicpay_annual_url: string | null
+          atomicpay_monthly_url: string | null
           created_at: string
           extra_energy_price_cents: number
           extra_instance_price_cents: number
@@ -5769,6 +5772,7 @@ export type Database = {
           max_users: number
           monthly_energy: number | null
           name: string
+          payment_provider: string | null
           price_cents: number
           stripe_extra_energy_price_id: string | null
           stripe_extra_users_price_id: string | null
@@ -5776,6 +5780,9 @@ export type Database = {
           stripe_price_id: string | null
         }
         Insert: {
+          annual_price_cents?: number | null
+          atomicpay_annual_url?: string | null
+          atomicpay_monthly_url?: string | null
           created_at?: string
           extra_energy_price_cents?: number
           extra_instance_price_cents?: number
@@ -5788,6 +5795,7 @@ export type Database = {
           max_users: number
           monthly_energy?: number | null
           name: string
+          payment_provider?: string | null
           price_cents: number
           stripe_extra_energy_price_id?: string | null
           stripe_extra_users_price_id?: string | null
@@ -5795,6 +5803,9 @@ export type Database = {
           stripe_price_id?: string | null
         }
         Update: {
+          annual_price_cents?: number | null
+          atomicpay_annual_url?: string | null
+          atomicpay_monthly_url?: string | null
           created_at?: string
           extra_energy_price_cents?: number
           extra_instance_price_cents?: number
@@ -5807,6 +5818,7 @@ export type Database = {
           max_users?: number
           monthly_energy?: number | null
           name?: string
+          payment_provider?: string | null
           price_cents?: number
           stripe_extra_energy_price_id?: string | null
           stripe_extra_users_price_id?: string | null

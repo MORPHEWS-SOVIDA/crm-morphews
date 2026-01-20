@@ -16,6 +16,10 @@ export interface SubscriptionPlan {
   extra_instance_price_cents: number;
   extra_energy_price_cents: number;
   monthly_energy?: number | null;
+  payment_provider?: "stripe" | "atomicpay" | null;
+  atomicpay_monthly_url?: string | null;
+  atomicpay_annual_url?: string | null;
+  annual_price_cents?: number | null;
 }
 
 // Full plan data including Stripe IDs (for authenticated users with access)
@@ -63,9 +67,10 @@ export function useSubscriptionPlanById(planId: string | null) {
       
       // Fetch directly from the table to get plans even if not visible on site or inactive
       // This is for direct checkout links - the plan just needs to exist
+      // Include payment provider fields for AtomicPay redirect support
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("id, name, price_cents, max_users, max_leads, extra_user_price_cents, included_whatsapp_instances, extra_instance_price_cents, extra_energy_price_cents, monthly_energy, is_active")
+        .select("id, name, price_cents, max_users, max_leads, extra_user_price_cents, included_whatsapp_instances, extra_instance_price_cents, extra_energy_price_cents, monthly_energy, is_active, payment_provider, atomicpay_monthly_url, atomicpay_annual_url, annual_price_cents")
         .eq("id", planId)
         .maybeSingle();
 
