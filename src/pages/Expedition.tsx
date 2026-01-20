@@ -73,8 +73,28 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
 import { useAuth } from '@/hooks/useAuth';
 
-type TabFilter = 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'delivered' | 'cancelled';
+type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
+
+// Status colors for sale cards
+const STATUS_BG_COLORS: Record<string, string> = {
+  draft: '', // No background
+  pending_expedition: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200', // Light blue
+  dispatched: 'bg-pink-50 dark:bg-pink-950/30 border-pink-200', // Light pink
+  returned: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200', // Light yellow
+  'carrier-no-tracking': 'bg-orange-50 dark:bg-orange-950/30 border-orange-200', // Light orange
+  'carrier-tracking': 'bg-red-50 dark:bg-red-950/30 border-red-200', // Light red/vermillion
+};
+
+// Button colors for stats cards
+const STATUS_BUTTON_COLORS: Record<string, { text: string; bg: string; border: string }> = {
+  draft: { text: 'text-gray-700 dark:text-gray-300', bg: '', border: '' },
+  printed: { text: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800' },
+  dispatched: { text: 'text-pink-700 dark:text-pink-300', bg: 'bg-pink-50 dark:bg-pink-950/30', border: 'border-pink-200 dark:border-pink-800' },
+  returned: { text: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-50 dark:bg-yellow-950/30', border: 'border-yellow-200 dark:border-yellow-800' },
+  'carrier-no-tracking': { text: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-200 dark:border-orange-800' },
+  'carrier-tracking': { text: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800' },
+};
 
 export default function Expedition() {
   const navigate = useNavigate();
@@ -91,7 +111,7 @@ export default function Expedition() {
   const updateCarrierTracking = useUpdateCarrierTracking();
 
   // State
-  const [activeTab, setActiveTabState] = useState<TabFilter>('draft');
+  const [activeTab, setActiveTabState] = useState<TabFilter>('todo');
   const [sortOrder, setSortOrder] = useState<SortOrder>('delivery');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
@@ -108,20 +128,71 @@ export default function Expedition() {
 
   const stats = useExpeditionStats(sales);
 
-  // Get status labels (custom or default)
-  const getStatusLabel = useCallback((status: MotoboyTrackingStatus): string => {
+  // Get motoboy tracking status labels (custom or default)
+  const getMotoboyStatusLabel = useCallback((status: MotoboyTrackingStatus): string => {
     const customStatus = trackingStatuses.find(s => s.status_key === status);
     return customStatus?.label || motoboyTrackingLabels[status] || status;
   }, [trackingStatuses]);
 
+  // Helper to get sale's category for coloring
+  const getSaleCategory = useCallback((sale: Sale): string => {
+    if (sale.delivery_type === 'carrier' && sale.tracking_code && sale.status !== 'delivered' && sale.status !== 'cancelled') {
+      return 'carrier-tracking';
+    }
+    if (sale.delivery_type === 'carrier' && !sale.tracking_code && sale.status !== 'cancelled' && sale.status !== 'delivered') {
+      return 'carrier-no-tracking';
+    }
+    if (sale.status === 'pending_expedition') return 'printed';
+    return sale.status;
+  }, []);
+
+  // Global search across ALL sales (ignoring tab filter)
+  const globalSearchResults = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    
+    const query = searchQuery.toLowerCase();
+    const results = sales.filter(s => 
+      s.lead?.name?.toLowerCase().includes(query) ||
+      s.lead?.whatsapp?.includes(query) ||
+      s.romaneio_number?.toString().includes(query) ||
+      s.lead?.neighborhood?.toLowerCase().includes(query) ||
+      s.lead?.city?.toLowerCase().includes(query) ||
+      (s as any).seller?.first_name?.toLowerCase().includes(query) ||
+      (s as any).seller?.last_name?.toLowerCase().includes(query) ||
+      (s as any).delivery_region?.name?.toLowerCase().includes(query) ||
+      s.items?.some((item: any) => item.requisition_number?.toLowerCase().includes(query))
+    );
+    
+    return results;
+  }, [sales, searchQuery]);
+
   // Filter and sort sales
   const filteredSales = useMemo(() => {
+    // If searching, show global results instead of tab-filtered results
+    if (searchQuery.trim() && globalSearchResults) {
+      return globalSearchResults.sort((a, b) => {
+        if (sortOrder === 'created') {
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        }
+        const aStr = a.scheduled_delivery_date || '9999-12-31';
+        const bStr = b.scheduled_delivery_date || '9999-12-31';
+        return aStr.localeCompare(bStr);
+      });
+    }
+
     let filtered = [...sales];
-    const today = startOfDay(new Date());
-    const tomorrow = addDays(today, 1);
 
     // Tab filter
     switch (activeTab) {
+      case 'todo':
+        // A FAZER: RASCUNHO + IMPRESSO + DESPACHADO + CORREIOS
+        filtered = filtered.filter(s => 
+          s.status === 'draft' || 
+          s.status === 'pending_expedition' || 
+          s.status === 'dispatched' ||
+          (s.delivery_type === 'carrier' && s.status !== 'cancelled' && s.status !== 'delivered')
+        );
+        break;
       case 'draft':
         filtered = filtered.filter(s => s.status === 'draft');
         break;
@@ -138,7 +209,6 @@ export default function Expedition() {
         filtered = filtered.filter(s => s.delivery_type === 'carrier' && !s.tracking_code && s.status !== 'cancelled' && s.status !== 'delivered');
         break;
       case 'carrier-tracking':
-        // All carrier deliveries with tracking code (for updating substatus)
         filtered = filtered.filter(s => s.delivery_type === 'carrier' && s.tracking_code && s.status !== 'delivered' && s.status !== 'cancelled');
         break;
       case 'delivered':
@@ -147,16 +217,6 @@ export default function Expedition() {
       case 'cancelled':
         filtered = filtered.filter(s => s.status === 'cancelled');
         break;
-    }
-
-    // Search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(s => 
-        s.lead?.name?.toLowerCase().includes(query) ||
-        s.lead?.whatsapp?.includes(query) ||
-        s.romaneio_number?.toString().includes(query)
-      );
     }
 
     // Sort
@@ -178,7 +238,7 @@ export default function Expedition() {
         return aStr.localeCompare(bStr);
       }
     });
-  }, [sales, activeTab, searchQuery, sortOrder]);
+  }, [sales, activeTab, searchQuery, sortOrder, globalSearchResults]);
 
   // Select/deselect
   const toggleSelect = (id: string) => {
@@ -379,7 +439,7 @@ export default function Expedition() {
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
       queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
       queryClient.invalidateQueries({ queryKey: ['motoboy-tracking-history', saleId] });
-      toast.success(`Status atualizado: ${getStatusLabel(status)}`);
+      toast.success(`Status atualizado: ${getMotoboyStatusLabel(status)}`);
     } catch (error) {
       toast.error('Erro ao atualizar status');
     } finally {
@@ -454,25 +514,57 @@ export default function Expedition() {
   };
 
   // Helpers
+  const getShiftLabel = (shift?: string | null) => {
+    if (shift === 'morning') return 'MANHÃ';
+    if (shift === 'afternoon') return 'TARDE';
+    return '';
+  };
+
   const getDeliveryBadge = (sale: Sale) => {
     const deliveryDate = sale.scheduled_delivery_date ? parseISO(sale.scheduled_delivery_date) : null;
+    const shiftLabel = getShiftLabel(sale.scheduled_delivery_shift);
     
     if (!deliveryDate) {
       return <Badge variant="outline" className="text-xs">Sem data</Badge>;
     }
 
     if (isToday(deliveryDate)) {
-      return <Badge className="bg-red-500 text-white text-xs animate-pulse">HOJE</Badge>;
+      return (
+        <Badge className="bg-red-500 text-white text-xs animate-pulse">
+          HOJE {shiftLabel && `• ${shiftLabel}`}
+        </Badge>
+      );
     }
     if (isTomorrow(deliveryDate)) {
-      return <Badge className="bg-orange-500 text-white text-xs">AMANHÃ</Badge>;
+      return (
+        <Badge className="bg-orange-500 text-white text-xs">
+          AMANHÃ {shiftLabel && `• ${shiftLabel}`}
+        </Badge>
+      );
     }
     return (
       <Badge variant="outline" className="text-xs">
-        {format(deliveryDate, 'dd/MM', { locale: ptBR })}
+        {format(deliveryDate, 'dd/MM', { locale: ptBR })} {shiftLabel && `• ${shiftLabel}`}
       </Badge>
     );
   };
+
+  // Get status label for global search
+  const getStatusLabel = useCallback((sale: Sale): string => {
+    const category = getSaleCategory(sale);
+    const labels: Record<string, string> = {
+      draft: '👀 Rascunho',
+      printed: '🖨️ Impresso',
+      pending_expedition: '🖨️ Impresso',
+      dispatched: '🚚 Despachado',
+      returned: '⚠️ Voltou',
+      delivered: '✅ Entregue',
+      cancelled: '❌ Cancelado',
+      'carrier-no-tracking': '📦 Correio s/ Rastreio',
+      'carrier-tracking': '📮 Correio c/ Rastreio',
+    };
+    return labels[category] || sale.status;
+  }, [getSaleCategory]);
 
   const getShiftIcon = (shift?: string | null) => {
     if (shift === 'morning') return <Sun className="w-3 h-3 text-yellow-500" />;
@@ -583,10 +675,30 @@ export default function Expedition() {
           </div>
         )}
 
-        {/* Stats Cards - Row 1: Main workflow */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        {/* Stats Cards - Row 1: Primary button + Status filters */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          {/* A FAZER - Primary Button */}
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'draft' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all col-span-2 ${
+              activeTab === 'todo' 
+                ? 'ring-2 ring-primary bg-primary/10' 
+                : 'bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20'
+            }`}
+            onClick={() => setActiveTab('todo')}
+          >
+            <CardContent className="p-3 text-center">
+              <p className="text-2xl font-bold text-primary">
+                {stats.draft + stats.printed + stats.dispatched + stats.carrierNoTracking + stats.carrierWithTracking}
+              </p>
+              <p className="text-sm font-semibold text-primary">📋 A FAZER</p>
+            </CardContent>
+          </Card>
+          
+          {/* Individual status buttons with matching colors */}
+          <Card 
+            className={`cursor-pointer transition-all ${
+              activeTab === 'draft' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('draft')}
           >
             <CardContent className="p-3 text-center">
@@ -595,34 +707,42 @@ export default function Expedition() {
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'printed' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS.printed.bg} ${STATUS_BUTTON_COLORS.printed.border} ${
+              activeTab === 'printed' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('printed')}
           >
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{stats.printed}</p>
+              <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS.printed.text}`}>{stats.printed}</p>
               <p className="text-xs text-blue-600 dark:text-blue-400">🖨️ Impresso</p>
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'dispatched' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS.dispatched.bg} ${STATUS_BUTTON_COLORS.dispatched.border} ${
+              activeTab === 'dispatched' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('dispatched')}
           >
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">{stats.dispatched}</p>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400">🚚 Despachado</p>
+              <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS.dispatched.text}`}>{stats.dispatched}</p>
+              <p className="text-xs text-pink-600 dark:text-pink-400">🚚 Despachado</p>
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'returned' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS.returned.bg} ${STATUS_BUTTON_COLORS.returned.border} ${
+              activeTab === 'returned' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('returned')}
           >
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-red-700 dark:text-red-300">{stats.returned}</p>
-              <p className="text-xs text-red-600 dark:text-red-400">⚠️ Voltou</p>
+              <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS.returned.text}`}>{stats.returned}</p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-400">⚠️ Voltou</p>
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'delivered' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${
+              activeTab === 'delivered' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('delivered')}
           >
             <CardContent className="p-3 text-center">
@@ -631,7 +751,9 @@ export default function Expedition() {
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'cancelled' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${
+              activeTab === 'cancelled' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('cancelled')}
           >
             <CardContent className="p-3 text-center">
@@ -644,28 +766,32 @@ export default function Expedition() {
         {/* Stats Cards - Row 2: Carrier tracking */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'carrier-no-tracking' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS['carrier-no-tracking'].bg} ${STATUS_BUTTON_COLORS['carrier-no-tracking'].border} ${
+              activeTab === 'carrier-no-tracking' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('carrier-no-tracking')}
           >
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{stats.carrierNoTracking}</p>
+              <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS['carrier-no-tracking'].text}`}>{stats.carrierNoTracking}</p>
               <p className="text-xs text-orange-600 dark:text-orange-400">📦 S/ Rastreio</p>
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all ${activeTab === 'carrier-tracking' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS['carrier-tracking'].bg} ${STATUS_BUTTON_COLORS['carrier-tracking'].border} ${
+              activeTab === 'carrier-tracking' ? 'ring-2 ring-primary' : ''
+            }`}
             onClick={() => setActiveTab('carrier-tracking')}
           >
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-purple-700 dark:text-purple-300">{stats.carrierWithTracking}</p>
-              <p className="text-xs text-purple-600 dark:text-purple-400">📮 Correio c/ Rastreio</p>
+              <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS['carrier-tracking'].text}`}>{stats.carrierWithTracking}</p>
+              <p className="text-xs text-red-600 dark:text-red-400">📮 Correio c/ Rastreio</p>
             </CardContent>
           </Card>
           {stats.tomorrowPrep > 0 && (
-            <Card className="bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800">
+            <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
               <CardContent className="p-3 text-center">
-                <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">{stats.tomorrowPrep}</p>
-                <p className="text-xs text-yellow-600 dark:text-yellow-400">🌅 Amanhã</p>
+                <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{stats.tomorrowPrep}</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">🌅 Amanhã</p>
               </CardContent>
             </Card>
           )}
@@ -761,6 +887,12 @@ export default function Expedition() {
               const isBeingUpdated = isUpdating === sale.id;
               const isOptimisticPrinted = optimisticPrinted.has(sale.id);
 
+              const saleCategory = getSaleCategory(sale);
+              const statusBgColor = STATUS_BG_COLORS[saleCategory] || '';
+              const sellerName = (sale as any).seller ? `${(sale as any).seller.first_name || ''} ${(sale as any).seller.last_name || ''}`.trim() : null;
+              const regionName = (sale as any).delivery_region?.name;
+              const requisitionNumbers = sale.items?.filter((i: any) => i.requisition_number).map((i: any) => i.requisition_number) || [];
+
               return (
                 <Card 
                   key={sale.id} 
@@ -770,10 +902,10 @@ export default function Expedition() {
                       : isSelected 
                         ? 'ring-2 ring-primary bg-primary/5' 
                         : isTodaySale
-                          ? 'border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10'
+                          ? `border-l-4 border-l-red-500 ${statusBgColor || 'bg-red-50/30 dark:bg-red-950/10'}`
                           : isTomorrowSale
-                            ? 'border-l-4 border-l-orange-400 bg-orange-50/30 dark:bg-orange-950/10'
-                            : ''
+                            ? `border-l-4 border-l-orange-400 ${statusBgColor || 'bg-orange-50/30 dark:bg-orange-950/10'}`
+                            : statusBgColor
                   }`}
                 >
                   <CardContent className="p-4">
@@ -787,13 +919,18 @@ export default function Expedition() {
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        {/* Header */}
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                        {/* Header Row 1 */}
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
                           <Badge variant="outline" className="font-mono text-xs">
                             #{sale.romaneio_number?.toString().padStart(5, '0')}
                           </Badge>
+                          {/* Show status when searching globally */}
+                          {searchQuery.trim() && (
+                            <Badge variant="secondary" className="text-xs">
+                              {getStatusLabel(sale)}
+                            </Badge>
+                          )}
                           {getDeliveryBadge(sale)}
-                          {getShiftIcon(sale.scheduled_delivery_shift)}
                           {getDeliveryTypeBadge(sale)}
                           <span className="font-semibold truncate">{sale.lead?.name}</span>
                           <span className="text-sm font-medium text-primary">
@@ -805,6 +942,26 @@ export default function Expedition() {
                             </Badge>
                           )}
                         </div>
+
+                        {/* Header Row 2: Region, City, Bairro, Seller */}
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mb-2">
+                          {regionName && <span className="font-medium text-primary/80">📍 {regionName}</span>}
+                          {sale.lead?.city && <span>• {sale.lead.city}</span>}
+                          {sale.lead?.neighborhood && <span>• {sale.lead.neighborhood}</span>}
+                          {sellerName && <span className="ml-auto">👤 {sellerName}</span>}
+                        </div>
+
+                        {/* Requisition Numbers for Manipulated Products */}
+                        {requisitionNumbers.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mb-2">
+                            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">🧪 Requisições:</span>
+                            {requisitionNumbers.map((req: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs font-mono bg-amber-50 dark:bg-amber-950/30 border-amber-300">
+                                {req}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Address */}
                         {sale.lead?.street && (
@@ -932,7 +1089,7 @@ export default function Expedition() {
                                   <SelectContent>
                                     {motoboyTrackingOrder.map(status => (
                                       <SelectItem key={status} value={status}>
-                                        {getStatusLabel(status)}
+                                        {getMotoboyStatusLabel(status)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
