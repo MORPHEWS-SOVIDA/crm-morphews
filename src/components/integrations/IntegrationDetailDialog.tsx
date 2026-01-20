@@ -178,20 +178,24 @@ export function IntegrationDetailDialog({
     const payload = typeof lastPayload === 'object' ? lastPayload : {};
     const detected: DetectedField[] = [];
     
-    // Known field aliases for auto-suggestion
+    // Known field aliases for auto-suggestion (comprehensive list for common webhooks)
     const fieldAliases: Record<string, string[]> = {
-      name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name'],
-      email: ['email', 'e-mail', 'mail', 'customer_email'],
-      whatsapp: ['whatsapp', 'phone', 'telefone', 'celular', 'mobile', 'tel', 'fone'],
-      cpf: ['cpf', 'documento', 'document'],
-      address_street: ['street', 'rua', 'endereco', 'address', 'logradouro'],
-      address_number: ['number', 'numero', 'street_number'],
-      address_neighborhood: ['neighborhood', 'bairro'],
-      address_city: ['city', 'cidade'],
-      address_state: ['state', 'estado', 'uf'],
-      address_cep: ['cep', 'zipcode', 'zip', 'postal_code'],
-      sale_total_cents: ['total', 'valor', 'value', 'amount', 'price'],
-      sale_external_id: ['order_id', 'pedido_id', 'transaction_id', 'external_id'],
+      name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'buyer_name', 'buyerName', 'contact_name'],
+      email: ['email', 'e-mail', 'mail', 'customer_email', 'customerEmail', 'buyer_email', 'buyerEmail', 'contact_email'],
+      whatsapp: ['whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone', 'buyer_phone', 'contact_phone', 'numero_telefone', 'numero_whatsapp'],
+      cpf: ['cpf', 'documento', 'document', 'customer_cpf', 'customerCpf', 'buyer_cpf', 'doc', 'tax_id', 'taxId'],
+      observations: ['observations', 'observacoes', 'notes', 'notas', 'observacao', 'comments', 'comentarios', 'message', 'mensagem'],
+      address_street: ['street', 'rua', 'endereco', 'address', 'logradouro', 'street_name', 'streetName'],
+      address_number: ['number', 'numero', 'street_number', 'streetNumber', 'num', 'house_number'],
+      address_complement: ['complement', 'complemento', 'comp', 'apartment', 'apto', 'suite'],
+      address_neighborhood: ['neighborhood', 'bairro', 'district', 'zona'],
+      address_city: ['city', 'cidade', 'municipio', 'town'],
+      address_state: ['state', 'estado', 'uf', 'province', 'region'],
+      address_cep: ['cep', 'zipcode', 'zip', 'postal_code', 'postalCode', 'zip_code', 'zipCode', 'codigo_postal'],
+      sale_product_name: ['product_name', 'productName', 'item_name', 'itemName', 'product.name', 'offer.name', 'product_title'],
+      sale_product_sku: ['sku', 'product_sku', 'productSku', 'product_code', 'productCode', 'product.code', 'item_sku'],
+      sale_total_cents: ['total', 'valor', 'value', 'amount', 'price', 'total_price', 'totalPrice', 'full_price', 'preco'],
+      sale_external_id: ['order_id', 'orderId', 'pedido_id', 'transaction_id', 'transactionId', 'external_id', 'externalId', 'transaction', 'id_pedido'],
     };
 
     const flattenPayload = (obj: any, prefix = ''): void => {
