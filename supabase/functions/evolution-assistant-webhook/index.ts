@@ -333,9 +333,13 @@ Retorne APENAS JSON válido no formato:
 // ============================================================================
 
 interface ConversationState {
-  stage: "idle" | "awaiting_stars" | "awaiting_stage" | "awaiting_followup" | "awaiting_more_data";
+  stage: "idle" | "awaiting_stars" | "awaiting_stage" | "awaiting_followup" | "awaiting_more_data" | "awaiting_confirm_create";
   lead_id?: string;
   lead_name?: string;
+  lead_phone?: string;
+  lead_instagram?: string;
+  lead_email?: string;
+  lead_notes?: string;
   last_action?: string;
   expires_at: number;
 }
@@ -1750,10 +1754,14 @@ serve(async (req) => {
         resultMsg += `Digite: "sim" para cadastrar${leadPhone ? "" : " (preciso de um WhatsApp)"}\n`;
         resultMsg += `Ou: "cadastrar ${leadName} ${leadPhone || "[WhatsApp]"}"`;
         
-        // Store extracted data for potential follow-up
+        // Store ALL extracted data for potential follow-up
         setState(fromPhone, {
-          stage: "awaiting_more_data",
+          stage: "awaiting_confirm_create",
           lead_name: leadName,
+          lead_phone: leadPhone,
+          lead_instagram: analysis.instagram || undefined,
+          lead_email: analysis.email || undefined,
+          lead_notes: analysis.notes || undefined,
           last_action: "image_extracted",
         });
       } else {
@@ -1776,6 +1784,72 @@ serve(async (req) => {
     // Check for active conversation state
     const state = getState(fromPhone);
     const hasActiveState = !!state && state.stage !== "idle";
+
+    // =========================================================================
+    // HANDLE CONFIRMATION RESPONSES (sim/yes/não/no) WITH CONTEXT
+    // =========================================================================
+    const lowerText = rawText.toLowerCase().trim();
+    const isConfirmation = ["sim", "yes", "s", "ok", "pode", "cadastra", "quero", "bora"].includes(lowerText);
+    const isDenial = ["não", "nao", "no", "n", "cancel", "cancela", "deixa"].includes(lowerText);
+    
+    // If user confirms and we have pending data from image extraction
+    if (isConfirmation && state?.stage === "awaiting_confirm_create" && state.lead_name) {
+      console.log("📸 Confirming lead creation from image:", state);
+      
+      if (!state.lead_phone) {
+        await reply(fromPhone, `❌ Preciso do WhatsApp do lead para cadastrar.\n\nDigite: "cadastrar ${state.lead_name} [número do WhatsApp]"`);
+        return new Response(JSON.stringify({ success: true, action: "need_phone" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Create the lead with all extracted data
+      const { data: newLead, error } = await supabase
+        .from("leads")
+        .insert({
+          organization_id: organizationId,
+          assigned_to: userId,
+          name: state.lead_name,
+          whatsapp: state.lead_phone,
+          instagram: state.lead_instagram || null,
+          email: state.lead_email || null,
+          observations: state.lead_notes || null,
+          stars: 0,
+        })
+        .select("id, name, whatsapp, stars")
+        .single();
+      
+      if (error) {
+        console.error("Lead create error:", error);
+        clearState(fromPhone);
+        await reply(fromPhone, "❌ Não consegui cadastrar o lead. Tente novamente.");
+        return new Response(JSON.stringify({ success: true, action: "create_error" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Move to stars flow
+      setState(fromPhone, {
+        stage: "awaiting_stars",
+        lead_id: newLead.id,
+        lead_name: newLead.name,
+        last_action: "create",
+      });
+      
+      await reply(fromPhone, buildStarsPrompt(newLead.name));
+      return new Response(JSON.stringify({ success: true, action: "lead_created_from_image", lead_id: newLead.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // If user denies
+    if (isDenial && state?.stage === "awaiting_confirm_create") {
+      clearState(fromPhone);
+      await reply(fromPhone, "👍 Ok, cancelado!\n\nO que mais posso fazer por você?");
+      return new Response(JSON.stringify({ success: true, action: "cancelled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Parse command with AI (tell AI if we have active state for context)
     const contextLeadName = state?.lead_name;
