@@ -344,30 +344,78 @@ interface ConversationState {
   expires_at: number;
 }
 
-// In-memory state (resets on function cold start, but that's OK for short flows)
-const conversationStates: Map<string, ConversationState> = new Map();
-
-function getState(phone: string): ConversationState | null {
-  const state = conversationStates.get(phone);
-  if (!state) return null;
-  if (Date.now() > state.expires_at) {
-    conversationStates.delete(phone);
+// Persist state in database to survive cold starts
+async function getState(phone: string): Promise<ConversationState | null> {
+  try {
+    const { data, error } = await supabase
+      .from("whatsapp_assistant_states")
+      .select("state, expires_at")
+      .eq("phone", phone)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error fetching state:", error);
+      return null;
+    }
+    
+    if (!data) return null;
+    
+    const expiresAt = new Date(data.expires_at).getTime();
+    if (Date.now() > expiresAt) {
+      // Expired, delete it
+      await supabase
+        .from("whatsapp_assistant_states")
+        .delete()
+        .eq("phone", phone);
+      return null;
+    }
+    
+    return {
+      ...(data.state as ConversationState),
+      expires_at: expiresAt,
+    };
+  } catch (e) {
+    console.error("getState error:", e);
     return null;
   }
-  return state;
 }
 
-function setState(phone: string, state: Partial<ConversationState>) {
-  const current = getState(phone) || { stage: "idle", expires_at: 0 };
-  conversationStates.set(phone, {
-    ...current,
-    ...state,
-    expires_at: Date.now() + 10 * 60 * 1000, // 10 min TTL
-  });
+async function setState(phone: string, state: Partial<ConversationState>): Promise<void> {
+  try {
+    const current = await getState(phone) || { stage: "idle" as const, expires_at: 0 };
+    const newState = {
+      ...current,
+      ...state,
+      expires_at: Date.now() + 10 * 60 * 1000, // 10 min TTL
+    };
+    
+    const expiresAt = new Date(newState.expires_at).toISOString();
+    
+    await supabase
+      .from("whatsapp_assistant_states")
+      .upsert({
+        phone,
+        state: newState,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "phone" });
+    
+    console.log("💾 State saved for", phone, "stage:", newState.stage);
+  } catch (e) {
+    console.error("setState error:", e);
+  }
 }
 
-function clearState(phone: string) {
-  conversationStates.delete(phone);
+async function clearState(phone: string): Promise<void> {
+  try {
+    await supabase
+      .from("whatsapp_assistant_states")
+      .delete()
+      .eq("phone", phone);
+    console.log("🗑️ State cleared for", phone);
+  } catch (e) {
+    console.error("clearState error:", e);
+  }
 }
 
 // ============================================================================
@@ -883,7 +931,7 @@ async function handleCreateLead(
 
   // If stars were NOT provided, start the interactive flow
   if (!command.stars || command.stars === 0) {
-    setState(fromPhone, {
+    await setState(fromPhone, {
       stage: "awaiting_stars",
       lead_id: newLead.id,
       lead_name: newLead.name,
@@ -893,7 +941,7 @@ async function handleCreateLead(
   }
 
   // Stars provided - ask for stage
-  setState(fromPhone, {
+  await setState(fromPhone, {
     stage: "awaiting_stage",
     lead_id: newLead.id,
     lead_name: newLead.name,
@@ -1296,7 +1344,7 @@ async function handleQuickStar(
   fromPhone: string
 ): Promise<string> {
   if (!state.lead_id) {
-    clearState(fromPhone);
+    await clearState(fromPhone);
     return "❌ Perdi o contexto do lead. Pode repetir o cadastro?";
   }
 
@@ -1313,7 +1361,7 @@ async function handleQuickStar(
   }
 
   // Move to next step: ask for stage
-  setState(fromPhone, { ...state, stage: "awaiting_stage" });
+  await setState(fromPhone, { ...state, stage: "awaiting_stage" });
   
   return await buildStagePrompt(organizationId, state.lead_name || "Lead");
 }
@@ -1325,7 +1373,7 @@ async function handleQuickStage(
   fromPhone: string
 ): Promise<string> {
   if (!state.lead_id) {
-    clearState(fromPhone);
+    await clearState(fromPhone);
     return "❌ Perdi o contexto do lead. Pode repetir?";
   }
 
@@ -1358,7 +1406,7 @@ async function handleQuickStage(
   }
 
   // Move to next step: offer followup
-  setState(fromPhone, { ...state, stage: "awaiting_followup" });
+  await setState(fromPhone, { ...state, stage: "awaiting_followup" });
   
   return await buildFollowupPrompt(organizationId, state.lead_name || "Lead");
 }
@@ -1371,7 +1419,7 @@ async function handleQuickFollowup(
   fromPhone: string
 ): Promise<string> {
   if (!state.lead_id) {
-    clearState(fromPhone);
+    await clearState(fromPhone);
     return "❌ Perdi o contexto. Pode repetir?";
   }
 
@@ -1405,7 +1453,7 @@ async function handleQuickFollowup(
         followupDate.setHours(10, 0, 0, 0);
       } else {
         // Invalid option, skip
-        clearState(fromPhone);
+        await clearState(fromPhone);
         return buildFinalMessage(state.lead_name || "Lead");
       }
   }
@@ -1423,11 +1471,11 @@ async function handleQuickFollowup(
 
   if (error) {
     console.error("Followup error:", error);
-    clearState(fromPhone);
+    await clearState(fromPhone);
     return "❌ Erro ao agendar. Mas o lead foi salvo!\n\n" + buildFinalMessage(state.lead_name || "Lead");
   }
 
-  clearState(fromPhone);
+  await clearState(fromPhone);
 
   const dateFormatted = followupDate.toLocaleDateString('pt-BR');
   const timeFormatted = followupDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -1444,17 +1492,18 @@ async function handleSkipStep(
 
   switch (state.stage) {
     case "awaiting_stars":
-      setState(fromPhone, { ...state, stage: "awaiting_stage" });
+      await setState(fromPhone, { ...state, stage: "awaiting_stage" });
       return await buildStagePrompt(organizationId, leadName);
     
     case "awaiting_stage":
-      setState(fromPhone, { ...state, stage: "awaiting_followup" });
+      await setState(fromPhone, { ...state, stage: "awaiting_followup" });
       return await buildFollowupPrompt(organizationId, leadName);
     
     case "awaiting_followup":
     case "awaiting_more_data":
+    case "awaiting_confirm_create":
     default:
-      clearState(fromPhone);
+      await clearState(fromPhone);
       return buildFinalMessage(leadName);
   }
 }
@@ -1660,9 +1709,9 @@ serve(async (req) => {
       await reply(fromPhone, `📝 Entendi: "${transcription}"\n\nProcessando...`);
       
       // Process transcription as a command
-      const state = getState(fromPhone);
+      const state = await getState(fromPhone);
       const hasActiveState = !!state && state.stage !== "idle";
-      const parsed = await parseCommandWithAI(transcription, hasActiveState);
+      const parsed = await parseCommandWithAI(transcription, hasActiveState, state?.lead_name);
       
       if (!parsed) {
         await reply(fromPhone, "🤔 Não entendi o que você disse. Pode repetir de outra forma?");
@@ -1687,7 +1736,7 @@ serve(async (req) => {
             response = await handleSkipStep(state, organizationId, fromPhone);
             break;
           default:
-            clearState(fromPhone);
+            await clearState(fromPhone);
             response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
         }
       } else {
@@ -1755,7 +1804,7 @@ serve(async (req) => {
         resultMsg += `Ou: "cadastrar ${leadName} ${leadPhone || "[WhatsApp]"}"`;
         
         // Store ALL extracted data for potential follow-up
-        setState(fromPhone, {
+        await setState(fromPhone, {
           stage: "awaiting_confirm_create",
           lead_name: leadName,
           lead_phone: leadPhone,
@@ -1782,7 +1831,7 @@ serve(async (req) => {
     }
 
     // Check for active conversation state
-    const state = getState(fromPhone);
+    const state = await getState(fromPhone);
     const hasActiveState = !!state && state.stage !== "idle";
 
     // =========================================================================
@@ -1821,7 +1870,7 @@ serve(async (req) => {
       
       if (error) {
         console.error("Lead create error:", error);
-        clearState(fromPhone);
+        await clearState(fromPhone);
         await reply(fromPhone, "❌ Não consegui cadastrar o lead. Tente novamente.");
         return new Response(JSON.stringify({ success: true, action: "create_error" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1829,7 +1878,7 @@ serve(async (req) => {
       }
       
       // Move to stars flow
-      setState(fromPhone, {
+      await setState(fromPhone, {
         stage: "awaiting_stars",
         lead_id: newLead.id,
         lead_name: newLead.name,
@@ -1844,7 +1893,7 @@ serve(async (req) => {
     
     // If user denies
     if (isDenial && state?.stage === "awaiting_confirm_create") {
-      clearState(fromPhone);
+      await clearState(fromPhone);
       await reply(fromPhone, "👍 Ok, cancelado!\n\nO que mais posso fazer por você?");
       return new Response(JSON.stringify({ success: true, action: "cancelled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1888,7 +1937,7 @@ serve(async (req) => {
         default:
           // User wants to do something else - pass context lead for update commands
           const ctxLeadId = state.lead_id;
-          clearState(fromPhone);
+          await clearState(fromPhone);
           response = await handleCommand(parsed, organizationId, userId, fromPhone, userName, ctxLeadId);
       }
     } else {

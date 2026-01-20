@@ -6281,6 +6281,27 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_assistant_states: {
+        Row: {
+          expires_at: string
+          phone: string
+          state: Json
+          updated_at: string
+        }
+        Insert: {
+          expires_at: string
+          phone: string
+          state: Json
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string
+          phone?: string
+          state?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_bot_configs: {
         Row: {
           bot_gender: string | null
