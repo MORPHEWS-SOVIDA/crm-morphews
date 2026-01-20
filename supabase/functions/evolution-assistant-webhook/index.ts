@@ -9,6 +9,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -165,64 +166,58 @@ async function downloadMediaFromEvolution(
   }
 }
 
-async function transcribeAudioWithAI(base64: string, mimeType: string): Promise<string | null> {
-  if (!LOVABLE_API_KEY) {
-    console.error("LOVABLE_API_KEY not configured");
+async function transcribeAudioWithGroq(base64: string, mimeType: string): Promise<string | null> {
+  if (!GROQ_API_KEY) {
+    console.error("GROQ_API_KEY not configured");
     return null;
   }
 
   try {
-    console.log("🎤 Transcribing audio with AI...", { mimeType, size: base64.length });
+    console.log("🎤 Transcribing audio with Groq Whisper...", { mimeType, size: base64.length });
     
-    // Determine format from mimetype
-    let format = "ogg";
-    if (mimeType.includes("mp4") || mimeType.includes("m4a")) format = "m4a";
-    else if (mimeType.includes("mp3")) format = "mp3";
-    else if (mimeType.includes("wav")) format = "wav";
+    // Determine file extension from mimetype
+    let ext = "ogg";
+    if (mimeType.includes("mp4") || mimeType.includes("m4a")) ext = "m4a";
+    else if (mimeType.includes("mp3") || mimeType.includes("mpeg")) ext = "mp3";
+    else if (mimeType.includes("wav")) ext = "wav";
+    else if (mimeType.includes("webm")) ext = "webm";
+    else if (mimeType.includes("ogg")) ext = "ogg";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Convert base64 to binary
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mimeType });
+    
+    // Create FormData for Groq Whisper API
+    const formData = new FormData();
+    formData.append("file", blob, `audio.${ext}`);
+    formData.append("model", "whisper-large-v3-turbo");
+    formData.append("language", "pt");
+    formData.append("response_format", "text");
+
+    const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: "Você é um transcriptor de áudio preciso. Transcreva o áudio para texto em português brasileiro. Retorne APENAS a transcrição, sem explicações ou formatação adicional."
-          },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Transcreva este áudio:" },
-              {
-                type: "input_audio",
-                input_audio: {
-                  data: base64,
-                  format: format,
-                },
-              },
-            ],
-          },
-        ],
-      }),
+      body: formData,
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("❌ Audio transcription failed:", response.status, errText);
+      console.error("❌ Groq Whisper transcription failed:", response.status, errText);
       return null;
     }
 
-    const result = await response.json();
-    const transcription = result.choices?.[0]?.message?.content || "";
+    const transcription = await response.text();
     
-    console.log("✅ Audio transcribed:", transcription.substring(0, 100) + "...");
-    return transcription;
+    console.log("✅ Audio transcribed with Groq Whisper:", transcription.substring(0, 100) + (transcription.length > 100 ? "..." : ""));
+    return transcription.trim();
   } catch (error) {
-    console.error("❌ Error transcribing audio:", error);
+    console.error("❌ Error transcribing audio with Groq:", error);
     return null;
   }
 }
@@ -1446,7 +1441,7 @@ serve(async (req) => {
         });
       }
       
-      const transcription = await transcribeAudioWithAI(base64, mimeType);
+      const transcription = await transcribeAudioWithGroq(base64, mimeType);
       
       if (!transcription) {
         await reply(fromPhone, "❌ Não consegui transcrever o áudio. Pode tentar de novo ou mandar por texto?");
