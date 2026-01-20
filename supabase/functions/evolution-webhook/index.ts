@@ -562,6 +562,44 @@ serve(async (req) => {
         .single();
 
       if (!instance) {
+        // Verificar se é a instância administrativa do sistema
+        const { data: adminSettings } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "admin_whatsapp_instance")
+          .maybeSingle();
+
+        const adminInstanceName = adminSettings?.value?.instance_name;
+        
+        if (adminInstanceName && instanceName === adminInstanceName) {
+          // É a instância administrativa - redirecionar para secretária Morphews
+          console.log("📱 Admin instance detected, forwarding to assistant webhook");
+          
+          try {
+            const assistantResponse = await fetch(`${SUPABASE_URL}/functions/v1/evolution-assistant-webhook`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify(body),
+            });
+            
+            const result = await assistantResponse.json();
+            console.log("📱 Assistant webhook result:", result);
+            
+            return new Response(JSON.stringify({ success: true, forwarded: true, result }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          } catch (assistantError) {
+            console.error("❌ Error forwarding to assistant:", assistantError);
+            return new Response(JSON.stringify({ success: false, error: "assistant_error" }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        
         console.log("Instance not found:", instanceName);
         return new Response(JSON.stringify({ success: true, ignored: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
