@@ -42,6 +42,7 @@ import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
 import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
 import { LeadNonPurchaseSection } from '@/components/leads/LeadNonPurchaseSection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
+import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
@@ -278,6 +279,19 @@ export default function LeadDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Lead Profile Prompt - Birth Date, Gender, Favorite Team */}
+            <LeadProfilePrompt
+              leadId={lead.id}
+              leadName={lead.name}
+              currentBirthDate={lead.birth_date}
+              currentGender={lead.gender}
+              currentFavoriteTeam={lead.favorite_team}
+              onUpdate={async (data) => {
+                if (!id) return;
+                await updateLead.mutateAsync({ id, ...data });
+              }}
+            />
 
             {/* Contact Info */}
             <div className="bg-card rounded-xl p-6 shadow-card">
