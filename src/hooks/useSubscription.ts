@@ -54,27 +54,26 @@ export function useSubscriptionPlans() {
   });
 }
 
-// Fetch a specific plan by ID (for direct checkout links - includes non-public plans)
+// Fetch a specific plan by ID (for direct checkout links - includes non-public and inactive plans)
 export function useSubscriptionPlanById(planId: string | null) {
   return useQuery({
     queryKey: ["subscription-plan-by-id", planId],
     queryFn: async () => {
       if (!planId) return null;
       
-      // Fetch directly from the table to get plans even if not visible on site
-      // RLS allows this for active plans
+      // Fetch directly from the table to get plans even if not visible on site or inactive
+      // This is for direct checkout links - the plan just needs to exist
       const { data, error } = await supabase
         .from("subscription_plans")
         .select("id, name, price_cents, max_users, max_leads, extra_user_price_cents, included_whatsapp_instances, extra_instance_price_cents, extra_energy_price_cents, monthly_energy, is_active")
         .eq("id", planId)
-        .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching plan by ID:", error);
         return null;
       }
-      return data as SubscriptionPlan;
+      return data as SubscriptionPlan | null;
     },
     enabled: !!planId,
   });
