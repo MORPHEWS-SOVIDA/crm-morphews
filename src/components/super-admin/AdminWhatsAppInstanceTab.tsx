@@ -97,30 +97,24 @@ export function AdminWhatsAppInstanceTab() {
 
       if (error) throw error;
       
-      // Auto-configure webhook when saving
-      if (newConfig.api_url && newConfig.instance_name && newConfig.api_key) {
-        try {
-          const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`;
-          const baseUrl = (newConfig.api_url as string).replace(/\/$/, '');
-          
-          await fetch(`${baseUrl}/webhook/set/${newConfig.instance_name}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: newConfig.api_key as string,
-            },
-            body: JSON.stringify({
-              enabled: true,
-              url: webhookUrl,
-              webhookByEvents: false,
-              webhookBase64: true,
-              events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
-            }),
-          });
-          console.log('Webhook configured automatically');
-        } catch (webhookError) {
-          console.warn('Could not auto-configure webhook:', webhookError);
+      // Auto-configure webhook when saving (server-side)
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (accessToken) {
+          const { data: res, error: fnError } = await supabase.functions.invoke(
+            'admin-configure-evolution-webhook',
+            {
+              headers: {
+                authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+          if (fnError) throw fnError;
+          if (!(res as any)?.ok) throw new Error((res as any)?.error || 'Falha ao configurar webhook');
         }
+      } catch (webhookError) {
+        console.warn('Could not auto-configure webhook:', webhookError);
       }
       
       return configToSave;
@@ -199,59 +193,41 @@ export function AdminWhatsAppInstanceTab() {
     }
   };
 
-  // Configure webhook for Secretária Morphews
+  // Configure webhook for Secretária Morphews (server-side to avoid CORS and expose less secrets)
   const configureWebhook = async () => {
-    if (!formData.api_url || !formData.instance_name || !formData.api_key) {
-      toast({
-        title: "Configuração incompleta",
-        description: "Preencha URL, nome da instância e token primeiro.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsConfiguringWebhook(true);
     try {
-      const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`;
-      
-      const response = await fetch(
-        `${formData.api_url.replace(/\/$/, '')}/webhook/set/${formData.instance_name}`,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Sessão expirada. Faça login novamente.');
+
+      const { data: res, error: fnError } = await supabase.functions.invoke(
+        'admin-configure-evolution-webhook',
         {
-          method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            apikey: formData.api_key,
+            authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({
-            enabled: true,
-            url: webhookUrl,
-            webhookByEvents: false,
-            webhookBase64: true,
-            events: [
-              'MESSAGES_UPSERT',
-              'CONNECTION_UPDATE',
-              'QRCODE_UPDATED',
-            ],
-          }),
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData?.message || `HTTP ${response.status}`);
+      if (fnError) throw fnError;
+
+      if (!(res as any)?.ok) {
+        const details = (res as any)?.attempts?.[0]?.bodyText || (res as any)?.error || 'HTTP 400';
+        throw new Error(details);
       }
 
       setWebhookStatus('ok');
       toast({
-        title: "Webhook configurado! ✅",
-        description: "A Secretária Morphews agora pode receber mensagens desta instância.",
+        title: 'Webhook configurado! ✅',
+        description: 'A Secretária Morphews agora pode receber mensagens desta instância.',
       });
     } catch (error: any) {
       setWebhookStatus('error');
       toast({
-        title: "Erro ao configurar webhook",
-        description: error.message,
-        variant: "destructive",
+        title: 'Erro ao configurar webhook',
+        description: error?.message || String(error),
+        variant: 'destructive',
       });
     } finally {
       setIsConfiguringWebhook(false);
