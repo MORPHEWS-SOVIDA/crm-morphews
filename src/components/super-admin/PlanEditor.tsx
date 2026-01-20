@@ -580,6 +580,38 @@ export function PlanEditor() {
                           onCheckedChange={(checked) => handleFormChange("is_active", checked)}
                         />
                       </div>
+                      
+                      {/* Checkout Link */}
+                      <div className="p-4 rounded-lg border bg-muted/30 mt-4">
+                        <Label className="flex items-center gap-2 mb-2">
+                          <CreditCard className="h-4 w-4" />
+                          Link de Contratação Direta
+                        </Label>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Envie este link para clientes contratarem este plano diretamente
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={`${window.location.origin}/planos?plan=${selectedPlanId}`}
+                            className="font-mono text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/planos?plan=${selectedPlanId}`);
+                              toast({
+                                title: "Link copiado!",
+                                description: "O link de checkout foi copiado para a área de transferência.",
+                              });
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <Separator />

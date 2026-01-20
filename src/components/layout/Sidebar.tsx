@@ -102,17 +102,17 @@ export function Sidebar() {
   // Each item checks: 1) User has permission, 2) Feature is in plan
   const navItems = [
     // Dashboard FUNIL - separate permission
-    { icon: Filter, label: 'Dashboard Funil', path: '/', visible: canSeeDashboardFunnel && hasFeature('dashboard') },
+    { icon: Filter, label: 'Dashboard Funil', path: '/', visible: canSeeDashboardFunnel && hasFeature('dashboard_funnel') },
     
     // Dashboard KANBAN - separate permission
-    { icon: Columns3, label: 'Dashboard Kanban', path: '/dashboard-kanban', visible: canSeeDashboardKanban && hasFeature('dashboard') },
+    { icon: Columns3, label: 'Dashboard Kanban', path: '/dashboard-kanban', visible: canSeeDashboardKanban && hasFeature('dashboard_kanban') },
     
     // Seller Panel - personal seller dashboard
-    { icon: User, label: 'Meu Painel', path: '/meu-painel', visible: canSeeSellerPanel && canSeeSales && hasFeature('sales') },
+    { icon: User, label: 'Meu Painel', path: '/meu-painel', visible: canSeeSellerPanel && canSeeSales && hasFeature('seller_panel') },
     
     // Receptivo (special module) - requires receptive feature in plan
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
-    { icon: BarChart3, label: 'Gerência Receptivo', path: '/gerencia-receptivo', visible: (isAdmin || isManager) && canSeeReceptive && hasFeature('receptive') },
+    { icon: BarChart3, label: 'Gerência Receptivo', path: '/gerencia-receptivo', visible: (isAdmin || isManager) && canSeeReceptive && hasFeature('receptive_manage') },
     
     // Leads
     { icon: Users, label: 'Todos os Leads', path: '/leads', visible: canSeeLeads && hasFeature('leads') },
@@ -144,7 +144,7 @@ export function Sidebar() {
     { icon: FileText, label: 'Relatório Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
     
     // Deliveries & Expedition
-    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('deliveries') },
+    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('expedition') },
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
     { icon: Truck, label: 'Todas as Entregas', path: '/todas-entregas', visible: permissions?.deliveries_view_all && hasFeature('deliveries') },
     
@@ -165,7 +165,7 @@ export function Sidebar() {
     { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeDemands && hasFeature('demands') },
     
     // Integrations (permission controlled)
-    { icon: Plug2, label: 'Integrações', path: '/integracoes', visible: canSeeIntegrations && hasFeature('settings') },
+    { icon: Plug2, label: 'Integrações', path: '/integracoes', visible: canSeeIntegrations && hasFeature('integrations') },
     
     // 2FA for managers
     { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
@@ -181,7 +181,7 @@ export function Sidebar() {
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
     
     // Settings
-    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings },
+    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings && hasFeature('settings') },
   ].filter(item => item.visible);
 
   return (

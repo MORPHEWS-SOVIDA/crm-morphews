@@ -88,7 +88,7 @@ export function MobileNav() {
 
   // Main bottom nav - show only what user can access
   const mainNavItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: hasFeature('dashboard') },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: hasFeature('dashboard_funnel') },
     { icon: Users, label: 'Leads', path: '/leads', visible: canSeeLeads && hasFeature('leads') },
     { icon: Plus, label: 'Novo', path: '/leads/new', visible: canCreateLeads && hasFeature('leads') },
     { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales && hasFeature('sales') },
@@ -108,7 +108,7 @@ export function MobileNav() {
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
     { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
     { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
-    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('deliveries') },
+    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('expedition') },
     { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
     { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries && hasFeature('deliveries') },
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
