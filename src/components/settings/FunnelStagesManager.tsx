@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -23,10 +23,16 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { FUNNEL_STAGE_BEHAVIORS, type FunnelStage } from '@/types/lead';
+import { toast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+const MAX_STAGES = 25;
 
 const STAGE_COLORS = [
   { value: 'bg-slate-200', label: 'Cinza', textColor: 'text-slate-700' },
@@ -40,6 +46,51 @@ const STAGE_COLORS = [
   { value: 'bg-red-200', label: 'Vermelho Claro', textColor: 'text-red-800' },
   { value: 'bg-purple-300', label: 'Roxo', textColor: 'text-purple-900' },
   { value: 'bg-pink-300', label: 'Rosa', textColor: 'text-pink-900' },
+  { value: 'bg-blue-200', label: 'Azul Bebê', textColor: 'text-blue-900' },
+  { value: 'bg-cyan-300', label: 'Ciano', textColor: 'text-cyan-900' },
+  { value: 'bg-indigo-300', label: 'Índigo', textColor: 'text-indigo-900' },
+  { value: 'bg-teal-300', label: 'Teal', textColor: 'text-teal-900' },
+  { value: 'bg-emerald-300', label: 'Esmeralda', textColor: 'text-emerald-900' },
+];
+
+// Group behaviors by category for better UX
+const BEHAVIOR_GROUPS = [
+  {
+    label: 'Entrada / Inicial',
+    behaviors: ['new_lead', 'no_contact', 'unclassified', 'needs_contact', 'cloud'] as FunnelStage[],
+  },
+  {
+    label: 'Prospecção',
+    behaviors: ['prospect', 'active_prospecting', 'internet_lead'] as FunnelStage[],
+  },
+  {
+    label: 'Contato',
+    behaviors: ['contact_failed', 'contact_success', 'contacted'] as FunnelStage[],
+  },
+  {
+    label: 'Convencimento / Agendamento',
+    behaviors: ['convincing', 'scheduling', 'scheduled', 'no_show'] as FunnelStage[],
+  },
+  {
+    label: 'Reunião / Proposta',
+    behaviors: ['positive', 'positive_meeting', 'formulating_proposal', 'proposal_sent'] as FunnelStage[],
+  },
+  {
+    label: 'Pagamento / Contrato',
+    behaviors: ['waiting_payment', 'paid', 'awaiting_contract', 'contract_signed'] as FunnelStage[],
+  },
+  {
+    label: 'Sucesso / Conclusão',
+    behaviors: ['sale_completed', 'success'] as FunnelStage[],
+  },
+  {
+    label: 'Pós-Venda',
+    behaviors: ['post_sale', 'awaiting_repurchase', 'nurturing'] as FunnelStage[],
+  },
+  {
+    label: 'Negativo',
+    behaviors: ['gave_up', 'trash'] as FunnelStage[],
+  },
 ];
 
 interface StageEditFormProps {
@@ -50,15 +101,36 @@ interface StageEditFormProps {
   isNew?: boolean;
   maxPosition: number;
   organizationId: string;
+  usedEnumValues: (FunnelStage | null)[];
+  currentEnumValue?: FunnelStage | null;
 }
 
-function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition, organizationId }: StageEditFormProps) {
+function StageEditForm({ 
+  stage, 
+  onSave, 
+  onCancel, 
+  isLoading, 
+  isNew, 
+  maxPosition, 
+  organizationId,
+  usedEnumValues,
+  currentEnumValue,
+}: StageEditFormProps) {
   const [name, setName] = useState(stage?.name || '');
   const [color, setColor] = useState(stage?.color || 'bg-slate-200');
   const [stageType, setStageType] = useState<'funnel' | 'cloud' | 'trash'>(stage?.stage_type || 'funnel');
   const [requiresContact, setRequiresContact] = useState(stage?.requires_contact || false);
+  const [enumValue, setEnumValue] = useState<FunnelStage | 'none'>(stage?.enum_value || 'none');
 
   const selectedColorInfo = STAGE_COLORS.find(c => c.value === color);
+
+  // Check which behaviors are already used (excluding current stage's value)
+  const availableBehaviors = useMemo(() => {
+    const usedSet = new Set(usedEnumValues.filter(v => v !== null && v !== currentEnumValue));
+    return Object.keys(FUNNEL_STAGE_BEHAVIORS).filter(
+      key => !usedSet.has(key as FunnelStage)
+    ) as FunnelStage[];
+  }, [usedEnumValues, currentEnumValue]);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
@@ -69,6 +141,7 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
       text_color: selectedColorInfo?.textColor || 'text-slate-700',
       stage_type: stageType,
       requires_contact: requiresContact,
+      enum_value: enumValue === 'none' ? null : enumValue,
     };
 
     if (isNew) {
@@ -129,6 +202,75 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
         </Select>
       </div>
 
+      {/* Behavior / enum_value selector */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Label>Comportamento do Sistema</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Define como o sistema trata leads nesta etapa. Cada comportamento só pode ser usado uma vez.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Select value={enumValue} onValueChange={(v) => setEnumValue(v as FunnelStage | 'none')}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um comportamento (opcional)" />
+          </SelectTrigger>
+          <SelectContent className="max-h-80">
+            <SelectItem value="none">
+              <div className="flex flex-col">
+                <span>Sem comportamento especial</span>
+                <span className="text-xs text-muted-foreground">Etapa customizada sem lógica do sistema</span>
+              </div>
+            </SelectItem>
+            {BEHAVIOR_GROUPS.map((group) => {
+              const groupBehaviors = group.behaviors.filter(b => availableBehaviors.includes(b) || b === currentEnumValue);
+              if (groupBehaviors.length === 0) return null;
+              
+              return (
+                <div key={group.label}>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                    {group.label}
+                  </div>
+                  {groupBehaviors.map((behavior) => {
+                    const info = FUNNEL_STAGE_BEHAVIORS[behavior];
+                    const isUsed = usedEnumValues.includes(behavior) && behavior !== currentEnumValue;
+                    
+                    return (
+                      <SelectItem 
+                        key={behavior} 
+                        value={behavior}
+                        disabled={isUsed}
+                      >
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span>{info.label}</span>
+                            {isUsed && (
+                              <Badge variant="secondary" className="text-xs">Em uso</Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">{info.description}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {enumValue !== 'none' && (
+          <p className="text-xs text-muted-foreground">
+            Comportamento: {FUNNEL_STAGE_BEHAVIORS[enumValue]?.description}
+          </p>
+        )}
+      </div>
+
       {/* Requires Contact Checkbox */}
       <div className="flex items-center space-x-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
         <Checkbox
@@ -151,7 +293,14 @@ function StageEditForm({ stage, onSave, onCancel, isLoading, isNew, maxPosition,
       <div className="space-y-2">
         <Label>Preview</Label>
         <div className={cn('p-3 rounded-lg', color)}>
-          <span className={selectedColorInfo?.textColor}>{name || 'Nome da etapa'}</span>
+          <div className="flex items-center justify-between">
+            <span className={selectedColorInfo?.textColor}>{name || 'Nome da etapa'}</span>
+            {enumValue !== 'none' && (
+              <Badge variant="outline" className="text-xs">
+                {FUNNEL_STAGE_BEHAVIORS[enumValue]?.label}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
@@ -207,7 +356,26 @@ function SortableStageItem({ stage, canDelete, onEdit, onDelete }: SortableStage
         <GripVertical className="w-4 h-4" />
       </button>
       <div className={cn('flex-1 p-3 rounded-lg', stage.color)}>
-        <span className={stage.text_color}>{stage.name}</span>
+        <div className="flex items-center justify-between">
+          <span className={stage.text_color}>{stage.name}</span>
+          <div className="flex items-center gap-2">
+            {stage.requires_contact && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Phone className="w-3 h-3 text-orange-600" />
+                  </TooltipTrigger>
+                  <TooltipContent>Requer contato</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {stage.enum_value && (
+              <Badge variant="outline" className="text-xs bg-white/50">
+                {FUNNEL_STAGE_BEHAVIORS[stage.enum_value]?.label || stage.enum_value}
+              </Badge>
+            )}
+          </div>
+        </div>
       </div>
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button
@@ -257,14 +425,21 @@ export function FunnelStagesManager() {
   );
 
   const cloudStage = stages.find(s => s.stage_type === 'cloud');
-  // Filter only funnel stages and exclude any with position 0 (cloud) or 99 (trash)
   const funnelStages = stages
     .filter(s => s.stage_type === 'funnel' && s.position > 0 && s.position < 99)
     .sort((a, b) => a.position - b.position);
   const trashStage = stages.find(s => s.stage_type === 'trash');
 
-  // Max position for funnel stages only (between 1 and 98)
   const maxFunnelPosition = Math.max(...funnelStages.map(s => s.position), 0);
+  
+  // Get all used enum_values for duplicate prevention
+  const usedEnumValues = useMemo(() => 
+    stages.map(s => s.enum_value).filter(Boolean) as (FunnelStage | null)[],
+    [stages]
+  );
+
+  // Check if max stages reached
+  const canAddMore = stages.length < MAX_STAGES;
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -278,7 +453,6 @@ export function FunnelStagesManager() {
 
     const reordered = arrayMove(funnelStages, oldIndex, newIndex);
     
-    // Update positions: funnel stages use positions 1-N (cloud=0, trash=99 are reserved)
     const updates = reordered.map((stage, index) => ({
       id: stage.id,
       position: index + 1,
@@ -294,6 +468,14 @@ export function FunnelStagesManager() {
   };
 
   const handleSaveNew = async (data: Partial<FunnelStageCustom>) => {
+    if (!canAddMore) {
+      toast({
+        title: 'Limite atingido',
+        description: `Você atingiu o limite máximo de ${MAX_STAGES} etapas.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     await createStage.mutateAsync(data as Omit<FunnelStageCustom, 'id' | 'created_at' | 'updated_at'>);
     setIsAddingNew(false);
   };
@@ -315,7 +497,26 @@ export function FunnelStagesManager() {
   const StageItem = ({ stage, canDelete = true }: { stage: FunnelStageCustom; canDelete?: boolean }) => (
     <div className="flex items-center gap-2 group">
       <div className={cn('flex-1 p-3 rounded-lg', stage.color)}>
-        <span className={stage.text_color}>{stage.name}</span>
+        <div className="flex items-center justify-between">
+          <span className={stage.text_color}>{stage.name}</span>
+          <div className="flex items-center gap-2">
+            {stage.requires_contact && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Phone className="w-3 h-3 text-orange-600" />
+                  </TooltipTrigger>
+                  <TooltipContent>Requer contato</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {stage.enum_value && (
+              <Badge variant="outline" className="text-xs bg-white/50">
+                {FUNNEL_STAGE_BEHAVIORS[stage.enum_value]?.label || stage.enum_value}
+              </Badge>
+            )}
+          </div>
+        </div>
       </div>
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button
@@ -343,17 +544,22 @@ export function FunnelStagesManager() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Arraste as etapas para reordenar
-        </p>
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Arraste as etapas para reordenar
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {stages.length} de {MAX_STAGES} etapas utilizadas
+          </p>
+        </div>
         <Dialog open={isAddingNew} onOpenChange={setIsAddingNew}>
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="sm" disabled={!canAddMore}>
               <Plus className="w-4 h-4 mr-2" />
               Nova Etapa
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Adicionar Etapa</DialogTitle>
             </DialogHeader>
@@ -364,10 +570,20 @@ export function FunnelStagesManager() {
               isNew
               maxPosition={maxFunnelPosition}
               organizationId={profile?.organization_id || ''}
+              usedEnumValues={usedEnumValues}
             />
           </DialogContent>
         </Dialog>
       </div>
+
+      {!canAddMore && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <AlertTriangle className="w-4 h-4 text-amber-600" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            Limite máximo de {MAX_STAGES} etapas atingido. Exclua uma etapa para adicionar outra.
+          </p>
+        </div>
+      )}
 
       {/* Cloud Stage */}
       {cloudStage && (
@@ -411,7 +627,7 @@ export function FunnelStagesManager() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingStage} onOpenChange={(open) => !open && setEditingStage(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Etapa</DialogTitle>
           </DialogHeader>
@@ -423,6 +639,8 @@ export function FunnelStagesManager() {
               isLoading={updateStage.isPending}
               maxPosition={maxFunnelPosition}
               organizationId={profile?.organization_id || ''}
+              usedEnumValues={usedEnumValues}
+              currentEnumValue={editingStage.enum_value}
             />
           )}
         </DialogContent>

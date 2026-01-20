@@ -8051,6 +8051,27 @@ export type Database = {
         | "success"
         | "trash"
         | "cloud"
+        | "new_lead"
+        | "no_contact"
+        | "unclassified"
+        | "needs_contact"
+        | "active_prospecting"
+        | "internet_lead"
+        | "contact_failed"
+        | "contact_success"
+        | "scheduling"
+        | "no_show"
+        | "positive_meeting"
+        | "formulating_proposal"
+        | "proposal_sent"
+        | "paid"
+        | "awaiting_contract"
+        | "contract_signed"
+        | "sale_completed"
+        | "post_sale"
+        | "awaiting_repurchase"
+        | "nurturing"
+        | "gave_up"
       installment_flow: "anticipation" | "receive_per_installment"
       motoboy_tracking_status:
         | "waiting_expedition"
@@ -8300,6 +8321,27 @@ export const Constants = {
         "success",
         "trash",
         "cloud",
+        "new_lead",
+        "no_contact",
+        "unclassified",
+        "needs_contact",
+        "active_prospecting",
+        "internet_lead",
+        "contact_failed",
+        "contact_success",
+        "scheduling",
+        "no_show",
+        "positive_meeting",
+        "formulating_proposal",
+        "proposal_sent",
+        "paid",
+        "awaiting_contract",
+        "contract_signed",
+        "sale_completed",
+        "post_sale",
+        "awaiting_repurchase",
+        "nurturing",
+        "gave_up",
       ],
       installment_flow: ["anticipation", "receive_per_installment"],
       motoboy_tracking_status: [
