@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 interface RecordingUploaderProps {
   attendanceId: string;
   organizationId: string;
-  onUploadComplete: (url: string, storagePath: string) => void;
+  onUploadComplete: (storagePath: string) => void;
   onCancel: () => void;
   isUploading: boolean;
   setIsUploading: (value: boolean) => void;
@@ -66,18 +66,8 @@ export function RecordingUploader({
         throw uploadError;
       }
 
-      // Get signed URL for the file (valid for 1 hour - enough for transcription)
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('receptive-recordings')
-        .createSignedUrl(fileName, 3600); // 1 hour
-
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        console.error('Signed URL error:', signedUrlError);
-        throw signedUrlError || new Error('Falha ao gerar URL de acesso');
-      }
-
-      // Save the path so we can delete later after transcription
-      onUploadComplete(signedUrlData.signedUrl, fileName);
+      // Pass the storage path (fileName) - the parent will store this and generate signed URLs as needed
+      onUploadComplete(fileName);
       toast.success('Gravação enviada com sucesso!');
     } catch (error: any) {
       console.error('Upload failed:', error);

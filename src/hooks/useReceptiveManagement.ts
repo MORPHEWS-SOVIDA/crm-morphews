@@ -17,6 +17,7 @@ export interface ReceptiveAttendanceWithDetails {
   purchase_potential_cents: number | null;
   created_at: string;
   call_recording_url: string | null;
+  recording_storage_path: string | null;
   transcription: string | null;
   transcription_status: string | null;
   call_quality_score: CallQualityScore | null;
@@ -59,6 +60,7 @@ export function useReceptiveManagement(filters: ReceptiveFilters) {
           purchase_potential_cents,
           created_at,
           call_recording_url,
+          recording_storage_path,
           transcription,
           transcription_status,
           call_quality_score,
@@ -167,7 +169,7 @@ export function useUpdateReceptiveAttendance() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: { call_recording_url?: string; notes?: string } }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: { call_recording_url?: string; recording_storage_path?: string; notes?: string } }) => {
       const { error } = await supabase
         .from('receptive_attendances')
         .update(updates)
