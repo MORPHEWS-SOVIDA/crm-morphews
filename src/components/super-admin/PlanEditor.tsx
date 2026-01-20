@@ -38,6 +38,7 @@ interface SubscriptionPlan {
   extra_user_price_cents: number;
   monthly_energy: number | null;
   is_active: boolean;
+  is_visible_on_site: boolean;
   stripe_price_id: string | null;
   included_whatsapp_instances: number;
   extra_instance_price_cents: number;
@@ -53,6 +54,7 @@ interface PlanFormData {
   extra_user_price_cents: number;
   monthly_energy: number;
   is_active: boolean;
+  is_visible_on_site: boolean;
   stripe_price_id: string;
   included_whatsapp_instances: number;
   extra_instance_price_cents: number;
@@ -67,6 +69,7 @@ const defaultFormData: PlanFormData = {
   extra_user_price_cents: 9700,
   monthly_energy: 1000,
   is_active: true,
+  is_visible_on_site: true,
   stripe_price_id: "",
   included_whatsapp_instances: 0,
   extra_instance_price_cents: 4900,
@@ -111,6 +114,7 @@ export function PlanEditor() {
           extra_user_price_cents: data.extra_user_price_cents,
           monthly_energy: data.monthly_energy,
           is_active: data.is_active,
+          is_visible_on_site: data.is_visible_on_site,
           stripe_price_id: data.stripe_price_id || null,
           included_whatsapp_instances: data.included_whatsapp_instances,
           extra_instance_price_cents: data.extra_instance_price_cents,
@@ -146,6 +150,7 @@ export function PlanEditor() {
           extra_user_price_cents: data.extra_user_price_cents,
           monthly_energy: data.monthly_energy,
           is_active: data.is_active,
+          is_visible_on_site: data.is_visible_on_site,
           stripe_price_id: data.stripe_price_id || null,
           included_whatsapp_instances: data.included_whatsapp_instances,
           extra_instance_price_cents: data.extra_instance_price_cents,
@@ -177,6 +182,7 @@ export function PlanEditor() {
           extra_user_price_cents: plan.extra_user_price_cents,
           monthly_energy: plan.monthly_energy || 1000,
           is_active: plan.is_active,
+          is_visible_on_site: plan.is_visible_on_site ?? true,
           stripe_price_id: plan.stripe_price_id || "",
           included_whatsapp_instances: plan.included_whatsapp_instances || 0,
           extra_instance_price_cents: plan.extra_instance_price_cents || 4900,
@@ -366,9 +372,14 @@ export function PlanEditor() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{plan.name}</span>
                         {!plan.is_active && (
+                          <Badge variant="destructive" className="text-xs shrink-0">
+                            Inativo
+                          </Badge>
+                        )}
+                        {plan.is_active && !plan.is_visible_on_site && (
                           <Badge variant="outline" className="text-xs shrink-0">
                             <EyeOff className="h-3 w-3 mr-1" />
                             Oculto
@@ -563,22 +574,41 @@ export function PlanEditor() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between p-4 rounded-lg border bg-card mt-4">
-                        <div>
-                          <Label className="flex items-center gap-2">
-                            {formData.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                            Visível no Site
-                          </Label>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formData.is_active 
-                              ? "Clientes podem ver e contratar este plano" 
-                              : "Plano oculto, apenas para uso interno"}
-                          </p>
+                      <div className="grid md:grid-cols-2 gap-4 mt-4">
+                        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                          <div>
+                            <Label className="flex items-center gap-2">
+                              {formData.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                              Plano Ativo
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formData.is_active 
+                                ? "O plano pode ser contratado" 
+                                : "Plano desativado, não disponível"}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={formData.is_active}
+                            onCheckedChange={(checked) => handleFormChange("is_active", checked)}
+                          />
                         </div>
-                        <Switch
-                          checked={formData.is_active}
-                          onCheckedChange={(checked) => handleFormChange("is_active", checked)}
-                        />
+                        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                          <div>
+                            <Label className="flex items-center gap-2">
+                              {formData.is_visible_on_site ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4" />}
+                              Visível no Site
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formData.is_visible_on_site 
+                                ? "Clientes podem ver na página de planos" 
+                                : "Oculto, apenas via link direto"}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={formData.is_visible_on_site}
+                            onCheckedChange={(checked) => handleFormChange("is_visible_on_site", checked)}
+                          />
+                        </div>
                       </div>
                       
                       {/* Checkout Link */}
