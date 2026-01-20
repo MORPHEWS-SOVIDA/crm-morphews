@@ -14,15 +14,46 @@ interface TranscribeRequest {
 }
 
 interface CallQualityScore {
-  proper_greeting_score: number;
-  asked_needs_score: number;
-  followed_script_score: number;
-  offered_kits_score: number;
-  handled_objections_score: number;
-  clear_next_steps_score: number;
+  // Perguntas específicas com nota 1-10 e resposta da IA
+  cordialidade: {
+    pergunta: string;
+    nota: number;
+    resposta: string;
+  };
+  rapport: {
+    pergunta: string;
+    nota: number;
+    resposta: string;
+  };
+  script: {
+    pergunta: string;
+    nota: number;
+    resposta: string;
+  };
+  oferta_kit_caro: {
+    pergunta: string;
+    nota: number;
+    resposta: string;
+  };
+  insistencia_fechamento: {
+    pergunta: string;
+    nota: number;
+    resposta: string;
+  };
+  // Nota geral e observações
   overall_score: number;
-  summary: string;
-  improvements: string[];
+  observacoes_gerais: string;
+  // Sugestão de follow-up (para casos sem venda)
+  sugestao_followup: string | null;
+  // Legacy fields for backward compatibility
+  proper_greeting_score?: number;
+  asked_needs_score?: number;
+  followed_script_score?: number;
+  offered_kits_score?: number;
+  handled_objections_score?: number;
+  clear_next_steps_score?: number;
+  summary?: string;
+  improvements?: string[];
 }
 
 const ENERGY_COST_TRANSCRIPTION = 50;
@@ -81,10 +112,10 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1) Resolve org
+    // 1) Resolve org and check if sale was made
     const { data: attendance, error: attendanceError } = await supabase
       .from("receptive_attendances")
-      .select("organization_id")
+      .select("organization_id, sale_id")
       .eq("id", attendanceId)
       .single();
 
@@ -96,6 +127,7 @@ serve(async (req) => {
     }
 
     const organizationId = attendance.organization_id;
+    const hasSale = !!attendance.sale_id;
 
     // 2) Consume energy
     const totalEnergyCost = ENERGY_COST_TRANSCRIPTION + ENERGY_COST_ANALYSIS;
@@ -239,7 +271,61 @@ serve(async (req) => {
     const transcriptionResult = await transcriptionResponse.json();
     const transcription = transcriptionResult.choices?.[0]?.message?.content || "";
 
-    // 7) Analyze
+    // 7) Analyze with detailed questions
+    const analysisPrompt = `Você é um analista de qualidade de vendas especializado. Analise a transcrição abaixo e avalie CADA pergunta com uma nota de 1 a 10, justificando sua resposta de forma clara e objetiva.
+
+PERGUNTAS PARA AVALIAR:
+
+1. "Vendedor foi cordial e tentou entender problema do cliente?"
+2. "Vendedor ao fazer perguntas, fez rapport, se mostrando interessado e querendo entender mais as dores e problemas dos clientes?"
+3. "Vendedor seguiu o script proposto do produto?"
+4. "Vendedor Ofertou o KIT MAIS CARO PRIMEIRO PELO MELHOR PREÇO?"
+5. "O vendedor insistiu para fechamento?"
+
+Para cada pergunta, dê uma nota de 1 a 10 e explique porque deu essa nota.
+
+Depois, dê uma NOTA GERAL da ligação (média ponderada considerando importância de cada item).
+
+Faça OBSERVAÇÕES GERAIS sobre a ligação.
+
+${!hasSale ? `IMPORTANTE: Como NÃO houve venda nesta ligação, sugira ao gerente um texto para enviar ao vendedor para ajudá-lo a fazer follow-up e efetuar a venda. A sugestão deve ser prática e específica baseada no que foi discutido na ligação.` : ''}
+
+Retorne APENAS um JSON válido no formato abaixo, sem markdown ou explicações fora do JSON:
+
+{
+  "cordialidade": {
+    "pergunta": "Vendedor foi cordial e tentou entender problema do cliente?",
+    "nota": number,
+    "resposta": "string com a justificativa"
+  },
+  "rapport": {
+    "pergunta": "Vendedor ao fazer perguntas, fez rapport, se mostrando interessado e querendo entender mais as dores e problemas dos clientes?",
+    "nota": number,
+    "resposta": "string com a justificativa"
+  },
+  "script": {
+    "pergunta": "Vendedor seguiu o script proposto do produto?",
+    "nota": number,
+    "resposta": "string com a justificativa"
+  },
+  "oferta_kit_caro": {
+    "pergunta": "Vendedor Ofertou o KIT MAIS CARO PRIMEIRO PELO MELHOR PREÇO?",
+    "nota": number,
+    "resposta": "string com a justificativa"
+  },
+  "insistencia_fechamento": {
+    "pergunta": "O vendedor insistiu para fechamento?",
+    "nota": number,
+    "resposta": "string com a justificativa"
+  },
+  "overall_score": number,
+  "observacoes_gerais": "string com observações gerais sobre a ligação",
+  "sugestao_followup": ${!hasSale ? '"string com sugestão de mensagem para o gerente enviar ao vendedor ajudar no follow-up"' : 'null'}
+}
+
+TRANSCRIÇÃO:
+${transcription}`;
+
     const analysisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -252,27 +338,12 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "Você é um analista de qualidade de vendas. Analise a transcrição de uma ligação de vendas e avalie cada critério com uma nota de 1 a 10. " +
-              "Retorne APENAS um JSON válido sem markdown ou explicações adicionais.",
+              "Você é um analista de qualidade de vendas experiente. Seja objetivo, justo e construtivo em suas avaliações. " +
+              "Retorne APENAS JSON válido, sem markdown ou texto adicional.",
           },
           {
             role: "user",
-            content: `Analise esta transcrição de ligação de vendas e retorne um JSON com notas de 1-10 para cada critério:
-
-{
-  "proper_greeting_score": number,
-  "asked_needs_score": number,
-  "followed_script_score": number,
-  "offered_kits_score": number,
-  "handled_objections_score": number,
-  "clear_next_steps_score": number,
-  "overall_score": number,
-  "summary": string,
-  "improvements": string[]
-}
-
-Transcrição:
-${transcription}`,
+            content: analysisPrompt,
           },
         ],
       }),
@@ -284,7 +355,21 @@ ${transcription}`,
       const analysisContent = analysisResult.choices?.[0]?.message?.content || "";
       try {
         const jsonStr = analysisContent.replace(/```json?\n?|\n?```/g, "").trim();
-        callQualityScore = JSON.parse(jsonStr);
+        const parsed = JSON.parse(jsonStr);
+        
+        // Map to CallQualityScore format with backward compatibility
+        callQualityScore = {
+          ...parsed,
+          // Legacy fields for backward compatibility
+          proper_greeting_score: parsed.cordialidade?.nota,
+          asked_needs_score: parsed.rapport?.nota,
+          followed_script_score: parsed.script?.nota,
+          offered_kits_score: parsed.oferta_kit_caro?.nota,
+          handled_objections_score: parsed.insistencia_fechamento?.nota,
+          clear_next_steps_score: parsed.overall_score,
+          summary: parsed.observacoes_gerais,
+          improvements: parsed.sugestao_followup ? [parsed.sugestao_followup] : [],
+        };
       } catch (parseError) {
         console.error("Error parsing quality analysis:", parseError);
       }

@@ -28,7 +28,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import {
   useReceptiveManagement,
   useUpdateReceptiveAttendance,
@@ -42,6 +41,7 @@ import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
 import { RecordingUploader } from '@/components/receptive/RecordingUploader';
 import { AudioPlayer } from '@/components/receptive/AudioPlayer';
 import { WhatsAppContentSection } from '@/components/receptive/WhatsAppContentSection';
+import { CallQualityAnalysis } from '@/components/receptive/CallQualityAnalysis';
 import { useAuth } from '@/hooks/useAuth';
 import { extractReceptiveRecordingStoragePath } from '@/lib/receptive-recordings';
 import { toast } from 'sonner';
@@ -527,20 +527,10 @@ export default function ReceptiveManagement() {
 
                         {/* Quality Score - Only for Call modes */}
                         {isCallMode && item.call_quality_score && (
-                          <div className="p-3 bg-muted/30 rounded-lg space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">Análise de Qualidade</span>
-                              <span className={`text-lg font-bold ${getScoreColor(item.call_quality_score.overall_score)}`}>
-                                {item.call_quality_score.overall_score}/10
-                              </span>
-                            </div>
-                            <Progress value={item.call_quality_score.overall_score * 10} className="h-2" />
-                            {item.call_quality_score.summary && (
-                              <p className="text-xs text-muted-foreground italic">
-                                "{item.call_quality_score.summary}"
-                              </p>
-                            )}
-                          </div>
+                          <CallQualityAnalysis 
+                            score={item.call_quality_score as any} 
+                            hasSale={!!item.sale_id} 
+                          />
                         )}
 
                         {/* Notes Section - Always visible */}
