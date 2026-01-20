@@ -80,15 +80,12 @@ export const EVENT_TYPES = [
 ];
 
 export const TARGET_FIELDS = [
-  // Lead fields
+  // Lead fields (only fields that EXIST in the leads table)
   { value: 'name', label: 'Nome', group: 'lead' },
   { value: 'email', label: 'Email', group: 'lead' },
   { value: 'whatsapp', label: 'WhatsApp', group: 'lead' },
-  { value: 'cpf', label: 'CPF', group: 'lead' },
-  { value: 'instagram', label: 'Instagram', group: 'lead' },
-  { value: 'specialty', label: 'Especialidade', group: 'lead' },
   { value: 'observations', label: 'Observações', group: 'lead' },
-  // Address fields
+  // Address fields (stored in lead_addresses table)
   { value: 'address_street', label: 'Rua', group: 'address' },
   { value: 'address_number', label: 'Número', group: 'address' },
   { value: 'address_complement', label: 'Complemento', group: 'address' },
@@ -96,7 +93,7 @@ export const TARGET_FIELDS = [
   { value: 'address_city', label: 'Cidade', group: 'address' },
   { value: 'address_state', label: 'Estado', group: 'address' },
   { value: 'address_cep', label: 'CEP', group: 'address' },
-  // Sale fields
+  // Sale fields (stored in sales/sale_items table)
   { value: 'sale_product_name', label: 'Nome do Produto (Venda)', group: 'sale' },
   { value: 'sale_product_sku', label: 'SKU do Produto (Venda)', group: 'sale' },
   { value: 'sale_quantity', label: 'Quantidade (Venda)', group: 'sale' },
