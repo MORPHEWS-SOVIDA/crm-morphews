@@ -353,8 +353,12 @@ export function useSale(id: string | undefined) {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
-          return_reason:delivery_return_reasons(id, name)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, cpf_cnpj, birth_date, gender, favorite_team),
+          return_reason:delivery_return_reasons(id, name),
+          shipping_address:lead_addresses(id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link, delivery_region_id),
+          delivery_region:delivery_regions!sales_delivery_region_id_fkey(id, name),
+          shipping_carrier:shipping_carriers(id, name),
+          payment_method_data:payment_methods!sales_payment_method_id_fkey(id, name, type)
         `)
         .eq('id', id)
         .eq('organization_id', organizationId)

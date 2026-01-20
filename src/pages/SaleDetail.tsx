@@ -984,6 +984,26 @@ export default function SaleDetail() {
                       <Phone className="w-4 h-4" />
                       {sale.lead?.whatsapp}
                     </div>
+                    {(sale.lead as any)?.secondary_phone && (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Phone className="w-3 h-3" />
+                        {(sale.lead as any).secondary_phone} (secundário)
+                      </div>
+                    )}
+                    {/* Lead Profile Info */}
+                    {((sale.lead as any)?.cpf_cnpj || (sale.lead as any)?.birth_date || (sale.lead as any)?.favorite_team) && (
+                      <div className="mt-2 pt-2 border-t text-xs text-muted-foreground space-y-1">
+                        {(sale.lead as any)?.cpf_cnpj && (
+                          <p>CPF/CNPJ: {(sale.lead as any).cpf_cnpj}</p>
+                        )}
+                        {(sale.lead as any)?.birth_date && (
+                          <p>Nascimento: {format(new Date((sale.lead as any).birth_date + 'T12:00:00'), 'dd/MM/yyyy')}</p>
+                        )}
+                        {(sale.lead as any)?.favorite_team && (
+                          <p>Time: {(sale.lead as any).favorite_team}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="outline"
@@ -994,7 +1014,39 @@ export default function SaleDetail() {
                   </Button>
                 </div>
 
-                {sale.lead?.street && (
+                {/* Shipping Address - from lead_addresses if exists, fallback to lead */}
+                {(sale as any).shipping_address ? (
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 text-primary" />
+                      <div className="text-sm flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-primary">Endereço de Entrega</span>
+                          {(sale as any).shipping_address.label && (
+                            <Badge variant="outline" className="text-xs">{(sale as any).shipping_address.label}</Badge>
+                          )}
+                        </div>
+                        <p>{(sale as any).shipping_address.street}, {(sale as any).shipping_address.street_number}</p>
+                        {(sale as any).shipping_address.complement && <p>{(sale as any).shipping_address.complement}</p>}
+                        <p>{(sale as any).shipping_address.neighborhood} - {(sale as any).shipping_address.city}/{(sale as any).shipping_address.state}</p>
+                        {(sale as any).shipping_address.cep && <p>CEP: {(sale as any).shipping_address.cep}</p>}
+                        {(sale as any).shipping_address.delivery_notes && (
+                          <p className="text-xs text-amber-600 mt-1">📝 {(sale as any).shipping_address.delivery_notes}</p>
+                        )}
+                        {(sale as any).shipping_address.google_maps_link && (
+                          <a 
+                            href={(sale as any).shipping_address.google_maps_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
+                          >
+                            <MapPin className="w-3 h-3" /> Ver no Maps
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : sale.lead?.street && (
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
@@ -1003,13 +1055,27 @@ export default function SaleDetail() {
                         {sale.lead.complement && <p>{sale.lead.complement}</p>}
                         <p>{sale.lead.neighborhood} - {sale.lead.city}/{sale.lead.state}</p>
                         {sale.lead.cep && <p>CEP: {sale.lead.cep}</p>}
+                        {(sale.lead as any).delivery_notes && (
+                          <p className="text-xs text-amber-600 mt-1">📝 {(sale.lead as any).delivery_notes}</p>
+                        )}
+                        {(sale.lead as any).google_maps_link && (
+                          <a 
+                            href={(sale.lead as any).google_maps_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
+                          >
+                            <MapPin className="w-3 h-3" /> Ver no Maps
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Delivery Method & Seller Info */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                {/* Delivery Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                  {/* Delivery Method */}
                   <div className="flex items-center gap-2">
                     {sale.delivery_type === 'motoboy' && <Bike className="w-4 h-4 text-primary" />}
                     {sale.delivery_type === 'carrier' && <Truck className="w-4 h-4 text-blue-600" />}
@@ -1025,6 +1091,90 @@ export default function SaleDetail() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Delivery Region */}
+                  {(sale as any).delivery_region?.name && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-green-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Região de Entrega</p>
+                        <p className="font-medium">{(sale as any).delivery_region.name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Shipping Carrier */}
+                  {(sale as any).shipping_carrier?.name && (
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-blue-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Transportadora</p>
+                        <p className="font-medium">{(sale as any).shipping_carrier.name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Scheduled Delivery Date */}
+                  {sale.scheduled_delivery_date && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Data Agendada</p>
+                        <p className="font-medium">
+                          {format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                          {sale.scheduled_delivery_shift && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({sale.scheduled_delivery_shift === 'morning' ? 'Manhã' : 'Tarde'})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tracking Code */}
+                  {sale.tracking_code && (
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-purple-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Código de Rastreio</p>
+                        <div className="flex items-center gap-1">
+                          <p className="font-medium font-mono text-sm">{sale.tracking_code}</p>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-5 w-5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(sale.tracking_code || '');
+                              toast.success('Código copiado!');
+                            }}
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Payment Method */}
+                  {((sale as any).payment_method_data?.name || sale.payment_method) && (
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Forma de Pagamento</p>
+                        <p className="font-medium">
+                          {(sale as any).payment_method_data?.name || sale.payment_method}
+                          {sale.payment_installments && sale.payment_installments > 1 && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({sale.payment_installments}x)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Seller */}
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-primary" />
                     <div>
@@ -1038,7 +1188,47 @@ export default function SaleDetail() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Assigned Motoboy */}
+                  {sale.delivery_type === 'motoboy' && (sale as any).assigned_delivery_user_profile && (
+                    <div className="flex items-center gap-2">
+                      <Bike className="w-4 h-4 text-orange-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Motoboy</p>
+                        <p className="font-medium">
+                          {(sale as any).assigned_delivery_user_profile.first_name} {(sale as any).assigned_delivery_user_profile.last_name}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Shipping Cost */}
+                  {sale.shipping_cost_cents > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-slate-600" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Frete</p>
+                        <p className="font-medium">{formatCurrency(sale.shipping_cost_cents)}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Delivery Notes */}
+                {sale.delivery_notes && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p className="text-xs text-muted-foreground mb-1">Observações da Entrega:</p>
+                    <p className="text-sm">{sale.delivery_notes}</p>
+                  </div>
+                )}
+
+                {/* Payment Notes */}
+                {sale.payment_notes && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-muted-foreground mb-1">Observações do Pagamento:</p>
+                    <p className="text-sm">{sale.payment_notes}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
