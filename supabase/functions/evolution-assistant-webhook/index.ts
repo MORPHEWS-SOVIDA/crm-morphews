@@ -687,6 +687,27 @@ async function findLeadByIdentifier(organizationId: string, identifier: string) 
     if (byWord) return byWord;
   }
 
+  // Try by email
+  if (trimmed.includes("@")) {
+    const { data: byEmailExact } = await supabase
+      .from("leads")
+      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
+      .eq("organization_id", organizationId)
+      .ilike("email", trimmed)
+      .limit(1)
+      .maybeSingle();
+    if (byEmailExact) return byEmailExact;
+
+    const { data: byEmailPartial } = await supabase
+      .from("leads")
+      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
+      .eq("organization_id", organizationId)
+      .ilike("email", `%${trimmed}%`)
+      .limit(1)
+      .maybeSingle();
+    if (byEmailPartial) return byEmailPartial;
+  }
+
   // Try by Instagram
   if (trimmed.startsWith("@") || !trimmed.includes(" ")) {
     const instaQuery = trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
@@ -979,22 +1000,47 @@ async function handleUpdateLead(
   organizationId: string,
   contextLeadId?: string
 ): Promise<string> {
-  // Use context lead if identifier matches or is generic
+  // Use context lead when the user refers generically ("ele", "cliente", etc.)
   let lead = null;
-  
-  if (contextLeadId && command.lead_identifier) {
-    // Try to find the lead first
-    lead = await findLeadByIdentifier(organizationId, command.lead_identifier);
-  } else if (contextLeadId) {
-    // Use context lead directly
+
+  const rawIdentifier = String(command.lead_identifier || "").trim();
+  const identifierLower = rawIdentifier.toLowerCase();
+
+  const isGenericIdentifier =
+    !rawIdentifier ||
+    [
+      "ele",
+      "ela",
+      "cliente",
+      "lead",
+      "esse",
+      "essa",
+      "isso",
+      "aqui",
+      "este",
+      "esta",
+    ].includes(identifierLower);
+
+  const loadContextLead = async () => {
+    if (!contextLeadId) return null;
     const { data } = await supabase
       .from("leads")
-      .select("id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at")
+      .select(
+        "id, name, whatsapp, stars, funnel_stage, instagram, email, observations, birth_date, gender, favorite_team, lead_source, cpf_cnpj, city, state, created_at"
+      )
       .eq("id", contextLeadId)
       .maybeSingle();
-    lead = data;
+    return data;
+  };
+
+  if (contextLeadId && isGenericIdentifier) {
+    lead = await loadContextLead();
+  } else if (contextLeadId) {
+    lead = await findLeadByIdentifier(organizationId, rawIdentifier);
+    // If the identifier was ambiguous/mis-parsed, fall back to the current lead context
+    if (!lead) lead = await loadContextLead();
   } else {
-    lead = await findLeadByIdentifier(organizationId, command.lead_identifier);
+    lead = await findLeadByIdentifier(organizationId, rawIdentifier);
   }
   
   if (!lead) {
@@ -1388,7 +1434,8 @@ async function handleQuickStage(
     const stages = await getFunnelStages(organizationId);
     const filtered = stages.filter((s) => !["Cloud", "Trash"].includes(s.name));
 
-    selectedStage = filtered.find((s) => s.name.toLowerCase().includes(input.toLowerCase()));
+    selectedStage =
+      filtered.find((s) => s.name.toLowerCase().includes(input.toLowerCase())) ?? null;
 
     if (!selectedStage) {
       const num = parseInt(input);
