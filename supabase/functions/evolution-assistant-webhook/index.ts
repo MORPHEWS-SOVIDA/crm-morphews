@@ -105,6 +105,218 @@ async function reply(toPhone: string, message: string) {
 }
 
 // ============================================================================
+// MEDIA DOWNLOAD & AI PROCESSING
+// ============================================================================
+
+async function downloadMediaFromEvolution(
+  messageKey: { id: string; remoteJid?: string; fromMe?: boolean }
+): Promise<{ base64: string; mimeType: string } | null> {
+  const config = await getAdminInstanceConfig();
+  if (!config || !config.apiUrl || !config.apiKey || !config.instanceName) {
+    console.error("❌ Admin instance not configured for media download");
+    return null;
+  }
+
+  try {
+    const baseUrl = config.apiUrl.replace(/\/$/, "");
+    const endpoint = `${baseUrl}/chat/getBase64FromMediaMessage/${config.instanceName}`;
+    
+    console.log("📥 Fetching media from Evolution:", {
+      instance: config.instanceName,
+      messageId: messageKey.id,
+    });
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": config.apiKey,
+      },
+      body: JSON.stringify({
+        message: { key: messageKey },
+        convertToMp4: false,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("❌ Evolution getBase64 failed:", response.status, await response.text().catch(() => ""));
+      return null;
+    }
+
+    const result = await response.json();
+    
+    if (result?.base64) {
+      console.log("✅ Media downloaded from Evolution:", {
+        hasBase64: true,
+        mimeType: result.mimetype || "unknown",
+        size: result.base64.length,
+      });
+      return {
+        base64: result.base64,
+        mimeType: result.mimetype || "application/octet-stream",
+      };
+    }
+
+    console.log("⚠️ Evolution returned no base64:", Object.keys(result || {}));
+    return null;
+  } catch (error) {
+    console.error("❌ Error downloading media from Evolution:", error);
+    return null;
+  }
+}
+
+async function transcribeAudioWithAI(base64: string, mimeType: string): Promise<string | null> {
+  if (!LOVABLE_API_KEY) {
+    console.error("LOVABLE_API_KEY not configured");
+    return null;
+  }
+
+  try {
+    console.log("🎤 Transcribing audio with AI...", { mimeType, size: base64.length });
+    
+    // Determine format from mimetype
+    let format = "ogg";
+    if (mimeType.includes("mp4") || mimeType.includes("m4a")) format = "m4a";
+    else if (mimeType.includes("mp3")) format = "mp3";
+    else if (mimeType.includes("wav")) format = "wav";
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "Você é um transcriptor de áudio preciso. Transcreva o áudio para texto em português brasileiro. Retorne APENAS a transcrição, sem explicações ou formatação adicional."
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Transcreva este áudio:" },
+              {
+                type: "input_audio",
+                input_audio: {
+                  data: base64,
+                  format: format,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("❌ Audio transcription failed:", response.status, errText);
+      return null;
+    }
+
+    const result = await response.json();
+    const transcription = result.choices?.[0]?.message?.content || "";
+    
+    console.log("✅ Audio transcribed:", transcription.substring(0, 100) + "...");
+    return transcription;
+  } catch (error) {
+    console.error("❌ Error transcribing audio:", error);
+    return null;
+  }
+}
+
+async function analyzeImageWithAI(base64: string, mimeType: string): Promise<{
+  leadName?: string;
+  instagram?: string;
+  followers?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  rawText: string;
+} | null> {
+  if (!LOVABLE_API_KEY) {
+    console.error("LOVABLE_API_KEY not configured");
+    return null;
+  }
+
+  try {
+    console.log("📸 Analyzing image with AI...", { mimeType, size: base64.length });
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um assistente que extrai dados de leads a partir de imagens.
+Analise a imagem (pode ser um print de Instagram, LinkedIn, perfil de contato, etc.) e extraia:
+- Nome da pessoa/empresa
+- @ do Instagram (se visível)
+- Número de seguidores (se visível)
+- Email (se visível)
+- Telefone (se visível)
+- Qualquer informação relevante para vendas
+
+Retorne APENAS JSON válido no formato:
+{
+  "leadName": "Nome encontrado ou null",
+  "instagram": "@usuario ou null",
+  "followers": "10k ou null",
+  "email": "email@x.com ou null",
+  "phone": "número ou null",
+  "notes": "outras informações relevantes",
+  "rawText": "texto completo visível na imagem"
+}`
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extraia os dados de lead desta imagem:" },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType};base64,${base64}`,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("❌ Image analysis failed:", response.status, errText);
+      return null;
+    }
+
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content || "";
+    
+    console.log("✅ Image analyzed:", content.substring(0, 200));
+    
+    // Parse JSON from response
+    try {
+      const jsonStr = content.replace(/```json?\n?|\n?```/g, "").trim();
+      return JSON.parse(jsonStr);
+    } catch {
+      // If not valid JSON, return raw text
+      return { rawText: content };
+    }
+  } catch (error) {
+    console.error("❌ Error analyzing image:", error);
+    return null;
+  }
+}
+
+// ============================================================================
 // CONVERSATION STATE MANAGEMENT
 // ============================================================================
 
@@ -1070,14 +1282,33 @@ function pickFirstString(...values: any[]): string {
   return "";
 }
 
-function extractIncoming(body: any): { 
-  event: string; 
-  fromPhoneRaw: string; 
-  text: string; 
+interface IncomingMessage {
+  event: string;
+  fromPhoneRaw: string;
+  text: string;
   isFromMe: boolean;
   hasAudio: boolean;
   hasImage: boolean;
-} {
+  audioMessage?: {
+    base64?: string;
+    mimetype?: string;
+    url?: string;
+  };
+  imageMessage?: {
+    base64?: string;
+    mimetype?: string;
+    url?: string;
+    caption?: string;
+  };
+  messageKey?: {
+    id: string;
+    remoteJid?: string;
+    fromMe?: boolean;
+  };
+  instanceName?: string;
+}
+
+function extractIncoming(body: any): IncomingMessage {
   const event = String(body?.event || body?.type || "");
   const data = body?.data || body;
   const key = data?.key || {};
@@ -1095,10 +1326,38 @@ function extractIncoming(body: any): {
   );
   
   const isFromMe = key?.fromMe === true || data?.fromMe === true;
-  const hasAudio = !!(message?.audioMessage || message?.pttMessage);
-  const hasImage = !!(message?.imageMessage);
+  
+  const audioMsg = message?.audioMessage || message?.pttMessage;
+  const imageMsg = message?.imageMessage;
+  
+  const hasAudio = !!audioMsg;
+  const hasImage = !!imageMsg;
 
-  return { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage };
+  return {
+    event,
+    fromPhoneRaw,
+    text,
+    isFromMe,
+    hasAudio,
+    hasImage,
+    audioMessage: hasAudio ? {
+      base64: audioMsg?.base64,
+      mimetype: audioMsg?.mimetype || "audio/ogg",
+      url: audioMsg?.url,
+    } : undefined,
+    imageMessage: hasImage ? {
+      base64: imageMsg?.base64,
+      mimetype: imageMsg?.mimetype || "image/jpeg",
+      url: imageMsg?.url,
+      caption: imageMsg?.caption,
+    } : undefined,
+    messageKey: key?.id ? {
+      id: key.id,
+      remoteJid: remoteJid,
+      fromMe: isFromMe,
+    } : undefined,
+    instanceName: data?.instance || body?.instance,
+  };
 }
 
 // ============================================================================
@@ -1112,7 +1371,8 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage } = extractIncoming(body);
+    const incoming = extractIncoming(body);
+    const { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage, audioMessage, imageMessage, messageKey } = incoming;
 
     console.log("🤖 Secretária Morphews received:", {
       event,
@@ -1121,6 +1381,7 @@ serve(async (req) => {
       isFromMe,
       hasAudio,
       hasImage,
+      hasMessageKey: !!messageKey,
     });
 
     const isStatusEvent = ["messages.update", "connection.update", "qrcode.updated"].includes(event);
@@ -1160,17 +1421,150 @@ serve(async (req) => {
     const userId = profile.user_id;
     const userName = profile.first_name || "você";
 
-    // Handle audio/image
+    // =========================================================================
+    // HANDLE AUDIO - Transcribe and process as text command
+    // =========================================================================
     if (hasAudio) {
-      await reply(fromPhone, "🎤 Recebi seu áudio! Em breve vou transcrever automaticamente. Por enquanto, me manda por texto! 😊");
-      return new Response(JSON.stringify({ success: true, pending_audio: true }), {
+      await reply(fromPhone, "🎤 Recebi seu áudio! Transcrevendo...");
+      
+      let base64 = audioMessage?.base64;
+      let mimeType = audioMessage?.mimetype || "audio/ogg";
+      
+      // If no base64 in payload, download from Evolution API
+      if (!base64 && messageKey) {
+        const media = await downloadMediaFromEvolution(messageKey);
+        if (media) {
+          base64 = media.base64;
+          mimeType = media.mimeType;
+        }
+      }
+      
+      if (!base64) {
+        await reply(fromPhone, "❌ Não consegui acessar o áudio. Pode tentar enviar de novo?");
+        return new Response(JSON.stringify({ success: true, audio_error: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      const transcription = await transcribeAudioWithAI(base64, mimeType);
+      
+      if (!transcription) {
+        await reply(fromPhone, "❌ Não consegui transcrever o áudio. Pode tentar de novo ou mandar por texto?");
+        return new Response(JSON.stringify({ success: true, transcription_error: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Show transcription and process as command
+      await reply(fromPhone, `📝 Entendi: "${transcription}"\n\nProcessando...`);
+      
+      // Process transcription as a command
+      const state = getState(fromPhone);
+      const hasActiveState = !!state && state.stage !== "idle";
+      const parsed = await parseCommandWithAI(transcription, hasActiveState);
+      
+      if (!parsed) {
+        await reply(fromPhone, "🤔 Não entendi o que você disse. Pode repetir de outra forma?");
+        return new Response(JSON.stringify({ success: true, parse_error: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      let response: string;
+      if (hasActiveState && state) {
+        switch (parsed.action) {
+          case "quick_star":
+            response = await handleQuickStar(parsed.stars, state, organizationId, fromPhone);
+            break;
+          case "quick_stage":
+            response = await handleQuickStage(parsed.stage, state, organizationId, fromPhone);
+            break;
+          case "quick_followup":
+            response = await handleQuickFollowup(parsed.option, state, organizationId, userId, fromPhone);
+            break;
+          case "skip_step":
+            response = await handleSkipStep(state, organizationId, fromPhone);
+            break;
+          default:
+            clearState(fromPhone);
+            response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
+        }
+      } else {
+        response = await handleCommand(parsed, organizationId, userId, fromPhone, userName);
+      }
+      
+      await reply(fromPhone, response);
+      return new Response(JSON.stringify({ success: true, action: "audio_processed", parsed: parsed.action }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // =========================================================================
+    // HANDLE IMAGE - Analyze and extract lead data
+    // =========================================================================
     if (hasImage) {
-      await reply(fromPhone, "📸 Recebi sua imagem! Em breve vou extrair dados automaticamente. Me conta o que quer cadastrar! 😊");
-      return new Response(JSON.stringify({ success: true, pending_image: true }), {
+      await reply(fromPhone, "📸 Recebi sua imagem! Analisando...");
+      
+      let base64 = imageMessage?.base64;
+      let mimeType = imageMessage?.mimetype || "image/jpeg";
+      const caption = imageMessage?.caption || "";
+      
+      // If no base64 in payload, download from Evolution API
+      if (!base64 && messageKey) {
+        const media = await downloadMediaFromEvolution(messageKey);
+        if (media) {
+          base64 = media.base64;
+          mimeType = media.mimeType;
+        }
+      }
+      
+      if (!base64) {
+        await reply(fromPhone, "❌ Não consegui acessar a imagem. Pode tentar enviar de novo?");
+        return new Response(JSON.stringify({ success: true, image_error: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      const analysis = await analyzeImageWithAI(base64, mimeType);
+      
+      if (!analysis) {
+        await reply(fromPhone, "❌ Não consegui analisar a imagem. Pode tentar de novo?");
+        return new Response(JSON.stringify({ success: true, analysis_error: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Build response based on extracted data
+      let resultMsg = "📋 *Dados extraídos da imagem:*\n\n";
+      
+      if (analysis.leadName) resultMsg += `👤 *Nome:* ${analysis.leadName}\n`;
+      if (analysis.instagram) resultMsg += `📸 *Instagram:* ${analysis.instagram}\n`;
+      if (analysis.followers) resultMsg += `👥 *Seguidores:* ${analysis.followers}\n`;
+      if (analysis.email) resultMsg += `📧 *Email:* ${analysis.email}\n`;
+      if (analysis.phone) resultMsg += `📱 *Telefone:* ${analysis.phone}\n`;
+      if (analysis.notes) resultMsg += `📝 *Info:* ${analysis.notes}\n`;
+      
+      // If we found enough data, offer to create lead
+      if (analysis.leadName || analysis.instagram) {
+        const leadName = analysis.leadName || (analysis.instagram ? analysis.instagram.replace("@", "") : "Lead da imagem");
+        const leadPhone = analysis.phone ? normalizeWhatsApp(analysis.phone) : "";
+        
+        resultMsg += "\n🎯 *Quer que eu cadastre este lead?*\n";
+        resultMsg += `Digite: "sim" para cadastrar${leadPhone ? "" : " (preciso de um WhatsApp)"}\n`;
+        resultMsg += `Ou: "cadastrar ${leadName} ${leadPhone || "[WhatsApp]"}"`;
+        
+        // Store extracted data for potential follow-up
+        setState(fromPhone, {
+          stage: "awaiting_more_data",
+          lead_name: leadName,
+          last_action: "image_extracted",
+        });
+      } else {
+        resultMsg += "\n_Não encontrei dados suficientes. Me conta mais sobre esse lead!_";
+      }
+      
+      await reply(fromPhone, resultMsg);
+      return new Response(JSON.stringify({ success: true, action: "image_analyzed", data: analysis }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
