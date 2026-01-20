@@ -7543,6 +7543,9 @@ export type Database = {
       }
       subscription_plans_public: {
         Row: {
+          annual_price_cents: number | null
+          atomicpay_annual_url: string | null
+          atomicpay_monthly_url: string | null
           created_at: string | null
           extra_energy_price_cents: number | null
           extra_instance_price_cents: number | null
@@ -7555,9 +7558,13 @@ export type Database = {
           max_users: number | null
           monthly_energy: number | null
           name: string | null
+          payment_provider: string | null
           price_cents: number | null
         }
         Insert: {
+          annual_price_cents?: number | null
+          atomicpay_annual_url?: string | null
+          atomicpay_monthly_url?: string | null
           created_at?: string | null
           extra_energy_price_cents?: number | null
           extra_instance_price_cents?: number | null
@@ -7570,9 +7577,13 @@ export type Database = {
           max_users?: number | null
           monthly_energy?: number | null
           name?: string | null
+          payment_provider?: string | null
           price_cents?: number | null
         }
         Update: {
+          annual_price_cents?: number | null
+          atomicpay_annual_url?: string | null
+          atomicpay_monthly_url?: string | null
           created_at?: string | null
           extra_energy_price_cents?: number | null
           extra_instance_price_cents?: number | null
@@ -7585,6 +7596,7 @@ export type Database = {
           max_users?: number | null
           monthly_energy?: number | null
           name?: string | null
+          payment_provider?: string | null
           price_cents?: number | null
         }
         Relationships: []
