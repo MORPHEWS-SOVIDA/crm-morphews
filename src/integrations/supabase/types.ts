@@ -3097,6 +3097,7 @@ export type Database = {
           followup_webhook_url: string | null
           id: string
           is_active: boolean
+          is_featured: boolean
           lead_visibility: string
           name: string
           organization_id: string
@@ -3112,6 +3113,7 @@ export type Database = {
           followup_webhook_url?: string | null
           id?: string
           is_active?: boolean
+          is_featured?: boolean
           lead_visibility?: string
           name: string
           organization_id: string
@@ -3127,6 +3129,7 @@ export type Database = {
           followup_webhook_url?: string | null
           id?: string
           is_active?: boolean
+          is_featured?: boolean
           lead_visibility?: string
           name?: string
           organization_id?: string

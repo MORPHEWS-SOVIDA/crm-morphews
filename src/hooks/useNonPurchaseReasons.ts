@@ -12,6 +12,7 @@ export interface NonPurchaseReason {
   webhook_url: string | null;
   followup_webhook_url: string | null;
   lead_visibility: 'assigned_only' | 'all_sellers';
+  is_featured: boolean;
   is_active: boolean;
   position: number;
   created_at: string;
