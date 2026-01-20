@@ -16,15 +16,11 @@ import {
   ChevronUp,
   ExternalLink,
   Loader2,
-  Search,
-  BarChart3,
-  TrendingUp,
-  Percent,
   Upload,
-  MessageSquare,
+  TrendingUp,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -44,6 +40,7 @@ import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { CONVERSATION_MODES } from '@/hooks/useReceptiveModule';
 import { RecordingUploader } from '@/components/receptive/RecordingUploader';
+import { AudioPlayer } from '@/components/receptive/AudioPlayer';
 import { WhatsAppContentSection } from '@/components/receptive/WhatsAppContentSection';
 import { useAuth } from '@/hooks/useAuth';
 import { extractReceptiveRecordingStoragePath } from '@/lib/receptive-recordings';
@@ -54,7 +51,7 @@ const CALL_MODES = ['receptive_call', 'active_call'];
 const WHATSAPP_MODES = ['receptive_whatsapp', 'active_whatsapp'];
 
 export default function ReceptiveManagement() {
-  const { profile } = useAuth();
+  useAuth(); // Ensure user is authenticated
   const [filters, setFilters] = useState<ReceptiveFilters>({
     hasRecording: 'all',
     hasTranscription: 'all',
@@ -91,25 +88,33 @@ export default function ReceptiveManagement() {
     });
   };
 
-  const handleRecordingUploaded = async (attendanceId: string, url: string, storagePath?: string) => {
-    await updateAttendance.mutateAsync({ id: attendanceId, updates: { call_recording_url: url } });
-    if (storagePath) {
-      // Store the storage path to pass to transcription later
-      setStoragePaths(prev => ({ ...prev, [attendanceId]: storagePath }));
-    }
+  const handleRecordingUploaded = async (attendanceId: string, storagePath: string) => {
+    // Save both: legacy call_recording_url (for backwards compat) and new recording_storage_path
+    await updateAttendance.mutateAsync({ 
+      id: attendanceId, 
+      updates: { 
+        recording_storage_path: storagePath,
+        call_recording_url: storagePath // Keep for legacy/filtering purposes
+      } 
+    });
+    // Store locally to pass to transcription later
+    setStoragePaths(prev => ({ ...prev, [attendanceId]: storagePath }));
     setEditingRecording(null);
   };
-
   const handleSaveNotes = async (id: string) => {
     const notes = notesValues[id];
     await updateAttendance.mutateAsync({ id, updates: { notes } });
     setEditingNotes(null);
   };
 
-  const handleTranscribe = async (id: string, audioUrl: string) => {
-    // IMPORTANT: signed URLs expire; try to recover the storage path from the URL when possible
-    const storagePath = storagePaths[id] || extractReceptiveRecordingStoragePath(audioUrl) || undefined;
-    await transcribeCall.mutateAsync({ attendanceId: id, audioUrl, storagePath });
+  const handleTranscribe = async (id: string, storagePath: string | null, fallbackUrl?: string | null) => {
+    // Use storage path directly, or try to extract from URL
+    const path = storagePath || storagePaths[id] || (fallbackUrl ? extractReceptiveRecordingStoragePath(fallbackUrl) : undefined);
+    if (!path) {
+      toast.error('Caminho do áudio não encontrado');
+      return;
+    }
+    await transcribeCall.mutateAsync({ attendanceId: id, audioUrl: fallbackUrl || '', storagePath: path });
   };
 
   const getScoreColor = (score: number) => {
@@ -333,7 +338,9 @@ export default function ReceptiveManagement() {
             ) : (
               attendances.map((item) => {
                 const isExpanded = expandedItems.has(item.id);
-                const hasRecording = !!item.call_recording_url;
+                // Use recording_storage_path if available, fallback to extracting from URL
+                const storagePath = item.recording_storage_path || extractReceptiveRecordingStoragePath(item.call_recording_url);
+                const hasRecording = !!storagePath || !!item.call_recording_url;
                 const hasTranscription = !!item.transcription;
                 const isTranscribing = item.transcription_status === 'processing' ||
                   (transcribeCall.isPending && transcribeCall.variables?.attendanceId === item.id);
@@ -430,7 +437,13 @@ export default function ReceptiveManagement() {
                               Gravação
                             </p>
 
-                            {hasRecording ? (
+                            {hasRecording && storagePath ? (
+                              <AudioPlayer 
+                                storagePath={storagePath} 
+                                fallbackUrl={item.call_recording_url}
+                              />
+                            ) : hasRecording ? (
+                              // Legacy: only have URL, no storage path
                               <div className="flex items-center gap-2">
                                 <audio controls src={item.call_recording_url!} className="flex-1 h-10" />
                                 <a
@@ -446,8 +459,8 @@ export default function ReceptiveManagement() {
                               <RecordingUploader
                                 attendanceId={item.id}
                                 organizationId={item.organization_id}
-                                onUploadComplete={(url, storagePath) => {
-                                  handleRecordingUploaded(item.id, url, storagePath);
+                                onUploadComplete={(storagePath) => {
+                                  handleRecordingUploaded(item.id, storagePath);
                                 }}
                                 onCancel={() => setEditingRecording(null)}
                                 isUploading={uploadingRecording[item.id] || false}
@@ -488,8 +501,8 @@ export default function ReceptiveManagement() {
                               {!hasTranscription && !isTranscribing && (
                                 <Button
                                   size="sm"
-                                  onClick={() => handleTranscribe(item.id, item.call_recording_url!)}
-                                  disabled={transcribeCall.isPending}
+                                  onClick={() => handleTranscribe(item.id, storagePath, item.call_recording_url)}
+                                  disabled={transcribeCall.isPending || !storagePath}
                                 >
                                   <FileText className="w-4 h-4 mr-2" />
                                   Transcrever com IA

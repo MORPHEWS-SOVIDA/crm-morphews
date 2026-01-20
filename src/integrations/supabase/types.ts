@@ -4404,6 +4404,7 @@ export type Database = {
           product_answers: Json | null
           product_id: string | null
           purchase_potential_cents: number | null
+          recording_storage_path: string | null
           sale_id: string | null
           transcription: string | null
           transcription_status: string | null
@@ -4426,6 +4427,7 @@ export type Database = {
           product_answers?: Json | null
           product_id?: string | null
           purchase_potential_cents?: number | null
+          recording_storage_path?: string | null
           sale_id?: string | null
           transcription?: string | null
           transcription_status?: string | null
@@ -4448,6 +4450,7 @@ export type Database = {
           product_answers?: Json | null
           product_id?: string | null
           purchase_potential_cents?: number | null
+          recording_storage_path?: string | null
           sale_id?: string | null
           transcription?: string | null
           transcription_status?: string | null
