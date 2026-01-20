@@ -2,10 +2,14 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface ImportResult {
   success: boolean;
@@ -59,6 +63,43 @@ export function RomaneioImporter() {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
+  const extractTextFromPdf = async (file: File): Promise<string[]> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    const pages: string[] = [];
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      
+      // Build text with proper spacing
+      let pageText = '';
+      let lastY = -1;
+      
+      for (const item of textContent.items) {
+        if ('str' in item) {
+          const textItem = item as { str: string; transform: number[] };
+          const y = textItem.transform[5];
+          
+          // Add newline if Y position changed significantly
+          if (lastY !== -1 && Math.abs(lastY - y) > 5) {
+            pageText += '\n';
+          } else if (pageText && !pageText.endsWith('\n') && !pageText.endsWith(' ')) {
+            pageText += ' ';
+          }
+          
+          pageText += textItem.str;
+          lastY = y;
+        }
+      }
+      
+      pages.push(pageText);
+    }
+    
+    return pages;
+  };
+
   const parseRomaneioPage = (pageText: string): ParsedRomaneio | null => {
     try {
       // Extract romaneio number
@@ -66,7 +107,7 @@ export function RomaneioImporter() {
       if (!romaneioMatch) return null;
 
       // Extract digitador
-      const digitadorMatch = pageText.match(/DIGITADOR:\s*(.+?)(?:\n|DATA)/);
+      const digitadorMatch = pageText.match(/DIGITADOR:\s*(.+?)(?=\s*DATA DE EMISSÃO)/s);
       
       // Extract emission date
       const emissionMatch = pageText.match(/DATA DE EMISSÃO:\s*(\d{2}\/\d{2}\/\d{4})/);
@@ -75,38 +116,38 @@ export function RomaneioImporter() {
       const deliveryDateMatch = pageText.match(/DATA DE ENTREGA:\s*(\d{2}\/\d{2}\/\d{4})/);
       
       // Extract turno
-      const turnoMatch = pageText.match(/TURNO:\s*(MANHÃ|TARDE|NOITE)/i);
+      const turnoMatch = pageText.match(/TURNO:\s*(MANHÃ|TARDE|NOITE|DIA INTEIRO|MADRUGADA)/i);
 
-      // Extract client info - format: "ID - NAME"
-      const clienteMatch = pageText.match(/# CLIENTE\s*\n\s*(\d+)\s*-\s*([^\n]+)/);
+      // Extract client info - format: "ID - NAME" after CLIENTE
+      const clienteMatch = pageText.match(/CLIENTE\s+(\d+)\s*[-–]\s*([^\n]+?)(?=\s*CPF\/CNPJ)/s);
       
       // Extract CPF/CNPJ
-      const cpfMatch = pageText.match(/CPF\/CNPJ:\s*([^\n]*)/);
+      const cpfMatch = pageText.match(/CPF\/CNPJ:\s*([^\s]+)/);
       
-      // Extract phone
+      // Extract phone (look for FONE/CEL pattern)
       const phoneMatch = pageText.match(/FONE\/CEL:\s*(\d+)/);
 
-      // Extract address
-      const addressMatch = pageText.match(/# ENDEREÇO\s*\n\s*([^\n]+)/);
-      const addressParts = addressMatch ? parseAddress(addressMatch[1]) : { street: '', number: '', complement: '' };
+      // Extract address - after ENDEREÇO heading
+      const addressSection = pageText.match(/ENDEREÇO\s+(.+?)(?=\s*BAIRRO)/s);
+      const addressParts = addressSection ? parseAddress(addressSection[1].trim()) : { street: '', number: '', complement: '' };
       
       // Extract neighborhood
-      const neighborhoodMatch = pageText.match(/BAIRRO:\s*([^\n]+)/);
+      const neighborhoodMatch = pageText.match(/BAIRRO:\s*([^\n]+?)(?=\s*CEP)/);
       
       // Extract CEP and city/state
-      const cepCityMatch = pageText.match(/CEP:\s*([\d-]+)\s*-\s*([^\n]+)/);
+      const cepCityMatch = pageText.match(/CEP:\s*([\d-]+)\s*[-–]\s*([^–\n]+?)(?=\s*[-–]\s*Brasil|\s*REGIÃO)/);
       
       // Extract region
       const regionMatch = pageText.match(/REGIÃO:\s*([^\n]+)/);
 
-      // Extract delivery notes (OBS.ENTREGA)
-      const obsMatch = pageText.match(/OBS\.ENTREGA:?\s*\n?([^\n#]*)/i);
+      // Extract delivery notes (OBS.ENTREGA or OBS. ENTREGA)
+      const obsMatch = pageText.match(/OBS\.?\s*ENTREGA\s+([^#]+?)(?=\s*TIPO DE ENTREGA)/s);
       
       // Extract delivery type
-      const deliveryTypeMatch = pageText.match(/TIPO DE ENTREGA\s*\n\s*([^\n]+)/);
+      const deliveryTypeMatch = pageText.match(/TIPO DE ENTREGA\s+([^\n]+)/);
 
-      // Extract products from table
-      const products = parseProductsTable(pageText);
+      // Extract products from table format
+      const products = parseProductsFromText(pageText);
 
       // Extract total value
       const totalMatch = pageText.match(/TOTAL DO ROMANEIO:\s*R\$\s*([\d.,]+)/);
@@ -147,7 +188,8 @@ export function RomaneioImporter() {
 
   const parseAddress = (addressLine: string): { street: string; number: string; complement: string } => {
     // Format: "Street Name, 123 - complement" or "Street Name, 123"
-    const match = addressLine.match(/^(.+?),?\s*(\d+)?\s*(?:-\s*(.+))?$/);
+    const cleanAddress = addressLine.replace(/\s+/g, ' ').trim();
+    const match = cleanAddress.match(/^(.+?),?\s*(\d+)\s*(?:[-–]\s*(.+))?$/);
     if (match) {
       return {
         street: match[1]?.trim() || '',
@@ -158,28 +200,58 @@ export function RomaneioImporter() {
     return { street: addressLine, number: '', complement: '' };
   };
 
-  const parseProductsTable = (pageText: string): ParsedRomaneio['products'] => {
+  const parseProductsFromText = (pageText: string): ParsedRomaneio['products'] => {
     const products: ParsedRomaneio['products'] = [];
     
-    // Match product lines in table format
-    const tableMatch = pageText.match(/\| PRODUTO.*?\|\s*\n\s*\|.*?\|\s*\n([\s\S]*?)(?=EXIGE RECEITA|$)/);
-    if (tableMatch) {
-      const lines = tableMatch[1].split('\n');
+    // Look for product entries between VALOR TOTAL header and EXIGE RECEITA
+    const productSection = pageText.match(/VALOR TOTAL\s+(.+?)(?=EXIGE RECEITA)/s);
+    if (productSection) {
+      // Pattern: code | description | quantity | unit price | total
+      const lines = productSection[1].split('\n');
+      let currentProduct: string[] = [];
+      
       for (const line of lines) {
-        const productMatch = line.match(/\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|/);
-        if (productMatch) {
-          products.push({
-            code: productMatch[1],
-            description: productMatch[2].trim(),
-            quantity: parseFloat(productMatch[3].replace(',', '.')),
-            unitPrice: parseFloat(productMatch[4].replace('.', '').replace(',', '.')),
-            totalPrice: parseFloat(productMatch[5].replace('.', '').replace(',', '.')),
-          });
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        
+        // Check if line starts with a product code (number)
+        if (/^\d+\s+/.test(trimmedLine)) {
+          // New product line
+          if (currentProduct.length > 0) {
+            const parsed = parseProductLine(currentProduct.join(' '));
+            if (parsed) products.push(parsed);
+          }
+          currentProduct = [trimmedLine];
+        } else {
+          // Continuation of previous product
+          currentProduct.push(trimmedLine);
         }
+      }
+      
+      // Don't forget last product
+      if (currentProduct.length > 0) {
+        const parsed = parseProductLine(currentProduct.join(' '));
+        if (parsed) products.push(parsed);
       }
     }
     
     return products;
+  };
+
+  const parseProductLine = (line: string): ParsedRomaneio['products'][0] | null => {
+    // Pattern: CODE DESCRIPTION QUANTITY UNIT_PRICE TOTAL_PRICE
+    // Example: "51 LIFE COMBO 2 meses, Requisição Nº: 1,0000 250,0000 250,00"
+    const match = line.match(/^(\d+)\s+(.+?)\s+([\d,]+)\s+([\d.,]+)\s+([\d.,]+)$/);
+    if (match) {
+      return {
+        code: match[1],
+        description: match[2].trim(),
+        quantity: parseFloat(match[3].replace(',', '.')),
+        unitPrice: parseFloat(match[4].replace('.', '').replace(',', '.')),
+        totalPrice: parseFloat(match[5].replace('.', '').replace(',', '.')),
+      };
+    }
+    return null;
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,23 +275,10 @@ export function RomaneioImporter() {
     addLog(`Iniciando processamento de: ${file.name}`);
 
     try {
-      // Convert file to base64
-      const base64 = await fileToBase64(file);
-      addLog('Arquivo convertido para base64');
-
-      // Call edge function to parse PDF
-      addLog('Enviando para processamento...');
-      const { data, error } = await supabase.functions.invoke('romaneio-import', {
-        body: {
-          pdfBase64: base64,
-          fileName: file.name,
-        },
-      });
-
-      if (error) throw error;
-
-      const pages = data.pages as string[];
-      addLog(`PDF parseado: ${pages.length} páginas encontradas`);
+      // Extract text from PDF using pdfjs-dist
+      addLog('Extraindo texto do PDF...');
+      const pages = await extractTextFromPdf(file);
+      addLog(`PDF processado: ${pages.length} páginas encontradas`);
 
       // Process each page
       const importResult: ImportResult = {
@@ -343,9 +402,12 @@ export function RomaneioImporter() {
 
         // Determine delivery type based on text
         let deliveryType: 'pickup' | 'motoboy' | 'carrier' = 'pickup';
-        if (romaneio.deliveryType.toLowerCase().includes('motoboy') || romaneio.region) {
+        if (romaneio.deliveryType.toLowerCase().includes('motoboy') || 
+            romaneio.deliveryType.toLowerCase().includes('tele-entrega') ||
+            romaneio.region) {
           deliveryType = 'motoboy';
-        } else if (romaneio.deliveryType.toLowerCase().includes('correio') || romaneio.deliveryType.toLowerCase().includes('transport')) {
+        } else if (romaneio.deliveryType.toLowerCase().includes('correio') || 
+                   romaneio.deliveryType.toLowerCase().includes('transport')) {
           deliveryType = 'carrier';
         }
 
@@ -361,11 +423,12 @@ export function RomaneioImporter() {
             total_cents: Math.round(romaneio.totalValue * 100),
             delivery_type: deliveryType,
             scheduled_delivery_date: deliveryDate,
-            scheduled_delivery_shift: romaneio.turno?.toLowerCase() === 'manhã' ? 'morning' : romaneio.turno?.toLowerCase() === 'tarde' ? 'afternoon' : 'morning',
+            scheduled_delivery_shift: romaneio.turno?.toLowerCase() === 'manhã' ? 'morning' : 
+                                     romaneio.turno?.toLowerCase() === 'tarde' ? 'afternoon' : 'morning',
             status: 'delivered',
             payment_status: romaneio.isPaid ? 'paid' : 'pending',
             observation_1: `[Importado do sistema antigo - Romaneio #${romaneio.romaneioNumber}]`,
-            observation_2: productDetails,
+            observation_2: productDetails || `Valor total: R$${romaneio.totalValue.toFixed(2)}`,
             delivery_notes: `${romaneio.deliveryNotes}\nDigitador: ${romaneio.digitador}\nTipo: ${romaneio.deliveryType}`,
           })
           .select()
@@ -388,8 +451,8 @@ export function RomaneioImporter() {
         const defaultProductId = products?.[0]?.id;
         const defaultProductName = products?.[0]?.name || 'Produto Importado';
 
-        if (defaultProductId) {
-          // Create sale item
+        if (defaultProductId && romaneio.products.length > 0) {
+          // Create sale items
           for (const product of romaneio.products) {
             await supabase.from('sale_items').insert({
               sale_id: sale.id,
@@ -434,19 +497,6 @@ export function RomaneioImporter() {
         fileInputRef.current.value = '';
       }
     }
-  };
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Remove data:application/pdf;base64, prefix
-        resolve(result.split(',')[1]);
-      };
-      reader.onerror = reject;
-    });
   };
 
   return (
@@ -494,35 +544,24 @@ export function RomaneioImporter() {
 
       {isProcessing && (
         <div className="space-y-2">
-          <Progress value={progress} className="w-full" />
+          <Progress value={progress} />
           <p className="text-sm text-muted-foreground">{Math.round(progress)}% concluído</p>
         </div>
       )}
 
       {logs.length > 0 && (
         <div className="border rounded-lg">
-          <div className="flex items-center justify-between p-2 border-b bg-muted/30">
-            <span className="text-sm font-medium flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Log de Importação
-            </span>
-            {!isProcessing && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLogs([])}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
+          <div className="bg-muted px-4 py-2 border-b">
+            <h4 className="font-medium">Log de Importação</h4>
           </div>
-          <ScrollArea className="h-48 p-3">
+          <ScrollArea className="h-64 p-4">
             <div className="space-y-1 font-mono text-xs">
-              {logs.map((log, i) => (
-                <div key={i} className={
-                  log.includes('❌') ? 'text-red-500' :
-                  log.includes('✓') ? 'text-green-500' :
-                  log.includes('⚠️') ? 'text-yellow-500' :
+              {logs.map((log, idx) => (
+                <div key={idx} className={
+                  log.includes('❌') ? 'text-destructive' :
+                  log.includes('⚠️') ? 'text-yellow-600' :
+                  log.includes('✓') ? 'text-green-600' :
+                  log.includes('===') ? 'font-bold text-primary' :
                   'text-muted-foreground'
                 }>
                   {log}
@@ -534,18 +573,32 @@ export function RomaneioImporter() {
       )}
 
       {results && (
-        <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-500">{results.leadsCreated}</div>
-            <div className="text-xs text-muted-foreground">Leads Criados</div>
+        <div className={`rounded-lg p-4 ${results.errors.length === 0 ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'} border`}>
+          <div className="flex items-center gap-2 mb-2">
+            {results.errors.length === 0 ? (
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-yellow-600" />
+            )}
+            <h4 className="font-medium">Resultado da Importação</h4>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-500">{results.leadsUpdated}</div>
-            <div className="text-xs text-muted-foreground">Leads Atualizados</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-500">{results.salesCreated}</div>
-            <div className="text-xs text-muted-foreground">Vendas Criadas</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <div className="text-muted-foreground">Leads criados</div>
+              <div className="font-bold text-lg">{results.leadsCreated}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Leads atualizados</div>
+              <div className="font-bold text-lg">{results.leadsUpdated}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Vendas criadas</div>
+              <div className="font-bold text-lg">{results.salesCreated}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Erros</div>
+              <div className="font-bold text-lg">{results.errors.length}</div>
+            </div>
           </div>
         </div>
       )}
