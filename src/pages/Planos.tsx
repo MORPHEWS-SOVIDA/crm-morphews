@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Check, Zap, Crown, Rocket, Loader2, Star, Phone, ArrowRight, MessageCircle, Sparkles, Shield, Clock, Mic, Image, Send, Bot, ChevronRight, Play, Users, Target, Calendar, Filter, BarChart3, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSubscriptionPlans, useCreateCheckout, useCurrentSubscription } from "@/hooks/useSubscription";
+import { useSubscriptionPlans, useSubscriptionPlanById, useCreateCheckout, useCurrentSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -33,6 +33,7 @@ export default function Planos() {
   const { data: currentSubscription } = useCurrentSubscription();
   const createCheckout = useCreateCheckout();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ id: string; name: string } | null>(null);
@@ -40,28 +41,53 @@ export default function Planos() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoCheckoutTriggered, setAutoCheckoutTriggered] = useState(false);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("subscription") === "success") {
-      navigate("/", { replace: true });
-    }
-  }, [navigate]);
+  // Get plan ID from URL for direct checkout links
+  const urlPlanId = searchParams.get("plan");
+  
+  // Fetch specific plan by ID (for hidden plans accessed via direct link)
+  const { data: urlPlan, isLoading: urlPlanLoading } = useSubscriptionPlanById(urlPlanId);
+
+  // Show the URL plan if it's not in the public list
+  const displayPlans = useMemo(() => {
+    if (!urlPlan || !urlPlanId) return plans || [];
+    
+    // Check if urlPlan is already in the plans list
+    const planExists = plans?.some(p => p.id === urlPlanId);
+    if (planExists) return plans || [];
+    
+    // Add the URL plan to the list
+    return [...(plans || []), urlPlan];
+  }, [plans, urlPlan, urlPlanId]);
 
   useEffect(() => {
-    if (user && plans && !autoCheckoutTriggered && !plansLoading) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const planId = urlParams.get("plan");
-      
-      if (planId) {
-        const plan = plans.find(p => p.id === planId);
-        if (plan) {
-          setAutoCheckoutTriggered(true);
-          window.history.replaceState({}, '', '/planos');
-          createCheckout.mutate({ planId, mode: 'new' });
-        }
+    if (searchParams.get("subscription") === "success") {
+      navigate("/", { replace: true });
+    }
+  }, [navigate, searchParams]);
+
+  useEffect(() => {
+    if (user && !autoCheckoutTriggered && !plansLoading && urlPlanId) {
+      // If user is logged in and there's a plan in URL, start checkout
+      const plan = urlPlan || plans?.find(p => p.id === urlPlanId);
+      if (plan) {
+        setAutoCheckoutTriggered(true);
+        setSearchParams({}, { replace: true });
+        createCheckout.mutate({ planId: urlPlanId, mode: 'new' });
       }
     }
-  }, [user, plans, plansLoading, autoCheckoutTriggered, createCheckout]);
+  }, [user, plans, plansLoading, autoCheckoutTriggered, createCheckout, urlPlanId, urlPlan, setSearchParams]);
+
+  // Auto-open lead modal for non-logged-in users when accessing via direct link
+  useEffect(() => {
+    if (!user && urlPlanId && (urlPlan || plans?.find(p => p.id === urlPlanId)) && !showLeadModal && !autoCheckoutTriggered) {
+      const plan = urlPlan || plans?.find(p => p.id === urlPlanId);
+      if (plan) {
+        setSelectedPlan({ id: plan.id, name: plan.name });
+        setShowLeadModal(true);
+        setAutoCheckoutTriggered(true);
+      }
+    }
+  }, [user, urlPlanId, urlPlan, plans, showLeadModal, autoCheckoutTriggered]);
 
   const handleSelectPlan = (planId: string, planName: string) => {
     setSelectedPlan({ id: planId, name: planName });
@@ -723,7 +749,7 @@ export default function Planos() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {plans?.map((plan) => {
+            {displayPlans.map((plan) => {
               const isPro = plan.name === "Pro";
               const isFree = plan.name === "Grátis";
               const isCurrent = isCurrentPlan(plan.id);

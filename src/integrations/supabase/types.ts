@@ -5764,6 +5764,7 @@ export type Database = {
           id: string
           included_whatsapp_instances: number
           is_active: boolean
+          is_visible_on_site: boolean | null
           max_leads: number | null
           max_users: number
           monthly_energy: number | null
@@ -5782,6 +5783,7 @@ export type Database = {
           id?: string
           included_whatsapp_instances?: number
           is_active?: boolean
+          is_visible_on_site?: boolean | null
           max_leads?: number | null
           max_users: number
           monthly_energy?: number | null
@@ -5800,6 +5802,7 @@ export type Database = {
           id?: string
           included_whatsapp_instances?: number
           is_active?: boolean
+          is_visible_on_site?: boolean | null
           max_leads?: number | null
           max_users?: number
           monthly_energy?: number | null
@@ -7535,6 +7538,7 @@ export type Database = {
           id: string | null
           included_whatsapp_instances: number | null
           is_active: boolean | null
+          is_visible_on_site: boolean | null
           max_leads: number | null
           max_users: number | null
           monthly_energy: number | null
@@ -7549,6 +7553,7 @@ export type Database = {
           id?: string | null
           included_whatsapp_instances?: number | null
           is_active?: boolean | null
+          is_visible_on_site?: boolean | null
           max_leads?: number | null
           max_users?: number | null
           monthly_energy?: number | null
@@ -7563,6 +7568,7 @@ export type Database = {
           id?: string | null
           included_whatsapp_instances?: number | null
           is_active?: boolean | null
+          is_visible_on_site?: boolean | null
           max_leads?: number | null
           max_users?: number | null
           monthly_energy?: number | null
