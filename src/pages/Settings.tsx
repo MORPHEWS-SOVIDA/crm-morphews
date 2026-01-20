@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users, Bike, Award, Database, Package } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users, Bike, Award, Database, Package, FileUp } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +24,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { HelpCircle } from 'lucide-react';
 import { DataBackupManager } from '@/components/settings/DataBackupManager';
+import { RomaneioImporter } from '@/components/settings/RomaneioImporter';
 
 export default function Settings() {
   const { profile, updatePassword, user, isAdmin } = useAuth();
@@ -543,6 +544,22 @@ export default function Settings() {
               </div>
             </div>
             <DataBackupManager />
+          </div>
+        )}
+
+        {/* Romaneio Importer - Only for admins/owners */}
+        {(isAdmin || isOrgAdmin) && (
+          <div className="bg-card rounded-xl p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-indigo-500/10">
+                <FileUp className="w-6 h-6 text-indigo-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Importar Romaneios</h2>
+                <p className="text-sm text-muted-foreground">Importe leads e vendas do sistema antigo</p>
+              </div>
+            </div>
+            <RomaneioImporter />
           </div>
         )}
 
