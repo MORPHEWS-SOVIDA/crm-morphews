@@ -6948,6 +6948,7 @@ export type Database = {
           wasender_api_key: string | null
           wasender_session_id: string | null
           wavoip_api_key: string | null
+          wavoip_device_token: string | null
           wavoip_enabled: boolean
           wavoip_server_url: string | null
           z_api_client_token: string | null
@@ -6986,6 +6987,7 @@ export type Database = {
           wasender_api_key?: string | null
           wasender_session_id?: string | null
           wavoip_api_key?: string | null
+          wavoip_device_token?: string | null
           wavoip_enabled?: boolean
           wavoip_server_url?: string | null
           z_api_client_token?: string | null
@@ -7024,6 +7026,7 @@ export type Database = {
           wasender_api_key?: string | null
           wasender_session_id?: string | null
           wavoip_api_key?: string | null
+          wavoip_device_token?: string | null
           wavoip_enabled?: boolean
           wavoip_server_url?: string | null
           z_api_client_token?: string | null

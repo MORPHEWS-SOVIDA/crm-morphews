@@ -4,19 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export type WavoipStatus = 'checking' | 'available' | 'unavailable' | 'error' | 'disabled';
+export type WavoipStatus = 'checking' | 'available' | 'unavailable' | 'error' | 'disabled' | 'no_token';
 
 interface WavoipConfig {
   instanceId: string;
   instanceName: string;
   wavoipEnabled: boolean;
-  evolutionApiUrl?: string;
-  evolutionApiKey?: string;
-}
-
-interface WavoipCheckResult {
-  status: WavoipStatus;
-  error: string | null;
+  wavoipDeviceToken?: string | null;
 }
 
 interface MakeCallParams {
@@ -28,11 +22,13 @@ interface MakeCallParams {
   isVideo?: boolean;
 }
 
-// Calls are proxied through a backend function (keeps server URL/API key private)
-// and allows per-instance configuration for multi-tenant setups.
-
 /**
- * Hook para gerenciar chamadas Wavoip via Evolution API
+ * Hook para gerenciar chamadas Wavoip via Wavoip SaaS
+ * 
+ * ARQUITETURA:
+ * - Evolution API: Gerencia mensagens WhatsApp
+ * - Wavoip SaaS (app.wavoip.com): Gerencia chamadas de voz
+ * - Conexão via device_token único por instância
  */
 export function useWavoip(instanceId?: string | null) {
   const { profile } = useAuth();
@@ -49,7 +45,7 @@ export function useWavoip(instanceId?: string | null) {
       
       const { data, error } = await supabase
         .from('whatsapp_instances')
-        .select('id, name, wavoip_enabled, evolution_instance_id')
+        .select('id, name, wavoip_enabled, wavoip_device_token, evolution_instance_id')
         .eq('id', instanceId)
         .single();
 
@@ -62,24 +58,29 @@ export function useWavoip(instanceId?: string | null) {
         instanceId: data.id,
         instanceName: data.evolution_instance_id || data.name,
         wavoipEnabled: data.wavoip_enabled ?? false,
+        wavoipDeviceToken: data.wavoip_device_token,
       } as WavoipConfig;
     },
     enabled: !!instanceId,
   });
 
-  // Check Wavoip availability (client-side): if enabled on the instance, we allow dialing.
-  // Real integration errors are surfaced when attempting a call (handled by the backend function).
+  // Check Wavoip availability based on configuration
   const checkWavoipAvailability = useCallback(async () => {
-    // If instance doesn't have Wavoip enabled, skip
     if (!instanceConfig?.wavoipEnabled) {
       setWavoipStatus('disabled');
       setWavoipError('Chamadas não habilitadas para esta instância');
       return;
     }
 
+    if (!instanceConfig?.wavoipDeviceToken) {
+      setWavoipStatus('no_token');
+      setWavoipError('Token Wavoip não configurado. Acesse as configurações da instância.');
+      return;
+    }
+
     setWavoipStatus('available');
     setWavoipError(null);
-  }, [instanceConfig?.wavoipEnabled]);
+  }, [instanceConfig?.wavoipEnabled, instanceConfig?.wavoipDeviceToken]);
 
   // Check availability when instance config changes
   useEffect(() => {
@@ -91,7 +92,7 @@ export function useWavoip(instanceId?: string | null) {
     }
   }, [instanceConfig, checkWavoipAvailability, instanceId]);
 
-  // Make WhatsApp call
+  // Make WhatsApp call via Wavoip SaaS
   const makeCall = useCallback(async ({
     instanceName,
     contactPhone,
@@ -100,9 +101,10 @@ export function useWavoip(instanceId?: string | null) {
     conversationId,
     isVideo = false,
   }: MakeCallParams): Promise<boolean> => {
-    console.log('📞 ===== INICIANDO CHAMADA =====');
+    console.log('📞 ===== INICIANDO CHAMADA WAVOIP =====');
     
     console.log('📞 Dados da chamada:', {
+      instanceId,
       instanceName,
       contactPhone,
       contactName,
@@ -117,9 +119,10 @@ export function useWavoip(instanceId?: string | null) {
       return false;
     }
 
-    if (!instanceName) {
-      // Not fatal: the backend resolves the instance name from instanceId.
-      console.warn('⚠️ instanceName vazio; prosseguindo via instanceId');
+    if (!instanceConfig?.wavoipDeviceToken) {
+      console.error('❌ Token Wavoip não configurado');
+      toast.error('Configure o token Wavoip nas configurações da instância');
+      return false;
     }
     
     if (!contactPhone) {
@@ -128,30 +131,30 @@ export function useWavoip(instanceId?: string | null) {
       return false;
     }
 
-    // Format phone number
+    // Format phone number for Wavoip
     let cleanPhone = contactPhone.replace(/\D/g, '');
+    
+    // Brazilian phone number formatting
     if (cleanPhone.startsWith('55') && cleanPhone.length === 12) {
       // Add 9th digit if missing for Brazilian mobiles
       cleanPhone = cleanPhone.slice(0, 4) + '9' + cleanPhone.slice(4);
     }
-    const formattedNumber = `${cleanPhone}@s.whatsapp.net`;
 
-    console.log('📞 Número formatado:', formattedNumber);
+    console.log('📞 Número formatado:', cleanPhone);
 
     setIsLoadingCall(true);
-    toast.info('📞 Iniciando chamada...');
+    toast.info('📞 Iniciando chamada via Wavoip...');
 
     try {
       const { data, error } = await supabase.functions.invoke('wavoip-call-offer', {
         body: {
           instanceId,
-          number: formattedNumber,
+          number: cleanPhone,
           isVideo,
           callDuration: 30,
         },
       });
 
-      // With our proxy always returning 200, we should not hit `error` in normal cases.
       if (error) throw new Error(error.message);
 
       const ok = Boolean((data as any)?.ok);
@@ -159,7 +162,7 @@ export function useWavoip(instanceId?: string | null) {
       const responseData = (data as any)?.raw;
       const proxyError = (data as any)?.error as string | undefined;
 
-      console.log('📞 Resposta recebida (proxy):', { ok, upstreamStatus, proxyError, responseData });
+      console.log('📞 Resposta recebida (Wavoip):', { ok, upstreamStatus, proxyError, responseData });
 
       // Log the call
       if (profile?.organization_id && instanceId) {
@@ -190,16 +193,13 @@ export function useWavoip(instanceId?: string | null) {
 
       if (!proxyError) {
         if (upstreamStatus === 404) {
-          errorMessage =
-            responseData?.message ||
-            responseData?.error ||
-            'O servidor retornou 404 ao iniciar a chamada. Verifique o endpoint de ligações no Evolution.';
+          errorMessage = 'Endpoint não encontrado. Verifique a configuração do Wavoip.';
         } else if (upstreamStatus === 401 || upstreamStatus === 403) {
-          errorMessage = 'Erro de autenticação no servidor de chamadas.';
+          errorMessage = 'Token Wavoip inválido ou expirado.';
         } else if (upstreamStatus === 400) {
           errorMessage = responseData?.message || responseData?.error || 'Dados inválidos';
         } else if (upstreamStatus >= 500) {
-          errorMessage = 'Erro interno do servidor de chamadas.';
+          errorMessage = 'Erro no servidor Wavoip. Tente novamente.';
         } else if (responseData?.error) {
           errorMessage = responseData.error;
         } else if (responseData?.message) {
@@ -213,11 +213,11 @@ export function useWavoip(instanceId?: string | null) {
       return false;
     } catch (error: any) {
       console.error('❌ ===== EXCEÇÃO/ERRO DE REDE =====', error);
-      toast.error(error?.message || 'Erro de conexão.');
+      toast.error(error?.message || 'Erro de conexão com Wavoip.');
       setIsLoadingCall(false);
       return false;
     }
-  }, [instanceId, profile]);
+  }, [instanceId, instanceConfig?.wavoipDeviceToken, profile]);
 
   return {
     wavoipStatus,
@@ -378,7 +378,6 @@ export function useCallQueue(instanceId?: string | null) {
         .update({ 
           position: maxPosition + 1,
           last_call_at: new Date().toISOString(),
-          calls_received: supabase.rpc ? undefined : undefined, // Would need RPC for increment
         })
         .eq('instance_id', instanceId)
         .eq('user_id', userId);
