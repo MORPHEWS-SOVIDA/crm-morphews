@@ -50,7 +50,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
 import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { QuickLeadActions } from '@/components/whatsapp/QuickLeadActions';
 
 type StatusTab = 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed';
 
@@ -118,6 +119,7 @@ interface InstanceUserPermission {
 export default function WhatsAppChat() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: funnelStages } = useFunnelStages();
   const { claimConversation, closeConversation } = useConversationDistribution();
   const { data: crossInstanceMap } = useCrossInstanceConversations();
@@ -1585,12 +1587,21 @@ export default function WhatsAppChat() {
 
                     <Separator />
 
-                    {/* Etapa do funil com nome correto */}
+                    {/* Etapa do funil - editável inline */}
                     <div>
                       <span className="text-sm text-muted-foreground">Etapa do funil</span>
-                      <Badge variant="secondary" className="mt-1 block w-fit">
-                        {getStageDisplayName(lead.stage)}
-                      </Badge>
+                      <div className="mt-1">
+                        <QuickLeadActions
+                          leadId={lead.id}
+                          leadName={lead.name}
+                          leadStage={lead.stage}
+                          instanceId={activeInstanceId ?? selectedConversation.instance_id}
+                          onStageChange={() => {
+                            // Refetch lead data when stage changes
+                            queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Instância ativa (sub-aba) */}
