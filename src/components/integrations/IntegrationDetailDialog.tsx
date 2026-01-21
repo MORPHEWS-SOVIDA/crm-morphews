@@ -454,11 +454,28 @@ export function IntegrationDetailDialog({
   };
 
   const handleSaveMappings = async () => {
-    // Filter out ignored fields and empty source fields
-    const validMappings = mappings.filter(m => 
-      m.source_field.trim() && 
-      m.target_field !== '__ignore__'
-    );
+    // Filter out ignored/unselected fields and empty source fields
+    const validMappings = mappings.filter(m => {
+      const source = m.source_field?.trim();
+      const target = m.target_field?.trim();
+      return !!source && !!target && target !== '__ignore__' && target !== '__none__';
+    });
+
+    // Defensive: prevent duplicate target fields (even if UI failed to block)
+    const counts = new Map<string, number>();
+    for (const m of validMappings) {
+      counts.set(m.target_field, (counts.get(m.target_field) || 0) + 1);
+    }
+    const duplicatedTargets = Array.from(counts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([target]) => target);
+    if (duplicatedTargets.length > 0) {
+      toast.error('Existem campos duplicados no mapeamento', {
+        description: `Esses destinos foram selecionados mais de uma vez: ${duplicatedTargets.join(', ')}`,
+      });
+      return;
+    }
+
     await saveFieldMappings.mutateAsync({
       integrationId: integration.id,
       mappings: validMappings.map(m => ({
