@@ -5754,6 +5754,125 @@ export type Database = {
           },
         ]
       }
+      secretary_conversation_history: {
+        Row: {
+          created_at: string
+          direction: string
+          id: string
+          message_content: string
+          message_type: string | null
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          id?: string
+          message_content: string
+          message_type?: string | null
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          id?: string
+          message_content?: string
+          message_type?: string | null
+          phone?: string
+        }
+        Relationships: []
+      }
+      secretary_message_templates: {
+        Row: {
+          created_at: string
+          day_of_week: number | null
+          days_without_contact: number | null
+          id: string
+          is_active: boolean
+          message_content: string
+          message_title: string
+          message_type: Database["public"]["Enums"]["secretary_message_type"]
+          recipient_type: Database["public"]["Enums"]["secretary_recipient_type"]
+          scheduled_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week?: number | null
+          days_without_contact?: number | null
+          id?: string
+          is_active?: boolean
+          message_content: string
+          message_title: string
+          message_type?: Database["public"]["Enums"]["secretary_message_type"]
+          recipient_type: Database["public"]["Enums"]["secretary_recipient_type"]
+          scheduled_time?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number | null
+          days_without_contact?: number | null
+          id?: string
+          is_active?: boolean
+          message_content?: string
+          message_title?: string
+          message_type?: Database["public"]["Enums"]["secretary_message_type"]
+          recipient_type?: Database["public"]["Enums"]["secretary_recipient_type"]
+          scheduled_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      secretary_sent_messages: {
+        Row: {
+          error_message: string | null
+          id: string
+          message_content: string
+          recipient_name: string | null
+          recipient_org_id: string | null
+          recipient_phone: string
+          recipient_user_id: string | null
+          sent_at: string
+          sent_date: string
+          status: string
+          template_id: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          message_content: string
+          recipient_name?: string | null
+          recipient_org_id?: string | null
+          recipient_phone: string
+          recipient_user_id?: string | null
+          sent_at?: string
+          sent_date?: string
+          status?: string
+          template_id?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          message_content?: string
+          recipient_name?: string | null
+          recipient_org_id?: string | null
+          recipient_phone?: string
+          recipient_user_id?: string | null
+          sent_at?: string
+          sent_date?: string
+          status?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secretary_sent_messages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "secretary_message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipping_carriers: {
         Row: {
           cost_cents: number
@@ -8407,6 +8526,13 @@ export type Database = {
         | "payment_confirmed"
         | "cancelled"
         | "returned"
+      secretary_message_type:
+        | "scheduled"
+        | "followup"
+        | "birthday"
+        | "welcome"
+        | "reactivation"
+      secretary_recipient_type: "owners" | "users"
       standard_question_category:
         | "dores_articulares"
         | "emagrecimento"
@@ -8684,6 +8810,14 @@ export const Constants = {
         "cancelled",
         "returned",
       ],
+      secretary_message_type: [
+        "scheduled",
+        "followup",
+        "birthday",
+        "welcome",
+        "reactivation",
+      ],
+      secretary_recipient_type: ["owners", "users"],
       standard_question_category: [
         "dores_articulares",
         "emagrecimento",
