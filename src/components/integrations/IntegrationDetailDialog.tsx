@@ -57,6 +57,7 @@ import {
   TARGET_FIELDS,
   TRANSFORM_TYPES,
 } from '@/hooks/useIntegrations';
+import { useCustomFieldDefinitions } from '@/hooks/useLeadCustomFields';
 import { useProducts } from '@/hooks/useProducts';
 import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
@@ -93,6 +94,7 @@ export function IntegrationDetailDialog({
   const { data: users } = useUsers();
   const { data: nonPurchaseReasons } = useNonPurchaseReasons();
   const { data: funnelStages } = useFunnelStages();
+  const { data: customFieldDefs = [] } = useCustomFieldDefinitions();
   
   const updateIntegration = useUpdateIntegration();
   const saveFieldMappings = useSaveFieldMappings();
@@ -451,9 +453,9 @@ export function IntegrationDetailDialog({
     return new Set(mappings.map(m => m.target_field));
   }, [mappings]);
 
-  // Group target fields
+  // Group target fields including custom fields
   const groupedTargetFields = useMemo(() => {
-    const groups: Record<string, typeof TARGET_FIELDS> = {
+    const groups: Record<string, { value: string; label: string; group?: string }[]> = {
       lead: [],
       address: [],
       sale: [],
@@ -467,8 +469,17 @@ export function IntegrationDetailDialog({
       }
     });
     
+    // Add custom fields dynamically
+    customFieldDefs.forEach(def => {
+      groups.custom.push({
+        value: `custom_${def.field_name}`,
+        label: def.field_label,
+        group: 'custom',
+      });
+    });
+    
     return groups;
-  }, []);
+  }, [customFieldDefs]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

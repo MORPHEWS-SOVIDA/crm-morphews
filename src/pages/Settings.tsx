@@ -25,6 +25,7 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { HelpCircle } from 'lucide-react';
 import { DataBackupManager } from '@/components/settings/DataBackupManager';
 import { RomaneioImporter } from '@/components/settings/RomaneioImporter';
+import { CustomFieldsManager } from '@/components/settings/CustomFieldsManager';
 
 export default function Settings() {
   const { profile, updatePassword, user, isAdmin } = useAuth();
@@ -324,6 +325,12 @@ export default function Settings() {
             </div>
             <FunnelStagesManager />
           </div>
+        )}
+
+        {/* Delivery Regions */}
+        {/* Custom Fields - show for admins */}
+        {canAccess('settings_funnel_stages') && (
+          <CustomFieldsManager />
         )}
 
         {/* Delivery Regions */}
