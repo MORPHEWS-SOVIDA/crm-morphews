@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { 
   Loader2, 
@@ -20,9 +21,11 @@ import {
   WifiOff,
   Webhook,
   Send,
-  Check
+  Check,
+  Calendar
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { SecretaryMessagesManager } from "./SecretaryMessagesManager";
 
 interface AdminInstanceConfig {
   instance_name: string;
@@ -445,17 +448,30 @@ export function AdminWhatsAppInstanceTab() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Instância WhatsApp Administrativa
-          </CardTitle>
-          <CardDescription>
-            Configure a instância Evolution API usada para comunicação com clientes:
-            envio de credenciais, notificações de demandas e atualizações de leads via WhatsApp.
-          </CardDescription>
-        </CardHeader>
+      <Tabs defaultValue="config" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="config" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Configuração
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-2">
+            <Calendar className="h-4 w-4" />
+            Mensagens Programadas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="config">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Instância WhatsApp Administrativa
+              </CardTitle>
+              <CardDescription>
+                Configure a instância Evolution API usada para comunicação com clientes:
+                envio de credenciais, notificações de demandas e atualizações de leads via WhatsApp.
+              </CardDescription>
+            </CardHeader>
         <CardContent className="space-y-6">
           {/* Status Card */}
           <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg border bg-muted/30">
@@ -709,8 +725,14 @@ export function AdminWhatsAppInstanceTab() {
               <li>• <strong>Comunicação geral:</strong> Mensagens do sistema para clientes</li>
             </ul>
           </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="messages">
+          <SecretaryMessagesManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
