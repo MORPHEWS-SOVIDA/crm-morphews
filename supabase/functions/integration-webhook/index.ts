@@ -575,9 +575,61 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Validate required fields
+    // ========== ENHANCED WHATSAPP FALLBACK ==========
+    // If no whatsapp found via mappings, try aggressive auto-detection
+    if (!leadData.whatsapp) {
+      console.log('No whatsapp found via mappings, attempting fallback detection...');
+      
+      const phoneAliases = [
+        'whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 
+        'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone', 'buyer_phone',
+        'contact_phone', 'numero_telefone', 'numero_whatsapp', 'contact', 'number',
+        // Nested common paths
+        'customer.phone', 'customer.whatsapp', 'customer.telefone', 'customer.celular',
+        'buyer.phone', 'buyer.whatsapp', 'contact.phone', 'data.phone', 'data.whatsapp',
+        'order.phone', 'order.customer.phone', 'lead.phone', 'lead.whatsapp',
+      ];
+      
+      for (const alias of phoneAliases) {
+        const value = findValueInPayload(payload, alias);
+        if (value) {
+          const normalized = normalizePhone(String(value));
+          if (normalized && normalized.length >= 10) {
+            console.log(`Fallback found phone via "${alias}": ${normalized}`);
+            leadData.whatsapp = normalized;
+            break;
+          }
+        }
+      }
+    }
+
+    // ========== DETAILED ERROR FOR MISSING WHATSAPP ==========
+    // Validate required fields with detailed error message
     if (!leadData.name && !leadData.whatsapp && !leadData.email) {
-      console.error('No identifiable data found in payload');
+      // Collect all phone-like fields found in payload for debugging
+      const phoneFieldsFound: string[] = [];
+      const collectPhoneFields = (obj: any, prefix = ''): void => {
+        if (!obj || typeof obj !== 'object') return;
+        for (const key of Object.keys(obj)) {
+          const fullKey = prefix ? `${prefix}.${key}` : key;
+          const value = obj[key];
+          const lowerKey = key.toLowerCase();
+          if (lowerKey.includes('phone') || lowerKey.includes('whatsapp') || lowerKey.includes('tel') || 
+              lowerKey.includes('celular') || lowerKey.includes('mobile') || lowerKey.includes('fone')) {
+            phoneFieldsFound.push(`${fullKey}=${value}`);
+          }
+          if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            collectPhoneFields(value, fullKey);
+          }
+        }
+      };
+      collectPhoneFields(payload);
+
+      const errorDetails = phoneFieldsFound.length > 0 
+        ? `Campos de telefone encontrados mas não reconhecidos: ${phoneFieldsFound.slice(0, 5).join(', ')}. Configure o mapeamento manualmente.`
+        : 'Nenhum campo de telefone encontrado no payload. Verifique se o provedor está enviando o número.';
+
+      console.error('No identifiable data found in payload. Phone fields:', phoneFieldsFound);
       
       await supabase.from('integration_logs').insert({
         integration_id: typedIntegration.id,
@@ -585,14 +637,15 @@ Deno.serve(async (req) => {
         direction: 'inbound',
         status: 'error',
         request_payload: payload,
-        error_message: 'Nenhum dado identificável encontrado (nome, whatsapp ou email)',
+        error_message: `Nenhum dado identificável encontrado. ${errorDetails}`,
         processing_time_ms: Date.now() - startTime,
       });
 
       return new Response(
         JSON.stringify({ 
           error: 'Nenhum dado identificável encontrado',
-          hint: 'Configure o mapeamento de campos ou envie dados com campos padrão (name, whatsapp, email)',
+          hint: errorDetails,
+          phone_fields_detected: phoneFieldsFound.slice(0, 10),
           received_fields: Object.keys(payload).slice(0, 20),
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -654,8 +707,31 @@ Deno.serve(async (req) => {
         leadData.name = leadData.whatsapp || leadData.email || 'Lead sem nome';
       }
 
-      // WhatsApp is required by schema
+      // WhatsApp is required by schema - provide detailed error
       if (!leadData.whatsapp) {
+        // Collect phone-like fields for better debugging
+        const phoneFieldsFound: string[] = [];
+        const collectPhoneFields = (obj: any, prefix = ''): void => {
+          if (!obj || typeof obj !== 'object') return;
+          for (const key of Object.keys(obj)) {
+            const fullKey = prefix ? `${prefix}.${key}` : key;
+            const value = obj[key];
+            const lowerKey = key.toLowerCase();
+            if (lowerKey.includes('phone') || lowerKey.includes('whatsapp') || lowerKey.includes('tel') || 
+                lowerKey.includes('celular') || lowerKey.includes('mobile') || lowerKey.includes('fone')) {
+              phoneFieldsFound.push(`${fullKey}=${value}`);
+            }
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+              collectPhoneFields(value, fullKey);
+            }
+          }
+        };
+        collectPhoneFields(payload);
+
+        const errorMessage = phoneFieldsFound.length > 0
+          ? `Campo whatsapp é obrigatório para criar lead. Encontrei campos de telefone que não foram mapeados: ${phoneFieldsFound.slice(0, 3).join(', ')}. Configure o mapeamento na aba "Mapeamento" da integração.`
+          : `Campo whatsapp é obrigatório para criar lead. Nenhum campo de telefone encontrado no payload. Verifique se o provedor está enviando o número corretamente.`;
+
         await supabase.from('integration_logs').insert({
           integration_id: typedIntegration.id,
           organization_id: typedIntegration.organization_id,
@@ -663,11 +739,15 @@ Deno.serve(async (req) => {
           status: 'error',
           event_type: 'missing_required',
           request_payload: payload,
-          error_message: 'Campo whatsapp é obrigatório para criar lead',
+          error_message: errorMessage,
           processing_time_ms: Date.now() - startTime,
         });
 
-        return new Response(JSON.stringify({ error: 'Campo whatsapp é obrigatório para criar lead' }), {
+        return new Response(JSON.stringify({ 
+          error: 'Campo whatsapp é obrigatório para criar lead',
+          hint: errorMessage,
+          phone_fields_detected: phoneFieldsFound.slice(0, 10),
+        }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

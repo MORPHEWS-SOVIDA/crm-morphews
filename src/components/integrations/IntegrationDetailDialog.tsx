@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -280,11 +281,34 @@ export function IntegrationDetailDialog({
     setDetectedFields(detected);
     setShowPayloadViewer(true);
     
+    // AUTO-APPLY: Create mappings for ALL detected fields with suggestions (not just ignored)
+    // This ensures when user clicks "Save", all auto-detected mappings are saved
+    const autoMappings: FieldMappingRow[] = [];
+    for (const field of detected) {
+      if (field.suggested_target && field.suggested_target !== '__ignore__' && field.suggested_target !== '__none__') {
+        autoMappings.push({
+          id: `auto-${Date.now()}-${field.key}`,
+          source_field: field.key,
+          target_field: field.suggested_target,
+          transform_type: field.suggested_target === 'whatsapp' ? 'phone_normalize' : 'direct',
+        });
+      }
+    }
+    
+    // Merge with existing mappings (preserve user edits, add new auto-detected)
+    const existingSourceFields = new Set(mappings.map(m => m.source_field));
+    const newMappings = autoMappings.filter(m => !existingSourceFields.has(m.source_field));
+    
+    if (newMappings.length > 0) {
+      setMappings(prev => [...prev, ...newMappings]);
+      setHasUnsavedMappings(true);
+    }
+    
     if (detected.length === 0) {
       toast.info('Nenhum campo encontrado no payload. Verifique os logs.');
     } else {
       const recognized = detected.filter(d => d.suggested_target !== '__ignore__').length;
-      toast.success(`${detected.length} campos detectados! ${recognized} reconhecidos, ${detected.length - recognized} marcados como ignorar.`);
+      toast.success(`${detected.length} campos detectados! ${recognized} mapeados automaticamente. Clique em "Salvar Mapeamentos" para confirmar.`);
     }
   };
 
@@ -552,7 +576,7 @@ export function IntegrationDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl max-h-[90vh] sm:max-h-[92vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -601,73 +625,78 @@ export function IntegrationDetailDialog({
           <ScrollArea className="flex-1 pr-4 touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
             <TabsContent value="config" className="space-y-4 mt-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="pb-2">
                   <CardTitle className="text-lg">URLs do Webhook</CardTitle>
                   <CardDescription>
                     Cole estas URLs no sistema externo (Payt, Hotmart, etc)
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* URL de Teste */}
-                  <div className="p-4 border-2 border-dashed border-blue-500/50 rounded-lg bg-blue-500/5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 dark:text-blue-400">
-                        1º PASSO - TESTE
+                <CardContent className="space-y-3">
+                  {/* URLs in compact layout */}
+                  <div className="grid gap-3">
+                    {/* URL de Teste - one line */}
+                    <div className="flex items-center gap-3 p-3 border-2 border-dashed border-blue-500/50 rounded-lg bg-blue-500/5">
+                      <Badge variant="secondary" className="shrink-0 bg-blue-500/20 text-blue-700 dark:text-blue-400">
+                        1º TESTE
                       </Badge>
-                    </div>
-                    <Label className="text-sm font-medium mb-2 block">URL de Teste (use primeiro!)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        readOnly
-                        value={webhookTestUrl}
-                        className="font-mono text-xs bg-background"
-                      />
-                      <Button 
-                        size="icon" 
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(webhookTestUrl);
-                          toast.success('URL de teste copiada!');
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      ✅ Use esta URL para testar na Payt. Ela registra nos logs mas <strong>não cria leads/vendas</strong>.
-                    </p>
-                  </div>
-
-                  {/* URL de Produção */}
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary" className="bg-green-500/20 text-green-700 dark:text-green-400">
-                        2º PASSO - PRODUÇÃO
-                      </Badge>
-                    </div>
-                    <Label className="text-sm font-medium mb-2 block">URL de Produção</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        readOnly
-                        value={webhookUrl}
-                        className="font-mono text-xs"
-                      />
-                      <Button size="icon" variant="outline" onClick={handleCopyUrl}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      ⚠️ Após validar o teste, troque para esta URL. Ela <strong>cria leads/vendas de verdade</strong>.
-                    </p>
-                  </div>
-
-                  {/* Testar conexão do CRM */}
-                  <div className="border-t pt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <Label className="text-sm font-medium">Testar Conexão (do CRM)</Label>
-                        <p className="text-xs text-muted-foreground">Verifica se nosso servidor está funcionando</p>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <code className="text-xs text-muted-foreground truncate block flex-1">
+                          {webhookTestUrl.length > 60 ? webhookTestUrl.slice(0, 60) + '...' : webhookTestUrl}
+                        </code>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="shrink-0 h-8"
+                              onClick={() => {
+                                navigator.clipboard.writeText(webhookTestUrl);
+                                toast.success('URL de teste copiada!');
+                              }}
+                            >
+                              <Copy className="h-3.5 w-3.5 mr-1" />
+                              Copiar
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs">Use primeiro para testar. Registra nos logs mas <strong>não cria leads/vendas</strong>.</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
+                    </div>
+
+                    {/* URL de Produção - one line */}
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                      <Badge variant="secondary" className="shrink-0 bg-green-500/20 text-green-700 dark:text-green-400">
+                        2º PRODUÇÃO
+                      </Badge>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <code className="text-xs text-muted-foreground truncate block flex-1">
+                          {webhookUrl.length > 60 ? webhookUrl.slice(0, 60) + '...' : webhookUrl}
+                        </code>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="shrink-0 h-8"
+                              onClick={handleCopyUrl}
+                            >
+                              <Copy className="h-3.5 w-3.5 mr-1" />
+                              Copiar
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs">Após validar o teste, troque para esta. <strong>Cria leads/vendas de verdade</strong>.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test connection and instructions in one row */}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center gap-2">
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -679,39 +708,41 @@ export function IntegrationDetailDialog({
                         ) : (
                           <Play className="h-4 w-4 mr-1" />
                         )}
-                        {isTesting ? 'Testando...' : 'Testar'}
+                        {isTesting ? 'Testando...' : 'Testar Conexão'}
                       </Button>
+                      
+                      {testResult && (
+                        <div className={`flex items-center gap-1.5 text-sm ${
+                          testResult.success 
+                            ? 'text-green-600' 
+                            : 'text-red-600'
+                        }`}>
+                          {testResult.success ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4" />
+                          )}
+                          <span className="text-xs">{testResult.message}</span>
+                        </div>
+                      )}
                     </div>
                     
-                    {testResult && (
-                      <div className={`p-3 rounded-lg flex items-start gap-2 ${
-                        testResult.success 
-                          ? 'bg-green-500/10 text-green-700 dark:text-green-400' 
-                          : 'bg-red-500/10 text-red-700 dark:text-red-400'
-                      }`}>
-                        {testResult.success ? (
-                          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                        )}
-                        <span className="text-sm">{testResult.message}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                      <div className="text-xs text-muted-foreground">
-                        <p className="font-medium mb-1">Como configurar na Payt:</p>
-                        <ol className="list-decimal list-inside space-y-0.5">
-                          <li>Copie a <strong>URL de Teste</strong> acima</li>
-                          <li>Cole na Payt e clique em Salvar</li>
-                          <li>Volte aqui e veja a aba "Logs" - deve aparecer o evento de teste</li>
-                          <li>Se funcionou, troque para a <strong>URL de Produção</strong> na Payt</li>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-sm">
+                        <p className="font-medium mb-1">Como configurar:</p>
+                        <ol className="text-xs space-y-0.5 list-decimal list-inside">
+                          <li>Copie a <strong>URL de Teste</strong></li>
+                          <li>Cole na Payt/Hotmart e salve</li>
+                          <li>Veja a aba "Logs" aqui - deve aparecer o evento</li>
+                          <li>Se funcionou, troque para a <strong>URL de Produção</strong></li>
                         </ol>
-                      </div>
-                    </div>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </CardContent>
               </Card>
