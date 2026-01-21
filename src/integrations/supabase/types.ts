@@ -139,6 +139,7 @@ export type Database = {
           organization_id: string
           out_of_hours_message: string | null
           personality_description: string | null
+          product_scope: string | null
           regional_expressions: string[] | null
           response_length: string
           service_type: string
@@ -147,6 +148,7 @@ export type Database = {
           transfer_message: string | null
           transfer_on_confusion: boolean | null
           updated_at: string
+          use_rag_search: boolean | null
           welcome_message: string | null
           working_days: number[] | null
           working_hours_end: string | null
@@ -170,6 +172,7 @@ export type Database = {
           organization_id: string
           out_of_hours_message?: string | null
           personality_description?: string | null
+          product_scope?: string | null
           regional_expressions?: string[] | null
           response_length?: string
           service_type?: string
@@ -178,6 +181,7 @@ export type Database = {
           transfer_message?: string | null
           transfer_on_confusion?: boolean | null
           updated_at?: string
+          use_rag_search?: boolean | null
           welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
@@ -201,6 +205,7 @@ export type Database = {
           organization_id?: string
           out_of_hours_message?: string | null
           personality_description?: string | null
+          product_scope?: string | null
           regional_expressions?: string[] | null
           response_length?: string
           service_type?: string
@@ -209,6 +214,7 @@ export type Database = {
           transfer_message?: string | null
           transfer_on_confusion?: boolean | null
           updated_at?: string
+          use_rag_search?: boolean | null
           welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
@@ -4141,6 +4147,57 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_embeddings: {
+        Row: {
+          content_hash: string
+          content_text: string
+          content_type: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          organization_id: string
+          product_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          content_hash: string
+          content_text: string
+          content_type: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          organization_id: string
+          product_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          content_hash?: string
+          content_text?: string
+          content_type?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          organization_id?: string
+          product_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_embeddings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_embeddings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
             referencedColumns: ["id"]
           },
         ]
