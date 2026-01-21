@@ -473,11 +473,18 @@ export function ProductSelectionDialog({
       multiplier: finalQuantity, // Number of units purchased
     };
 
+    // For kit system: Calculate the per-unit price
+    // baseUnitPrice is the TOTAL kit price (e.g., R$240 for 12 units)
+    // We need to pass the per-unit price (e.g., R$20 per unit) so quantity × unit_price = correct total
+    const unitPriceForSale = usesKitSystem && selectedKit 
+      ? Math.round(baseUnitPrice / selectedKit.quantity) // Per-unit price: kit_price / kit_quantity
+      : baseUnitPrice;
+    
     onConfirm({
       product_id: product.id,
       product_name: product.name,
       quantity: finalQuantity,
-      unit_price_cents: quantityMultiplier > 1 ? effectiveUnitPrice : baseUnitPrice,
+      unit_price_cents: unitPriceForSale,
       discount_cents: discountCents,
       requisition_number: isManipulado ? requisitionNumber : null,
       commission_percentage: commission,
