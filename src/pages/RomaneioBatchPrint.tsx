@@ -311,7 +311,7 @@ export default function RomaneioBatchPrint() {
                 <td className="border border-black p-0.5">
                   {item.product_name}
                   {item.requisition_number && (
-                    <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                    <span className="font-bold ml-1" style={{ fontSize: '7px' }}>[Req:{item.requisition_number}]</span>
                   )}
                 </td>
                 <td className="border border-black p-0.5 text-center">{item.quantity}</td>
@@ -415,7 +415,10 @@ export default function RomaneioBatchPrint() {
           <tbody>
             {sale.items.map((item) => (
               <tr key={item.id}>
-                <td>{item.quantity}x {item.product_name}</td>
+                <td>
+                  {item.quantity}x {item.product_name}
+                  {item.requisition_number && <span className="font-bold"> [Req:{item.requisition_number}]</span>}
+                </td>
                 <td className="text-right">{formatCurrency(item.total_cents)}</td>
               </tr>
             ))}

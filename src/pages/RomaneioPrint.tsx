@@ -307,7 +307,7 @@ export default function RomaneioPrint() {
                 <td className="border border-black p-0.5">
                   {item.product_name}
                   {item.requisition_number && (
-                    <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                    <span className="font-bold ml-1" style={{ fontSize: '7px' }}>[Req:{item.requisition_number}]</span>
                   )}
                 </td>
                 <td className="border border-black p-0.5 text-center font-bold" title={qtyInfo.tooltip}>
@@ -332,7 +332,15 @@ export default function RomaneioPrint() {
         <span style={{ fontSize: '9px' }}>
           {!sale.payment_confirmed_at && <strong>PAGO? NÃO</strong>}
         </span>
-        <span className="font-bold" style={{ fontSize: '12px' }}>TOTAL: {formatCurrency(sale.total_cents)}</span>
+        <div className="text-right">
+          {sale.discount_cents > 0 && (
+            <div style={{ fontSize: '9px' }}>
+              <span className="line-through text-gray-500">DE {formatCurrency(sale.total_cents + sale.discount_cents)}</span>
+              <span className="font-bold text-green-700 ml-1">POR</span>
+            </div>
+          )}
+          <span className="font-bold" style={{ fontSize: '12px' }}>TOTAL: {formatCurrency(sale.total_cents)}</span>
+        </div>
       </div>
 
       {/* Footer: Status checkboxes + Signatures - all compact */}
@@ -391,7 +399,7 @@ export default function RomaneioPrint() {
                 <td className="border border-black p-0.5">
                   {item.product_name}
                   {item.requisition_number && (
-                    <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                    <span className="font-bold ml-1" style={{ fontSize: '7px' }}>[Req:{item.requisition_number}]</span>
                   )}
                 </td>
                 <td className="border border-black p-0.5 text-center font-bold" title={qtyInfo.tooltip}>
@@ -465,7 +473,7 @@ export default function RomaneioPrint() {
               <div key={item.id} className="flex justify-between py-0.5" style={{ fontSize: '9px' }}>
                 <span className="flex-1">
                   <span className="font-bold">{qtyInfo.label}</span> {item.product_name}
-                  {item.requisition_number && <span style={{ fontSize: '8px' }} className="block text-amber-700">Req:{item.requisition_number}</span>}
+                  {item.requisition_number && <span style={{ fontSize: '8px' }} className="block font-bold">[Req:{item.requisition_number}]</span>}
                 </span>
                 <span className="ml-2">{formatCurrency(item.total_cents)}</span>
               </div>
@@ -481,13 +489,12 @@ export default function RomaneioPrint() {
           <span className="font-bold">{sale.payment_confirmed_at ? 'SIM ✓' : 'NÃO'}</span>
         </div>
         {sale.discount_cents > 0 && (
-          <div className="flex justify-between" style={{ fontSize: '9px' }}>
-            <span>Desconto:</span>
-            <span>-{formatCurrency(sale.discount_cents)}</span>
+          <div className="text-right" style={{ fontSize: '9px' }}>
+            <span className="line-through text-gray-500">DE {formatCurrency(sale.total_cents + sale.discount_cents)}</span>
           </div>
         )}
         <div className="flex justify-between font-bold text-lg mt-1 pt-1 border-t border-black">
-          <span>TOTAL:</span>
+          <span>{sale.discount_cents > 0 ? 'POR:' : 'TOTAL:'}</span>
           <span>{formatCurrency(sale.total_cents)}</span>
         </div>
       </div>
