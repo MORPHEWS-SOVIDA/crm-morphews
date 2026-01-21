@@ -12,6 +12,7 @@ export interface CustomFieldDefinition {
   is_required: boolean;
   position: number;
   is_active: boolean;
+  webhook_alias: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +61,7 @@ export function useCreateCustomField() {
       field_label: string;
       field_type?: 'text' | 'number' | 'date' | 'boolean';
       is_required?: boolean;
+      webhook_alias?: string;
     }) => {
       if (!tenantId) throw new Error('Organização não encontrada');
       
@@ -94,6 +96,7 @@ export function useCreateCustomField() {
           field_type: data.field_type || 'text',
           is_required: data.is_required || false,
           position: nextPosition,
+          webhook_alias: data.webhook_alias || null,
         })
         .select()
         .single();

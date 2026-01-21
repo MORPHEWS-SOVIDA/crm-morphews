@@ -1919,6 +1919,7 @@ export type Database = {
           organization_id: string
           position: number | null
           updated_at: string
+          webhook_alias: string | null
         }
         Insert: {
           created_at?: string
@@ -1931,6 +1932,7 @@ export type Database = {
           organization_id: string
           position?: number | null
           updated_at?: string
+          webhook_alias?: string | null
         }
         Update: {
           created_at?: string
@@ -1943,6 +1945,7 @@ export type Database = {
           organization_id?: string
           position?: number | null
           updated_at?: string
+          webhook_alias?: string | null
         }
         Relationships: [
           {
