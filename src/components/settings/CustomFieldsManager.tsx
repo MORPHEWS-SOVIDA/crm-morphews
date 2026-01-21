@@ -58,6 +58,7 @@ export function CustomFieldsManager() {
   const [newField, setNewField] = useState({
     field_label: '',
     field_type: 'text' as 'text' | 'number' | 'date' | 'boolean',
+    webhook_alias: '',
   });
 
   const handleCreate = async () => {
@@ -67,9 +68,10 @@ export function CustomFieldsManager() {
       field_name: newField.field_label,
       field_label: newField.field_label.trim(),
       field_type: newField.field_type,
+      webhook_alias: newField.webhook_alias.trim() || undefined,
     });
     
-    setNewField({ field_label: '', field_type: 'text' });
+    setNewField({ field_label: '', field_type: 'text', webhook_alias: '' });
     setIsDialogOpen(false);
   };
 
@@ -153,6 +155,19 @@ export function CustomFieldsManager() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="space-y-2">
+                  <Label>Termo para Integração (opcional)</Label>
+                  <Input
+                    placeholder="Ex: data.subscription.plan.name"
+                    value={newField.webhook_alias}
+                    onChange={(e) => setNewField(prev => ({ ...prev, webhook_alias: e.target.value }))}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Se este termo vier no webhook, o sistema irá mapear automaticamente para este campo.
+                  </p>
+                </div>
               </div>
               
               <DialogFooter>
@@ -215,6 +230,11 @@ export function CustomFieldsManager() {
                 )}
                 <p className="text-xs text-muted-foreground font-mono">
                   {field.field_name}
+                  {(field as any).webhook_alias && (
+                    <span className="ml-2 text-blue-600 dark:text-blue-400">
+                      → {(field as any).webhook_alias}
+                    </span>
+                  )}
                 </p>
               </div>
               

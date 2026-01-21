@@ -180,6 +180,7 @@ export function IntegrationDetailDialog({
 
   // Auto-detect fields from last payload - ALWAYS works, shows ALL fields
   // Ensures each target field is only auto-suggested ONCE (no duplicates)
+  // Non-recognized fields default to "IGNORAR"
   const autoDetectFields = () => {
     if (!lastPayload) {
       toast.error('Nenhum payload recebido ainda. Envie um webhook primeiro.');
@@ -212,6 +213,14 @@ export function IntegrationDetailDialog({
       sale_external_id: ['order_id', 'orderId', 'pedido_id', 'transaction_id', 'transactionId', 'external_id', 'externalId', 'transaction', 'id_pedido'],
     };
 
+    // Build custom field aliases from webhook_alias definitions
+    const customFieldAliases: Record<string, string> = {};
+    customFieldDefs.forEach(def => {
+      if (def.webhook_alias) {
+        customFieldAliases[def.webhook_alias.toLowerCase()] = `custom_${def.field_name}`;
+      }
+    });
+
     const flattenPayload = (obj: any, prefix = ''): void => {
       if (!obj || typeof obj !== 'object') return;
       
@@ -226,20 +235,30 @@ export function IntegrationDetailDialog({
           let suggested: string | null = null;
           const lowerKey = key.toLowerCase().replace(/[_\s-]/g, '');
           
-          for (const [target, aliases] of Object.entries(fieldAliases)) {
-            // Only suggest if this target hasn't been suggested yet
-            if (!alreadySuggestedTargets.has(target) && aliases.some(a => a.replace(/[_\s-]/g, '') === lowerKey)) {
-              suggested = target;
-              alreadySuggestedTargets.add(target); // Mark as used
-              break;
+          // First check custom field webhook_alias (exact match on full key)
+          const fullKeyLower = fullKey.toLowerCase();
+          if (customFieldAliases[fullKeyLower] && !alreadySuggestedTargets.has(customFieldAliases[fullKeyLower])) {
+            suggested = customFieldAliases[fullKeyLower];
+            alreadySuggestedTargets.add(suggested);
+          }
+          
+          // Then check standard field aliases
+          if (!suggested) {
+            for (const [target, aliases] of Object.entries(fieldAliases)) {
+              // Only suggest if this target hasn't been suggested yet
+              if (!alreadySuggestedTargets.has(target) && aliases.some(a => a.replace(/[_\s-]/g, '') === lowerKey)) {
+                suggested = target;
+                alreadySuggestedTargets.add(target); // Mark as used
+                break;
+              }
             }
           }
           
-          // Add ALL fields to detected list - user will choose to map or ignore
+          // If no suggestion found, default to "__ignore__" so user knows this won't be mapped
           detected.push({
             key: fullKey,
             value: value,
-            suggested_target: suggested, // null means user needs to decide
+            suggested_target: suggested || '__ignore__',
           });
         }
       }
@@ -264,7 +283,8 @@ export function IntegrationDetailDialog({
     if (detected.length === 0) {
       toast.info('Nenhum campo encontrado no payload. Verifique os logs.');
     } else {
-      toast.success(`${detected.length} campos detectados! Configure o mapeamento abaixo.`);
+      const recognized = detected.filter(d => d.suggested_target !== '__ignore__').length;
+      toast.success(`${detected.length} campos detectados! ${recognized} reconhecidos, ${detected.length - recognized} marcados como ignorar.`);
     }
   };
 
@@ -434,7 +454,11 @@ export function IntegrationDetailDialog({
   };
 
   const handleSaveMappings = async () => {
-    const validMappings = mappings.filter(m => m.source_field.trim());
+    // Filter out ignored fields and empty source fields
+    const validMappings = mappings.filter(m => 
+      m.source_field.trim() && 
+      m.target_field !== '__ignore__'
+    );
     await saveFieldMappings.mutateAsync({
       integrationId: integration.id,
       mappings: validMappings.map(m => ({
