@@ -1132,6 +1132,18 @@ Deno.serve(async (req) => {
       lead_id: leadId,
       processing_time_ms: Date.now() - startTime,
     });
+    
+    // Save to lead_webhook_history for detailed tracking
+    await supabase.from('lead_webhook_history').insert({
+      lead_id: leadId,
+      organization_id: typedIntegration.organization_id,
+      integration_id: typedIntegration.id,
+      integration_name: typedIntegration.name,
+      payload: payload,
+      received_at: new Date().toISOString(),
+      processed_successfully: true,
+      error_message: null,
+    });
 
     // Build response message
     let message = '';
