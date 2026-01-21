@@ -12,8 +12,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Search, Package, Loader2 } from 'lucide-react';
+import { Plus, Search, Package, Loader2, FlaskConical } from 'lucide-react';
 import { ProductCsvManager } from '@/components/products/ProductCsvManager';
+import { ManipulatedCostsManager } from '@/components/products/ManipulatedCostsManager';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductForm } from '@/components/products/ProductForm';
 import { ProductDetailDialog } from '@/components/products/ProductDetailDialog';
@@ -44,7 +45,7 @@ import type { DynamicQuestion } from '@/components/products/DynamicQuestionsMana
 import type { ProductFaq } from '@/components/products/ProductFaqManager';
 import type { ProductIngredient } from '@/components/products/ProductIngredientsManager';
 
-type ViewMode = 'list' | 'create' | 'edit';
+type ViewMode = 'list' | 'create' | 'edit' | 'manipulated-costs';
 
 // Categorias que usam kits dinâmicos
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
@@ -295,6 +296,14 @@ export default function Products() {
     setInitialVisibleUserIds([]);
   };
 
+  if (viewMode === 'manipulated-costs') {
+    return (
+      <Layout>
+        <ManipulatedCostsManager onClose={() => setViewMode('list')} />
+      </Layout>
+    );
+  }
+
   if (viewMode === 'create') {
     return (
       <Layout>
@@ -343,6 +352,16 @@ export default function Products() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {(myPermissions?.products_view_cost || isOwner) && (
+              <Button 
+                variant="outline" 
+                onClick={() => setViewMode('manipulated-costs')}
+                className="bg-amber-50 border-amber-300 hover:bg-amber-100 text-amber-800"
+              >
+                <FlaskConical className="h-4 w-4 mr-2" />
+                Custos Manipulados
+              </Button>
+            )}
             {canManageProducts && products && (
               <ProductCsvManager products={products} canManage={canManageProducts} />
             )}

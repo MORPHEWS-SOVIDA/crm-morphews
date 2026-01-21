@@ -5460,6 +5460,7 @@ export type Database = {
         Row: {
           commission_cents: number | null
           commission_percentage: number | null
+          cost_cents: number | null
           created_at: string
           discount_cents: number
           id: string
@@ -5478,6 +5479,7 @@ export type Database = {
         Insert: {
           commission_cents?: number | null
           commission_percentage?: number | null
+          cost_cents?: number | null
           created_at?: string
           discount_cents?: number
           id?: string
@@ -5496,6 +5498,7 @@ export type Database = {
         Update: {
           commission_cents?: number | null
           commission_percentage?: number | null
+          cost_cents?: number | null
           created_at?: string
           discount_cents?: number
           id?: string
