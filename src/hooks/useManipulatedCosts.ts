@@ -33,7 +33,6 @@ export function useManipulatedSaleItems(filters?: {
       if (!tenantId) return [];
 
       // Get all sale_items with requisition_number (manipulated products)
-      // Note: cost_cents is a new column, using raw query to avoid type issues until types are regenerated
       const { data, error } = await supabase
         .from('sale_items')
         .select(`
@@ -69,13 +68,10 @@ export function useManipulatedSaleItems(filters?: {
         throw error;
       }
 
-      // Fetch cost_cents separately using RPC or raw
       const itemIds = (data || []).map((d: any) => d.id);
       
-      // Get cost_cents for each item
-      const { data: costsData } = await supabase
-        .rpc('get_sale_items_costs', { item_ids: itemIds })
-        .throwOnError();
+      // Get cost_cents using RPC (type cast to bypass TS restriction until types regenerate)
+      const { data: costsData } = await (supabase.rpc as any)('get_sale_items_costs', { item_ids: itemIds });
       
       const costsMap = new Map((costsData as any[] || []).map((c: any) => [c.id, c.cost_cents]));
 
@@ -129,8 +125,8 @@ export function useUpdateItemCost() {
 
   return useMutation({
     mutationFn: async ({ itemId, costCents }: { itemId: string; costCents: number | null }) => {
-      // Use rpc to update cost_cents to avoid type issues
-      const { error } = await supabase.rpc('update_sale_item_cost', {
+      // Use rpc to update cost_cents (type cast to bypass TS restriction)
+      const { error } = await (supabase.rpc as any)('update_sale_item_cost', {
         p_item_id: itemId,
         p_cost_cents: costCents
       });
@@ -153,7 +149,8 @@ export function useManipulatedCostsSummary() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase.rpc('get_manipulated_costs_summary', {
+      // Type cast to bypass TS restriction until types regenerate
+      const { data, error } = await (supabase.rpc as any)('get_manipulated_costs_summary', {
         p_organization_id: tenantId
       });
 
