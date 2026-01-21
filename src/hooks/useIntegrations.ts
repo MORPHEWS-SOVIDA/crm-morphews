@@ -84,6 +84,7 @@ export const TARGET_FIELDS = [
   { value: 'name', label: 'Nome', group: 'lead' },
   { value: 'email', label: 'Email', group: 'lead' },
   { value: 'whatsapp', label: 'WhatsApp', group: 'lead' },
+  { value: 'cpf', label: 'CPF/CNPJ', group: 'lead' },
   { value: 'observations', label: 'Observações', group: 'lead' },
   // Address fields (stored in lead_addresses table)
   { value: 'address_street', label: 'Rua', group: 'address' },
