@@ -537,10 +537,11 @@ export function IntegrationDetailDialog({
     }
   };
 
-  // Get available stages
+  // Get available stages - MUST use enum_value, never UUID
   const availableStages = funnelStages?.length 
     ? funnelStages.filter(s => (s as any).is_active !== false).map(s => ({ 
-        value: (s as any).stage_key || (s as any).key || s.id, 
+        // Use enum_value (the actual DB enum) - never use s.id (UUID)
+        value: getStageEnumValue(s as any), 
         label: (s as any).display_name || (s as any).label || (s as any).name 
       }))
     : Object.entries(FUNNEL_STAGES).map(([key, val]) => ({ value: key, label: val.label }));
