@@ -111,13 +111,23 @@ serve(async (req) => {
         whatsapp,
         created_at,
         stage,
-        last_contact_at,
-        funnel_stage:organization_funnel_stages!leads_stage_fkey(name)
+        last_contact_at
       `)
       .eq('organization_id', organizationId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(20);
+    
+    // Get funnel stages separately to avoid FK issues
+    const { data: funnelStages } = await supabase
+      .from('organization_funnel_stages')
+      .select('enum_value, name')
+      .eq('organization_id', organizationId);
+    
+    const stageNameMap = new Map<string, string>();
+    (funnelStages || []).forEach((s: any) => {
+      if (s.enum_value) stageNameMap.set(s.enum_value, s.name);
+    });
 
     // Filter by responsible
     if (type === 'followup') {
@@ -158,7 +168,12 @@ serve(async (req) => {
     const leadContexts: LeadContext[] = [];
 
     for (const lead of leadsToAnalyze) {
-      const context = await aggregateLeadContext(supabase, lead, organizationId);
+      // Add stage name from our map
+      const leadWithStageName = {
+        ...lead,
+        funnel_stage: { name: stageNameMap.get(lead.stage) || lead.stage }
+      };
+      const context = await aggregateLeadContext(supabase, leadWithStageName, organizationId);
       leadContexts.push(context);
     }
 
