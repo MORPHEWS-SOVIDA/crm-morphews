@@ -78,7 +78,7 @@ const App = () => (
               <Route path="/force-password-change" element={<ForcePasswordChange />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/planos" element={<Planos />} />
-              <Route path="/power" element={<Power />} />
+              <Route path="/2026" element={<Power />} />
               <Route path="/checkout" element={<DirectCheckout />} />
               <Route path="/signup-success" element={<SignupSuccess />} />
               <Route path="/auth/error" element={<AuthError />} />

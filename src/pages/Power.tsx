@@ -279,7 +279,7 @@ export default function Power() {
           customerName: leadForm.name.trim(),
           customerWhatsapp: leadForm.whatsapp.trim(),
           successUrl: `${window.location.origin}/?subscription=success`,
-          cancelUrl: `${window.location.origin}/power`,
+          cancelUrl: `${window.location.origin}/2026`,
           billingCycle: isAnnual ? 'annual' : 'monthly',
         },
       });
@@ -329,7 +329,7 @@ export default function Power() {
     setMobileMenuOpen(false);
   };
 
-  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://sales.morphews.com/power e queria tirar uma dúvida")}`;
+  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://crm.morphews.com/2026 e queria tirar uma dúvida")}`;
 
   // Custom plan features for display
   const getPlanFeatures = (planName: string) => {
@@ -441,7 +441,7 @@ export default function Power() {
                     <Link to="/login">Entrar</Link>
                   </Button>
                   <Button onClick={() => scrollToSection("precos")} className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
-                    Começar Grátis
+                    Começar Agora
                   </Button>
                 </>
               )}
@@ -492,7 +492,7 @@ export default function Power() {
                       <Link to="/login">Entrar</Link>
                     </Button>
                     <Button onClick={() => scrollToSection("precos")} className="w-full bg-gradient-to-r from-primary to-purple-600">
-                      Começar Grátis
+                      Começar Agora
                     </Button>
                   </>
                 )}
@@ -553,7 +553,7 @@ export default function Power() {
                 onClick={() => scrollToSection("precos")}
                 className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-lg h-14 px-8 shadow-xl shadow-primary/25"
               >
-                Começar Grátis
+                Transformar Minha Gestão
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button 
@@ -1540,7 +1540,7 @@ export default function Power() {
                         variant={isPro ? "default" : "outline"}
                         onClick={() => handleSelectPlan(plan.id, plan.name, plan)}
                       >
-                        {plan.price_cents === 0 ? "Começar Grátis" : "Contratar"}
+                        Contratar Agora
                       </Button>
                     </CardFooter>
                   </Card>
