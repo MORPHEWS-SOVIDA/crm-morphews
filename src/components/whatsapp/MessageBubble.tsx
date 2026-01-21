@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Bot, Check, CheckCheck, Clock, Download, ImageIcon, AlertTriangle } from 'lucide-react';
+import { Bot, Check, CheckCheck, Clock, Download, ImageIcon, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -18,6 +18,8 @@ interface Message {
   error_details?: string | null;
   sent_by_user_id?: string | null;
   sender_name?: string | null; // Nome do remetente (preenchido via join)
+  transcription?: string | null; // Transcrição de áudio
+  transcription_status?: string | null; // Status da transcrição
 }
 
 interface MessageBubbleProps {
@@ -95,7 +97,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
       case 'audio':
         return (
-          <div className="min-w-[200px]">
+          <div className="min-w-[200px] space-y-2">
             {message.media_url && !audioError ? (
               <audio 
                 controls 
@@ -123,7 +125,28 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 </span>
               </div>
             )}
-            {message.content && message.content.includes("Transcrição do áudio") && (
+            
+            {/* Transcription display */}
+            {message.transcription_status === 'processing' && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-lg">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Transcrevendo...</span>
+              </div>
+            )}
+            
+            {message.transcription && (
+              <div className="bg-muted/40 p-2 rounded-lg border-l-2 border-blue-400">
+                <div className="flex items-center gap-1 text-xs text-blue-500 mb-1">
+                  <FileText className="h-3 w-3" />
+                  <span>Transcrição</span>
+                </div>
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                  {message.transcription}
+                </p>
+              </div>
+            )}
+            
+            {message.content && message.content.includes("Transcrição do áudio") && !message.transcription && (
               <p className="whitespace-pre-wrap break-words text-sm mt-1">
                 {message.content}
               </p>
