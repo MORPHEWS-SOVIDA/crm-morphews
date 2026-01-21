@@ -141,7 +141,8 @@ export function useUpdateAIBot() {
   const { tenantId } = useTenant();
   
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<AIBot> & { id: string }) => {
+    mutationFn: async ({ id, selectedProductIds, ...updates }: Partial<AIBot> & { id: string; selectedProductIds?: string[] }) => {
+      // Update bot settings
       const { data, error } = await supabase
         .from('ai_bots')
         .update(updates)
@@ -150,11 +151,52 @@ export function useUpdateAIBot() {
         .single();
       
       if (error) throw error;
+      
+      // If product_scope is 'selected' and we have selectedProductIds, sync products
+      if (updates.product_scope === 'selected' && selectedProductIds && tenantId) {
+        // Get current linked products
+        const { data: currentProducts } = await supabase
+          .from('ai_bot_products')
+          .select('product_id')
+          .eq('bot_id', id);
+        
+        const currentProductIds = new Set((currentProducts || []).map(p => p.product_id));
+        const targetProductIds = new Set(selectedProductIds);
+        
+        // Products to add
+        const toAdd = selectedProductIds.filter(pid => !currentProductIds.has(pid));
+        // Products to remove
+        const toRemove = Array.from(currentProductIds).filter(pid => !targetProductIds.has(pid));
+        
+        // Add new products
+        if (toAdd.length > 0) {
+          const { error: insertError } = await supabase
+            .from('ai_bot_products')
+            .insert(toAdd.map(product_id => ({
+              bot_id: id,
+              product_id,
+              organization_id: tenantId,
+            })));
+          if (insertError) console.error('Error adding products:', insertError);
+        }
+        
+        // Remove products
+        if (toRemove.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('ai_bot_products')
+            .delete()
+            .eq('bot_id', id)
+            .in('product_id', toRemove);
+          if (deleteError) console.error('Error removing products:', deleteError);
+        }
+      }
+      
       return data as AIBot;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ai-bots', tenantId] });
       queryClient.invalidateQueries({ queryKey: ['ai-bot', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['ai-bot-products', data.id] });
       toast.success('Robô atualizado!');
     },
     onError: (error: Error) => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,13 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList } from "lucide-react";
-import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts, useToggleAIBotProduct } from "@/hooks/useAIBots";
-import { useProducts } from "@/hooks/useProducts";
+import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts } from "@/hooks/useAIBots";
 import { AvatarGenerator } from "./AvatarGenerator";
 import { BotQualificationConfig } from "./BotQualificationConfig";
+import { BotProductSelector } from "./BotProductSelector";
 
 interface InitialQuestion {
   questionId: string;
@@ -34,8 +33,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const addKnowledge = useAddAIBotKnowledge();
   const removeKnowledge = useRemoveAIBotKnowledge();
   const { data: linkedProducts = [] } = useAIBotProducts(botId);
-  const toggleProduct = useToggleAIBotProduct();
-  const { data: allProducts = [] } = useProducts();
   
   // Form state for editing
   const [isActive, setIsActive] = useState<boolean | undefined>();
@@ -47,6 +44,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // Qualification state
   const [qualificationEnabled, setQualificationEnabled] = useState<boolean>(false);
   const [initialQuestions, setInitialQuestions] = useState<InitialQuestion[]>([]);
+  
+  // Product RAG state
+  const [productScope, setProductScope] = useState<'all' | 'selected' | 'none'>('all');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
@@ -62,8 +63,16 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setMaxMessages(bot.max_messages_before_transfer || 10);
       setQualificationEnabled(bot.initial_qualification_enabled || false);
       setInitialQuestions((bot.initial_questions as InitialQuestion[]) || []);
+      setProductScope((bot.product_scope as 'all' | 'selected' | 'none') || 'all');
     }
   };
+  
+  // Initialize selected products from linked products
+  useEffect(() => {
+    if (linkedProducts.length > 0) {
+      setSelectedProductIds(linkedProducts.map((p: any) => p.product_id));
+    }
+  }, [linkedProducts]);
   
   // Reset form when dialog opens
   const handleOpenChange = (open: boolean) => {
@@ -85,7 +94,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       max_messages_before_transfer: maxMessages,
       initial_qualification_enabled: qualificationEnabled,
       initial_questions: initialQuestions,
-    });
+      product_scope: productScope,
+      selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
+    } as any);
   };
   
   const handleAddFAQ = () => {
@@ -101,8 +112,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
     setNewQuestion('');
     setNewAnswer('');
   };
-  
-  const linkedProductIds = new Set(linkedProducts.map((p: any) => p.product_id));
 
   if (!botId) return null;
 
@@ -349,51 +358,13 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
             
             {/* Tab: Produtos */}
             <TabsContent value="products" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Produtos Vinculados</CardTitle>
-                  <CardDescription>
-                    Produtos que o robô conhece e pode apresentar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {allProducts.map((product: any) => {
-                      const isLinked = linkedProductIds.has(product.id);
-                      return (
-                        <div
-                          key={product.id}
-                          onClick={() => toggleProduct.mutate({ botId: botId!, productId: product.id, isLinked })}
-                          className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                            isLinked ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {product.image_url ? (
-                              <img src={product.image_url} alt={product.name} className="h-10 w-10 rounded object-cover" />
-                            ) : (
-                              <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{product.name}</p>
-                              {product.price_1_unit && (
-                                <p className="text-xs text-muted-foreground">
-                                  R$ {(product.price_1_unit / 100).toFixed(2)}
-                                </p>
-                              )}
-                            </div>
-                            {isLinked && (
-                              <Badge variant="default" className="shrink-0">✓</Badge>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+              <BotProductSelector
+                botId={botId!}
+                productScope={productScope}
+                selectedProductIds={selectedProductIds}
+                onProductScopeChange={setProductScope}
+                onSelectedProductsChange={setSelectedProductIds}
+              />
             </TabsContent>
           </Tabs>
         ) : null}
