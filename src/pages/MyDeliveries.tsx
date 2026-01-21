@@ -47,6 +47,7 @@ import {
   Camera,
   MapPinned,
   ClipboardCheck,
+  Receipt,
 } from 'lucide-react';
 import { format, isToday, isTomorrow, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -619,6 +620,24 @@ function DeliveryCard({
             {paymentInfo.label}
           </Badge>
         </div>
+        
+        {/* View payment proof button if exists */}
+        {sale.payment_proof_url && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-xs bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+            onClick={() => {
+              const { data: { publicUrl } } = supabase.storage
+                .from('sales-documents')
+                .getPublicUrl(sale.payment_proof_url!);
+              window.open(publicUrl, '_blank');
+            }}
+          >
+            <Receipt className="w-3.5 h-3.5 mr-1.5" />
+            Ver Comprovante de Pagamento
+          </Button>
+        )}
         
         {/* Upload payment proof button for motoboy */}
         {paymentInfo.showUpload && (
