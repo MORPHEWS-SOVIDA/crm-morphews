@@ -119,7 +119,58 @@ async function reply(toPhone: string, message: string) {
       raw: res.raw,
     });
   }
+  
+  // Save to conversation history (outbound)
+  try {
+    await supabase.from("secretary_conversation_history").insert({
+      phone: normalizeWhatsApp(toPhone),
+      direction: "outbound",
+      message_content: message.substring(0, 5000), // Limit size
+      message_type: "text",
+    });
+  } catch (e) {
+    console.error("Failed to save outbound history:", e);
+  }
+  
   return res;
+}
+
+// Save inbound message to history
+async function saveInboundHistory(phone: string, content: string, type: string = "text") {
+  try {
+    await supabase.from("secretary_conversation_history").insert({
+      phone: normalizeWhatsApp(phone),
+      direction: "inbound",
+      message_content: content.substring(0, 5000),
+      message_type: type,
+    });
+  } catch (e) {
+    console.error("Failed to save inbound history:", e);
+  }
+}
+
+// Get recent conversation history for context
+async function getRecentHistory(phone: string, limit: number = 5): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("secretary_conversation_history")
+      .select("direction, message_content, created_at")
+      .eq("phone", normalizeWhatsApp(phone))
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    
+    if (!data || data.length === 0) return [];
+    
+    // Reverse to chronological order and format
+    return data.reverse().map((m) => {
+      const prefix = m.direction === "inbound" ? "👤 Usuário:" : "🤖 Secretária:";
+      const content = m.message_content?.substring(0, 200) || "";
+      return `${prefix} ${content}`;
+    });
+  } catch (e) {
+    console.error("Failed to get history:", e);
+    return [];
+  }
 }
 
 // ============================================================================
@@ -483,12 +534,28 @@ type ParsedCommand =
 // AI COMMAND PARSER
 // ============================================================================
 
-async function parseCommandWithAI(text: string, hasActiveState: boolean, contextLeadName?: string): Promise<ParsedCommand | null> {
+async function parseCommandWithAI(
+  text: string, 
+  hasActiveState: boolean, 
+  contextLeadName?: string,
+  conversationHistory?: string[]
+): Promise<ParsedCommand | null> {
   if (!LOVABLE_API_KEY) return null;
 
-  const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM MUITO inteligente.
+  // Build conversation context from history
+  const historyContext = conversationHistory && conversationHistory.length > 0
+    ? `\n📜 HISTÓRICO RECENTE DA CONVERSA:\n${conversationHistory.join("\n")}\n`
+    : "";
+
+  const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM MUITO inteligente e simpática.
 Analise a mensagem do usuário e retorne APENAS JSON válido (sem markdown, sem \`\`\`).
 
+🧠 VOCÊ É INTELIGENTE! Quando não entender claramente:
+- ANALISE O HISTÓRICO DA CONVERSA para entender o contexto
+- Faça PERGUNTAS CLARIFICADORAS sobre o que a pessoa quer
+- SUGIRA OPÇÕES baseadas no que você pode fazer
+- NUNCA responda de forma genérica como "Não entendi, tente novamente"
+${historyContext}
 ${hasActiveState && contextLeadName ? `
 ⚠️ CONTEXTO IMPORTANTE: O usuário está em um fluxo com o lead "${contextLeadName}".
 Se o usuário mencionar atualizações sem especificar outro lead, USE "${contextLeadName}" como lead_identifier.
@@ -557,7 +624,11 @@ AÇÕES DISPONÍVEIS:
 
 8. AJUDA: {"action":"help"}
 9. ESTATÍSTICAS: {"action":"stats"}
-10. NÃO ENTENDI: {"action":"unknown","reply":"Desculpe, não entendi. Pode reformular?"}
+10. NÃO ENTENDI (seja INTELIGENTE e ÚTIL!): 
+    {"action":"unknown","reply":"🤔 Hmm, não entendi bem... Você quer:\n\n1️⃣ Cadastrar um novo lead?\n2️⃣ Buscar algum lead específico?\n3️⃣ Ver suas estatísticas?\n4️⃣ Atualizar algum lead?\n\nMe conta mais sobre o que você precisa! 😊"}
+    
+    IMPORTANTE: Personalize a resposta baseada no contexto e histórico! Nunca dê respostas genéricas.
+    Se o usuário mandou algo que PARECE uma ação mas faltam dados, pergunte o que falta de forma simpática.
 
 🎯 REGRAS CRÍTICAS:
 - CPF/CNPJ são DOCUMENTOS, NUNCA confunda com telefone!
@@ -2017,9 +2088,15 @@ serve(async (req) => {
       }
     }
 
+    // Save inbound message to history
+    await saveInboundHistory(fromPhone, rawText, "text");
+
+    // Get recent conversation history for AI context
+    const recentHistory = await getRecentHistory(fromPhone, 5);
+
     // Parse command with AI (tell AI if we have active state for context)
     const contextLeadName = state?.lead_name;
-    const parsed = await parseCommandWithAI(rawText, hasActiveState, contextLeadName);
+    const parsed = await parseCommandWithAI(rawText, hasActiveState, contextLeadName, recentHistory);
     
     if (!parsed) {
       await reply(fromPhone, "🤔 Desculpe, tive um problema. Pode tentar de novo?");
