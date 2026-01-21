@@ -5288,6 +5288,9 @@ export type Database = {
           created_at: string
           discount_cents: number
           id: string
+          kit_id: string | null
+          kit_quantity: number | null
+          multiplier: number | null
           notes: string | null
           product_id: string
           product_name: string
@@ -5303,6 +5306,9 @@ export type Database = {
           created_at?: string
           discount_cents?: number
           id?: string
+          kit_id?: string | null
+          kit_quantity?: number | null
+          multiplier?: number | null
           notes?: string | null
           product_id: string
           product_name: string
@@ -5318,6 +5324,9 @@ export type Database = {
           created_at?: string
           discount_cents?: number
           id?: string
+          kit_id?: string | null
+          kit_quantity?: number | null
+          multiplier?: number | null
           notes?: string | null
           product_id?: string
           product_name?: string
@@ -5328,6 +5337,13 @@ export type Database = {
           unit_price_cents?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_items_kit_id_fkey"
+            columns: ["kit_id"]
+            isOneToOne: false
+            referencedRelation: "product_price_kits"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_items_product_id_fkey"
             columns: ["product_id"]
