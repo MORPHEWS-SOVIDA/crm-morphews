@@ -221,33 +221,36 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
                     </PopoverTrigger>
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
-                        <CommandInput placeholder="Buscar cliente..." />
-                        <CommandList>
+                        <CommandInput placeholder="Buscar por nome ou WhatsApp..." />
+                        <CommandList className="max-h-[300px]">
                           <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                           <CommandGroup>
-                            {leads?.slice(0, 50).map((lead) => (
-                              <CommandItem
-                                key={lead.id}
-                                value={lead.name || ''}
-                                onSelect={() => {
-                                  setForm(prev => ({ ...prev, lead_id: lead.id }));
-                                  setLeadSearchOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    form.lead_id === lead.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <div className="flex flex-col">
-                                  <span>{lead.name}</span>
-                                  {lead.whatsapp && (
-                                    <span className="text-xs text-muted-foreground">{lead.whatsapp}</span>
-                                  )}
-                                </div>
-                              </CommandItem>
-                            ))}
+                            {leads
+                              ?.slice() // Create a copy to avoid mutating original
+                              .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                              .map((lead) => (
+                                <CommandItem
+                                  key={lead.id}
+                                  value={`${lead.name || ''} ${lead.whatsapp || ''}`}
+                                  onSelect={() => {
+                                    setForm(prev => ({ ...prev, lead_id: lead.id }));
+                                    setLeadSearchOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      form.lead_id === lead.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span>{lead.name}</span>
+                                    {lead.whatsapp && (
+                                      <span className="text-xs text-muted-foreground">{lead.whatsapp}</span>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              ))}
                           </CommandGroup>
                         </CommandList>
                       </Command>
