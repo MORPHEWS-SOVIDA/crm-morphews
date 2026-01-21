@@ -26,6 +26,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   ArrowLeft, 
   Package, 
@@ -36,10 +45,17 @@ import {
   DollarSign,
   ShoppingCart,
   AlertTriangle,
-  History
+  History,
+  Truck,
+  MapPin,
+  CalendarDays,
+  Store,
+  Bike,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSale, formatCurrency, SaleItem } from '@/hooks/useSales';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useSale, formatCurrency, SaleItem, DeliveryType } from '@/hooks/useSales';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
@@ -47,6 +63,8 @@ import { useCreateMultipleSaleChangeLogs, CreateChangeLogData } from '@/hooks/us
 import { supabase } from '@/integrations/supabase/client';
 import { ProductSelectorForSale } from '@/components/products/ProductSelectorForSale';
 import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialog';
+import { useLeadAddresses, LeadAddress } from '@/hooks/useLeadAddresses';
+import { useDeliveryRegions, useActiveShippingCarriers, getAvailableDeliveryDates, formatShift, DELIVERY_TYPES } from '@/hooks/useDeliveryConfig';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface EditableItem {
@@ -71,6 +89,11 @@ export default function EditSale() {
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const createChangeLogs = useCreateMultipleSaleChangeLogs();
 
+  // Delivery config hooks
+  const { data: regions = [] } = useDeliveryRegions();
+  const carriers = useActiveShippingCarriers();
+  const { data: leadAddresses = [] } = useLeadAddresses(sale?.lead_id || null);
+
   const [items, setItems] = useState<EditableItem[]>([]);
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState(0);
@@ -79,11 +102,40 @@ export default function EditSale() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  // Delivery state
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('motoboy');
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [selectedCarrierId, setSelectedCarrierId] = useState<string | null>(null);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+  const [scheduledShift, setScheduledShift] = useState<'morning' | 'afternoon' | 'full_day' | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
   // Permission check - can only edit drafts
   const canEditSale = permissions?.sales_edit_draft;
   
   // Check if sale can be edited (not payment_confirmed or cancelled)
   const isEditable = sale && !['payment_confirmed', 'cancelled'].includes(sale.status);
+
+  // Get active regions
+  const activeRegions = regions.filter(r => r.is_active);
+  const selectedRegion = activeRegions.find(r => r.id === selectedRegionId);
+
+  // Get available delivery dates for motoboy
+  const availableDates = selectedRegion
+    ? getAvailableDeliveryDates(selectedRegion.id, regions)
+    : [];
+  const availableDateStrings = [...new Set(availableDates.map(d => format(d.date, 'yyyy-MM-dd')))];
+
+  // Get shifts for selected date
+  const shiftsForSelectedDate = useMemo(() => {
+    if (!scheduledDate) return [];
+    const dateStr = format(scheduledDate, 'yyyy-MM-dd');
+    return availableDates
+      .filter(d => format(d.date, 'yyyy-MM-dd') === dateStr)
+      .map(d => d.shift);
+  }, [scheduledDate, availableDates]);
 
   // Initialize form with sale data
   useEffect(() => {
@@ -102,6 +154,15 @@ export default function EditSale() {
       );
       setDiscountType(sale.discount_type || 'fixed');
       setDiscountValue(sale.discount_type === 'percentage' ? sale.discount_value : sale.discount_cents);
+      
+      // Initialize delivery fields
+      setDeliveryType(sale.delivery_type || 'motoboy');
+      setSelectedRegionId(sale.delivery_region_id || null);
+      setSelectedCarrierId(sale.shipping_carrier_id || null);
+      setShippingCost(sale.shipping_cost_cents || 0);
+      setScheduledDate(sale.scheduled_delivery_date ? new Date(sale.scheduled_delivery_date + 'T00:00:00') : null);
+      setScheduledShift(sale.scheduled_delivery_shift || null);
+      setSelectedAddressId((sale as any).shipping_address_id || null);
     }
   }, [sale]);
 
@@ -117,8 +178,8 @@ export default function EditSale() {
     totalDiscount = discountValue;
   }
 
-  const shippingCost = sale?.shipping_cost_cents || 0;
-  const total = subtotal - totalDiscount + shippingCost;
+  const effectiveShippingCost = deliveryType === 'carrier' ? shippingCost : (sale?.shipping_cost_cents || 0);
+  const total = subtotal - totalDiscount + effectiveShippingCost;
 
   // Detect changes
   const changes = useMemo(() => {
@@ -205,8 +266,59 @@ export default function EditSale() {
       });
     }
 
+    // Check delivery changes
+    if (deliveryType !== sale.delivery_type) {
+      const oldLabel = sale.delivery_type ? DELIVERY_TYPES[sale.delivery_type as DeliveryType] || sale.delivery_type : '-';
+      const newLabel = DELIVERY_TYPES[deliveryType] || deliveryType;
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'delivery_changed',
+        field_name: 'delivery_type',
+        old_value: oldLabel,
+        new_value: newLabel,
+        notes: `Tipo de entrega: ${oldLabel} → ${newLabel}`,
+      });
+    }
+
+    const originalDateStr = sale.scheduled_delivery_date || '';
+    const newDateStr = scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '';
+    if (newDateStr !== originalDateStr) {
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'delivery_changed',
+        field_name: 'scheduled_delivery_date',
+        old_value: originalDateStr ? format(new Date(originalDateStr + 'T00:00:00'), 'dd/MM/yyyy') : 'Não agendado',
+        new_value: newDateStr ? format(scheduledDate!, 'dd/MM/yyyy') : 'Não agendado',
+        notes: `Data de entrega alterada`,
+      });
+    }
+
+    if (scheduledShift !== sale.scheduled_delivery_shift) {
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'delivery_changed',
+        field_name: 'scheduled_delivery_shift',
+        old_value: sale.scheduled_delivery_shift ? formatShift(sale.scheduled_delivery_shift) : '-',
+        new_value: scheduledShift ? formatShift(scheduledShift) : '-',
+        notes: `Turno de entrega alterado`,
+      });
+    }
+
+    if (selectedAddressId !== (sale as any).shipping_address_id) {
+      const oldAddr = leadAddresses.find(a => a.id === (sale as any).shipping_address_id);
+      const newAddr = leadAddresses.find(a => a.id === selectedAddressId);
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'delivery_changed',
+        field_name: 'shipping_address',
+        old_value: oldAddr?.label || 'Não selecionado',
+        new_value: newAddr?.label || 'Não selecionado',
+        notes: `Endereço de entrega alterado`,
+      });
+    }
+
     return changeList;
-  }, [sale, items, totalDiscount]);
+  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses]);
 
   const hasChanges = changes.length > 0;
 
@@ -311,7 +423,7 @@ export default function EditSale() {
         if (insertError) throw insertError;
       }
 
-      // 4. Update sale totals
+      // 4. Update sale totals and delivery fields
       const { error: saleError } = await supabase
         .from('sales')
         .update({
@@ -321,6 +433,14 @@ export default function EditSale() {
           discount_cents: totalDiscount,
           total_cents: total,
           was_edited: true,
+          // Delivery fields
+          delivery_type: deliveryType,
+          delivery_region_id: deliveryType === 'motoboy' ? selectedRegionId : null,
+          scheduled_delivery_date: scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : null,
+          scheduled_delivery_shift: scheduledShift,
+          shipping_carrier_id: deliveryType === 'carrier' ? selectedCarrierId : null,
+          shipping_cost_cents: deliveryType === 'carrier' ? shippingCost : 0,
+          shipping_address_id: selectedAddressId,
         })
         .eq('id', sale.id);
 
@@ -567,6 +687,206 @@ export default function EditSale() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Delivery Settings Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Entrega
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Delivery Type */}
+                <div className="space-y-2">
+                  <Label>Tipo de Entrega</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      variant={deliveryType === 'pickup' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setDeliveryType('pickup')}
+                    >
+                      <Store className="w-4 h-4 mr-1" />
+                      Retirar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={deliveryType === 'motoboy' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setDeliveryType('motoboy')}
+                    >
+                      <Bike className="w-4 h-4 mr-1" />
+                      Motoboy
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={deliveryType === 'carrier' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setDeliveryType('carrier')}
+                    >
+                      <Truck className="w-4 h-4 mr-1" />
+                      Transportadora
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Address Selector */}
+                {deliveryType !== 'pickup' && leadAddresses.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Endereço de Entrega
+                    </Label>
+                    <Select
+                      value={selectedAddressId || ''}
+                      onValueChange={(value) => {
+                        setSelectedAddressId(value);
+                        const addr = leadAddresses.find(a => a.id === value);
+                        if (addr?.delivery_region_id) {
+                          setSelectedRegionId(addr.delivery_region_id);
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um endereço" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {leadAddresses.map((addr) => (
+                          <SelectItem key={addr.id} value={addr.id}>
+                            <div className="flex items-center gap-2">
+                              {addr.is_primary && <Badge variant="secondary" className="text-xs">Principal</Badge>}
+                              <span>{addr.label}</span>
+                              {addr.neighborhood && <span className="text-muted-foreground">- {addr.neighborhood}</span>}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Motoboy specific: Region and Schedule */}
+                {deliveryType === 'motoboy' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Região de Entrega</Label>
+                      <Select
+                        value={selectedRegionId || ''}
+                        onValueChange={(value) => {
+                          setSelectedRegionId(value);
+                          setScheduledDate(null);
+                          setScheduledShift(null);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a região" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeRegions.map((region) => (
+                            <SelectItem key={region.id} value={region.id}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedRegionId && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <CalendarDays className="w-4 h-4" />
+                            Data Agendada
+                          </Label>
+                          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                <CalendarDays className="mr-2 h-4 w-4" />
+                                {scheduledDate ? format(scheduledDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={scheduledDate || undefined}
+                                onSelect={(date) => {
+                                  setScheduledDate(date || null);
+                                  setScheduledShift(null);
+                                  setCalendarOpen(false);
+                                }}
+                                disabled={(date) => {
+                                  const dateStr = format(date, 'yyyy-MM-dd');
+                                  return !availableDateStrings.includes(dateStr);
+                                }}
+                                locale={ptBR}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Turno</Label>
+                          <Select
+                            value={scheduledShift || ''}
+                            onValueChange={(value: 'morning' | 'afternoon' | 'full_day') => setScheduledShift(value)}
+                            disabled={!scheduledDate || shiftsForSelectedDate.length === 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar turno" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {shiftsForSelectedDate.map((shift) => (
+                                <SelectItem key={shift} value={shift}>
+                                  {formatShift(shift)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Carrier specific: Carrier selection and cost */}
+                {deliveryType === 'carrier' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Transportadora</Label>
+                      <Select
+                        value={selectedCarrierId || ''}
+                        onValueChange={(value) => {
+                          setSelectedCarrierId(value);
+                          const carrier = carriers.find(c => c.id === value);
+                          if (carrier) {
+                            setShippingCost(carrier.cost_cents);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a transportadora" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {carriers.map((carrier) => (
+                            <SelectItem key={carrier.id} value={carrier.id}>
+                              {carrier.name} - {formatCurrency(carrier.cost_cents)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Custo do Frete</Label>
+                      <CurrencyInput
+                        value={shippingCost}
+                        onChange={setShippingCost}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -647,10 +967,10 @@ export default function EditSale() {
                     </div>
                   )}
                   
-                  {shippingCost > 0 && (
+                  {effectiveShippingCost > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Frete</span>
-                      <span>{formatCurrency(shippingCost)}</span>
+                      <span>{formatCurrency(effectiveShippingCost)}</span>
                     </div>
                   )}
                   
