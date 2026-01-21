@@ -8,11 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList } from "lucide-react";
+import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts } from "@/hooks/useAIBots";
 import { AvatarGenerator } from "./AvatarGenerator";
 import { BotQualificationConfig } from "./BotQualificationConfig";
 import { BotProductSelector } from "./BotProductSelector";
+import { BotInterpretationConfig } from "./BotInterpretationConfig";
 
 interface InitialQuestion {
   questionId: string;
@@ -50,6 +51,13 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [useRagSearch, setUseRagSearch] = useState<boolean>(false);
   
+  // Interpretation state
+  const [interpretAudio, setInterpretAudio] = useState(false);
+  const [interpretDocuments, setInterpretDocuments] = useState(false);
+  const [interpretImages, setInterpretImages] = useState(false);
+  const [documentReplyMessage, setDocumentReplyMessage] = useState('');
+  const [imageReplyMessage, setImageReplyMessage] = useState('');
+  
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
@@ -66,6 +74,12 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setInitialQuestions((bot.initial_questions as InitialQuestion[]) || []);
       setProductScope((bot.product_scope as 'all' | 'selected' | 'none') || 'all');
       setUseRagSearch(bot.use_rag_search ?? false);
+      // Interpretation settings
+      setInterpretAudio((bot as any).interpret_audio ?? false);
+      setInterpretDocuments((bot as any).interpret_documents ?? false);
+      setInterpretImages((bot as any).interpret_images ?? false);
+      setDocumentReplyMessage((bot as any).document_reply_message || 'Nossa IA analisou seu documento e identificou as seguintes informações:');
+      setImageReplyMessage((bot as any).image_reply_message || 'Nossa IA analisou sua imagem e identificou:');
     }
   };
   
@@ -98,6 +112,11 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       initial_questions: initialQuestions,
       product_scope: productScope,
       use_rag_search: useRagSearch,
+      interpret_audio: interpretAudio,
+      interpret_documents: interpretDocuments,
+      interpret_images: interpretImages,
+      document_reply_message: documentReplyMessage,
+      image_reply_message: imageReplyMessage,
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -145,7 +164,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           </div>
         ) : bot ? (
           <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="general" className="gap-1">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Geral</span>
@@ -157,6 +176,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
               <TabsTrigger value="qualification" className="gap-1">
                 <ClipboardList className="h-4 w-4" />
                 <span className="hidden sm:inline">Qualificação</span>
+              </TabsTrigger>
+              <TabsTrigger value="interpretation" className="gap-1">
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">Interpretação</span>
               </TabsTrigger>
               <TabsTrigger value="knowledge" className="gap-1">
                 <Brain className="h-4 w-4" />
@@ -303,7 +326,22 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
               />
             </TabsContent>
             
-            {/* Tab: Conhecimento */}
+            {/* Tab: Interpretação */}
+            <TabsContent value="interpretation" className="space-y-4 mt-4">
+              <BotInterpretationConfig
+                interpretAudio={interpretAudio}
+                interpretDocuments={interpretDocuments}
+                interpretImages={interpretImages}
+                documentReplyMessage={documentReplyMessage}
+                imageReplyMessage={imageReplyMessage}
+                onInterpretAudioChange={setInterpretAudio}
+                onInterpretDocumentsChange={setInterpretDocuments}
+                onInterpretImagesChange={setInterpretImages}
+                onDocumentReplyMessageChange={setDocumentReplyMessage}
+                onImageReplyMessageChange={setImageReplyMessage}
+              />
+            </TabsContent>
+            
             <TabsContent value="knowledge" className="space-y-4 mt-4">
               <Card>
                 <CardHeader>

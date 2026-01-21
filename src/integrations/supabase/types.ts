@@ -127,10 +127,15 @@ export type Database = {
           brazilian_state: string | null
           company_differential: string | null
           created_at: string
+          document_reply_message: string | null
           gender: string
           id: string
+          image_reply_message: string | null
           initial_qualification_enabled: boolean | null
           initial_questions: Json | null
+          interpret_audio: boolean
+          interpret_documents: boolean
+          interpret_images: boolean
           is_active: boolean
           max_energy_per_conversation: number | null
           max_energy_per_message: number | null
@@ -160,10 +165,15 @@ export type Database = {
           brazilian_state?: string | null
           company_differential?: string | null
           created_at?: string
+          document_reply_message?: string | null
           gender?: string
           id?: string
+          image_reply_message?: string | null
           initial_qualification_enabled?: boolean | null
           initial_questions?: Json | null
+          interpret_audio?: boolean
+          interpret_documents?: boolean
+          interpret_images?: boolean
           is_active?: boolean
           max_energy_per_conversation?: number | null
           max_energy_per_message?: number | null
@@ -193,10 +203,15 @@ export type Database = {
           brazilian_state?: string | null
           company_differential?: string | null
           created_at?: string
+          document_reply_message?: string | null
           gender?: string
           id?: string
+          image_reply_message?: string | null
           initial_qualification_enabled?: boolean | null
           initial_questions?: Json | null
+          interpret_audio?: boolean
+          interpret_documents?: boolean
+          interpret_images?: boolean
           is_active?: boolean
           max_energy_per_conversation?: number | null
           max_energy_per_message?: number | null
