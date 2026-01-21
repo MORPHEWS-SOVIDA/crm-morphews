@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.generate-product-embeddings]
 verify_jwt = false
+
+[functions.auto-close-conversations]
+verify_jwt = false
