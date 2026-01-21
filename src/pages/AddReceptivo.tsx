@@ -720,6 +720,9 @@ export default function AddReceptivo() {
           created_at: result.lead.created_at,
           stage: result.lead.stage as FunnelStage,
           stars: result.lead.stars,
+          birth_date: result.lead.birth_date || null,
+          gender: result.lead.gender || null,
+          favorite_team: result.lead.favorite_team || null,
         });
         setSelectedSourceId(result.lead.lead_source || '');
         toast({ title: 'Lead encontrado!', description: result.lead.name });
@@ -752,7 +755,8 @@ export default function AddReceptivo() {
           id, name, whatsapp, email, instagram, specialty, 
           lead_source, stage, stars, observations,
           cep, street, street_number, complement, neighborhood, city, state,
-          secondary_phone, cpf_cnpj, created_at
+          secondary_phone, cpf_cnpj, created_at,
+          birth_date, gender, favorite_team
         `)
         .eq('id', leadId)
         .single();
@@ -782,6 +786,9 @@ export default function AddReceptivo() {
           created_at: leadFromDb.created_at,
           stage: leadFromDb.stage as FunnelStage,
           stars: leadFromDb.stars,
+          birth_date: leadFromDb.birth_date || null,
+          gender: leadFromDb.gender || null,
+          favorite_team: leadFromDb.favorite_team || null,
         });
         setSelectedSourceId(leadFromDb.lead_source || '');
         toast({ title: 'Lead assumido!', description: `Você agora é responsável por ${leadFromDb.name}` });

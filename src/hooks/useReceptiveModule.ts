@@ -96,7 +96,8 @@ export function useSearchLeadByPhone() {
           id, name, whatsapp, email, instagram, specialty, 
           lead_source, stage, stars, observations,
           cep, street, street_number, complement, neighborhood, city, state,
-          secondary_phone, cpf_cnpj, created_at
+          secondary_phone, cpf_cnpj, created_at,
+          birth_date, gender, favorite_team
         `)
         .or(`whatsapp.eq.${normalizedPhone},secondary_phone.eq.${normalizedPhone}`)
         .limit(1)
