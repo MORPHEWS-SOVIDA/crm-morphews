@@ -1690,6 +1690,7 @@ export type Database = {
           non_purchase_reason_id: string | null
           organization_id: string
           sac_category: string | null
+          sac_default_description: string | null
           sac_priority: string | null
           sac_subcategory: string | null
           sale_status_on_create: string | null
@@ -1714,6 +1715,7 @@ export type Database = {
           non_purchase_reason_id?: string | null
           organization_id: string
           sac_category?: string | null
+          sac_default_description?: string | null
           sac_priority?: string | null
           sac_subcategory?: string | null
           sale_status_on_create?: string | null
@@ -1738,6 +1740,7 @@ export type Database = {
           non_purchase_reason_id?: string | null
           organization_id?: string
           sac_category?: string | null
+          sac_default_description?: string | null
           sac_priority?: string | null
           sac_subcategory?: string | null
           sale_status_on_create?: string | null
