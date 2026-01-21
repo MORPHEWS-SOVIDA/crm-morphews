@@ -825,8 +825,8 @@ export function IntegrationDetailDialog({
             </TabsContent>
 
             <TabsContent value="mappings" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
+              <Card className="flex flex-col max-h-[calc(70vh-120px)]">
+                <CardHeader className="shrink-0">
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">Mapeamento de Campos</CardTitle>
@@ -862,7 +862,7 @@ export function IntegrationDetailDialog({
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 flex-1 overflow-y-auto">
                   {!lastPayload && (
                     <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                       <p>💡 <strong>Dica:</strong> Envie um webhook de teste para que possamos detectar automaticamente os campos disponíveis.</p>
@@ -1022,30 +1022,32 @@ export function IntegrationDetailDialog({
                     ))
                   )}
                   
-                  {(mappings.length > 0 || hasUnsavedMappings) && (
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <div className="flex items-center gap-2">
-                        {hasUnsavedMappings && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-950/30">
-                            Alterações não salvas
-                          </Badge>
-                        )}
-                        {!hasUnsavedMappings && mappings.length > 0 && (
-                          <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Mapeamentos salvos
-                          </Badge>
-                        )}
-                      </div>
-                      <Button 
-                        onClick={handleSaveMappings} 
-                        disabled={saveFieldMappings.isPending || !hasUnsavedMappings}
-                      >
-                        {saveFieldMappings.isPending ? 'Salvando...' : 'Salvar Mapeamentos'}
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
+                
+                {/* Sticky footer for Save button */}
+                {(mappings.length > 0 || hasUnsavedMappings) && (
+                  <div className="shrink-0 flex items-center justify-between p-4 border-t bg-card">
+                    <div className="flex items-center gap-2">
+                      {hasUnsavedMappings && (
+                        <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-950/30">
+                          Alterações não salvas
+                        </Badge>
+                      )}
+                      {!hasUnsavedMappings && mappings.length > 0 && (
+                        <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Mapeamentos salvos
+                        </Badge>
+                      )}
+                    </div>
+                    <Button 
+                      onClick={handleSaveMappings} 
+                      disabled={saveFieldMappings.isPending || !hasUnsavedMappings}
+                    >
+                      {saveFieldMappings.isPending ? 'Salvando...' : 'Salvar Mapeamentos'}
+                    </Button>
+                  </div>
+                )}
               </Card>
             </TabsContent>
 
