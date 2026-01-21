@@ -1149,11 +1149,18 @@ export default function AddReceptivo() {
         const effectiveCommission = hasDiscount ? defaultCommission : item.commissionPercentage;
         const effectiveCommissionCents = Math.round(itemTotal * (effectiveCommission / 100));
         
+        // CRITICAL: For kit-based products, unitPriceCents is the TOTAL kit price (e.g., R$1134 for 6 units)
+        // We must save the PER-UNIT price so that: quantity × unit_price = correct total
+        // Example: 6 units × R$189 per unit = R$1134 total
+        const unitPriceForSale = isKitBased && item.quantity > 0
+          ? Math.round(item.unitPriceCents / item.quantity)
+          : item.unitPriceCents;
+        
         allItems.push({
           product_id: item.productId,
           product_name: item.productName,
           quantity: item.quantity,
-          unit_price_cents: item.unitPriceCents,
+          unit_price_cents: unitPriceForSale,
           discount_cents: 0,
           requisition_number: item.requisitionNumber || null,
           commission_percentage: effectiveCommission,
@@ -1167,11 +1174,18 @@ export default function AddReceptivo() {
         const effectiveCommission = hasDiscount ? defaultCommission : currentCommission;
         const effectiveCommissionCents = Math.round(currentProductSubtotal * (effectiveCommission / 100));
         
+        // CRITICAL: For kit-based products, currentUnitPrice is the TOTAL kit price (e.g., R$1134 for 6 units)
+        // We must save the PER-UNIT price so that: quantity × unit_price = correct total
+        const isCurrentKitBasedForSale = currentProduct?.category && ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(currentProduct.category);
+        const unitPriceForCurrentSale = isCurrentKitBasedForSale && currentQuantity > 0
+          ? Math.round(currentUnitPrice / currentQuantity)
+          : currentUnitPrice;
+        
         allItems.push({
           product_id: currentProductId,
           product_name: currentProduct?.name || 'Produto',
           quantity: currentQuantity,
-          unit_price_cents: currentUnitPrice,
+          unit_price_cents: unitPriceForCurrentSale,
           discount_cents: allItems.length === 0 ? totalDiscount : 0,
           requisition_number: currentProduct?.category === 'manipulado' ? requisitionNumber : null,
           commission_percentage: effectiveCommission,
