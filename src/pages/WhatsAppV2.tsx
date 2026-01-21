@@ -44,6 +44,7 @@ import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { SatisfactionDashboard } from '@/components/whatsapp/SatisfactionDashboard';
 
 // =====================================================
 // HELPER FUNCTIONS
@@ -379,6 +380,9 @@ export default function WhatsAppV2() {
   return (
     <Layout>
       <div className="h-[calc(100vh-4rem)] lg:h-[calc(100vh-2rem)] flex flex-col">
+        {/* Dashboard de Satisfação NPS */}
+        <SatisfactionDashboard />
+        
         {/* Header */}
         <div className="flex items-center justify-between gap-4 p-4 border-b bg-background">
           <div className="flex items-center gap-3">

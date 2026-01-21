@@ -12,10 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Settings, Clock, RefreshCw, Hand, Bot, Phone } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { WavoipSettings } from "./WavoipSettings";
+import { AutoCloseSettings, type AutoCloseConfig } from "./AutoCloseSettings";
 
 interface InstanceSettingsDialogProps {
   instanceId: string;
@@ -38,37 +39,70 @@ export function InstanceSettingsDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("distribution_mode, auto_close_hours, display_name_for_team, manual_instance_number, redistribution_timeout_minutes, wavoip_enabled")
+        .select(`
+          distribution_mode, 
+          display_name_for_team, 
+          manual_instance_number, 
+          redistribution_timeout_minutes, 
+          wavoip_enabled,
+          auto_close_enabled,
+          auto_close_bot_minutes,
+          auto_close_assigned_minutes,
+          auto_close_only_business_hours,
+          auto_close_business_start,
+          auto_close_business_end,
+          auto_close_send_message,
+          auto_close_message_template,
+          satisfaction_survey_enabled,
+          satisfaction_survey_message
+        `)
         .eq("id", instanceId)
         .single();
 
       if (error) throw error;
-      return data as unknown as {
-        distribution_mode: string | null;
-        auto_close_hours: number | null;
-        display_name_for_team: string | null;
-        manual_instance_number: string | null;
-        redistribution_timeout_minutes: number | null;
-        wavoip_enabled: boolean;
-      };
+      return data;
     },
     enabled: open,
   });
 
-  const [distributionMode, setDistributionMode] = useState<string>(settings?.distribution_mode || "manual");
-  const [autoCloseHours, setAutoCloseHours] = useState<number>(settings?.auto_close_hours || 24);
-  const [displayName, setDisplayName] = useState<string>(settings?.display_name_for_team || "");
-  const [instanceNumber, setInstanceNumber] = useState<string>(settings?.manual_instance_number || "");
-  const [redistributionTimeout, setRedistributionTimeout] = useState<number>(settings?.redistribution_timeout_minutes || 30);
+  const [distributionMode, setDistributionMode] = useState<string>("manual");
+  const [displayName, setDisplayName] = useState<string>("");
+  const [instanceNumber, setInstanceNumber] = useState<string>("");
+  const [redistributionTimeout, setRedistributionTimeout] = useState<number>(30);
+  
+  const [autoCloseConfig, setAutoCloseConfig] = useState<AutoCloseConfig>({
+    auto_close_enabled: true,
+    auto_close_bot_minutes: 60,
+    auto_close_assigned_minutes: 480,
+    auto_close_only_business_hours: false,
+    auto_close_business_start: "08:00",
+    auto_close_business_end: "20:00",
+    auto_close_send_message: false,
+    auto_close_message_template: "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊",
+    satisfaction_survey_enabled: false,
+    satisfaction_survey_message: "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏"
+  });
 
   // Atualizar state quando carregar dados
   useEffect(() => {
     if (settings) {
       setDistributionMode(settings.distribution_mode || "manual");
-      setAutoCloseHours(settings.auto_close_hours || 24);
       setDisplayName(settings.display_name_for_team || "");
       setInstanceNumber(settings.manual_instance_number || "");
       setRedistributionTimeout(settings.redistribution_timeout_minutes || 30);
+      
+      setAutoCloseConfig({
+        auto_close_enabled: settings.auto_close_enabled ?? true,
+        auto_close_bot_minutes: settings.auto_close_bot_minutes ?? 60,
+        auto_close_assigned_minutes: settings.auto_close_assigned_minutes ?? 480,
+        auto_close_only_business_hours: settings.auto_close_only_business_hours ?? false,
+        auto_close_business_start: settings.auto_close_business_start || "08:00",
+        auto_close_business_end: settings.auto_close_business_end || "20:00",
+        auto_close_send_message: settings.auto_close_send_message ?? false,
+        auto_close_message_template: settings.auto_close_message_template || "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊",
+        satisfaction_survey_enabled: settings.satisfaction_survey_enabled ?? false,
+        satisfaction_survey_message: settings.satisfaction_survey_message || "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏"
+      });
     }
   }, [settings]);
 
@@ -79,10 +113,10 @@ export function InstanceSettingsDialog({
         .from("whatsapp_instances")
         .update({
           distribution_mode: distributionMode,
-          auto_close_hours: autoCloseHours,
           display_name_for_team: displayName.trim() || null,
           manual_instance_number: instanceNumber.trim() || null,
           redistribution_timeout_minutes: distributionMode === 'auto' ? redistributionTimeout : null,
+          ...autoCloseConfig
         })
         .eq("id", instanceId);
 
@@ -248,29 +282,11 @@ export function InstanceSettingsDialog({
 
             <Separator />
 
-            {/* Encerramento Automático */}
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Encerramento Automático
-              </Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={autoCloseHours}
-                  onChange={(e) => setAutoCloseHours(parseInt(e.target.value) || 24)}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">
-                  horas sem mensagens
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Conversas serão encerradas automaticamente após este período de inatividade
-              </p>
-            </div>
+            {/* Encerramento Automático e Pesquisa de Satisfação */}
+            <AutoCloseSettings 
+              config={autoCloseConfig}
+              onChange={setAutoCloseConfig}
+            />
 
             <div className="flex gap-2 pt-4">
               <Button

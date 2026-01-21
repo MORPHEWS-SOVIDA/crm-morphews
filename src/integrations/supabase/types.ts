@@ -436,6 +436,124 @@ export type Database = {
           },
         ]
       }
+      conversation_satisfaction_ratings: {
+        Row: {
+          assigned_user_id: string | null
+          closed_at: string
+          conversation_id: string
+          created_at: string
+          id: string
+          instance_id: string
+          is_pending_review: boolean | null
+          lead_id: string | null
+          organization_id: string
+          rating: number | null
+          raw_response: string | null
+          responded_at: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          assigned_user_id?: string | null
+          closed_at?: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          instance_id: string
+          is_pending_review?: boolean | null
+          lead_id?: string | null
+          organization_id: string
+          rating?: number | null
+          raw_response?: string | null
+          responded_at?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          assigned_user_id?: string | null
+          closed_at?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string
+          is_pending_review?: boolean | null
+          lead_id?: string | null
+          organization_id?: string
+          rating?: number | null
+          raw_response?: string | null
+          responded_at?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_satisfaction_ratings_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       delivery_region_schedules: {
         Row: {
           created_at: string
@@ -6987,6 +7105,7 @@ export type Database = {
         Row: {
           assigned_at: string | null
           assigned_user_id: string | null
+          awaiting_satisfaction_response: boolean | null
           bot_energy_consumed: number | null
           bot_messages_count: number | null
           bot_qualification_completed: boolean | null
@@ -7014,6 +7133,7 @@ export type Database = {
           organization_id: string
           original_instance_name: string | null
           phone_number: string
+          satisfaction_sent_at: string | null
           sendable_phone: string | null
           status: string
           unread_count: number
@@ -7022,6 +7142,7 @@ export type Database = {
         Insert: {
           assigned_at?: string | null
           assigned_user_id?: string | null
+          awaiting_satisfaction_response?: boolean | null
           bot_energy_consumed?: number | null
           bot_messages_count?: number | null
           bot_qualification_completed?: boolean | null
@@ -7049,6 +7170,7 @@ export type Database = {
           organization_id: string
           original_instance_name?: string | null
           phone_number: string
+          satisfaction_sent_at?: string | null
           sendable_phone?: string | null
           status?: string
           unread_count?: number
@@ -7057,6 +7179,7 @@ export type Database = {
         Update: {
           assigned_at?: string | null
           assigned_user_id?: string | null
+          awaiting_satisfaction_response?: boolean | null
           bot_energy_consumed?: number | null
           bot_messages_count?: number | null
           bot_qualification_completed?: boolean | null
@@ -7084,6 +7207,7 @@ export type Database = {
           organization_id?: string
           original_instance_name?: string | null
           phone_number?: string
+          satisfaction_sent_at?: string | null
           sendable_phone?: string | null
           status?: string
           unread_count?: number
@@ -7274,7 +7398,15 @@ export type Database = {
         Row: {
           active_bot_id: string | null
           applied_coupon_id: string | null
+          auto_close_assigned_minutes: number | null
+          auto_close_bot_minutes: number | null
+          auto_close_business_end: string | null
+          auto_close_business_start: string | null
+          auto_close_enabled: boolean | null
           auto_close_hours: number | null
+          auto_close_message_template: string | null
+          auto_close_only_business_hours: boolean | null
+          auto_close_send_message: boolean | null
           created_at: string
           deleted_at: string | null
           discount_applied_cents: number | null
@@ -7297,6 +7429,8 @@ export type Database = {
           provider: string
           qr_code_base64: string | null
           redistribution_timeout_minutes: number | null
+          satisfaction_survey_enabled: boolean | null
+          satisfaction_survey_message: string | null
           status: string
           stripe_subscription_item_id: string | null
           updated_at: string
@@ -7313,7 +7447,15 @@ export type Database = {
         Insert: {
           active_bot_id?: string | null
           applied_coupon_id?: string | null
+          auto_close_assigned_minutes?: number | null
+          auto_close_bot_minutes?: number | null
+          auto_close_business_end?: string | null
+          auto_close_business_start?: string | null
+          auto_close_enabled?: boolean | null
           auto_close_hours?: number | null
+          auto_close_message_template?: string | null
+          auto_close_only_business_hours?: boolean | null
+          auto_close_send_message?: boolean | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -7336,6 +7478,8 @@ export type Database = {
           provider?: string
           qr_code_base64?: string | null
           redistribution_timeout_minutes?: number | null
+          satisfaction_survey_enabled?: boolean | null
+          satisfaction_survey_message?: string | null
           status?: string
           stripe_subscription_item_id?: string | null
           updated_at?: string
@@ -7352,7 +7496,15 @@ export type Database = {
         Update: {
           active_bot_id?: string | null
           applied_coupon_id?: string | null
+          auto_close_assigned_minutes?: number | null
+          auto_close_bot_minutes?: number | null
+          auto_close_business_end?: string | null
+          auto_close_business_start?: string | null
+          auto_close_enabled?: boolean | null
           auto_close_hours?: number | null
+          auto_close_message_template?: string | null
+          auto_close_only_business_hours?: boolean | null
+          auto_close_send_message?: boolean | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -7375,6 +7527,8 @@ export type Database = {
           provider?: string
           qr_code_base64?: string | null
           redistribution_timeout_minutes?: number | null
+          satisfaction_survey_enabled?: boolean | null
+          satisfaction_survey_message?: string | null
           status?: string
           stripe_subscription_item_id?: string | null
           updated_at?: string
@@ -8257,6 +8411,10 @@ export type Database = {
           z_api_token: string
         }[]
       }
+      get_instance_nps_metrics: {
+        Args: { p_days?: number; p_instance_id: string }
+        Returns: Json
+      }
       get_linked_lead_for_conversation: {
         Args: { p_conversation_id: string }
         Returns: {
@@ -8274,6 +8432,10 @@ export type Database = {
       get_or_create_contact_by_phone: {
         Args: { _name?: string; _organization_id: string; _phone: string }
         Returns: string
+      }
+      get_org_nps_metrics: {
+        Args: { p_days?: number; p_organization_id: string }
+        Returns: Json
       }
       get_tenant_channels: {
         Args: { _tenant_id?: string }
