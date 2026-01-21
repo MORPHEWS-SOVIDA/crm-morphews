@@ -62,7 +62,7 @@ import { useCustomFieldDefinitions } from '@/hooks/useLeadCustomFields';
 import { useProducts } from '@/hooks/useProducts';
 import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
-import { useFunnelStages } from '@/hooks/useFunnelStages';
+import { useFunnelStages, getStageEnumValue } from '@/hooks/useFunnelStages';
 import { FUNNEL_STAGES } from '@/types/lead';
 
 interface IntegrationDetailDialogProps {
