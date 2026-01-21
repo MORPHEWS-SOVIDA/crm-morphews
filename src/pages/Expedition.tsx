@@ -997,7 +997,15 @@ export default function Expedition() {
                           />
                         )}
 
-                        {/* Payment proof button if attached */}
+                        {/* Delivery Observation - seller notes for expedition/motoboy */}
+                        {((sale as any).observation_1 || (sale as any).observation_2) && (
+                          <div className="p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-400 dark:border-yellow-700 mb-2">
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                              <strong>⚠️ Obs Entrega:</strong> {(sale as any).observation_1}
+                              {(sale as any).observation_2 && ` | ${(sale as any).observation_2}`}
+                            </p>
+                          </div>
+                        )}
                         {sale.payment_proof_url && (
                           <Button
                             variant="outline"

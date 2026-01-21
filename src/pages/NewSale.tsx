@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import {
@@ -163,6 +164,9 @@ export default function NewSale() {
   // Selected shipping address
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<LeadAddress | null>(null);
+  
+  // Delivery observation
+  const [deliveryObservation, setDeliveryObservation] = useState('');
 
   // Payment method selection
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
@@ -304,6 +308,7 @@ export default function NewSale() {
         payment_installments: selectedInstallments,
         payment_status: paymentStatus,
         payment_proof_url: uploadedProofUrl,
+        observation_1: deliveryObservation || null,
       });
 
       navigate(`/vendas`);
@@ -638,6 +643,29 @@ export default function NewSale() {
                 value={deliveryConfig}
                 onChange={setDeliveryConfig}
               />
+            )}
+
+            {/* Delivery Observation */}
+            {selectedItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Observação para Entrega
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    value={deliveryObservation}
+                    onChange={(e) => setDeliveryObservation(e.target.value)}
+                    placeholder="Ex: Colocar em embalagem de presente, será recebido pelo filho, campainha não funciona - buzinar..."
+                    className="min-h-[80px]"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Essa informação aparecerá no romaneio, expedição e para o entregador.
+                  </p>
+                </CardContent>
+              </Card>
             )}
 
             {/* Payment Method Selection */}
