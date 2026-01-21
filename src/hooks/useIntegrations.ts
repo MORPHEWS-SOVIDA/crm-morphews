@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/error-message';
 
 export interface Integration {
   id: string;
@@ -325,10 +326,13 @@ export function useSaveFieldMappings() {
       if (!tenantId) throw new Error('Organization not found');
       
       // Delete existing mappings
-      await supabase
+      const { error: deleteError } = await supabase
         .from('integration_field_mappings')
         .delete()
-        .eq('integration_id', integrationId);
+        .eq('integration_id', integrationId)
+        .eq('organization_id', tenantId);
+
+      if (deleteError) throw deleteError;
       
       // Insert new mappings
       if (mappings.length > 0) {
@@ -353,7 +357,9 @@ export function useSaveFieldMappings() {
     },
     onError: (error) => {
       console.error('Error saving mappings:', error);
-      toast.error('Erro ao salvar mapeamentos');
+      toast.error('Erro ao salvar mapeamentos', {
+        description: getErrorMessage(error),
+      });
     },
   });
 }
