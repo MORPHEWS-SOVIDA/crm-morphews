@@ -501,6 +501,7 @@ Deno.serve(async (req) => {
 
     const addressData: Record<string, any> = {};
     const saleData: Record<string, any> = {};
+    const customFieldsData: Record<string, string> = {}; // Store custom field values (field_name -> value)
 
     for (const mapping of typedMappings) {
       const rawValue = findValueInPayload(payload, mapping.source_field);
@@ -513,6 +514,11 @@ Deno.serve(async (req) => {
         } else if (mapping.target_field.startsWith('sale_')) {
           const saleField = mapping.target_field.replace('sale_', '');
           saleData[saleField] = transformedValue;
+        } else if (mapping.target_field.startsWith('custom_')) {
+          // Store custom field for later processing
+          const customFieldName = mapping.target_field.replace('custom_', '');
+          customFieldsData[customFieldName] = transformedValue;
+          console.log(`Collected custom field: ${customFieldName} = ${transformedValue}`);
         } else {
           // Only add to leadData if it's a valid column (ignore unknown fields like 'cpf')
           if (VALID_LEAD_COLUMNS.has(mapping.target_field)) {
@@ -921,6 +927,83 @@ Deno.serve(async (req) => {
           reason_id: typedIntegration.non_purchase_reason_id,
           notes: `Via integração: ${typedIntegration.name}`,
         });
+      }
+    }
+
+    // ========== SAVE CUSTOM FIELDS ==========
+    // Process custom fields for both new and updated leads
+    if (Object.keys(customFieldsData).length > 0) {
+      console.log('Processing custom fields:', customFieldsData);
+      
+      // Get all custom field definitions for this organization
+      const { data: fieldDefinitions } = await supabase
+        .from('lead_custom_field_definitions')
+        .select('id, field_name, field_label')
+        .eq('organization_id', typedIntegration.organization_id)
+        .eq('is_active', true);
+      
+      if (fieldDefinitions && fieldDefinitions.length > 0) {
+        // Build a map from field_name (lowercase) to definition for matching
+        const fieldMap = new Map<string, { id: string; field_name: string }>();
+        for (const def of fieldDefinitions) {
+          // Match by field_name (normalized)
+          fieldMap.set(def.field_name.toLowerCase(), { id: def.id, field_name: def.field_name });
+          // Also try matching by field_label (lowercase, normalized)
+          const normalizedLabel = def.field_label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+          if (normalizedLabel) {
+            fieldMap.set(normalizedLabel, { id: def.id, field_name: def.field_name });
+          }
+        }
+        
+        // Prepare values to upsert
+        const customFieldValues: { lead_id: string; field_definition_id: string; value: string; organization_id: string }[] = [];
+        
+        for (const [customKey, customValue] of Object.entries(customFieldsData)) {
+          // Try to find matching definition
+          const normalizedKey = customKey.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+          const matchedDef = fieldMap.get(normalizedKey) || fieldMap.get(customKey.toLowerCase());
+          
+          if (matchedDef) {
+            customFieldValues.push({
+              lead_id: leadId,
+              field_definition_id: matchedDef.id,
+              value: String(customValue),
+              organization_id: typedIntegration.organization_id,
+            });
+            console.log(`Matched custom field "${customKey}" to definition "${matchedDef.field_name}" (${matchedDef.id})`);
+          } else {
+            console.log(`No custom field definition found for "${customKey}" in organization`);
+          }
+        }
+        
+        // Upsert custom field values (update existing or insert new)
+        if (customFieldValues.length > 0) {
+          for (const cfv of customFieldValues) {
+            // Check if value already exists
+            const { data: existing } = await supabase
+              .from('lead_custom_field_values')
+              .select('id')
+              .eq('lead_id', cfv.lead_id)
+              .eq('field_definition_id', cfv.field_definition_id)
+              .maybeSingle();
+            
+            if (existing) {
+              // Update existing
+              await supabase
+                .from('lead_custom_field_values')
+                .update({ value: cfv.value })
+                .eq('id', existing.id);
+            } else {
+              // Insert new
+              await supabase
+                .from('lead_custom_field_values')
+                .insert(cfv);
+            }
+          }
+          console.log(`Saved ${customFieldValues.length} custom field values for lead ${leadId}`);
+        }
+      } else {
+        console.log('No active custom field definitions found for organization');
       }
     }
 
