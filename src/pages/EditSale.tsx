@@ -51,6 +51,7 @@ import {
   CalendarDays,
   Store,
   Bike,
+  CreditCard,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -112,6 +113,9 @@ export default function EditSale() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Payment state
+  const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
+
   // Permission check - can only edit drafts
   const canEditSale = permissions?.sales_edit_draft;
   
@@ -163,6 +167,9 @@ export default function EditSale() {
       setScheduledDate(sale.scheduled_delivery_date ? new Date(sale.scheduled_delivery_date + 'T00:00:00') : null);
       setScheduledShift(sale.scheduled_delivery_shift || null);
       setSelectedAddressId((sale as any).shipping_address_id || null);
+      
+      // Initialize payment status
+      setPaymentStatus(sale.payment_status || 'not_paid');
     }
   }, [sale]);
 
@@ -317,8 +324,25 @@ export default function EditSale() {
       });
     }
 
+    // Check payment status changes
+    if (paymentStatus !== sale.payment_status) {
+      const paymentLabels: Record<string, string> = {
+        'not_paid': 'Não pago',
+        'will_pay_before': 'Pagará antes da entrega',
+        'paid_now': 'Pago',
+      };
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'payment_changed',
+        field_name: 'payment_status',
+        old_value: paymentLabels[sale.payment_status || 'not_paid'] || '-',
+        new_value: paymentLabels[paymentStatus] || paymentStatus,
+        notes: `Status de pagamento alterado`,
+      });
+    }
+
     return changeList;
-  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses]);
+  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses, paymentStatus]);
 
   const hasChanges = changes.length > 0;
 
@@ -423,7 +447,7 @@ export default function EditSale() {
         if (insertError) throw insertError;
       }
 
-      // 4. Update sale totals and delivery fields
+      // 4. Update sale totals, delivery fields, and payment status
       const { error: saleError } = await supabase
         .from('sales')
         .update({
@@ -441,6 +465,8 @@ export default function EditSale() {
           shipping_carrier_id: deliveryType === 'carrier' ? selectedCarrierId : null,
           shipping_cost_cents: deliveryType === 'carrier' ? shippingCost : 0,
           shipping_address_id: selectedAddressId,
+          // Payment status
+          payment_status: paymentStatus,
         })
         .eq('id', sale.id);
 
@@ -939,6 +965,44 @@ export default function EditSale() {
                       />
                     )}
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Status Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Status de Pagamento
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant={paymentStatus === 'not_paid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setPaymentStatus('not_paid')}
+                  >
+                    Não Pago
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={paymentStatus === 'will_pay_before' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setPaymentStatus('will_pay_before')}
+                  >
+                    Pagará Antes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={paymentStatus === 'paid_now' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setPaymentStatus('paid_now')}
+                  >
+                    Pago
+                  </Button>
                 </div>
               </CardContent>
             </Card>

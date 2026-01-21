@@ -997,6 +997,24 @@ export default function Expedition() {
                           />
                         )}
 
+                        {/* Payment proof button if attached */}
+                        {sale.payment_proof_url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+                            onClick={() => {
+                              const { data: { publicUrl } } = supabase.storage
+                                .from('sales-documents')
+                                .getPublicUrl(sale.payment_proof_url!);
+                              window.open(publicUrl, '_blank');
+                            }}
+                          >
+                            <FileText className="w-3 h-3 mr-1" />
+                            Comprovante de Pagamento
+                          </Button>
+                        )}
+
                         {/* Actions Row */}
                         <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t">
                           {/* Print buttons */}
