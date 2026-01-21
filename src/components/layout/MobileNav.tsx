@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -24,10 +24,16 @@ import {
   Bot,
   ListTodo,
   Send,
+  ChevronRight,
+  X,
+  Home,
+  Kanban,
+  User,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useState, useMemo } from 'react';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
@@ -35,27 +41,44 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import logoMorphews from '@/assets/logo-morphews.png';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
+// Define module groups for organized navigation
+interface NavItem {
+  icon: typeof LayoutDashboard;
+  label: string;
+  path: string;
+  badge?: string;
+}
+
+interface NavGroup {
+  id: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  items: NavItem[];
+}
+
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const { user, profile, isAdmin, signOut } = useAuth();
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
 
-  // Helper to check if a feature is enabled in the plan
   const hasFeature = (key: string) => {
     if (isMasterAdmin) return true;
     if (featuresLoading || !orgFeatures) return true;
     return orgFeatures[key as keyof typeof orgFeatures] ?? true;
   };
   
-  // Permission-based visibility
+  // Permission checks
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canCreateLeads = isAdmin || permissions?.leads_create;
   const canSeeSales = isAdmin || permissions?.sales_view;
@@ -64,9 +87,7 @@ export function MobileNav() {
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeAllDeliveries = permissions?.deliveries_view_all;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
-  // Financial menu: requires reports_view permission - NOT sales_confirm_payment (which is for motoboy payment actions only)
   const canSeeFinanceiro = isAdmin || permissions?.reports_view;
-  // Expedition: requires ONLY expedition_view - validate_expedition is an action, not menu access
   const canSeeExpedition = isAdmin || permissions?.expedition_view;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
   const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
@@ -80,129 +101,346 @@ export function MobileNav() {
   const canSeeAIBots = isAdmin || permissions?.ai_bots_view;
   const canSeeDemands = isAdmin || permissions?.demands_view;
   const canSeeScheduledMessages = isAdmin || permissions?.scheduled_messages_view;
+  const canSeeDashboardFunnel = isAdmin || permissions?.dashboard_funnel_view;
+  const canSeeDashboardKanban = isAdmin || permissions?.dashboard_kanban_view;
+  const canSeeSellerPanel = isAdmin || permissions?.seller_panel_view;
+  const canSeeSalesDashboard = isAdmin || permissions?.sales_dashboard_view;
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
 
-  // Main bottom nav - show only what user can access
-  const mainNavItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', visible: hasFeature('dashboard_funnel') },
-    { icon: Users, label: 'Leads', path: '/leads', visible: canSeeLeads && hasFeature('leads') },
-    { icon: Plus, label: 'Novo', path: '/leads/new', visible: canCreateLeads && hasFeature('leads') },
-    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales && hasFeature('sales') },
-  ].filter(item => item.visible).slice(0, 4);
+  // Build dynamic nav groups based on permissions
+  const navGroups = useMemo<NavGroup[]>(() => {
+    const groups: NavGroup[] = [];
 
-  // Menu items - full menu with feature gating
-  const menuNavItems = [
-    { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
-    { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam && hasFeature('team') },
-    { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
-    { icon: ListTodo, label: 'Demandas', path: '/demandas', visible: canSeeDemands && hasFeature('demands') },
-    { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
-    { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts && hasFeature('products') },
-    { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale && hasFeature('post_sale') },
-    { icon: TicketCheck, label: 'SAC', path: '/sac', visible: canSeeSac && hasFeature('sac') },
-    { icon: Send, label: 'Mensagens Agendadas', path: '/mensagens-agendadas', visible: canSeeScheduledMessages && hasFeature('scheduled_messages') },
-    { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
-    { icon: FileText, label: 'Rel. Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
-    { icon: FileText, label: 'Rel. Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
-    { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('expedition') },
-    { icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas', visible: canSeeDeliveries && hasFeature('deliveries') },
-    { icon: Truck, label: 'Todas Entregas', path: '/todas-entregas', visible: canSeeAllDeliveries && hasFeature('deliveries') },
-    { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
-    { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage') },
-    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsAppV2 && hasFeature('whatsapp_v2') },
-    { icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro', visible: isAdmin && hasFeature('new_organization') },
-    { icon: ShoppingCart, label: 'Interessados', path: '/interessados', visible: isAdmin && hasFeature('interested_leads') },
-    { icon: Crown, label: 'Super Admin', path: '/super-admin', visible: isMasterAdmin },
-    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
-    { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings && hasFeature('settings') },
-  ].filter(item => item.visible);
+    // Dashboard Group
+    const dashboardItems: NavItem[] = [];
+    if (canSeeDashboardFunnel && hasFeature('dashboard_funnel')) {
+      dashboardItems.push({ icon: LayoutDashboard, label: 'Dashboard Funil', path: '/' });
+    }
+    if (canSeeDashboardKanban && hasFeature('dashboard_kanban')) {
+      dashboardItems.push({ icon: Kanban, label: 'Dashboard Kanban', path: '/dashboard-kanban' });
+    }
+    if (canSeeSellerPanel) {
+      dashboardItems.push({ icon: User, label: 'Meu Painel', path: '/meu-painel' });
+    }
+    if (canSeeSalesDashboard && hasFeature('sales_dashboard')) {
+      dashboardItems.push({ icon: BarChart3, label: 'Dashboard Vendas', path: '/dashboard-vendas' });
+    }
+    if (dashboardItems.length > 0) {
+      groups.push({ id: 'dashboard', label: 'Dashboards', icon: LayoutDashboard, items: dashboardItems });
+    }
+
+    // Leads & Sales Group
+    const salesItems: NavItem[] = [];
+    if (canSeeLeads && hasFeature('leads')) {
+      salesItems.push({ icon: Users, label: 'Lista de Leads', path: '/leads' });
+    }
+    if (canCreateLeads && hasFeature('leads')) {
+      salesItems.push({ icon: Plus, label: 'Novo Lead', path: '/leads/new' });
+    }
+    if (canSeeReceptive && hasFeature('receptive')) {
+      salesItems.push({ icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' });
+    }
+    if (canSeeSales && hasFeature('sales')) {
+      salesItems.push({ icon: SalesIcon, label: 'Vendas', path: '/vendas' });
+    }
+    if (salesItems.length > 0) {
+      groups.push({ id: 'sales', label: 'Vendas', icon: SalesIcon, items: salesItems });
+    }
+
+    // Communication Group
+    const commItems: NavItem[] = [];
+    if (canSeeWhatsApp && hasFeature('whatsapp_v1')) {
+      commItems.push({ icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' });
+    }
+    if (canSeeWhatsAppV2 && hasFeature('whatsapp_v2')) {
+      commItems.push({ icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo' });
+    }
+    if (canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage')) {
+      commItems.push({ icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' });
+    }
+    if (canSeeScheduledMessages && hasFeature('scheduled_messages')) {
+      commItems.push({ icon: Send, label: 'Mensagens Agendadas', path: '/mensagens-agendadas' });
+    }
+    if (canSeeInstagram && hasFeature('instagram')) {
+      commItems.push({ icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' });
+    }
+    if (commItems.length > 0) {
+      groups.push({ id: 'communication', label: 'Comunicação', icon: MessageSquare, items: commItems });
+    }
+
+    // Operations Group (Expedition, Deliveries)
+    const opsItems: NavItem[] = [];
+    if (canSeeExpedition && hasFeature('expedition')) {
+      opsItems.push({ icon: Package, label: 'Expedição', path: '/expedicao' });
+    }
+    if (canSeeDeliveries && hasFeature('deliveries')) {
+      opsItems.push({ icon: Truck, label: 'Minhas Entregas', path: '/minhas-entregas' });
+    }
+    if (canSeeAllDeliveries && hasFeature('deliveries')) {
+      opsItems.push({ icon: Truck, label: 'Todas Entregas', path: '/todas-entregas' });
+    }
+    if (opsItems.length > 0) {
+      groups.push({ id: 'operations', label: 'Operações', icon: Truck, items: opsItems });
+    }
+
+    // Post-Sale & Support Group
+    const supportItems: NavItem[] = [];
+    if (canSeePostSale && hasFeature('post_sale')) {
+      supportItems.push({ icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda' });
+    }
+    if (canSeeSac && hasFeature('sac')) {
+      supportItems.push({ icon: TicketCheck, label: 'SAC', path: '/sac' });
+    }
+    if (supportItems.length > 0) {
+      groups.push({ id: 'support', label: 'Pós-Venda', icon: ClipboardList, items: supportItems });
+    }
+
+    // Management Group
+    const mgmtItems: NavItem[] = [];
+    if (canSeeProducts && hasFeature('products')) {
+      mgmtItems.push({ icon: Package, label: 'Produtos', path: '/produtos' });
+    }
+    if (canSeeTeam && hasFeature('team')) {
+      mgmtItems.push({ icon: UsersRound, label: 'Minha Equipe', path: '/equipe' });
+    }
+    if (canSeeAIBots && hasFeature('ai_bots')) {
+      mgmtItems.push({ icon: Bot, label: 'Robôs IA', path: '/robos-ia' });
+    }
+    if (canSeeDemands && hasFeature('demands')) {
+      mgmtItems.push({ icon: ListTodo, label: 'Demandas', path: '/demandas' });
+    }
+    if (mgmtItems.length > 0) {
+      groups.push({ id: 'management', label: 'Gestão', icon: UsersRound, items: mgmtItems });
+    }
+
+    // Financial & Reports Group
+    const finItems: NavItem[] = [];
+    if (canSeeFinanceiro && hasFeature('financial')) {
+      finItems.push({ icon: DollarSign, label: 'Financeiro', path: '/financeiro' });
+    }
+    if (canSeeSalesReport && hasFeature('sales_report')) {
+      finItems.push({ icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas' });
+    }
+    if (canSeeExpeditionReport && hasFeature('expedition_report')) {
+      finItems.push({ icon: FileText, label: 'Relatório Expedição', path: '/relatorios/expedicao' });
+    }
+    if (finItems.length > 0) {
+      groups.push({ id: 'financial', label: 'Financeiro', icon: DollarSign, items: finItems });
+    }
+
+    // Settings & Admin Group
+    const adminItems: NavItem[] = [];
+    if (isManager) {
+      adminItems.push({ icon: Shield, label: 'Código 2FA', path: '/2fa' });
+    }
+    if (canSeeSettings && hasFeature('settings')) {
+      adminItems.push({ icon: Settings, label: 'Configurações', path: '/settings' });
+    }
+    if (isAdmin && hasFeature('new_organization')) {
+      adminItems.push({ icon: UserPlus, label: 'Cadastrar Usuário', path: '/cadastro' });
+    }
+    if (isAdmin && hasFeature('interested_leads')) {
+      adminItems.push({ icon: ShoppingCart, label: 'Interessados', path: '/interessados' });
+    }
+    if (isMasterAdmin) {
+      adminItems.push({ icon: Crown, label: 'Super Admin', path: '/super-admin' });
+    }
+    if (adminItems.length > 0) {
+      groups.push({ id: 'admin', label: 'Admin', icon: Settings, items: adminItems });
+    }
+
+    return groups;
+  }, [
+    permissions, isAdmin, isManager, isMasterAdmin, orgFeatures, featuresLoading,
+    canSeeLeads, canCreateLeads, canSeeSales, canSeeProducts, canSeeSettings,
+    canSeeDeliveries, canSeeAllDeliveries, canSeeReceptive, canSeeFinanceiro,
+    canSeeExpedition, canSeeWhatsApp, canSeeWhatsAppV2, canSeeTeam, canSeeInstagram,
+    canSeePostSale, canSeeSac, canSeeSalesReport, canSeeExpeditionReport,
+    canSeeWhatsAppManage, canSeeAIBots, canSeeDemands, canSeeScheduledMessages,
+    canSeeDashboardFunnel, canSeeDashboardKanban, canSeeSellerPanel, canSeeSalesDashboard
+  ]);
+
+  // Smart quick access items - first 4 items from available groups
+  const quickAccessItems = useMemo(() => {
+    const items: NavItem[] = [];
+    
+    // Priority order: most used modules
+    const priorityPaths = ['/', '/leads', '/vendas', '/whatsapp/chat', '/add-receptivo', '/minhas-entregas', '/expedicao'];
+    
+    for (const path of priorityPaths) {
+      if (items.length >= 4) break;
+      for (const group of navGroups) {
+        const found = group.items.find(item => item.path === path);
+        if (found && !items.some(i => i.path === found.path)) {
+          items.push(found);
+          break;
+        }
+      }
+    }
+
+    return items;
+  }, [navGroups]);
+
+  // Find current group based on location
+  const currentGroup = useMemo(() => {
+    for (const group of navGroups) {
+      if (group.items.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/'))) {
+        return group.id;
+      }
+    }
+    return null;
+  }, [navGroups, location.pathname]);
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    setIsOpen(false);
+    setExpandedGroup(null);
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroup(prev => prev === groupId ? null : groupId);
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
-        {mainNavItems.map((item) => (
+      <div className="flex items-center justify-around h-16 px-1">
+        {quickAccessItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) => cn(
-              'flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[60px]',
+              'flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-all flex-1 max-w-[72px]',
               isActive
                 ? 'text-primary bg-primary/10'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <item.icon className="w-5 h-5" />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <span className="text-[9px] font-medium truncate w-full text-center">{item.label}</span>
           </NavLink>
         ))}
         
-        {/* Menu Sheet */}
+        {/* Full Menu Sheet */}
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
-            <button className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground min-w-[60px]">
+            <button className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg transition-all flex-1 max-w-[72px]",
+              isOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+            )}>
               <Menu className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Menu</span>
+              <span className="text-[9px] font-medium">Todos</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-2xl">
-            <div className="flex flex-col gap-2 py-4">
+          <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl p-0">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <SheetHeader className="px-4 py-4 border-b border-border flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img src={logoMorphews} alt="Morphews" className="h-8 w-auto" />
+                    <SheetTitle className="text-lg">Menu</SheetTitle>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </SheetHeader>
+
               {/* User Info */}
               {user && (
-                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl mb-2">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-lg">
-                    {profile?.first_name?.[0] || user.email?.[0]?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {profile ? `${profile.first_name} ${profile.last_name}` : user.email}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isAdmin ? 'Administrador' : 'Usuário'}
-                    </p>
+                <div className="px-4 py-3 border-b border-border flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+                      {profile?.first_name?.[0] || user.email?.[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate text-sm">
+                        {profile ? `${profile.first_name} ${profile.last_name}` : user.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {isAdmin ? 'Administrador' : 'Usuário'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Menu Items */}
-              <div className="grid grid-cols-2 gap-2">
-                {menuNavItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setIsOpen(false)}
-                    className={({ isActive }) => cn(
-                      'flex items-center gap-3 p-4 rounded-xl transition-all',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-muted/50 text-foreground hover:bg-muted'
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <div className="flex-1">
-                      <span className="font-medium text-sm">{item.label}</span>
-                      {item.badge && (
-                        <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-primary/10 text-primary">
-                          {item.badge}
-                        </span>
+              {/* Navigation Groups */}
+              <ScrollArea className="flex-1 px-2 py-2">
+                <div className="space-y-1">
+                  {navGroups.map((group) => (
+                    <div key={group.id} className="rounded-xl overflow-hidden">
+                      {/* Group Header - Expandable */}
+                      <button
+                        onClick={() => toggleGroup(group.id)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-4 py-3 transition-colors",
+                          expandedGroup === group.id || currentGroup === group.id
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted/50 text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <group.icon className="w-5 h-5" />
+                          <span className="font-medium">{group.label}</span>
+                          <span className="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full">
+                            {group.items.length}
+                          </span>
+                        </div>
+                        <ChevronRight className={cn(
+                          "w-4 h-4 transition-transform",
+                          expandedGroup === group.id && "rotate-90"
+                        )} />
+                      </button>
+
+                      {/* Group Items */}
+                      {expandedGroup === group.id && (
+                        <div className="bg-background/50 py-1">
+                          {group.items.map((item) => (
+                            <button
+                              key={item.path}
+                              onClick={() => handleNavigate(item.path)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-6 py-3 transition-colors",
+                                location.pathname === item.path
+                                  ? "bg-primary/10 text-primary"
+                                  : "text-foreground hover:bg-muted/50"
+                              )}
+                            >
+                              <item.icon className="w-4 h-4" />
+                              <span className="text-sm">{item.label}</span>
+                              {item.badge && (
+                                <span className="ml-auto px-2 py-0.5 text-[10px] rounded-full bg-primary/20 text-primary">
+                                  {item.badge}
+                                </span>
+                              )}
+                              {location.pathname === item.path && (
+                                <div className="ml-auto w-2 h-2 rounded-full bg-primary" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  </NavLink>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
 
-              {/* Logout */}
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-3 mt-4 text-destructive hover:text-destructive hover:bg-destructive/10 h-12"
-                onClick={handleSignOut}
-              >
-                <LogOut className="w-5 h-5" />
-                Sair da conta
-              </Button>
+              {/* Footer - Logout */}
+              <div className="px-4 py-4 border-t border-border flex-shrink-0 safe-area-bottom">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 h-12"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="w-5 h-5" />
+                  Sair da conta
+                </Button>
+              </div>
             </div>
           </SheetContent>
         </Sheet>
