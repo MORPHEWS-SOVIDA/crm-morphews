@@ -10,15 +10,18 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package, Search, Sparkles, AlertCircle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Package, Search, Sparkles, AlertCircle, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BotProductSelectorProps {
   botId?: string;
   productScope: 'all' | 'selected' | 'none';
   selectedProductIds: string[];
+  useRagSearch: boolean;
   onProductScopeChange: (scope: 'all' | 'selected' | 'none') => void;
   onSelectedProductsChange: (productIds: string[]) => void;
+  onUseRagSearchChange: (enabled: boolean) => void;
 }
 
 interface Product {
@@ -36,8 +39,10 @@ export function BotProductSelector({
   botId,
   productScope,
   selectedProductIds,
+  useRagSearch,
   onProductScopeChange,
   onSelectedProductsChange,
+  onUseRagSearchChange,
 }: BotProductSelectorProps) {
   const { tenantId } = useTenant();
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,6 +148,31 @@ export function BotProductSelector({
           ))}
         </RadioGroup>
       </div>
+
+      {/* Semantic Search Toggle */}
+      {productScope !== 'none' && (
+        <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-blue-600" />
+                <div>
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    Busca Semântica (RAG)
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    IA busca informações relevantes automaticamente
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={useRagSearch}
+                onCheckedChange={onUseRagSearchChange}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Context Richness Indicator */}
       {productScope !== 'none' && (
