@@ -446,12 +446,18 @@ export function IntegrationDetailDialog({
       }))
     : Object.entries(FUNNEL_STAGES).map(([key, val]) => ({ value: key, label: val.label }));
 
+  // Get already mapped target fields to disable duplicates
+  const usedTargetFields = useMemo(() => {
+    return new Set(mappings.map(m => m.target_field));
+  }, [mappings]);
+
   // Group target fields
   const groupedTargetFields = useMemo(() => {
     const groups: Record<string, typeof TARGET_FIELDS> = {
       lead: [],
       address: [],
       sale: [],
+      custom: [],
     };
     
     TARGET_FIELDS.forEach(field => {
@@ -884,18 +890,30 @@ export function IntegrationDetailDialog({
                               <SelectTrigger className="w-40">
                                 <SelectValue placeholder="Mapear para..." />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="max-h-64">
                                 <SelectItem value="__ignore__">Ignorar</SelectItem>
                                 {Object.entries(groupedTargetFields).map(([group, fields]) => (
                                   <React.Fragment key={group}>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
-                                      {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : 'Venda'}
-                                    </div>
-                                    {fields.map(f => (
-                                      <SelectItem key={f.value} value={f.value}>
-                                        {f.label}
-                                      </SelectItem>
-                                    ))}
+                                    {fields.length > 0 && (
+                                      <>
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
+                                          {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : group === 'custom' ? 'Personalizados' : 'Venda'}
+                                        </div>
+                                        {fields.map(f => {
+                                          const isUsed = usedTargetFields.has(f.value);
+                                          return (
+                                            <SelectItem 
+                                              key={f.value} 
+                                              value={f.value}
+                                              disabled={isUsed}
+                                              className={isUsed ? 'opacity-50' : ''}
+                                            >
+                                              {f.label} {isUsed && '(já mapeado)'}
+                                            </SelectItem>
+                                          );
+                                        })}
+                                      </>
+                                    )}
                                   </React.Fragment>
                                 ))}
                               </SelectContent>
@@ -934,17 +952,29 @@ export function IntegrationDetailDialog({
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="max-h-64">
                               {Object.entries(groupedTargetFields).map(([group, fields]) => (
                                 <React.Fragment key={group}>
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
-                                    {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : 'Venda'}
-                                  </div>
-                                  {fields.map(f => (
-                                    <SelectItem key={f.value} value={f.value}>
-                                      {f.label}
-                                    </SelectItem>
-                                  ))}
+                                  {fields.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
+                                        {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : group === 'custom' ? 'Personalizados' : 'Venda'}
+                                      </div>
+                                      {fields.map(f => {
+                                        const isUsedByOther = usedTargetFields.has(f.value) && mapping.target_field !== f.value;
+                                        return (
+                                          <SelectItem 
+                                            key={f.value} 
+                                            value={f.value}
+                                            disabled={isUsedByOther}
+                                            className={isUsedByOther ? 'opacity-50' : ''}
+                                          >
+                                            {f.label} {isUsedByOther && '(já mapeado)'}
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </>
+                                  )}
                                 </React.Fragment>
                               ))}
                             </SelectContent>
