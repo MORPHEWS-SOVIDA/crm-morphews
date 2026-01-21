@@ -7410,6 +7410,9 @@ export type Database = {
           auto_close_message_template: string | null
           auto_close_only_business_hours: boolean | null
           auto_close_send_message: boolean | null
+          auto_transcribe_enabled: boolean | null
+          auto_transcribe_inbound: boolean | null
+          auto_transcribe_outbound: boolean | null
           created_at: string
           deleted_at: string | null
           discount_applied_cents: number | null
@@ -7459,6 +7462,9 @@ export type Database = {
           auto_close_message_template?: string | null
           auto_close_only_business_hours?: boolean | null
           auto_close_send_message?: boolean | null
+          auto_transcribe_enabled?: boolean | null
+          auto_transcribe_inbound?: boolean | null
+          auto_transcribe_outbound?: boolean | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -7508,6 +7514,9 @@ export type Database = {
           auto_close_message_template?: string | null
           auto_close_only_business_hours?: boolean | null
           auto_close_send_message?: boolean | null
+          auto_transcribe_enabled?: boolean | null
+          auto_transcribe_inbound?: boolean | null
+          auto_transcribe_outbound?: boolean | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -7616,6 +7625,8 @@ export type Database = {
           provider_message_id: string | null
           sent_by_user_id: string | null
           status: string | null
+          transcription: string | null
+          transcription_status: string | null
           z_api_message_id: string | null
         }
         Insert: {
@@ -7634,6 +7645,8 @@ export type Database = {
           provider_message_id?: string | null
           sent_by_user_id?: string | null
           status?: string | null
+          transcription?: string | null
+          transcription_status?: string | null
           z_api_message_id?: string | null
         }
         Update: {
@@ -7652,6 +7665,8 @@ export type Database = {
           provider_message_id?: string | null
           sent_by_user_id?: string | null
           status?: string | null
+          transcription?: string | null
+          transcription_status?: string | null
           z_api_message_id?: string | null
         }
         Relationships: [

@@ -554,10 +554,10 @@ serve(async (req) => {
         contentPreview: msgData.content.substring(0, 100),
       });
 
-      // Buscar a instância para saber a organização
+      // Buscar a instância para saber a organização (inclui configs de transcrição)
       const { data: instance } = await supabase
         .from("whatsapp_instances")
-        .select("id, organization_id, phone_number, evolution_instance_id")
+        .select("id, organization_id, phone_number, evolution_instance_id, auto_transcribe_enabled, auto_transcribe_inbound, auto_transcribe_outbound")
         .eq("evolution_instance_id", instanceName)
         .single();
 
@@ -909,6 +909,43 @@ serve(async (req) => {
             isGroup,
             hasMedia: !!savedMediaUrl,
           });
+
+          // =====================
+          // AUTO-TRANSCRIPTION FOR AUDIO MESSAGES
+          // =====================
+          const shouldAutoTranscribe = 
+            msgData.type === 'audio' && 
+            savedMediaUrl && 
+            (instance as any).auto_transcribe_enabled === true && 
+            (instance as any).auto_transcribe_inbound === true;
+          
+          if (shouldAutoTranscribe) {
+            console.log("🎤 Triggering auto-transcription for inbound audio message:", messageId);
+            
+            // Mark as pending and trigger transcription (fire and forget)
+            await supabase
+              .from("whatsapp_messages")
+              .update({ transcription_status: "pending" })
+              .eq("id", messageId);
+            
+            fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                messageId: messageId,
+                organizationId: organizationId,
+                mediaUrl: savedMediaUrl,
+              }),
+            }).then(async (res) => {
+              const result = await res.json();
+              console.log("🎤 Transcription result:", result);
+            }).catch((transcriptionError) => {
+              console.error("❌ Error calling transcription:", transcriptionError);
+            });
+          }
 
           // =====================
           // PROCESSAR COM ROBÔ IA

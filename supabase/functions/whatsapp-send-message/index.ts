@@ -493,6 +493,46 @@ Deno.serve(async (req) => {
 
     if (saveError) {
       console.error(`[${requestId}] ⚠️ Failed to save message to DB:`, saveError);
+    } else if (savedMessage && finalType === 'audio' && (finalMediaUrlForDb || finalMediaUrl)) {
+      // Check if auto-transcription is enabled for outbound
+      const { data: instanceSettings } = await supabaseAdmin
+        .from("whatsapp_instances")
+        .select("auto_transcribe_enabled, auto_transcribe_outbound, organization_id")
+        .eq("id", instanceId)
+        .single();
+      
+      const shouldAutoTranscribe = 
+        instanceSettings?.auto_transcribe_enabled === true && 
+        instanceSettings?.auto_transcribe_outbound === true;
+      
+      if (shouldAutoTranscribe) {
+        console.log(`[${requestId}] 🎤 Triggering auto-transcription for outbound audio`);
+        
+        // Mark as pending
+        await supabaseAdmin
+          .from("whatsapp_messages")
+          .update({ transcription_status: "pending" })
+          .eq("id", savedMessage.id);
+        
+        // Fire and forget transcription
+        fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messageId: savedMessage.id,
+            organizationId: instanceSettings.organization_id,
+            mediaUrl: finalMediaUrlForDb || finalMediaUrl,
+          }),
+        }).then(async (res) => {
+          const result = await res.json();
+          console.log(`[${requestId}] 🎤 Transcription result:`, result);
+        }).catch((err) => {
+          console.error(`[${requestId}] ❌ Transcription error:`, err);
+        });
+      }
     }
 
     // Update conversation - se usuário está enviando e conversa não está atribuída, atribuir
