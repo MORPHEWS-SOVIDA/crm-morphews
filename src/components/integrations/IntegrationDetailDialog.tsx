@@ -179,6 +179,7 @@ export function IntegrationDetailDialog({
   }, [logs]);
 
   // Auto-detect fields from last payload - ALWAYS works, shows ALL fields
+  // Ensures each target field is only auto-suggested ONCE (no duplicates)
   const autoDetectFields = () => {
     if (!lastPayload) {
       toast.error('Nenhum payload recebido ainda. Envie um webhook primeiro.');
@@ -188,12 +189,15 @@ export function IntegrationDetailDialog({
     const payload = typeof lastPayload === 'object' ? lastPayload : {};
     const detected: DetectedField[] = [];
     
-    // Known field aliases for auto-suggestion - only suggest fields that EXIST in our schema
-    // Note: 'cpf' is NOT a valid field in leads table, so we removed it
+    // Track which target fields have already been auto-suggested to prevent duplicates
+    const alreadySuggestedTargets = new Set<string>();
+    
+    // Known field aliases for auto-suggestion
     const fieldAliases: Record<string, string[]> = {
       name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'buyer_name', 'buyerName', 'contact_name'],
       email: ['email', 'e-mail', 'mail', 'customer_email', 'customerEmail', 'buyer_email', 'buyerEmail', 'contact_email'],
       whatsapp: ['whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone', 'buyer_phone', 'contact_phone', 'numero_telefone', 'numero_whatsapp'],
+      cpf: ['cpf', 'cnpj', 'cpf_cnpj', 'documento', 'document', 'doc', 'tax_id', 'taxId'],
       observations: ['observations', 'observacoes', 'notes', 'notas', 'observacao', 'comments', 'comentarios', 'message', 'mensagem'],
       address_street: ['street', 'rua', 'endereco', 'address', 'logradouro', 'street_name', 'streetName'],
       address_number: ['number', 'numero', 'street_number', 'streetNumber', 'num', 'house_number'],
@@ -223,8 +227,10 @@ export function IntegrationDetailDialog({
           const lowerKey = key.toLowerCase().replace(/[_\s-]/g, '');
           
           for (const [target, aliases] of Object.entries(fieldAliases)) {
-            if (aliases.some(a => a.replace(/[_\s-]/g, '') === lowerKey)) {
+            // Only suggest if this target hasn't been suggested yet
+            if (!alreadySuggestedTargets.has(target) && aliases.some(a => a.replace(/[_\s-]/g, '') === lowerKey)) {
               suggested = target;
+              alreadySuggestedTargets.add(target); // Mark as used
               break;
             }
           }
@@ -262,15 +268,32 @@ export function IntegrationDetailDialog({
     }
   };
 
-  // Apply detected field as mapping
+  // Apply detected field as mapping (or ignore it)
   const applyDetectedField = (field: DetectedField, targetField: string) => {
-    if (targetField === '__ignore__') return;
+    // Handle "Ignore" - remove any existing mapping for this source field
+    if (targetField === '__ignore__') {
+      // Remove the mapping if this source field was previously mapped
+      const existingMapping = mappings.find(m => m.source_field === field.key);
+      if (existingMapping) {
+        setMappings(mappings.filter(m => m.source_field !== field.key));
+        setHasUnsavedMappings(true);
+      }
+      // Clear the suggested_target in detectedFields so the dropdown shows "Ignorar"
+      setDetectedFields(prev => prev.map(f => 
+        f.key === field.key ? { ...f, suggested_target: '__ignore__' } : f
+      ));
+      toast.success(`Campo "${field.key}" será ignorado`);
+      return;
+    }
     
-    const existingIndex = mappings.findIndex(m => m.target_field === targetField);
+    // First, remove any existing mapping for this source field (to avoid orphans)
+    const filteredMappings = mappings.filter(m => m.source_field !== field.key);
+    
+    const existingIndex = filteredMappings.findIndex(m => m.target_field === targetField);
     
     if (existingIndex >= 0) {
-      // Update existing mapping
-      setMappings(mappings.map((m, i) => 
+      // Update existing mapping - replace the source field
+      setMappings(filteredMappings.map((m, i) => 
         i === existingIndex 
           ? { ...m, source_field: field.key }
           : m
@@ -278,7 +301,7 @@ export function IntegrationDetailDialog({
     } else {
       // Add new mapping
       setMappings([
-        ...mappings,
+        ...filteredMappings,
         {
           id: `new-${Date.now()}`,
           source_field: field.key,
@@ -287,6 +310,11 @@ export function IntegrationDetailDialog({
         },
       ]);
     }
+    
+    // Update the detected field's suggested target to reflect the selection
+    setDetectedFields(prev => prev.map(f => 
+      f.key === field.key ? { ...f, suggested_target: targetField } : f
+    ));
     
     setHasUnsavedMappings(true);
     toast.success(`Campo "${field.key}" mapeado para "${targetField}"`);
@@ -895,13 +923,24 @@ export function IntegrationDetailDialog({
                             </div>
                             <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                             <Select
-                              value={field.suggested_target || ''}
-                              onValueChange={(v) => applyDetectedField(field, v)}
+                              value={field.suggested_target || '__none__'}
+                              onValueChange={(v) => {
+                                if (v !== '__none__') {
+                                  applyDetectedField(field, v);
+                                }
+                              }}
                             >
                               <SelectTrigger className="w-40">
-                                <SelectValue placeholder="Mapear para..." />
+                                <SelectValue placeholder="Mapear para...">
+                                  {field.suggested_target === '__ignore__' 
+                                    ? 'Ignorar' 
+                                    : field.suggested_target 
+                                      ? groupedTargetFields.lead.concat(groupedTargetFields.address, groupedTargetFields.sale, groupedTargetFields.custom).find(f => f.value === field.suggested_target)?.label || field.suggested_target
+                                      : 'Mapear para...'
+                                  }
+                                </SelectValue>
                               </SelectTrigger>
-                              <SelectContent className="max-h-64">
+                              <SelectContent className="max-h-64 z-[100] bg-popover">
                                 <SelectItem value="__ignore__">Ignorar</SelectItem>
                                 {Object.entries(groupedTargetFields).map(([group, fields]) => (
                                   <React.Fragment key={group}>
@@ -911,7 +950,7 @@ export function IntegrationDetailDialog({
                                           {group === 'lead' ? 'Lead' : group === 'address' ? 'Endereço' : group === 'custom' ? 'Personalizados' : 'Venda'}
                                         </div>
                                         {fields.map(f => {
-                                          const isUsed = usedTargetFields.has(f.value);
+                                          const isUsed = usedTargetFields.has(f.value) && field.suggested_target !== f.value;
                                           return (
                                             <SelectItem 
                                               key={f.value} 
