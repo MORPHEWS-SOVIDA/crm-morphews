@@ -135,6 +135,9 @@ export function IntegrationDetailDialog({
   const [sacPriority, setSacPriority] = useState<string>(
     (integration as any).sac_priority || 'normal'
   );
+  const [sacDefaultDescription, setSacDefaultDescription] = useState<string>(
+    (integration as any).sac_default_description || ''
+  );
   
   const [mappings, setMappings] = useState<FieldMappingRow[]>([]);
   const [showPayloadViewer, setShowPayloadViewer] = useState(false);
@@ -450,6 +453,7 @@ export function IntegrationDetailDialog({
       sac_category: sacCategory || null,
       sac_subcategory: sacSubcategory || null,
       sac_priority: sacPriority || 'normal',
+      sac_default_description: sacDefaultDescription || null,
     } as any);
     toast.success('Configurações salvas!');
   };
@@ -622,7 +626,7 @@ export function IntegrationDetailDialog({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 pr-4 touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <ScrollArea className="flex-1 pr-4 touch-pan-y [&_[data-radix-scroll-area-scrollbar]]:w-3 [&_[data-radix-scroll-area-scrollbar]]:bg-muted/50" style={{ WebkitOverflowScrolling: 'touch', maxHeight: 'calc(80vh - 120px)' }}>
             <TabsContent value="config" className="space-y-4 mt-4">
               <Card>
                 <CardHeader className="pb-2">
@@ -757,10 +761,10 @@ export function IntegrationDetailDialog({
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { value: 'lead', label: 'Criar/Atualizar Lead', desc: 'Cria ou atualiza lead existente', icon: '👤' },
-                      { value: 'sale', label: 'Lead + Venda', desc: 'Cria/atualiza lead e gera venda', icon: '💰' },
-                      { value: 'both', label: 'Lead + Venda (Completo)', desc: 'Lead + venda com todos os dados', icon: '📦' },
-                      { value: 'sac', label: 'Lead + SAC', desc: 'Cria/atualiza lead e abre chamado', icon: '🎧' },
+                      { value: 'lead', label: 'Criar/Atualizar Lead', desc: 'Apenas gerencia leads', icon: '👤' },
+                      { value: 'sale', label: 'Lead + Venda Rápida', desc: 'Gera venda com produto e valor', icon: '💰' },
+                      { value: 'both', label: 'Lead + Venda Completa', desc: 'Venda com endereço e parcelas', icon: '📦' },
+                      { value: 'sac', label: 'Lead + Chamado SAC', desc: 'Abre ticket na fila de atendimento', icon: '🎧' },
                     ].map(mode => (
                       <div
                         key={mode.value}
@@ -786,11 +790,19 @@ export function IntegrationDetailDialog({
                       <span>💡</span> Como funciona:
                     </p>
                     <ul className="text-xs text-muted-foreground space-y-0.5">
-                      <li>• O WhatsApp é a <strong>chave única</strong> para identificar o cliente</li>
-                      <li>• Se o lead já existe: atualiza os dados e adiciona observações</li>
+                      <li>• O <strong>WhatsApp/telefone</strong> é a chave única para identificar o cliente</li>
+                      <li>• Se o lead já existe: atualiza os dados cadastrais</li>
                       <li>• Se não existe: cria um novo lead automaticamente</li>
-                      <li>• Vendas e SAC são sempre vinculados ao lead encontrado/criado</li>
                     </ul>
+                    {(eventMode === 'sale' || eventMode === 'both') && (
+                      <div className="mt-2 pt-2 border-t border-blue-500/20">
+                        <p className="font-medium text-blue-600 dark:text-blue-300 text-xs mb-1">Diferença entre modos de venda:</p>
+                        <ul className="text-xs text-muted-foreground space-y-0.5">
+                          <li><strong>💰 Venda Rápida:</strong> Cria venda com produto e valor total. Útil para hotmart, payt, etc.</li>
+                          <li><strong>📦 Venda Completa:</strong> Inclui endereço de entrega, parcelas e data estimada. Para e-commerce completo.</li>
+                        </ul>
+                      </div>
+                    )}
                   </div>
                   
                   {/* SAC Configuration - only show when SAC mode is selected */}
@@ -864,18 +876,49 @@ export function IntegrationDetailDialog({
                         </div>
                       </div>
                       
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Prioridade</Label>
+                          <Select value={sacPriority} onValueChange={setSacPriority}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Baixa</SelectItem>
+                              <SelectItem value="normal">Normal</SelectItem>
+                              <SelectItem value="high">Alta</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Usuários Envolvidos (opcional)</Label>
+                          <Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Automático (responsável do lead)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__auto__">Automático (responsável do lead)</SelectItem>
+                              {users?.map(user => (
+                                <SelectItem key={user.id} value={user.id}>
+                                  {user.first_name} {user.last_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
                       <div className="space-y-2">
-                        <Label>Prioridade</Label>
-                        <Select value={sacPriority} onValueChange={setSacPriority}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Baixa</SelectItem>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="high">Alta</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label>Descrição Padrão do Chamado</Label>
+                        <Input
+                          value={sacDefaultDescription}
+                          onChange={(e) => setSacDefaultDescription(e.target.value)}
+                          placeholder="Ex: Chamado aberto via webhook de chargeback"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Texto que será usado como descrição do chamado. Deixe vazio para usar dados do webhook.
+                        </p>
                       </div>
                       
                       <div className="p-3 bg-purple-500/10 rounded-lg text-sm">
@@ -883,9 +926,9 @@ export function IntegrationDetailDialog({
                           ℹ️ Como funciona o modo SAC:
                         </p>
                         <ul className="text-xs text-muted-foreground space-y-1">
-                          <li>• O webhook irá criar/encontrar o lead pelo WhatsApp ou email</li>
-                          <li>• Um chamado SAC será criado na coluna "Não Tratados"</li>
-                          <li>• A equipe de SAC poderá visualizar e tratar o chamado</li>
+                          <li>• O webhook irá criar/encontrar o lead pelo WhatsApp</li>
+                          <li>• Um chamado será aberto na coluna <strong>"Não Tratados"</strong></li>
+                          <li>• A descrição pode vir do webhook ou do texto padrão acima</li>
                           <li>• Ideal para: chargebacks, cancelamentos, reclamações externas</li>
                         </ul>
                       </div>
