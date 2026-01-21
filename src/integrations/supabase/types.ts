@@ -8428,6 +8428,10 @@ export type Database = {
           lead_stars: number
         }[]
       }
+      get_manipulated_costs_summary: {
+        Args: { p_organization_id: string }
+        Returns: Json
+      }
       get_next_available_user_for_distribution: {
         Args: { p_instance_id: string; p_organization_id: string }
         Returns: string
@@ -8439,6 +8443,13 @@ export type Database = {
       get_org_nps_metrics: {
         Args: { p_days?: number; p_organization_id: string }
         Returns: Json
+      }
+      get_sale_items_costs: {
+        Args: { item_ids: string[] }
+        Returns: {
+          cost_cents: number
+          id: string
+        }[]
       }
       get_tenant_channels: {
         Args: { _tenant_id?: string }
@@ -8616,6 +8627,10 @@ export type Database = {
       }
       unreserve_stock_for_sale: {
         Args: { _sale_id: string }
+        Returns: undefined
+      }
+      update_sale_item_cost: {
+        Args: { p_cost_cents: number; p_item_id: string }
         Returns: undefined
       }
       user_belongs_to_org: {
