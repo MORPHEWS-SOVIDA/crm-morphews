@@ -42,6 +42,8 @@ import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
 import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
 import { LeadNonPurchaseSection } from '@/components/leads/LeadNonPurchaseSection';
 import { LeadWebhookDataSection } from '@/components/leads/LeadWebhookDataSection';
+import { LeadCustomFieldsSection } from '@/components/leads/LeadCustomFieldsSection';
+import { LeadWebhookHistorySection } from '@/components/leads/LeadWebhookHistorySection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
@@ -542,6 +544,13 @@ export default function LeadDetail() {
 
             {/* Endereços */}
             {id && <LeadAddressesManager leadId={id} />}
+            
+            {/* Campos Personalizados */}
+            {id && (
+              <SectionErrorBoundary title="Campos Personalizados">
+                <LeadCustomFieldsSection leadId={id} />
+              </SectionErrorBoundary>
+            )}
 
             {/* Produtos Negociados & Observações */}
             <div className="bg-card rounded-xl p-6 shadow-card">
@@ -695,6 +704,13 @@ export default function LeadDetail() {
             {(lead as any).webhook_data && (
               <SectionErrorBoundary title="Dados de Webhook">
                 <LeadWebhookDataSection webhookData={(lead as any).webhook_data} />
+              </SectionErrorBoundary>
+            )}
+            
+            {/* Histórico de Webhooks */}
+            {id && (
+              <SectionErrorBoundary title="Histórico de Integrações">
+                <LeadWebhookHistorySection leadId={id} />
               </SectionErrorBoundary>
             )}
           </div>

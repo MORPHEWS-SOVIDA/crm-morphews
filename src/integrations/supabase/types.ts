@@ -1907,6 +1907,105 @@ export type Database = {
           },
         ]
       }
+      lead_custom_field_definitions: {
+        Row: {
+          created_at: string
+          field_label: string
+          field_name: string
+          field_type: string
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          organization_id: string
+          position: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_label: string
+          field_name: string
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          organization_id: string
+          position?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_label?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          organization_id?: string
+          position?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_custom_field_definitions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_custom_field_values: {
+        Row: {
+          created_at: string
+          field_definition_id: string
+          id: string
+          lead_id: string
+          organization_id: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          field_definition_id: string
+          id?: string
+          lead_id: string
+          organization_id: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          field_definition_id?: string
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_custom_field_values_field_definition_id_fkey"
+            columns: ["field_definition_id"]
+            isOneToOne: false
+            referencedRelation: "lead_custom_field_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_custom_field_values_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_custom_field_values_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_events: {
         Row: {
           created_at: string
@@ -2776,6 +2875,64 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "standard_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_webhook_history: {
+        Row: {
+          error_message: string | null
+          id: string
+          integration_id: string | null
+          integration_name: string | null
+          lead_id: string
+          organization_id: string
+          payload: Json
+          processed_successfully: boolean | null
+          received_at: string
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          integration_id?: string | null
+          integration_name?: string | null
+          lead_id: string
+          organization_id: string
+          payload: Json
+          processed_successfully?: boolean | null
+          received_at?: string
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          integration_id?: string | null
+          integration_name?: string | null
+          lead_id?: string
+          organization_id?: string
+          payload?: Json
+          processed_successfully?: boolean | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_webhook_history_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_webhook_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_webhook_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
