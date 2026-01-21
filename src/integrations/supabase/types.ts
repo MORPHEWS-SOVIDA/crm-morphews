@@ -8375,6 +8375,22 @@ export type Database = {
         Args: { _contact_id: string; _conversation_id: string }
         Returns: undefined
       }
+      match_product_embeddings: {
+        Args: {
+          filter_organization_id?: string
+          filter_product_ids?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content_text: string
+          content_type: string
+          metadata: Json
+          product_id: string
+          similarity: number
+        }[]
+      }
       normalize_cnpj: { Args: { input: string }; Returns: string }
       normalize_phone_digits: { Args: { p: string }; Returns: string }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }

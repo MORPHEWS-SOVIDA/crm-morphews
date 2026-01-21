@@ -621,6 +621,31 @@ PERGUNTAS FREQUENTES (use para responder dúvidas comuns):
 ${faqText}`;
 }
 
+function buildSemanticContext(results: SemanticSearchResult[]): string {
+  if (!results.length) return '';
+  
+  const grouped: Record<string, string[]> = {};
+  
+  for (const result of results) {
+    const productName = result.metadata?.product_name || 'Produto';
+    if (!grouped[productName]) {
+      grouped[productName] = [];
+    }
+    grouped[productName].push(result.content_text);
+  }
+  
+  const sections = Object.entries(grouped).map(([product, contents]) => 
+    `📌 ${product}:\n${contents.join('\n\n')}`
+  );
+  
+  return `
+════════════════════════════════════════════
+INFORMAÇÕES RELEVANTES ENCONTRADAS (via busca semântica):
+════════════════════════════════════════════
+${sections.join('\n\n---\n\n')}
+════════════════════════════════════════════`;
+}
+
 async function generateAIResponse(
   bot: AIBot, 
   userMessage: string, 
@@ -628,7 +653,8 @@ async function generateAIResponse(
   contactName: string,
   messageCount: number = 0,
   products: BotProduct[] = [],
-  faqs: Array<{question: string, answer: string}> = []
+  faqs: Array<{question: string, answer: string}> = [],
+  semanticResults: SemanticSearchResult[] = []
 ): Promise<{ response: string; tokensUsed: number }> {
   
   // Construir prompt de personalidade
@@ -639,6 +665,9 @@ async function generateAIResponse(
   
   // Contexto de FAQs
   const faqContext = buildFAQContext(faqs);
+  
+  // Contexto semântico (resultados da busca vetorial)
+  const semanticContext = buildSemanticContext(semanticResults);
   
   // Diretrizes de qualificação
   const qualificationInstructions = `
@@ -672,13 +701,16 @@ CONTEXTO ATUAL:
 - Data/Hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
 - Mensagens na conversa: ${messageCount}
 
+${semanticContext}
+
 ${productsContext}
 
 ${faqContext}
 
 ${qualificationInstructions}
 
-LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Seja natural, empático e útil.`;
+LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Seja natural, empático e útil.
+${semanticResults.length > 0 ? 'PRIORIZE as informações da busca semântica acima para responder à pergunta atual do cliente.' : ''}`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -689,6 +721,7 @@ LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Seja natural, empático
   console.log('🤖 Calling Gemini with enriched context:', {
     hasProducts: products.length > 0,
     hasFAQs: faqs.length > 0,
+    hasSemanticResults: semanticResults.length > 0,
     personality: !!personalityPrompt,
     messagesCount: messages.length
   });
@@ -1176,12 +1209,37 @@ async function processMessage(
 
   // 5. Buscar produtos e conhecimento do bot para contexto enriquecido
   const productScope = (bot as any).product_scope || 'all';
+  const useRagSearch = (bot as any).use_rag_search ?? false;
+  
   const [products, faqs] = await Promise.all([
     getBotProducts(bot.id, context.organizationId, productScope),
     getBotKnowledge(bot.id)
   ]);
   
-  console.log('📦 Bot context loaded:', { products: products.length, faqs: faqs.length });
+  // 5.1 Busca semântica (RAG) se habilitada
+  let semanticResults: SemanticSearchResult[] = [];
+  if (useRagSearch && productScope !== 'none') {
+    // Get product IDs for filtering (if using selected scope)
+    let productIds: string[] | null = null;
+    if (productScope === 'selected' && products.length > 0) {
+      productIds = products.map(p => p.id);
+    }
+    
+    // Perform semantic search with user's message
+    semanticResults = await semanticSearch(
+      userMessage, 
+      context.organizationId, 
+      productIds,
+      5 // Top 5 results
+    );
+  }
+  
+  console.log('📦 Bot context loaded:', { 
+    products: products.length, 
+    faqs: faqs.length,
+    semanticResults: semanticResults.length,
+    ragEnabled: useRagSearch 
+  });
 
   // 6. Gerar resposta IA com contexto completo
   let aiResponse: string;
@@ -1195,7 +1253,8 @@ async function processMessage(
       context.contactName, 
       context.botMessagesCount,
       products,
-      faqs
+      faqs,
+      semanticResults
     );
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;

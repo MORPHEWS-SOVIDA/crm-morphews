@@ -48,6 +48,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // Product RAG state
   const [productScope, setProductScope] = useState<'all' | 'selected' | 'none'>('all');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [useRagSearch, setUseRagSearch] = useState<boolean>(false);
   
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
@@ -64,6 +65,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setQualificationEnabled(bot.initial_qualification_enabled || false);
       setInitialQuestions((bot.initial_questions as InitialQuestion[]) || []);
       setProductScope((bot.product_scope as 'all' | 'selected' | 'none') || 'all');
+      setUseRagSearch(bot.use_rag_search ?? false);
     }
   };
   
@@ -95,6 +97,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       initial_qualification_enabled: qualificationEnabled,
       initial_questions: initialQuestions,
       product_scope: productScope,
+      use_rag_search: useRagSearch,
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -362,8 +365,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                 botId={botId!}
                 productScope={productScope}
                 selectedProductIds={selectedProductIds}
+                useRagSearch={useRagSearch}
                 onProductScopeChange={setProductScope}
                 onSelectedProductsChange={setSelectedProductIds}
+                onUseRagSearchChange={setUseRagSearch}
               />
             </TabsContent>
           </Tabs>
