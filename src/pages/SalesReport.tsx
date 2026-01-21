@@ -40,8 +40,10 @@ import {
   Search,
   X,
   Loader2,
+  Percent,
 } from "lucide-react";
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
+import { CommissionReport } from '@/components/reports/CommissionReport';
 import { useSales } from "@/hooks/useSales";
 import { useUsers } from "@/hooks/useUsers";
 import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConfig";
@@ -115,6 +117,7 @@ export default function SalesReport() {
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
+  const [showCommissionReport, setShowCommissionReport] = useState(false);
   
   // Date filters
   const today = new Date();
@@ -349,6 +352,15 @@ export default function SalesReport() {
     );
   }
 
+  // Show commission report view
+  if (showCommissionReport) {
+    return (
+      <Layout>
+        <CommissionReport onClose={() => setShowCommissionReport(false)} />
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -364,7 +376,15 @@ export default function SalesReport() {
             </p>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => setShowCommissionReport(true)}
+              className="gap-2 bg-green-50 border-green-300 hover:bg-green-100 text-green-800"
+            >
+              <Percent className="h-4 w-4" />
+              Relatório de Comissões
+            </Button>
             <Button
               variant="outline"
               onClick={clearFilters}
