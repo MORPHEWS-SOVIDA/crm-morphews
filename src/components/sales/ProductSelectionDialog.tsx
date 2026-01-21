@@ -473,12 +473,13 @@ export function ProductSelectionDialog({
       multiplier: finalQuantity, // Number of units purchased
     };
 
-    // For kit system: Calculate the per-unit price
-    // baseUnitPrice is the TOTAL kit price (e.g., R$240 for 12 units)
-    // We need to pass the per-unit price (e.g., R$20 per unit) so quantity × unit_price = correct total
+    // For kit system: Calculate the per-unit price (per bottle)
+    // baseUnitPrice is the TOTAL kit price (e.g., R$1134 for 6 bottles)
+    // We need to save the per-bottle price so: quantity × unit_price = correct total
+    // Example: 6 bottles × R$189 per bottle = R$1134 total
     const unitPriceForSale = usesKitSystem && selectedKit 
-      ? Math.round(baseUnitPrice / selectedKit.quantity) // Per-unit price: kit_price / kit_quantity
-      : baseUnitPrice;
+      ? Math.round(baseUnitPrice / selectedKit.quantity) // Per-bottle price: kit_price / kit_quantity
+      : (isManipulado ? manipuladoPrice : baseUnitPrice);
     
     onConfirm({
       product_id: product.id,
