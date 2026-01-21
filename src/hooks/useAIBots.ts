@@ -32,6 +32,9 @@ export interface AIBot {
   max_energy_per_conversation: number | null;
   initial_qualification_enabled: boolean | null;
   initial_questions: any[] | null;
+  // New RAG fields
+  product_scope: 'all' | 'selected' | 'none';
+  use_rag_search: boolean;
   created_at: string;
   updated_at: string;
 }

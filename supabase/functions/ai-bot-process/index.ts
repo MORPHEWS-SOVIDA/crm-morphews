@@ -53,6 +53,8 @@ interface AIBot {
   regional_expressions: string[] | null;
   response_length: string | null;
   service_type: string | null;
+  product_scope: 'all' | 'selected' | 'none';
+  use_rag_search: boolean;
 }
 
 interface BotProduct {
@@ -66,6 +68,10 @@ interface BotProduct {
   price_12_units: number | null;
   hot_site_url: string | null;
   usage_period_days: number | null;
+  // Enhanced with FAQs, ingredients, and kit sales hacks
+  faqs?: Array<{question: string, answer: string}>;
+  ingredients?: Array<{name: string, description: string | null}>;
+  kits?: Array<{quantity: number, price_cents: number, sales_hack: string | null, usage_period_days: number | null}>;
 }
 
 interface ConversationContext {
@@ -248,32 +254,96 @@ async function analyzeImage(mediaUrl: string, userMessage: string, botSystemProm
 // BOT PRODUCTS & KNOWLEDGE
 // ============================================================================
 
-async function getBotProducts(botId: string): Promise<BotProduct[]> {
-  const { data, error } = await supabase
-    .from('ai_bot_products')
-    .select(`
-      product_id,
-      lead_products:product_id (
-        id,
-        name,
-        description,
-        sales_script,
-        price_1_unit,
-        price_3_units,
-        price_6_units,
-        price_12_units,
-        hot_site_url,
-        usage_period_days
-      )
-    `)
-    .eq('bot_id', botId);
-
-  if (error || !data) {
-    console.log('📦 No products found for bot');
+async function getBotProducts(botId: string, organizationId: string, productScope: 'all' | 'selected' | 'none'): Promise<BotProduct[]> {
+  // If scope is 'none', don't fetch products
+  if (productScope === 'none') {
+    console.log('📦 Product scope is none, skipping product fetch');
     return [];
   }
 
-  return data.map((item: any) => item.lead_products).filter(Boolean);
+  let productIds: string[] = [];
+  
+  // If scope is 'selected', get only the products linked to this bot
+  if (productScope === 'selected') {
+    const { data: botProducts } = await supabase
+      .from('ai_bot_products')
+      .select('product_id')
+      .eq('bot_id', botId);
+    
+    if (!botProducts || botProducts.length === 0) {
+      console.log('📦 No products selected for bot');
+      return [];
+    }
+    productIds = botProducts.map((bp: any) => bp.product_id);
+  }
+
+  // Build query for products
+  let query = supabase
+    .from('lead_products')
+    .select(`
+      id,
+      name,
+      description,
+      sales_script,
+      price_1_unit,
+      price_3_units,
+      price_6_units,
+      price_12_units,
+      hot_site_url,
+      usage_period_days
+    `)
+    .eq('organization_id', organizationId)
+    .eq('is_active', true);
+
+  // Filter by selected products if scope is 'selected'
+  if (productScope === 'selected' && productIds.length > 0) {
+    query = query.in('id', productIds);
+  }
+
+  const { data: products, error } = await query;
+
+  if (error || !products || products.length === 0) {
+    console.log('📦 No products found');
+    return [];
+  }
+
+  // Enhance products with FAQs, ingredients, and kits
+  const enhancedProducts: BotProduct[] = [];
+
+  for (const product of products) {
+    // Get FAQs for this product
+    const { data: faqs } = await supabase
+      .from('product_faqs')
+      .select('question, answer')
+      .eq('product_id', product.id)
+      .eq('is_active', true)
+      .order('position');
+
+    // Get ingredients/composition for this product
+    const { data: ingredients } = await supabase
+      .from('product_ingredients')
+      .select('name, description')
+      .eq('product_id', product.id)
+      .order('position');
+
+    // Get kits with prices and sales hacks
+    const { data: kits } = await supabase
+      .from('product_price_kits')
+      .select('quantity, price_cents, sales_hack, usage_period_days')
+      .eq('product_id', product.id)
+      .eq('is_active', true)
+      .order('quantity');
+
+    enhancedProducts.push({
+      ...product,
+      faqs: faqs || [],
+      ingredients: ingredients || [],
+      kits: kits || [],
+    });
+  }
+
+  console.log(`📦 Loaded ${enhancedProducts.length} products with FAQs, ingredients, and kits`);
+  return enhancedProducts;
 }
 
 async function getBotKnowledge(botId: string): Promise<Array<{question: string, answer: string}>> {
@@ -383,28 +453,88 @@ function buildProductsContext(products: BotProduct[]): string {
   if (!products.length) return '';
   
   const productInfos = products.map(p => {
-    const prices: string[] = [];
-    if (p.price_1_unit) prices.push(`1un: R$${(p.price_1_unit / 100).toFixed(2)}`);
-    if (p.price_3_units) prices.push(`3un: R$${(p.price_3_units / 100).toFixed(2)}`);
-    if (p.price_6_units) prices.push(`6un: R$${(p.price_6_units / 100).toFixed(2)}`);
-    if (p.price_12_units) prices.push(`12un: R$${(p.price_12_units / 100).toFixed(2)}`);
+    let info = `## ${p.name}`;
     
-    let info = `**${p.name}**`;
-    if (p.description) info += `\n  Descrição: ${p.description}`;
-    if (prices.length) info += `\n  Preços: ${prices.join(' | ')}`;
-    if (p.usage_period_days) info += `\n  Duração: ${p.usage_period_days} dias de uso`;
-    if (p.sales_script) info += `\n  Script de Vendas: ${p.sales_script}`;
-    if (p.hot_site_url) info += `\n  Link: ${p.hot_site_url}`;
+    // Description
+    if (p.description) {
+      info += `\n📝 Descrição: ${p.description}`;
+    }
+    
+    // Kits with prices and sales hacks (prioritize over legacy prices)
+    if (p.kits && p.kits.length > 0) {
+      const kitPrices = p.kits.map(k => {
+        const price = `${k.quantity} un: R$${(k.price_cents / 100).toFixed(2)}`;
+        const duration = k.usage_period_days ? ` (${k.usage_period_days} dias)` : '';
+        return price + duration;
+      }).join(' | ');
+      info += `\n💰 Preços: ${kitPrices}`;
+      
+      // Sales hacks for kits
+      const salesHacks = p.kits
+        .filter(k => k.sales_hack)
+        .map(k => `Kit ${k.quantity}: ${k.sales_hack}`)
+        .join('\n  ');
+      if (salesHacks) {
+        info += `\n🎯 HACKS DE VENDA:\n  ${salesHacks}`;
+      }
+    } else {
+      // Fallback to legacy prices
+      const prices: string[] = [];
+      if (p.price_1_unit) prices.push(`1un: R$${(p.price_1_unit / 100).toFixed(2)}`);
+      if (p.price_3_units) prices.push(`3un: R$${(p.price_3_units / 100).toFixed(2)}`);
+      if (p.price_6_units) prices.push(`6un: R$${(p.price_6_units / 100).toFixed(2)}`);
+      if (p.price_12_units) prices.push(`12un: R$${(p.price_12_units / 100).toFixed(2)}`);
+      if (prices.length) info += `\n💰 Preços: ${prices.join(' | ')}`;
+    }
+    
+    // Usage period
+    if (p.usage_period_days) {
+      info += `\n⏱️ Duração: ${p.usage_period_days} dias de uso`;
+    }
+    
+    // General sales script
+    if (p.sales_script) {
+      info += `\n📋 Script de Vendas: ${p.sales_script}`;
+    }
+    
+    // Ingredients/Composition
+    if (p.ingredients && p.ingredients.length > 0) {
+      const ingredientList = p.ingredients.map(i => 
+        i.description ? `${i.name} (${i.description})` : i.name
+      ).join(', ');
+      info += `\n🧪 Composição: ${ingredientList}`;
+    }
+    
+    // FAQs for this product
+    if (p.faqs && p.faqs.length > 0) {
+      const faqText = p.faqs.slice(0, 5).map(f => 
+        `  • P: ${f.question}\n    R: ${f.answer}`
+      ).join('\n');
+      info += `\n❓ Perguntas Frequentes:\n${faqText}`;
+    }
+    
+    // Hot site URL
+    if (p.hot_site_url) {
+      info += `\n🔗 Link: ${p.hot_site_url}`;
+    }
     
     return info;
   });
   
   return `
-PRODUTOS QUE VOCÊ PODE OFERECER:
-${productInfos.join('\n\n')}
+════════════════════════════════════════════
+CATÁLOGO DE PRODUTOS (use para responder sobre preços, benefícios e características)
+════════════════════════════════════════════
 
-Use essas informações para responder sobre preços, benefícios e características dos produtos.
-Quando falar de preços, sempre mencione que kits maiores têm melhor custo-benefício.`;
+${productInfos.join('\n\n---\n\n')}
+
+════════════════════════════════════════════
+DICAS DE VENDAS:
+- Sempre mencione que KITS MAIORES têm MELHOR CUSTO-BENEFÍCIO
+- Use os HACKS DE VENDA quando disponíveis para cada kit
+- Responda dúvidas usando as FAQs do produto
+- Mencione a composição quando perguntarem sobre ingredientes
+════════════════════════════════════════════`;
 }
 
 function buildFAQContext(faqs: Array<{question: string, answer: string}>): string {
@@ -971,8 +1101,9 @@ async function processMessage(
   const conversationHistory = await getConversationHistory(context.conversationId);
 
   // 5. Buscar produtos e conhecimento do bot para contexto enriquecido
+  const productScope = (bot as any).product_scope || 'all';
   const [products, faqs] = await Promise.all([
-    getBotProducts(bot.id),
+    getBotProducts(bot.id, context.organizationId, productScope),
     getBotKnowledge(bot.id)
   ]);
   
