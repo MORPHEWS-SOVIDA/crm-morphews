@@ -948,6 +948,41 @@ serve(async (req) => {
           }
 
           // =====================
+          // AUTO-READ DOCUMENTS (PDF)
+          // =====================
+          const shouldReadDocument = 
+            msgData.type === 'document' && 
+            savedMediaUrl && 
+            (msgData.mediaMimeType?.includes('pdf') || savedMediaUrl.includes('.pdf'));
+          
+          if (shouldReadDocument) {
+            console.log("📄 Triggering document reading for PDF:", messageId);
+            
+            fetch(`${SUPABASE_URL}/functions/v1/read-document`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                messageId: messageId,
+                conversationId: conversation.id,
+                organizationId: organizationId,
+                documentUrl: savedMediaUrl,
+                documentType: 'pdf',
+                conversationStatus: conversation.status,
+                instanceName: instanceName,
+                customerPhone: fromPhone,
+              }),
+            }).then(async (res) => {
+              const result = await res.json();
+              console.log("📄 Document reading result:", result);
+            }).catch((docError) => {
+              console.error("❌ Error calling read-document:", docError);
+            });
+          }
+
+          // =====================
           // PROCESSAR COM ROBÔ IA
           // APENAS se a instância está em modo 'bot' E a conversa está com status apropriado
           // =====================

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Mic, Zap, Brain } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Mic, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { WavoipSettings } from "./WavoipSettings";
@@ -58,10 +58,7 @@ export function InstanceSettingsDialog({
           satisfaction_survey_message,
           auto_transcribe_enabled,
           auto_transcribe_inbound,
-          auto_transcribe_outbound,
-          ai_memory_enabled,
-          ai_learning_enabled,
-          ai_seller_briefing_enabled
+          auto_transcribe_outbound
         `)
         .eq("id", instanceId)
         .single();
@@ -81,11 +78,6 @@ export function InstanceSettingsDialog({
   const [autoTranscribeEnabled, setAutoTranscribeEnabled] = useState<boolean>(false);
   const [autoTranscribeInbound, setAutoTranscribeInbound] = useState<boolean>(true);
   const [autoTranscribeOutbound, setAutoTranscribeOutbound] = useState<boolean>(true);
-  
-  // AI Memory settings
-  const [aiMemoryEnabled, setAiMemoryEnabled] = useState<boolean>(false);
-  const [aiLearningEnabled, setAiLearningEnabled] = useState<boolean>(false);
-  const [aiSellerBriefingEnabled, setAiSellerBriefingEnabled] = useState<boolean>(false);
   
   const [autoCloseConfig, setAutoCloseConfig] = useState<AutoCloseConfig>({
     auto_close_enabled: true,
@@ -112,11 +104,6 @@ export function InstanceSettingsDialog({
       setAutoTranscribeEnabled((settings as any).auto_transcribe_enabled ?? false);
       setAutoTranscribeInbound((settings as any).auto_transcribe_inbound ?? true);
       setAutoTranscribeOutbound((settings as any).auto_transcribe_outbound ?? true);
-      
-      // AI Memory settings
-      setAiMemoryEnabled((settings as any).ai_memory_enabled ?? false);
-      setAiLearningEnabled((settings as any).ai_learning_enabled ?? false);
-      setAiSellerBriefingEnabled((settings as any).ai_seller_briefing_enabled ?? false);
       
       setAutoCloseConfig({
         auto_close_enabled: settings.auto_close_enabled ?? true,
@@ -146,9 +133,6 @@ export function InstanceSettingsDialog({
           auto_transcribe_enabled: autoTranscribeEnabled,
           auto_transcribe_inbound: autoTranscribeInbound,
           auto_transcribe_outbound: autoTranscribeOutbound,
-          ai_memory_enabled: aiMemoryEnabled,
-          ai_learning_enabled: aiLearningEnabled,
-          ai_seller_briefing_enabled: aiSellerBriefingEnabled,
           ...autoCloseConfig
         } as any)
         .eq("id", instanceId);
@@ -359,57 +343,6 @@ export function InstanceSettingsDialog({
               )}
             </div>
 
-            <Separator />
-
-            {/* Memória de Longo Prazo da IA */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-blue-600" />
-                  Memória de Longo Prazo (IA)
-                </Label>
-                <Switch
-                  checked={aiMemoryEnabled}
-                  onCheckedChange={setAiMemoryEnabled}
-                />
-              </div>
-              
-              {aiMemoryEnabled && (
-                <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-                    <Zap className="h-3.5 w-3.5" />
-                    <span>Consome Energia IA (100 unidades/análise)</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium">Aprendizado Automático</span>
-                        <p className="text-xs text-muted-foreground">IA aprende preferências do cliente</p>
-                      </div>
-                      <Switch
-                        checked={aiLearningEnabled}
-                        onCheckedChange={setAiLearningEnabled}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium">Briefing para Vendedor</span>
-                        <p className="text-xs text-muted-foreground">Resumo ao assumir conversa</p>
-                      </div>
-                      <Switch
-                        checked={aiSellerBriefingEnabled}
-                        onCheckedChange={setAiSellerBriefingEnabled}
-                      />
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    A IA lembra conversas anteriores e não pergunta nome/preferências já conhecidas.
-                  </p>
-                </div>
-              )}
-            </div>
 
             <Separator />
 
