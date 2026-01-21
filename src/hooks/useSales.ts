@@ -140,6 +140,10 @@ export interface SaleItem {
   notes: string | null;
   requisition_number: string | null;
   created_at: string;
+  // Kit tracking fields for expedition/romaneio clarity (optional for backwards compatibility)
+  kit_id?: string | null;
+  kit_quantity?: number;
+  multiplier?: number;
 }
 
 export type DeliveryType = 'pickup' | 'motoboy' | 'carrier';
@@ -157,6 +161,10 @@ export interface CreateSaleData {
     // Commission fields
     commission_percentage?: number;
     commission_cents?: number;
+    // Kit tracking fields for expedition/romaneio clarity
+    kit_id?: string | null;
+    kit_quantity?: number;
+    multiplier?: number;
   }[];
   discount_type?: 'percentage' | 'fixed' | null;
   discount_value?: number;
@@ -519,6 +527,10 @@ export function useCreateSale() {
         requisition_number: item.requisition_number || null,
         commission_percentage: item.commission_percentage || 0,
         commission_cents: item.commission_cents || 0,
+        // Kit tracking for expedition/romaneio clarity
+        kit_id: item.kit_id || null,
+        kit_quantity: item.kit_quantity || 1,
+        multiplier: item.multiplier || item.quantity,
       }));
 
       const { error: itemsError } = await supabase

@@ -42,6 +42,10 @@ interface ProductSelectionDialogProps {
     requisition_number?: string | null;
     commission_percentage?: number;
     commission_cents?: number;
+    // Kit tracking fields for expedition/romaneio clarity
+    kit_id?: string | null;
+    kit_quantity?: number;
+    multiplier?: number;
   }) => void;
 }
 
@@ -458,6 +462,17 @@ export function ProductSelectionDialog({
       });
     }
 
+    // Determine kit info for expedition/romaneio clarity
+    const kitInfo = usesKitSystem && selectedKit ? {
+      kit_id: selectedKit.id,
+      kit_quantity: selectedKit.quantity, // e.g., 12 for Kit 12
+      multiplier: quantityMultiplier,     // e.g., 2 if buying "Kit 12 × 2"
+    } : {
+      kit_id: null,
+      kit_quantity: 1,          // Single unit
+      multiplier: finalQuantity, // Number of units purchased
+    };
+
     onConfirm({
       product_id: product.id,
       product_name: product.name,
@@ -467,6 +482,7 @@ export function ProductSelectionDialog({
       requisition_number: isManipulado ? requisitionNumber : null,
       commission_percentage: commission,
       commission_cents: commissionValue,
+      ...kitInfo,
     });
     onOpenChange(false);
     // Reset state

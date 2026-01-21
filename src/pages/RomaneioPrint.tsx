@@ -15,6 +15,39 @@ type PrintFormat = 'a5' | 'a5x2' | 'thermal';
 // Maximum items that fit on a single A5 page (optimized layout)
 const MAX_ITEMS_A5 = 10;
 
+// Helper to format item display with kit info for romaneio
+// Example outputs: "Kit 12 × 1 = 12 frascos" or "5 unidades"
+interface RomaneioItem {
+  id: string;
+  product_name: string;
+  quantity: number;
+  total_cents: number;
+  requisition_number?: string | null;
+  kit_id?: string | null;
+  kit_quantity?: number;
+  multiplier?: number;
+}
+
+function formatRomaneioQuantity(item: RomaneioItem): { label: string; tooltip: string } {
+  const kitQty = item.kit_quantity || 1;
+  const mult = item.multiplier || item.quantity;
+  const totalUnits = kitQty * mult;
+  
+  if (kitQty > 1) {
+    // Has kit: show "Kit X × Y" format
+    return {
+      label: mult > 1 ? `Kit ${kitQty}×${mult}` : `Kit ${kitQty}`,
+      tooltip: `${totalUnits} frascos`,
+    };
+  } else {
+    // No kit: just show quantity
+    return {
+      label: `${totalUnits}`,
+      tooltip: `${totalUnits} ${totalUnits === 1 ? 'unidade' : 'unidades'}`,
+    };
+  }
+}
+
 export default function RomaneioPrint() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -267,18 +300,23 @@ export default function RomaneioPrint() {
           </tr>
         </thead>
         <tbody>
-          {mainPageItems.map((item) => (
-            <tr key={item.id}>
-              <td className="border border-black p-0.5">
-                {item.product_name}
-                {item.requisition_number && (
-                  <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
-                )}
-              </td>
-              <td className="border border-black p-0.5 text-center">{item.quantity}</td>
-              <td className="border border-black p-0.5 text-right">{formatCurrency(item.total_cents)}</td>
-            </tr>
-          ))}
+          {mainPageItems.map((item) => {
+            const qtyInfo = formatRomaneioQuantity(item as RomaneioItem);
+            return (
+              <tr key={item.id}>
+                <td className="border border-black p-0.5">
+                  {item.product_name}
+                  {item.requisition_number && (
+                    <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                  )}
+                </td>
+                <td className="border border-black p-0.5 text-center font-bold" title={qtyInfo.tooltip}>
+                  {qtyInfo.label}
+                </td>
+                <td className="border border-black p-0.5 text-right">{formatCurrency(item.total_cents)}</td>
+              </tr>
+            );
+          })}
           {needsOverflow && (
             <tr className="bg-yellow-100">
               <td colSpan={3} className="border border-black p-0.5 text-center font-bold" style={{ fontSize: '9px' }}>
@@ -346,18 +384,23 @@ export default function RomaneioPrint() {
           </tr>
         </thead>
         <tbody>
-          {overflowItems.map((item) => (
-            <tr key={item.id}>
-              <td className="border border-black p-0.5">
-                {item.product_name}
-                {item.requisition_number && (
-                  <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
-                )}
-              </td>
-              <td className="border border-black p-0.5 text-center">{item.quantity}</td>
-              <td className="border border-black p-0.5 text-right">{formatCurrency(item.total_cents)}</td>
-            </tr>
-          ))}
+          {overflowItems.map((item) => {
+            const qtyInfo = formatRomaneioQuantity(item as RomaneioItem);
+            return (
+              <tr key={item.id}>
+                <td className="border border-black p-0.5">
+                  {item.product_name}
+                  {item.requisition_number && (
+                    <span className="text-amber-700 ml-1" style={{ fontSize: '7px' }}>Req:{item.requisition_number}</span>
+                  )}
+                </td>
+                <td className="border border-black p-0.5 text-center font-bold" title={qtyInfo.tooltip}>
+                  {qtyInfo.label}
+                </td>
+                <td className="border border-black p-0.5 text-right">{formatCurrency(item.total_cents)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -416,15 +459,18 @@ export default function RomaneioPrint() {
       <div className="border-b border-dashed border-gray-400 pb-1 mb-1">
         <p className="font-bold text-center mb-1">PRODUTOS</p>
         <div className="border-t border-b border-gray-300 py-1">
-          {items.map((item) => (
-            <div key={item.id} className="flex justify-between py-0.5" style={{ fontSize: '9px' }}>
-              <span className="flex-1">
-                {item.quantity}x {item.product_name}
-                {item.requisition_number && <span style={{ fontSize: '8px' }} className="block text-amber-700">Req:{item.requisition_number}</span>}
-              </span>
-              <span className="ml-2">{formatCurrency(item.total_cents)}</span>
-            </div>
-          ))}
+          {items.map((item) => {
+            const qtyInfo = formatRomaneioQuantity(item as RomaneioItem);
+            return (
+              <div key={item.id} className="flex justify-between py-0.5" style={{ fontSize: '9px' }}>
+                <span className="flex-1">
+                  <span className="font-bold">{qtyInfo.label}</span> {item.product_name}
+                  {item.requisition_number && <span style={{ fontSize: '8px' }} className="block text-amber-700">Req:{item.requisition_number}</span>}
+                </span>
+                <span className="ml-2">{formatCurrency(item.total_cents)}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

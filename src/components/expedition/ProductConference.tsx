@@ -18,6 +18,39 @@ interface ProductItem {
   id: string;
   product_name: string;
   quantity: number;
+  // Kit tracking fields (optional for backwards compatibility)
+  kit_id?: string | null;
+  kit_quantity?: number;
+  multiplier?: number;
+}
+
+// Helper to format item display with kit info
+// Example outputs:
+// - "LIFE 3.0 (Kit 12) × 1" = 12 frascos
+// - "LIFE 3.0 (Kit 6) × 2" = 12 frascos
+// - "LIFE 3.0 × 5" = 5 frascos (no kit)
+function formatItemWithKit(item: ProductItem): { displayName: string; totalUnits: number } {
+  const kitQty = item.kit_quantity || 1;
+  const mult = item.multiplier || item.quantity;
+  const totalUnits = kitQty * mult;
+  
+  if (kitQty > 1) {
+    // Has kit: "Product (Kit X) × Y"
+    return {
+      displayName: mult > 1 
+        ? `${item.product_name} (Kit ${kitQty}) × ${mult}`
+        : `${item.product_name} (Kit ${kitQty})`,
+      totalUnits,
+    };
+  } else {
+    // No kit or single unit: "Product × Y"
+    return {
+      displayName: totalUnits > 1 
+        ? `${item.product_name} × ${totalUnits}`
+        : item.product_name,
+      totalUnits,
+    };
+  }
 }
 
 interface ProductConferenceProps {
@@ -222,17 +255,26 @@ export function ProductConference({
                   })}
                 </div>
                 
-                {/* Product name */}
-                <span 
-                  className={cn(
-                    "text-sm flex-1 truncate",
-                    fullyChecked 
-                      ? "text-green-700 dark:text-green-400 line-through" 
-                      : "text-foreground"
-                  )}
-                >
-                  {item.quantity}x {item.product_name}
-                </span>
+                {/* Product name with kit info */}
+                {(() => {
+                  const { displayName, totalUnits } = formatItemWithKit(item);
+                  return (
+                    <span 
+                      className={cn(
+                        "text-sm flex-1",
+                        fullyChecked 
+                          ? "text-green-700 dark:text-green-400 line-through" 
+                          : "text-foreground"
+                      )}
+                      title={`Total: ${totalUnits} ${totalUnits === 1 ? 'unidade' : 'unidades'}`}
+                    >
+                      {displayName}
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({totalUnits} {totalUnits === 1 ? 'un' : 'uns'})
+                      </span>
+                    </span>
+                  );
+                })()}
 
                 {/* Status indicator + Additional conference button */}
                 <div className="flex items-center gap-1 flex-shrink-0">
