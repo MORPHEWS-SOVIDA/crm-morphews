@@ -360,6 +360,80 @@ async function getBotKnowledge(botId: string): Promise<Array<{question: string, 
 }
 
 // ============================================================================
+// SEMANTIC SEARCH (RAG)
+// ============================================================================
+
+async function generateQueryEmbedding(text: string): Promise<number[] | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+  
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: text.substring(0, 2000),
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Embedding API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (err) {
+    console.error('Error generating query embedding:', err);
+    return null;
+  }
+}
+
+interface SemanticSearchResult {
+  content_text: string;
+  content_type: string;
+  product_id: string;
+  similarity: number;
+  metadata: Record<string, any>;
+}
+
+async function semanticSearch(
+  query: string, 
+  organizationId: string, 
+  productIds: string[] | null,
+  limit: number = 5
+): Promise<SemanticSearchResult[]> {
+  console.log('🔍 Starting semantic search for:', query.substring(0, 50) + '...');
+  
+  const embedding = await generateQueryEmbedding(query);
+  if (!embedding) {
+    console.log('⚠️ Could not generate embedding, skipping semantic search');
+    return [];
+  }
+
+  // Use pgvector cosine similarity search
+  // We need to use a raw RPC call since the supabase client doesn't support vector operations directly
+  const { data, error } = await supabase.rpc('match_product_embeddings', {
+    query_embedding: embedding,
+    match_threshold: 0.7,
+    match_count: limit,
+    filter_organization_id: organizationId,
+    filter_product_ids: productIds,
+  });
+
+  if (error) {
+    console.error('Semantic search error:', error);
+    return [];
+  }
+
+  console.log(`🔍 Found ${data?.length || 0} semantic matches`);
+  return data || [];
+}
+
+// ============================================================================
 // AI PROCESSING
 // ============================================================================
 

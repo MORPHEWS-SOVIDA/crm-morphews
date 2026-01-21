@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.lead-intelligence]
 verify_jwt = false
+
+[functions.generate-product-embeddings]
+verify_jwt = false
