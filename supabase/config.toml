@@ -74,3 +74,12 @@ verify_jwt = false
 
 [functions.auto-close-conversations]
 verify_jwt = false
+
+[functions.transcribe-audio-message]
+verify_jwt = false
+
+[functions.lead-memory-analyze]
+verify_jwt = false
+
+[functions.read-document]
+verify_jwt = false

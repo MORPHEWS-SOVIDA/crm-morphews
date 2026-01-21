@@ -3903,7 +3903,12 @@ export type Database = {
           receptive_module_enabled: boolean
           slug: string
           updated_at: string
+          whatsapp_ai_learning_enabled: boolean
+          whatsapp_ai_memory_enabled: boolean
+          whatsapp_ai_seller_briefing_enabled: boolean
           whatsapp_dms_enabled: boolean
+          whatsapp_document_auto_reply_message: string | null
+          whatsapp_document_reading_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -3915,7 +3920,12 @@ export type Database = {
           receptive_module_enabled?: boolean
           slug: string
           updated_at?: string
+          whatsapp_ai_learning_enabled?: boolean
+          whatsapp_ai_memory_enabled?: boolean
+          whatsapp_ai_seller_briefing_enabled?: boolean
           whatsapp_dms_enabled?: boolean
+          whatsapp_document_auto_reply_message?: string | null
+          whatsapp_document_reading_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -3927,7 +3937,12 @@ export type Database = {
           receptive_module_enabled?: boolean
           slug?: string
           updated_at?: string
+          whatsapp_ai_learning_enabled?: boolean
+          whatsapp_ai_memory_enabled?: boolean
+          whatsapp_ai_seller_briefing_enabled?: boolean
           whatsapp_dms_enabled?: boolean
+          whatsapp_document_auto_reply_message?: string | null
+          whatsapp_document_reading_enabled?: boolean
         }
         Relationships: []
       }
@@ -7410,6 +7425,112 @@ export type Database = {
           },
         ]
       }
+      whatsapp_document_readings: {
+        Row: {
+          auto_replied: boolean | null
+          conversation_id: string
+          created_at: string
+          document_type: string
+          document_url: string
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          medications: Json | null
+          message_id: string
+          organization_id: string
+          prescriber_info: Json | null
+          processed_at: string | null
+          raw_text: string | null
+          seller_notified: boolean | null
+          status: string
+          structured_data: Json | null
+          summary: string | null
+        }
+        Insert: {
+          auto_replied?: boolean | null
+          conversation_id: string
+          created_at?: string
+          document_type?: string
+          document_url: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          medications?: Json | null
+          message_id: string
+          organization_id: string
+          prescriber_info?: Json | null
+          processed_at?: string | null
+          raw_text?: string | null
+          seller_notified?: boolean | null
+          status?: string
+          structured_data?: Json | null
+          summary?: string | null
+        }
+        Update: {
+          auto_replied?: boolean | null
+          conversation_id?: string
+          created_at?: string
+          document_type?: string
+          document_url?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          medications?: Json | null
+          message_id?: string
+          organization_id?: string
+          prescriber_info?: Json | null
+          processed_at?: string | null
+          raw_text?: string | null
+          seller_notified?: boolean | null
+          status?: string
+          structured_data?: Json | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_document_readings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_document_readings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_document_readings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_document_readings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_document_readings_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_document_readings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instance_bots: {
         Row: {
           bot_id: string
@@ -7535,9 +7656,6 @@ export type Database = {
       whatsapp_instances: {
         Row: {
           active_bot_id: string | null
-          ai_learning_enabled: boolean | null
-          ai_memory_enabled: boolean | null
-          ai_seller_briefing_enabled: boolean | null
           applied_coupon_id: string | null
           auto_close_assigned_minutes: number | null
           auto_close_bot_minutes: number | null
@@ -7590,9 +7708,6 @@ export type Database = {
         }
         Insert: {
           active_bot_id?: string | null
-          ai_learning_enabled?: boolean | null
-          ai_memory_enabled?: boolean | null
-          ai_seller_briefing_enabled?: boolean | null
           applied_coupon_id?: string | null
           auto_close_assigned_minutes?: number | null
           auto_close_bot_minutes?: number | null
@@ -7645,9 +7760,6 @@ export type Database = {
         }
         Update: {
           active_bot_id?: string | null
-          ai_learning_enabled?: boolean | null
-          ai_memory_enabled?: boolean | null
-          ai_seller_briefing_enabled?: boolean | null
           applied_coupon_id?: string | null
           auto_close_assigned_minutes?: number | null
           auto_close_bot_minutes?: number | null
