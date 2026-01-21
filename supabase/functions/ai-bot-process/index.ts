@@ -434,6 +434,136 @@ async function semanticSearch(
 }
 
 // ============================================================================
+// LEAD MEMORY CONTEXT
+// ============================================================================
+
+interface LeadMemoryContext {
+  lead_name: string | null;
+  lead_notes: string | null;
+  lead_stars: number | null;
+  preferences: Array<{
+    preference_type: string;
+    preference_value: string;
+    confidence_score: number;
+  }>;
+  last_summary: {
+    summary_text: string;
+    key_topics: string[];
+    next_steps: string | null;
+    created_at: string;
+  } | null;
+}
+
+async function getLeadMemoryContext(organizationId: string, leadId: string | null): Promise<LeadMemoryContext | null> {
+  if (!leadId) return null;
+
+  try {
+    // Buscar preferências
+    const { data: preferences } = await supabase
+      .from('lead_ai_preferences')
+      .select('preference_type, preference_value, confidence_score')
+      .eq('lead_id', leadId)
+      .order('confidence_score', { ascending: false })
+      .limit(10);
+
+    // Buscar último resumo
+    const { data: summaries } = await supabase
+      .from('lead_conversation_summaries')
+      .select('summary_text, key_topics, next_steps, created_at')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    // Buscar dados do lead
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('name, notes, stars')
+      .eq('id', leadId)
+      .single();
+
+    return {
+      lead_name: lead?.name || null,
+      lead_notes: lead?.notes || null,
+      lead_stars: lead?.stars || null,
+      preferences: preferences || [],
+      last_summary: summaries?.[0] || null
+    };
+  } catch (error) {
+    console.error('Error fetching lead memory context:', error);
+    return null;
+  }
+}
+
+function buildLeadMemoryPrompt(memory: LeadMemoryContext): string {
+  const parts: string[] = [];
+
+  // Nome do lead
+  if (memory.lead_name) {
+    parts.push(`CLIENTE: ${memory.lead_name} (você JÁ CONHECE este cliente, NÃO pergunte o nome novamente)`);
+  }
+
+  // Classificação
+  if (memory.lead_stars) {
+    const starsText = memory.lead_stars >= 4 ? 'cliente prioritário' : 
+                      memory.lead_stars >= 2 ? 'cliente regular' : 'cliente novo';
+    parts.push(`CLASSIFICAÇÃO: ${starsText} (${memory.lead_stars} estrelas)`);
+  }
+
+  // Preferências aprendidas
+  if (memory.preferences.length > 0) {
+    parts.push('\n🧠 O QUE VOCÊ JÁ SABE SOBRE ESTE CLIENTE:');
+    
+    const typeLabels: Record<string, string> = {
+      'product_interest': 'Interesses',
+      'health_goal': 'Objetivos de saúde',
+      'concern': 'Preocupações',
+      'budget_range': 'Orçamento',
+      'communication_style': 'Estilo de comunicação',
+      'lifestyle': 'Estilo de vida',
+      'timing': 'Timing'
+    };
+
+    const grouped: Record<string, string[]> = {};
+    for (const pref of memory.preferences) {
+      const type = typeLabels[pref.preference_type] || pref.preference_type;
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type].push(pref.preference_value);
+    }
+
+    for (const [type, values] of Object.entries(grouped)) {
+      parts.push(`- ${type}: ${values.join('; ')}`);
+    }
+
+    parts.push('\nUSE estas informações para personalizar o atendimento. Faça referências ao que você já sabe!');
+  }
+
+  // Última conversa
+  if (memory.last_summary) {
+    const daysAgo = Math.floor(
+      (Date.now() - new Date(memory.last_summary.created_at).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    parts.push(`\n📝 ÚLTIMA CONVERSA (${daysAgo} dias atrás):`);
+    parts.push(memory.last_summary.summary_text);
+    
+    if (memory.last_summary.next_steps) {
+      parts.push(`➡️ PRÓXIMO PASSO COMBINADO: ${memory.last_summary.next_steps}`);
+    }
+
+    if (memory.last_summary.key_topics.length > 0) {
+      parts.push(`Tópicos discutidos: ${memory.last_summary.key_topics.join(', ')}`);
+    }
+  }
+
+  // Notas do vendedor
+  if (memory.lead_notes) {
+    parts.push(`\n📋 NOTAS DO VENDEDOR: ${memory.lead_notes}`);
+  }
+
+  return parts.join('\n');
+}
+
+// ============================================================================
 // AI PROCESSING
 // ============================================================================
 
@@ -654,7 +784,8 @@ async function generateAIResponse(
   messageCount: number = 0,
   products: BotProduct[] = [],
   faqs: Array<{question: string, answer: string}> = [],
-  semanticResults: SemanticSearchResult[] = []
+  semanticResults: SemanticSearchResult[] = [],
+  leadMemory: LeadMemoryContext | null = null
 ): Promise<{ response: string; tokensUsed: number }> {
   
   // Construir prompt de personalidade
@@ -668,6 +799,14 @@ async function generateAIResponse(
   
   // Contexto semântico (resultados da busca vetorial)
   const semanticContext = buildSemanticContext(semanticResults);
+
+  // Contexto de memória do lead (cross-session)
+  const leadMemoryContext = leadMemory ? `
+════════════════════════════════════════════
+🧠 MEMÓRIA DO CLIENTE (informações aprendidas em conversas anteriores)
+════════════════════════════════════════════
+${buildLeadMemoryPrompt(leadMemory)}
+════════════════════════════════════════════` : '';
   
   // Diretrizes de qualificação
   const qualificationInstructions = `
@@ -678,6 +817,8 @@ DIRETRIZES DE ATENDIMENTO HUMANIZADO:
 4. Se não souber algo específico, diga que vai verificar.
 5. Use emojis com moderação para deixar a conversa mais leve.
 6. Personalize: use o nome do cliente, referências ao que ele disse antes.
+${leadMemory ? `7. IMPORTANTE: Você JÁ CONHECE este cliente! Use as informações da MEMÓRIA acima para personalizar.
+8. NÃO pergunte nome, preferências ou informações que você já sabe!` : ''}
 
 QUANDO TRANSFERIR:
 - Cliente PEDIR explicitamente para falar com pessoa/humano/atendente
@@ -689,7 +830,8 @@ EVITE:
 - Respostas genéricas tipo "Como posso ajudar?"
 - Repetir as mesmas frases
 - Ser formal demais - seja amigável!
-- Transferir rápido demais`;
+- Transferir rápido demais
+${leadMemory ? '- Perguntar informações que você já sabe sobre o cliente!' : ''}`;
 
   // System prompt completo e rico
   const systemPrompt = `${personalityPrompt}
@@ -697,9 +839,11 @@ EVITE:
 ${bot.system_prompt || 'Você é um assistente de atendimento prestativo e empático.'}
 
 CONTEXTO ATUAL:
-- Cliente: ${contactName}
+- Cliente: ${leadMemory?.lead_name || contactName}
 - Data/Hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
 - Mensagens na conversa: ${messageCount}
+
+${leadMemoryContext}
 
 ${semanticContext}
 
@@ -710,7 +854,8 @@ ${faqContext}
 ${qualificationInstructions}
 
 LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Seja natural, empático e útil.
-${semanticResults.length > 0 ? 'PRIORIZE as informações da busca semântica acima para responder à pergunta atual do cliente.' : ''}`;
+${leadMemory ? 'PRIORIZE usar as informações da MEMÓRIA DO CLIENTE para personalizar o atendimento!' : ''}
+${semanticResults.length > 0 ? 'Use as informações da busca semântica para responder perguntas técnicas.' : ''}`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -1211,12 +1356,25 @@ async function processMessage(
   const productScope = (bot as any).product_scope || 'all';
   const useRagSearch = (bot as any).use_rag_search ?? false;
   
+  // 5.1 Buscar contexto de memória do lead (cross-session learning)
+  let leadMemory: LeadMemoryContext | null = null;
+  if (context.leadId) {
+    leadMemory = await getLeadMemoryContext(context.organizationId, context.leadId);
+    if (leadMemory) {
+      console.log('🧠 Lead memory loaded:', {
+        hasPreferences: leadMemory.preferences.length > 0,
+        hasLastSummary: !!leadMemory.last_summary,
+        leadName: leadMemory.lead_name
+      });
+    }
+  }
+  
   const [products, faqs] = await Promise.all([
     getBotProducts(bot.id, context.organizationId, productScope),
     getBotKnowledge(bot.id)
   ]);
   
-  // 5.1 Busca semântica (RAG) se habilitada
+  // 5.2 Busca semântica (RAG) se habilitada
   let semanticResults: SemanticSearchResult[] = [];
   if (useRagSearch && productScope !== 'none') {
     // Get product IDs for filtering (if using selected scope)
@@ -1238,7 +1396,8 @@ async function processMessage(
     products: products.length, 
     faqs: faqs.length,
     semanticResults: semanticResults.length,
-    ragEnabled: useRagSearch 
+    ragEnabled: useRagSearch,
+    hasLeadMemory: !!leadMemory
   });
 
   // 6. Gerar resposta IA com contexto completo
@@ -1254,7 +1413,8 @@ async function processMessage(
       context.botMessagesCount,
       products,
       faqs,
-      semanticResults
+      semanticResults,
+      leadMemory
     );
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;

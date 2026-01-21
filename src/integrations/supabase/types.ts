@@ -2034,6 +2034,141 @@ export type Database = {
           },
         ]
       }
+      lead_ai_preferences: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          id: string
+          last_observed_at: string
+          lead_id: string
+          observation_count: number | null
+          organization_id: string
+          preference_key: string
+          preference_type: string
+          preference_value: string
+          updated_at: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          last_observed_at?: string
+          lead_id: string
+          observation_count?: number | null
+          organization_id: string
+          preference_key: string
+          preference_type: string
+          preference_value: string
+          updated_at?: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          last_observed_at?: string
+          lead_id?: string
+          observation_count?: number | null
+          organization_id?: string
+          preference_key?: string
+          preference_type?: string
+          preference_value?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_ai_preferences_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_conversation_summaries: {
+        Row: {
+          action_items: string[] | null
+          conversation_id: string | null
+          created_at: string
+          energy_consumed: number | null
+          id: string
+          key_topics: string[] | null
+          lead_id: string
+          next_steps: string | null
+          organization_id: string
+          sentiment: string | null
+          summary_text: string
+        }
+        Insert: {
+          action_items?: string[] | null
+          conversation_id?: string | null
+          created_at?: string
+          energy_consumed?: number | null
+          id?: string
+          key_topics?: string[] | null
+          lead_id: string
+          next_steps?: string | null
+          organization_id: string
+          sentiment?: string | null
+          summary_text: string
+        }
+        Update: {
+          action_items?: string[] | null
+          conversation_id?: string | null
+          created_at?: string
+          energy_consumed?: number | null
+          id?: string
+          key_topics?: string[] | null
+          lead_id?: string
+          next_steps?: string | null
+          organization_id?: string
+          sentiment?: string | null
+          summary_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_conversation_summaries_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversation_summaries_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversation_summaries_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversation_summaries_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversation_summaries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_custom_field_definitions: {
         Row: {
           created_at: string
@@ -7400,6 +7535,9 @@ export type Database = {
       whatsapp_instances: {
         Row: {
           active_bot_id: string | null
+          ai_learning_enabled: boolean | null
+          ai_memory_enabled: boolean | null
+          ai_seller_briefing_enabled: boolean | null
           applied_coupon_id: string | null
           auto_close_assigned_minutes: number | null
           auto_close_bot_minutes: number | null
@@ -7452,6 +7590,9 @@ export type Database = {
         }
         Insert: {
           active_bot_id?: string | null
+          ai_learning_enabled?: boolean | null
+          ai_memory_enabled?: boolean | null
+          ai_seller_briefing_enabled?: boolean | null
           applied_coupon_id?: string | null
           auto_close_assigned_minutes?: number | null
           auto_close_bot_minutes?: number | null
@@ -7504,6 +7645,9 @@ export type Database = {
         }
         Update: {
           active_bot_id?: string | null
+          ai_learning_enabled?: boolean | null
+          ai_memory_enabled?: boolean | null
+          ai_seller_briefing_enabled?: boolean | null
           applied_coupon_id?: string | null
           auto_close_assigned_minutes?: number | null
           auto_close_bot_minutes?: number | null
