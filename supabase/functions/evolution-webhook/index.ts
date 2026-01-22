@@ -558,10 +558,10 @@ serve(async (req) => {
         hasProfilePic: !!contactProfilePic,
       });
 
-      // Buscar a instância para saber a organização (inclui configs de transcrição)
+      // Buscar a instância para saber a organização
       const { data: instance } = await supabase
         .from("whatsapp_instances")
-        .select("id, organization_id, phone_number, evolution_instance_id, auto_transcribe_enabled, auto_transcribe_inbound, auto_transcribe_outbound")
+        .select("id, organization_id, phone_number, evolution_instance_id")
         .eq("evolution_instance_id", instanceName)
         .single();
 
@@ -928,40 +928,46 @@ serve(async (req) => {
           });
 
           // =====================
-          // AUTO-TRANSCRIPTION FOR AUDIO MESSAGES
+          // AUTO-TRANSCRIPTION FOR AUDIO MESSAGES (CLIENT AUDIO)
+          // Uses global organization setting: whatsapp_transcribe_client_audio
           // =====================
-          const shouldAutoTranscribe = 
-            msgData.type === 'audio' && 
-            savedMediaUrl && 
-            (instance as any).auto_transcribe_enabled === true && 
-            (instance as any).auto_transcribe_inbound === true;
-          
-          if (shouldAutoTranscribe) {
-            console.log("🎤 Triggering auto-transcription for inbound audio message:", messageId);
+          if (msgData.type === 'audio' && savedMediaUrl) {
+            // Fetch organization transcription settings
+            const { data: orgTranscribeSettings } = await supabase
+              .from("organizations")
+              .select("whatsapp_transcribe_client_audio")
+              .eq("id", organizationId)
+              .single();
             
-            // Mark as pending and trigger transcription (fire and forget)
-            await supabase
-              .from("whatsapp_messages")
-              .update({ transcription_status: "pending" })
-              .eq("id", messageId);
+            const shouldAutoTranscribe = (orgTranscribeSettings as any)?.whatsapp_transcribe_client_audio === true;
             
-            fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              },
-              body: JSON.stringify({
-                messageId: messageId,
-                organizationId: organizationId,
-                mediaUrl: savedMediaUrl,
-              }),
-            }).then(async (res) => {
-              const result = await res.json();
-              console.log("🎤 Transcription result:", result);
-            }).catch((transcriptionError) => {
-              console.error("❌ Error calling transcription:", transcriptionError);
-            });
+            if (shouldAutoTranscribe) {
+              console.log("🎤 Triggering auto-transcription for inbound audio message:", messageId);
+              
+              // Mark as pending and trigger transcription (fire and forget)
+              await supabase
+                .from("whatsapp_messages")
+                .update({ transcription_status: "pending" })
+                .eq("id", messageId);
+              
+              fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  messageId: messageId,
+                  organizationId: organizationId,
+                  mediaUrl: savedMediaUrl,
+                }),
+              }).then(async (res) => {
+                const result = await res.json();
+                console.log("🎤 Transcription result:", result);
+              }).catch((transcriptionError) => {
+                console.error("❌ Error calling transcription:", transcriptionError);
+              });
+            }
           }
 
           // =====================
