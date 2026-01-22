@@ -41,6 +41,7 @@ import { useProductIngredients, useSaveProductIngredients } from '@/hooks/usePro
 import { useProductVisibility, useSaveProductVisibility } from '@/hooks/useProductVisibility';
 import { normalizeText } from '@/lib/utils';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useOrgHasFeature } from '@/hooks/usePlanFeatures';
 import type { DynamicQuestion } from '@/components/products/DynamicQuestionsManager';
 import type { ProductFaq } from '@/components/products/ProductFaqManager';
 import type { ProductIngredient } from '@/components/products/ProductIngredientsManager';
@@ -66,6 +67,7 @@ export default function Products() {
   const { data: products, isLoading } = useProducts();
   const { data: isOwner } = useIsOwner();
   const { data: myPermissions } = useMyPermissions();
+  const { data: hasManipulatedCostsFeature = false } = useOrgHasFeature("manipulated_costs");
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -346,7 +348,7 @@ export default function Products() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {(myPermissions?.products_view_cost || isOwner) && (
+            {hasManipulatedCostsFeature && (myPermissions?.products_view_cost || isOwner) && (
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/produtos/custos-manipulados')}
