@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Tag, Package, MapPin, User, FileText } from 'lucide-react';
+import { Loader2, Tag, Package, MapPin, User, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   useGenerateCorreiosLabel, 
   useCorreiosConfig,
@@ -49,25 +50,47 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
     invoice_key: '',
   });
 
-  // Pre-fill from sale data
+  // Pre-fill from sale data - prioritize shipping_address over lead
   useEffect(() => {
-    if (sale?.lead) {
+    if (sale) {
+      const shippingAddress = sale.shipping_address;
       const lead = sale.lead;
-      setFormData(prev => ({
-        ...prev,
-        recipient_name: lead.name || '',
-        recipient_cpf_cnpj: lead.cpf || lead.cnpj || '',
-        recipient_street: lead.street || '',
-        recipient_number: lead.street_number || '',
-        recipient_complement: lead.complement || '',
-        recipient_neighborhood: lead.neighborhood || '',
-        recipient_city: lead.city || '',
-        recipient_state: lead.state || '',
-        recipient_cep: lead.cep || '',
-        recipient_phone: lead.whatsapp || '',
-        recipient_email: lead.email || '',
-        declared_value_cents: sale.total_cents || 0,
-      }));
+      
+      if (shippingAddress) {
+        // Use shipping_address from lead_addresses (preferred)
+        setFormData(prev => ({
+          ...prev,
+          recipient_name: lead?.name || '',
+          recipient_cpf_cnpj: lead?.cpf || lead?.cnpj || '',
+          recipient_street: shippingAddress.street || '',
+          recipient_number: shippingAddress.street_number || '',
+          recipient_complement: shippingAddress.complement || '',
+          recipient_neighborhood: shippingAddress.neighborhood || '',
+          recipient_city: shippingAddress.city || '',
+          recipient_state: shippingAddress.state || '',
+          recipient_cep: shippingAddress.cep || '',
+          recipient_phone: lead?.whatsapp || '',
+          recipient_email: lead?.email || '',
+          declared_value_cents: sale.total_cents || 0,
+        }));
+      } else if (lead) {
+        // Fallback to lead data
+        setFormData(prev => ({
+          ...prev,
+          recipient_name: lead.name || '',
+          recipient_cpf_cnpj: lead.cpf || lead.cnpj || '',
+          recipient_street: lead.street || '',
+          recipient_number: lead.street_number || '',
+          recipient_complement: lead.complement || '',
+          recipient_neighborhood: lead.neighborhood || '',
+          recipient_city: lead.city || '',
+          recipient_state: lead.state || '',
+          recipient_cep: lead.cep || '',
+          recipient_phone: lead.whatsapp || '',
+          recipient_email: lead.email || '',
+          declared_value_cents: sale.total_cents || 0,
+        }));
+      }
     }
   }, [sale]);
 

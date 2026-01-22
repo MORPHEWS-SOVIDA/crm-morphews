@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { Truck, Clock, User, ChevronDown, ChevronUp, Package, Copy, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,12 +26,14 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { DeliveryDateDialog } from './DeliveryDateDialog';
+import { CorreiosLabelSection } from './CorreiosLabelSection';
 
 interface CarrierTrackingCardProps {
   saleId: string;
   currentStatus: CarrierTrackingStatus | null;
   trackingCode?: string | null;
   isCancelled?: boolean;
+  sale?: any; // Full sale object for Correios integration
 }
 
 const statusColors: Record<CarrierTrackingStatus, string> = {
@@ -50,6 +53,7 @@ export function CarrierTrackingCard({
   currentStatus,
   trackingCode,
   isCancelled,
+  sale,
 }: CarrierTrackingCardProps) {
   const { data: history = [], isLoading } = useCarrierTrackingHistory(saleId);
   const updateMutation = useUpdateCarrierTracking();
@@ -288,6 +292,14 @@ export function CarrierTrackingCard({
               </div>
             </CollapsibleContent>
           </Collapsible>
+        )}
+
+        {/* Correios Label Section - only if sale is provided */}
+        {sale && (
+          <>
+            <Separator />
+            <CorreiosLabelSection sale={sale} isCancelled={isCancelled} />
+          </>
         )}
       </CardContent>
     </Card>
