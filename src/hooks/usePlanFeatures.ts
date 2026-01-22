@@ -15,6 +15,7 @@ export const AVAILABLE_FEATURES = {
   // Módulos Principais
   leads: { label: "Leads / CRM", group: "Módulos Principais" },
   products: { label: "Produtos", group: "Módulos Principais" },
+  manipulated_costs: { label: "Custos Manipulados", group: "Módulos Principais" },
   standard_questions: { label: "Perguntas Sovida", group: "Módulos Principais" },
   custom_questions: { label: "Perguntas Personalizadas", group: "Módulos Principais" },
   
