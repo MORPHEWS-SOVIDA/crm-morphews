@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Building2, Upload, CheckCircle2, XCircle, Star, Webhook } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Building2, Upload, CheckCircle2, XCircle, Star, ShieldCheck } from 'lucide-react';
 import {
   useFiscalCompanies,
   useCreateFiscalCompany,
@@ -345,14 +345,14 @@ export function FiscalCompaniesManager() {
                       size="sm"
                       onClick={() => registerWebhooks.mutate({ fiscalCompanyId: company.id })}
                       disabled={registerWebhooks.isPending}
-                      title="Registrar webhooks na API Focus NFe"
+                      title="Ativar empresa na API Focus NFe para emissão de notas"
                     >
                       {registerWebhooks.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Webhook className="w-4 h-4 mr-1" />
+                        <ShieldCheck className="w-4 h-4 mr-1" />
                       )}
-                      Webhooks
+                      Homologar
                     </Button>
                     <Button
                       variant="outline"
