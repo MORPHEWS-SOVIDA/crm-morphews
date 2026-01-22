@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Send,
   Search,
@@ -29,7 +30,11 @@ import {
   UserPlus,
   XCircle,
   Hand,
+  ChevronDown,
+  Bot,
 } from 'lucide-react';
+import { WhatsAppAISettingsManager } from '@/components/settings/WhatsAppAISettingsManager';
+import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -117,12 +122,16 @@ interface InstanceUserPermission {
 }
 
 export default function WhatsAppChat() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: funnelStages } = useFunnelStages();
   const { claimConversation, closeConversation } = useConversationDistribution();
   const { data: crossInstanceMap } = useCrossInstanceConversations();
+  const { data: isOrgAdmin } = useOrgAdmin();
+  
+  // Global settings collapsible
+  const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
   
   const [isUpdatingStars, setIsUpdatingStars] = useState(false);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -994,7 +1003,35 @@ export default function WhatsAppChat() {
 
   return (
     <Layout>
-      <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
+      <div className="flex flex-col">
+        {/* Global WhatsApp AI Settings - Only for admins/owners - at the top */}
+        {(isAdmin || isOrgAdmin) && (
+          <Collapsible
+            open={isGlobalSettingsOpen}
+            onOpenChange={setIsGlobalSettingsOpen}
+            className="mx-0 mb-0"
+          >
+            <CollapsibleTrigger asChild>
+              <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <Bot className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">IA do WhatsApp (Global)</h2>
+                    <p className="text-xs text-muted-foreground">Configurações de IA para todas as instâncias</p>
+                  </div>
+                </div>
+                <ChevronDown className={cn("w-5 h-5 text-muted-foreground transition-transform", isGlobalSettingsOpen && "rotate-180")} />
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="bg-card border-b border-border px-4 pb-4">
+              <WhatsAppAISettingsManager />
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        
+        <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex bg-background -m-4 lg:-m-8">
         {/* Left Column - Conversations List */}
         <div className="w-80 border-r border-border flex flex-col bg-card overflow-hidden">
         {/* Header */}
@@ -1646,6 +1683,7 @@ export default function WhatsAppChat() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
 
