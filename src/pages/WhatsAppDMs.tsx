@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, ChevronDown } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,11 +16,9 @@ import { EvolutionSettingsDialog } from "@/components/whatsapp/EvolutionSettings
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { WhatsAppAISettingsManager } from "@/components/settings/WhatsAppAISettingsManager";
 import { useOrgAdmin } from "@/hooks/useOrgAdmin";
 import { useMyPermissions } from "@/hooks/useUserPermissions";
-import { cn } from "@/lib/utils";
 
 // Status mapping for human-readable display
 type InstanceStatus = "connected" | "waiting_qr" | "disconnected" | "error";
@@ -56,35 +54,21 @@ interface EvolutionInstance {
 }
 
 function GlobalWhatsAppAISettingsPanel({ visible }: { visible: boolean }) {
-  const [open, setOpen] = useState(false);
-
   if (!visible) return null;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="mx-0 mb-0">
-      <CollapsibleTrigger asChild>
-        <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Bot className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-foreground">IA do WhatsApp (Global)</h2>
-              <p className="text-xs text-muted-foreground">Configurações de IA para todas as instâncias</p>
-            </div>
-          </div>
-          <ChevronDown
-            className={cn(
-              "w-5 h-5 text-muted-foreground transition-transform",
-              open && "rotate-180"
-            )}
-          />
+    <div className="bg-card border-b border-border px-4 py-4">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Bot className="w-5 h-5 text-primary" />
         </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="bg-card border-b border-border px-4 pb-4">
-        <WhatsAppAISettingsManager />
-      </CollapsibleContent>
-    </Collapsible>
+        <div>
+          <h2 className="text-base font-semibold text-foreground">IA do WhatsApp (Global)</h2>
+          <p className="text-xs text-muted-foreground">Configurações de IA para todas as instâncias</p>
+        </div>
+      </div>
+      <WhatsAppAISettingsManager />
+    </div>
   );
 }
 
