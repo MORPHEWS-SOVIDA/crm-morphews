@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
 
 Deno.serve(async (req) => {
@@ -13,7 +13,18 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const webhookSecret = Deno.env.get('FOCUS_WEBHOOK_SECRET') || 'morphews_focus_webhook_2024';
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Validate webhook secret if provided
+    const providedSecret = req.headers.get('X-Webhook-Secret');
+    if (providedSecret && providedSecret !== webhookSecret) {
+      console.error('Invalid webhook secret');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = await req.json();
     console.log('Focus NFe webhook received:', JSON.stringify(body, null, 2));

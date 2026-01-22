@@ -334,3 +334,40 @@ export function useUploadCertificate() {
     },
   });
 }
+
+// =============================================================================
+// WEBHOOK REGISTRATION
+// =============================================================================
+
+export function useRegisterWebhooks() {
+  return useMutation({
+    mutationFn: async ({
+      fiscalCompanyId,
+      events = ['nfe', 'nfse'],
+    }: {
+      fiscalCompanyId: string;
+      events?: string[];
+    }) => {
+      const { data, error } = await supabase.functions.invoke('focus-nfe-register-hooks', {
+        body: { fiscal_company_id: fiscalCompanyId, events },
+      });
+
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.results?.[0]?.error || 'Falha ao registrar webhooks');
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: 'Webhooks registrados com sucesso!' });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao registrar webhooks',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
