@@ -32,7 +32,21 @@ export function useManipulatedSaleItems(filters?: {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Build query with organization filter through the sales relation
+      // First get sales IDs for this organization
+      const { data: orgSales, error: salesError } = await supabase
+        .from('sales')
+        .select('id')
+        .eq('organization_id', tenantId);
+
+      if (salesError) {
+        console.error('Error fetching org sales:', salesError);
+        throw salesError;
+      }
+
+      const saleIds = (orgSales || []).map(s => s.id);
+      if (saleIds.length === 0) return [];
+
+      // Build query for sale_items with those sale IDs
       let query = supabase
         .from('sale_items')
         .select(`
@@ -46,7 +60,7 @@ export function useManipulatedSaleItems(filters?: {
           requisition_number,
           cost_cents,
           created_at,
-          sales!inner (
+          sales (
             id,
             created_at,
             status,
@@ -61,10 +75,10 @@ export function useManipulatedSaleItems(filters?: {
           )
         `)
         .not('requisition_number', 'is', null)
-        .eq('sales.organization_id', tenantId)
+        .in('sale_id', saleIds)
         .order('created_at', { ascending: false });
 
-      // Apply cost filter at database level - only if not 'all'
+      // Apply cost filter at database level
       if (filters?.hasCost === 'with_cost') {
         query = query.not('cost_cents', 'is', null);
       } else if (filters?.hasCost === 'without_cost') {
