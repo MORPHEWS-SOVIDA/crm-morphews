@@ -24,7 +24,7 @@ export function useManipulatedSaleItems(filters?: {
   hasCost: 'all' | 'with_cost' | 'without_cost';
   startDate?: Date;
   endDate?: Date;
-}) {
+}, enabled = false) {
   const { tenantId } = useTenant();
 
   return useQuery({
@@ -64,7 +64,7 @@ export function useManipulatedSaleItems(filters?: {
         .eq('sales.organization_id', tenantId)
         .order('created_at', { ascending: false });
 
-      // Apply cost filter at database level
+      // Apply cost filter at database level - only if not 'all'
       if (filters?.hasCost === 'with_cost') {
         query = query.not('cost_cents', 'is', null);
       } else if (filters?.hasCost === 'without_cost') {
@@ -112,7 +112,10 @@ export function useManipulatedSaleItems(filters?: {
 
       return items;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && enabled,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 }
 

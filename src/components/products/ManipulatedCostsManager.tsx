@@ -61,14 +61,23 @@ export function ManipulatedCostsManager({ onClose }: ManipulatedCostsManagerProp
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingCost, setEditingCost] = useState<number>(0);
+  const [shouldFetch, setShouldFetch] = useState(false);
 
-  const { data: items, isLoading } = useManipulatedSaleItems({
+  const { data: items, isLoading, refetch } = useManipulatedSaleItems({
     hasCost: costFilter,
     startDate,
     endDate,
-  });
+  }, shouldFetch);
   const { data: summary } = useManipulatedCostsSummary();
   const updateCost = useUpdateItemCost();
+
+  const handleSearch = () => {
+    if (!shouldFetch) {
+      setShouldFetch(true);
+    } else {
+      refetch();
+    }
+  };
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -258,10 +267,32 @@ export function ManipulatedCostsManager({ onClose }: ManipulatedCostsManagerProp
             Limpar filtros
           </Button>
         )}
+
+        <Button onClick={handleSearch} disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Carregando...
+            </>
+          ) : (
+            <>
+              <Search className="w-4 h-4 mr-2" />
+              Mostrar Vendas
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Table */}
-      {isLoading ? (
+      {!shouldFetch ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Package className="w-12 h-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">Clique em "Mostrar Vendas" para carregar</h3>
+          <p className="text-muted-foreground">
+            Use os filtros acima e clique no botão para buscar as requisições.
+          </p>
+        </div>
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
