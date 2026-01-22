@@ -417,8 +417,16 @@ Deno.serve(async (req) => {
           .update({ [updateField]: authorizedNumber })
           .eq('id', fiscalCompany.id);
       }
+      
+      // Trigger auto-send (email/WhatsApp) if configured
+      try {
+        await supabase.functions.invoke('fiscal-auto-send', {
+          body: { invoice_id: invoice.id },
+        });
+      } catch (autoSendErr) {
+        console.error('Auto-send failed:', autoSendErr);
+      }
     }
-    // Otherwise keep as 'processing' - webhook/status polling will update
 
     await supabase
       .from('fiscal_invoices')

@@ -1631,6 +1631,88 @@ export type Database = {
           },
         ]
       }
+      fiscal_auto_send_config: {
+        Row: {
+          created_at: string
+          email_body_template: string | null
+          email_enabled: boolean
+          email_from_address: string | null
+          email_from_name: string | null
+          email_send_danfe: boolean
+          email_send_xml: boolean
+          email_subject_template: string | null
+          id: string
+          organization_id: string
+          resend_api_key_encrypted: string | null
+          updated_at: string
+          whatsapp_enabled: boolean
+          whatsapp_instance_id: string | null
+          whatsapp_message_template: string | null
+          whatsapp_send_danfe: boolean
+          whatsapp_send_xml: boolean
+        }
+        Insert: {
+          created_at?: string
+          email_body_template?: string | null
+          email_enabled?: boolean
+          email_from_address?: string | null
+          email_from_name?: string | null
+          email_send_danfe?: boolean
+          email_send_xml?: boolean
+          email_subject_template?: string | null
+          id?: string
+          organization_id: string
+          resend_api_key_encrypted?: string | null
+          updated_at?: string
+          whatsapp_enabled?: boolean
+          whatsapp_instance_id?: string | null
+          whatsapp_message_template?: string | null
+          whatsapp_send_danfe?: boolean
+          whatsapp_send_xml?: boolean
+        }
+        Update: {
+          created_at?: string
+          email_body_template?: string | null
+          email_enabled?: boolean
+          email_from_address?: string | null
+          email_from_name?: string | null
+          email_send_danfe?: boolean
+          email_send_xml?: boolean
+          email_subject_template?: string | null
+          id?: string
+          organization_id?: string
+          resend_api_key_encrypted?: string | null
+          updated_at?: string
+          whatsapp_enabled?: boolean
+          whatsapp_instance_id?: string | null
+          whatsapp_message_template?: string | null
+          whatsapp_send_danfe?: boolean
+          whatsapp_send_xml?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_auto_send_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_auto_send_config_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_auto_send_config_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fiscal_companies: {
         Row: {
           accountant_cpf_cnpj: string | null

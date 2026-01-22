@@ -189,6 +189,18 @@ Deno.serve(async (req) => {
           console.log(`Updated ${updateField} to ${authorizedNumber} for company ${fiscalCompany.id}`);
         }
       }
+      
+      // Trigger auto-send (email/WhatsApp) if configured
+      try {
+        const { error: autoSendError } = await supabase.functions.invoke('fiscal-auto-send', {
+          body: { invoice_id },
+        });
+        if (autoSendError) {
+          console.error('Auto-send error:', autoSendError);
+        }
+      } catch (autoSendErr) {
+        console.error('Failed to trigger auto-send:', autoSendErr);
+      }
     } else if (focusResult.status === 'cancelado') {
       updateData.status = 'cancelled';
       if (!invoice.cancelled_at) {

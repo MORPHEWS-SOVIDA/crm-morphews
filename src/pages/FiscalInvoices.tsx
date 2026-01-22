@@ -51,6 +51,8 @@ import {
   Loader2,
   AlertCircle,
   Ban,
+  Settings,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,6 +68,20 @@ import {
 import { useSendFiscalInvoice } from '@/hooks/useFiscalInvoiceDraft';
 import { toast } from '@/hooks/use-toast';
 import { InvalidateNumbersDialog } from '@/components/fiscal/InvalidateNumbersDialog';
+import { FiscalAutoSendConfigDialog } from '@/components/fiscal/FiscalAutoSendConfigDialog';
+
+// Helper to check for missing required fields in a draft invoice
+function getMissingFields(invoice: any): string[] {
+  const missing: string[] = [];
+  if (!invoice.recipient_name) missing.push('Nome');
+  if (!invoice.recipient_cpf_cnpj) missing.push('CPF/CNPJ');
+  if (!invoice.recipient_cep) missing.push('CEP');
+  if (!invoice.recipient_city) missing.push('Cidade');
+  if (!invoice.recipient_state) missing.push('Estado');
+  if (!invoice.recipient_street) missing.push('Logradouro');
+  if (!invoice.recipient_neighborhood) missing.push('Bairro');
+  return missing;
+}
 
 export default function FiscalInvoices() {
   const navigate = useNavigate();
@@ -74,6 +90,7 @@ export default function FiscalInvoices() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(true);
   const [showInvalidateDialog, setShowInvalidateDialog] = useState(false);
+  const [showAutoSendDialog, setShowAutoSendDialog] = useState(false);
 
   const { data: invoices = [], isLoading } = useFiscalInvoices(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
@@ -299,6 +316,8 @@ export default function FiscalInvoices() {
                   <TableBody>
                     {filteredInvoices.map((invoice) => {
                       const invAny = invoice as any;
+                      const missingFields = invAny.is_draft ? getMissingFields(invAny) : [];
+                      const hasMissing = missingFields.length > 0;
                       return (
                       <TableRow
                         key={invoice.id}
@@ -318,7 +337,22 @@ export default function FiscalInvoices() {
                           {format(new Date(invoice.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                         </TableCell>
                         <TableCell>
-                          {invAny.recipient_name || invoice.sale?.lead?.name || '—'}
+                          <div className="flex items-center gap-1.5">
+                            {invAny.recipient_name || invoice.sale?.lead?.name || '—'}
+                            {hasMissing && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="font-semibold text-amber-600">Campos obrigatórios faltando:</p>
+                                    <p className="text-xs">{missingFields.join(', ')}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <TooltipProvider>
@@ -506,6 +540,20 @@ export default function FiscalInvoices() {
 
               <Separator className="my-3" />
 
+              {/* Configurações */}
+              <p className="text-xs font-medium text-muted-foreground mb-2">Configurações</p>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                onClick={() => setShowAutoSendDialog(true)}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Envio automático
+              </Button>
+
+              <Separator className="my-3" />
+
               {/* Summary */}
               <div className="text-sm space-y-1">
                 <div className="flex justify-between text-muted-foreground">
@@ -527,6 +575,10 @@ export default function FiscalInvoices() {
         <InvalidateNumbersDialog 
           open={showInvalidateDialog} 
           onOpenChange={setShowInvalidateDialog} 
+        />
+        <FiscalAutoSendConfigDialog
+          open={showAutoSendDialog}
+          onClose={() => setShowAutoSendDialog(false)}
         />
 
       </div>
