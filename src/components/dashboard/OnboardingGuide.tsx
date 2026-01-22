@@ -36,10 +36,22 @@ export function OnboardingGuide({ leadsCount, hasStageUpdates }: OnboardingGuide
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
   const [progress, setProgress] = useState<any>(null);
+  const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     const loadProgress = async () => {
       if (!user?.id) return;
+      
+      // Fetch user profile to get created_at
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (profile?.created_at) {
+        setUserCreatedAt(new Date(profile.created_at));
+      }
       
       const { data } = await supabase
         .from('user_onboarding_progress')
@@ -97,8 +109,13 @@ export function OnboardingGuide({ leadsCount, hasStageUpdates }: OnboardingGuide
   const completedSteps = steps.filter(s => s.completed).length;
   const progressPercent = (completedSteps / steps.length) * 100;
 
-  // Don't show if dismissed or all completed
-  if (isDismissed || completedSteps === steps.length) {
+  // Auto-dismiss after 4 days from account creation
+  const isExpiredByTime = userCreatedAt 
+    ? (new Date().getTime() - userCreatedAt.getTime()) > (4 * 24 * 60 * 60 * 1000)
+    : false;
+
+  // Don't show if dismissed, expired by time, or all completed
+  if (isDismissed || isExpiredByTime || completedSteps === steps.length) {
     return null;
   }
 

@@ -79,7 +79,7 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/force-password-change" element={<ForcePasswordChange />} />
-              <Route path="/setup" element={<Setup />} />
+              <Route path="/setup" element={<Login />} />
               <Route path="/planos" element={<Planos />} />
               <Route path="/2026" element={<Power />} />
               <Route path="/para/:niche" element={<NichePage />} />

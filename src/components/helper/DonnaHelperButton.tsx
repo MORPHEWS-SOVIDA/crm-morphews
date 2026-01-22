@@ -14,7 +14,7 @@ export function DonnaHelperButton() {
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-4 right-4 z-50 w-16 h-16 rounded-full shadow-lg",
+          "fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full shadow-lg md:bottom-4 md:w-16 md:h-16 md:z-50",
           "bg-gradient-to-br from-green-400 to-emerald-500",
           "hover:from-green-500 hover:to-emerald-600",
           "transition-all duration-300 hover:scale-105",
@@ -64,7 +64,7 @@ export function DonnaHelperButton() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 1, duration: 0.3 }}
-          className="fixed bottom-6 right-24 z-40 bg-white dark:bg-zinc-800 rounded-lg shadow-lg px-4 py-2 max-w-[200px]"
+          className="fixed bottom-[88px] right-20 z-30 bg-white dark:bg-zinc-800 rounded-lg shadow-lg px-4 py-2 max-w-[180px] md:bottom-6 md:right-24 md:z-40 md:max-w-[200px] hidden md:block"
         >
           <p className="text-sm font-medium text-zinc-900 dark:text-white">
             Precisa de ajuda? 🤔
