@@ -16,20 +16,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const ENERGY_COST_PER_DOCUMENT = 100;
 
-// Convert PDF to images and analyze with Gemini Vision
-async function analyzeDocumentWithVision(
-  documentUrl: string,
-  documentType: string
-): Promise<{
-  rawText: string;
-  summary: string;
-  medications: any[];
-  prescriberInfo: any;
-  structuredData: any;
-}> {
-  console.log("📄 Analyzing document with AI Vision:", documentUrl);
-
-  const systemPrompt = `Você é um especialista em interpretar documentos e extrair informações estruturadas.
+// Generic prompt for all document types
+const GENERIC_PROMPT = `Você é um especialista em interpretar documentos e extrair informações estruturadas.
 
 TAREFA: Analise este documento PDF/imagem e extraia TODAS as informações relevantes.
 
@@ -37,6 +25,7 @@ FORMATO DE RESPOSTA (JSON):
 {
   "rawText": "Transcrição completa do documento, linha por linha",
   "summary": "Resumo executivo em 2-3 frases descrevendo o conteúdo principal",
+  "medications": [],
   "items": [
     {
       "name": "Nome do item/produto/serviço",
@@ -45,11 +34,7 @@ FORMATO DE RESPOSTA (JSON):
       "notes": "Observações"
     }
   ],
-  "senderInfo": {
-    "name": "Nome de quem enviou/emitiu o documento",
-    "identifier": "CPF/CNPJ/CRM/registro profissional",
-    "role": "Cargo/profissão (médico, vendedor, empresa, etc.)"
-  },
+  "prescriberInfo": null,
   "structuredData": {
     "recipientName": "Nome do destinatário/cliente/paciente",
     "documentDate": "Data do documento",
@@ -66,6 +51,73 @@ INSTRUÇÕES:
 - Se for lista/pedido, liste todos os itens solicitados
 - Se não conseguir ler algo, indique "[ilegível]"
 - Mantenha nomes de produtos/medicamentos EXATAMENTE como escritos`;
+
+// Specialized prompt for medical prescriptions (Turbo Mode)
+const MEDICAL_TURBO_PROMPT = `Você é um ESPECIALISTA FARMACÊUTICO com anos de experiência em interpretar receitas médicas manuscritas e digitais.
+
+🎯 MISSÃO CRÍTICA: Extrair com MÁXIMA PRECISÃO todas as informações de prescrições médicas, mesmo com caligrafia difícil.
+
+FORMATO DE RESPOSTA (JSON):
+{
+  "rawText": "Transcrição COMPLETA do documento, linha por linha, incluindo trechos ilegíveis marcados",
+  "summary": "Resumo para o atendente: X medicamentos identificados, Dr. [nome], CRM [número]",
+  "medications": [
+    {
+      "name": "Nome EXATO do medicamento ou fórmula (ex: 'Cápsulas de Melatonina + Magnésio')",
+      "components": ["Lista de componentes da fórmula se for manipulado"],
+      "dosage": "Concentração exata (ex: '3mg', '500mg', '100.000 UI')",
+      "form": "Forma farmacêutica (cápsula, comprimido, creme, solução, etc.)",
+      "quantity": "Quantidade prescrita (ex: '60 cápsulas', '1 frasco', '30 sachês')",
+      "frequency": "Posologia/frequência (ex: '1x ao dia à noite', '8/8h', 'ao deitar')",
+      "duration": "Duração do tratamento se especificada",
+      "instructions": "Instruções especiais (com ou sem alimentos, jejum, etc.)",
+      "confidence": "alta/média/baixa - confiança na leitura"
+    }
+  ],
+  "prescriberInfo": {
+    "name": "Nome completo do médico/prescritor",
+    "crm": "Número do CRM com estado (ex: 'CRM-SP 123456')",
+    "specialty": "Especialidade médica se visível",
+    "clinic": "Nome do consultório/clínica se houver",
+    "contact": "Telefone ou endereço se visível"
+  },
+  "structuredData": {
+    "patientName": "Nome completo do paciente",
+    "documentDate": "Data da receita",
+    "documentType": "receita_simples/receita_especial/laudo/atestado/exame",
+    "isControlled": true/false,
+    "additionalNotes": "Observações do médico, alergias mencionadas, etc."
+  }
+}
+
+🔍 TÉCNICAS PARA CALIGRAFIA DIFÍCIL:
+1. Use CONTEXTO MÉDICO para inferir: "Omep..." provavelmente é "Omeprazol"
+2. Concentrações comuns: 10mg, 20mg, 40mg, 100mg, 500mg, 1g
+3. Frequências padrão: 1x/dia, 2x/dia, 8/8h, 12/12h, ao deitar
+4. Se houver dúvida entre duas leituras, indique ambas: "Amoxicilina (ou Amitriptilina?)"
+5. Marque trechos ilegíveis: "[ilegível - parece dosagem]"
+
+⚠️ IMPORTANTE:
+- NUNCA invente informações - marque como "[ilegível]" se não conseguir ler
+- Priorize SEGURANÇA: é melhor marcar dúvida do que interpretar errado
+- Para fórmulas manipuladas, liste CADA componente separadamente
+- CRM é CRÍTICO - busque em carimbos, rodapés, cantos da página`;
+
+// Convert PDF to images and analyze with Gemini Vision
+async function analyzeDocumentWithVision(
+  documentUrl: string,
+  documentType: string,
+  useMedicalMode: boolean = false
+): Promise<{
+  rawText: string;
+  summary: string;
+  medications: any[];
+  prescriberInfo: any;
+  structuredData: any;
+}> {
+  console.log("📄 Analyzing document with AI Vision:", documentUrl, "Medical mode:", useMedicalMode);
+
+  const systemPrompt = useMedicalMode ? MEDICAL_TURBO_PROMPT : GENERIC_PROMPT;
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -191,7 +243,7 @@ serve(async (req) => {
     // Check if document reading is enabled for org
     const { data: org } = await supabase
       .from("organizations")
-      .select("whatsapp_document_reading_enabled, whatsapp_document_auto_reply_message, ai_energy_balance")
+      .select("whatsapp_document_reading_enabled, whatsapp_document_auto_reply_message, whatsapp_document_medical_mode, ai_energy_balance")
       .eq("id", organizationId)
       .single();
 
@@ -249,9 +301,10 @@ serve(async (req) => {
     });
 
     // Analyze document
+    const useMedicalMode = (org as any).whatsapp_document_medical_mode === true;
     let analysis;
     try {
-      analysis = await analyzeDocumentWithVision(documentUrl, documentType);
+      analysis = await analyzeDocumentWithVision(documentUrl, documentType, useMedicalMode);
     } catch (error) {
       console.error("❌ Document analysis failed:", error);
       

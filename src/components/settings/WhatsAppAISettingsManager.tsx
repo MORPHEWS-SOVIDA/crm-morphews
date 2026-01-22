@@ -19,6 +19,7 @@ interface WhatsAppAISettings {
   whatsapp_ai_seller_briefing_enabled: boolean;
   whatsapp_document_reading_enabled: boolean;
   whatsapp_document_auto_reply_message: string | null;
+  whatsapp_document_medical_mode: boolean;
   whatsapp_audio_transcription_enabled: boolean;
   whatsapp_sender_name_prefix_enabled: boolean;
   // Auto-close settings (global)
@@ -48,6 +49,7 @@ export function WhatsAppAISettingsManager() {
     whatsapp_ai_seller_briefing_enabled: false,
     whatsapp_document_reading_enabled: false,
     whatsapp_document_auto_reply_message: "Nossa IA recebeu seu arquivo e interpretou assim:",
+    whatsapp_document_medical_mode: false,
     whatsapp_audio_transcription_enabled: false,
     whatsapp_sender_name_prefix_enabled: false,
     auto_close_enabled: true,
@@ -76,6 +78,7 @@ export function WhatsAppAISettingsManager() {
           whatsapp_ai_seller_briefing_enabled,
           whatsapp_document_reading_enabled,
           whatsapp_document_auto_reply_message,
+          whatsapp_document_medical_mode,
           whatsapp_audio_transcription_enabled,
           whatsapp_sender_name_prefix_enabled,
           auto_close_enabled,
@@ -107,6 +110,7 @@ export function WhatsAppAISettingsManager() {
         whatsapp_ai_seller_briefing_enabled: orgSettings.whatsapp_ai_seller_briefing_enabled ?? false,
         whatsapp_document_reading_enabled: orgSettings.whatsapp_document_reading_enabled ?? false,
         whatsapp_document_auto_reply_message: orgSettings.whatsapp_document_auto_reply_message || "Nossa IA recebeu seu arquivo e interpretou assim:",
+        whatsapp_document_medical_mode: (orgSettings as any).whatsapp_document_medical_mode ?? false,
         whatsapp_audio_transcription_enabled: orgSettings.whatsapp_audio_transcription_enabled ?? false,
         whatsapp_sender_name_prefix_enabled: orgSettings.whatsapp_sender_name_prefix_enabled ?? false,
         auto_close_enabled: orgSettings.auto_close_enabled ?? true,
@@ -556,6 +560,44 @@ export function WhatsAppAISettingsManager() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Modo Turbo para Receitas Médicas */}
+            <div className={cn(
+              "space-y-3 p-3 border rounded-lg",
+              settings.whatsapp_document_medical_mode && "border-pink-500/50 bg-pink-50/50 dark:bg-pink-950/20"
+            )}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    🏥 Modo Turbo para Receitas Médicas
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Prompt especializado para farmácias e manipuladoras
+                  </p>
+                </div>
+                <Switch 
+                  checked={settings.whatsapp_document_medical_mode}
+                  onCheckedChange={(checked) => setSettings(prev => ({ 
+                    ...prev,
+                    whatsapp_document_medical_mode: checked
+                  }))}
+                />
+              </div>
+              
+              {settings.whatsapp_document_medical_mode && (
+                <div className="p-3 bg-pink-100/50 dark:bg-pink-900/20 rounded-lg text-xs space-y-1">
+                  <p className="font-medium text-pink-800 dark:text-pink-200">IA otimizada para extrair:</p>
+                  <ul className="text-pink-700 dark:text-pink-300 list-disc list-inside space-y-0.5">
+                    <li>Nome do medicamento/fórmula manipulada</li>
+                    <li>Componentes e concentração (mg, mcg, UI)</li>
+                    <li>Quantidade de cápsulas/doses prescritas</li>
+                    <li>Posologia detalhada</li>
+                    <li>Nome e CRM do médico prescritor</li>
+                    <li>Interpretação de caligrafia médica difícil</li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
