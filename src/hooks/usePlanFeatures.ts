@@ -39,6 +39,7 @@ export const AVAILABLE_FEATURES = {
   whatsapp_v2: { label: "WhatsApp 2.0", group: "WhatsApp" },
   whatsapp_multiattendant: { label: "Multi-Atendimento", group: "WhatsApp" },
   whatsapp_manage: { label: "Gerenciar WhatsApp", group: "WhatsApp" },
+  wavoip_calls: { label: "Chamadas Wavoip (Telefone)", group: "WhatsApp" },
   
   // Canais Adicionais
   instagram: { label: "Instagram DMs", group: "Canais Adicionais" },

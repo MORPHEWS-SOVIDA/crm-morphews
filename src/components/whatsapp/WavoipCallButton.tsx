@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useWavoip, type WavoipStatus } from '@/hooks/useWavoip';
+import { useOrgHasFeature } from '@/hooks/usePlanFeatures';
 import { cn } from '@/lib/utils';
 
 interface WavoipCallButtonProps {
@@ -39,6 +40,7 @@ export function WavoipCallButton({
   size = 'sm',
   variant = 'default',
 }: WavoipCallButtonProps) {
+  const { data: hasWavoipFeature = false } = useOrgHasFeature("wavoip_calls");
   const { 
     wavoipStatus, 
     wavoipError, 
@@ -46,6 +48,11 @@ export function WavoipCallButton({
     makeCall,
     instanceConfig,
   } = useWavoip(instanceId);
+
+  // Don't render if Wavoip feature is not enabled for the organization
+  if (!hasWavoipFeature) {
+    return null;
+  }
 
   const handleCall = async (isVideo: boolean = false) => {
     const targetInstanceName = instanceName || instanceConfig?.instanceName;

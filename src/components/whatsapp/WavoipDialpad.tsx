@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useWavoip } from '@/hooks/useWavoip';
+import { useOrgHasFeature } from '@/hooks/usePlanFeatures';
 import { cn } from '@/lib/utils';
 
 interface WavoipDialpadProps {
@@ -28,10 +29,11 @@ const DIALPAD_KEYS = [
 export function WavoipDialpad({ instanceId, instanceName, className }: WavoipDialpadProps) {
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const { data: hasWavoipFeature = false } = useOrgHasFeature("wavoip_calls");
   const { wavoipStatus, isLoadingCall, makeCall, instanceConfig } = useWavoip(instanceId);
 
-  // Only show if wavoip is available
-  if (wavoipStatus !== 'available') {
+  // Don't show if Wavoip feature is not enabled OR wavoip is not available on this instance
+  if (!hasWavoipFeature || wavoipStatus !== 'available') {
     return null;
   }
 

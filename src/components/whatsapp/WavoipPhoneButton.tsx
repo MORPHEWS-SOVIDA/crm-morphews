@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCallQueue, useUserCallAvailability, useWavoip } from '@/hooks/useWavoip';
+import { useOrgHasFeature } from '@/hooks/usePlanFeatures';
 import { cn } from '@/lib/utils';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -65,11 +66,17 @@ const DIALPAD_KEYS = [
 
 export function WavoipPhoneButton({ instanceId, className }: WavoipPhoneButtonProps) {
   const { user, profile } = useAuth();
+  const { data: hasWavoipFeature = false, isLoading: loadingFeature } = useOrgHasFeature("wavoip_calls");
 
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [activeTab, setActiveTab] = useState<'dial' | 'queue'>('dial');
   const [activeInstanceId, setActiveInstanceId] = useState<string | null>(instanceId ?? null);
+
+  // Don't render if Wavoip feature is not enabled for the organization
+  if (!loadingFeature && !hasWavoipFeature) {
+    return null;
+  }
 
   // Instâncias onde o usuário tem permissão de "Telefone" + chamadas habilitadas
   const { data: phoneInstances = [], isLoading: loadingInstances } = useQuery({

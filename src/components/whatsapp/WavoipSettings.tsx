@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCallQueue, useUserCallAvailability, useWavoip } from '@/hooks/useWavoip';
+import { useOrgHasFeature } from '@/hooks/usePlanFeatures';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -680,10 +681,12 @@ function CallQueueDialog({
  * Floating availability toggle for the user
  */
 export function WavoipAvailabilityToggle({ instanceId }: { instanceId: string }) {
+  const { data: hasWavoipFeature = false } = useOrgHasFeature("wavoip_calls");
   const { isAvailable, setAvailable } = useUserCallAvailability(instanceId);
   const { wavoipStatus } = useWavoip(instanceId);
 
-  if (wavoipStatus !== 'available') {
+  // Don't show if Wavoip feature is not enabled OR wavoip is not available on this instance
+  if (!hasWavoipFeature || wavoipStatus !== 'available') {
     return null;
   }
 
