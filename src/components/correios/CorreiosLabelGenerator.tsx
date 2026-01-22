@@ -61,7 +61,7 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
         setFormData(prev => ({
           ...prev,
           recipient_name: lead?.name || '',
-          recipient_cpf_cnpj: lead?.cpf || lead?.cnpj || '',
+          recipient_cpf_cnpj: lead?.cpf_cnpj || '',
           recipient_street: shippingAddress.street || '',
           recipient_number: shippingAddress.street_number || '',
           recipient_complement: shippingAddress.complement || '',
@@ -78,7 +78,7 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
         setFormData(prev => ({
           ...prev,
           recipient_name: lead.name || '',
-          recipient_cpf_cnpj: lead.cpf || lead.cnpj || '',
+          recipient_cpf_cnpj: lead.cpf_cnpj || '',
           recipient_street: lead.street || '',
           recipient_number: lead.street_number || '',
           recipient_complement: lead.complement || '',
