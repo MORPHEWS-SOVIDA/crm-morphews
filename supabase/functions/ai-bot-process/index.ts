@@ -1034,10 +1034,24 @@ async function checkAndConsumeEnergy(
   botId: string,
   conversationId: string,
   tokensUsed: number,
-  actionType: string
+  actionType: string,
+  modelUsed: string = 'google/gemini-2.5-flash',
+  realCostUsd: number | null = null
 ): Promise<{ success: boolean; energyConsumed: number }> {
-  // Calcular energia baseada em tokens (1 energia = ~100 tokens)
-  const energyToConsume = Math.max(1, Math.ceil(tokensUsed / 100));
+  // Calcular energia baseada em tokens (1 energia = ~100 tokens para modelo padrão)
+  // Para modelos mais caros, ajustar proporcionalmente
+  let energyMultiplier = 1;
+  if (modelUsed.includes('gemini-2.5-pro') || modelUsed.includes('gemini-3-pro')) {
+    energyMultiplier = 3; // Modelos pro custam 3x mais
+  } else if (modelUsed.includes('gpt-5.2') || modelUsed.includes('gpt-5')) {
+    energyMultiplier = 5; // GPT-5 custa 5x mais
+  }
+  
+  const baseEnergy = Math.max(1, Math.ceil(tokensUsed / 100));
+  const energyToConsume = Math.max(1, Math.ceil(baseEnergy * energyMultiplier));
+
+  // Estimar custo real se não foi passado (baseado em custos médios)
+  const estimatedCost = realCostUsd ?? (tokensUsed / 1000000 * 0.5); // ~$0.50 por 1M tokens médio
 
   // Consumir energia via RPC (também registra metadados/uso no backend)
   const { data, error } = await supabase.rpc('consume_energy', {
@@ -1048,6 +1062,8 @@ async function checkAndConsumeEnergy(
     p_energy_amount: energyToConsume,
     p_tokens_used: tokensUsed,
     p_details: { timestamp: new Date().toISOString() },
+    p_model_used: modelUsed,
+    p_real_cost_usd: estimatedCost,
   });
 
   if (error) {
@@ -1063,7 +1079,7 @@ async function checkAndConsumeEnergy(
     return { success: false, energyConsumed: 0 };
   }
 
-  console.log('⚡ Energy consumed:', energyToConsume);
+  console.log('⚡ Energy consumed:', energyToConsume, 'model:', modelUsed);
   return { success: true, energyConsumed: energyToConsume };
 }
 
@@ -1491,7 +1507,8 @@ async function processMessage(
     bot.id,
     context.conversationId,
     tokensUsed,
-    'ai_response'
+    'ai_response',
+    'google/gemini-2.5-flash' // Modelo padrão usado para respostas
   );
 
   if (!energyResult.success) {
@@ -1667,7 +1684,8 @@ serve(async (req) => {
           botId, 
           conversationId, 
           transcription.tokensUsed, 
-          'audio_transcription'
+          'audio_transcription',
+          'openai/whisper'
         );
         
         if (!audioEnergy.success) {
@@ -1720,7 +1738,8 @@ serve(async (req) => {
             botId, 
             conversationId, 
             imageAnalysis.tokensUsed, 
-            'image_analysis'
+            useImageMedicalMode ? 'image_medical_turbo' : 'image_analysis',
+            useImageMedicalMode ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash'
           );
           
           if (!imageEnergy.success) {
