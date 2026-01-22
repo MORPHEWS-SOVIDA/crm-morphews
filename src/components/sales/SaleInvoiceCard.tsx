@@ -20,7 +20,6 @@ import { Label } from '@/components/ui/label';
 import { Loader2, FileText, Download, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   useSaleInvoices,
-  useEmitInvoice,
   useRefreshInvoiceStatus,
   getStatusLabel,
   getStatusColor,
@@ -28,6 +27,7 @@ import {
   type InvoiceType,
 } from '@/hooks/useFiscalInvoices';
 import { useFiscalCompanies, formatCNPJ } from '@/hooks/useFiscalCompanies';
+import { useCreateDraftFromSale } from '@/hooks/useFiscalInvoiceDraft';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -39,7 +39,7 @@ interface SaleInvoiceCardProps {
 export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps) {
   const { data: invoices = [], isLoading } = useSaleInvoices(saleId);
   const { data: companies = [] } = useFiscalCompanies();
-  const emitInvoice = useEmitInvoice();
+  const createDraft = useCreateDraftFromSale();
   const refreshStatus = useRefreshInvoiceStatus();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,8 +49,8 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
   const hasActiveCompany = companies.some(c => c.is_active && c.certificate_file_path);
   const primaryCompany = companies.find(c => c.is_primary && c.is_active);
 
-  const handleEmit = async () => {
-    await emitInvoice.mutateAsync({
+  const handleCreateDraft = async () => {
+    await createDraft.mutateAsync({
       sale_id: saleId,
       invoice_type: selectedType,
       fiscal_company_id: selectedCompanyId || undefined,
@@ -206,9 +206,9 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleEmit} disabled={emitInvoice.isPending}>
-              {emitInvoice.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Emitir Nota
+            <Button onClick={handleCreateDraft} disabled={createDraft.isPending}>
+              {createDraft.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Gerar Nota
             </Button>
           </DialogFooter>
         </DialogContent>
