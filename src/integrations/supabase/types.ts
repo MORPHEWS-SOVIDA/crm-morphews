@@ -3921,6 +3921,7 @@ export type Database = {
           whatsapp_ai_learning_enabled: boolean
           whatsapp_ai_memory_enabled: boolean
           whatsapp_ai_seller_briefing_enabled: boolean
+          whatsapp_audio_transcription_enabled: boolean
           whatsapp_dms_enabled: boolean
           whatsapp_document_auto_reply_message: string | null
           whatsapp_document_reading_enabled: boolean
@@ -3938,6 +3939,7 @@ export type Database = {
           whatsapp_ai_learning_enabled?: boolean
           whatsapp_ai_memory_enabled?: boolean
           whatsapp_ai_seller_briefing_enabled?: boolean
+          whatsapp_audio_transcription_enabled?: boolean
           whatsapp_dms_enabled?: boolean
           whatsapp_document_auto_reply_message?: string | null
           whatsapp_document_reading_enabled?: boolean
@@ -3955,6 +3957,7 @@ export type Database = {
           whatsapp_ai_learning_enabled?: boolean
           whatsapp_ai_memory_enabled?: boolean
           whatsapp_ai_seller_briefing_enabled?: boolean
+          whatsapp_audio_transcription_enabled?: boolean
           whatsapp_dms_enabled?: boolean
           whatsapp_document_auto_reply_message?: string | null
           whatsapp_document_reading_enabled?: boolean
