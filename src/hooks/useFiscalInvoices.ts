@@ -37,6 +37,61 @@ export interface FiscalInvoice {
   authorized_at: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
+  // Draft-related fields
+  is_draft?: boolean;
+  emission_type?: string;
+  nature_operation?: string;
+  emission_date?: string;
+  emission_time?: string;
+  exit_date?: string;
+  exit_time?: string;
+  tax_regime?: string;
+  purpose?: string;
+  presence_indicator?: string;
+  // Recipient data
+  recipient_name?: string;
+  recipient_type?: string;
+  recipient_cpf_cnpj?: string;
+  recipient_ie?: string;
+  recipient_email?: string;
+  recipient_phone?: string;
+  recipient_is_final_consumer?: boolean;
+  recipient_cep?: string;
+  recipient_state?: string;
+  recipient_city?: string;
+  recipient_city_code?: string;
+  recipient_neighborhood?: string;
+  recipient_street?: string;
+  recipient_number?: string;
+  recipient_complement?: string;
+  // Transport data
+  transport_type?: string;
+  freight_responsibility?: string;
+  carrier_name?: string;
+  carrier_cpf_cnpj?: string;
+  carrier_ie?: string;
+  carrier_state?: string;
+  carrier_city?: string;
+  carrier_address?: string;
+  vehicle_plate?: string;
+  vehicle_state?: string;
+  vehicle_rntc?: string;
+  volume_quantity?: number;
+  volume_gross_weight?: number;
+  volume_net_weight?: number;
+  volume_numbering?: string;
+  volume_species?: string;
+  volume_brand?: string;
+  // Tax calculation
+  products_total_cents?: number;
+  freight_value_cents?: number;
+  insurance_value_cents?: number;
+  other_expenses_cents?: number;
+  discount_cents?: number;
+  // Additional info
+  additional_info?: string;
+  fisco_info?: string;
+  seller_user_id?: string;
   // Joined data
   fiscal_company?: {
     company_name: string;

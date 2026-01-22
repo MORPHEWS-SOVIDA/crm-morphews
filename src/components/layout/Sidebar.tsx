@@ -138,6 +138,9 @@ export function Sidebar() {
     // Financial
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
     
+    // Fiscal Invoices (admin only)
+    { icon: FileText, label: 'Notas Fiscais', path: '/notas-fiscais', visible: canSeeSettings && hasFeature('fiscal_invoices') },
+    
     // Reports
     { icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
     { icon: FileText, label: 'Relatório Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },

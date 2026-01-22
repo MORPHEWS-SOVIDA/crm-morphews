@@ -1,0 +1,436 @@
+import React, { useState, useMemo } from 'react';
+import { Layout } from '@/components/layout/Layout';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  FileText,
+  Search,
+  Filter,
+  Send,
+  Printer,
+  Download,
+  RefreshCw,
+  MoreVertical,
+  Plus,
+  Calendar,
+  X,
+  ChevronDown,
+  Mail,
+  FileDown,
+  Eye,
+  Loader2,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
+  useFiscalInvoices,
+  useRefreshInvoiceStatus,
+  getStatusLabel,
+  getStatusColor,
+  getInvoiceTypeLabel,
+  type InvoiceStatus,
+  type FiscalInvoice,
+} from '@/hooks/useFiscalInvoices';
+import { formatCNPJ } from '@/hooks/useFiscalCompanies';
+import { FiscalInvoiceFormDialog } from '@/components/fiscal/FiscalInvoiceFormDialog';
+import { toast } from '@/hooks/use-toast';
+
+export default function FiscalInvoices() {
+  const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [editingInvoice, setEditingInvoice] = useState<FiscalInvoice | null>(null);
+  const [showFilters, setShowFilters] = useState(true);
+
+  const { data: invoices = [], isLoading } = useFiscalInvoices(
+    statusFilter !== 'all' ? { status: statusFilter } : undefined
+  );
+  const refreshStatus = useRefreshInvoiceStatus();
+
+  // Filter invoices by search
+  const filteredInvoices = useMemo(() => {
+    if (!searchQuery.trim()) return invoices;
+    const query = searchQuery.toLowerCase();
+    return invoices.filter(inv => 
+      inv.invoice_number?.toLowerCase().includes(query) ||
+      inv.sale?.lead?.name?.toLowerCase().includes(query) ||
+      inv.fiscal_company?.company_name?.toLowerCase().includes(query) ||
+      inv.recipient_name?.toLowerCase().includes(query)
+    );
+  }, [invoices, searchQuery]);
+
+  // Calculate summary
+  const summary = useMemo(() => ({
+    count: filteredInvoices.length,
+    totalCents: filteredInvoices.reduce((sum, inv) => sum + (inv.total_cents || 0), 0),
+  }), [filteredInvoices]);
+
+  const formatCurrency = (cents: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(cents / 100);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(filteredInvoices.map(inv => inv.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(i => i !== id));
+    }
+  };
+
+  const handleBatchSend = async () => {
+    const pendingIds = selectedIds.filter(id => {
+      const inv = invoices.find(i => i.id === id);
+      return inv?.status === 'pending' || inv?.is_draft;
+    });
+    if (pendingIds.length === 0) {
+      toast({ title: 'Selecione notas pendentes para enviar', variant: 'destructive' });
+      return;
+    }
+    // TODO: Implement batch send
+    toast({ title: `Enviando ${pendingIds.length} notas...` });
+  };
+
+  const handleBatchPrint = async () => {
+    const authorizedIds = selectedIds.filter(id => {
+      const inv = invoices.find(i => i.id === id);
+      return inv?.status === 'authorized' && inv?.pdf_url;
+    });
+    if (authorizedIds.length === 0) {
+      toast({ title: 'Selecione notas autorizadas para imprimir', variant: 'destructive' });
+      return;
+    }
+    // Open PDF URLs in new tabs
+    authorizedIds.forEach(id => {
+      const inv = invoices.find(i => i.id === id);
+      if (inv?.pdf_url) window.open(inv.pdf_url, '_blank');
+    });
+  };
+
+  const handleBatchExportXML = async () => {
+    const authorizedIds = selectedIds.filter(id => {
+      const inv = invoices.find(i => i.id === id);
+      return inv?.status === 'authorized' && inv?.xml_url;
+    });
+    if (authorizedIds.length === 0) {
+      toast({ title: 'Selecione notas autorizadas para exportar', variant: 'destructive' });
+      return;
+    }
+    authorizedIds.forEach(id => {
+      const inv = invoices.find(i => i.id === id);
+      if (inv?.xml_url) window.open(inv.xml_url, '_blank');
+    });
+  };
+
+  return (
+    <Layout>
+      <div className="container mx-auto py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FileText className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Notas Fiscais de Saída</h1>
+              <p className="text-sm text-muted-foreground">
+                Gerencie suas NF-e e NFS-e
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => setEditingInvoice({} as FiscalInvoice)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Incluir nota fiscal
+          </Button>
+        </div>
+
+        {/* Filters + Actions Bar */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome, CPF/CNPJ ou nº da nota"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as InvoiceStatus | 'all')}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Situação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="pending">Pendente</SelectItem>
+              <SelectItem value="processing">Processando</SelectItem>
+              <SelectItem value="authorized">Autorizada</SelectItem>
+              <SelectItem value="rejected">Rejeitada</SelectItem>
+              <SelectItem value="cancelled">Cancelada</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
+            <Filter className="w-4 h-4 mr-2" />
+            Filtrar
+          </Button>
+
+          {searchQuery && (
+            <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+              <X className="w-4 h-4 mr-1" />
+              Limpar
+            </Button>
+          )}
+        </div>
+
+        {/* Main Content */}
+        <div className="flex gap-6">
+          {/* Table */}
+          <Card className="flex-1">
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredInvoices.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <FileText className="w-12 h-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium">Nenhuma nota fiscal encontrada</p>
+                  <p className="text-sm text-muted-foreground">
+                    Emita notas a partir das vendas ou clique em "Incluir nota fiscal"
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={selectedIds.length === filteredInvoices.length && filteredInvoices.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>Número</TableHead>
+                      <TableHead>Data emissão</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead className="text-right">Valor (R$)</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvoices.map((invoice) => (
+                      <TableRow
+                        key={invoice.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setEditingInvoice(invoice)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.includes(invoice.id)}
+                            onCheckedChange={(checked) => handleSelectOne(invoice.id, !!checked)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono">
+                          {invoice.invoice_number || (invoice.is_draft ? 'Rascunho' : '—')}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(invoice.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                        </TableCell>
+                        <TableCell>
+                          {invoice.recipient_name || invoice.sale?.lead?.name || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(invoice.status)}>
+                            {invoice.is_draft ? 'Rascunho' : getStatusLabel(invoice.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(invoice.total_cents)}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setEditingInvoice(invoice)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Visualizar
+                              </DropdownMenuItem>
+                              {invoice.status === 'processing' && (
+                                <DropdownMenuItem onClick={() => refreshStatus.mutate(invoice.id)}>
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Atualizar Status
+                                </DropdownMenuItem>
+                              )}
+                              {invoice.pdf_url && (
+                                <DropdownMenuItem asChild>
+                                  <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
+                                    <Printer className="w-4 h-4 mr-2" />
+                                    DANFE
+                                  </a>
+                                </DropdownMenuItem>
+                              )}
+                              {invoice.xml_url && (
+                                <DropdownMenuItem asChild>
+                                  <a href={invoice.xml_url} target="_blank" rel="noopener noreferrer">
+                                    <FileDown className="w-4 h-4 mr-2" />
+                                    XML
+                                  </a>
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Actions Sidebar */}
+          <Card className="w-64 shrink-0 h-fit">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Ações</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={handleBatchSend}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Enviar NF-es selecionadas
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={handleBatchPrint}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir NF-es selecionadas
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                disabled={selectedIds.length === 0}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Enviar dados para loja virtual
+              </Button>
+
+              <div className="border-t my-3" />
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                onClick={() => {
+                  const pending = invoices.filter(i => i.status === 'pending');
+                  if (pending.length === 0) {
+                    toast({ title: 'Não há notas pendentes' });
+                    return;
+                  }
+                  toast({ title: `${pending.length} notas pendentes` });
+                }}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Enviar notas pendentes
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={handleBatchPrint}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Gerar PDF DANFE
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={handleBatchExportXML}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar XML
+              </Button>
+
+              <div className="border-t my-3" />
+
+              {/* Summary */}
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Quantidade de notas</span>
+                  <span className="font-medium text-foreground">{summary.count}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Valor total</span>
+                  <span className="font-medium text-foreground">
+                    {formatCurrency(summary.totalCents)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Invoice Form Dialog */}
+        <FiscalInvoiceFormDialog
+          invoice={editingInvoice}
+          onClose={() => setEditingInvoice(null)}
+        />
+      </div>
+    </Layout>
+  );
+}

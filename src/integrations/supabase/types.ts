@@ -1794,80 +1794,230 @@ export type Database = {
       fiscal_invoices: {
         Row: {
           access_key: string | null
+          additional_info: string | null
           authorized_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
+          carrier_address: string | null
+          carrier_city: string | null
+          carrier_cpf_cnpj: string | null
+          carrier_ie: string | null
+          carrier_name: string | null
+          carrier_state: string | null
           created_at: string
           customer_data: Json | null
+          discount_cents: number | null
+          emission_date: string | null
+          emission_time: string | null
+          emission_type: string | null
           error_message: string | null
+          exit_date: string | null
+          exit_time: string | null
           fiscal_company_id: string
+          fisco_info: string | null
           focus_nfe_id: string | null
           focus_nfe_ref: string
           focus_nfe_response: Json | null
+          freight_responsibility: string | null
+          freight_value_cents: number | null
           id: string
+          insurance_value_cents: number | null
           invoice_number: string | null
           invoice_series: string | null
           invoice_type: string
+          is_draft: boolean | null
           items: Json | null
+          nature_operation: string | null
           organization_id: string
+          other_expenses_cents: number | null
           pdf_url: string | null
+          presence_indicator: string | null
+          products_total_cents: number | null
           protocol_number: string | null
+          purpose: string | null
+          recipient_cep: string | null
+          recipient_city: string | null
+          recipient_city_code: string | null
+          recipient_complement: string | null
+          recipient_cpf_cnpj: string | null
+          recipient_email: string | null
+          recipient_ie: string | null
+          recipient_is_final_consumer: boolean | null
+          recipient_name: string | null
+          recipient_neighborhood: string | null
+          recipient_number: string | null
+          recipient_phone: string | null
+          recipient_state: string | null
+          recipient_street: string | null
+          recipient_type: string | null
           sale_id: string | null
+          seller_user_id: string | null
           status: string
+          tax_regime: string | null
           total_cents: number
+          transport_type: string | null
+          vehicle_plate: string | null
+          vehicle_rntc: string | null
+          vehicle_state: string | null
           verification_code: string | null
+          volume_brand: string | null
+          volume_gross_weight: number | null
+          volume_net_weight: number | null
+          volume_numbering: string | null
+          volume_quantity: number | null
+          volume_species: string | null
           xml_url: string | null
         }
         Insert: {
           access_key?: string | null
+          additional_info?: string | null
           authorized_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          carrier_address?: string | null
+          carrier_city?: string | null
+          carrier_cpf_cnpj?: string | null
+          carrier_ie?: string | null
+          carrier_name?: string | null
+          carrier_state?: string | null
           created_at?: string
           customer_data?: Json | null
+          discount_cents?: number | null
+          emission_date?: string | null
+          emission_time?: string | null
+          emission_type?: string | null
           error_message?: string | null
+          exit_date?: string | null
+          exit_time?: string | null
           fiscal_company_id: string
+          fisco_info?: string | null
           focus_nfe_id?: string | null
           focus_nfe_ref: string
           focus_nfe_response?: Json | null
+          freight_responsibility?: string | null
+          freight_value_cents?: number | null
           id?: string
+          insurance_value_cents?: number | null
           invoice_number?: string | null
           invoice_series?: string | null
           invoice_type: string
+          is_draft?: boolean | null
           items?: Json | null
+          nature_operation?: string | null
           organization_id: string
+          other_expenses_cents?: number | null
           pdf_url?: string | null
+          presence_indicator?: string | null
+          products_total_cents?: number | null
           protocol_number?: string | null
+          purpose?: string | null
+          recipient_cep?: string | null
+          recipient_city?: string | null
+          recipient_city_code?: string | null
+          recipient_complement?: string | null
+          recipient_cpf_cnpj?: string | null
+          recipient_email?: string | null
+          recipient_ie?: string | null
+          recipient_is_final_consumer?: boolean | null
+          recipient_name?: string | null
+          recipient_neighborhood?: string | null
+          recipient_number?: string | null
+          recipient_phone?: string | null
+          recipient_state?: string | null
+          recipient_street?: string | null
+          recipient_type?: string | null
           sale_id?: string | null
+          seller_user_id?: string | null
           status?: string
+          tax_regime?: string | null
           total_cents: number
+          transport_type?: string | null
+          vehicle_plate?: string | null
+          vehicle_rntc?: string | null
+          vehicle_state?: string | null
           verification_code?: string | null
+          volume_brand?: string | null
+          volume_gross_weight?: number | null
+          volume_net_weight?: number | null
+          volume_numbering?: string | null
+          volume_quantity?: number | null
+          volume_species?: string | null
           xml_url?: string | null
         }
         Update: {
           access_key?: string | null
+          additional_info?: string | null
           authorized_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          carrier_address?: string | null
+          carrier_city?: string | null
+          carrier_cpf_cnpj?: string | null
+          carrier_ie?: string | null
+          carrier_name?: string | null
+          carrier_state?: string | null
           created_at?: string
           customer_data?: Json | null
+          discount_cents?: number | null
+          emission_date?: string | null
+          emission_time?: string | null
+          emission_type?: string | null
           error_message?: string | null
+          exit_date?: string | null
+          exit_time?: string | null
           fiscal_company_id?: string
+          fisco_info?: string | null
           focus_nfe_id?: string | null
           focus_nfe_ref?: string
           focus_nfe_response?: Json | null
+          freight_responsibility?: string | null
+          freight_value_cents?: number | null
           id?: string
+          insurance_value_cents?: number | null
           invoice_number?: string | null
           invoice_series?: string | null
           invoice_type?: string
+          is_draft?: boolean | null
           items?: Json | null
+          nature_operation?: string | null
           organization_id?: string
+          other_expenses_cents?: number | null
           pdf_url?: string | null
+          presence_indicator?: string | null
+          products_total_cents?: number | null
           protocol_number?: string | null
+          purpose?: string | null
+          recipient_cep?: string | null
+          recipient_city?: string | null
+          recipient_city_code?: string | null
+          recipient_complement?: string | null
+          recipient_cpf_cnpj?: string | null
+          recipient_email?: string | null
+          recipient_ie?: string | null
+          recipient_is_final_consumer?: boolean | null
+          recipient_name?: string | null
+          recipient_neighborhood?: string | null
+          recipient_number?: string | null
+          recipient_phone?: string | null
+          recipient_state?: string | null
+          recipient_street?: string | null
+          recipient_type?: string | null
           sale_id?: string | null
+          seller_user_id?: string | null
           status?: string
+          tax_regime?: string | null
           total_cents?: number
+          transport_type?: string | null
+          vehicle_plate?: string | null
+          vehicle_rntc?: string | null
+          vehicle_state?: string | null
           verification_code?: string | null
+          volume_brand?: string | null
+          volume_gross_weight?: number | null
+          volume_net_weight?: number | null
+          volume_numbering?: string | null
+          volume_quantity?: number | null
+          volume_species?: string | null
           xml_url?: string | null
         }
         Relationships: [
@@ -1891,6 +2041,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sales"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_invoices_seller_user_id_fkey"
+            columns: ["seller_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }

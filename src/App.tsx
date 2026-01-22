@@ -62,6 +62,7 @@ import DashboardKanban from "./pages/DashboardKanban";
 import Integrations from "./pages/Integrations";
 import Power from "./pages/Power";
 import NichePage from "./pages/niches";
+import FiscalInvoices from "./pages/FiscalInvoices";
 
 const queryClient = new QueryClient();
 
@@ -460,6 +461,17 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Fiscal Invoices */}
+              <Route
+                path="/notas-fiscais"
+                element={
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <FiscalInvoices />
+                  </ProtectedRoute>
+                }
+              />
+              
               <Route
                 path="/demandas/configuracoes"
                 element={
