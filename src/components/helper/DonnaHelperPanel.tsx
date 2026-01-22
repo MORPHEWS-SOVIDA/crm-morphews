@@ -218,8 +218,8 @@ Me diz: no que posso te ajudar agora?`,
         </TabsList>
 
         {/* Chat Tab */}
-        <TabsContent value="chat" className="flex-1 flex flex-col m-0 p-0">
-          <ScrollArea className="flex-1 p-4">
+        <TabsContent value="chat" className="flex-1 flex flex-col m-0 p-0 min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600 scrollbar-track-transparent">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -230,9 +230,11 @@ Me diz: no que posso te ajudar agora?`,
                   )}
                 >
                   {message.role !== "user" && (
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    </div>
+                    <img
+                      src={donnaAvatar}
+                      alt="Donna"
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
                   )}
                   <div
                     className={cn(
@@ -253,9 +255,11 @@ Me diz: no que posso te ajudar agora?`,
               ))}
               {isLoading && (
                 <div className="flex gap-2">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
+                  <img
+                    src={donnaAvatar}
+                    alt="Donna"
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
                   <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 py-3">
                     <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
                   </div>
@@ -263,7 +267,7 @@ Me diz: no que posso te ajudar agora?`,
               )}
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input */}
           <div className="p-4 border-t border-zinc-200 dark:border-zinc-700">
