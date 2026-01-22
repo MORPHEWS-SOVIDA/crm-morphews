@@ -28,6 +28,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   FileText,
   Search,
   Filter,
@@ -44,6 +50,7 @@ import {
   FileDown,
   Eye,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -279,9 +286,26 @@ export default function FiscalInvoices() {
                           {invoice.recipient_name || invoice.sale?.lead?.name || '—'}
                         </TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(invoice.status)}>
-                            {invoice.is_draft ? 'Rascunho' : getStatusLabel(invoice.status)}
-                          </Badge>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1.5">
+                                  <Badge className={getStatusColor(invoice.status)}>
+                                    {invoice.is_draft ? 'Rascunho' : getStatusLabel(invoice.status)}
+                                  </Badge>
+                                  {invoice.status === 'rejected' && invoice.error_message && (
+                                    <AlertCircle className="w-4 h-4 text-destructive" />
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              {invoice.error_message && (
+                                <TooltipContent className="max-w-xs">
+                                  <p className="font-semibold text-destructive">Erro na emissão</p>
+                                  <p className="text-xs">{invoice.error_message}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(invoice.total_cents)}

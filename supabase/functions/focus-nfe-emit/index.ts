@@ -10,9 +10,11 @@ const FOCUS_NFE_PRODUCTION_URL = 'https://api.focusnfe.com.br/v2';
 const FOCUS_NFE_HOMOLOGACAO_URL = 'https://homologacao.focusnfe.com.br/v2';
 
 interface EmitRequest {
+  invoice_id?: string; // Existing draft to update
   sale_id: string;
   invoice_type: 'nfe' | 'nfse';
   fiscal_company_id?: string;
+  draft_data?: any; // Pre-populated draft data
 }
 
 Deno.serve(async (req) => {
@@ -45,7 +47,7 @@ Deno.serve(async (req) => {
     }
 
     const body: EmitRequest = await req.json();
-    const { sale_id, invoice_type, fiscal_company_id } = body;
+    const { invoice_id, sale_id, invoice_type, fiscal_company_id, draft_data } = body;
 
     if (!sale_id || !invoice_type) {
       return new Response(JSON.stringify({ error: 'sale_id e invoice_type são obrigatórios' }), {
@@ -101,50 +103,104 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate unique reference
-    const focusRef = `${sale_id.substring(0, 8)}_${Date.now()}`;
+    // Check if we're updating an existing invoice or creating new
+    let invoice: any;
+    let focusRef: string;
 
-    // Calculate total
-    const totalCents = sale.items.reduce((sum: number, item: any) => {
-      return sum + (item.quantity * item.unit_price_cents);
-    }, 0);
+    if (invoice_id) {
+      // Update existing draft invoice
+      const { data: existingInvoice, error: fetchError } = await supabase
+        .from('fiscal_invoices')
+        .select('*')
+        .eq('id', invoice_id)
+        .single();
 
-    // Create invoice record
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('fiscal_invoices')
-      .insert({
-        organization_id: sale.organization_id,
-        fiscal_company_id: fiscalCompany.id,
-        sale_id: sale_id,
-        invoice_type,
-        status: 'processing',
-        focus_nfe_ref: focusRef,
-        total_cents: totalCents,
-        items: sale.items,
-        customer_data: {
-          name: sale.lead?.name,
-          cpf_cnpj: sale.lead?.cpf,
-          email: sale.lead?.email,
-          phone: sale.lead?.phone,
-        },
-      })
-      .select()
-      .single();
+      if (fetchError || !existingInvoice) {
+        return new Response(JSON.stringify({ error: 'Nota fiscal não encontrada' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    if (invoiceError) {
-      console.error('Error creating invoice record:', invoiceError);
-      return new Response(JSON.stringify({ error: 'Erro ao criar registro da nota' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      focusRef = existingInvoice.focus_nfe_ref;
+      
+      // Update status to processing
+      const { data: updatedInvoice, error: updateError } = await supabase
+        .from('fiscal_invoices')
+        .update({ 
+          status: 'processing',
+          is_draft: false,
+          error_message: null,
+        })
+        .eq('id', invoice_id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating invoice:', updateError);
+        return new Response(JSON.stringify({ error: 'Erro ao atualizar nota fiscal' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      invoice = updatedInvoice;
+      
+      // Create event
+      await supabase.from('fiscal_invoice_events').insert({
+        fiscal_invoice_id: invoice.id,
+        event_type: 'sent_for_processing',
+        event_data: { sale_id, invoice_type },
+      });
+
+    } else {
+      // Create new invoice (legacy flow - should rarely be used now)
+      focusRef = `${sale_id.substring(0, 8)}_${Date.now()}`;
+
+      // Calculate total
+      const totalCents = sale.items.reduce((sum: number, item: any) => {
+        return sum + (item.quantity * item.unit_price_cents);
+      }, 0);
+
+      const { data: newInvoice, error: invoiceError } = await supabase
+        .from('fiscal_invoices')
+        .insert({
+          organization_id: sale.organization_id,
+          fiscal_company_id: fiscalCompany.id,
+          sale_id: sale_id,
+          invoice_type,
+          status: 'processing',
+          is_draft: false,
+          focus_nfe_ref: focusRef,
+          total_cents: totalCents,
+          items: sale.items,
+          customer_data: {
+            name: sale.lead?.name,
+            cpf_cnpj: sale.lead?.cpf,
+            email: sale.lead?.email,
+            phone: sale.lead?.phone,
+          },
+        })
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Error creating invoice record:', invoiceError);
+        return new Response(JSON.stringify({ error: 'Erro ao criar registro da nota' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      invoice = newInvoice;
+      
+      // Create event
+      await supabase.from('fiscal_invoice_events').insert({
+        fiscal_invoice_id: invoice.id,
+        event_type: 'created',
+        event_data: { sale_id, invoice_type },
       });
     }
-
-    // Create event
-    await supabase.from('fiscal_invoice_events').insert({
-      fiscal_invoice_id: invoice.id,
-      event_type: 'created',
-      event_data: { sale_id, invoice_type },
-    });
 
     // Determine if internal or interstate sale
     const customerState = sale.delivery_state || sale.lead?.state;
@@ -187,8 +243,21 @@ Deno.serve(async (req) => {
     const focusUrl = `${focusBaseUrl}${endpoint}?ref=${focusRef}`;
     
     if (!FOCUS_NFE_TOKEN) {
+      // Update invoice to rejected
+      await supabase
+        .from('fiscal_invoices')
+        .update({ 
+          status: 'rejected', 
+          error_message: 'FOCUS_NFE_TOKEN não configurado no sistema' 
+        })
+        .eq('id', invoice.id);
+      
       throw new Error('FOCUS_NFE_TOKEN não configurado');
     }
+
+    // Debug: log token presence (not value)
+    console.log(`Focus NFe API call to: ${focusUrl}`);
+    console.log(`Token configured: ${FOCUS_NFE_TOKEN ? 'Yes (' + FOCUS_NFE_TOKEN.length + ' chars)' : 'No'}`);
     
     const focusResponse = await fetch(focusUrl, {
       method: 'POST',
@@ -203,13 +272,27 @@ Deno.serve(async (req) => {
     const responseText = await focusResponse.text();
     let focusResult: any;
     
+    console.log(`Focus NFe response status: ${focusResponse.status} ${focusResponse.statusText}`);
+    
     try {
       focusResult = JSON.parse(responseText);
     } catch {
       console.error('Focus NFe returned non-JSON response:', responseText.substring(0, 500));
+      
+      // Common error handling
+      let errorMsg = `Erro na comunicação com Focus NFe: ${focusResponse.status} ${focusResponse.statusText}`;
+      
+      if (focusResponse.status === 401) {
+        errorMsg = 'Token de API Focus NFe inválido ou expirado. Verifique o secret FOCUS_NFE_TOKEN.';
+      } else if (focusResponse.status === 403) {
+        errorMsg = 'Acesso negado à API Focus NFe. Verifique as permissões do token.';
+      } else if (focusResponse.status === 404) {
+        errorMsg = 'Endpoint não encontrado na API Focus NFe. Verifique a URL.';
+      }
+      
       focusResult = {
         status: 'erro_autorizacao',
-        mensagem: `Erro na comunicação com Focus NFe: ${focusResponse.status} ${focusResponse.statusText}`,
+        mensagem: errorMsg,
       };
     }
     console.log('Focus NFe response:', focusResult);
