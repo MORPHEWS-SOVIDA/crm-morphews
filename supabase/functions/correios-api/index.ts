@@ -207,12 +207,15 @@ async function createPrePostagem(
     declaracaoConteudo: true,
   };
 
-  // Add telefone as separate field if available (some services require it)
-  if (senderPhone) {
+  // Add telefone as separate field if available.
+  // IMPORTANT: Some Correios validations get picky if we send both celular and telefone.
+  // - If it's mobile: send ONLY `celular` (DDD + 9 digits) and omit `dddTelefone/telefone`
+  // - If it's landline: send ONLY `dddTelefone/telefone` and omit `celular`
+  if (senderPhone?.kind === 'landline') {
     payload.remetente.dddTelefone = senderPhone.ddd;
     payload.remetente.telefone = senderPhone.numero;
   }
-  if (recipientPhone) {
+  if (recipientPhone?.kind === 'landline') {
     payload.destinatario.dddTelefone = recipientPhone.ddd;
     payload.destinatario.telefone = recipientPhone.numero;
   }
