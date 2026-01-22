@@ -50,6 +50,21 @@ const TAX_REGIMES = [
   { value: 'lucro_real', label: 'Lucro Real' },
 ];
 
+const ENVIRONMENTS = [
+  { value: 'homologacao', label: 'Homologação (teste)' },
+  { value: 'producao', label: 'Produção' },
+];
+
+const PRESENCE_INDICATORS = [
+  { value: '0', label: '0 - Não se aplica' },
+  { value: '1', label: '1 - Presencial' },
+  { value: '2', label: '2 - Internet' },
+  { value: '3', label: '3 - Televendas' },
+  { value: '4', label: '4 - NFC-e entrega domicílio' },
+  { value: '5', label: '5 - Presencial fora estab.' },
+  { value: '9', label: '9 - Outros' },
+];
+
 const BRAZILIAN_STATES = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
@@ -96,6 +111,15 @@ export function FiscalCompaniesManager() {
     default_cfop_interstate: '6102',
     default_cst: '102',
     nfse_municipal_code: '',
+    // Numbering & emission control
+    nfe_environment: 'homologacao',
+    nfe_serie: 1,
+    nfe_last_number: 0,
+    nfse_environment: 'homologacao',
+    nfse_serie: 1,
+    nfse_last_number: 0,
+    default_nature_operation: 'Venda de mercadorias',
+    presence_indicator: '0',
   });
 
   const { lookupCep, isLoading: isLoadingCep } = useCepLookup();
@@ -123,6 +147,14 @@ export function FiscalCompaniesManager() {
       default_cfop_interstate: '6102',
       default_cst: '102',
       nfse_municipal_code: '',
+      nfe_environment: 'homologacao',
+      nfe_serie: 1,
+      nfe_last_number: 0,
+      nfse_environment: 'homologacao',
+      nfse_serie: 1,
+      nfse_last_number: 0,
+      default_nature_operation: 'Venda de mercadorias',
+      presence_indicator: '0',
     });
     setEditingCompany(null);
   };
@@ -152,6 +184,14 @@ export function FiscalCompaniesManager() {
         default_cfop_interstate: company.default_cfop_interstate,
         default_cst: company.default_cst,
         nfse_municipal_code: company.nfse_municipal_code || '',
+        nfe_environment: company.nfe_environment || 'homologacao',
+        nfe_serie: company.nfe_serie ?? 1,
+        nfe_last_number: company.nfe_last_number ?? 0,
+        nfse_environment: company.nfse_environment || 'homologacao',
+        nfse_serie: company.nfse_serie ?? 1,
+        nfse_last_number: company.nfse_last_number ?? 0,
+        default_nature_operation: company.default_nature_operation || 'Venda de mercadorias',
+        presence_indicator: company.presence_indicator || '0',
       });
     } else {
       resetForm();
@@ -277,7 +317,7 @@ export function FiscalCompaniesManager() {
                         <span>{company.address_city}/{company.address_state}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       {company.certificate_file_path ? (
                         <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
                           <CheckCircle2 className="w-3 h-3" />
@@ -287,6 +327,14 @@ export function FiscalCompaniesManager() {
                         <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">
                           <XCircle className="w-3 h-3" />
                           Sem certificado
+                        </Badge>
+                      )}
+                      <Badge variant={company.nfe_environment === 'producao' ? 'default' : 'secondary'}>
+                        NFe: {company.nfe_environment === 'producao' ? 'Produção' : 'Homologação'}
+                      </Badge>
+                      {(company.nfe_last_number || 0) > 0 && (
+                        <Badge variant="outline">
+                          Última NFe: {company.nfe_last_number}
                         </Badge>
                       )}
                     </div>
@@ -519,6 +567,111 @@ export function FiscalCompaniesManager() {
               </div>
             </div>
 
+            {/* Emission Control - NF-e */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Configurações de Emissão NF-e</h4>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <Label>Ambiente NF-e</Label>
+                  <Select
+                    value={formData.nfe_environment}
+                    onValueChange={(v) => setFormData({ ...formData, nfe_environment: v as 'producao' | 'homologacao' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ENVIRONMENTS.map((env) => (
+                        <SelectItem key={env.value} value={env.value}>
+                          {env.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Série NF-e</Label>
+                  <Input
+                    type="number"
+                    value={formData.nfe_serie}
+                    onChange={(e) => setFormData({ ...formData, nfe_serie: parseInt(e.target.value) || 1 })}
+                    placeholder="1"
+                  />
+                </div>
+                <div>
+                  <Label>Última NF-e Emitida</Label>
+                  <Input
+                    type="number"
+                    value={formData.nfe_last_number}
+                    onChange={(e) => setFormData({ ...formData, nfe_last_number: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Próxima será {(formData.nfe_last_number || 0) + 1}</p>
+                </div>
+                <div>
+                  <Label>Natureza da Operação</Label>
+                  <Input
+                    value={formData.default_nature_operation}
+                    onChange={(e) => setFormData({ ...formData, default_nature_operation: e.target.value })}
+                    placeholder="Venda de mercadorias"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Emission Control - NFS-e */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Configurações de Emissão NFS-e</h4>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <Label>Ambiente NFS-e</Label>
+                  <Select
+                    value={formData.nfse_environment}
+                    onValueChange={(v) => setFormData({ ...formData, nfse_environment: v as 'producao' | 'homologacao' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ENVIRONMENTS.map((env) => (
+                        <SelectItem key={env.value} value={env.value}>
+                          {env.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Série NFS-e</Label>
+                  <Input
+                    type="number"
+                    value={formData.nfse_serie}
+                    onChange={(e) => setFormData({ ...formData, nfse_serie: parseInt(e.target.value) || 1 })}
+                    placeholder="1"
+                  />
+                </div>
+                <div>
+                  <Label>Última NFS-e Emitida</Label>
+                  <Input
+                    type="number"
+                    value={formData.nfse_last_number}
+                    onChange={(e) => setFormData({ ...formData, nfse_last_number: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Próxima será {(formData.nfse_last_number || 0) + 1}</p>
+                </div>
+                <div>
+                  <Label>Cód. Municipal (NFSe)</Label>
+                  <Input
+                    value={formData.nfse_municipal_code}
+                    onChange={(e) => setFormData({ ...formData, nfse_municipal_code: e.target.value })}
+                    placeholder="Ex: 1701"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">LC 116 / Código serviço</p>
+                </div>
+              </div>
+            </div>
+
             {/* Fiscal Defaults */}
             <div className="border-t pt-4">
               <h4 className="font-medium mb-3">Configurações Fiscais Padrão</h4>
@@ -551,13 +704,22 @@ export function FiscalCompaniesManager() {
                   <p className="text-xs text-muted-foreground mt-1">Código Situação Tributária</p>
                 </div>
                 <div>
-                  <Label>Cód. Municipal (NFSe)</Label>
-                  <Input
-                    value={formData.nfse_municipal_code}
-                    onChange={(e) => setFormData({ ...formData, nfse_municipal_code: e.target.value })}
-                    placeholder="Ex: 1701"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Para notas de serviço</p>
+                  <Label>Indicador de Presença</Label>
+                  <Select
+                    value={formData.presence_indicator}
+                    onValueChange={(v) => setFormData({ ...formData, presence_indicator: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRESENCE_INDICATORS.map((ind) => (
+                        <SelectItem key={ind.value} value={ind.value}>
+                          {ind.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

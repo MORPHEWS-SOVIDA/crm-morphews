@@ -37,6 +37,15 @@ export interface FiscalCompany {
   default_cfop_interstate: string;
   default_cst: string;
   nfse_municipal_code: string | null;
+  // Numbering & emission control
+  nfe_environment: 'producao' | 'homologacao';
+  nfe_serie: number;
+  nfe_last_number: number;
+  nfse_environment: 'producao' | 'homologacao';
+  nfse_serie: number;
+  nfse_last_number: number;
+  default_nature_operation: string;
+  presence_indicator: string;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +72,15 @@ export interface CreateFiscalCompanyData {
   default_cfop_interstate?: string;
   default_cst?: string;
   nfse_municipal_code?: string;
+  // Numbering & emission control
+  nfe_environment?: 'producao' | 'homologacao';
+  nfe_serie?: number;
+  nfe_last_number?: number;
+  nfse_environment?: 'producao' | 'homologacao';
+  nfse_serie?: number;
+  nfse_last_number?: number;
+  default_nature_operation?: string;
+  presence_indicator?: string;
 }
 
 export type UpdateFiscalCompanyData = Partial<CreateFiscalCompanyData> & {
