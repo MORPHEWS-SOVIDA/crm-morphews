@@ -101,6 +101,10 @@ Deno.serve(async (req) => {
 
     // Query Focus NFe for status
     const endpoint = invoice.invoice_type === 'nfe' ? '/nfe' : '/nfse';
+    console.log(`Querying Focus NFe: ${FOCUS_NFE_BASE_URL}${endpoint}/${invoice.focus_nfe_ref}`);
+    console.log(`Using token (first 6 chars): ${focusToken?.substring(0, 6)}...`);
+    console.log(`Environment: ${environment}`);
+    
     const focusResponse = await fetch(`${FOCUS_NFE_BASE_URL}${endpoint}/${invoice.focus_nfe_ref}`, {
       method: 'GET',
       headers: {
@@ -108,8 +112,29 @@ Deno.serve(async (req) => {
       },
     });
 
-    const focusResult = await focusResponse.json();
-    console.log('Focus NFe status response:', focusResult);
+    // Handle non-JSON responses (like 401 errors)
+    const responseText = await focusResponse.text();
+    console.log('Focus NFe raw response:', responseText);
+    
+    let focusResult: Record<string, unknown>;
+    try {
+      focusResult = JSON.parse(responseText);
+    } catch {
+      // If response is not JSON, it's likely an auth error
+      if (focusResponse.status === 401 || responseText.includes('HTTP Basic')) {
+        focusResult = {
+          codigo: 'erro_autenticacao',
+          mensagem: `Token Focus NFe inválido ou empresa não autorizada. Status HTTP: ${focusResponse.status}`,
+        };
+      } else {
+        focusResult = {
+          codigo: 'erro_desconhecido',
+          mensagem: `Resposta inesperada do Focus NFe: ${responseText.substring(0, 100)}`,
+        };
+      }
+    }
+    
+    console.log('Focus NFe parsed response:', focusResult);
 
     // Update invoice with current status
     const updateData: Record<string, unknown> = {
@@ -135,11 +160,16 @@ Deno.serve(async (req) => {
       }
     } else if (focusResult.status === 'erro_autorizacao' || focusResult.status === 'erro_validacao') {
       updateData.status = 'rejected';
-      updateData.error_message = focusResult.mensagem || focusResult.erros?.join(', ');
+      updateData.error_message = focusResult.mensagem || (focusResult.erros as string[])?.join(', ');
     } else if (focusResult.codigo === 'nao_encontrado') {
-      // Mark as rejected if not found in Focus NFe
       updateData.status = 'rejected';
-      updateData.error_message = 'Nota não encontrada no Focus NFe. Pode ter sido criada com token incorreto.';
+      updateData.error_message = 'Nota não encontrada no Focus NFe. Pode ter sido criada com token incorreto ou nunca enviada.';
+    } else if (focusResult.codigo === 'permissao_negada') {
+      updateData.status = 'rejected';
+      updateData.error_message = `Permissão negada: ${focusResult.mensagem}. Verifique se a empresa está homologada no Focus NFe.`;
+    } else if (focusResult.codigo === 'erro_autenticacao') {
+      updateData.status = 'rejected';
+      updateData.error_message = String(focusResult.mensagem);
     }
 
     await supabase
