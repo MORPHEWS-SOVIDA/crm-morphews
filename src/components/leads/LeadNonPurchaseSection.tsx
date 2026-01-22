@@ -250,16 +250,16 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
         >
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-              <ThumbsDown className="w-5 h-5" />
-              Classificar - Não Comprou
+              <Zap className="w-5 h-5" />
+              Followup Automático
             </CardTitle>
             <Button variant="ghost" size="icon" className="h-8 w-8">
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
           </div>
           <CardDescription className="flex items-center gap-2 text-amber-600/80 dark:text-amber-500/80">
-            <Zap className="w-3 h-3" />
-            Follow-up automático por WhatsApp e mudança de etapa do funil
+            <MessageSquare className="w-3 h-3" />
+            Configure mensagens automáticas e mudança de etapa do funil
           </CardDescription>
         </CardHeader>
 
@@ -326,7 +326,7 @@ export function LeadNonPurchaseSection({ leadId }: LeadNonPurchaseProps) {
 
             {/* Reason Selection with Featured + Scrollable List */}
             <div className="space-y-2">
-              <Label>Selecione o motivo para acompanhamento futuro</Label>
+              <Label>Selecione o followup automático</Label>
               
               {/* Featured Reasons */}
               {reasons.filter((r: any) => r.is_featured).length > 0 && (
