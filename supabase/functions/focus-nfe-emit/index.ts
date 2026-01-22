@@ -536,6 +536,18 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
     ? (destinatarioUf === companyUf ? '1' : '2')
     : undefined;
 
+  // Data de emissão (obrigatório) - formato ISO: "2026-01-22T10:30:00-03:00"
+  const emissionDateTime = draft?.emission_date 
+    ? new Date(draft.emission_date) 
+    : new Date();
+  const dataEmissao = emissionDateTime.toISOString().replace('Z', '-03:00').replace('.000', '');
+  
+  // Data de saída (opcional, pode ser igual à emissão)
+  const exitDateTime = draft?.exit_date 
+    ? new Date(draft.exit_date) 
+    : emissionDateTime;
+  const dataSaiEnt = exitDateTime.toISOString().replace('Z', '-03:00').replace('.000', '');
+
   const payload: any = {
     // Emitente (obrigatório para evitar permissao_negada/requisicao_invalida)
     cnpj_emitente: companyCnpj,
@@ -549,6 +561,10 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
     cep_emitente: companyCep,
     inscricao_estadual_emitente: company.state_registration || 'ISENTO',
     regime_tributario_emitente: mapTaxRegimeToFocusCode(company.tax_regime),
+
+    // Datas (obrigatórias)
+    data_emissao: dataEmissao,
+    data_entrada_saida: dataSaiEnt,
 
     numero: numero,
     serie: serie,
