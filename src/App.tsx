@@ -21,6 +21,8 @@ import Settings from "./pages/Settings";
 import InstagramDMs from "./pages/InstagramDMs";
 import WhatsAppDMs from "./pages/WhatsAppDMs";
 import WhatsAppChat from "./pages/WhatsAppChat";
+import WhatsAppNPS from "./pages/WhatsAppNPS";
+import WhatsAppGlobalConfig from "./pages/WhatsAppGlobalConfig";
 import Planos from "./pages/Planos";
 import DirectCheckout from "./pages/DirectCheckout";
 import InterestedLeads from "./pages/InterestedLeads";
@@ -42,7 +44,6 @@ import Financial from "./pages/Financial";
 import SignupSuccess from "./pages/SignupSuccess";
 import AddReceptivo from "./pages/AddReceptivo";
 import ReceptiveManagement from "./pages/ReceptiveManagement";
-import WhatsAppV2 from "./pages/WhatsAppV2";
 import TwoFactorAuth from "./pages/TwoFactorAuth";
 import PostSaleKanban from "./pages/PostSaleKanban";
 import SalesDashboard from "./pages/SalesDashboard";
@@ -180,10 +181,18 @@ const App = () => (
                 }
               />
               <Route
-                path="/whatsapp-v2"
+                path="/whatsapp/nps"
                 element={
                   <ProtectedRoute requiredPermissions={['whatsapp_view']}>
-                    <WhatsAppV2 />
+                    <WhatsAppNPS />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/whatsapp/global-config"
+                element={
+                  <ProtectedRoute requiredPermissions={['whatsapp_ai_settings_view']}>
+                    <WhatsAppGlobalConfig />
                   </ProtectedRoute>
                 }
               />
