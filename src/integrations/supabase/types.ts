@@ -3192,14 +3192,25 @@ export type Database = {
           crosssell_product_2_id: string | null
           depth_cm: number | null
           description: string | null
+          fiscal_additional_info: string | null
+          fiscal_cest: string | null
           fiscal_cfop: string | null
+          fiscal_cofins_fixed: number | null
           fiscal_company_id: string | null
           fiscal_cst: string | null
+          fiscal_icms_base: number | null
+          fiscal_icms_own_value: number | null
+          fiscal_icms_st_base: number | null
+          fiscal_icms_st_value: number | null
+          fiscal_ipi_exception_code: string | null
           fiscal_iss_aliquota: number | null
+          fiscal_item_type: string | null
           fiscal_lc116_code: string | null
           fiscal_ncm: string | null
           fiscal_origin: number | null
+          fiscal_pis_fixed: number | null
           fiscal_product_type: string | null
+          fiscal_tax_percentage: number | null
           gross_weight_grams: number | null
           gtin_tax: string | null
           height_cm: number | null
@@ -3243,14 +3254,25 @@ export type Database = {
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
           description?: string | null
+          fiscal_additional_info?: string | null
+          fiscal_cest?: string | null
           fiscal_cfop?: string | null
+          fiscal_cofins_fixed?: number | null
           fiscal_company_id?: string | null
           fiscal_cst?: string | null
+          fiscal_icms_base?: number | null
+          fiscal_icms_own_value?: number | null
+          fiscal_icms_st_base?: number | null
+          fiscal_icms_st_value?: number | null
+          fiscal_ipi_exception_code?: string | null
           fiscal_iss_aliquota?: number | null
+          fiscal_item_type?: string | null
           fiscal_lc116_code?: string | null
           fiscal_ncm?: string | null
           fiscal_origin?: number | null
+          fiscal_pis_fixed?: number | null
           fiscal_product_type?: string | null
+          fiscal_tax_percentage?: number | null
           gross_weight_grams?: number | null
           gtin_tax?: string | null
           height_cm?: number | null
@@ -3294,14 +3316,25 @@ export type Database = {
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
           description?: string | null
+          fiscal_additional_info?: string | null
+          fiscal_cest?: string | null
           fiscal_cfop?: string | null
+          fiscal_cofins_fixed?: number | null
           fiscal_company_id?: string | null
           fiscal_cst?: string | null
+          fiscal_icms_base?: number | null
+          fiscal_icms_own_value?: number | null
+          fiscal_icms_st_base?: number | null
+          fiscal_icms_st_value?: number | null
+          fiscal_ipi_exception_code?: string | null
           fiscal_iss_aliquota?: number | null
+          fiscal_item_type?: string | null
           fiscal_lc116_code?: string | null
           fiscal_ncm?: string | null
           fiscal_origin?: number | null
+          fiscal_pis_fixed?: number | null
           fiscal_product_type?: string | null
+          fiscal_tax_percentage?: number | null
           gross_weight_grams?: number | null
           gtin_tax?: string | null
           height_cm?: number | null
