@@ -2290,7 +2290,7 @@ export default function AddReceptivo() {
                         className="w-full mt-2 text-amber-700"
                         onClick={() => setCurrentStep('sale_or_reason')}
                       >
-                        Ver todos os motivos ({nonPurchaseReasons.length})
+                        Ver todos os followups ({nonPurchaseReasons.length})
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     )}

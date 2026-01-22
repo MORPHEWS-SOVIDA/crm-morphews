@@ -6766,6 +6766,7 @@ export type Database = {
           team_view: boolean
           updated_at: string
           user_id: string
+          whatsapp_ai_settings_view: boolean | null
           whatsapp_manage_view: boolean
           whatsapp_send: boolean
           whatsapp_v2_view: boolean | null
@@ -6838,6 +6839,7 @@ export type Database = {
           team_view?: boolean
           updated_at?: string
           user_id: string
+          whatsapp_ai_settings_view?: boolean | null
           whatsapp_manage_view?: boolean
           whatsapp_send?: boolean
           whatsapp_v2_view?: boolean | null
@@ -6910,6 +6912,7 @@ export type Database = {
           team_view?: boolean
           updated_at?: string
           user_id?: string
+          whatsapp_ai_settings_view?: boolean | null
           whatsapp_manage_view?: boolean
           whatsapp_send?: boolean
           whatsapp_v2_view?: boolean | null

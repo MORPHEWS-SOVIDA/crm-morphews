@@ -862,7 +862,7 @@ export function ProductOfferCard({
             <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
             <p className="font-semibold text-lg">Todas as ofertas foram rejeitadas</p>
             <p className="text-muted-foreground mt-1">
-              Finalize o atendimento selecionando um motivo de não compra
+              Finalize o atendimento selecionando um followup automático
             </p>
           </div>
         )}
