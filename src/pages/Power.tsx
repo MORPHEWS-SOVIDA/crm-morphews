@@ -9,7 +9,8 @@ import {
   ChevronDown, Menu, X, Heart, Flame, Award, Gauge, MousePointer,
   Workflow, ListTodo, HeartHandshake, AlertCircle, HelpCircle, DollarSign,
   Timer, Repeat, AudioLines, ImageIcon, Share2, Link2, Package,
-  Building2, GraduationCap, ShoppingCart, Wrench, TrendingDown, Percent
+  Building2, GraduationCap, ShoppingCart, Wrench, TrendingDown, Percent,
+  ThumbsUp, ThumbsDown, Smile, Frown, Meh
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import teamImage from "@/assets/team-collaboration.webp";
+import donnaAvatar from "@/assets/donna-avatar.png";
 
 // Animated counter component
 const AnimatedCounter = ({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) => {
@@ -1215,6 +1217,388 @@ export default function Power() {
                   <p className="text-sm text-muted-foreground">{description}</p>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Voice AI Section - NEW */}
+      <section className="py-20 md:py-32 bg-gradient-to-b from-purple-50/50 to-background dark:from-purple-950/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+              >
+                <Badge variant="outline" className="mb-4 border-purple-500/50 text-purple-600 bg-purple-50">
+                  <AudioLines className="h-3 w-3 mr-2" />
+                  NOVO: Robôs que Falam!
+                </Badge>
+                <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                  Respostas por <span className="text-purple-600">Áudio</span>
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Seus robôs agora podem responder com <strong>áudio nativo</strong> no WhatsApp! 
+                  Vozes realistas em português brasileiro que parecem humanos de verdade.
+                </p>
+
+                <div className="space-y-4 mb-8">
+                  {[
+                    { icon: Mic, text: "Vozes realistas em PT-BR com ElevenLabs" },
+                    { icon: Users, text: "Escolha entre várias personalidades de voz" },
+                    { icon: Gauge, text: "Probabilidade configurável (parecer humano)" },
+                    { icon: Settings, text: "Estilo de locução personalizável" },
+                  ].map(({ icon: Icon, text }, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <span>{text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Button 
+                  onClick={() => scrollToSection("precos")}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Quero Robôs que Falam
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                {/* Voice Response Mock */}
+                <div className="bg-gray-900 rounded-[2.5rem] p-3 shadow-2xl max-w-sm mx-auto">
+                  <div className="bg-gray-800 rounded-[2rem] overflow-hidden">
+                    <div className="bg-green-700 px-4 py-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center">
+                        <Volume2 className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold text-sm">Helena • Atendente IA</p>
+                        <p className="text-green-200 text-xs">gravando áudio...</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-[#0b141a] p-4 space-y-3 min-h-[280px]">
+                      <div className="flex justify-end">
+                        <div className="bg-green-700 text-white rounded-lg rounded-tr-none px-3 py-2 max-w-[80%] text-sm">
+                          Quais são os preços?
+                        </div>
+                      </div>
+
+                      <div className="flex justify-start">
+                        <div className="bg-gray-700 text-white rounded-lg rounded-tl-none px-3 py-2 max-w-[85%]">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                              <Mic className="h-4 w-4 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-1">
+                                {[...Array(12)].map((_, i) => (
+                                  <div 
+                                    key={i} 
+                                    className="w-1 bg-green-500 rounded-full animate-pulse"
+                                    style={{ 
+                                      height: `${Math.random() * 16 + 8}px`,
+                                      animationDelay: `${i * 0.1}s`
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">0:15</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="absolute -right-8 top-48 hidden lg:block">
+                        <div className="bg-purple-600 text-white rounded-full px-3 py-1.5 shadow-lg text-sm flex items-center gap-2">
+                          <Volume2 className="h-4 w-4" />
+                          Resposta em Áudio!
+                        </div>
+                      </div>
+
+                      <div className="flex justify-start">
+                        <div className="bg-gray-700 text-white rounded-lg rounded-tl-none px-3 py-2 max-w-[85%] text-xs text-gray-300">
+                          <p className="italic">"Claro! Temos três planos disponíveis. O Start começa em R$ 67, o Growth em R$ 147 e o Pro em R$ 297. Qual te interessa mais?"</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Model Selection Section - NEW */}
+      <section className="py-20 md:py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="order-2 lg:order-1"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { name: "Gemini 3 Flash", provider: "Google", speed: "⚡⚡⚡", cost: "💰", color: "from-blue-500 to-cyan-500" },
+                    { name: "GPT-5", provider: "OpenAI", speed: "⚡⚡", cost: "💰💰💰", color: "from-green-500 to-emerald-500" },
+                    { name: "Gemini 2.5 Pro", provider: "Google", speed: "⚡⚡", cost: "💰💰", color: "from-purple-500 to-pink-500" },
+                    { name: "GPT-5.2", provider: "OpenAI", speed: "⚡", cost: "💰💰💰", color: "from-orange-500 to-red-500" },
+                  ].map(({ name, provider, speed, cost, color }, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.1 }}
+                      className={cn(
+                        "bg-card border rounded-2xl p-5 hover:shadow-xl transition-all cursor-pointer",
+                        i === 0 && "border-primary ring-2 ring-primary/20"
+                      )}
+                    >
+                      <div className={cn("w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3", color)}>
+                        <Cpu className="h-5 w-5 text-white" />
+                      </div>
+                      <p className="font-semibold">{name}</p>
+                      <p className="text-xs text-muted-foreground mb-2">{provider}</p>
+                      <div className="flex justify-between text-xs">
+                        <span>Velocidade: {speed}</span>
+                        <span>Custo: {cost}</span>
+                      </div>
+                      {i === 0 && (
+                        <Badge className="mt-2 text-xs">Recomendado</Badge>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="order-1 lg:order-2"
+              >
+                <Badge variant="outline" className="mb-4">
+                  <Cpu className="h-3 w-3 mr-2" />
+                  Escolha sua IA
+                </Badge>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                  Qual <GradientText>inteligência</GradientText> combina com você?
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Escolha entre os modelos mais avançados do mercado. Cada um tem suas características 
+                  únicas de velocidade, custo e capacidade.
+                </p>
+                <ul className="space-y-4">
+                  {[
+                    { icon: Zap, text: "Gemini 3 Flash: Rápido e econômico (padrão)" },
+                    { icon: Brain, text: "GPT-5: Raciocínio avançado e nuances" },
+                    { icon: Eye, text: "Gemini Pro: Multimodal (imagens + texto)" },
+                    { icon: Crown, text: "GPT-5.2: Última geração OpenAI" },
+                  ].map(({ icon: Icon, text }, i) => (
+                    <li key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* NPS System Section - NEW */}
+      <section className="py-20 md:py-32 bg-gradient-to-b from-green-50/50 to-background dark:from-green-950/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+              >
+                <Badge variant="outline" className="mb-4 border-green-500/50 text-green-600 bg-green-50">
+                  <ThumbsUp className="h-3 w-3 mr-2" />
+                  Pesquisa NPS Automática
+                </Badge>
+                <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                  Saiba o que seus clientes <span className="text-green-600">pensam</span>
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Pesquisa de satisfação <strong>automática</strong> após cada atendimento. 
+                  Identifique detratores, passivos e promotores em tempo real.
+                </p>
+
+                <div className="space-y-4 mb-8">
+                  {[
+                    { icon: Bell, text: "Disparo automático ao encerrar conversa" },
+                    { icon: BarChart3, text: "Dashboard com score NPS consolidado" },
+                    { icon: Users, text: "Ranking de vendedores por satisfação" },
+                    { icon: AlertCircle, text: "Alertas para notas baixas (≤6)" },
+                    { icon: FileText, text: "Revisão de casos com anotações" },
+                  ].map(({ icon: Icon, text }, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-green-600" />
+                      </div>
+                      <span>{text}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                {/* NPS Dashboard Mock */}
+                <Card className="overflow-hidden shadow-2xl">
+                  <CardHeader className="bg-muted/50">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                      Dashboard NPS
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-6">
+                    {/* NPS Score */}
+                    <div className="text-center p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-2xl">
+                      <div className="text-5xl font-bold text-green-600 mb-2">+72</div>
+                      <div className="text-sm text-muted-foreground">Score NPS</div>
+                    </div>
+
+                    {/* Distribution */}
+                    <div>
+                      <p className="text-sm font-medium mb-3">Distribuição</p>
+                      <div className="flex h-4 rounded-full overflow-hidden">
+                        <div className="bg-green-500 flex-[62]" />
+                        <div className="bg-yellow-500 flex-[28]" />
+                        <div className="bg-red-500 flex-[10]" />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                        <span className="flex items-center gap-1">
+                          <Smile className="h-3 w-3 text-green-500" /> 62% Promotores
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Meh className="h-3 w-3 text-yellow-500" /> 28% Passivos
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Frown className="h-3 w-3 text-red-500" /> 10% Detratores
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Alert */}
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                      <div className="text-sm">
+                        <p className="font-medium text-red-700">3 avaliações pendentes</p>
+                        <p className="text-red-600/80 text-xs">Notas ≤6 para revisar</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Meet Donna Section - NEW */}
+      <section className="py-20 md:py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                className="relative flex justify-center"
+              >
+                <div className="relative">
+                  <div className="w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-primary/20 shadow-2xl">
+                    <img 
+                      src={donnaAvatar} 
+                      alt="Donna - Assistente Virtual Morphews" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <FloatingElement delay={0} className="absolute -top-4 -right-4">
+                    <div className="bg-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+                      <Bot className="h-4 w-4" />
+                      Online 24/7
+                    </div>
+                  </FloatingElement>
+                  <FloatingElement delay={1} className="absolute -bottom-4 -left-4">
+                    <div className="bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4" />
+                      Suporte Instantâneo
+                    </div>
+                  </FloatingElement>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+              >
+                <Badge variant="outline" className="mb-4">
+                  <Heart className="h-3 w-3 mr-2" />
+                  Conheça a Donna
+                </Badge>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                  Sua assistente virtual <GradientText>sempre presente</GradientText>
+                </h2>
+                <p className="text-lg text-muted-foreground mb-8">
+                  A <strong>Donna</strong> é nossa assistente IA integrada ao CRM. 
+                  Ela ajuda sua equipe com dúvidas, sugestões e dicas em tempo real, 
+                  direto dentro do sistema.
+                </p>
+
+                <div className="space-y-4 mb-8">
+                  {[
+                    { icon: HelpCircle, text: "Tira dúvidas sobre o sistema instantaneamente" },
+                    { icon: Brain, text: "Sugere ações baseadas no contexto" },
+                    { icon: GraduationCap, text: "Ensina sua equipe a usar o CRM" },
+                    { icon: Clock, text: "Disponível 24 horas, 7 dias por semana" },
+                  ].map(({ icon: Icon, text }, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <span>{text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Button 
+                  onClick={() => scrollToSection("precos")}
+                  className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                >
+                  Quero Conhecer a Donna
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </motion.div>
             </div>
           </div>
         </div>
