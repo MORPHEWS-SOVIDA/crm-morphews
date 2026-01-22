@@ -58,7 +58,9 @@ Deno.serve(async (req) => {
           nfe_environment,
           nfse_environment,
           focus_nfe_token_homologacao,
-          focus_nfe_token_producao
+          focus_nfe_token_producao,
+          nfe_last_number,
+          nfse_last_number
         )
       `)
       .eq('id', invoice_id)
@@ -168,6 +170,24 @@ Deno.serve(async (req) => {
       }
       if (!invoice.authorized_at) {
         updateData.authorized_at = new Date().toISOString();
+      }
+      
+      // IMPORTANT: Sync the company's last number to prevent duplicate numbers
+      const authorizedNumber = parseInt(String(focusResult.numero), 10);
+      if (!isNaN(authorizedNumber)) {
+        const currentLastNumber = invoice.invoice_type === 'nfe'
+          ? (fiscalCompany.nfe_last_number || 0)
+          : (fiscalCompany.nfse_last_number || 0);
+        
+        // Only update if the authorized number is greater
+        if (authorizedNumber > currentLastNumber) {
+          const updateField = invoice.invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
+          await supabase
+            .from('fiscal_companies')
+            .update({ [updateField]: authorizedNumber })
+            .eq('id', fiscalCompany.id);
+          console.log(`Updated ${updateField} to ${authorizedNumber} for company ${fiscalCompany.id}`);
+        }
       }
     } else if (focusResult.status === 'cancelado') {
       updateData.status = 'cancelled';
