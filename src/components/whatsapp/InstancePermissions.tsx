@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { InstanceBotSchedulesManager } from "./InstanceBotSchedulesManager";
 import { WavoipSettings } from "./WavoipSettings";
+import { useOrgHasFeature } from "@/hooks/usePlanFeatures";
 
 interface InstancePermissionsProps {
   instanceId: string;
@@ -58,6 +59,9 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   const { profile } = useAuth();
   const [distributionMode, setDistributionMode] = useState<"bot" | "manual" | "auto">("manual");
   const [timeoutMinutes, setTimeoutMinutes] = useState<number>(5);
+  
+  // Check if Wavoip feature is enabled for the organization
+  const { data: hasWavoipFeature = false } = useOrgHasFeature("wavoip_calls");
 
   // Fetch organization members
   const { data: orgMembers, isLoading: loadingMembers } = useQuery({
@@ -419,12 +423,14 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                         <span className="text-[10px]">Admin</span>
                       </div>
                     </TableHead>
-                    <TableHead className="text-center w-[70px]">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <Phone className="h-4 w-4" />
-                        <span className="text-[10px]">Telefone</span>
-                      </div>
-                    </TableHead>
+                    {hasWavoipFeature && (
+                      <TableHead className="text-center w-[70px]">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <Phone className="h-4 w-4" />
+                          <span className="text-[10px]">Telefone</span>
+                        </div>
+                      </TableHead>
+                    )}
                     {distributionMode === "auto" && (
                       <>
                         <TableHead className="text-center w-[90px]">
@@ -516,18 +522,20 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                             />
                           </TableCell>
 
-                          {/* Telefone */}
-                          <TableCell className="text-center">
-                            <Switch
-                              checked={permission.can_use_phone}
-                              onCheckedChange={(checked) =>
-                                updatePermissionMutation.mutate({
-                                  id: permission.id,
-                                  can_use_phone: checked,
-                                })
-                              }
-                            />
-                          </TableCell>
+                          {/* Telefone - only show if Wavoip feature is enabled */}
+                          {hasWavoipFeature && (
+                            <TableCell className="text-center">
+                              <Switch
+                                checked={permission.can_use_phone}
+                                onCheckedChange={(checked) =>
+                                  updatePermissionMutation.mutate({
+                                    id: permission.id,
+                                    can_use_phone: checked,
+                                  })
+                                }
+                              />
+                            </TableCell>
+                          )}
 
                           {distributionMode === "auto" && (
                             <>
@@ -615,19 +623,21 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               </Table>
             </div>
 
-            {/* Chamadas via WhatsApp - Wavoip */}
-            <div className="bg-green-50/50 dark:bg-green-950/30 rounded-lg p-4 border-2 border-green-200 dark:border-green-800">
-              <Label className="text-base font-semibold flex items-center gap-2 mb-3">
-                <Phone className="h-5 w-5 text-green-600" />
-                Chamadas via WhatsApp (Wavoip)
-              </Label>
-              <WavoipSettings 
-                instanceId={instanceId}
-                instanceName={instanceName}
-                wavoipEnabled={instanceSettings?.wavoip_enabled ?? false}
-                onUpdate={() => refetchSettings()}
-              />
-            </div>
+            {/* Chamadas via WhatsApp - Wavoip - only show if feature is enabled */}
+            {hasWavoipFeature && (
+              <div className="bg-green-50/50 dark:bg-green-950/30 rounded-lg p-4 border-2 border-green-200 dark:border-green-800">
+                <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+                  <Phone className="h-5 w-5 text-green-600" />
+                  Chamadas via WhatsApp (Wavoip)
+                </Label>
+                <WavoipSettings 
+                  instanceId={instanceId}
+                  instanceName={instanceName}
+                  wavoipEnabled={instanceSettings?.wavoip_enabled ?? false}
+                  onUpdate={() => refetchSettings()}
+                />
+              </div>
+            )}
 
             {/* Legenda */}
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2 border-t">
