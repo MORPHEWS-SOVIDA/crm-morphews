@@ -3925,6 +3925,7 @@ export type Database = {
           whatsapp_dms_enabled: boolean
           whatsapp_document_auto_reply_message: string | null
           whatsapp_document_reading_enabled: boolean
+          whatsapp_sender_name_prefix_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -3943,6 +3944,7 @@ export type Database = {
           whatsapp_dms_enabled?: boolean
           whatsapp_document_auto_reply_message?: string | null
           whatsapp_document_reading_enabled?: boolean
+          whatsapp_sender_name_prefix_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -3961,6 +3963,7 @@ export type Database = {
           whatsapp_dms_enabled?: boolean
           whatsapp_document_auto_reply_message?: string | null
           whatsapp_document_reading_enabled?: boolean
+          whatsapp_sender_name_prefix_enabled?: boolean
         }
         Relationships: []
       }

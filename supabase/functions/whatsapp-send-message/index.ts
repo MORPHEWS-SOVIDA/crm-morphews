@@ -401,6 +401,32 @@ Deno.serve(async (req) => {
     let finalType: "text" | "image" | "audio" | "document" | "video" = (messageType as any) || "text";
     let text = (content ?? "").toString();
 
+    // Check if sender name prefix is enabled for this organization
+    let senderNamePrefix = "";
+    if (senderUserId && text) {
+      const { data: orgSettings } = await supabaseAdmin
+        .from("organizations")
+        .select("whatsapp_sender_name_prefix_enabled")
+        .eq("id", organizationId)
+        .single();
+      
+      if (orgSettings?.whatsapp_sender_name_prefix_enabled) {
+        // Get sender's name from profiles
+        const { data: senderProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("first_name, last_name")
+          .eq("user_id", senderUserId)
+          .single();
+        
+        if (senderProfile?.first_name) {
+          const fullName = [senderProfile.first_name, senderProfile.last_name].filter(Boolean).join(" ");
+          senderNamePrefix = `*${fullName}:*\n`;
+          text = senderNamePrefix + text;
+          console.log(`[${requestId}] 👤 Added sender name prefix: ${fullName}`);
+        }
+      }
+    }
+
     // Media from storage path
     if (mediaStoragePath && typeof mediaStoragePath === "string") {
       if (!mediaStoragePath.startsWith(`orgs/${organizationId}/`)) {
