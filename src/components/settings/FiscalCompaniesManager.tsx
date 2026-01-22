@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Building2, Upload, CheckCircle2, XCircle, Star, ShieldCheck } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Building2, Upload, CheckCircle2, XCircle, Star, ShieldCheck, KeyRound } from 'lucide-react';
 import {
   useFiscalCompanies,
   useCreateFiscalCompany,
@@ -38,6 +38,7 @@ import {
   useDeleteFiscalCompany,
   useUploadCertificate,
   useRegisterWebhooks,
+  useInstallCertificateFocus,
   formatCNPJ,
   type FiscalCompany,
   type CreateFiscalCompanyData,
@@ -81,6 +82,7 @@ export function FiscalCompaniesManager() {
   const deleteCompany = useDeleteFiscalCompany();
   const uploadCertificate = useUploadCertificate();
   const registerWebhooks = useRegisterWebhooks();
+  const installCertificate = useInstallCertificateFocus();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<FiscalCompany | null>(null);
@@ -360,7 +362,8 @@ export function FiscalCompaniesManager() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Step 1: Homologate company (if not done) */}
                     {!company.focus_nfe_company_id && (
                       <Button
                         variant="default"
@@ -377,14 +380,36 @@ export function FiscalCompaniesManager() {
                         Homologar Empresa
                       </Button>
                     )}
+                    
+                    {/* Step 2: Upload certificate to our system */}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setCertificateDialog(company)}
+                      title="Fazer upload do certificado A1 para o sistema"
                     >
                       <Upload className="w-4 h-4 mr-1" />
-                      Certificado
+                      {company.certificate_file_path ? 'Atualizar Cert.' : 'Upload Cert.'}
                     </Button>
+                    
+                    {/* Step 3: Install certificate in Focus NFe (only if homologated + has certificate) */}
+                    {company.focus_nfe_company_id && company.certificate_file_path && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => installCertificate.mutate(company.id)}
+                        disabled={installCertificate.isPending}
+                        title="Enviar certificado para a Focus NFe"
+                      >
+                        {installCertificate.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <KeyRound className="w-4 h-4 mr-1" />
+                        )}
+                        Instalar Certificado
+                      </Button>
+                    )}
+                    
                     <Button
                       variant="outline"
                       size="icon"

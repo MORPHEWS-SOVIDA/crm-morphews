@@ -406,3 +406,42 @@ export function useRegisterWebhooks() {
     },
   });
 }
+
+// =============================================================================
+// CERTIFICATE INSTALLATION IN FOCUS NFE
+// =============================================================================
+
+export function useInstallCertificateFocus() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (fiscalCompanyId: string) => {
+      const { data, error } = await supabase.functions.invoke('focus-nfe-install-certificate', {
+        body: { fiscal_company_id: fiscalCompanyId },
+      });
+
+      if (error) throw error;
+      
+      if (!data?.success) {
+        const errorMsg = data?.error || 'Falha ao instalar certificado';
+        throw new Error(errorMsg);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fiscal-companies'] });
+      toast({ 
+        title: 'Certificado instalado!', 
+        description: 'O certificado digital foi enviado com sucesso para a Focus NFe.' 
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao instalar certificado',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
