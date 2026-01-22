@@ -1268,7 +1268,7 @@ export function IntegrationDetailDialog({
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Motivo de Não Compra</Label>
+                    <Label>Followup Automático</Label>
                     <Select
                       value={nonPurchaseReasonId || '__none__'}
                       onValueChange={(v) => setNonPurchaseReasonId(v === '__none__' ? '' : v)}

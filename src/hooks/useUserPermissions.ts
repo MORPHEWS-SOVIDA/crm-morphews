@@ -45,6 +45,7 @@ export interface UserPermissions {
   whatsapp_send: boolean;
   whatsapp_v2_view: boolean;
   whatsapp_manage_view: boolean;
+  whatsapp_ai_settings_view: boolean;
   
   // AI Bots
   ai_bots_view: boolean;
@@ -150,6 +151,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   whatsapp_send: { label: 'Enviar Mensagens', description: 'Enviar mensagens pelo WhatsApp', group: 'WhatsApp' },
   whatsapp_v2_view: { label: 'WhatsApp 2.0', description: 'Acessar WhatsApp 2.0 (novo)', group: 'WhatsApp' },
   whatsapp_manage_view: { label: 'Gerenciar WhatsApp', description: 'Acessar configurações e instâncias WhatsApp', group: 'WhatsApp' },
+  whatsapp_ai_settings_view: { label: 'Config. IA WhatsApp', description: 'Ver e alterar configurações globais de IA', group: 'WhatsApp' },
   
   // Módulos
   ai_bots_view: { label: 'Robôs de IA', description: 'Acessar e gerenciar robôs de IA', group: 'Módulos' },
@@ -170,7 +172,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   settings_delivery_regions: { label: 'Regiões de Entrega', description: 'Gerenciar regiões de entrega motoboy', group: 'Configurações' },
   settings_carriers: { label: 'Transportadoras', description: 'Gerenciar transportadoras', group: 'Configurações' },
   settings_payment_methods: { label: 'Formas de Pagamento', description: 'Gerenciar métodos de pagamento', group: 'Configurações' },
-  settings_non_purchase_reasons: { label: 'Motivos de Não Compra', description: 'Gerenciar motivos de não compra', group: 'Configurações' },
+  settings_non_purchase_reasons: { label: 'Followups Automáticos', description: 'Gerenciar followups automáticos', group: 'Configurações' },
   settings_standard_questions: { label: 'Perguntas Sovida', description: 'Gerenciar Perguntas Sovida', group: 'Configurações' },
   settings_teams: { label: 'Times', description: 'Gerenciar times da organização', group: 'Configurações' },
   settings_lead_sources: { label: 'Origens de Lead', description: 'Gerenciar origens de lead', group: 'Configurações' },
