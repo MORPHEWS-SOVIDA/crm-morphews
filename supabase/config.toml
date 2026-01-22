@@ -89,3 +89,12 @@ verify_jwt = false
 
 [functions.donna-helper-chat]
 verify_jwt = false
+
+[functions.focus-nfe-emit]
+verify_jwt = false
+
+[functions.focus-nfe-webhook]
+verify_jwt = false
+
+[functions.focus-nfe-status]
+verify_jwt = false

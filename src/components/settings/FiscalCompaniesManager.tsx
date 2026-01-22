@@ -169,10 +169,10 @@ export function FiscalCompaniesManager() {
       if (result) {
         setFormData(prev => ({
           ...prev,
-          address_street: result.logradouro || prev.address_street,
-          address_neighborhood: result.bairro || prev.address_neighborhood,
-          address_city: result.localidade || prev.address_city,
-          address_state: result.uf || prev.address_state,
+          address_street: result.street || prev.address_street,
+          address_neighborhood: result.neighborhood || prev.address_neighborhood,
+          address_city: result.city || prev.address_city,
+          address_state: result.state || prev.address_state,
           address_city_code: result.ibge || prev.address_city_code,
         }));
       }

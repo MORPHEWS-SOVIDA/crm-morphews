@@ -8,14 +8,16 @@ interface ViaCepResponse {
   bairro: string;
   localidade: string;
   uf: string;
+  ibge: string;
   erro?: boolean;
 }
 
-interface AddressData {
+export interface AddressData {
   street: string;
   neighborhood: string;
   city: string;
   state: string;
+  ibge?: string;
 }
 
 export function useCepLookup() {
@@ -54,6 +56,7 @@ export function useCepLookup() {
         neighborhood: data.bairro || '',
         city: data.localidade || '',
         state: data.uf || '',
+        ibge: data.ibge || '',
       };
     } catch (error) {
       toast({
