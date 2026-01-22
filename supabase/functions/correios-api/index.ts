@@ -12,6 +12,55 @@ const CORREIOS_API_URLS = {
   PRODUCAO: 'https://api.correios.com.br',
 };
 
+type CorreiosErrorBody = {
+  codigo?: string | number;
+  mensagem?: string;
+  causa?: unknown;
+  [key: string]: unknown;
+};
+
+class CorreiosApiError extends Error {
+  status: number;
+  endpoint: string;
+  rawBody: string;
+  parsedBody?: CorreiosErrorBody;
+
+  constructor(args: {
+    message: string;
+    status: number;
+    endpoint: string;
+    rawBody: string;
+    parsedBody?: CorreiosErrorBody;
+  }) {
+    super(args.message);
+    this.name = 'CorreiosApiError';
+    this.status = args.status;
+    this.endpoint = args.endpoint;
+    this.rawBody = args.rawBody;
+    this.parsedBody = args.parsedBody;
+  }
+}
+
+async function parseCorreiosErrorResponse(response: Response, endpoint: string) {
+  const rawBody = await response.text();
+  let parsedBody: CorreiosErrorBody | undefined;
+
+  try {
+    parsedBody = rawBody ? (JSON.parse(rawBody) as CorreiosErrorBody) : undefined;
+  } catch {
+    parsedBody = undefined;
+  }
+
+  // Correios costuma devolver { codigo, mensagem }
+  const humanMessage =
+    parsedBody?.mensagem ||
+    (typeof parsedBody?.message === 'string' ? (parsedBody.message as string) : undefined) ||
+    rawBody ||
+    'Erro desconhecido retornado pelos Correios.';
+
+  return { rawBody, parsedBody, humanMessage };
+}
+
 interface CorreiosConfig {
   id_correios: string;
   codigo_acesso_encrypted: string;
@@ -87,7 +136,8 @@ async function authenticateCorreios(config: CorreiosConfig): Promise<string> {
   // Create Basic Auth header
   const credentials = btoa(`${config.id_correios}:${codigoAcesso}`);
   
-  const response = await fetch(`${baseUrl}/token/v1/autentica/cartaopostagem`, {
+  const endpoint = `${baseUrl}/token/v1/autentica/cartaopostagem`;
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${credentials}`,
@@ -99,9 +149,15 @@ async function authenticateCorreios(config: CorreiosConfig): Promise<string> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Correios auth error:', response.status, errorText);
-    throw new Error(`Falha na autenticação com Correios: ${response.status} - ${errorText}`);
+    const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+    console.error('Correios auth error:', response.status, rawBody);
+    throw new CorreiosApiError({
+      message: `Falha na autenticação com Correios (${response.status}): ${humanMessage}`,
+      status: response.status,
+      endpoint,
+      rawBody,
+      parsedBody,
+    });
   }
 
   const data = await response.json();
@@ -288,7 +344,8 @@ async function createPrePostagem(
 
   console.log('Creating pre-postagem with payload:', JSON.stringify(payload, null, 2));
 
-  const response = await fetch(`${baseUrl}/prepostagem/v1/prepostagens`, {
+  const endpoint = `${baseUrl}/prepostagem/v1/prepostagens`;
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -298,9 +355,15 @@ async function createPrePostagem(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Correios pre-postagem error:', response.status, errorText);
-    throw new Error(`Falha ao criar pré-postagem: ${response.status} - ${errorText}`);
+    const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+    console.error('Correios pre-postagem error:', response.status, rawBody);
+    throw new CorreiosApiError({
+      message: `Falha ao criar pré-postagem (${response.status}): ${humanMessage}`,
+      status: response.status,
+      endpoint,
+      rawBody,
+      parsedBody,
+    });
   }
 
   return await response.json();
@@ -308,8 +371,9 @@ async function createPrePostagem(
 
 async function getLabel(config: CorreiosConfig, token: string, prePostagemId: string): Promise<ArrayBuffer> {
   const baseUrl = CORREIOS_API_URLS[config.ambiente];
-  
-  const response = await fetch(`${baseUrl}/prepostagem/v1/prepostagens/${prePostagemId}/rotulo`, {
+
+  const endpoint = `${baseUrl}/prepostagem/v1/prepostagens/${prePostagemId}/rotulo`;
+  const response = await fetch(endpoint, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -318,9 +382,15 @@ async function getLabel(config: CorreiosConfig, token: string, prePostagemId: st
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Correios label error:', response.status, errorText);
-    throw new Error(`Falha ao obter etiqueta: ${response.status} - ${errorText}`);
+    const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+    console.error('Correios label error:', response.status, rawBody);
+    throw new CorreiosApiError({
+      message: `Falha ao obter etiqueta (${response.status}): ${humanMessage}`,
+      status: response.status,
+      endpoint,
+      rawBody,
+      parsedBody,
+    });
   }
 
   return await response.arrayBuffer();
@@ -331,12 +401,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let action: string | undefined;
+  let paramsForLog: Record<string, unknown> | undefined;
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, ...params } = await req.json();
+    const body = await req.json();
+    action = body?.action;
+    const { action: _action, ...params } = body;
+    paramsForLog = params;
 
     switch (action) {
       case 'test_connection': {
@@ -558,10 +634,60 @@ serve(async (req) => {
     }
   } catch (error: any) {
     console.error('Correios API error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+
+    // Persistir o erro para investigação (sem travar o usuário em erro “genérico”)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const organization_id = (paramsForLog?.organization_id as string | undefined) || null;
+      const details: Record<string, unknown> = {
+        action: action || null,
+        // evita logar dados potencialmente sensíveis demais: mantemos apenas o necessário
+        sale_id: (paramsForLog?.sale_id as string | undefined) || null,
+      };
+
+      if (error?.name === 'CorreiosApiError') {
+        const e = error as CorreiosApiError;
+        details.endpoint = e.endpoint;
+        details.status = e.status;
+        details.rawBody = e.rawBody;
+        details.parsedBody = e.parsedBody;
+      }
+
+      await supabase.from('error_logs').insert({
+        organization_id,
+        source: 'correios-api',
+        error_type: 'correios_label',
+        error_message: String(error?.message || 'Erro desconhecido'),
+        error_details: details,
+      });
+    } catch (logError) {
+      console.error('Failed to persist Correios error log:', logError);
+    }
+
+    // IMPORTANT: retornar 200 para o client sempre receber o body com o erro real
+    const payload: Record<string, unknown> = {
+      success: false,
+      error: String(error?.message || 'Erro desconhecido'),
+    };
+
+    if (error?.name === 'CorreiosApiError') {
+      const e = error as CorreiosApiError;
+      payload.error_code = e.parsedBody?.codigo || e.status;
+      payload.correios = {
+        status: e.status,
+        endpoint: e.endpoint,
+        mensagem: e.parsedBody?.mensagem,
+        causa: e.parsedBody?.causa,
+      };
+    }
+
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 

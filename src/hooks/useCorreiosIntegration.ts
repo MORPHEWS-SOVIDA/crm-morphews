@@ -4,6 +4,32 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 
+function extractFunctionInvokeError(error: any): string {
+  // Supabase functions.invoke pode retornar um erro genérico, mas às vezes o body vem em context
+  const fallback = error?.message || 'Erro ao chamar função do backend.';
+  const ctx = error?.context;
+
+  // Tentativas comuns: context.body (string), context.response (string), etc.
+  const rawBody =
+    (typeof ctx?.body === 'string' && ctx.body) ||
+    (typeof ctx?.response === 'string' && ctx.response) ||
+    (typeof error?.details === 'string' && error.details) ||
+    null;
+
+  if (!rawBody) return fallback;
+
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (typeof parsed?.error === 'string' && parsed.error) return parsed.error;
+    if (typeof parsed?.message === 'string' && parsed.message) return parsed.message;
+    if (typeof parsed?.mensagem === 'string' && parsed.mensagem) return parsed.mensagem;
+    return fallback;
+  } catch {
+    // Se não for JSON, devolve o texto bruto (quando curto) ou fallback
+    return rawBody.length <= 300 ? rawBody : fallback;
+  }
+}
+
 export interface CorreiosConfig {
   id: string;
   organization_id: string;
@@ -116,8 +142,8 @@ export function useSaveCorreiosConfig() {
         },
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) throw new Error(extractFunctionInvokeError(error));
+      if (!data?.success) throw new Error(data?.error || 'Falha ao salvar configuração.');
       return data.config;
     },
     onSuccess: () => {
@@ -144,8 +170,8 @@ export function useTestCorreiosConnection() {
         },
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) throw new Error(extractFunctionInvokeError(error));
+      if (!data?.success) throw new Error(data?.error || 'Falha ao testar conexão.');
       return data;
     },
     onSuccess: () => {
@@ -165,8 +191,8 @@ export function useCorreiosServices() {
         body: { action: 'get_services' },
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) throw new Error(extractFunctionInvokeError(error));
+      if (!data?.success) throw new Error(data?.error || 'Falha ao buscar serviços.');
       return data.services as CorreiosService[];
     },
   });
@@ -243,8 +269,8 @@ export function useGenerateCorreiosLabel() {
         },
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) throw new Error(extractFunctionInvokeError(error));
+      if (!data?.success) throw new Error(data?.error || 'Falha ao gerar etiqueta.');
       return data;
     },
     onSuccess: (data) => {
