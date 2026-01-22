@@ -358,33 +358,36 @@ export function useUploadCertificate() {
 // =============================================================================
 
 export function useRegisterWebhooks() {
+  const queryClient = useQueryClient();
+  
   return useMutation({
     mutationFn: async ({
       fiscalCompanyId,
-      events = ['nfe', 'nfse'],
+      environment = 'homologacao',
     }: {
       fiscalCompanyId: string;
-      events?: string[];
+      environment?: 'producao' | 'homologacao';
     }) => {
-      const { data, error } = await supabase.functions.invoke('focus-nfe-register-hooks', {
-        body: { fiscal_company_id: fiscalCompanyId, events },
+      // First, try to create/register the company in Focus NFe
+      const { data, error } = await supabase.functions.invoke('focus-nfe-create-company', {
+        body: { fiscal_company_id: fiscalCompanyId, environment },
       });
 
       if (error) throw error;
       
-      // Check for specific Focus NFe errors
       if (!data?.success) {
-        const firstResult = data?.results?.[0];
-        if (firstResult?.data?.codigo === 'permissao_negada') {
-          throw new Error('CNPJ não autorizado no Focus NFe. Entre em contato com o suporte para liberar a empresa na API.');
-        }
-        throw new Error(firstResult?.error || firstResult?.data?.mensagem || 'Falha ao homologar empresa');
+        const errorMsg = data?.error || 'Falha ao homologar empresa';
+        throw new Error(errorMsg);
       }
 
       return data;
     },
-    onSuccess: () => {
-      toast({ title: 'Empresa homologada com sucesso!', description: 'A empresa está pronta para emitir notas fiscais.' });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['fiscal-companies'] });
+      toast({ 
+        title: 'Empresa homologada com sucesso!', 
+        description: data?.message || 'A empresa está pronta para emitir notas fiscais.' 
+      });
     },
     onError: (error: Error) => {
       toast({

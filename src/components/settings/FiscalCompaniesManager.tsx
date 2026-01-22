@@ -318,6 +318,17 @@ export function FiscalCompaniesManager() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {company.focus_nfe_company_id ? (
+                        <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Homologada
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">
+                          <XCircle className="w-3 h-3" />
+                          Não homologada
+                        </Badge>
+                      )}
                       {company.certificate_file_path ? (
                         <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
                           <CheckCircle2 className="w-3 h-3" />
@@ -340,20 +351,22 @@ export function FiscalCompaniesManager() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => registerWebhooks.mutate({ fiscalCompanyId: company.id })}
-                      disabled={registerWebhooks.isPending}
-                      title="Ativar empresa na API Focus NFe para emissão de notas"
-                    >
-                      {registerWebhooks.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <ShieldCheck className="w-4 h-4 mr-1" />
-                      )}
-                      Homologar
-                    </Button>
+                    {!company.focus_nfe_company_id && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => registerWebhooks.mutate({ fiscalCompanyId: company.id, environment: company.nfe_environment || 'homologacao' })}
+                        disabled={registerWebhooks.isPending}
+                        title="Cadastrar empresa na API Focus NFe para habilitar emissão de notas"
+                      >
+                        {registerWebhooks.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="w-4 h-4 mr-1" />
+                        )}
+                        Homologar Empresa
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
