@@ -80,17 +80,21 @@ Deno.serve(async (req) => {
     };
 
     // Determine API URL based on environment
-    const apiUrl = environment === 'producao' 
-      ? 'https://api.focusnfe.com.br/v2/empresas'
-      : 'https://homologacao.focusnfe.com.br/v2/empresas';
+    // Note: Focus NFe uses the base domain for the API, not a specific path
+    // The API requires authentication via token parameter OR basic auth
+    const baseUrl = environment === 'producao' 
+      ? 'https://api.focusnfe.com.br'
+      : 'https://homologacao.focusnfe.com.br';
+    
+    const apiUrl = `${baseUrl}/v2/empresas`;
 
-    console.log('Creating company in Focus NFe:', { cnpj, environment, apiUrl });
+    console.log('Creating company in Focus NFe:', { cnpj, environment, apiUrl, payload: focusCompanyData });
 
     // Create the company in Focus NFe
-    const response = await fetch(apiUrl, {
+    // Try with token query parameter as an alternative auth method
+    const response = await fetch(`${apiUrl}?token=${focusToken}`, {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + btoa(focusToken + ':'),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(focusCompanyData),
@@ -113,10 +117,10 @@ Deno.serve(async (req) => {
       // If company already exists, try to get its ID
       if (response.status === 422 && errorMsg.includes('já existe')) {
         // Try to get the existing company
-        const getResponse = await fetch(`${apiUrl}/${cnpj}`, {
+        const getResponse = await fetch(`${apiUrl}/${cnpj}?token=${focusToken}`, {
           method: 'GET',
           headers: {
-            'Authorization': 'Basic ' + btoa(focusToken + ':'),
+            'Content-Type': 'application/json',
           },
         });
         
@@ -172,10 +176,9 @@ Deno.serve(async (req) => {
     const webhookResults = [];
     for (const event of ['nfe', 'nfse']) {
       try {
-        const webhookResponse = await fetch(`${environment === 'producao' ? 'https://api.focusnfe.com.br' : 'https://homologacao.focusnfe.com.br'}/v2/hooks`, {
+        const webhookResponse = await fetch(`${baseUrl}/v2/hooks?token=${focusToken}`, {
           method: 'POST',
           headers: {
-            'Authorization': 'Basic ' + btoa(focusToken + ':'),
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
