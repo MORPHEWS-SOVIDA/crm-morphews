@@ -581,8 +581,8 @@ export function IntegrationDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] sm:max-h-[92vh] flex flex-col overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[90vh] sm:max-h-[92vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-xl">{integration.name}</DialogTitle>
@@ -603,8 +603,8 @@ export function IntegrationDetailDialog({
           </div>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+          <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
             <TabsTrigger value="config" className="gap-2">
               <Settings className="h-4 w-4" />
               Configuração
@@ -627,8 +627,8 @@ export function IntegrationDetailDialog({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 pr-4 touch-pan-y [&_[data-radix-scroll-area-scrollbar]]:w-3 [&_[data-radix-scroll-area-scrollbar]]:bg-muted/50" style={{ WebkitOverflowScrolling: 'touch', maxHeight: 'calc(80vh - 120px)' }}>
-            <TabsContent value="config" className="space-y-4 mt-4">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <TabsContent value="config" className="space-y-4 mt-4 pb-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">URLs do Webhook</CardTitle>
@@ -1499,7 +1499,7 @@ export function IntegrationDetailDialog({
                 </CardContent>
               </Card>
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
