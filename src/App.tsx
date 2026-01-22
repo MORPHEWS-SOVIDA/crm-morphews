@@ -28,6 +28,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import Onboarding from "./pages/Onboarding";
 import Team from "./pages/Team";
 import Products from "./pages/Products";
+import ManipulatedCosts from "./pages/ManipulatedCosts";
 import Sales from "./pages/Sales";
 import NewSale from "./pages/NewSale";
 import EditSale from "./pages/EditSale";
@@ -251,6 +252,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['products_view']}>
                     <Products />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/produtos/custos-manipulados"
+                element={
+                  <ProtectedRoute requiredPermissions={['products_view_cost']}>
+                    <ManipulatedCosts />
                   </ProtectedRoute>
                 }
               />
