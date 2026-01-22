@@ -20,6 +20,10 @@ export interface NonPurchaseMessageTemplate {
   media_type: 'image' | 'audio' | 'document' | null;
   media_url: string | null;
   media_filename: string | null;
+  // Bot fallback fields
+  fallback_bot_enabled: boolean;
+  fallback_bot_id: string | null;
+  fallback_timeout_minutes: number;
 }
 
 export interface MessageTemplateFormData {
@@ -34,6 +38,10 @@ export interface MessageTemplateFormData {
   media_type?: 'image' | 'audio' | 'document' | null;
   media_url?: string | null;
   media_filename?: string | null;
+  // Bot fallback fields
+  fallback_bot_enabled?: boolean;
+  fallback_bot_id?: string | null;
+  fallback_timeout_minutes?: number;
 }
 
 export function useNonPurchaseMessageTemplates(reasonId?: string) {
