@@ -124,7 +124,28 @@ export function useCreateDraftFromSale() {
       const recipientNumber = primaryAddress?.street_number || saleAny.delivery_number || '';
       const recipientComplement = primaryAddress?.complement || saleAny.delivery_complement || '';
 
-      // Create draft invoice
+      // IMPORTANT: Reserve the invoice number NOW to avoid duplicates
+      const currentLastNumber = data.invoice_type === 'nfe' 
+        ? (fiscalCompany?.nfe_last_number || 0) 
+        : (fiscalCompany?.nfse_last_number || 0);
+      const nextNumber = currentLastNumber + 1;
+      const serie = data.invoice_type === 'nfe' 
+        ? (fiscalCompany?.nfe_serie || 1) 
+        : (fiscalCompany?.nfse_serie || 1);
+
+      // Update the company's last number to reserve it
+      const updateField = data.invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
+      await (supabase as any)
+        .from('fiscal_companies')
+        .update({ [updateField]: nextNumber })
+        .eq('id', fiscalCompanyId);
+
+      // Clean CPF/CNPJ - remove all non-digits
+      const rawCpfCnpj = sale.lead?.cpf_cnpj || '';
+      const cleanCpfCnpj = String(rawCpfCnpj).replace(/\D/g, '').trim();
+      const recipientType = cleanCpfCnpj.length === 14 ? 'juridica' : 'fisica';
+
+      // Create draft invoice with reserved number
       const { data: invoice, error: insertError } = await (supabase as any)
         .from('fiscal_invoices')
         .insert({
@@ -139,24 +160,27 @@ export function useCreateDraftFromSale() {
           products_total_cents: productsTotalCents,
           discount_cents: discountCents,
           freight_value_cents: freightCents,
+          // RESERVED invoice number and series
+          invoice_number: String(nextNumber),
+          invoice_series: String(serie),
           // Pre-fill from company
           nature_operation: fiscalCompany?.default_nature_operation || 'Venda de mercadorias',
           tax_regime: fiscalCompany?.tax_regime || 'simples',
           presence_indicator: fiscalCompany?.presence_indicator || '9',
-          // Pre-fill from lead
+          // Pre-fill from lead - CLEANED CPF/CNPJ
           recipient_name: sale.lead?.name || '',
-          recipient_type: sale.lead?.cpf_cnpj?.length === 14 ? 'juridica' : 'fisica',
-          recipient_cpf_cnpj: sale.lead?.cpf_cnpj || '',
+          recipient_type: recipientType,
+          recipient_cpf_cnpj: cleanCpfCnpj,
           recipient_email: sale.lead?.email || '',
-          recipient_phone: sale.lead?.whatsapp || '',
+          recipient_phone: String(sale.lead?.whatsapp || '').replace(/\D/g, ''),
           recipient_is_final_consumer: true,
           // Pre-fill from address
-          recipient_cep: recipientCep,
+          recipient_cep: String(recipientCep).replace(/\D/g, ''),
           recipient_state: recipientState,
           recipient_city: recipientCity,
           recipient_neighborhood: recipientNeighborhood,
           recipient_street: recipientStreet,
-          recipient_number: recipientNumber,
+          recipient_number: recipientNumber || 'S/N',
           recipient_complement: recipientComplement,
           // Items
           items,
