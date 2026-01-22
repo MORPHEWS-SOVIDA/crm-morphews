@@ -17,6 +17,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Lead, FunnelStage } from '@/types/lead';
 import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
+import { computePrimaryStages, groupLeadsByPrimaryStage } from '@/lib/funnelStageAssignment';
 import { useUpdateLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useAuth } from '@/hooks/useAuth';
@@ -264,15 +265,16 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     return filtered;
   }, [leads, selectedStars, selectedResponsavel]);
 
-  // Group leads by stage using the centralized getStageEnumValue function
-  const leadsByStage = useMemo(() => {
-    const grouped: Record<string, Lead[]> = {};
-    stages.forEach((stage) => {
-      const enumValue = getStageEnumValue(stage);
-      grouped[stage.id] = filteredLeads.filter((lead) => lead.stage === enumValue);
-    });
-    return grouped;
-  }, [filteredLeads, stages]);
+  // Ensure each lead appears in only ONE column even if multiple stages map to the same enum.
+  const { primaryStages, primaryStageByEnum } = useMemo(
+    () => computePrimaryStages(stages),
+    [stages]
+  );
+
+  const leadsByStage = useMemo(
+    () => groupLeadsByPrimaryStage(filteredLeads, primaryStages, primaryStageByEnum),
+    [filteredLeads, primaryStages, primaryStageByEnum]
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -288,14 +290,14 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     }
 
     // Check if over a column directly
-    const overColumn = stages.find(s => s.id === over.id);
+    const overColumn = primaryStages.find(s => s.id === over.id);
     if (overColumn) {
       setActiveColumnId(overColumn.id);
       return;
     }
 
     // Check if over a card - find its column
-    for (const stage of stages) {
+    for (const stage of primaryStages) {
       const leadsInStage = leadsByStage[stage.id];
       if (leadsInStage?.some(l => l.id === over.id)) {
         setActiveColumnId(stage.id);
@@ -319,11 +321,11 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
 
     // Find which column the card was dropped in
     // First check if dropped directly on a column
-    let overStage = stages.find((s) => s.id === over.id);
+    let overStage = primaryStages.find((s) => s.id === over.id);
     
     // If not, check if dropped on a card within a column
     if (!overStage) {
-      for (const stage of stages) {
+      for (const stage of primaryStages) {
         const leadsInStage = leadsByStage[stage.id];
         if (leadsInStage?.some((l) => l.id === over.id)) {
           overStage = stage;
@@ -402,7 +404,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
       >
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-4 min-w-max">
-            {stages.map((stage) => (
+            {primaryStages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
@@ -420,13 +422,13 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
       {/* Stage Change Dialog */}
       {pendingChange && (() => {
         // Find tenant custom stage info for the dialog
-        // For previous stage, find by current lead stage
-        const prevCustomStage = stages.find(s => s.enum_value === pendingChange.previousStage);
+        // For previous stage, use the primary stage for that enum (prevents mismatches when duplicated)
+        const prevCustomStage = primaryStageByEnum.get(pendingChange.previousStage);
         // For new stage, use the target stage ID (the column they dropped into) for accuracy
         // This handles the case where multiple custom stages map to the same enum_value
         const newCustomStage = pendingChange.targetStageId 
-          ? stages.find(s => s.id === pendingChange.targetStageId)
-          : stages.find(s => s.enum_value === pendingChange.newStage);
+          ? primaryStages.find(s => s.id === pendingChange.targetStageId)
+          : primaryStageByEnum.get(pendingChange.newStage);
         
         return (
           <StageChangeDialog

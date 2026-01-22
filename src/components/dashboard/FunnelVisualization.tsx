@@ -2,6 +2,7 @@ import { Cloud, Trash2, Kanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Lead, FunnelStage } from '@/types/lead';
 import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
+import { computePrimaryStages } from '@/lib/funnelStageAssignment';
 
 interface FunnelVisualizationProps {
   leads: Lead[];
@@ -15,9 +16,12 @@ export function FunnelVisualization({ leads, stages, selectedStage, onSelectStag
   const getStageCounts = (enumValue: FunnelStage) => 
     leads.filter((lead) => lead.stage === enumValue).length;
 
-  const cloudStage = stages.find(s => s.stage_type === 'cloud');
-  const funnelStages = stages.filter(s => s.stage_type === 'funnel').sort((a, b) => a.position - b.position);
-  const trashStage = stages.find(s => s.stage_type === 'trash');
+  // Ensure each enum stage is rendered only once to avoid “same lead in multiple stages” visuals.
+  const { primaryStages } = computePrimaryStages(stages);
+
+  const cloudStage = primaryStages.find(s => s.stage_type === 'cloud');
+  const funnelStages = primaryStages.filter(s => s.stage_type === 'funnel').sort((a, b) => a.position - b.position);
+  const trashStage = primaryStages.find(s => s.stage_type === 'trash');
 
   const cloudCount = cloudStage ? getStageCounts(getStageEnumValue(cloudStage)) : getStageCounts('cloud');
   const trashCount = trashStage ? getStageCounts(getStageEnumValue(trashStage)) : getStageCounts('trash');
