@@ -46,6 +46,10 @@ export interface FiscalCompany {
   nfse_last_number: number;
   default_nature_operation: string;
   presence_indicator: string;
+  // Responsible and Accountant (Focus NFe)
+  responsible_name: string | null;
+  responsible_cpf: string | null;
+  accountant_cpf_cnpj: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +85,10 @@ export interface CreateFiscalCompanyData {
   nfse_last_number?: number;
   default_nature_operation?: string;
   presence_indicator?: string;
+  // Responsible and Accountant (Focus NFe)
+  responsible_name?: string;
+  responsible_cpf?: string;
+  accountant_cpf_cnpj?: string;
 }
 
 export type UpdateFiscalCompanyData = Partial<CreateFiscalCompanyData> & {
