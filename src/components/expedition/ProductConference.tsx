@@ -22,6 +22,8 @@ interface ProductItem {
   kit_id?: string | null;
   kit_quantity?: number;
   multiplier?: number;
+  // Requisition number for manipulated products
+  requisition_number?: string | null;
 }
 
 // Helper to format item display with kit info
@@ -255,24 +257,31 @@ export function ProductConference({
                   })}
                 </div>
                 
-                {/* Product name with kit info */}
+                {/* Product name with kit info and requisition */}
                 {(() => {
                   const { displayName, totalUnits } = formatItemWithKit(item);
                   return (
-                    <span 
-                      className={cn(
-                        "text-sm flex-1",
-                        fullyChecked 
-                          ? "text-green-700 dark:text-green-400 line-through" 
-                          : "text-foreground"
-                      )}
-                      title={`Total: ${totalUnits} ${totalUnits === 1 ? 'unidade' : 'unidades'}`}
-                    >
-                      {displayName}
-                      <span className="text-xs text-muted-foreground ml-1">
-                        ({totalUnits} {totalUnits === 1 ? 'un' : 'uns'})
+                    <div className="flex-1">
+                      <span 
+                        className={cn(
+                          "text-sm",
+                          fullyChecked 
+                            ? "text-green-700 dark:text-green-400 line-through" 
+                            : "text-foreground"
+                        )}
+                        title={`Total: ${totalUnits} ${totalUnits === 1 ? 'unidade' : 'unidades'}`}
+                      >
+                        {displayName}
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({totalUnits} {totalUnits === 1 ? 'un' : 'uns'})
+                        </span>
                       </span>
-                    </span>
+                      {item.requisition_number && (
+                        <span className="block text-xs text-amber-600 dark:text-amber-400 font-medium">
+                          📋 Req: {item.requisition_number}
+                        </span>
+                      )}
+                    </div>
                   );
                 })()}
 
