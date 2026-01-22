@@ -8,12 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap } from "lucide-react";
+import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts } from "@/hooks/useAIBots";
 import { AvatarGenerator } from "./AvatarGenerator";
 import { BotQualificationConfig } from "./BotQualificationConfig";
 import { BotProductSelector } from "./BotProductSelector";
 import { BotInterpretationConfig } from "./BotInterpretationConfig";
+import { AIModelSelector, CHAT_MODELS } from "@/components/ai/AIModelSelector";
 
 interface InitialQuestion {
   questionId: string;
@@ -58,6 +59,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [documentReplyMessage, setDocumentReplyMessage] = useState('');
   const [imageReplyMessage, setImageReplyMessage] = useState('');
   
+  // AI Model state
+  const [aiModelChat, setAiModelChat] = useState('google/gemini-3-flash-preview');
+  
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
@@ -80,6 +84,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setInterpretImages((bot as any).interpret_images ?? false);
       setDocumentReplyMessage((bot as any).document_reply_message || 'Nossa IA analisou seu documento e identificou as seguintes informações:');
       setImageReplyMessage((bot as any).image_reply_message || 'Nossa IA analisou sua imagem e identificou:');
+      // AI Model
+      setAiModelChat((bot as any).ai_model_chat || 'google/gemini-3-flash-preview');
     }
   };
   
@@ -117,6 +123,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       interpret_images: interpretImages,
       document_reply_message: documentReplyMessage,
       image_reply_message: imageReplyMessage,
+      ai_model_chat: aiModelChat,
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -236,6 +243,27 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                       onCheckedChange={setIsActive}
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* AI Model Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Cpu className="h-5 w-5 text-primary" />
+                    Modelo de IA
+                  </CardTitle>
+                  <CardDescription>
+                    Escolha o modelo usado para conversação
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AIModelSelector
+                    value={aiModelChat}
+                    onChange={setAiModelChat}
+                    models={CHAT_MODELS}
+                    description="Modelos mais avançados são mais inteligentes mas consomem mais energia"
+                  />
                 </CardContent>
               </Card>
               

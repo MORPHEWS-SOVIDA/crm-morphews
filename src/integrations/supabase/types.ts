@@ -165,6 +165,7 @@ export type Database = {
       ai_bots: {
         Row: {
           age_range: string
+          ai_model_chat: string | null
           avatar_url: string | null
           brazilian_state: string | null
           company_differential: string | null
@@ -203,6 +204,7 @@ export type Database = {
         }
         Insert: {
           age_range?: string
+          ai_model_chat?: string | null
           avatar_url?: string | null
           brazilian_state?: string | null
           company_differential?: string | null
@@ -241,6 +243,7 @@ export type Database = {
         }
         Update: {
           age_range?: string
+          ai_model_chat?: string | null
           avatar_url?: string | null
           brazilian_state?: string | null
           company_differential?: string | null
@@ -4062,6 +4065,8 @@ export type Database = {
       }
       organizations: {
         Row: {
+          ai_model_document: string | null
+          ai_model_image: string | null
           auto_close_assigned_minutes: number | null
           auto_close_bot_minutes: number | null
           auto_close_business_end: string | null
@@ -4095,6 +4100,8 @@ export type Database = {
           whatsapp_sender_name_prefix_enabled: boolean
         }
         Insert: {
+          ai_model_document?: string | null
+          ai_model_image?: string | null
           auto_close_assigned_minutes?: number | null
           auto_close_bot_minutes?: number | null
           auto_close_business_end?: string | null
@@ -4128,6 +4135,8 @@ export type Database = {
           whatsapp_sender_name_prefix_enabled?: boolean
         }
         Update: {
+          ai_model_document?: string | null
+          ai_model_image?: string | null
           auto_close_assigned_minutes?: number | null
           auto_close_bot_minutes?: number | null
           auto_close_business_end?: string | null
