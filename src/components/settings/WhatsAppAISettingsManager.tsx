@@ -514,9 +514,9 @@ export function WhatsAppAISettingsManager() {
               <FileText className="w-5 h-5 text-purple-500" />
             </div>
             <div>
-              <Label className="text-base font-medium">Leitura de PDFs (Receitas Médicas)</Label>
+              <Label className="text-base font-medium">Leitura de Documentos (IA)</Label>
               <p className="text-sm text-muted-foreground">
-                IA interpreta documentos enviados pelos clientes
+                IA interpreta PDFs, receitas, orçamentos, notas, listas e outros documentos
               </p>
             </div>
           </div>
@@ -567,7 +567,7 @@ export function WhatsAppAISettingsManager() {
                 <li>
                   <strong>Modo Atribuído:</strong> IA lê e mostra resumo para o vendedor (não envia para cliente)
                 </li>
-                <li>Extrai medicamentos, dosagens e informações do prescritor</li>
+                <li>Extrai itens, valores, quantidades e informações do remetente</li>
               </ul>
             </div>
           </div>
