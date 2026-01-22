@@ -26,7 +26,6 @@ import { HelpCircle } from 'lucide-react';
 import { DataBackupManager } from '@/components/settings/DataBackupManager';
 import { RomaneioImporter } from '@/components/settings/RomaneioImporter';
 import { CustomFieldsManager } from '@/components/settings/CustomFieldsManager';
-import { WhatsAppAISettingsManager } from '@/components/settings/WhatsAppAISettingsManager';
 
 export default function Settings() {
   const { profile, updatePassword, user, isAdmin } = useAuth();
@@ -536,22 +535,6 @@ export default function Settings() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* WhatsApp AI Settings - Only for admins/owners */}
-        {(isAdmin || isOrgAdmin) && (
-          <div className="bg-card rounded-xl p-6 shadow-card">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-lg bg-purple-500/10">
-                <Bot className="w-6 h-6 text-purple-500" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">IA do WhatsApp (Global)</h2>
-                <p className="text-sm text-muted-foreground">Configurações de IA para todas as instâncias</p>
-              </div>
-            </div>
-            <WhatsAppAISettingsManager />
           </div>
         )}
 
