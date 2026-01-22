@@ -520,44 +520,50 @@ Deno.serve(async (req) => {
     if (saveError) {
       console.error(`[${requestId}] ⚠️ Failed to save message to DB:`, saveError);
     } else if (savedMessage && finalType === 'audio' && (finalMediaUrlForDb || finalMediaUrl)) {
-      // Check if auto-transcription is enabled for outbound
-      const { data: instanceSettings } = await supabaseAdmin
+      // Check if auto-transcription is enabled for team audio (uses global org setting)
+      const { data: instanceData } = await supabaseAdmin
         .from("whatsapp_instances")
-        .select("auto_transcribe_enabled, auto_transcribe_outbound, organization_id")
+        .select("organization_id")
         .eq("id", instanceId)
         .single();
       
-      const shouldAutoTranscribe = 
-        instanceSettings?.auto_transcribe_enabled === true && 
-        instanceSettings?.auto_transcribe_outbound === true;
-      
-      if (shouldAutoTranscribe) {
-        console.log(`[${requestId}] 🎤 Triggering auto-transcription for outbound audio`);
+      if (instanceData?.organization_id) {
+        const { data: orgTranscribeSettings } = await supabaseAdmin
+          .from("organizations")
+          .select("whatsapp_transcribe_team_audio")
+          .eq("id", instanceData.organization_id)
+          .single();
         
-        // Mark as pending
-        await supabaseAdmin
-          .from("whatsapp_messages")
-          .update({ transcription_status: "pending" })
-          .eq("id", savedMessage.id);
+        const shouldAutoTranscribe = (orgTranscribeSettings as any)?.whatsapp_transcribe_team_audio === true;
         
-        // Fire and forget transcription
-        fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messageId: savedMessage.id,
-            organizationId: instanceSettings.organization_id,
-            mediaUrl: finalMediaUrlForDb || finalMediaUrl,
-          }),
-        }).then(async (res) => {
-          const result = await res.json();
-          console.log(`[${requestId}] 🎤 Transcription result:`, result);
-        }).catch((err) => {
-          console.error(`[${requestId}] ❌ Transcription error:`, err);
-        });
+        if (shouldAutoTranscribe) {
+          console.log(`[${requestId}] 🎤 Triggering auto-transcription for outbound audio (team)`);
+          
+          // Mark as pending
+          await supabaseAdmin
+            .from("whatsapp_messages")
+            .update({ transcription_status: "pending" })
+            .eq("id", savedMessage.id);
+          
+          // Fire and forget transcription
+          fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              messageId: savedMessage.id,
+              organizationId: instanceData.organization_id,
+              mediaUrl: finalMediaUrlForDb || finalMediaUrl,
+            }),
+          }).then(async (res) => {
+            const result = await res.json();
+            console.log(`[${requestId}] 🎤 Transcription result:`, result);
+          }).catch((err) => {
+            console.error(`[${requestId}] ❌ Transcription error:`, err);
+          });
+        }
       }
     }
 

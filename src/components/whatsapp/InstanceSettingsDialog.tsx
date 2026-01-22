@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Mic, Zap } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { WavoipSettings } from "./WavoipSettings";
@@ -44,10 +44,7 @@ export function InstanceSettingsDialog({
           display_name_for_team, 
           manual_instance_number, 
           redistribution_timeout_minutes, 
-          wavoip_enabled,
-          auto_transcribe_enabled,
-          auto_transcribe_inbound,
-          auto_transcribe_outbound
+          wavoip_enabled
         `)
         .eq("id", instanceId)
         .single();
@@ -62,11 +59,6 @@ export function InstanceSettingsDialog({
   const [displayName, setDisplayName] = useState<string>("");
   const [instanceNumber, setInstanceNumber] = useState<string>("");
   const [redistributionTimeout, setRedistributionTimeout] = useState<number>(30);
-  
-  // Transcription settings
-  const [autoTranscribeEnabled, setAutoTranscribeEnabled] = useState<boolean>(false);
-  const [autoTranscribeInbound, setAutoTranscribeInbound] = useState<boolean>(true);
-  const [autoTranscribeOutbound, setAutoTranscribeOutbound] = useState<boolean>(true);
 
   // Atualizar state quando carregar dados
   useEffect(() => {
@@ -75,11 +67,6 @@ export function InstanceSettingsDialog({
       setDisplayName(settings.display_name_for_team || "");
       setInstanceNumber(settings.manual_instance_number || "");
       setRedistributionTimeout(settings.redistribution_timeout_minutes || 30);
-      
-      // Transcription settings
-      setAutoTranscribeEnabled((settings as any).auto_transcribe_enabled ?? false);
-      setAutoTranscribeInbound((settings as any).auto_transcribe_inbound ?? true);
-      setAutoTranscribeOutbound((settings as any).auto_transcribe_outbound ?? true);
     }
   }, [settings]);
 
@@ -93,9 +80,6 @@ export function InstanceSettingsDialog({
           display_name_for_team: displayName.trim() || null,
           manual_instance_number: instanceNumber.trim() || null,
           redistribution_timeout_minutes: distributionMode === 'auto' ? redistributionTimeout : null,
-          auto_transcribe_enabled: autoTranscribeEnabled,
-          auto_transcribe_inbound: autoTranscribeInbound,
-          auto_transcribe_outbound: autoTranscribeOutbound,
         } as any)
         .eq("id", instanceId);
 
@@ -259,51 +243,6 @@ export function InstanceSettingsDialog({
               />
             </div>
 
-            <Separator />
-
-            {/* Transcrição Automática de Áudios */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <Mic className="h-4 w-4 text-purple-600" />
-                  Transcrição Automática de Áudios
-                </Label>
-                <Switch
-                  checked={autoTranscribeEnabled}
-                  onCheckedChange={setAutoTranscribeEnabled}
-                />
-              </div>
-              
-              {autoTranscribeEnabled && (
-                <div className="p-3 border rounded-lg bg-purple-50 dark:bg-purple-950/30 space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-                    <Zap className="h-3.5 w-3.5" />
-                    <span>Consome Energia IA (50 unidades/áudio)</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Áudios recebidos (clientes)</span>
-                      <Switch
-                        checked={autoTranscribeInbound}
-                        onCheckedChange={setAutoTranscribeInbound}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Áudios enviados (equipe)</span>
-                      <Switch
-                        checked={autoTranscribeOutbound}
-                        onCheckedChange={setAutoTranscribeOutbound}
-                      />
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    Transcrições ficam salvas para busca e análise pelo gerente. Não são enviadas ao cliente.
-                  </p>
-                </div>
-              )}
-            </div>
 
             <div className="flex gap-2 pt-4">
               <Button

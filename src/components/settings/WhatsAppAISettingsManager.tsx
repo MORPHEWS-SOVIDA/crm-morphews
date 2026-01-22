@@ -23,7 +23,9 @@ interface WhatsAppAISettings {
   whatsapp_document_medical_mode: boolean;
   whatsapp_image_interpretation: boolean;
   whatsapp_image_medical_mode: boolean;
-  whatsapp_audio_transcription_enabled: boolean;
+  // Transcrição de áudio separada: cliente vs equipe
+  whatsapp_transcribe_client_audio: boolean;
+  whatsapp_transcribe_team_audio: boolean;
   whatsapp_sender_name_prefix_enabled: boolean;
   // Auto-close settings (global)
   auto_close_enabled: boolean;
@@ -58,7 +60,8 @@ export function WhatsAppAISettingsManager() {
     whatsapp_document_medical_mode: false,
     whatsapp_image_interpretation: false,
     whatsapp_image_medical_mode: false,
-    whatsapp_audio_transcription_enabled: false,
+    whatsapp_transcribe_client_audio: false,
+    whatsapp_transcribe_team_audio: false,
     whatsapp_sender_name_prefix_enabled: false,
     auto_close_enabled: true,
     auto_close_bot_minutes: 60,
@@ -91,7 +94,8 @@ export function WhatsAppAISettingsManager() {
           whatsapp_document_medical_mode,
           whatsapp_image_interpretation,
           whatsapp_image_medical_mode,
-          whatsapp_audio_transcription_enabled,
+          whatsapp_transcribe_client_audio,
+          whatsapp_transcribe_team_audio,
           whatsapp_sender_name_prefix_enabled,
           auto_close_enabled,
           auto_close_bot_minutes,
@@ -118,30 +122,32 @@ export function WhatsAppAISettingsManager() {
 
   useEffect(() => {
     if (orgSettings) {
+      const org = orgSettings as any;
       setSettings({
-        whatsapp_ai_memory_enabled: orgSettings.whatsapp_ai_memory_enabled ?? false,
-        whatsapp_ai_learning_enabled: orgSettings.whatsapp_ai_learning_enabled ?? false,
-        whatsapp_ai_seller_briefing_enabled: orgSettings.whatsapp_ai_seller_briefing_enabled ?? false,
-        whatsapp_document_reading_enabled: orgSettings.whatsapp_document_reading_enabled ?? false,
-        whatsapp_document_auto_reply_message: orgSettings.whatsapp_document_auto_reply_message || "Nossa IA recebeu seu arquivo e interpretou assim:",
-        whatsapp_document_medical_mode: (orgSettings as any).whatsapp_document_medical_mode ?? false,
-        whatsapp_image_interpretation: (orgSettings as any).whatsapp_image_interpretation ?? false,
-        whatsapp_image_medical_mode: (orgSettings as any).whatsapp_image_medical_mode ?? false,
-        whatsapp_audio_transcription_enabled: orgSettings.whatsapp_audio_transcription_enabled ?? false,
-        whatsapp_sender_name_prefix_enabled: orgSettings.whatsapp_sender_name_prefix_enabled ?? false,
-        auto_close_enabled: orgSettings.auto_close_enabled ?? true,
-        auto_close_bot_minutes: orgSettings.auto_close_bot_minutes ?? 60,
-        auto_close_assigned_minutes: orgSettings.auto_close_assigned_minutes ?? 480,
-        auto_close_only_business_hours: orgSettings.auto_close_only_business_hours ?? false,
-        auto_close_business_start: orgSettings.auto_close_business_start || "08:00",
-        auto_close_business_end: orgSettings.auto_close_business_end || "20:00",
-        auto_close_send_message: orgSettings.auto_close_send_message ?? false,
-        auto_close_message_template: orgSettings.auto_close_message_template || DEFAULT_CLOSE_MESSAGE,
-        satisfaction_survey_enabled: orgSettings.satisfaction_survey_enabled ?? false,
-        satisfaction_survey_message: orgSettings.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
-        satisfaction_survey_on_manual_close: orgSettings.satisfaction_survey_on_manual_close ?? true,
-        ai_model_document: (orgSettings as any).ai_model_document || "google/gemini-2.5-flash",
-        ai_model_image: (orgSettings as any).ai_model_image || "google/gemini-2.5-flash",
+        whatsapp_ai_memory_enabled: org.whatsapp_ai_memory_enabled ?? false,
+        whatsapp_ai_learning_enabled: org.whatsapp_ai_learning_enabled ?? false,
+        whatsapp_ai_seller_briefing_enabled: org.whatsapp_ai_seller_briefing_enabled ?? false,
+        whatsapp_document_reading_enabled: org.whatsapp_document_reading_enabled ?? false,
+        whatsapp_document_auto_reply_message: org.whatsapp_document_auto_reply_message || "Nossa IA recebeu seu arquivo e interpretou assim:",
+        whatsapp_document_medical_mode: org.whatsapp_document_medical_mode ?? false,
+        whatsapp_image_interpretation: org.whatsapp_image_interpretation ?? false,
+        whatsapp_image_medical_mode: org.whatsapp_image_medical_mode ?? false,
+        whatsapp_transcribe_client_audio: org.whatsapp_transcribe_client_audio ?? false,
+        whatsapp_transcribe_team_audio: org.whatsapp_transcribe_team_audio ?? false,
+        whatsapp_sender_name_prefix_enabled: org.whatsapp_sender_name_prefix_enabled ?? false,
+        auto_close_enabled: org.auto_close_enabled ?? true,
+        auto_close_bot_minutes: org.auto_close_bot_minutes ?? 60,
+        auto_close_assigned_minutes: org.auto_close_assigned_minutes ?? 480,
+        auto_close_only_business_hours: org.auto_close_only_business_hours ?? false,
+        auto_close_business_start: org.auto_close_business_start || "08:00",
+        auto_close_business_end: org.auto_close_business_end || "20:00",
+        auto_close_send_message: org.auto_close_send_message ?? false,
+        auto_close_message_template: org.auto_close_message_template || DEFAULT_CLOSE_MESSAGE,
+        satisfaction_survey_enabled: org.satisfaction_survey_enabled ?? false,
+        satisfaction_survey_message: org.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
+        satisfaction_survey_on_manual_close: org.satisfaction_survey_on_manual_close ?? true,
+        ai_model_document: org.ai_model_document || "google/gemini-2.5-flash",
+        ai_model_image: org.ai_model_image || "google/gemini-2.5-flash",
       });
     }
   }, [orgSettings]);
@@ -487,43 +493,72 @@ export function WhatsAppAISettingsManager() {
 
       {/* ============= TRANSCRIÇÃO DE ÁUDIO ============= */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <Mic className="w-5 h-5 text-green-500" />
-            </div>
-            <div>
-              <Label className="text-base font-medium">Transcrição de Áudio</Label>
-              <p className="text-sm text-muted-foreground">
-                IA transcreve automaticamente áudios recebidos dos clientes
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-green-500/10">
+            <Mic className="w-5 h-5 text-green-500" />
           </div>
-          <Switch
-            checked={settings.whatsapp_audio_transcription_enabled}
-            onCheckedChange={(checked) =>
-              setSettings((prev) => ({ ...prev, whatsapp_audio_transcription_enabled: checked }))
-            }
-          />
+          <div>
+            <Label className="text-base font-medium">Transcrição de Áudio</Label>
+            <p className="text-sm text-muted-foreground">
+              IA transcreve automaticamente áudios (50 energia/áudio)
+            </p>
+          </div>
         </div>
 
-        {settings.whatsapp_audio_transcription_enabled && (
-          <div className="ml-12 p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 space-y-3">
-            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-              <Zap className="h-3.5 w-3.5" />
-              <span>Consome Energia IA (50 unidades/áudio)</span>
+        <div className="ml-12 space-y-4">
+          {/* Transcrição de áudios do CLIENTE */}
+          <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <User className="w-4 h-4 text-green-600" />
+                <div>
+                  <Label className="text-sm font-medium">Áudios do Cliente</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Transcrever áudios recebidos dos clientes
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.whatsapp_transcribe_client_audio}
+                onCheckedChange={(checked) =>
+                  setSettings((prev) => ({ ...prev, whatsapp_transcribe_client_audio: checked }))
+                }
+              />
             </div>
-
-            <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
-              <p className="font-medium">Como funciona:</p>
-              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Áudios recebidos são transcritos automaticamente</li>
-                <li>Texto aparece logo abaixo do áudio no chat</li>
-                <li>Permite pesquisa e indexação do conteúdo</li>
-              </ul>
-            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              Facilita entender o que o cliente disse sem precisar ouvir cada áudio
+            </p>
           </div>
-        )}
+
+          {/* Transcrição de áudios da EQUIPE */}
+          <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bot className="w-4 h-4 text-blue-600" />
+                <div>
+                  <Label className="text-sm font-medium">Áudios da Equipe</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Transcrever áudios enviados pelos vendedores
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.whatsapp_transcribe_team_audio}
+                onCheckedChange={(checked) =>
+                  setSettings((prev) => ({ ...prev, whatsapp_transcribe_team_audio: checked }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              Permite pesquisa por palavras e revisão do atendimento no futuro
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+            <Zap className="h-3.5 w-3.5" />
+            <span>Cada transcrição consome 50 unidades de Energia IA</span>
+          </div>
+        </div>
       </div>
 
       <Separator />

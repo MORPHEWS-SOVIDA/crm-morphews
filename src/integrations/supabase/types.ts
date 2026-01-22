@@ -4334,6 +4334,8 @@ export type Database = {
           whatsapp_image_interpretation: boolean | null
           whatsapp_image_medical_mode: boolean | null
           whatsapp_sender_name_prefix_enabled: boolean
+          whatsapp_transcribe_client_audio: boolean | null
+          whatsapp_transcribe_team_audio: boolean | null
         }
         Insert: {
           ai_model_document?: string | null
@@ -4369,6 +4371,8 @@ export type Database = {
           whatsapp_image_interpretation?: boolean | null
           whatsapp_image_medical_mode?: boolean | null
           whatsapp_sender_name_prefix_enabled?: boolean
+          whatsapp_transcribe_client_audio?: boolean | null
+          whatsapp_transcribe_team_audio?: boolean | null
         }
         Update: {
           ai_model_document?: string | null
@@ -4404,6 +4408,8 @@ export type Database = {
           whatsapp_image_interpretation?: boolean | null
           whatsapp_image_medical_mode?: boolean | null
           whatsapp_sender_name_prefix_enabled?: boolean
+          whatsapp_transcribe_client_audio?: boolean | null
+          whatsapp_transcribe_team_audio?: boolean | null
         }
         Relationships: []
       }
