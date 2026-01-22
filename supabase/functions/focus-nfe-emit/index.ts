@@ -5,7 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const FOCUS_NFE_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
+// Fallback global token (used if company doesn't have its own token)
+const FOCUS_NFE_GLOBAL_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
 const FOCUS_NFE_PRODUCTION_URL = 'https://api.focusnfe.com.br/v2';
 const FOCUS_NFE_HOMOLOGACAO_URL = 'https://homologacao.focusnfe.com.br/v2';
 
@@ -242,27 +243,33 @@ Deno.serve(async (req) => {
     const endpoint = invoice_type === 'nfe' ? '/nfe' : '/nfse';
     const focusUrl = `${focusBaseUrl}${endpoint}?ref=${focusRef}`;
     
-    if (!FOCUS_NFE_TOKEN) {
+    // Get token: prefer company-specific token, fallback to global
+    const companyToken = environment === 'producao' 
+      ? fiscalCompany.focus_nfe_token_producao 
+      : fiscalCompany.focus_nfe_token_homologacao;
+    const focusToken = companyToken || FOCUS_NFE_GLOBAL_TOKEN;
+    
+    if (!focusToken) {
       // Update invoice to rejected
       await supabase
         .from('fiscal_invoices')
         .update({ 
           status: 'rejected', 
-          error_message: 'FOCUS_NFE_TOKEN não configurado no sistema' 
+          error_message: 'Token Focus NFe não configurado. Configure o token da empresa nas Configurações > Notas Fiscais.' 
         })
         .eq('id', invoice.id);
       
-      throw new Error('FOCUS_NFE_TOKEN não configurado');
+      throw new Error('Token Focus NFe não configurado para esta empresa');
     }
 
-    // Debug: log token presence (not value)
+    // Debug: log token source
     console.log(`Focus NFe API call to: ${focusUrl}`);
-    console.log(`Token configured: ${FOCUS_NFE_TOKEN ? 'Yes (' + FOCUS_NFE_TOKEN.length + ' chars)' : 'No'}`);
+    console.log(`Token source: ${companyToken ? 'Company-specific' : 'Global fallback'} (${focusToken.length} chars)`);
     
     const focusResponse = await fetch(focusUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${btoa(FOCUS_NFE_TOKEN + ':')}`,
+        'Authorization': `Basic ${btoa(focusToken + ':')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(focusPayload),
