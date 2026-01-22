@@ -32,21 +32,7 @@ export function useManipulatedSaleItems(filters?: {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // First get sales IDs for this organization
-      const { data: orgSales, error: salesError } = await supabase
-        .from('sales')
-        .select('id')
-        .eq('organization_id', tenantId);
-
-      if (salesError) {
-        console.error('Error fetching org sales:', salesError);
-        throw salesError;
-      }
-
-      const saleIds = (orgSales || []).map(s => s.id);
-      if (saleIds.length === 0) return [];
-
-      // Build query for sale_items with those sale IDs
+      // Query sale_items directly - RLS will filter by organization automatically
       let query = supabase
         .from('sale_items')
         .select(`
@@ -60,7 +46,7 @@ export function useManipulatedSaleItems(filters?: {
           requisition_number,
           cost_cents,
           created_at,
-          sales (
+          sales!inner (
             id,
             created_at,
             status,
@@ -75,7 +61,6 @@ export function useManipulatedSaleItems(filters?: {
           )
         `)
         .not('requisition_number', 'is', null)
-        .in('sale_id', saleIds)
         .order('created_at', { ascending: false });
 
       // Apply cost filter at database level
@@ -86,6 +71,12 @@ export function useManipulatedSaleItems(filters?: {
       }
 
       const { data, error } = await query;
+
+      console.log('[ManipulatedCosts] Raw query result:', { 
+        count: data?.length,
+        error,
+        sample: data?.slice(0, 2)
+      });
 
       if (error) {
         console.error('Error fetching manipulated items:', error);
@@ -112,18 +103,25 @@ export function useManipulatedSaleItems(filters?: {
           : 'Vendedor não identificado',
       })) as ManipulatedSaleItem[];
 
-      // Apply date filter client-side
+      // Apply date filter client-side (only if dates are set)
       if (filters?.startDate) {
         const startDate = new Date(filters.startDate);
         startDate.setHours(0, 0, 0, 0);
-        items = items.filter(item => new Date(item.sale_created_at) >= startDate);
+        items = items.filter(item => {
+          if (!item.sale_created_at) return true; // Include items without date
+          return new Date(item.sale_created_at) >= startDate;
+        });
       }
       if (filters?.endDate) {
         const endDate = new Date(filters.endDate);
         endDate.setHours(23, 59, 59, 999);
-        items = items.filter(item => new Date(item.sale_created_at) <= endDate);
+        items = items.filter(item => {
+          if (!item.sale_created_at) return true; // Include items without date
+          return new Date(item.sale_created_at) <= endDate;
+        });
       }
 
+      console.log('[ManipulatedCosts] Final items count:', items.length);
       return items;
     },
     enabled: !!tenantId && enabled,
