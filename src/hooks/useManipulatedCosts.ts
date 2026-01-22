@@ -50,7 +50,7 @@ export function useManipulatedSaleItems(filters?: {
             created_at,
             status,
             organization_id,
-            leads!inner (
+            leads (
               name
             ),
             profiles:seller_id (
@@ -71,29 +71,39 @@ export function useManipulatedSaleItems(filters?: {
       const itemIds = (data || []).map((d: any) => d.id);
       
       // Get cost_cents using RPC (type cast to bypass TS restriction until types regenerate)
+      // Note: We need to handle NULL cost_cents separately from "not found"
       const { data: costsData } = await (supabase.rpc as any)('get_sale_items_costs', { item_ids: itemIds });
       
-      const costsMap = new Map((costsData as any[] || []).map((c: any) => [c.id, c.cost_cents]));
+      // Map id -> cost_cents, storing null values explicitly (cost not set)
+      const costsMap = new Map<string, number | null>();
+      (costsData as any[] || []).forEach((c: any) => {
+        costsMap.set(c.id, c.cost_cents);
+      });
 
       // Transform and filter by date
-      let items = (data || []).map((item: any) => ({
-        id: item.id,
-        sale_id: item.sale_id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        quantity: item.quantity,
-        unit_price_cents: item.unit_price_cents,
-        total_cents: item.total_cents,
-        requisition_number: item.requisition_number,
-        cost_cents: costsMap.get(item.id) ?? null,
-        created_at: item.created_at,
-        sale_created_at: item.sales?.created_at,
-        sale_status: item.sales?.status,
-        client_name: item.sales?.leads?.name || 'Cliente não identificado',
-        seller_name: item.sales?.profiles 
-          ? `${item.sales.profiles.first_name} ${item.sales.profiles.last_name}`
-          : 'Vendedor não identificado',
-      })) as ManipulatedSaleItem[];
+      let items = (data || []).map((item: any) => {
+        // Check if this item ID exists in costsMap (to distinguish "not found" from "null cost")
+        const costValue = costsMap.has(item.id) ? costsMap.get(item.id) : null;
+        
+        return {
+          id: item.id,
+          sale_id: item.sale_id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price_cents: item.unit_price_cents,
+          total_cents: item.total_cents,
+          requisition_number: item.requisition_number,
+          cost_cents: costValue,
+          created_at: item.created_at,
+          sale_created_at: item.sales?.created_at,
+          sale_status: item.sales?.status,
+          client_name: item.sales?.leads?.name || 'Cliente não identificado',
+          seller_name: item.sales?.profiles 
+            ? `${item.sales.profiles.first_name} ${item.sales.profiles.last_name}`
+            : 'Vendedor não identificado',
+        };
+      }) as ManipulatedSaleItem[];
 
       // Apply cost filter
       if (filters?.hasCost === 'with_cost') {

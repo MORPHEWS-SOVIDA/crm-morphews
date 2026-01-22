@@ -987,7 +987,8 @@ export default function Expedition() {
                             items={sale.items.map(i => ({
                               id: i.id,
                               product_name: i.product_name,
-                              quantity: i.quantity
+                              quantity: i.quantity,
+                              requisition_number: i.requisition_number
                             }))}
                             saleId={sale.id}
                             organizationId={organizationId}
