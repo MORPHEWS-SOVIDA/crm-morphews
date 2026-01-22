@@ -23,12 +23,6 @@ import {
   SelectTrigger,
   SelectValue 
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { 
   Send, 
   Search, 
@@ -294,7 +288,6 @@ export default function WhatsAppV2() {
   const [searchQuery, setSearchQuery] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [showChatList, setShowChatList] = useState(true);
-  const [showGlobalSettings, setShowGlobalSettings] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -387,7 +380,14 @@ export default function WhatsAppV2() {
   
   return (
     <Layout>
-      <div className="h-[calc(100vh-4rem)] lg:h-[calc(100vh-2rem)] flex flex-col">
+      <div className="flex flex-col min-h-0 h-full">
+        {/* Global AI Settings Section - sempre visível no topo */}
+        <div className="border-b bg-background">
+          <div className="p-4">
+            <WhatsAppAISettingsManager />
+          </div>
+        </div>
+        
         {/* Dashboard de Satisfação NPS */}
         <SatisfactionDashboard />
         
@@ -443,25 +443,8 @@ export default function WhatsAppV2() {
                 <Copy className="h-4 w-4" />
               </Button>
             )}
-            
-            <Button variant="outline" size="icon" onClick={() => setShowGlobalSettings(true)} title="Configurações Globais de IA">
-              <Settings className="h-4 w-4" />
-            </Button>
           </div>
         </div>
-        
-        {/* Global AI Settings Dialog */}
-        <Dialog open={showGlobalSettings} onOpenChange={setShowGlobalSettings}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5 text-primary" />
-                Configurações Globais de IA (WhatsApp)
-              </DialogTitle>
-            </DialogHeader>
-            <WhatsAppAISettingsManager />
-          </DialogContent>
-        </Dialog>
         
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
