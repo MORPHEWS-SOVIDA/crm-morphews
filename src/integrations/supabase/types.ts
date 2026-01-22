@@ -3813,6 +3813,102 @@ export type Database = {
           },
         ]
       }
+      onboarding_email_queue: {
+        Row: {
+          created_at: string | null
+          email: string
+          error_message: string | null
+          id: string
+          name: string | null
+          organization_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string | null
+          template_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          error_message?: string | null
+          id?: string
+          name?: string | null
+          organization_id?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          error_message?: string | null
+          id?: string
+          name?: string | null
+          organization_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_email_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_email_queue_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_email_templates: {
+        Row: {
+          body_html: string
+          body_text: string | null
+          created_at: string | null
+          day_offset: number
+          hours_offset: number
+          id: string
+          is_active: boolean | null
+          position: number | null
+          subject: string
+          updated_at: string | null
+        }
+        Insert: {
+          body_html: string
+          body_text?: string | null
+          created_at?: string | null
+          day_offset?: number
+          hours_offset?: number
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          subject: string
+          updated_at?: string | null
+        }
+        Update: {
+          body_html?: string
+          body_text?: string | null
+          created_at?: string | null
+          day_offset?: number
+          hours_offset?: number
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          subject?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       organization_energy: {
         Row: {
           bonus_energy: number
@@ -8948,6 +9044,15 @@ export type Database = {
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
         Returns: undefined
+      }
+      enqueue_onboarding_emails: {
+        Args: {
+          _email: string
+          _name?: string
+          _organization_id: string
+          _user_id: string
+        }
+        Returns: number
       }
       find_contact_by_phone: {
         Args: { _organization_id: string; _phone: string }
