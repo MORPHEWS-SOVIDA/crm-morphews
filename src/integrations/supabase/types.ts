@@ -3971,6 +3971,7 @@ export type Database = {
           receptive_module_enabled: boolean
           satisfaction_survey_enabled: boolean | null
           satisfaction_survey_message: string | null
+          satisfaction_survey_on_manual_close: boolean | null
           slug: string
           updated_at: string
           whatsapp_ai_learning_enabled: boolean
@@ -4000,6 +4001,7 @@ export type Database = {
           receptive_module_enabled?: boolean
           satisfaction_survey_enabled?: boolean | null
           satisfaction_survey_message?: string | null
+          satisfaction_survey_on_manual_close?: boolean | null
           slug: string
           updated_at?: string
           whatsapp_ai_learning_enabled?: boolean
@@ -4029,6 +4031,7 @@ export type Database = {
           receptive_module_enabled?: boolean
           satisfaction_survey_enabled?: boolean | null
           satisfaction_survey_message?: string | null
+          satisfaction_survey_on_manual_close?: boolean | null
           slug?: string
           updated_at?: string
           whatsapp_ai_learning_enabled?: boolean

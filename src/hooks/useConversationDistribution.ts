@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export type ConversationStatus = 'pending' | 'autodistributed' | 'assigned' | 'closed';
 
@@ -20,6 +21,22 @@ export interface ConversationAssignment {
  */
 export function useConversationDistribution() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  // Buscar configurações da organização para NPS
+  const { data: orgSettings } = useQuery({
+    queryKey: ["org-nps-settings", profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return null;
+      const { data } = await supabase
+        .from("organizations")
+        .select("satisfaction_survey_enabled, satisfaction_survey_on_manual_close, satisfaction_survey_message")
+        .eq("id", profile.organization_id)
+        .single();
+      return data;
+    },
+    enabled: !!profile?.organization_id,
+  });
 
   // Assumir conversa (claim) - funciona para pendente E autodistribuído
   const claimConversation = useMutation({
@@ -76,19 +93,80 @@ export function useConversationDistribution() {
     }
   });
 
-  // Encerrar conversa
+  // Encerrar conversa (com opção de enviar pesquisa NPS)
   const closeConversation = useMutation({
     mutationFn: async (conversationId: string) => {
+      // Verificar se deve enviar pesquisa NPS
+      const shouldSendSurvey = orgSettings?.satisfaction_survey_enabled && 
+                               orgSettings?.satisfaction_survey_on_manual_close;
+      
+      if (shouldSendSurvey) {
+        // Buscar dados da conversa para enviar a pesquisa
+        const { data: conv } = await supabase
+          .from("whatsapp_conversations")
+          .select("instance_id, phone_number, lead_id, assigned_user_id")
+          .eq("id", conversationId)
+          .single();
+        
+        if (conv?.instance_id && conv?.phone_number) {
+          // Enviar mensagem de pesquisa via edge function
+          const surveyMessage = orgSettings?.satisfaction_survey_message || 
+            "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏";
+          
+          await supabase.functions.invoke("evolution-send-message", {
+            body: {
+              instanceId: conv.instance_id,
+              to: conv.phone_number,
+              message: surveyMessage,
+            },
+          });
+          
+          // Atualizar conversa para aguardar resposta
+          const now = new Date();
+          await supabase
+            .from("whatsapp_conversations")
+            .update({
+              status: "closed",
+              closed_at: now.toISOString(),
+              awaiting_satisfaction_response: true,
+              satisfaction_sent_at: now.toISOString(),
+            })
+            .eq("id", conversationId);
+          
+          // Criar registro na tabela de ratings
+          if (profile?.organization_id) {
+            await supabase
+              .from("conversation_satisfaction_ratings")
+              .insert({
+                organization_id: profile.organization_id,
+                instance_id: conv.instance_id,
+                conversation_id: conversationId,
+                lead_id: conv.lead_id,
+                assigned_user_id: conv.assigned_user_id,
+                closed_at: now.toISOString(),
+                is_pending_review: false,
+              });
+          }
+          
+          return { success: true, surveySent: true };
+        }
+      }
+
+      // Encerramento normal sem pesquisa
       const { data, error } = await supabase.rpc('close_whatsapp_conversation', {
         p_conversation_id: conversationId
       });
 
       if (error) throw error;
-      return data;
+      return { success: true, surveySent: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
-      toast.success('Atendimento encerrado!');
+      if (result?.surveySent) {
+        toast.success('Atendimento encerrado! Pesquisa de satisfação enviada.');
+      } else {
+        toast.success('Atendimento encerrado!');
+      }
     },
     onError: (error: any) => {
       toast.error(error.message || 'Erro ao encerrar conversa');

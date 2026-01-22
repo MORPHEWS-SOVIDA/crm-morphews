@@ -32,6 +32,7 @@ interface WhatsAppAISettings {
   auto_close_message_template: string;
   satisfaction_survey_enabled: boolean;
   satisfaction_survey_message: string;
+  satisfaction_survey_on_manual_close: boolean;
 }
 
 const DEFAULT_CLOSE_MESSAGE = "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊";
@@ -59,6 +60,7 @@ export function WhatsAppAISettingsManager() {
     auto_close_message_template: DEFAULT_CLOSE_MESSAGE,
     satisfaction_survey_enabled: false,
     satisfaction_survey_message: DEFAULT_SURVEY_MESSAGE,
+    satisfaction_survey_on_manual_close: true,
   });
 
   const { data: orgSettings, isLoading } = useQuery({
@@ -85,7 +87,8 @@ export function WhatsAppAISettingsManager() {
           auto_close_send_message,
           auto_close_message_template,
           satisfaction_survey_enabled,
-          satisfaction_survey_message
+          satisfaction_survey_message,
+          satisfaction_survey_on_manual_close
         `)
         .eq("id", profile.organization_id)
         .single();
@@ -116,6 +119,7 @@ export function WhatsAppAISettingsManager() {
         auto_close_message_template: orgSettings.auto_close_message_template || DEFAULT_CLOSE_MESSAGE,
         satisfaction_survey_enabled: orgSettings.satisfaction_survey_enabled ?? false,
         satisfaction_survey_message: orgSettings.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
+        satisfaction_survey_on_manual_close: orgSettings.satisfaction_survey_on_manual_close ?? true,
       });
     }
   }, [orgSettings]);
@@ -344,6 +348,23 @@ export function WhatsAppAISettingsManager() {
                   <p className="text-xs text-muted-foreground">
                     Esta mensagem é enviada APÓS a mensagem de encerramento (se houver).
                   </p>
+                  
+                  {/* Opção para enviar ao encerrar manualmente */}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div>
+                      <span className="text-sm">Enviar também ao encerrar manualmente</span>
+                      <p className="text-xs text-muted-foreground">
+                        Quando o atendente clicar em "Encerrar"
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={settings.satisfaction_survey_on_manual_close}
+                      onCheckedChange={(checked) => setSettings(prev => ({ 
+                        ...prev,
+                        satisfaction_survey_on_manual_close: checked
+                      }))}
+                    />
+                  </div>
                 </>
               )}
             </div>
