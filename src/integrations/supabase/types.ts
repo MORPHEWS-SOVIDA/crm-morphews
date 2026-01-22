@@ -1649,15 +1649,23 @@ export type Database = {
           default_cfop_internal: string | null
           default_cfop_interstate: string | null
           default_cst: string | null
+          default_nature_operation: string | null
           email: string | null
           focus_nfe_company_id: string | null
           id: string
           is_active: boolean | null
           is_primary: boolean | null
           municipal_registration: string | null
+          nfe_environment: string | null
+          nfe_last_number: number | null
+          nfe_serie: number | null
+          nfse_environment: string | null
+          nfse_last_number: number | null
           nfse_municipal_code: string | null
+          nfse_serie: number | null
           organization_id: string
           phone: string | null
+          presence_indicator: string | null
           state_registration: string | null
           tax_regime: string
           trade_name: string | null
@@ -1680,15 +1688,23 @@ export type Database = {
           default_cfop_internal?: string | null
           default_cfop_interstate?: string | null
           default_cst?: string | null
+          default_nature_operation?: string | null
           email?: string | null
           focus_nfe_company_id?: string | null
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
           municipal_registration?: string | null
+          nfe_environment?: string | null
+          nfe_last_number?: number | null
+          nfe_serie?: number | null
+          nfse_environment?: string | null
+          nfse_last_number?: number | null
           nfse_municipal_code?: string | null
+          nfse_serie?: number | null
           organization_id: string
           phone?: string | null
+          presence_indicator?: string | null
           state_registration?: string | null
           tax_regime?: string
           trade_name?: string | null
@@ -1711,15 +1727,23 @@ export type Database = {
           default_cfop_internal?: string | null
           default_cfop_interstate?: string | null
           default_cst?: string | null
+          default_nature_operation?: string | null
           email?: string | null
           focus_nfe_company_id?: string | null
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
           municipal_registration?: string | null
+          nfe_environment?: string | null
+          nfe_last_number?: number | null
+          nfe_serie?: number | null
+          nfse_environment?: string | null
+          nfse_last_number?: number | null
           nfse_municipal_code?: string | null
+          nfse_serie?: number | null
           organization_id?: string
           phone?: string | null
+          presence_indicator?: string | null
           state_registration?: string | null
           tax_regime?: string
           trade_name?: string | null

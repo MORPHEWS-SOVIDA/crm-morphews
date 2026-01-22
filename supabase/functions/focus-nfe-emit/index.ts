@@ -6,8 +6,8 @@ const corsHeaders = {
 };
 
 const FOCUS_NFE_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
-const FOCUS_NFE_BASE_URL = 'https://api.focusnfe.com.br/v2';
-// For testing: const FOCUS_NFE_BASE_URL = 'https://homologacao.focusnfe.com.br/v2';
+const FOCUS_NFE_PRODUCTION_URL = 'https://api.focusnfe.com.br/v2';
+const FOCUS_NFE_HOMOLOGACAO_URL = 'https://homologacao.focusnfe.com.br/v2';
 
 interface EmitRequest {
   sale_id: string;
@@ -151,20 +151,40 @@ Deno.serve(async (req) => {
     const isInterstate = customerState && customerState !== fiscalCompany.address_state;
     const cfop = isInterstate ? fiscalCompany.default_cfop_interstate : fiscalCompany.default_cfop_internal;
 
+    // Get environment and next invoice number
+    const environment = invoice_type === 'nfe' 
+      ? (fiscalCompany.nfe_environment || 'homologacao')
+      : (fiscalCompany.nfse_environment || 'homologacao');
+    
+    const serie = invoice_type === 'nfe'
+      ? (fiscalCompany.nfe_serie || 1)
+      : (fiscalCompany.nfse_serie || 1);
+
+    const lastNumber = invoice_type === 'nfe'
+      ? (fiscalCompany.nfe_last_number || 0)
+      : (fiscalCompany.nfse_last_number || 0);
+    
+    const nextNumber = lastNumber + 1;
+
+    // Select base URL based on environment
+    const focusBaseUrl = environment === 'producao' 
+      ? FOCUS_NFE_PRODUCTION_URL 
+      : FOCUS_NFE_HOMOLOGACAO_URL;
+
     // Build Focus NFe payload
     let focusPayload: any;
 
     if (invoice_type === 'nfe') {
-      focusPayload = buildNFePayload(sale, fiscalCompany, cfop, focusRef);
+      focusPayload = buildNFePayload(sale, fiscalCompany, cfop, focusRef, serie, nextNumber);
     } else {
-      focusPayload = buildNFSePayload(sale, fiscalCompany, focusRef);
+      focusPayload = buildNFSePayload(sale, fiscalCompany, focusRef, serie, nextNumber);
     }
 
-    console.log('Sending to Focus NFe:', JSON.stringify(focusPayload, null, 2));
+    console.log(`Sending to Focus NFe (${environment}):`, JSON.stringify(focusPayload, null, 2));
 
     // Send to Focus NFe API
     const endpoint = invoice_type === 'nfe' ? '/nfe' : '/nfse';
-    const focusResponse = await fetch(`${FOCUS_NFE_BASE_URL}${endpoint}?ref=${focusRef}`, {
+    const focusResponse = await fetch(`${focusBaseUrl}${endpoint}?ref=${focusRef}`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${btoa(FOCUS_NFE_TOKEN + ':')}`,
@@ -193,6 +213,13 @@ Deno.serve(async (req) => {
       updateData.xml_url = focusResult.caminho_xml_nota_fiscal;
       updateData.pdf_url = focusResult.caminho_danfe;
       updateData.authorized_at = new Date().toISOString();
+
+      // Update last invoice number on fiscal company
+      const updateField = invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
+      await supabase
+        .from('fiscal_companies')
+        .update({ [updateField]: parseInt(focusResult.numero) || nextNumber })
+        .eq('id', fiscalCompany.id);
     }
     // Otherwise keep as 'processing' - webhook will update
 
@@ -227,7 +254,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function buildNFePayload(sale: any, company: any, cfop: string, ref: string) {
+function buildNFePayload(sale: any, company: any, cfop: string, ref: string, serie: number, numero: number) {
   const items = sale.items.map((item: any, index: number) => {
     const product = item.product || {};
     return {
@@ -251,12 +278,14 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string) {
   const totalValue = items.reduce((sum: number, item: any) => sum + parseFloat(item.valor_bruto), 0);
 
   return {
-    natureza_operacao: 'Venda de mercadorias',
+    numero: numero,
+    serie: serie,
+    natureza_operacao: company.default_nature_operation || 'Venda de mercadorias',
     forma_pagamento: '0', // à vista
     tipo_documento: '1', // saída
     finalidade_emissao: '1', // normal
     consumidor_final: '1',
-    presenca_comprador: '9', // não presencial (internet)
+    presenca_comprador: company.presence_indicator || '9', // indicador de presença
     nome_destinatario: sale.lead?.name || 'Consumidor',
     cpf_destinatario: sale.lead?.cpf?.replace(/\D/g, ''),
     email_destinatario: sale.lead?.email,
@@ -277,7 +306,7 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string) {
   };
 }
 
-function buildNFSePayload(sale: any, company: any, ref: string) {
+function buildNFSePayload(sale: any, company: any, ref: string, serie: number, numero: number) {
   const totalValue = sale.items.reduce((sum: number, item: any) => {
     return sum + (item.quantity * item.unit_price_cents) / 100;
   }, 0);
@@ -287,6 +316,8 @@ function buildNFSePayload(sale: any, company: any, ref: string) {
     .join('; ');
 
   return {
+    numero: numero,
+    serie: serie,
     razao_social_prestador: company.company_name,
     cnpj_prestador: company.cnpj,
     inscricao_municipal_prestador: company.municipal_registration,
