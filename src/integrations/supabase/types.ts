@@ -9303,6 +9303,17 @@ export type Database = {
         Args: { p_days?: number; p_organization_id: string }
         Returns: Json
       }
+      get_payment_reminder_logs: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          organization_id: string
+          reminder_type: string
+          sent_at: string
+          sent_to: string
+        }[]
+      }
       get_sale_items_costs: {
         Args: { item_ids: string[] }
         Returns: {
