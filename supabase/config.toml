@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.focus-nfe-status]
 verify_jwt = false
+
+[functions.focus-nfe-register-hooks]
+verify_jwt = false

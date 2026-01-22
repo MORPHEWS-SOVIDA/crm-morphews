@@ -18,11 +18,23 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log('Focus NFe webhook received:', JSON.stringify(body, null, 2));
 
-    const { ref, status, numero, serie, chave_nfe, protocolo, caminho_xml_nota_fiscal, caminho_danfe, mensagem, codigo_verificacao } = body;
+    // Focus NFe v2 API sends different field names
+    // Try both v2 format (referencia) and legacy format (ref)
+    const ref = body.ref || body.referencia;
+    const status = body.status || body.situacao;
+    const numero = body.numero;
+    const serie = body.serie;
+    const chave_nfe = body.chave_nfe || body.chave;
+    const protocolo = body.protocolo || body.numero_protocolo;
+    const caminho_xml_nota_fiscal = body.caminho_xml_nota_fiscal || body.url_xml;
+    const caminho_danfe = body.caminho_danfe || body.url_danfe || body.url_pdf;
+    const mensagem = body.mensagem || body.mensagem_sefaz;
+    const codigo_verificacao = body.codigo_verificacao;
+    const erros = body.erros;
 
     if (!ref) {
-      console.error('No ref in webhook payload');
-      return new Response(JSON.stringify({ error: 'ref is required' }), {
+      console.error('No ref/referencia in webhook payload:', body);
+      return new Response(JSON.stringify({ error: 'ref/referencia is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -45,12 +57,13 @@ Deno.serve(async (req) => {
 
     // Map Focus status to our status
     let newStatus = invoice.status;
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       focus_nfe_response: body,
     };
 
     switch (status) {
       case 'autorizado':
+      case 'autorizada':
         newStatus = 'authorized';
         updateData.invoice_number = numero;
         updateData.invoice_series = serie;
@@ -63,17 +76,21 @@ Deno.serve(async (req) => {
         break;
 
       case 'cancelado':
+      case 'cancelada':
         newStatus = 'cancelled';
         updateData.cancelled_at = new Date().toISOString();
         break;
 
       case 'erro_autorizacao':
       case 'erro_validacao':
+      case 'rejeitada':
+      case 'erro':
         newStatus = 'rejected';
-        updateData.error_message = mensagem || body.erros?.join(', ') || 'Erro na autorização';
+        updateData.error_message = mensagem || (erros ? erros.join(', ') : null) || 'Erro na autorização';
         break;
 
       case 'processando_autorizacao':
+      case 'processando':
         newStatus = 'processing';
         break;
     }
