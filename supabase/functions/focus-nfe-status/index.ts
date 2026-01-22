@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const FOCUS_NFE_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
+const FOCUS_NFE_GLOBAL_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
 const FOCUS_NFE_BASE_URL = 'https://api.focusnfe.com.br/v2';
 
 Deno.serve(async (req) => {
@@ -46,10 +46,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get invoice
+    // Get invoice with fiscal company
     const { data: invoice, error: invoiceError } = await supabase
       .from('fiscal_invoices')
-      .select('*')
+      .select(`
+        *,
+        fiscal_company:fiscal_companies(
+          id,
+          cnpj,
+          nfe_environment,
+          nfse_environment,
+          focus_nfe_token_homologacao,
+          focus_nfe_token_producao
+        )
+      `)
       .eq('id', invoice_id)
       .single();
 
@@ -60,12 +70,41 @@ Deno.serve(async (req) => {
       });
     }
 
+    const fiscalCompany = invoice.fiscal_company;
+    if (!fiscalCompany) {
+      return new Response(JSON.stringify({ error: 'Empresa fiscal não encontrada' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Determine environment based on invoice type
+    const environment = invoice.invoice_type === 'nfse' 
+      ? fiscalCompany.nfse_environment 
+      : fiscalCompany.nfe_environment;
+    
+    // Select token based on environment
+    const companyToken = environment === 'producao' 
+      ? fiscalCompany.focus_nfe_token_producao 
+      : fiscalCompany.focus_nfe_token_homologacao;
+    
+    const focusToken = companyToken || FOCUS_NFE_GLOBAL_TOKEN;
+    
+    if (!focusToken) {
+      return new Response(JSON.stringify({ 
+        error: `Token Focus NFe não configurado para ambiente de ${environment === 'producao' ? 'produção' : 'homologação'}` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Query Focus NFe for status
     const endpoint = invoice.invoice_type === 'nfe' ? '/nfe' : '/nfse';
     const focusResponse = await fetch(`${FOCUS_NFE_BASE_URL}${endpoint}/${invoice.focus_nfe_ref}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${btoa(FOCUS_NFE_TOKEN + ':')}`,
+        'Authorization': `Basic ${btoa(focusToken + ':')}`,
       },
     });
 
@@ -73,7 +112,7 @@ Deno.serve(async (req) => {
     console.log('Focus NFe status response:', focusResult);
 
     // Update invoice with current status
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       focus_nfe_response: focusResult,
     };
 
@@ -97,6 +136,10 @@ Deno.serve(async (req) => {
     } else if (focusResult.status === 'erro_autorizacao' || focusResult.status === 'erro_validacao') {
       updateData.status = 'rejected';
       updateData.error_message = focusResult.mensagem || focusResult.erros?.join(', ');
+    } else if (focusResult.codigo === 'nao_encontrado') {
+      // Mark as rejected if not found in Focus NFe
+      updateData.status = 'rejected';
+      updateData.error_message = 'Nota não encontrada no Focus NFe. Pode ter sido criada com token incorreto.';
     }
 
     await supabase
@@ -107,7 +150,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       status: updateData.status || invoice.status,
-      focus_status: focusResult.status,
+      focus_status: focusResult.status || focusResult.codigo,
+      message: focusResult.mensagem,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
