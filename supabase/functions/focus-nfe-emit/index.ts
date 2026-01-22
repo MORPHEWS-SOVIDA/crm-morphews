@@ -238,20 +238,39 @@ Deno.serve(async (req) => {
     const isInterstate = customerState && customerState !== fiscalCompany.address_state;
     const cfop = isInterstate ? fiscalCompany.default_cfop_interstate : fiscalCompany.default_cfop_internal;
 
-    // Get environment and next invoice number
+    // Get environment and invoice number
     const environment = invoice_type === 'nfe' 
       ? (fiscalCompany.nfe_environment || 'homologacao')
       : (fiscalCompany.nfse_environment || 'homologacao');
     
-    const serie = invoice_type === 'nfe'
-      ? (fiscalCompany.nfe_serie || 1)
-      : (fiscalCompany.nfse_serie || 1);
-
-    const lastNumber = invoice_type === 'nfe'
-      ? (fiscalCompany.nfe_last_number || 0)
-      : (fiscalCompany.nfse_last_number || 0);
+    // Use reserved number from draft if available, otherwise calculate next
+    const draft = draft_data || invoice;
+    let invoiceNumber: number;
+    let serie: number;
     
-    const nextNumber = lastNumber + 1;
+    if (draft?.invoice_number && draft?.invoice_series) {
+      // Use the number reserved when draft was created
+      invoiceNumber = parseInt(draft.invoice_number, 10);
+      serie = parseInt(draft.invoice_series, 10);
+    } else {
+      // Fallback: calculate next number (legacy behavior)
+      serie = invoice_type === 'nfe'
+        ? (fiscalCompany.nfe_serie || 1)
+        : (fiscalCompany.nfse_serie || 1);
+
+      const lastNumber = invoice_type === 'nfe'
+        ? (fiscalCompany.nfe_last_number || 0)
+        : (fiscalCompany.nfse_last_number || 0);
+      
+      invoiceNumber = lastNumber + 1;
+      
+      // Update company's last number since we're using a new one
+      const updateField = invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
+      await supabase
+        .from('fiscal_companies')
+        .update({ [updateField]: invoiceNumber })
+        .eq('id', fiscalCompany.id);
+    }
 
     // Select base URL based on environment
     const focusBaseUrl = environment === 'producao' 
@@ -264,11 +283,9 @@ Deno.serve(async (req) => {
     if (invoice_type === 'nfe') {
       // Prefer using the invoice draft data (what user sees/edits) instead of sale/lead fallback.
       // This avoids sending incomplete recipient data and is required for Focus validation.
-      const draft = draft_data || invoice;
-      focusPayload = buildNFePayload(draft, sale, fiscalCompany, cfop, focusRef, serie, nextNumber);
+      focusPayload = buildNFePayload(draft, sale, fiscalCompany, cfop, focusRef, serie, invoiceNumber);
     } else {
-      const draft = draft_data || invoice;
-      focusPayload = buildNFSePayload(draft, sale, fiscalCompany, focusRef, serie, nextNumber);
+      focusPayload = buildNFSePayload(draft, sale, fiscalCompany, focusRef, serie, invoiceNumber);
     }
 
     console.log(`Sending to Focus NFe (${environment}):`, JSON.stringify(focusPayload, null, 2));
@@ -364,11 +381,12 @@ Deno.serve(async (req) => {
       updateData.pdf_url = focusResult.caminho_danfe;
       updateData.authorized_at = new Date().toISOString();
 
-      // Update last invoice number on fiscal company
+      // Update last invoice number on fiscal company (use authorized number from Focus)
       const updateField = invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
+      const authorizedNumber = parseInt(focusResult.numero) || invoiceNumber;
       await supabase
         .from('fiscal_companies')
-        .update({ [updateField]: parseInt(focusResult.numero) || nextNumber })
+        .update({ [updateField]: authorizedNumber })
         .eq('id', fiscalCompany.id);
     }
     // Otherwise keep as 'processing' - webhook/status polling will update
