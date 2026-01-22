@@ -3350,12 +3350,15 @@ export type Database = {
           depth_cm: number | null
           description: string | null
           fiscal_additional_info: string | null
+          fiscal_benefit_code: string | null
           fiscal_cest: string | null
           fiscal_cfop: string | null
           fiscal_cofins_fixed: number | null
           fiscal_company_id: string | null
           fiscal_cst: string | null
           fiscal_icms_base: number | null
+          fiscal_icms_fisco_info: string | null
+          fiscal_icms_info: string | null
           fiscal_icms_own_value: number | null
           fiscal_icms_st_base: number | null
           fiscal_icms_st_value: number | null
@@ -3412,12 +3415,15 @@ export type Database = {
           depth_cm?: number | null
           description?: string | null
           fiscal_additional_info?: string | null
+          fiscal_benefit_code?: string | null
           fiscal_cest?: string | null
           fiscal_cfop?: string | null
           fiscal_cofins_fixed?: number | null
           fiscal_company_id?: string | null
           fiscal_cst?: string | null
           fiscal_icms_base?: number | null
+          fiscal_icms_fisco_info?: string | null
+          fiscal_icms_info?: string | null
           fiscal_icms_own_value?: number | null
           fiscal_icms_st_base?: number | null
           fiscal_icms_st_value?: number | null
@@ -3474,12 +3480,15 @@ export type Database = {
           depth_cm?: number | null
           description?: string | null
           fiscal_additional_info?: string | null
+          fiscal_benefit_code?: string | null
           fiscal_cest?: string | null
           fiscal_cfop?: string | null
           fiscal_cofins_fixed?: number | null
           fiscal_company_id?: string | null
           fiscal_cst?: string | null
           fiscal_icms_base?: number | null
+          fiscal_icms_fisco_info?: string | null
+          fiscal_icms_info?: string | null
           fiscal_icms_own_value?: number | null
           fiscal_icms_st_base?: number | null
           fiscal_icms_st_value?: number | null

@@ -98,6 +98,10 @@ const formSchema = z.object({
   fiscal_cofins_fixed: z.coerce.number().min(0).nullable().optional(),
   // Additional info
   fiscal_additional_info: z.string().optional(),
+  // New ICMS fields
+  fiscal_benefit_code: z.string().optional(),
+  fiscal_icms_info: z.string().optional(),
+  fiscal_icms_fisco_info: z.string().optional(),
 });
 
 interface ProductFormProps {
@@ -1093,6 +1097,63 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                           {...field}
                           value={field.value ?? ''}
                           onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name="fiscal_benefit_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código do benefício fiscal na UF</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: SC12345678" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Código do benefício fiscal aplicável (se houver)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name="fiscal_icms_info"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Informações complementares do ICMS</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Informações complementares sobre o ICMS..."
+                          rows={2}
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="fiscal_icms_fisco_info"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Informações de interesse do fisco (ICMS)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Informações adicionais para o fisco..."
+                          rows={2}
+                          {...field} 
                         />
                       </FormControl>
                       <FormMessage />
