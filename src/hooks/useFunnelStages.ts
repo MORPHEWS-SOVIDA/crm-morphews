@@ -144,46 +144,27 @@ export function useReorderFunnelStages() {
 
   return useMutation({
     mutationFn: async (stages: { id: string; position: number }[]) => {
-      // Use a much larger offset to avoid any possible collision
-      const TEMP_OFFSET = -100000;
-      
-      // Step 1: Move all stages to very negative temporary positions
-      // Process sequentially to avoid race conditions
-      for (let i = 0; i < stages.length; i++) {
-        const { id } = stages[i];
-        const { error } = await supabase
-          .from('organization_funnel_stages')
-          .update({ position: TEMP_OFFSET - i })
-          .eq('id', id);
-        
-        if (error) {
-          console.error('Error setting temp position:', error);
-          throw error;
-        }
-      }
+      // Usar função RPC atômica para reordenação segura
+      // Isso garante que todas as atualizações ocorram em uma única transação
+      // Se qualquer parte falhar, tudo é revertido automaticamente
+      const { error } = await (supabase.rpc as any)('reorder_funnel_stages', {
+        p_stages: stages,
+      });
 
-      // Step 2: Now update to the final positions
-      // Process sequentially to ensure order is maintained
-      for (const { id, position } of stages) {
-        const { error } = await supabase
-          .from('organization_funnel_stages')
-          .update({ position })
-          .eq('id', id);
-        
-        if (error) {
-          console.error('Error setting final position:', error);
-          throw error;
-        }
+      if (error) {
+        console.error('Error reordering stages:', error);
+        throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['funnel-stages'] });
+      toast({ title: 'Etapas reordenadas com sucesso!' });
     },
     onError: (error: any) => {
       queryClient.invalidateQueries({ queryKey: ['funnel-stages'] });
       toast({
         title: 'Erro ao reordenar etapas',
-        description: error.message,
+        description: 'Tente novamente. Se o problema persistir, atualize a página.',
         variant: 'destructive',
       });
     },

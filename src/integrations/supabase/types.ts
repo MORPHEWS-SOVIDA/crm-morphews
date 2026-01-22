@@ -10281,6 +10281,7 @@ export type Database = {
         Args: { p_conversation_id: string; p_instance_id: string }
         Returns: Json
       }
+      reorder_funnel_stages: { Args: { p_stages: Json }; Returns: boolean }
       reserve_stock_for_sale: { Args: { _sale_id: string }; Returns: undefined }
       restore_stock_for_cancelled_delivered_sale: {
         Args: { _sale_id: string }
