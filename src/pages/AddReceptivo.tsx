@@ -94,6 +94,8 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { useUpdateLead } from '@/hooks/useLeads';
 import { FollowupDateTimeEditor } from '@/components/leads/FollowupDateTimeEditor';
+import { QuickFollowupDialog } from '@/components/receptive/QuickFollowupDialog';
+
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
 interface LeadData {
@@ -282,6 +284,9 @@ export default function AddReceptivo() {
   // Lead transfer dialog state
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [existingLeadForTransfer, setExistingLeadForTransfer] = useState<ExistingLeadWithOwner | null>(null);
+  
+  // Quick followup dialog state
+  const [showQuickFollowupDialog, setShowQuickFollowupDialog] = useState(false);
 
   const currentProduct = products.find(p => p.id === currentProductId);
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
@@ -1596,9 +1601,25 @@ export default function AddReceptivo() {
                     </Button>
                   )}
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowQuickFollowupDialog(true)}
+                    disabled={!leadData.name.trim() || isCreatingLead}
+                  >
+                    Sem Interesse
+                  </Button>
+                  <Button 
+                    onClick={handleGoToConversation} 
+                    disabled={!leadData.name.trim() || isCreatingLead}
+                  >
+                    {isCreatingLead && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Continuar
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {renderNavButtons(undefined, handleGoToConversation)}
                 <Separator />
 
                 {/* Stage & Stars for existing leads */}
@@ -1697,7 +1718,23 @@ export default function AddReceptivo() {
                 </div>
 
                 <Separator />
-                {renderNavButtons(undefined, handleGoToConversation, !leadData.name.trim(), isCreatingLead ? 'Criando...' : 'Continuar', isCreatingLead)}
+                <div className="flex justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowQuickFollowupDialog(true)}
+                    disabled={!leadData.name.trim() || isCreatingLead}
+                  >
+                    Sem Interesse
+                  </Button>
+                  <Button 
+                    onClick={handleGoToConversation} 
+                    disabled={!leadData.name.trim() || isCreatingLead}
+                  >
+                    {isCreatingLead && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {isCreatingLead ? 'Criando...' : 'Continuar'}
+                    {!isCreatingLead && <ArrowRight className="w-4 h-4 ml-2" />}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -2575,26 +2612,121 @@ export default function AddReceptivo() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Summary */}
-                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/30 space-y-2 text-sm">
+                {/* Editable Summary */}
+                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/30 space-y-3 text-sm">
                   {offerItems.map((item, index) => {
                     const isKitBased = ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(item.productCategory);
                     const itemTotal = isKitBased ? item.unitPriceCents : (item.unitPriceCents * item.quantity);
                     return (
-                      <div key={index} className="flex justify-between">
-                        <span>{item.quantity}x {item.productName}</span>
-                        <span className="font-medium">{formatPrice(itemTotal)}</span>
+                      <div key={index} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                if (item.quantity > 1) {
+                                  setOfferItems(prev => prev.map((it, i) => 
+                                    i === index ? { ...it, quantity: it.quantity - 1 } : it
+                                  ));
+                                }
+                              }}
+                              disabled={item.quantity <= 1}
+                            >
+                              <span className="text-lg">−</span>
+                            </Button>
+                            <span className="w-6 text-center font-medium">{item.quantity}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                setOfferItems(prev => prev.map((it, i) => 
+                                  i === index ? { ...it, quantity: it.quantity + 1 } : it
+                                ));
+                              }}
+                            >
+                              <span className="text-lg">+</span>
+                            </Button>
+                          </div>
+                          <span className="truncate">{item.productName}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{formatPrice(itemTotal)}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveFromOffer(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
                   
                   {currentUnitPrice > 0 && currentProduct && (
-                    <div className="flex justify-between">
-                      <span>{currentQuantity}x {currentProduct.name}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              if (currentQuantity > 1) {
+                                setManipuladoQuantity(prev => prev - 1);
+                              }
+                            }}
+                            disabled={currentQuantity <= 1}
+                          >
+                            <span className="text-lg">−</span>
+                          </Button>
+                          <span className="w-6 text-center font-medium">{currentQuantity}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              setManipuladoQuantity(prev => prev + 1);
+                            }}
+                          >
+                            <span className="text-lg">+</span>
+                          </Button>
+                        </div>
+                        <span className="truncate">{currentProduct.name}</span>
+                      </div>
                       <span className="font-medium">{formatPrice(currentProductSubtotal)}</span>
                     </div>
                   )}
                   
+                  <Separator />
+                  
+                  {/* Discount Section */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Desconto</Label>
+                    <div className="flex gap-2">
+                      <Select value={discountType} onValueChange={(v) => setDiscountType(v as 'percentage' | 'fixed')}>
+                        <SelectTrigger className="w-24 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">R$</SelectItem>
+                          <SelectItem value="percentage">%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        value={discountValue || ''}
+                        onChange={(e) => setDiscountValue(Number(e.target.value))}
+                        placeholder="0"
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex justify-between">
                     <span>Entrega</span>
                     <span className="font-medium capitalize">{deliveryConfig.type}</span>
@@ -2618,7 +2750,12 @@ export default function AddReceptivo() {
                   <Separator />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span className="text-green-600">{formatPrice(total)}</span>
+                    <div className="text-right">
+                      <span className="text-green-600">{formatPrice(total)}</span>
+                      <p className="text-sm font-normal text-muted-foreground">
+                        ou 12x de {formatPrice(Math.round(total / 10))}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Sua comissão ({myCommission?.commissionPercentage || 0}%)</span>
@@ -2636,6 +2773,20 @@ export default function AddReceptivo() {
                       ⚠️ Com desconto aplicado, a comissão é calculada pela taxa padrão
                     </p>
                   )}
+                </div>
+
+                {/* Delivery Observation */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Truck className="w-4 h-4" />
+                    Observação para Entrega
+                  </Label>
+                  <Textarea
+                    value={deliveryObservation}
+                    onChange={(e) => setDeliveryObservation(e.target.value)}
+                    placeholder="Ex: Entregar após as 18h, portaria do prédio..."
+                    rows={2}
+                  />
                 </div>
 
                 <Button 
@@ -2791,6 +2942,21 @@ export default function AddReceptivo() {
         existingLead={existingLeadForTransfer}
         reason="receptivo"
         onTransferComplete={handleTransferComplete}
+      />
+
+      {/* Quick Followup Dialog */}
+      <QuickFollowupDialog
+        open={showQuickFollowupDialog}
+        onOpenChange={setShowQuickFollowupDialog}
+        reasons={nonPurchaseReasons}
+        onSelectReason={async (reasonId, followupDate) => {
+          // Set a default purchase potential if none is set
+          if (purchasePotential <= 0) {
+            setPurchasePotential(0);
+          }
+          await confirmReasonSelection(reasonId, followupDate || null);
+        }}
+        isSaving={isSaving}
       />
     </Layout>
   );
