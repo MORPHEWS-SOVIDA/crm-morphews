@@ -77,12 +77,27 @@ const formSchema = z.object({
   gtin_tax: z.string().optional(),
   // Fiscal fields
   fiscal_ncm: z.string().optional(),
+  fiscal_cest: z.string().optional(),
   fiscal_cfop: z.string().optional(),
   fiscal_cst: z.string().optional(),
   fiscal_origin: z.coerce.number().min(0).max(8).optional(),
   fiscal_product_type: z.string().optional(),
+  fiscal_item_type: z.string().optional(),
+  fiscal_tax_percentage: z.coerce.number().min(0).max(100).nullable().optional(),
   fiscal_lc116_code: z.string().optional(),
   fiscal_iss_aliquota: z.coerce.number().min(0).max(100).nullable().optional(),
+  // ICMS fields
+  fiscal_icms_base: z.coerce.number().min(0).nullable().optional(),
+  fiscal_icms_st_base: z.coerce.number().min(0).nullable().optional(),
+  fiscal_icms_st_value: z.coerce.number().min(0).nullable().optional(),
+  fiscal_icms_own_value: z.coerce.number().min(0).nullable().optional(),
+  // IPI field
+  fiscal_ipi_exception_code: z.string().optional(),
+  // PIS/COFINS fields
+  fiscal_pis_fixed: z.coerce.number().min(0).nullable().optional(),
+  fiscal_cofins_fixed: z.coerce.number().min(0).nullable().optional(),
+  // Additional info
+  fiscal_additional_info: z.string().optional(),
 });
 
 interface ProductFormProps {
@@ -184,12 +199,23 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       gtin_tax: product?.gtin_tax || '',
       // Fiscal fields
       fiscal_ncm: (product as any)?.fiscal_ncm || '',
+      fiscal_cest: (product as any)?.fiscal_cest || '',
       fiscal_cfop: (product as any)?.fiscal_cfop || '',
       fiscal_cst: (product as any)?.fiscal_cst || '',
       fiscal_origin: (product as any)?.fiscal_origin ?? 0,
       fiscal_product_type: (product as any)?.fiscal_product_type || 'product',
+      fiscal_item_type: (product as any)?.fiscal_item_type || '',
+      fiscal_tax_percentage: (product as any)?.fiscal_tax_percentage || null,
       fiscal_lc116_code: (product as any)?.fiscal_lc116_code || '',
       fiscal_iss_aliquota: (product as any)?.fiscal_iss_aliquota || null,
+      fiscal_icms_base: (product as any)?.fiscal_icms_base || null,
+      fiscal_icms_st_base: (product as any)?.fiscal_icms_st_base || null,
+      fiscal_icms_st_value: (product as any)?.fiscal_icms_st_value || null,
+      fiscal_icms_own_value: (product as any)?.fiscal_icms_own_value || null,
+      fiscal_ipi_exception_code: (product as any)?.fiscal_ipi_exception_code || '',
+      fiscal_pis_fixed: (product as any)?.fiscal_pis_fixed || null,
+      fiscal_cofins_fixed: (product as any)?.fiscal_cofins_fixed || null,
+      fiscal_additional_info: (product as any)?.fiscal_additional_info || '',
     },
   });
 
@@ -832,9 +858,45 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
               <FileText className="h-5 w-5" />
               Dados Fiscais (Nota Fiscal)
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Preencha somente se for emitir nota fiscal.
+            </p>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {/* Linha 1: Origem, NCM, CEST */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="fiscal_origin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Origem</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(Number(v))}
+                      value={String(field.value ?? 0)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">0 - Nacional, exceto códigos 3, 4, 5 e 8</SelectItem>
+                        <SelectItem value="1">1 - Estrangeira - Importação direta</SelectItem>
+                        <SelectItem value="2">2 - Estrangeira - Adquirida mercado interno</SelectItem>
+                        <SelectItem value="3">3 - Nacional (40-70% conteúdo importação)</SelectItem>
+                        <SelectItem value="4">4 - Nacional (PPB)</SelectItem>
+                        <SelectItem value="5">5 - Nacional (&lt;40% conteúdo importação)</SelectItem>
+                        <SelectItem value="6">6 - Estrangeira - Importação s/ similar CAMEX</SelectItem>
+                        <SelectItem value="7">7 - Estrangeira - Mercado interno s/ similar CAMEX</SelectItem>
+                        <SelectItem value="8">8 - Nacional (&gt;70% conteúdo importação)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="fiscal_ncm"
@@ -845,7 +907,88 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                       <Input placeholder="00000000" maxLength={8} {...field} />
                     </FormControl>
                     <FormDescription>
-                      Nomenclatura Comum do Mercosul (8 dígitos)
+                      Nomenclatura Comum do Mercosul
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="fiscal_cest"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CEST</FormLabel>
+                    <FormControl>
+                      <Input placeholder="0000000" maxLength={7} {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Cód. Especificador Substituição Tributária
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Linha 2: Tipo do item, % Tributos, CFOP, CST */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <FormField
+                control={form.control}
+                name="fiscal_item_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo do Item</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || ''}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="revenda">Mercadoria para Revenda</SelectItem>
+                        <SelectItem value="materia_prima">Matéria-Prima</SelectItem>
+                        <SelectItem value="embalagem">Embalagem</SelectItem>
+                        <SelectItem value="em_processo">Produto em Processo</SelectItem>
+                        <SelectItem value="acabado">Produto Acabado</SelectItem>
+                        <SelectItem value="subproduto">Subproduto</SelectItem>
+                        <SelectItem value="intermediario">Produto Intermediário</SelectItem>
+                        <SelectItem value="uso_consumo">Material de Uso e Consumo</SelectItem>
+                        <SelectItem value="ativo">Ativo Imobilizado</SelectItem>
+                        <SelectItem value="servico">Serviços</SelectItem>
+                        <SelectItem value="outros_insumos">Outros Insumos</SelectItem>
+                        <SelectItem value="outras">Outras</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="fiscal_tax_percentage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>% Tributos</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        max="100" 
+                        placeholder="0"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      % aprox. tributos
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -879,7 +1022,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                       <Input placeholder="102" maxLength={4} {...field} />
                     </FormControl>
                     <FormDescription>
-                      Código Situação Tributária
+                      Situação Tributária
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -887,111 +1030,244 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="fiscal_origin"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Origem</FormLabel>
-                    <Select
-                      onValueChange={(v) => field.onChange(Number(v))}
-                      value={String(field.value ?? 0)}
-                    >
+            {/* ICMS Section */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3 text-sm text-muted-foreground">ICMS</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fiscal_icms_base"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor base ICMS ST - retenção</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
+                        <Input 
+                          type="number" 
+                          step="0.0001" 
+                          min="0" 
+                          placeholder="0,0000"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="0">0 - Nacional</SelectItem>
-                        <SelectItem value="1">1 - Importação direta</SelectItem>
-                        <SelectItem value="2">2 - Adquirida mercado interno</SelectItem>
-                        <SelectItem value="3">3 - Nacional (40-70% import)</SelectItem>
-                        <SelectItem value="4">4 - Nacional (PPB)</SelectItem>
-                        <SelectItem value="5">5 - Nacional (&lt;40% import)</SelectItem>
-                        <SelectItem value="6">6 - Importação s/ similar</SelectItem>
-                        <SelectItem value="7">7 - Import. merc. interno s/ similar</SelectItem>
-                        <SelectItem value="8">8 - Nacional (&gt;70% import)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="fiscal_product_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo Fiscal</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || 'product'}
-                    >
+                <FormField
+                  control={form.control}
+                  name="fiscal_icms_st_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor ICMS ST para retenção</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
+                        <Input 
+                          type="number" 
+                          step="0.0001" 
+                          min="0" 
+                          placeholder="0,0000"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="product">Produto (NF-e)</SelectItem>
-                        <SelectItem value="service">Serviço (NFS-e)</SelectItem>
-                        <SelectItem value="mixed">Misto (ambos)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Define o tipo de nota a emitir
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <FormField
+                  control={form.control}
+                  name="fiscal_icms_own_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor ICMS próprio do substituto</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.0001" 
+                          min="0" 
+                          placeholder="0,0000"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* IPI Section */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3 text-sm text-muted-foreground">IPI</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fiscal_ipi_exception_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código exceção da TIPI</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* PIS / COFINS Section */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3 text-sm text-muted-foreground">PIS / COFINS</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fiscal_pis_fixed"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor PIS fixo</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.0001" 
+                          min="0" 
+                          placeholder="0,0000"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="fiscal_cofins_fixed"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor COFINS fixo</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.0001" 
+                          min="0" 
+                          placeholder="0,0000"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Serviços Section */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3 text-sm text-muted-foreground">Serviços (NFS-e)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fiscal_product_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo Fiscal</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || 'product'}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="product">Produto (NF-e)</SelectItem>
+                          <SelectItem value="service">Serviço (NFS-e)</SelectItem>
+                          <SelectItem value="mixed">Misto (ambos)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="fiscal_lc116_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código LC 116</FormLabel>
+                      <FormControl>
+                        <Input placeholder="17.06" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Código do serviço
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="fiscal_iss_aliquota"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alíquota ISS (%)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          min="0" 
+                          max="100" 
+                          placeholder="5.00"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Dados Adicionais */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3 text-sm text-muted-foreground">Dados Adicionais</h4>
               <FormField
                 control={form.control}
-                name="fiscal_lc116_code"
+                name="fiscal_additional_info"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Código LC 116 (Serviço)</FormLabel>
+                    <FormLabel>Informações Adicionais</FormLabel>
                     <FormControl>
-                      <Input placeholder="17.06" {...field} />
+                      <Textarea 
+                        placeholder="Informações adicionais que serão incluídas na nota fiscal..."
+                        rows={3}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormDescription>
-                      Para NFS-e
+                      Texto a ser incluído nas informações complementares da NF
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="fiscal_iss_aliquota"
-              render={({ field }) => (
-                <FormItem className="max-w-[200px]">
-                  <FormLabel>Alíquota ISS (%)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      step="0.01" 
-                      min="0" 
-                      max="100" 
-                      placeholder="5.00"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Para notas de serviço
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </CardContent>
         </Card>
 
