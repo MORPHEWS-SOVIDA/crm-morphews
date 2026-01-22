@@ -371,18 +371,24 @@ export function useRegisterWebhooks() {
       });
 
       if (error) throw error;
+      
+      // Check for specific Focus NFe errors
       if (!data?.success) {
-        throw new Error(data?.results?.[0]?.error || 'Falha ao registrar webhooks');
+        const firstResult = data?.results?.[0];
+        if (firstResult?.data?.codigo === 'permissao_negada') {
+          throw new Error('CNPJ não autorizado no Focus NFe. Entre em contato com o suporte para liberar a empresa na API.');
+        }
+        throw new Error(firstResult?.error || firstResult?.data?.mensagem || 'Falha ao homologar empresa');
       }
 
       return data;
     },
     onSuccess: () => {
-      toast({ title: 'Webhooks registrados com sucesso!' });
+      toast({ title: 'Empresa homologada com sucesso!', description: 'A empresa está pronta para emitir notas fiscais.' });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Erro ao registrar webhooks',
+        title: 'Erro ao homologar empresa',
         description: error.message,
         variant: 'destructive',
       });
