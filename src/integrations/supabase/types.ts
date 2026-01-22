@@ -3954,6 +3954,14 @@ export type Database = {
       }
       organizations: {
         Row: {
+          auto_close_assigned_minutes: number | null
+          auto_close_bot_minutes: number | null
+          auto_close_business_end: string | null
+          auto_close_business_start: string | null
+          auto_close_enabled: boolean | null
+          auto_close_message_template: string | null
+          auto_close_only_business_hours: boolean | null
+          auto_close_send_message: boolean | null
           created_at: string
           id: string
           name: string
@@ -3961,6 +3969,8 @@ export type Database = {
           owner_name: string | null
           phone: string | null
           receptive_module_enabled: boolean
+          satisfaction_survey_enabled: boolean | null
+          satisfaction_survey_message: string | null
           slug: string
           updated_at: string
           whatsapp_ai_learning_enabled: boolean
@@ -3973,6 +3983,14 @@ export type Database = {
           whatsapp_sender_name_prefix_enabled: boolean
         }
         Insert: {
+          auto_close_assigned_minutes?: number | null
+          auto_close_bot_minutes?: number | null
+          auto_close_business_end?: string | null
+          auto_close_business_start?: string | null
+          auto_close_enabled?: boolean | null
+          auto_close_message_template?: string | null
+          auto_close_only_business_hours?: boolean | null
+          auto_close_send_message?: boolean | null
           created_at?: string
           id?: string
           name: string
@@ -3980,6 +3998,8 @@ export type Database = {
           owner_name?: string | null
           phone?: string | null
           receptive_module_enabled?: boolean
+          satisfaction_survey_enabled?: boolean | null
+          satisfaction_survey_message?: string | null
           slug: string
           updated_at?: string
           whatsapp_ai_learning_enabled?: boolean
@@ -3992,6 +4012,14 @@ export type Database = {
           whatsapp_sender_name_prefix_enabled?: boolean
         }
         Update: {
+          auto_close_assigned_minutes?: number | null
+          auto_close_bot_minutes?: number | null
+          auto_close_business_end?: string | null
+          auto_close_business_start?: string | null
+          auto_close_enabled?: boolean | null
+          auto_close_message_template?: string | null
+          auto_close_only_business_hours?: boolean | null
+          auto_close_send_message?: boolean | null
           created_at?: string
           id?: string
           name?: string
@@ -3999,6 +4027,8 @@ export type Database = {
           owner_name?: string | null
           phone?: string | null
           receptive_module_enabled?: boolean
+          satisfaction_survey_enabled?: boolean | null
+          satisfaction_survey_message?: string | null
           slug?: string
           updated_at?: string
           whatsapp_ai_learning_enabled?: boolean
