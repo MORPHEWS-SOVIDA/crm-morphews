@@ -787,6 +787,47 @@ export type Database = {
           },
         ]
       }
+      correios_enabled_services: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          position: number
+          service_code: string
+          service_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          position?: number
+          service_code: string
+          service_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          position?: number
+          service_code?: string
+          service_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correios_enabled_services_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       correios_labels: {
         Row: {
           api_response: Json | null
@@ -900,6 +941,53 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      correios_quote_cache: {
+        Row: {
+          cached_at: string
+          delivery_days: number | null
+          destination_cep: string
+          expires_at: string
+          id: string
+          organization_id: string
+          origin_cep: string
+          price_cents: number
+          service_code: string
+          weight_grams: number
+        }
+        Insert: {
+          cached_at?: string
+          delivery_days?: number | null
+          destination_cep: string
+          expires_at?: string
+          id?: string
+          organization_id: string
+          origin_cep: string
+          price_cents: number
+          service_code: string
+          weight_grams: number
+        }
+        Update: {
+          cached_at?: string
+          delivery_days?: number | null
+          destination_cep?: string
+          expires_at?: string
+          id?: string
+          organization_id?: string
+          origin_cep?: string
+          price_cents?: number
+          service_code?: string
+          weight_grams?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correios_quote_cache_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

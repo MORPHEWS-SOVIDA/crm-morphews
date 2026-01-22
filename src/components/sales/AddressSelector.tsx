@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLeadAddresses, LeadAddress } from '@/hooks/useLeadAddresses';
 import { useActiveDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { LeadAddressForm } from '@/components/leads/LeadAddressForm';
+import { ShippingQuoteButton } from '@/components/shipping/ShippingQuoteButton';
 import { cn } from '@/lib/utils';
 
 interface AddressSelectorProps {
@@ -129,10 +130,15 @@ export function AddressSelector({ leadId, value, onChange }: AddressSelectorProp
   return (
     <>
       <div className="space-y-2">
-        <Label className="flex items-center gap-2">
-          <MapPin className="w-4 h-4" />
-          Endereço de Entrega
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Endereço de Entrega
+          </Label>
+          {selectedAddress?.cep && (
+            <ShippingQuoteButton cep={selectedAddress.cep} size="sm" />
+          )}
+        </div>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button

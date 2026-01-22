@@ -15,6 +15,7 @@ import {
   useTestCorreiosConnection,
   useCorreiosServices,
 } from '@/hooks/useCorreiosIntegration';
+import { ShippingServicesConfig } from '@/components/shipping/ShippingServicesConfig';
 
 interface CorreiosConfigDialogProps {
   open: boolean;
@@ -155,10 +156,11 @@ export function CorreiosConfigDialog({ open, onOpenChange }: CorreiosConfigDialo
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="credentials">Credenciais</TabsTrigger>
             <TabsTrigger value="sender">Remetente</TabsTrigger>
             <TabsTrigger value="defaults">Padrões</TabsTrigger>
+            <TabsTrigger value="services">Serviços</TabsTrigger>
           </TabsList>
 
           <TabsContent value="credentials" className="space-y-4 mt-4">
@@ -459,6 +461,20 @@ export function CorreiosConfigDialog({ open, onOpenChange }: CorreiosConfigDialo
                     />
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="services" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Serviços Habilitados</CardTitle>
+                <CardDescription>
+                  Selecione quais serviços serão cotados ao consultar frete para clientes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ShippingServicesConfig />
               </CardContent>
             </Card>
           </TabsContent>

@@ -26,6 +26,7 @@ import {
   LeadAddress 
 } from '@/hooks/useLeadAddresses';
 import { LeadAddressForm } from './LeadAddressForm';
+import { ShippingQuoteButton } from '@/components/shipping/ShippingQuoteButton';
 
 interface LeadAddressesManagerProps {
   leadId: string;
@@ -139,6 +140,11 @@ export function LeadAddressesManager({ leadId }: LeadAddressesManagerProps) {
                       <p className="text-xs text-amber-600 mt-1">
                         Obs: {address.delivery_notes}
                       </p>
+                    )}
+                    {address.cep && (
+                      <div className="mt-2">
+                        <ShippingQuoteButton cep={address.cep} />
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
