@@ -56,7 +56,7 @@ interface ManipulatedCostsManagerProps {
 export function ManipulatedCostsManager({ onClose }: ManipulatedCostsManagerProps) {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [costFilter, setCostFilter] = useState<'all' | 'with_cost' | 'without_cost'>('without_cost');
+  const [costFilter, setCostFilter] = useState<'all' | 'with_cost' | 'without_cost'>('all');
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [editingItem, setEditingItem] = useState<string | null>(null);

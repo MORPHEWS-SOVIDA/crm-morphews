@@ -32,22 +32,8 @@ export function useManipulatedSaleItems(filters?: {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // First get sales for this org
-      const { data: orgSales, error: salesError } = await supabase
-        .from('sales')
-        .select('id')
-        .eq('organization_id', tenantId);
-
-      if (salesError) {
-        console.error('Error fetching org sales:', salesError);
-        throw salesError;
-      }
-
-      const saleIds = (orgSales || []).map(s => s.id);
-      if (saleIds.length === 0) return [];
-
-      // Get all sale_items with requisition_number for those sales
-      const { data, error } = await supabase
+      // Build query with organization filter through the sales relation
+      let query = supabase
         .from('sale_items')
         .select(`
           id,
@@ -60,7 +46,7 @@ export function useManipulatedSaleItems(filters?: {
           requisition_number,
           cost_cents,
           created_at,
-          sales (
+          sales!inner (
             id,
             created_at,
             status,
@@ -75,15 +61,24 @@ export function useManipulatedSaleItems(filters?: {
           )
         `)
         .not('requisition_number', 'is', null)
-        .in('sale_id', saleIds)
+        .eq('sales.organization_id', tenantId)
         .order('created_at', { ascending: false });
+
+      // Apply cost filter at database level
+      if (filters?.hasCost === 'with_cost') {
+        query = query.not('cost_cents', 'is', null);
+      } else if (filters?.hasCost === 'without_cost') {
+        query = query.is('cost_cents', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching manipulated items:', error);
         throw error;
       }
 
-      // Transform data - cost_cents is now fetched directly
+      // Transform data
       let items = (data || []).map((item: any) => ({
         id: item.id,
         sale_id: item.sale_id,
@@ -102,13 +97,6 @@ export function useManipulatedSaleItems(filters?: {
           ? `${item.sales.profiles.first_name} ${item.sales.profiles.last_name}`
           : 'Vendedor não identificado',
       })) as ManipulatedSaleItem[];
-
-      // Apply cost filter
-      if (filters?.hasCost === 'with_cost') {
-        items = items.filter(i => i.cost_cents !== null);
-      } else if (filters?.hasCost === 'without_cost') {
-        items = items.filter(i => i.cost_cents === null);
-      }
 
       // Apply date filter client-side
       if (filters?.startDate) {
