@@ -11,13 +11,26 @@ import { useOrgHasFeature } from "@/hooks/usePlanFeatures";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-// Curated voices for Brazilian Portuguese
+// Curated voices for Brazilian Portuguese - expanded selection
 export const CURATED_VOICES = [
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male", description: "Voz masculina profissional e amigável", icon: "👨‍💼" },
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female", description: "Voz feminina jovem e acolhedora", icon: "👩" },
-  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", gender: "female", description: "Voz feminina suave e tranquila", icon: "🧘‍♀️" },
-  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male", description: "Voz masculina madura e confiante", icon: "👨‍🔬" },
-  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female", description: "Voz feminina expressiva e energética", icon: "💃" },
+  // Vozes masculinas
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male", description: "Profissional e amigável", icon: "👨‍💼" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male", description: "Madura e confiante", icon: "👨‍🔬" },
+  { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", gender: "male", description: "Voz grave e autoritária", icon: "🎙️" },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", gender: "male", description: "Jovem e dinâmico", icon: "🧑" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "male", description: "Casual e descontraído", icon: "😎" },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", gender: "male", description: "Narrador profissional", icon: "📢" },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male", description: "Tom comercial/vendas", icon: "💼" },
+  { id: "iP95p4xoKVk53GoZ742B", name: "Chris", gender: "male", description: "Amigável e acessível", icon: "🤝" },
+  // Vozes femininas
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female", description: "Jovem e acolhedora", icon: "👩" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", gender: "female", description: "Suave e tranquila", icon: "🧘‍♀️" },
+  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female", description: "Expressiva e energética", icon: "💃" },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", gender: "female", description: "Profissional e clara", icon: "👩‍💼" },
+  { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", gender: "female", description: "Elegante e sofisticada", icon: "✨" },
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", gender: "female", description: "Calorosa e maternal", icon: "💝" },
+  { id: "SAz9YHcvj6GT2YYXdXww", name: "River", gender: "female", description: "Neutra e versátil", icon: "🌊" },
+  { id: "bIHbv24MWmeRgasZH58o", name: "Will", gender: "male", description: "Inspirador e motivador", icon: "⭐" },
 ];
 
 const VOICE_STYLES = [
@@ -168,32 +181,53 @@ export function BotVoiceConfig({
           <>
             {/* Voice Selection */}
             <div className="space-y-3">
-              <Label>Voz do Robô</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="flex items-center justify-between">
+                <Label>Voz do Robô</Label>
+                <a 
+                  href="https://elevenlabs.io/voice-library" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline"
+                >
+                  🎤 Explorar mais vozes
+                </a>
+              </div>
+              
+              {/* Gender filter tabs */}
+              <div className="flex gap-2 mb-2">
+                <Badge variant="outline" className="cursor-default">
+                  8 Masculinas • 8 Femininas
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[300px] overflow-y-auto pr-1">
                 {CURATED_VOICES.map((voice) => (
                   <button
                     key={voice.id}
                     type="button"
                     onClick={() => handleVoiceSelect(voice.id)}
-                    className={`p-3 rounded-lg border text-left transition-all ${
+                    className={`p-2 rounded-lg border text-left transition-all ${
                       voiceId === voice.id
                         ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                         : "border-border hover:border-primary/50"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-1 text-center">
                       <span className="text-xl">{voice.icon}</span>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{voice.name}</p>
-                        <p className="text-xs text-muted-foreground">{voice.description}</p>
-                      </div>
+                      <p className="font-medium text-xs">{voice.name}</p>
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{voice.description}</p>
                       {voiceId === voice.id && (
-                        <Badge variant="default" className="text-xs">Selecionado</Badge>
+                        <Badge variant="default" className="text-[10px] px-1">✓</Badge>
                       )}
                     </div>
                   </button>
                 ))}
               </div>
+              
+              {/* Note about custom voices */}
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Para usar vozes clonadas, acesse a <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">biblioteca ElevenLabs</a> e copie o ID da voz.
+              </p>
             </div>
 
             {/* Voice Style */}
