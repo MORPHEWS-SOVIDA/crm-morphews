@@ -8,13 +8,15 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu } from "lucide-react";
+import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu, Volume2 } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts } from "@/hooks/useAIBots";
 import { AvatarGenerator } from "./AvatarGenerator";
 import { BotQualificationConfig } from "./BotQualificationConfig";
 import { BotProductSelector } from "./BotProductSelector";
 import { BotInterpretationConfig } from "./BotInterpretationConfig";
+import { BotVoiceConfig } from "./BotVoiceConfig";
 import { AIModelSelector, CHAT_MODELS } from "@/components/ai/AIModelSelector";
+import { useAuth } from "@/hooks/useAuth";
 
 interface InitialQuestion {
   questionId: string;
@@ -29,6 +31,7 @@ interface AIBotDetailDialogProps {
 }
 
 export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDialogProps) {
+  const { profile } = useAuth();
   const { data: bot, isLoading } = useAIBot(botId);
   const updateBot = useUpdateAIBot();
   const { data: knowledge = [] } = useAIBotKnowledge(botId);
@@ -62,6 +65,13 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // AI Model state
   const [aiModelChat, setAiModelChat] = useState('google/gemini-3-flash-preview');
   
+  // Voice state
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceId, setVoiceId] = useState('JBFqnCBsd6RMkjVDRZzb');
+  const [voiceName, setVoiceName] = useState('George');
+  const [audioResponseProbability, setAudioResponseProbability] = useState(30);
+  const [voiceStyle, setVoiceStyle] = useState('natural');
+  
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
@@ -86,6 +96,12 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setImageReplyMessage((bot as any).image_reply_message || 'Nossa IA analisou sua imagem e identificou:');
       // AI Model
       setAiModelChat((bot as any).ai_model_chat || 'google/gemini-3-flash-preview');
+      // Voice settings
+      setVoiceEnabled((bot as any).voice_enabled ?? false);
+      setVoiceId((bot as any).voice_id || 'JBFqnCBsd6RMkjVDRZzb');
+      setVoiceName((bot as any).voice_name || 'George');
+      setAudioResponseProbability((bot as any).audio_response_probability ?? 30);
+      setVoiceStyle((bot as any).voice_style || 'natural');
     }
   };
   
@@ -124,8 +140,15 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       document_reply_message: documentReplyMessage,
       image_reply_message: imageReplyMessage,
       ai_model_chat: aiModelChat,
+      // Voice settings
+      voice_enabled: voiceEnabled,
+      voice_id: voiceId,
+      voice_name: voiceName,
+      audio_response_probability: audioResponseProbability,
+      voice_style: voiceStyle,
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
+  };
   };
   
   const handleAddFAQ = () => {
@@ -171,7 +194,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           </div>
         ) : bot ? (
           <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="general" className="gap-1">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Geral</span>
@@ -187,6 +210,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
               <TabsTrigger value="interpretation" className="gap-1">
                 <Zap className="h-4 w-4" />
                 <span className="hidden sm:inline">Interpretação</span>
+              </TabsTrigger>
+              <TabsTrigger value="voice" className="gap-1">
+                <Volume2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Voz IA</span>
               </TabsTrigger>
               <TabsTrigger value="knowledge" className="gap-1">
                 <Brain className="h-4 w-4" />
@@ -367,6 +394,25 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                 onInterpretImagesChange={setInterpretImages}
                 onDocumentReplyMessageChange={setDocumentReplyMessage}
                 onImageReplyMessageChange={setImageReplyMessage}
+              />
+            </TabsContent>
+            
+            {/* Tab: Voz IA */}
+            <TabsContent value="voice" className="space-y-4 mt-4">
+              <BotVoiceConfig
+                voiceEnabled={voiceEnabled}
+                voiceId={voiceId}
+                voiceName={voiceName}
+                audioResponseProbability={audioResponseProbability}
+                voiceStyle={voiceStyle}
+                onVoiceEnabledChange={setVoiceEnabled}
+                onVoiceIdChange={(id, name) => {
+                  setVoiceId(id);
+                  setVoiceName(name);
+                }}
+                onAudioResponseProbabilityChange={setAudioResponseProbability}
+                onVoiceStyleChange={setVoiceStyle}
+                organizationId={profile?.organization_id}
               />
             </TabsContent>
             

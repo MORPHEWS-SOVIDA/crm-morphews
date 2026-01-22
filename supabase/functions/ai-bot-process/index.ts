@@ -57,6 +57,12 @@ interface AIBot {
   use_rag_search: boolean;
   // AI Model for chat
   ai_model_chat: string | null;
+  // Voice settings
+  voice_enabled: boolean | null;
+  voice_id: string | null;
+  voice_name: string | null;
+  audio_response_probability: number | null;
+  voice_style: string | null;
 }
 
 interface BotProduct {
@@ -1037,6 +1043,62 @@ async function sendWhatsAppMessage(
   }
 }
 
+// Send audio message via Evolution API
+async function sendWhatsAppAudio(
+  instanceName: string,
+  chatId: string,
+  audioUrl: string,
+  conversationId: string,
+  instanceId: string,
+  botId: string
+): Promise<boolean> {
+  try {
+    const endpoint = `${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${instanceName}`;
+    
+    console.log('🎤 Sending audio message:', { instanceName, chatId, audioUrl: audioUrl.substring(0, 50) + '...' });
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({
+        number: chatId,
+        audio: audioUrl,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('❌ Evolution audio send failed:', response.status);
+      return false;
+    }
+
+    const result = await response.json();
+    const providerMessageId = result?.key?.id || null;
+
+    // Salvar mensagem no banco
+    await supabase.from('whatsapp_messages').insert({
+      id: crypto.randomUUID(),
+      instance_id: instanceId,
+      conversation_id: conversationId,
+      message_type: 'audio',
+      media_url: audioUrl,
+      direction: 'outbound',
+      status: 'sent',
+      is_from_bot: true,
+      provider: 'evolution',
+      provider_message_id: providerMessageId,
+    });
+
+    console.log('✅ Bot audio message sent and saved');
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending audio:', error);
+    return false;
+  }
+}
+
 // ============================================================================
 // ENERGY MANAGEMENT
 // ============================================================================
@@ -1544,33 +1606,92 @@ async function processMessage(
     return { success: true, action: 'no_energy', message: 'No energy available' };
   }
 
-  // 7. Enviar resposta
-  const sent = await sendWhatsAppMessage(
-    instanceName,
-    context.chatId,
-    aiResponse,
-    context.conversationId,
-    context.instanceId,
-    bot.id
-  );
+  // 7. Decidir se responde com áudio ou texto
+  let sent = false;
+  let voiceEnergyConsumed = 0;
+  
+  const shouldSendAudio = bot.voice_enabled && 
+    bot.audio_response_probability && 
+    Math.random() * 100 < bot.audio_response_probability;
+  
+  if (shouldSendAudio && bot.voice_id) {
+    console.log('🎤 Generating voice response...');
+    
+    try {
+      // Call TTS edge function
+      const ttsResponse = await fetch(`${SUPABASE_URL}/functions/v1/elevenlabs-tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          text: aiResponse,
+          voiceId: bot.voice_id,
+          organizationId: context.organizationId,
+          botId: bot.id,
+          conversationId: context.conversationId,
+          voiceStyle: bot.voice_style || 'natural',
+        }),
+      });
+      
+      if (ttsResponse.ok) {
+        const ttsData = await ttsResponse.json();
+        
+        if (ttsData.success && ttsData.audioUrl) {
+          // Send audio message via Evolution API
+          sent = await sendWhatsAppAudio(
+            instanceName,
+            context.chatId,
+            ttsData.audioUrl,
+            context.conversationId,
+            context.instanceId,
+            bot.id
+          );
+          
+          voiceEnergyConsumed = ttsData.energyConsumed || 0;
+          console.log('✅ Voice message sent, energy:', voiceEnergyConsumed);
+        }
+      }
+      
+      if (!sent) {
+        console.log('⚠️ Voice failed, falling back to text');
+      }
+    } catch (error) {
+      console.error('❌ Voice generation error:', error);
+    }
+  }
+  
+  // Fallback to text if voice failed or not enabled
+  if (!sent) {
+    sent = await sendWhatsAppMessage(
+      instanceName,
+      context.chatId,
+      aiResponse,
+      context.conversationId,
+      context.instanceId,
+      bot.id
+    );
+  }
 
   if (!sent) {
     return { success: false, action: 'error', message: 'Failed to send message' };
   }
 
   // 8. Atualizar contadores da conversa
+  const totalEnergy = energyResult.energyConsumed + voiceEnergyConsumed;
   await supabase
     .from('whatsapp_conversations')
     .update({
       bot_messages_count: context.botMessagesCount + 1,
-      bot_energy_consumed: context.botEnergyConsumed + energyResult.energyConsumed,
+      bot_energy_consumed: context.botEnergyConsumed + totalEnergy,
     })
     .eq('id', context.conversationId);
 
   return { 
     success: true, 
     action: 'responded', 
-    energyUsed: energyResult.energyConsumed 
+    energyUsed: totalEnergy 
   };
 }
 
