@@ -29,41 +29,43 @@ async function analyzeDocumentWithVision(
 }> {
   console.log("📄 Analyzing document with AI Vision:", documentUrl);
 
-  const systemPrompt = `Você é um especialista em interpretar documentos médicos, especialmente receitas e laudos.
+  const systemPrompt = `Você é um especialista em interpretar documentos e extrair informações estruturadas.
 
 TAREFA: Analise este documento PDF/imagem e extraia TODAS as informações relevantes.
 
 FORMATO DE RESPOSTA (JSON):
 {
   "rawText": "Transcrição completa do documento, linha por linha",
-  "summary": "Resumo executivo em 2-3 frases para o vendedor",
-  "medications": [
+  "summary": "Resumo executivo em 2-3 frases descrevendo o conteúdo principal",
+  "items": [
     {
-      "name": "Nome do medicamento/fórmula",
-      "dosage": "Dosagem (ex: 500mg)",
-      "frequency": "Frequência de uso (ex: 2x ao dia)",
-      "quantity": "Quantidade prescrita",
-      "instructions": "Instruções especiais"
+      "name": "Nome do item/produto/serviço",
+      "details": "Detalhes adicionais (quantidade, especificação, valor, etc.)",
+      "quantity": "Quantidade se aplicável",
+      "notes": "Observações"
     }
   ],
-  "prescriberInfo": {
-    "name": "Nome do médico",
-    "crm": "Número do CRM",
-    "specialty": "Especialidade médica"
+  "senderInfo": {
+    "name": "Nome de quem enviou/emitiu o documento",
+    "identifier": "CPF/CNPJ/CRM/registro profissional",
+    "role": "Cargo/profissão (médico, vendedor, empresa, etc.)"
   },
   "structuredData": {
-    "patientName": "Nome do paciente se visível",
+    "recipientName": "Nome do destinatário/cliente/paciente",
     "documentDate": "Data do documento",
-    "documentType": "receita/laudo/exame/outro",
+    "documentType": "tipo (receita/orçamento/nota/pedido/lista/catálogo/contrato/outro)",
+    "totalValue": "Valor total se houver",
     "additionalNotes": "Observações extras"
   }
 }
 
-IMPORTANTE:
-- Se for receita médica, foque em extrair TODOS os medicamentos com dosagem exata
+INSTRUÇÕES:
+- Adapte a interpretação ao TIPO de documento (receita médica, orçamento, nota fiscal, lista de compras, pedido, etc.)
+- Se for receita médica, foque em medicamentos com dosagem exata
+- Se for orçamento/nota, extraia itens com valores e quantidades
+- Se for lista/pedido, liste todos os itens solicitados
 - Se não conseguir ler algo, indique "[ilegível]"
-- Mantenha nomes de medicamentos EXATAMENTE como escritos
-- Para fórmulas manipuladas, liste cada componente`;
+- Mantenha nomes de produtos/medicamentos EXATAMENTE como escritos`;
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
