@@ -18,7 +18,7 @@ export function DonnaHelperButton() {
           "bg-gradient-to-br from-green-400 to-emerald-500",
           "hover:from-green-500 hover:to-emerald-600",
           "transition-all duration-300 hover:scale-105",
-          "flex items-center justify-center",
+          "flex items-center justify-center overflow-hidden",
           "ring-4 ring-green-300/30"
         )}
         whileHover={{ scale: 1.1 }}
@@ -43,7 +43,7 @@ export function DonnaHelperButton() {
               key="avatar"
               src={donnaAvatar}
               alt="Donna - Assistente Virtual"
-              className="w-12 h-12 rounded-full object-cover"
+              className="w-full h-full object-cover"
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.5, opacity: 0 }}
