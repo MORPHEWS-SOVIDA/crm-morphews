@@ -1365,6 +1365,13 @@ export type Database = {
             foreignKeyName: "discount_authorizations_sale_item_id_fkey"
             columns: ["sale_item_id"]
             isOneToOne: false
+            referencedRelation: "manipulated_sale_items_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_authorizations_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
             referencedRelation: "sale_items"
             referencedColumns: ["id"]
           },
@@ -5373,6 +5380,13 @@ export type Database = {
             foreignKeyName: "sale_changes_log_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
+            referencedRelation: "manipulated_sale_items_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_changes_log_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
             referencedRelation: "sale_items"
             referencedColumns: ["id"]
           },
@@ -5654,6 +5668,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_item_conferences_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "manipulated_sale_items_view"
             referencedColumns: ["id"]
           },
           {
@@ -8383,6 +8404,48 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_instances_organization_id_fkey"
             columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manipulated_sale_items_view: {
+        Row: {
+          client_name: string | null
+          cost_cents: number | null
+          created_at: string | null
+          id: string | null
+          organization_id: string | null
+          product_id: string | null
+          product_name: string | null
+          quantity: number | null
+          requisition_number: string | null
+          sale_created_at: string | null
+          sale_id: string | null
+          sale_status: Database["public"]["Enums"]["sale_status"] | null
+          seller_name: string | null
+          total_cents: number | null
+          unit_price_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
