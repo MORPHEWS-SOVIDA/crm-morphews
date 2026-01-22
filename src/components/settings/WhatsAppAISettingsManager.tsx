@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic, UserCircle, Clock, Star, Bot, User, Calendar, Info, Image } from "lucide-react";
+import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic, UserCircle, Clock, Star, Bot, User, Calendar, Info, Image, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { AIModelSelector, VISION_MODELS } from "@/components/ai/AIModelSelector";
 
 interface WhatsAppAISettings {
   whatsapp_ai_memory_enabled: boolean;
@@ -36,6 +37,9 @@ interface WhatsAppAISettings {
   satisfaction_survey_enabled: boolean;
   satisfaction_survey_message: string;
   satisfaction_survey_on_manual_close: boolean;
+  // AI Model settings
+  ai_model_document: string;
+  ai_model_image: string;
 }
 
 const DEFAULT_CLOSE_MESSAGE = "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊";
@@ -67,6 +71,8 @@ export function WhatsAppAISettingsManager() {
     satisfaction_survey_enabled: false,
     satisfaction_survey_message: DEFAULT_SURVEY_MESSAGE,
     satisfaction_survey_on_manual_close: true,
+    ai_model_document: "google/gemini-2.5-flash",
+    ai_model_image: "google/gemini-2.5-flash",
   });
 
   const { data: orgSettings, isLoading } = useQuery({
@@ -97,7 +103,9 @@ export function WhatsAppAISettingsManager() {
           auto_close_message_template,
           satisfaction_survey_enabled,
           satisfaction_survey_message,
-          satisfaction_survey_on_manual_close
+          satisfaction_survey_on_manual_close,
+          ai_model_document,
+          ai_model_image
         `)
         .eq("id", profile.organization_id)
         .single();
@@ -132,6 +140,8 @@ export function WhatsAppAISettingsManager() {
         satisfaction_survey_enabled: orgSettings.satisfaction_survey_enabled ?? false,
         satisfaction_survey_message: orgSettings.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
         satisfaction_survey_on_manual_close: orgSettings.satisfaction_survey_on_manual_close ?? true,
+        ai_model_document: (orgSettings as any).ai_model_document || "google/gemini-2.5-flash",
+        ai_model_image: (orgSettings as any).ai_model_image || "google/gemini-2.5-flash",
       });
     }
   }, [orgSettings]);
@@ -542,6 +552,15 @@ export function WhatsAppAISettingsManager() {
 
         {settings.whatsapp_image_interpretation && (
           <div className="ml-12 p-4 border rounded-lg bg-cyan-50 dark:bg-cyan-950/30 space-y-4">
+            {/* Model Selector */}
+            <AIModelSelector
+              value={settings.ai_model_image}
+              onChange={(value) => setSettings(prev => ({ ...prev, ai_model_image: value }))}
+              label="Modelo de IA para Imagens"
+              description="Modelos mais avançados são mais precisos mas consomem mais energia"
+              models={VISION_MODELS}
+            />
+
             <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
               <Zap className="h-3.5 w-3.5" />
               <span>Consome Energia IA (150 unidades/imagem)</span>
@@ -623,6 +642,15 @@ export function WhatsAppAISettingsManager() {
 
         {settings.whatsapp_document_reading_enabled && (
           <div className="ml-12 p-4 border rounded-lg bg-purple-50 dark:bg-purple-950/30 space-y-4">
+            {/* Model Selector */}
+            <AIModelSelector
+              value={settings.ai_model_document}
+              onChange={(value) => setSettings(prev => ({ ...prev, ai_model_document: value }))}
+              label="Modelo de IA para Documentos"
+              description="Modelos mais avançados são mais precisos para receitas complexas"
+              models={VISION_MODELS}
+            />
+
             <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
               <Zap className="h-3.5 w-3.5" />
               <span>Consome Energia IA (100 unidades/documento)</span>

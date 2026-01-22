@@ -55,6 +55,8 @@ interface AIBot {
   service_type: string | null;
   product_scope: 'all' | 'selected' | 'none';
   use_rag_search: boolean;
+  // AI Model for chat
+  ai_model_chat: string | null;
 }
 
 interface BotProduct {
@@ -241,9 +243,10 @@ async function analyzeImage(
   mediaUrl: string, 
   userMessage: string, 
   botSystemPrompt: string,
-  useMedicalMode: boolean = false
-): Promise<{ text: string; tokensUsed: number }> {
-  console.log('🖼️ Analyzing image from:', mediaUrl, 'Medical mode:', useMedicalMode);
+  useMedicalMode: boolean = false,
+  modelToUse: string = 'google/gemini-2.5-flash'
+): Promise<{ text: string; tokensUsed: number; modelUsed: string }> {
+  console.log('🖼️ Analyzing image from:', mediaUrl, 'Medical mode:', useMedicalMode, 'Model:', modelToUse);
   
   try {
     // Escolher prompt baseado no modo
@@ -251,7 +254,12 @@ async function analyzeImage(
       ? IMAGE_MEDICAL_TURBO_PROMPT 
       : `${botSystemPrompt}\n\nO cliente enviou uma imagem. Analise-a e responda de forma útil.`;
 
-    // Usar Gemini Flash via Lovable AI para análise de imagem
+    // For medical mode, use Pro model for better accuracy if no specific model configured
+    const effectiveModel = useMedicalMode && modelToUse === 'google/gemini-2.5-flash' 
+      ? 'google/gemini-2.5-pro' 
+      : modelToUse;
+
+    // Usar modelo configurado via Lovable AI para análise de imagem
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -259,7 +267,7 @@ async function analyzeImage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: effectiveModel,
         messages: [
           {
             role: 'system',
@@ -296,9 +304,9 @@ async function analyzeImage(
     const analysisText = data.choices?.[0]?.message?.content || '';
     const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
     
-    console.log('✅ Image analyzed:', analysisText.substring(0, 100) + '...');
+    console.log('✅ Image analyzed with', effectiveModel, ':', analysisText.substring(0, 100) + '...');
     
-    return { text: analysisText, tokensUsed };
+    return { text: analysisText, tokensUsed, modelUsed: effectiveModel };
   } catch (error) {
     console.error('❌ Image analysis error:', error);
     throw error;
@@ -840,8 +848,12 @@ async function generateAIResponse(
   products: BotProduct[] = [],
   faqs: Array<{question: string, answer: string}> = [],
   semanticResults: SemanticSearchResult[] = [],
-  leadMemory: LeadMemoryContext | null = null
-): Promise<{ response: string; tokensUsed: number }> {
+  leadMemory: LeadMemoryContext | null = null,
+  modelOverride: string | null = null
+): Promise<{ response: string; tokensUsed: number; modelUsed: string }> {
+  
+  // Determine which model to use (priority: override > bot config > default)
+  const modelToUse = modelOverride || bot.ai_model_chat || 'google/gemini-3-flash-preview';
   
   // Construir prompt de personalidade
   const personalityPrompt = buildBotPersonalityPrompt(bot);
@@ -918,7 +930,7 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     { role: 'user', content: userMessage }
   ];
 
-  console.log('🤖 Calling Gemini with enriched context:', {
+  console.log('🤖 Calling AI model:', modelToUse, 'with enriched context:', {
     hasProducts: products.length > 0,
     hasFAQs: faqs.length > 0,
     hasSemanticResults: semanticResults.length > 0,
@@ -933,7 +945,7 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: modelToUse,
       messages,
       max_tokens: 600,
       temperature: 0.85, // Mais natural e variado
@@ -957,9 +969,9 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
   const aiResponse = data.choices?.[0]?.message?.content || '';
   const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
 
-  console.log('✅ AI Response generated:', aiResponse.substring(0, 100) + '...');
+  console.log('✅ AI Response generated with', modelToUse, ':', aiResponse.substring(0, 100) + '...');
   
-  return { response: aiResponse, tokensUsed };
+  return { response: aiResponse, tokensUsed, modelUsed: modelToUse };
 }
 
 // ============================================================================
@@ -1474,6 +1486,7 @@ async function processMessage(
   // 6. Gerar resposta IA com contexto completo
   let aiResponse: string;
   let tokensUsed: number;
+  let modelUsed: string = bot.ai_model_chat || 'google/gemini-3-flash-preview';
   
   try {
     const result = await generateAIResponse(
@@ -1489,6 +1502,7 @@ async function processMessage(
     );
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;
+    modelUsed = result.modelUsed;
   } catch (error: any) {
     console.error('❌ AI generation error:', error.message);
     
@@ -1501,14 +1515,14 @@ async function processMessage(
     return { success: false, action: 'error', message: error.message };
   }
 
-  // 6. Consumir energia
+  // 6. Consumir energia - using the model that was actually used
   const energyResult = await checkAndConsumeEnergy(
     context.organizationId,
     bot.id,
     context.conversationId,
     tokensUsed,
     'ai_response',
-    'google/gemini-2.5-flash' // Modelo padrão usado para respostas
+    modelUsed
   );
 
   if (!energyResult.success) {
@@ -1715,21 +1729,22 @@ serve(async (req) => {
         // Buscar configurações da organização para modo médico de imagens
         const { data: orgSettings } = await supabase
           .from('organizations')
-          .select('whatsapp_image_interpretation, whatsapp_image_medical_mode')
+          .select('whatsapp_image_interpretation, whatsapp_image_medical_mode, ai_model_image')
           .eq('id', organizationId)
           .single();
 
         const useImageMedicalMode = orgSettings?.whatsapp_image_medical_mode ?? false;
         const imageInterpretationEnabled = orgSettings?.whatsapp_image_interpretation ?? false;
+        const imageModel = (orgSettings as any)?.ai_model_image || 'google/gemini-2.5-flash';
 
         // Se a interpretação de imagem não está habilitada globalmente, pular
         if (!imageInterpretationEnabled) {
           console.log('📷 Image interpretation disabled globally, skipping analysis');
           processedMessage = userMessage || '[O cliente enviou uma imagem]';
         } else {
-          console.log('📷 Image interpretation enabled, medical mode:', useImageMedicalMode);
+          console.log('📷 Image interpretation enabled, medical mode:', useImageMedicalMode, 'model:', imageModel);
           
-          const imageAnalysis = await analyzeImage(mediaUrl, userMessage, bot.system_prompt, useImageMedicalMode);
+          const imageAnalysis = await analyzeImage(mediaUrl, userMessage, bot.system_prompt, useImageMedicalMode, imageModel);
           
           // Para imagens, a resposta da análise já é a resposta do bot
           // Consumir energia pela análise
@@ -1739,7 +1754,7 @@ serve(async (req) => {
             conversationId, 
             imageAnalysis.tokensUsed, 
             useImageMedicalMode ? 'image_medical_turbo' : 'image_analysis',
-            useImageMedicalMode ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash'
+            imageAnalysis.modelUsed
           );
           
           if (!imageEnergy.success) {
