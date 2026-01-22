@@ -8893,18 +8893,33 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: Json
       }
-      consume_energy: {
-        Args: {
-          p_action_type: string
-          p_bot_id: string
-          p_conversation_id: string
-          p_details?: Json
-          p_energy_amount: number
-          p_organization_id: string
-          p_tokens_used?: number
-        }
-        Returns: Json
-      }
+      consume_energy:
+        | {
+            Args: {
+              p_action_type: string
+              p_bot_id: string
+              p_conversation_id: string
+              p_details?: Json
+              p_energy_amount: number
+              p_organization_id: string
+              p_tokens_used?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_action_type: string
+              p_bot_id: string
+              p_conversation_id: string
+              p_details?: Json
+              p_energy_amount: number
+              p_model_used?: string
+              p_organization_id: string
+              p_real_cost_usd?: number
+              p_tokens_used?: number
+            }
+            Returns: Json
+          }
       current_tenant_id: { Args: never; Returns: string }
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
