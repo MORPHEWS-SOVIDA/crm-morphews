@@ -1006,8 +1006,8 @@ export default function WhatsAppChat() {
   return (
     <Layout>
       <div className="flex flex-col">
-        {/* Global WhatsApp AI Settings - Based on permission */}
-        {permissions?.whatsapp_ai_settings_view && (
+        {/* Global WhatsApp AI Settings - Based on permission or admin/owner fallback */}
+        {(permissions?.whatsapp_ai_settings_view || isAdmin || isOrgAdmin) && (
           <Collapsible
             open={isGlobalSettingsOpen}
             onOpenChange={setIsGlobalSettingsOpen}
