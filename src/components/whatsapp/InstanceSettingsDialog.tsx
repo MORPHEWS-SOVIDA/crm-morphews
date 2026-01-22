@@ -17,7 +17,6 @@ import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Mic, Zap } from "lucide
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { WavoipSettings } from "./WavoipSettings";
-import { AutoCloseSettings, type AutoCloseConfig } from "./AutoCloseSettings";
 
 interface InstanceSettingsDialogProps {
   instanceId: string;
@@ -46,16 +45,6 @@ export function InstanceSettingsDialog({
           manual_instance_number, 
           redistribution_timeout_minutes, 
           wavoip_enabled,
-          auto_close_enabled,
-          auto_close_bot_minutes,
-          auto_close_assigned_minutes,
-          auto_close_only_business_hours,
-          auto_close_business_start,
-          auto_close_business_end,
-          auto_close_send_message,
-          auto_close_message_template,
-          satisfaction_survey_enabled,
-          satisfaction_survey_message,
           auto_transcribe_enabled,
           auto_transcribe_inbound,
           auto_transcribe_outbound
@@ -78,19 +67,6 @@ export function InstanceSettingsDialog({
   const [autoTranscribeEnabled, setAutoTranscribeEnabled] = useState<boolean>(false);
   const [autoTranscribeInbound, setAutoTranscribeInbound] = useState<boolean>(true);
   const [autoTranscribeOutbound, setAutoTranscribeOutbound] = useState<boolean>(true);
-  
-  const [autoCloseConfig, setAutoCloseConfig] = useState<AutoCloseConfig>({
-    auto_close_enabled: true,
-    auto_close_bot_minutes: 60,
-    auto_close_assigned_minutes: 480,
-    auto_close_only_business_hours: false,
-    auto_close_business_start: "08:00",
-    auto_close_business_end: "20:00",
-    auto_close_send_message: false,
-    auto_close_message_template: "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊",
-    satisfaction_survey_enabled: false,
-    satisfaction_survey_message: "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏"
-  });
 
   // Atualizar state quando carregar dados
   useEffect(() => {
@@ -104,19 +80,6 @@ export function InstanceSettingsDialog({
       setAutoTranscribeEnabled((settings as any).auto_transcribe_enabled ?? false);
       setAutoTranscribeInbound((settings as any).auto_transcribe_inbound ?? true);
       setAutoTranscribeOutbound((settings as any).auto_transcribe_outbound ?? true);
-      
-      setAutoCloseConfig({
-        auto_close_enabled: settings.auto_close_enabled ?? true,
-        auto_close_bot_minutes: settings.auto_close_bot_minutes ?? 60,
-        auto_close_assigned_minutes: settings.auto_close_assigned_minutes ?? 480,
-        auto_close_only_business_hours: settings.auto_close_only_business_hours ?? false,
-        auto_close_business_start: settings.auto_close_business_start || "08:00",
-        auto_close_business_end: settings.auto_close_business_end || "20:00",
-        auto_close_send_message: settings.auto_close_send_message ?? false,
-        auto_close_message_template: settings.auto_close_message_template || "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊",
-        satisfaction_survey_enabled: settings.satisfaction_survey_enabled ?? false,
-        satisfaction_survey_message: settings.satisfaction_survey_message || "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏"
-      });
     }
   }, [settings]);
 
@@ -133,7 +96,6 @@ export function InstanceSettingsDialog({
           auto_transcribe_enabled: autoTranscribeEnabled,
           auto_transcribe_inbound: autoTranscribeInbound,
           auto_transcribe_outbound: autoTranscribeOutbound,
-          ...autoCloseConfig
         } as any)
         .eq("id", instanceId);
 
@@ -342,15 +304,6 @@ export function InstanceSettingsDialog({
                 </div>
               )}
             </div>
-
-
-            <Separator />
-
-            {/* Encerramento Automático e Pesquisa de Satisfação */}
-            <AutoCloseSettings 
-              config={autoCloseConfig}
-              onChange={setAutoCloseConfig}
-            />
 
             <div className="flex gap-2 pt-4">
               <Button

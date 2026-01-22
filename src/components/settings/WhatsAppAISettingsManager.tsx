@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic, UserCircle } from "lucide-react";
+import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic, UserCircle, Clock, Star, Bot, User, Calendar, Info } from "lucide-react";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface WhatsAppAISettings {
   whatsapp_ai_memory_enabled: boolean;
@@ -18,7 +21,21 @@ interface WhatsAppAISettings {
   whatsapp_document_auto_reply_message: string | null;
   whatsapp_audio_transcription_enabled: boolean;
   whatsapp_sender_name_prefix_enabled: boolean;
+  // Auto-close settings (global)
+  auto_close_enabled: boolean;
+  auto_close_bot_minutes: number;
+  auto_close_assigned_minutes: number;
+  auto_close_only_business_hours: boolean;
+  auto_close_business_start: string;
+  auto_close_business_end: string;
+  auto_close_send_message: boolean;
+  auto_close_message_template: string;
+  satisfaction_survey_enabled: boolean;
+  satisfaction_survey_message: string;
 }
+
+const DEFAULT_CLOSE_MESSAGE = "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊";
+const DEFAULT_SURVEY_MESSAGE = "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏";
 
 export function WhatsAppAISettingsManager() {
   const { profile } = useAuth();
@@ -32,6 +49,16 @@ export function WhatsAppAISettingsManager() {
     whatsapp_document_auto_reply_message: "Nossa IA recebeu seu arquivo e interpretou assim:",
     whatsapp_audio_transcription_enabled: false,
     whatsapp_sender_name_prefix_enabled: false,
+    auto_close_enabled: true,
+    auto_close_bot_minutes: 60,
+    auto_close_assigned_minutes: 480,
+    auto_close_only_business_hours: false,
+    auto_close_business_start: "08:00",
+    auto_close_business_end: "20:00",
+    auto_close_send_message: false,
+    auto_close_message_template: DEFAULT_CLOSE_MESSAGE,
+    satisfaction_survey_enabled: false,
+    satisfaction_survey_message: DEFAULT_SURVEY_MESSAGE,
   });
 
   const { data: orgSettings, isLoading } = useQuery({
@@ -48,13 +75,23 @@ export function WhatsAppAISettingsManager() {
           whatsapp_document_reading_enabled,
           whatsapp_document_auto_reply_message,
           whatsapp_audio_transcription_enabled,
-          whatsapp_sender_name_prefix_enabled
+          whatsapp_sender_name_prefix_enabled,
+          auto_close_enabled,
+          auto_close_bot_minutes,
+          auto_close_assigned_minutes,
+          auto_close_only_business_hours,
+          auto_close_business_start,
+          auto_close_business_end,
+          auto_close_send_message,
+          auto_close_message_template,
+          satisfaction_survey_enabled,
+          satisfaction_survey_message
         `)
         .eq("id", profile.organization_id)
         .single();
 
       if (error) throw error;
-      return data as WhatsAppAISettings;
+      return data;
     },
     enabled: !!profile?.organization_id,
   });
@@ -69,6 +106,16 @@ export function WhatsAppAISettingsManager() {
         whatsapp_document_auto_reply_message: orgSettings.whatsapp_document_auto_reply_message || "Nossa IA recebeu seu arquivo e interpretou assim:",
         whatsapp_audio_transcription_enabled: orgSettings.whatsapp_audio_transcription_enabled ?? false,
         whatsapp_sender_name_prefix_enabled: orgSettings.whatsapp_sender_name_prefix_enabled ?? false,
+        auto_close_enabled: orgSettings.auto_close_enabled ?? true,
+        auto_close_bot_minutes: orgSettings.auto_close_bot_minutes ?? 60,
+        auto_close_assigned_minutes: orgSettings.auto_close_assigned_minutes ?? 480,
+        auto_close_only_business_hours: orgSettings.auto_close_only_business_hours ?? false,
+        auto_close_business_start: orgSettings.auto_close_business_start || "08:00",
+        auto_close_business_end: orgSettings.auto_close_business_end || "20:00",
+        auto_close_send_message: orgSettings.auto_close_send_message ?? false,
+        auto_close_message_template: orgSettings.auto_close_message_template || DEFAULT_CLOSE_MESSAGE,
+        satisfaction_survey_enabled: orgSettings.satisfaction_survey_enabled ?? false,
+        satisfaction_survey_message: orgSettings.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
       });
     }
   }, [orgSettings]);
@@ -79,7 +126,7 @@ export function WhatsAppAISettingsManager() {
 
       const { error } = await supabase
         .from("organizations")
-        .update(newSettings)
+        .update(newSettings as any)
         .eq("id", profile.organization_id);
 
       if (error) throw error;
@@ -97,6 +144,14 @@ export function WhatsAppAISettingsManager() {
     saveSettings.mutate(settings);
   };
 
+  const formatMinutesToDisplay = (minutes: number): string => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}min`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -107,7 +162,198 @@ export function WhatsAppAISettingsManager() {
 
   return (
     <div className="space-y-6">
-      {/* Memória de Longo Prazo */}
+      {/* ============= ENCERRAMENTO AUTOMÁTICO ============= */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-orange-500/10">
+              <Clock className="w-5 h-5 text-orange-500" />
+            </div>
+            <div>
+              <Label className="text-base font-medium">Encerramento Automático</Label>
+              <p className="text-sm text-muted-foreground">
+                Fechar conversas inativas automaticamente
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={settings.auto_close_enabled}
+            onCheckedChange={(checked) =>
+              setSettings((prev) => ({ ...prev, auto_close_enabled: checked }))
+            }
+          />
+        </div>
+
+        {settings.auto_close_enabled && (
+          <div className="ml-12 p-4 border rounded-lg bg-orange-50 dark:bg-orange-950/30 space-y-4">
+            {/* Timeout diferenciado */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-xs">
+                  <Bot className="h-3.5 w-3.5 text-purple-500" />
+                  Conversas com Robô
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    value={settings.auto_close_bot_minutes}
+                    onChange={(e) => setSettings(prev => ({ 
+                      ...prev, 
+                      auto_close_bot_minutes: parseInt(e.target.value) || 60 
+                    }))}
+                    className="w-20 h-8 text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    min ({formatMinutesToDisplay(settings.auto_close_bot_minutes)})
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-xs">
+                  <User className="h-3.5 w-3.5 text-blue-500" />
+                  Conversas Atribuídas
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="30"
+                    max="2880"
+                    value={settings.auto_close_assigned_minutes}
+                    onChange={(e) => setSettings(prev => ({ 
+                      ...prev, 
+                      auto_close_assigned_minutes: parseInt(e.target.value) || 480 
+                    }))}
+                    className="w-20 h-8 text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    min ({formatMinutesToDisplay(settings.auto_close_assigned_minutes)})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Horário comercial */}
+            <div className="space-y-3 p-3 border rounded-lg bg-background/50">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4" />
+                  Só em horário comercial
+                </Label>
+                <Switch 
+                  checked={settings.auto_close_only_business_hours}
+                  onCheckedChange={(checked) => setSettings(prev => ({ 
+                    ...prev,
+                    auto_close_only_business_hours: checked 
+                  }))}
+                />
+              </div>
+              
+              {settings.auto_close_only_business_hours && (
+                <div className="flex items-center gap-3 mt-2">
+                  <Input
+                    type="time"
+                    value={settings.auto_close_business_start}
+                    onChange={(e) => setSettings(prev => ({ ...prev, auto_close_business_start: e.target.value }))}
+                    className="w-28 h-8 text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input
+                    type="time"
+                    value={settings.auto_close_business_end}
+                    onChange={(e) => setSettings(prev => ({ ...prev, auto_close_business_end: e.target.value }))}
+                    className="w-28 h-8 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Mensagem de encerramento */}
+            <div className="space-y-3 p-3 border rounded-lg bg-background/50">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm">
+                  <MessageSquare className="h-4 w-4" />
+                  Enviar mensagem ao encerrar
+                </Label>
+                <Switch 
+                  checked={settings.auto_close_send_message}
+                  onCheckedChange={(checked) => setSettings(prev => ({ 
+                    ...prev,
+                    auto_close_send_message: checked 
+                  }))}
+                />
+              </div>
+              
+              {settings.auto_close_send_message && (
+                <Textarea
+                  value={settings.auto_close_message_template}
+                  onChange={(e) => setSettings(prev => ({ ...prev, auto_close_message_template: e.target.value }))}
+                  placeholder={DEFAULT_CLOSE_MESSAGE}
+                  rows={2}
+                  className="text-sm"
+                />
+              )}
+            </div>
+
+            {/* Pesquisa de satisfação */}
+            <div className={cn(
+              "space-y-3 p-3 border rounded-lg",
+              settings.satisfaction_survey_enabled && "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20"
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-amber-500" />
+                  <Label className="text-sm">Pesquisa de Satisfação (NPS)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">
+                          Ao encerrar, o cliente recebe uma pergunta de 0 a 10.
+                          Se responder com uma nota, ela é registrada e a conversa 
+                          permanece fechada. Notas ≤6 ficam marcadas para revisão.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Switch 
+                  checked={settings.satisfaction_survey_enabled}
+                  onCheckedChange={(checked) => setSettings(prev => ({ 
+                    ...prev,
+                    satisfaction_survey_enabled: checked,
+                    // Se ativar pesquisa, precisa ativar envio de mensagem também
+                    auto_close_send_message: checked ? true : prev.auto_close_send_message
+                  }))}
+                />
+              </div>
+              
+              {settings.satisfaction_survey_enabled && (
+                <>
+                  <Textarea
+                    value={settings.satisfaction_survey_message}
+                    onChange={(e) => setSettings(prev => ({ ...prev, satisfaction_survey_message: e.target.value }))}
+                    placeholder={DEFAULT_SURVEY_MESSAGE}
+                    rows={2}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Esta mensagem é enviada APÓS a mensagem de encerramento (se houver).
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* ============= MEMÓRIA DE LONGO PRAZO ============= */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -173,7 +419,7 @@ export function WhatsAppAISettingsManager() {
 
       <Separator />
 
-      {/* Transcrição de Áudio */}
+      {/* ============= TRANSCRIÇÃO DE ÁUDIO ============= */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -215,6 +461,8 @@ export function WhatsAppAISettingsManager() {
       </div>
 
       <Separator />
+
+      {/* ============= LEITURA DE PDFS ============= */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -284,7 +532,7 @@ export function WhatsAppAISettingsManager() {
 
       <Separator />
 
-      {/* Prefixo com Nome do Vendedor */}
+      {/* ============= PREFIXO COM NOME DO VENDEDOR ============= */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
