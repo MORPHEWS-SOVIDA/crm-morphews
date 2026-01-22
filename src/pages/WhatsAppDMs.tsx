@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +16,9 @@ import { EvolutionSettingsDialog } from "@/components/whatsapp/EvolutionSettings
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useEvolutionInstances } from "@/hooks/useEvolutionInstances";
-import { WhatsAppAISettingsManager } from "@/components/settings/WhatsAppAISettingsManager";
 import { useOrgAdmin } from "@/hooks/useOrgAdmin";
 import { useMyPermissions } from "@/hooks/useUserPermissions";
+import { useNavigate } from "react-router-dom";
 
 // Status mapping for human-readable display
 type InstanceStatus = "connected" | "waiting_qr" | "disconnected" | "error";
@@ -53,33 +53,18 @@ interface EvolutionInstance {
   display_name_for_team: string | null;
 }
 
-function GlobalWhatsAppAISettingsPanel({ visible }: { visible: boolean }) {
-  if (!visible) return null;
-
-  return (
-    <div className="bg-card border-b border-border px-4 py-4">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Bot className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-base font-semibold text-foreground">IA do WhatsApp (Global)</h2>
-          <p className="text-xs text-muted-foreground">Configurações de IA para todas as instâncias</p>
-        </div>
-      </div>
-      <WhatsAppAISettingsManager />
-    </div>
-  );
-}
-
 export default function WhatsAppDMs() {
   const { profile, isAdmin, user } = useAuth();
   const { data: isOrgAdmin } = useOrgAdmin();
   const { data: permissions } = useMyPermissions();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   // Hook para adicionar instância manual
   const { addManualInstance } = useEvolutionInstances();
+
+  // Verificar se pode ver configurações globais
+  const canViewGlobalConfig = Boolean(permissions?.whatsapp_ai_settings_view || isAdmin || isOrgAdmin);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState("");
@@ -402,9 +387,6 @@ export default function WhatsAppDMs() {
     return (
       <Layout>
         <div className="space-y-4">
-          <GlobalWhatsAppAISettingsPanel
-            visible={Boolean(permissions?.whatsapp_ai_settings_view || isAdmin || isOrgAdmin)}
-          />
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => setViewAllConversations(false)}>
               <ArrowLeft className="h-5 w-5" />
@@ -430,9 +412,6 @@ export default function WhatsAppDMs() {
     return (
       <Layout>
         <div className="space-y-4">
-          <GlobalWhatsAppAISettingsPanel
-            visible={Boolean(permissions?.whatsapp_ai_settings_view || isAdmin || isOrgAdmin)}
-          />
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => setSelectedInstance(null)}>
               <ArrowLeft className="h-5 w-5" />
@@ -456,9 +435,6 @@ export default function WhatsAppDMs() {
   return (
     <Layout>
       <div className="space-y-6">
-        <GlobalWhatsAppAISettingsPanel
-          visible={Boolean(permissions?.whatsapp_ai_settings_view || isAdmin || isOrgAdmin)}
-        />
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -480,6 +456,26 @@ export default function WhatsAppDMs() {
               <MessageSquare className="h-4 w-4" />
               Ver Todas as Conversas
             </Button>
+            
+            <Button 
+              onClick={() => navigate("/whatsapp/nps")}
+              variant="outline"
+              className="gap-2"
+            >
+              <Star className="h-4 w-4 text-amber-500" />
+              Resultado NPS
+            </Button>
+            
+            {canViewGlobalConfig && (
+              <Button 
+                onClick={() => navigate("/whatsapp/global-config")}
+                variant="outline"
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Global Config
+              </Button>
+            )}
             
             <Button 
               onClick={() => setShowManualDialog(true)}
