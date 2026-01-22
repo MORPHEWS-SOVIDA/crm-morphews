@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppAISettingsManager } from '@/components/settings/WhatsAppAISettingsManager';
 import { useOrgAdmin } from '@/hooks/useOrgAdmin';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -129,6 +130,7 @@ export default function WhatsAppChat() {
   const { claimConversation, closeConversation } = useConversationDistribution();
   const { data: crossInstanceMap } = useCrossInstanceConversations();
   const { data: isOrgAdmin } = useOrgAdmin();
+  const { data: permissions } = useMyPermissions();
   
   // Global settings collapsible
   const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
@@ -1004,8 +1006,8 @@ export default function WhatsAppChat() {
   return (
     <Layout>
       <div className="flex flex-col">
-        {/* Global WhatsApp AI Settings - Only for admins/owners - at the top */}
-        {(isAdmin || isOrgAdmin) && (
+        {/* Global WhatsApp AI Settings - Based on permission */}
+        {permissions?.whatsapp_ai_settings_view && (
           <Collapsible
             open={isGlobalSettingsOpen}
             onOpenChange={setIsGlobalSettingsOpen}
