@@ -123,39 +123,68 @@ async function createPrePostagem(
                      config.default_package_type === 'cilindro' ? '3' : '2'; // 1=Envelope, 2=Caixa, 3=Cilindro
   
   // Format phone according to Correios expectations.
-  // Common pitfalls:
-  // - Values may include country code (55) or duplicated DDI (e.g. 5555...)
-  // - Field `celular` should only be used for mobile numbers (DDD + 9 digits => 11 digits)
-  // - Landlines should go in dddTelefone + telefone (DDD + 8 digits => 10 digits)
-  type ParsedPhone = { ddd: string; numero: string; kind: 'mobile' | 'landline' };
-  const parseBrPhone = (phone?: string | null): ParsedPhone | null => {
+  // CORREIOS API v3 (prepostagem) expects phone fields to be structured as:
+  // - Mobile: separate fields `dddCelular` (2 digits) and `celular` (9 digits starting with 9)
+  // - Landline: separate fields `dddTelefone` (2 digits) and `telefone` (8 digits)
+  // CRITICAL: The old single `celular` field with 11 digits causes "Excedeu tamanho" errors!
+  type ParsedPhone = { ddd: string; numero: string; kind: 'mobile' | 'landline' } | null;
+  
+  const parseBrPhone = (phone?: string | null): ParsedPhone => {
     if (!phone) return null;
     let digits = phone.replace(/\D/g, '');
+    
+    console.log(`Parsing phone: "${phone}" -> digits: "${digits}" (length: ${digits.length})`);
 
-    // Strip country code while we have more than 11 digits.
-    while (digits.startsWith('55') && digits.length > 11) {
+    // Strip country code (55) aggressively - handle multiple 55 prefixes too
+    while (digits.length > 11 && digits.startsWith('55')) {
       digits = digits.slice(2);
     }
-
-    // If still too long, keep the last 11 digits (best-effort for weird inputs)
+    
+    // Handle edge case: 5554... where 55 was DDI and 54 is DDD
+    // After stripping 55, we should have 11 digits max
     if (digits.length > 11) {
+      // Take the last 11 digits as best effort
       digits = digits.slice(-11);
     }
 
-    if (digits.length !== 10 && digits.length !== 11) return null;
-    const ddd = digits.slice(0, 2);
-    const numero = digits.slice(2);
-    const kind: ParsedPhone['kind'] = numero.length === 9 ? 'mobile' : 'landline';
-    return { ddd, numero, kind };
+    // Validate final length
+    if (digits.length < 10) {
+      console.log(`Phone too short after processing: ${digits.length} digits`);
+      return null;
+    }
+    
+    if (digits.length === 10) {
+      // Landline: DDD (2) + number (8)
+      return { ddd: digits.slice(0, 2), numero: digits.slice(2), kind: 'landline' };
+    }
+    
+    if (digits.length === 11) {
+      const ddd = digits.slice(0, 2);
+      const numero = digits.slice(2);
+      // Validate mobile format: must start with 9
+      if (numero.startsWith('9')) {
+        return { ddd, numero, kind: 'mobile' };
+      } else {
+        // 11 digits but doesn't start with 9 - treat as invalid mobile, try as landline
+        console.log(`11 digits but not starting with 9 - treating as landline`);
+        return { ddd, numero: numero.slice(1), kind: 'landline' };
+      }
+    }
+    
+    return null;
   };
 
   const senderPhone = parseBrPhone(config.sender_phone);
   const recipientPhone = parseBrPhone(request.recipient.phone);
   
+  console.log('Sender phone parsed:', senderPhone);
+  console.log('Recipient phone parsed:', recipientPhone);
+  
   // Ensure weight is in grams and required
   const weightGrams = pkg.weight_grams || config.default_weight_grams || 500;
   
   // Build pre-postagem payload according to Correios API v3
+  // IMPORTANT: Use separate dddCelular/celular fields instead of single 11-digit celular
   const payload: any = {
     idCorreios: config.id_correios,
     codigoServico: serviceCode,
@@ -171,8 +200,6 @@ async function createPrePostagem(
         uf: config.sender_state?.toUpperCase(),
         cep: config.sender_cep?.replace(/\D/g, ''),
       },
-      // Correios valida tamanho/forma do campo; só enviar celular quando for realmente celular
-      celular: senderPhone?.kind === 'mobile' ? `${senderPhone.ddd}${senderPhone.numero}` : undefined,
       email: config.sender_email,
     },
     destinatario: {
@@ -187,7 +214,6 @@ async function createPrePostagem(
         uf: request.recipient.state?.toUpperCase(),
         cep: request.recipient.cep?.replace(/\D/g, ''),
       },
-      celular: recipientPhone?.kind === 'mobile' ? `${recipientPhone.ddd}${recipientPhone.numero}` : undefined,
       email: request.recipient.email || undefined,
     },
     objetoPostal: {
@@ -201,23 +227,32 @@ async function createPrePostagem(
         largura: pkg.width_cm || config.default_width_cm || 15,
         comprimento: pkg.length_cm || config.default_length_cm || 20,
       },
-      objetosProibidos: false, // Required: Indicates no prohibited items
+      objetosProibidos: false,
     },
-    // Required: Declaração de conteúdo when not using NFe
     declaracaoConteudo: true,
   };
 
-  // Add telefone as separate field if available.
-  // IMPORTANT: Some Correios validations get picky if we send both celular and telefone.
-  // - If it's mobile: send ONLY `celular` (DDD + 9 digits) and omit `dddTelefone/telefone`
-  // - If it's landline: send ONLY `dddTelefone/telefone` and omit `celular`
-  if (senderPhone?.kind === 'landline') {
-    payload.remetente.dddTelefone = senderPhone.ddd;
-    payload.remetente.telefone = senderPhone.numero;
+  // Add phone fields using SEPARATE ddd and number fields to avoid "Excedeu tamanho" errors
+  // Correios API v3 expects: dddCelular (2 digits) + celular (9 digits) for mobile
+  // Or: dddTelefone (2 digits) + telefone (8 digits) for landline
+  if (senderPhone) {
+    if (senderPhone.kind === 'mobile') {
+      payload.remetente.dddCelular = senderPhone.ddd;
+      payload.remetente.celular = senderPhone.numero;
+    } else {
+      payload.remetente.dddTelefone = senderPhone.ddd;
+      payload.remetente.telefone = senderPhone.numero;
+    }
   }
-  if (recipientPhone?.kind === 'landline') {
-    payload.destinatario.dddTelefone = recipientPhone.ddd;
-    payload.destinatario.telefone = recipientPhone.numero;
+  
+  if (recipientPhone) {
+    if (recipientPhone.kind === 'mobile') {
+      payload.destinatario.dddCelular = recipientPhone.ddd;
+      payload.destinatario.celular = recipientPhone.numero;
+    } else {
+      payload.destinatario.dddTelefone = recipientPhone.ddd;
+      payload.destinatario.telefone = recipientPhone.numero;
+    }
   }
 
   // Add invoice info if provided
