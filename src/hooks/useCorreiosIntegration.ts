@@ -269,23 +269,50 @@ export function usePendingCorreiosSales() {
       if (!organizationId) return [];
 
       // Get sales with carrier delivery that don't have tracking codes yet
+      // Include shipping_address from lead_addresses for proper address data
       const { data, error } = await supabase
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep),
+          lead:leads(id, name, whatsapp, email, cpf, cnpj, street, street_number, complement, neighborhood, city, state, cep),
           items:sale_items(id, product_name, quantity),
-          shipping_carrier:shipping_carriers(id, name)
+          shipping_carrier:shipping_carriers(id, name),
+          shipping_address:lead_addresses(id, label, street, street_number, complement, neighborhood, city, state, cep)
         `)
         .eq('organization_id', organizationId)
         .eq('delivery_type', 'carrier')
         .is('tracking_code', null)
-        .in('status', ['draft', 'pending_expedition'])
+        .in('status', ['draft', 'pending_expedition'] as any)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as any[];
     },
     enabled: !!organizationId,
+  });
+}
+
+// Get label for a specific sale
+export function useSaleCorreiosLabel(saleId: string | undefined) {
+  const organizationId = useOrganizationId();
+
+  return useQuery({
+    queryKey: ['correios-label-sale', saleId],
+    queryFn: async () => {
+      if (!organizationId || !saleId) return null;
+
+      const { data, error } = await (supabase
+        .from('correios_labels' as any)
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('sale_id', saleId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()) as any;
+
+      if (error) throw error;
+      return data as CorreiosLabel | null;
+    },
+    enabled: !!organizationId && !!saleId,
   });
 }

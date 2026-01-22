@@ -1354,6 +1354,7 @@ export default function SaleDetail() {
                 currentStatus={(sale as any).carrier_tracking_status}
                 trackingCode={sale.tracking_code}
                 isCancelled={sale.status === 'cancelled'}
+                sale={sale}
               />
             )}
 

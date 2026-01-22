@@ -118,8 +118,28 @@ async function createPrePostagem(
   const serviceCode = request.service_code || config.default_service_code;
   const pkg = request.package || {};
   
+  // Determine package format based on type
+  const formatCode = config.default_package_type === 'envelope' ? '1' : 
+                     config.default_package_type === 'cilindro' ? '3' : '2'; // 1=Envelope, 2=Caixa, 3=Cilindro
+  
+  // Format phone: must be DDD (2 digits) + number (8-9 digits)
+  const formatPhone = (phone?: string | null): { ddd?: string; numero?: string } => {
+    if (!phone) return {};
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length >= 10) {
+      return { ddd: digits.slice(0, 2), numero: digits.slice(2) };
+    }
+    return {};
+  };
+  
+  const senderPhone = formatPhone(config.sender_phone);
+  const recipientPhone = formatPhone(request.recipient.phone);
+  
+  // Ensure weight is in grams and required
+  const weightGrams = pkg.weight_grams || config.default_weight_grams || 500;
+  
   // Build pre-postagem payload according to Correios API v3
-  const payload = {
+  const payload: any = {
     idCorreios: config.id_correios,
     codigoServico: serviceCode,
     remetente: {
@@ -131,10 +151,10 @@ async function createPrePostagem(
         complemento: config.sender_complement || '',
         bairro: config.sender_neighborhood,
         cidade: config.sender_city,
-        uf: config.sender_state,
+        uf: config.sender_state?.toUpperCase(),
         cep: config.sender_cep?.replace(/\D/g, ''),
       },
-      telefone: config.sender_phone?.replace(/\D/g, ''),
+      celular: senderPhone.numero ? `${senderPhone.ddd}${senderPhone.numero}` : undefined,
       email: config.sender_email,
     },
     destinatario: {
@@ -146,41 +166,68 @@ async function createPrePostagem(
         complemento: request.recipient.complement || '',
         bairro: request.recipient.neighborhood,
         cidade: request.recipient.city,
-        uf: request.recipient.state,
+        uf: request.recipient.state?.toUpperCase(),
         cep: request.recipient.cep?.replace(/\D/g, ''),
       },
-      telefone: request.recipient.phone?.replace(/\D/g, ''),
-      email: request.recipient.email,
+      celular: recipientPhone.numero ? `${recipientPhone.ddd}${recipientPhone.numero}` : undefined,
+      email: request.recipient.email || undefined,
     },
     objetoPostal: {
       tipoObjeto: config.default_package_type === 'envelope' ? 'ENVELOPE' : 
                   config.default_package_type === 'cilindro' ? 'CILINDRO' : 'CAIXA',
-      peso: pkg.weight_grams || config.default_weight_grams,
+      codigoFormatoObjeto: formatCode,
+      peso: weightGrams,
+      pesoRegistrado: weightGrams,
       dimensao: {
-        altura: pkg.height_cm || config.default_height_cm,
-        largura: pkg.width_cm || config.default_width_cm,
-        comprimento: pkg.length_cm || config.default_length_cm,
+        altura: pkg.height_cm || config.default_height_cm || 10,
+        largura: pkg.width_cm || config.default_width_cm || 15,
+        comprimento: pkg.length_cm || config.default_length_cm || 20,
       },
+      objetosProibidos: false, // Required: Indicates no prohibited items
     },
+    // Required: Declaração de conteúdo when not using NFe
+    declaracaoConteudo: true,
   };
+
+  // Add telefone as separate field if available (some services require it)
+  if (senderPhone.ddd && senderPhone.numero) {
+    payload.remetente.dddTelefone = senderPhone.ddd;
+    payload.remetente.telefone = senderPhone.numero;
+  }
+  if (recipientPhone.ddd && recipientPhone.numero) {
+    payload.destinatario.dddTelefone = recipientPhone.ddd;
+    payload.destinatario.telefone = recipientPhone.numero;
+  }
 
   // Add invoice info if provided
   if (request.invoice_key) {
-    (payload as any).documentoFiscal = {
+    payload.documentoFiscal = {
       tipo: 'NFE',
       numero: request.invoice_number || '',
       chave: request.invoice_key,
     };
+    payload.declaracaoConteudo = false; // When using NFe, disable declaração
   } else if (request.invoice_number) {
-    (payload as any).documentoFiscal = {
+    payload.documentoFiscal = {
       tipo: 'DECLARACAO',
       numero: request.invoice_number,
     };
   }
 
   // Add declared value if provided
-  if (pkg.declared_value_cents) {
-    (payload.objetoPostal as any).valorDeclarado = pkg.declared_value_cents / 100;
+  if (pkg.declared_value_cents && pkg.declared_value_cents > 0) {
+    payload.objetoPostal.valorDeclarado = pkg.declared_value_cents / 100;
+  }
+
+  // Add contents description for declaração de conteúdo
+  if (payload.declaracaoConteudo) {
+    payload.itensDeclaracaoConteudo = [
+      {
+        conteudo: 'Produtos de saúde e bem-estar',
+        quantidade: 1,
+        valor: (pkg.declared_value_cents || 10000) / 100,
+      }
+    ];
   }
 
   console.log('Creating pre-postagem with payload:', JSON.stringify(payload, null, 2));
@@ -351,13 +398,41 @@ serve(async (req) => {
           console.error('Insert label error:', insertError);
         }
 
-        // Update sale with tracking code if sale_id provided
+        // Update sale with tracking code and carrier tracking status if sale_id provided
         if (sale_id && prePostagem.codigoRastreio) {
           await supabase
             .from('sales')
-            .update({ tracking_code: prePostagem.codigoRastreio })
+            .update({ 
+              tracking_code: prePostagem.codigoRastreio,
+              carrier_tracking_status: 'waiting_post',
+            })
             .eq('id', sale_id);
+
+          // Insert carrier tracking history entry
+          const { data: saleData } = await supabase
+            .from('sales')
+            .select('organization_id')
+            .eq('id', sale_id)
+            .single();
+
+          if (saleData) {
+            await supabase
+              .from('carrier_tracking_history')
+              .insert({
+                sale_id,
+                organization_id: saleData.organization_id,
+                status: 'waiting_post',
+                notes: `Etiqueta gerada - Rastreio: ${prePostagem.codigoRastreio}`,
+              });
+          }
         }
+
+        // Extract shipping cost from API response if available
+        const shippingCostCents = prePostagem.valorServico 
+          ? Math.round(parseFloat(prePostagem.valorServico) * 100) 
+          : prePostagem.valorTotal 
+            ? Math.round(parseFloat(prePostagem.valorTotal) * 100) 
+            : null;
 
         return new Response(
           JSON.stringify({
