@@ -9780,6 +9780,19 @@ export type Database = {
         Args: { p_role: string }
         Returns: Json
       }
+      get_fiscal_company_credentials: {
+        Args: { p_company_id: string }
+        Returns: {
+          certificate_file_path: string
+          certificate_password: string
+          cnpj: string
+          focus_nfe_token_homologacao: string
+          focus_nfe_token_producao: string
+          id: string
+          nfe_environment: string
+          nfse_environment: string
+        }[]
+      }
       get_instance_credentials: {
         Args: { p_instance_id: string }
         Returns: {
