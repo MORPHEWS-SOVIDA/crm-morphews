@@ -23,6 +23,12 @@ import {
   SelectTrigger,
   SelectValue 
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Send, 
   Search, 
@@ -45,6 +51,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SatisfactionDashboard } from '@/components/whatsapp/SatisfactionDashboard';
+import { WhatsAppAISettingsManager } from '@/components/settings/WhatsAppAISettingsManager';
 
 // =====================================================
 // HELPER FUNCTIONS
@@ -287,6 +294,7 @@ export default function WhatsAppV2() {
   const [searchQuery, setSearchQuery] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [showChatList, setShowChatList] = useState(true);
+  const [showGlobalSettings, setShowGlobalSettings] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -436,11 +444,24 @@ export default function WhatsAppV2() {
               </Button>
             )}
             
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={() => setShowGlobalSettings(true)} title="Configurações Globais de IA">
               <Settings className="h-4 w-4" />
             </Button>
           </div>
         </div>
+        
+        {/* Global AI Settings Dialog */}
+        <Dialog open={showGlobalSettings} onOpenChange={setShowGlobalSettings}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                Configurações Globais de IA (WhatsApp)
+              </DialogTitle>
+            </DialogHeader>
+            <WhatsAppAISettingsManager />
+          </DialogContent>
+        </Dialog>
         
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
