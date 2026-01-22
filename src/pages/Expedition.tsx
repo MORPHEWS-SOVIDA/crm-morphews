@@ -73,7 +73,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
 import { useAuth } from '@/hooks/useAuth';
 
-type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'delivered' | 'cancelled';
+type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'pickup' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
 
 // Status colors for sale cards
@@ -84,6 +84,7 @@ const STATUS_BG_COLORS: Record<string, string> = {
   returned: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200', // Light yellow
   'carrier-no-tracking': 'bg-orange-50 dark:bg-orange-950/30 border-orange-200', // Light orange
   'carrier-tracking': 'bg-red-50 dark:bg-red-950/30 border-red-200', // Light red/vermillion
+  pickup: 'bg-purple-50 dark:bg-purple-950/30 border-purple-200', // Light purple for pickup
 };
 
 // Button colors for stats cards
@@ -94,6 +95,7 @@ const STATUS_BUTTON_COLORS: Record<string, { text: string; bg: string; border: s
   returned: { text: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-50 dark:bg-yellow-950/30', border: 'border-yellow-200 dark:border-yellow-800' },
   'carrier-no-tracking': { text: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-200 dark:border-orange-800' },
   'carrier-tracking': { text: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800' },
+  pickup: { text: 'text-purple-700 dark:text-purple-300', bg: 'bg-purple-50 dark:bg-purple-950/30', border: 'border-purple-200 dark:border-purple-800' },
 };
 
 export default function Expedition() {
@@ -220,6 +222,10 @@ export default function Expedition() {
         break;
       case 'carrier-tracking':
         filtered = filtered.filter(s => s.delivery_type === 'carrier' && s.tracking_code && s.status !== 'delivered' && s.status !== 'cancelled');
+        break;
+      case 'pickup':
+        // Retirada no Balcão - only pending pickups (not delivered or cancelled)
+        filtered = filtered.filter(s => s.delivery_type === 'pickup' && s.status !== 'delivered' && s.status !== 'cancelled');
         break;
       case 'delivered':
         filtered = filtered.filter(s => s.status === 'delivered');
@@ -773,8 +779,8 @@ export default function Expedition() {
           </Card>
         </div>
 
-        {/* Stats Cards - Row 2: Carrier tracking */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* Stats Cards - Row 2: Carrier tracking + Pickup */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <Card 
             className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS['carrier-no-tracking'].bg} ${STATUS_BUTTON_COLORS['carrier-no-tracking'].border} ${
               activeTab === 'carrier-no-tracking' ? 'ring-2 ring-primary' : ''
@@ -795,6 +801,17 @@ export default function Expedition() {
             <CardContent className="p-3 text-center">
               <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS['carrier-tracking'].text}`}>{stats.carrierWithTracking}</p>
               <p className="text-xs text-red-600 dark:text-red-400">📮 Correio c/ Rastreio</p>
+            </CardContent>
+          </Card>
+          <Card 
+            className={`cursor-pointer transition-all ${STATUS_BUTTON_COLORS.pickup.bg} ${STATUS_BUTTON_COLORS.pickup.border} ${
+              activeTab === 'pickup' ? 'ring-2 ring-primary' : ''
+            }`}
+            onClick={() => setActiveTab('pickup')}
+          >
+            <CardContent className="p-3 text-center">
+              <p className={`text-xl font-bold ${STATUS_BUTTON_COLORS.pickup.text}`}>{stats.pickup}</p>
+              <p className="text-xs text-purple-600 dark:text-purple-400">🏪 Retirada</p>
             </CardContent>
           </Card>
           {stats.tomorrowPrep > 0 && (
@@ -1054,8 +1071,8 @@ export default function Expedition() {
                             </Button>
                           </div>
 
-                          {/* Status actions */}
-                          {sale.status === 'draft' && !isOptimisticPrinted && (
+                          {/* Status actions - hide for pickup (they go straight to delivered) */}
+                          {sale.delivery_type !== 'pickup' && sale.status === 'draft' && !isOptimisticPrinted && (
                             <Button
                               variant="secondary"
                               size="sm"
@@ -1072,7 +1089,7 @@ export default function Expedition() {
                             </Button>
                           )}
                           
-                          {isOptimisticPrinted && sale.status === 'draft' && (
+                          {sale.delivery_type !== 'pickup' && isOptimisticPrinted && sale.status === 'draft' && (
                             <Badge className="bg-green-600 text-white text-xs">
                               <CheckCircle2 className="w-3 h-3 mr-1" />
                               Impresso ✓
@@ -1225,8 +1242,39 @@ export default function Expedition() {
                             </div>
                           )}
 
-                          {/* Dispatch button */}
-                          {(sale.status === 'draft' || sale.status === 'pending_expedition') && !isOptimisticPrinted && (
+                          {/* Quick actions for Pickup (Retirada no Balcão) */}
+                          {sale.delivery_type === 'pickup' && sale.status !== 'delivered' && sale.status !== 'cancelled' && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                onClick={() => handleUpdateSaleStatus(sale.id, 'delivered')}
+                                disabled={isBeingUpdated}
+                              >
+                                {isBeingUpdated ? (
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                )}
+                                ✓ Entregue
+                              </Button>
+                              {sale.payment_proof_url && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs text-green-600 border-green-300"
+                                  onClick={() => window.open(sale.payment_proof_url!, '_blank')}
+                                >
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  Comprovante
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Dispatch button - hide for pickup */}
+                          {sale.delivery_type !== 'pickup' && (sale.status === 'draft' || sale.status === 'pending_expedition') && !isOptimisticPrinted && (
                             <Button
                               variant="default"
                               size="sm"

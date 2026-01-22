@@ -21,6 +21,7 @@ export interface ExpeditionStats {
   cancelled: number;
   carrierNoTracking: number;
   carrierWithTracking: number;
+  pickup: number; // Retirada no Balcão pending
   urgentToday: number;
   tomorrowPrep: number;
 }
@@ -99,6 +100,7 @@ export function useExpeditionStats(sales: Sale[]) {
     cancelled: 0,
     carrierNoTracking: 0,
     carrierWithTracking: 0,
+    pickup: 0,
     urgentToday: 0,
     tomorrowPrep: 0,
   };
@@ -138,6 +140,11 @@ export function useExpeditionStats(sales: Sale[]) {
     // Carrier with tracking (for substatus updates)
     if (sale.delivery_type === 'carrier' && sale.tracking_code && sale.status !== 'cancelled' && sale.status !== 'delivered') {
       stats.carrierWithTracking++;
+    }
+
+    // Pickup (Retirada no Balcão) - pending delivery
+    if (sale.delivery_type === 'pickup' && sale.status !== 'cancelled' && sale.status !== 'delivered') {
+      stats.pickup++;
     }
 
     // Urgent today (drafts that should go out today)
