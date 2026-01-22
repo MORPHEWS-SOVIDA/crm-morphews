@@ -166,6 +166,7 @@ export type Database = {
         Row: {
           age_range: string
           ai_model_chat: string | null
+          audio_response_probability: number | null
           avatar_url: string | null
           brazilian_state: string | null
           company_differential: string | null
@@ -197,6 +198,10 @@ export type Database = {
           transfer_on_confusion: boolean | null
           updated_at: string
           use_rag_search: boolean | null
+          voice_enabled: boolean | null
+          voice_id: string | null
+          voice_name: string | null
+          voice_style: string | null
           welcome_message: string | null
           working_days: number[] | null
           working_hours_end: string | null
@@ -205,6 +210,7 @@ export type Database = {
         Insert: {
           age_range?: string
           ai_model_chat?: string | null
+          audio_response_probability?: number | null
           avatar_url?: string | null
           brazilian_state?: string | null
           company_differential?: string | null
@@ -236,6 +242,10 @@ export type Database = {
           transfer_on_confusion?: boolean | null
           updated_at?: string
           use_rag_search?: boolean | null
+          voice_enabled?: boolean | null
+          voice_id?: string | null
+          voice_name?: string | null
+          voice_style?: string | null
           welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
@@ -244,6 +254,7 @@ export type Database = {
         Update: {
           age_range?: string
           ai_model_chat?: string | null
+          audio_response_probability?: number | null
           avatar_url?: string | null
           brazilian_state?: string | null
           company_differential?: string | null
@@ -275,6 +286,10 @@ export type Database = {
           transfer_on_confusion?: boolean | null
           updated_at?: string
           use_rag_search?: boolean | null
+          voice_enabled?: boolean | null
+          voice_id?: string | null
+          voice_name?: string | null
+          voice_style?: string | null
           welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null

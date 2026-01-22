@@ -34,6 +34,7 @@ export const AVAILABLE_FEATURES = {
   // Mensagens & Automação
   scheduled_messages: { label: "Mensagens Agendadas", group: "Mensagens & Automação" },
   ai_bots: { label: "Robôs de IA", group: "Mensagens & Automação" },
+  bot_voice_responses: { label: "Voz IA (ElevenLabs)", group: "Mensagens & Automação" },
   
   // WhatsApp
   whatsapp_v1: { label: "WhatsApp 1.0 (DMs)", group: "WhatsApp" },
