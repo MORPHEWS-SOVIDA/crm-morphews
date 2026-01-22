@@ -80,13 +80,23 @@ export function DonnaHelperPanel({ onClose }: DonnaHelperPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Mensagem inicial da Donna
+  // Mensagem inicial da Donna - Personalidade Donna Paulsen
   useEffect(() => {
     if (messages.length === 0) {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: "Olá! 👋 Eu sou a Donna, sua assistente virtual do CRM Morphews!\n\nPosso te ajudar a:\n• Aprender a usar o sistema\n• Tirar dúvidas sobre funcionalidades\n• Ensinar truques e atalhos\n\nÉ só me perguntar! 😊",
+        content: `Oi! Eu sou a Donna. 💜
+
+E antes que você pergunte: sim, *aquela* Donna - perceptiva, direta e sempre um passo à frente.
+
+Posso te guiar por qualquer canto desse CRM:
+• **Criar robôs de IA** que atendem seus clientes 24h
+• **Configurar seu funil** de vendas do zero
+• **Fazer integrações** funcionarem (e debug quando não funcionam 😅)
+• **Dominar** cada módulo do sistema
+
+Me diz: no que posso te ajudar agora?`,
         created_at: new Date().toISOString(),
       }]);
     }
