@@ -1395,16 +1395,19 @@ async function handleCreateMeeting(
 }
 
 async function handleStats(organizationId: string): Promise<string> {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  const { count: todayCount } = await supabase
+  // ==================== LEADS STATS ====================
+  const { count: todayLeads } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId)
     .gte("created_at", today);
 
-  const { count: weekCount } = await supabase
+  const { count: weekLeads } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId)
@@ -1416,12 +1419,156 @@ async function handleStats(organizationId: string): Promise<string> {
     .eq("organization_id", organizationId)
     .eq("stars", 5);
 
-  const { count: totalCount } = await supabase
+  const { count: totalLeads } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId);
 
-  return `📊 *Estatísticas*\n\n📅 Hoje: ${todayCount || 0} leads\n📅 Esta semana: ${weekCount || 0} leads\n⭐ 5 estrelas: ${fiveStarCount || 0}\n📋 Total: ${totalCount || 0} leads\n\n💡 _Quer que eu liste os 5 estrelas?_`;
+  // ==================== SALES STATS ====================
+  const { data: todaySales } = await supabase
+    .from("sales")
+    .select("id, total_amount_cents, created_by")
+    .eq("organization_id", organizationId)
+    .gte("created_at", today)
+    .neq("status", "cancelled");
+
+  const { data: weekSales } = await supabase
+    .from("sales")
+    .select("id, total_amount_cents, created_by")
+    .eq("organization_id", organizationId)
+    .gte("created_at", weekAgo)
+    .neq("status", "cancelled");
+
+  const { data: monthSales } = await supabase
+    .from("sales")
+    .select("id, total_amount_cents, created_by")
+    .eq("organization_id", organizationId)
+    .gte("created_at", monthStart)
+    .neq("status", "cancelled");
+
+  // Calculate totals
+  const todaySalesCount = todaySales?.length || 0;
+  const todaySalesValue = (todaySales || []).reduce((acc, s) => acc + (s.total_amount_cents || 0), 0) / 100;
+
+  const weekSalesCount = weekSales?.length || 0;
+  const weekSalesValue = (weekSales || []).reduce((acc, s) => acc + (s.total_amount_cents || 0), 0) / 100;
+
+  const monthSalesCount = monthSales?.length || 0;
+  const monthSalesValue = (monthSales || []).reduce((acc, s) => acc + (s.total_amount_cents || 0), 0) / 100;
+
+  // ==================== TOP SELLERS ====================
+  // Get profiles for seller names
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, full_name")
+    .eq("organization_id", organizationId);
+
+  const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name || "Sem nome"]));
+
+  // Top seller this week (by sales count)
+  const weekSellerCounts: Record<string, number> = {};
+  const weekSellerValues: Record<string, number> = {};
+  
+  for (const sale of (weekSales || [])) {
+    if (sale.created_by) {
+      weekSellerCounts[sale.created_by] = (weekSellerCounts[sale.created_by] || 0) + 1;
+      weekSellerValues[sale.created_by] = (weekSellerValues[sale.created_by] || 0) + (sale.total_amount_cents || 0);
+    }
+  }
+
+  let topWeekSeller = { name: "—", count: 0, value: 0 };
+  for (const [userId, count] of Object.entries(weekSellerCounts)) {
+    if (count > topWeekSeller.count) {
+      topWeekSeller = { 
+        name: profileMap.get(userId) || "Sem nome", 
+        count, 
+        value: (weekSellerValues[userId] || 0) / 100 
+      };
+    }
+  }
+
+  // Top seller today
+  const todaySellerCounts: Record<string, number> = {};
+  const todaySellerValues: Record<string, number> = {};
+  
+  for (const sale of (todaySales || [])) {
+    if (sale.created_by) {
+      todaySellerCounts[sale.created_by] = (todaySellerCounts[sale.created_by] || 0) + 1;
+      todaySellerValues[sale.created_by] = (todaySellerValues[sale.created_by] || 0) + (sale.total_amount_cents || 0);
+    }
+  }
+
+  let topTodaySeller = { name: "—", count: 0, value: 0 };
+  for (const [userId, count] of Object.entries(todaySellerCounts)) {
+    if (count > topTodaySeller.count) {
+      topTodaySeller = { 
+        name: profileMap.get(userId) || "Sem nome", 
+        count, 
+        value: (todaySellerValues[userId] || 0) / 100 
+      };
+    }
+  }
+
+  // Top lead creator this week
+  const { data: weekLeadsWithCreator } = await supabase
+    .from("leads")
+    .select("created_by")
+    .eq("organization_id", organizationId)
+    .gte("created_at", weekAgo);
+
+  const weekLeadCreators: Record<string, number> = {};
+  for (const lead of (weekLeadsWithCreator || [])) {
+    if (lead.created_by) {
+      weekLeadCreators[lead.created_by] = (weekLeadCreators[lead.created_by] || 0) + 1;
+    }
+  }
+
+  let topLeadCreator = { name: "—", count: 0 };
+  for (const [userId, count] of Object.entries(weekLeadCreators)) {
+    if (count > topLeadCreator.count) {
+      topLeadCreator = { name: profileMap.get(userId) || "Sem nome", count };
+    }
+  }
+
+  // Format currency
+  const formatBRL = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  // Build message
+  let msg = `📊 *Estatísticas do Negócio*\n\n`;
+  
+  msg += `📋 *LEADS*\n`;
+  msg += `├ Hoje: ${todayLeads || 0}\n`;
+  msg += `├ Esta semana: ${weekLeads || 0}\n`;
+  msg += `├ ⭐ 5 estrelas: ${fiveStarCount || 0}\n`;
+  msg += `└ Total: ${totalLeads || 0}\n\n`;
+
+  msg += `💰 *VENDAS*\n`;
+  msg += `├ Hoje: ${todaySalesCount} (${formatBRL(todaySalesValue)})\n`;
+  msg += `├ Esta semana: ${weekSalesCount} (${formatBRL(weekSalesValue)})\n`;
+  msg += `└ Este mês: ${monthSalesCount} (${formatBRL(monthSalesValue)})\n\n`;
+
+  msg += `🏆 *TOP VENDEDORES*\n`;
+  if (topTodaySeller.count > 0) {
+    msg += `├ Hoje: ${topTodaySeller.name} (${topTodaySeller.count} vendas - ${formatBRL(topTodaySeller.value)})\n`;
+  } else {
+    msg += `├ Hoje: Nenhuma venda ainda\n`;
+  }
+  if (topWeekSeller.count > 0) {
+    msg += `└ Semana: ${topWeekSeller.name} (${topWeekSeller.count} vendas - ${formatBRL(topWeekSeller.value)})\n\n`;
+  } else {
+    msg += `└ Semana: Nenhuma venda ainda\n\n`;
+  }
+
+  msg += `📝 *TOP CADASTRADORES*\n`;
+  if (topLeadCreator.count > 0) {
+    msg += `└ Semana: ${topLeadCreator.name} (${topLeadCreator.count} leads)\n\n`;
+  } else {
+    msg += `└ Semana: —\n\n`;
+  }
+
+  msg += `💡 _Pergunte: "quem vendeu mais hoje?" ou "quantos leads entraram?"_`;
+
+  return msg;
 }
 
 function getHelpMessage(): string {

@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -27,6 +27,8 @@ import { OrgFeatureOverridesEditor } from "@/components/super-admin/OrgFeatureOv
 import { EnergyManagementTab } from "@/components/super-admin/EnergyManagementTab";
 import { AdminWhatsAppInstanceTab } from "@/components/super-admin/AdminWhatsAppInstanceTab";
 import { AIModelCostsTab } from "@/components/super-admin/AIModelCostsTab";
+import { OnboardingEmailsManager } from "@/components/super-admin/OnboardingEmailsManager";
+import { SecretaryMessagesManager } from "@/components/super-admin/SecretaryMessagesManager";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -793,6 +795,14 @@ export default function SuperAdmin() {
               <Cpu className="h-3 w-3" />
               Custos IA
             </TabsTrigger>
+            <TabsTrigger value="onboarding-emails" className="gap-1">
+              <MailOpen className="h-3 w-3" />
+              Emails Onboarding
+            </TabsTrigger>
+            <TabsTrigger value="secretary-messages" className="gap-1">
+              <MessageSquare className="h-3 w-3" />
+              Secretária WhatsApp
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="organizations">
@@ -1248,6 +1258,14 @@ export default function SuperAdmin() {
 
           <TabsContent value="ai-costs">
             <AIModelCostsTab />
+          </TabsContent>
+
+          <TabsContent value="onboarding-emails">
+            <OnboardingEmailsManager />
+          </TabsContent>
+
+          <TabsContent value="secretary-messages">
+            <SecretaryMessagesManager />
           </TabsContent>
         </Tabs>
       </div>

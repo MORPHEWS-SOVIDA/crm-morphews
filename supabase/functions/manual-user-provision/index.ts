@@ -241,6 +241,27 @@ serve(async (req) => {
       .update({ status: "converted", converted_at: new Date().toISOString() })
       .eq("email", email);
 
+    // Enqueue onboarding emails
+    try {
+      const { data: enqueued, error: enqueueError } = await supabaseAdmin.rpc(
+        "enqueue_onboarding_emails",
+        {
+          _organization_id: organizationId,
+          _user_id: userId,
+          _email: email,
+          _name: name || "Usuário",
+        }
+      );
+      
+      if (enqueueError) {
+        console.error("Failed to enqueue onboarding emails:", enqueueError);
+      } else {
+        console.log(`Enqueued ${enqueued} onboarding emails for ${email}`);
+      }
+    } catch (e) {
+      console.error("Error enqueueing onboarding emails:", e);
+    }
+
     console.log("User provisioned successfully");
 
     // Send welcome email if new user

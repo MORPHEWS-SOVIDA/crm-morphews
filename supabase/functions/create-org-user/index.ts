@@ -486,6 +486,29 @@ const handler = async (req: Request): Promise<Response> => {
       await sendWelcomeWhatsApp(ownerPhone, firstName, tempPassword, supabaseAdmin);
     }
 
+    // Enqueue onboarding emails for new users (not additional users)
+    if (!isAdditionalUser && organizationId) {
+      try {
+        const { data: enqueued, error: enqueueError } = await supabaseAdmin.rpc(
+          "enqueue_onboarding_emails",
+          {
+            _organization_id: organizationId,
+            _user_id: userId,
+            _email: ownerEmail,
+            _name: `${firstName} ${lastName}`.trim(),
+          }
+        );
+        
+        if (enqueueError) {
+          console.error("Failed to enqueue onboarding emails:", enqueueError);
+        } else {
+          console.log(`Enqueued ${enqueued} onboarding emails for ${ownerEmail}`);
+        }
+      } catch (e) {
+        console.error("Error enqueueing onboarding emails:", e);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
