@@ -1661,6 +1661,131 @@ export type Database = {
         }
         Relationships: []
       }
+      helper_conversations: {
+        Row: {
+          created_at: string
+          human_notified_at: string | null
+          human_requested_at: string | null
+          id: string
+          organization_id: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          human_notified_at?: string | null
+          human_requested_at?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          human_notified_at?: string | null
+          human_requested_at?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "helper_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      helper_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          organization_id: string | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "helper_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "helper_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "helper_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      helper_tips: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          module: string
+          position: number
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          module: string
+          position?: number
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          module?: string
+          position?: number
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       installment_history: {
         Row: {
           changed_by: string | null
@@ -9233,6 +9358,7 @@ export type Database = {
         Returns: undefined
       }
       is_current_user_org_admin: { Args: never; Returns: boolean }
+      is_helper_master_admin: { Args: never; Returns: boolean }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }
