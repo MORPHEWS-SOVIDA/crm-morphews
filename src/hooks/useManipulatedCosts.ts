@@ -32,7 +32,21 @@ export function useManipulatedSaleItems(filters?: {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Get all sale_items with requisition_number (manipulated products)
+      // First get sales for this org
+      const { data: orgSales, error: salesError } = await supabase
+        .from('sales')
+        .select('id')
+        .eq('organization_id', tenantId);
+
+      if (salesError) {
+        console.error('Error fetching org sales:', salesError);
+        throw salesError;
+      }
+
+      const saleIds = (orgSales || []).map(s => s.id);
+      if (saleIds.length === 0) return [];
+
+      // Get all sale_items with requisition_number for those sales
       const { data, error } = await supabase
         .from('sale_items')
         .select(`
@@ -44,8 +58,9 @@ export function useManipulatedSaleItems(filters?: {
           unit_price_cents,
           total_cents,
           requisition_number,
+          cost_cents,
           created_at,
-          sales!inner (
+          sales (
             id,
             created_at,
             status,
@@ -60,7 +75,7 @@ export function useManipulatedSaleItems(filters?: {
           )
         `)
         .not('requisition_number', 'is', null)
-        .eq('sales.organization_id', tenantId)
+        .in('sale_id', saleIds)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -68,42 +83,25 @@ export function useManipulatedSaleItems(filters?: {
         throw error;
       }
 
-      const itemIds = (data || []).map((d: any) => d.id);
-      
-      // Get cost_cents using RPC (type cast to bypass TS restriction until types regenerate)
-      // Note: We need to handle NULL cost_cents separately from "not found"
-      const { data: costsData } = await (supabase.rpc as any)('get_sale_items_costs', { item_ids: itemIds });
-      
-      // Map id -> cost_cents, storing null values explicitly (cost not set)
-      const costsMap = new Map<string, number | null>();
-      (costsData as any[] || []).forEach((c: any) => {
-        costsMap.set(c.id, c.cost_cents);
-      });
-
-      // Transform and filter by date
-      let items = (data || []).map((item: any) => {
-        // Check if this item ID exists in costsMap (to distinguish "not found" from "null cost")
-        const costValue = costsMap.has(item.id) ? costsMap.get(item.id) : null;
-        
-        return {
-          id: item.id,
-          sale_id: item.sale_id,
-          product_id: item.product_id,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price_cents: item.unit_price_cents,
-          total_cents: item.total_cents,
-          requisition_number: item.requisition_number,
-          cost_cents: costValue,
-          created_at: item.created_at,
-          sale_created_at: item.sales?.created_at,
-          sale_status: item.sales?.status,
-          client_name: item.sales?.leads?.name || 'Cliente não identificado',
-          seller_name: item.sales?.profiles 
-            ? `${item.sales.profiles.first_name} ${item.sales.profiles.last_name}`
-            : 'Vendedor não identificado',
-        };
-      }) as ManipulatedSaleItem[];
+      // Transform data - cost_cents is now fetched directly
+      let items = (data || []).map((item: any) => ({
+        id: item.id,
+        sale_id: item.sale_id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+        total_cents: item.total_cents,
+        requisition_number: item.requisition_number,
+        cost_cents: item.cost_cents,
+        created_at: item.created_at,
+        sale_created_at: item.sales?.created_at,
+        sale_status: item.sales?.status,
+        client_name: item.sales?.leads?.name || 'Cliente não identificado',
+        seller_name: item.sales?.profiles 
+          ? `${item.sales.profiles.first_name} ${item.sales.profiles.last_name}`
+          : 'Vendedor não identificado',
+      })) as ManipulatedSaleItem[];
 
       // Apply cost filter
       if (filters?.hasCost === 'with_cost') {

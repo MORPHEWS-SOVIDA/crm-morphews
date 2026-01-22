@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus, Search, Package, Loader2, FlaskConical } from 'lucide-react';
 import { ProductCsvManager } from '@/components/products/ProductCsvManager';
-import { ManipulatedCostsManager } from '@/components/products/ManipulatedCostsManager';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductForm } from '@/components/products/ProductForm';
 import { ProductDetailDialog } from '@/components/products/ProductDetailDialog';
@@ -45,12 +45,13 @@ import type { DynamicQuestion } from '@/components/products/DynamicQuestionsMana
 import type { ProductFaq } from '@/components/products/ProductFaqManager';
 import type { ProductIngredient } from '@/components/products/ProductIngredientsManager';
 
-type ViewMode = 'list' | 'create' | 'edit' | 'manipulated-costs';
+type ViewMode = 'list' | 'create' | 'edit';
 
 // Categorias que usam kits dinâmicos
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
 
 export default function Products() {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -296,13 +297,6 @@ export default function Products() {
     setInitialVisibleUserIds([]);
   };
 
-  if (viewMode === 'manipulated-costs') {
-    return (
-      <Layout>
-        <ManipulatedCostsManager onClose={() => setViewMode('list')} />
-      </Layout>
-    );
-  }
 
   if (viewMode === 'create') {
     return (
@@ -355,7 +349,7 @@ export default function Products() {
             {(myPermissions?.products_view_cost || isOwner) && (
               <Button 
                 variant="outline" 
-                onClick={() => setViewMode('manipulated-costs')}
+                onClick={() => navigate('/produtos/custos-manipulados')}
                 className="bg-amber-50 border-amber-300 hover:bg-amber-100 text-amber-800"
               >
                 <FlaskConical className="h-4 w-4 mr-2" />
