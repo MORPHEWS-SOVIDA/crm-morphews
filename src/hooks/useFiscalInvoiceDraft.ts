@@ -41,6 +41,7 @@ export function useCreateDraftFromSale() {
       // Get fiscal company (primary or specified)
       let fiscalCompanyId = data.fiscal_company_id;
       if (!fiscalCompanyId) {
+        // Try primary first
         const { data: primaryCompany } = await (supabase as any)
           .from('fiscal_companies')
           .select('id')
@@ -51,11 +52,24 @@ export function useCreateDraftFromSale() {
         
         if (primaryCompany) {
           fiscalCompanyId = primaryCompany.id;
+        } else {
+          // Fallback to any active company
+          const { data: anyCompany } = await (supabase as any)
+            .from('fiscal_companies')
+            .select('id')
+            .eq('organization_id', profile.organization_id)
+            .eq('is_active', true)
+            .limit(1)
+            .single();
+          
+          if (anyCompany) {
+            fiscalCompanyId = anyCompany.id;
+          }
         }
       }
 
       if (!fiscalCompanyId) {
-        throw new Error('Nenhuma empresa fiscal configurada');
+        throw new Error('Nenhuma empresa fiscal cadastrada. Acesse Configurações > Notas Fiscais.');
       }
 
       // Get fiscal company details
