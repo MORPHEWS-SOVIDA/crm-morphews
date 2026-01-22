@@ -223,11 +223,6 @@ export function BotVoiceConfig({
                   </button>
                 ))}
               </div>
-              
-              {/* Note about custom voices */}
-              <p className="text-xs text-muted-foreground mt-2">
-                💡 Para usar vozes clonadas, acesse a <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">biblioteca ElevenLabs</a> e copie o ID da voz.
-              </p>
             </div>
 
             {/* Voice Style */}
