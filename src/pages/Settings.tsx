@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,8 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { DataBackupManager } from '@/components/settings/DataBackupManager';
 import { RomaneioImporter } from '@/components/settings/RomaneioImporter';
 import { CustomFieldsManager } from '@/components/settings/CustomFieldsManager';
+import { FiscalCompaniesManager } from '@/components/settings/FiscalCompaniesManager';
+import { FiscalInvoicesManager } from '@/components/settings/FiscalInvoicesManager';
 import { cn } from '@/lib/utils';
 
 // Define setting categories with their tabs
@@ -36,6 +38,7 @@ const SETTINGS_TABS = [
   { id: 'pagamentos', label: 'Pagamentos', icon: CreditCard },
   { id: 'qualificacao', label: 'Qualificação', icon: HelpCircle },
   { id: 'equipe', label: 'Equipe', icon: Users },
+  { id: 'notas_fiscais', label: 'Notas Fiscais', icon: FileText },
   { id: 'integracoes', label: 'Integrações', icon: Plug2 },
   { id: 'conta', label: 'Minha Conta', icon: User },
 ] as const;
@@ -169,13 +172,18 @@ export default function Settings() {
       visibleTabs.push(SETTINGS_TABS[4]); // equipe
     }
     
+    // Notas Fiscais tab - requires admin/org admin
+    if (isAdmin || isOrgAdmin) {
+      visibleTabs.push(SETTINGS_TABS[5]); // notas_fiscais
+    }
+    
     // Integrações tab - requires integrations permission + feature
     if ((isAdmin || isOrgAdmin || permissions?.integrations_view) && orgFeatures?.integrations !== false) {
-      visibleTabs.push(SETTINGS_TABS[5]); // integracoes
+      visibleTabs.push(SETTINGS_TABS[6]); // integracoes
     }
     
     // Conta tab - always visible (user can always change their own password)
-    visibleTabs.push(SETTINGS_TABS[6]); // conta
+    visibleTabs.push(SETTINGS_TABS[7]); // conta
     
     return visibleTabs;
   };
@@ -546,6 +554,28 @@ export default function Settings() {
                 </a>
                 {' '}no menu lateral.
               </p>
+            </div>
+          </TabsContent>
+
+          {/* NOTAS FISCAIS TAB */}
+          <TabsContent value="notas_fiscais" className="space-y-6 mt-6">
+            {/* Empresas (CNPJs) */}
+            <div className="bg-card rounded-xl p-6 shadow-card">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <FileText className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Configuração Fiscal</h2>
+                  <p className="text-sm text-muted-foreground">Gerencie suas empresas e certificados para emissão de NF-e/NFS-e</p>
+                </div>
+              </div>
+              <FiscalCompaniesManager />
+            </div>
+
+            {/* Notas Emitidas */}
+            <div className="bg-card rounded-xl p-6 shadow-card">
+              <FiscalInvoicesManager />
             </div>
           </TabsContent>
 

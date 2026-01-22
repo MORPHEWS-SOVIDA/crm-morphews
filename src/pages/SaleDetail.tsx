@@ -79,7 +79,7 @@ import { SaleCheckpointsCard } from '@/components/sales/SaleCheckpointsCard';
 import { CarrierTrackingCard } from '@/components/sales/CarrierTrackingCard';
 import { MotoboyTrackingCard } from '@/components/sales/MotoboyTrackingCard';
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
-
+import { SaleInvoiceCard } from '@/components/sales/SaleInvoiceCard';
 
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
@@ -1372,6 +1372,13 @@ export default function SaleDetail() {
                 }
               />
             )}
+
+            {/* Fiscal Invoice Card */}
+            <Card>
+              <CardContent className="pt-6">
+                <SaleInvoiceCard saleId={sale.id} saleTotalCents={sale.total_cents} />
+              </CardContent>
+            </Card>
 
             {/* Legacy Status Timeline - kept for reference */}
             <Card>
