@@ -18,6 +18,36 @@ interface EmitRequest {
   draft_data?: any; // Pre-populated draft data
 }
 
+function normalizeDigits(value: unknown): string | undefined {
+  const s = String(value ?? '').replace(/\D/g, '');
+  return s.length ? s : undefined;
+}
+
+function mapTaxRegimeToFocusCode(taxRegime: unknown): string {
+  const key = String(taxRegime ?? '').toLowerCase();
+  // Focus expects: 1 (Simples), 2 (Simples excesso), 3 (Normal)
+  if (key.includes('excess') || key.includes('excesso')) return '2';
+  if (key.includes('normal')) return '3';
+  // MEI usually operates under Simples for NFe purposes
+  return '1';
+}
+
+function getFocusErrorMessage(focusResult: any): string {
+  if (!focusResult) return 'Erro desconhecido na emissão.';
+  if (typeof focusResult.mensagem === 'string' && focusResult.mensagem.trim()) return focusResult.mensagem;
+  if (typeof focusResult.mensagem_sefaz === 'string' && focusResult.mensagem_sefaz.trim()) return focusResult.mensagem_sefaz;
+
+  const erros = focusResult.erros;
+  if (Array.isArray(erros)) {
+    const msgs = erros
+      .map((e: any) => (typeof e?.mensagem === 'string' ? e.mensagem : String(e)))
+      .filter(Boolean);
+    if (msgs.length) return msgs.join(' | ');
+  }
+
+  return 'Erro na emissão. Verifique os dados do emitente/destinatário e tente novamente.';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -232,9 +262,13 @@ Deno.serve(async (req) => {
     let focusPayload: any;
 
     if (invoice_type === 'nfe') {
-      focusPayload = buildNFePayload(sale, fiscalCompany, cfop, focusRef, serie, nextNumber);
+      // Prefer using the invoice draft data (what user sees/edits) instead of sale/lead fallback.
+      // This avoids sending incomplete recipient data and is required for Focus validation.
+      const draft = draft_data || invoice;
+      focusPayload = buildNFePayload(draft, sale, fiscalCompany, cfop, focusRef, serie, nextNumber);
     } else {
-      focusPayload = buildNFSePayload(sale, fiscalCompany, focusRef, serie, nextNumber);
+      const draft = draft_data || invoice;
+      focusPayload = buildNFSePayload(draft, sale, fiscalCompany, focusRef, serie, nextNumber);
     }
 
     console.log(`Sending to Focus NFe (${environment}):`, JSON.stringify(focusPayload, null, 2));
@@ -309,9 +343,17 @@ Deno.serve(async (req) => {
       focus_nfe_response: focusResult,
     };
 
-    if (focusResult.status === 'erro_autorizacao' || focusResult.status === 'erro_validacao') {
+    const focusCode = String(focusResult?.codigo || '').toLowerCase();
+    const focusStatus = String(focusResult?.status || '').toLowerCase();
+
+    // Focus may return errors via `codigo` (e.g. permissao_negada) rather than `status`.
+    const isImmediateError =
+      ['permissao_negada', 'requisicao_invalida', 'erro_validacao_schema', 'certificado_vencido', 'erro_autenticacao'].includes(focusCode) ||
+      ['erro_autorizacao', 'erro_validacao', 'nfe_nao_autorizada'].includes(focusStatus);
+
+    if (isImmediateError) {
       updateData.status = 'rejected';
-      updateData.error_message = focusResult.mensagem || focusResult.erros?.join(', ') || 'Erro na validação';
+      updateData.error_message = getFocusErrorMessage(focusResult);
     } else if (focusResult.status === 'autorizado') {
       updateData.status = 'authorized';
       updateData.invoice_number = focusResult.numero;
@@ -329,7 +371,7 @@ Deno.serve(async (req) => {
         .update({ [updateField]: parseInt(focusResult.numero) || nextNumber })
         .eq('id', fiscalCompany.id);
     }
-    // Otherwise keep as 'processing' - webhook will update
+    // Otherwise keep as 'processing' - webhook/status polling will update
 
     await supabase
       .from('fiscal_invoices')
@@ -362,30 +404,46 @@ Deno.serve(async (req) => {
   }
 });
 
-function buildNFePayload(sale: any, company: any, cfop: string, ref: string, serie: number, numero: number) {
-  const items = sale.items.map((item: any, index: number) => {
+function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: string, ref: string, serie: number, numero: number) {
+  const draft = invoiceDraft || {};
+
+  const companyCnpj = normalizeDigits(company?.cnpj);
+  const companyUf = String(company?.address_state || '').trim();
+  const companyCity = String(company?.address_city || '').trim();
+  const companyCep = normalizeDigits(company?.address_zip);
+
+  const recipientCpfCnpjDigits = normalizeDigits(draft?.recipient_cpf_cnpj);
+  const recipientIsJuridica = String(draft?.recipient_type || '').toLowerCase().includes('jur');
+
+  const itemsSource = Array.isArray(draft?.items) && draft.items.length ? draft.items : (sale?.items || []);
+
+  const items = itemsSource.map((item: any, index: number) => {
     const product = item.product || {};
-    const itemValue = (item.quantity * item.unit_price_cents) / 100;
-    const unitValue = item.unit_price_cents / 100;
+    const qty = Number(item.quantity ?? 1) || 1;
+    const totalCents = Number(item.total_cents ?? (qty * Number(item.unit_price_cents ?? 0))) || 0;
+    const unitPriceCents = Number(item.unit_price_cents ?? Math.round(totalCents / qty)) || 0;
+
+    const itemValue = totalCents / 100;
+    const unitValue = unitPriceCents / 100;
     
     // CST or CSOSN depending on tax regime
-    const isSimples = company.tax_regime === 'simples_nacional';
-    const cst = product.fiscal_cst || company.default_cst || (isSimples ? '102' : '00');
+    const isSimples = String(company?.tax_regime || '').toLowerCase().includes('simples');
+    const cst = String(item.cst || product.fiscal_cst || company.default_cst || (isSimples ? '102' : '00'));
     
     // Build item with all fiscal fields
     const nfeItem: any = {
       numero_item: index + 1,
-      codigo_produto: product.sku || product.id?.substring(0, 8) || String(index + 1),
-      descricao: item.product_name || product.name || 'Produto',
-      cfop: product.fiscal_cfop || cfop || '5102',
-      ncm: (product.fiscal_ncm || '00000000').replace(/\D/g, ''),
+      codigo_produto: String(item.code || product.sku || item.product_id || product.id || '').substring(0, 50) || String(index + 1),
+      descricao: item.name || item.product_name || product.name || 'Produto',
+      cfop: String(item.cfop || product.fiscal_cfop || cfop || '5102'),
+      ncm: String(item.ncm || product.fiscal_ncm || '00000000').replace(/\D/g, ''),
       cest: product.fiscal_cest ? product.fiscal_cest.replace(/\D/g, '') : undefined,
-      unidade_comercial: product.unit || 'UN',
-      quantidade_comercial: item.quantity,
+      unidade_comercial: item.unit || product.unit || 'UN',
+      quantidade_comercial: qty,
       valor_unitario_comercial: unitValue.toFixed(2),
       valor_bruto: itemValue.toFixed(2),
-      unidade_tributavel: product.unit || 'UN',
-      quantidade_tributavel: item.quantity,
+      unidade_tributavel: item.unit || product.unit || 'UN',
+      quantidade_tributavel: qty,
       valor_unitario_tributavel: unitValue.toFixed(2),
       
       // EAN / GTIN
@@ -393,7 +451,7 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string, ser
       codigo_barras_tributavel: product.gtin_tax || product.barcode_ean || '',
       
       // ICMS fields
-      icms_origem: product.fiscal_origin ?? 0,
+      icms_origem: Number(item.origin ?? product.fiscal_origin ?? 0),
       icms_situacao_tributaria: cst,
       icms_modalidade_base_calculo: 0, // 0 = Margem Valor Agregado
       icms_base_calculo: product.fiscal_icms_base ? parseFloat(product.fiscal_icms_base).toFixed(2) : '0.00',
@@ -456,27 +514,65 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string, ser
   const totalCofins = items.reduce((sum: number, item: any) => sum + parseFloat(item.cofins_valor || '0'), 0);
 
   // Build clean payload removing undefined/null values
+  const freightCents = Number(draft?.freight_value_cents ?? 0);
+  const insuranceCents = Number(draft?.insurance_value_cents ?? 0);
+  const discountCents = Number(draft?.discount_cents ?? 0);
+  const otherExpensesCents = Number(draft?.other_expenses_cents ?? 0);
+
+  const totalWithExtras = totalValue + freightCents / 100 + insuranceCents / 100 + otherExpensesCents / 100 - discountCents / 100;
+
+  const purposeKey = String(draft?.purpose || 'normal').toLowerCase();
+  const finalidadeEmissao = purposeKey === 'complementar'
+    ? '2'
+    : purposeKey === 'ajuste'
+      ? '3'
+      : purposeKey === 'devolucao'
+        ? '4'
+        : '1';
+
+  const destinatarioNome = String(draft?.recipient_name || sale?.lead?.name || 'Consumidor').trim();
+  const destinatarioUf = String(draft?.recipient_state || sale?.delivery_state || sale?.lead?.state || '').trim();
+  const localDestino = destinatarioUf && companyUf
+    ? (destinatarioUf === companyUf ? '1' : '2')
+    : undefined;
+
   const payload: any = {
+    // Emitente (obrigatório para evitar permissao_negada/requisicao_invalida)
+    cnpj_emitente: companyCnpj,
+    nome_emitente: company.company_name,
+    nome_fantasia_emitente: company.trade_name || company.company_name,
+    logradouro_emitente: company.address_street,
+    numero_emitente: company.address_number || 'S/N',
+    bairro_emitente: company.address_neighborhood,
+    municipio_emitente: companyCity,
+    uf_emitente: companyUf,
+    cep_emitente: companyCep,
+    inscricao_estadual_emitente: company.state_registration || 'ISENTO',
+    regime_tributario_emitente: mapTaxRegimeToFocusCode(company.tax_regime),
+
     numero: numero,
     serie: serie,
-    natureza_operacao: company.default_nature_operation || 'Venda de mercadorias',
+    natureza_operacao: draft?.nature_operation || company.default_nature_operation || 'Venda de mercadorias',
     forma_pagamento: '0', // à vista
     tipo_documento: '1', // saída
-    finalidade_emissao: '1', // normal
-    consumidor_final: '1',
-    presenca_comprador: company.presence_indicator || '0',
+    finalidade_emissao: finalidadeEmissao,
+    consumidor_final: draft?.recipient_is_final_consumer ? '1' : '0',
+    presenca_comprador: String(draft?.presence_indicator ?? company.presence_indicator ?? '0'),
+    local_destino: localDestino,
     
     // Destinatário
-    nome_destinatario: sale.lead?.name || 'Consumidor',
-    cpf_destinatario: sale.lead?.cpf?.replace(/\D/g, ''),
-    email_destinatario: sale.lead?.email || undefined,
-    logradouro_destinatario: sale.delivery_street || sale.lead?.address_street,
-    numero_destinatario: sale.delivery_number || sale.lead?.address_number || 'S/N',
-    bairro_destinatario: sale.delivery_neighborhood || sale.lead?.address_neighborhood,
-    municipio_destinatario: sale.delivery_city || sale.lead?.address_city,
-    uf_destinatario: sale.delivery_state || sale.lead?.state,
-    cep_destinatario: (sale.delivery_zip || sale.lead?.cep)?.replace(/\D/g, ''),
-    telefone_destinatario: sale.lead?.phone?.replace(/\D/g, '') || undefined,
+    nome_destinatario: destinatarioNome,
+    ...(recipientIsJuridica
+      ? { cnpj_destinatario: recipientCpfCnpjDigits }
+      : { cpf_destinatario: recipientCpfCnpjDigits }),
+    email_destinatario: draft?.recipient_email || sale?.lead?.email || undefined,
+    logradouro_destinatario: draft?.recipient_street || sale?.delivery_street || sale?.lead?.address_street,
+    numero_destinatario: draft?.recipient_number || sale?.delivery_number || sale?.lead?.address_number || 'S/N',
+    bairro_destinatario: draft?.recipient_neighborhood || sale?.delivery_neighborhood || sale?.lead?.address_neighborhood,
+    municipio_destinatario: draft?.recipient_city || sale?.delivery_city || sale?.lead?.address_city,
+    uf_destinatario: destinatarioUf,
+    cep_destinatario: normalizeDigits(draft?.recipient_cep || sale?.delivery_zip || sale?.lead?.cep),
+    telefone_destinatario: normalizeDigits(draft?.recipient_phone || sale?.lead?.phone) || undefined,
     indicador_inscricao_estadual_destinatario: '9', // 9 = não contribuinte
     
     // Itens
@@ -494,10 +590,14 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string, ser
     
     // Totais gerais
     valor_produtos: totalValue.toFixed(2),
-    valor_total: totalValue.toFixed(2),
+    valor_frete: (freightCents / 100).toFixed(2),
+    valor_seguro: (insuranceCents / 100).toFixed(2),
+    valor_desconto: (discountCents / 100).toFixed(2),
+    valor_outras_despesas: (otherExpensesCents / 100).toFixed(2),
+    valor_total: totalWithExtras.toFixed(2),
     
     // Frete
-    modalidade_frete: '9', // 9 = sem frete
+    modalidade_frete: String(draft?.freight_responsibility ?? '9'), // 9 = sem frete
   };
   
   // Remove undefined/null/empty values from payload
@@ -510,13 +610,17 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string, ser
   return payload;
 }
 
-function buildNFSePayload(sale: any, company: any, ref: string, serie: number, numero: number) {
-  const totalValue = sale.items.reduce((sum: number, item: any) => {
-    return sum + (item.quantity * item.unit_price_cents) / 100;
+function buildNFSePayload(invoiceDraft: any, sale: any, company: any, ref: string, serie: number, numero: number) {
+  const draft = invoiceDraft || {};
+  const itemsSource = Array.isArray(draft?.items) && draft.items.length ? draft.items : (sale?.items || []);
+  const totalValue = itemsSource.reduce((sum: number, item: any) => {
+    const qty = Number(item.quantity ?? 1) || 1;
+    const totalCents = Number(item.total_cents ?? (qty * Number(item.unit_price_cents ?? 0))) || 0;
+    return sum + totalCents / 100;
   }, 0);
 
-  const servicesDescription = sale.items
-    .map((item: any) => `${item.quantity}x ${item.product_name || item.product?.name || 'Serviço'}`)
+  const servicesDescription = itemsSource
+    .map((item: any) => `${item.quantity ?? 1}x ${item.name || item.product_name || item.product?.name || 'Serviço'}`)
     .join('; ');
 
   return {
@@ -526,16 +630,16 @@ function buildNFSePayload(sale: any, company: any, ref: string, serie: number, n
     cnpj_prestador: company.cnpj,
     inscricao_municipal_prestador: company.municipal_registration,
     codigo_municipio_prestador: company.address_city_code,
-    razao_social_tomador: sale.lead?.name || 'Consumidor',
-    cpf_tomador: sale.lead?.cpf?.replace(/\D/g, ''),
-    email_tomador: sale.lead?.email,
-    logradouro_tomador: sale.lead?.address_street,
-    numero_tomador: sale.lead?.address_number || 'S/N',
-    bairro_tomador: sale.lead?.address_neighborhood,
+    razao_social_tomador: draft?.recipient_name || sale?.lead?.name || 'Consumidor',
+    cpf_tomador: normalizeDigits(draft?.recipient_cpf_cnpj || sale?.lead?.cpf),
+    email_tomador: draft?.recipient_email || sale?.lead?.email,
+    logradouro_tomador: draft?.recipient_street || sale?.lead?.address_street,
+    numero_tomador: draft?.recipient_number || sale?.lead?.address_number || 'S/N',
+    bairro_tomador: draft?.recipient_neighborhood || sale?.lead?.address_neighborhood,
     codigo_municipio_tomador: sale.lead?.city_code || company.address_city_code,
-    uf_tomador: sale.lead?.state,
-    cep_tomador: sale.lead?.cep?.replace(/\D/g, ''),
-    telefone_tomador: sale.lead?.phone?.replace(/\D/g, ''),
+    uf_tomador: draft?.recipient_state || sale.lead?.state,
+    cep_tomador: normalizeDigits(draft?.recipient_cep || sale.lead?.cep),
+    telefone_tomador: normalizeDigits(draft?.recipient_phone || sale.lead?.phone),
     discriminacao: servicesDescription,
     valor_servicos: totalValue.toFixed(2),
     base_calculo: totalValue.toFixed(2),
