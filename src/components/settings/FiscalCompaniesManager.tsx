@@ -120,6 +120,10 @@ export function FiscalCompaniesManager() {
     nfse_last_number: 0,
     default_nature_operation: 'Venda de mercadorias',
     presence_indicator: '0',
+    // Responsible and Accountant
+    responsible_name: '',
+    responsible_cpf: '',
+    accountant_cpf_cnpj: '',
   });
 
   const { lookupCep, isLoading: isLoadingCep } = useCepLookup();
@@ -155,6 +159,9 @@ export function FiscalCompaniesManager() {
       nfse_last_number: 0,
       default_nature_operation: 'Venda de mercadorias',
       presence_indicator: '0',
+      responsible_name: '',
+      responsible_cpf: '',
+      accountant_cpf_cnpj: '',
     });
     setEditingCompany(null);
   };
@@ -192,6 +199,9 @@ export function FiscalCompaniesManager() {
         nfse_last_number: company.nfse_last_number ?? 0,
         default_nature_operation: company.default_nature_operation || 'Venda de mercadorias',
         presence_indicator: company.presence_indicator || '0',
+        responsible_name: company.responsible_name || '',
+        responsible_cpf: company.responsible_cpf || '',
+        accountant_cpf_cnpj: company.accountant_cpf_cnpj || '',
       });
     } else {
       resetForm();
@@ -576,6 +586,48 @@ export function FiscalCompaniesManager() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="fiscal@empresa.com"
+                />
+              </div>
+            </div>
+
+            {/* Responsible */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Responsável Legal</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                Dados do responsável legal para assinatura digital (exigido pela Focus NFe)
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Nome do Responsável</Label>
+                  <Input
+                    value={formData.responsible_name}
+                    onChange={(e) => setFormData({ ...formData, responsible_name: e.target.value })}
+                    placeholder="Nome completo do responsável"
+                  />
+                </div>
+                <div>
+                  <Label>CPF do Responsável</Label>
+                  <Input
+                    value={formData.responsible_cpf}
+                    onChange={(e) => setFormData({ ...formData, responsible_cpf: e.target.value })}
+                    placeholder="000.000.000-00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Accountant */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Contabilidade</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                CPF ou CNPJ do contador (opcional)
+              </p>
+              <div className="max-w-sm">
+                <Label>CPF/CNPJ da Contabilidade</Label>
+                <Input
+                  value={formData.accountant_cpf_cnpj}
+                  onChange={(e) => setFormData({ ...formData, accountant_cpf_cnpj: e.target.value })}
+                  placeholder="CPF ou CNPJ do contador"
                 />
               </div>
             </div>

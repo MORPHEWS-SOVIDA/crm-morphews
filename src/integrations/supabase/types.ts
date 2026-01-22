@@ -1633,6 +1633,7 @@ export type Database = {
       }
       fiscal_companies: {
         Row: {
+          accountant_cpf_cnpj: string | null
           address_city: string | null
           address_city_code: string | null
           address_complement: string | null
@@ -1666,12 +1667,15 @@ export type Database = {
           organization_id: string
           phone: string | null
           presence_indicator: string | null
+          responsible_cpf: string | null
+          responsible_name: string | null
           state_registration: string | null
           tax_regime: string
           trade_name: string | null
           updated_at: string
         }
         Insert: {
+          accountant_cpf_cnpj?: string | null
           address_city?: string | null
           address_city_code?: string | null
           address_complement?: string | null
@@ -1705,12 +1709,15 @@ export type Database = {
           organization_id: string
           phone?: string | null
           presence_indicator?: string | null
+          responsible_cpf?: string | null
+          responsible_name?: string | null
           state_registration?: string | null
           tax_regime?: string
           trade_name?: string | null
           updated_at?: string
         }
         Update: {
+          accountant_cpf_cnpj?: string | null
           address_city?: string | null
           address_city_code?: string | null
           address_complement?: string | null
@@ -1744,6 +1751,8 @@ export type Database = {
           organization_id?: string
           phone?: string | null
           presence_indicator?: string | null
+          responsible_cpf?: string | null
+          responsible_name?: string | null
           state_registration?: string | null
           tax_regime?: string
           trade_name?: string | null

@@ -73,6 +73,13 @@ Deno.serve(async (req) => {
       email: company.email || '',
       telefone: company.phone?.replace(/\D/g, '') || '',
       
+      // Responsible (for digital signature)
+      nome_responsavel: company.responsible_name || '',
+      cpf_responsavel: company.responsible_cpf?.replace(/\D/g, '') || '',
+      
+      // Accountant (optional)
+      cpf_cnpj_contabilidade: company.accountant_cpf_cnpj?.replace(/\D/g, '') || '',
+      
       // Fiscal settings
       habilita_nfe: true,
       habilita_nfse: true,
