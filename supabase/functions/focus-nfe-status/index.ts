@@ -147,6 +147,11 @@ Deno.serve(async (req) => {
       focus_nfe_response: focusResult,
     };
 
+    // Build full URL for files - Focus NFe returns relative paths
+    const focusFilesBaseUrl = environment === 'producao'
+      ? 'https://api.focusnfe.com.br'
+      : 'https://homologacao.focusnfe.com.br';
+
     if (focusResult.status === 'autorizado') {
       updateData.status = 'authorized';
       updateData.invoice_number = focusResult.numero;
@@ -154,8 +159,13 @@ Deno.serve(async (req) => {
       updateData.access_key = focusResult.chave_nfe;
       updateData.verification_code = focusResult.codigo_verificacao;
       updateData.protocol_number = focusResult.protocolo;
-      updateData.xml_url = focusResult.caminho_xml_nota_fiscal;
-      updateData.pdf_url = focusResult.caminho_danfe;
+      // Use full URL for XML and DANFE
+      if (focusResult.caminho_xml_nota_fiscal) {
+        updateData.xml_url = `${focusFilesBaseUrl}${focusResult.caminho_xml_nota_fiscal}`;
+      }
+      if (focusResult.caminho_danfe) {
+        updateData.pdf_url = `${focusFilesBaseUrl}${focusResult.caminho_danfe}`;
+      }
       if (!invoice.authorized_at) {
         updateData.authorized_at = new Date().toISOString();
       }
