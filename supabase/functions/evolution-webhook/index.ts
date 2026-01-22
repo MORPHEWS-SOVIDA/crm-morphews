@@ -515,6 +515,9 @@ serve(async (req) => {
       const isFromMe = key?.fromMe === true;
       const isGroup = remoteJid.includes("@g.us");
       
+      // Extract contact profile picture URL if available
+      const contactProfilePic = data?.profilePictureUrl || data?.profilePicUrl || null;
+      
       // Ignorar apenas mensagens próprias (não de grupos!)
       if (isFromMe) {
         return new Response(JSON.stringify({ success: true, ignored: true, reason: "fromMe" }), {
@@ -552,6 +555,7 @@ serve(async (req) => {
         groupSubject,
         hasMedia: !!msgData.mediaUrl || msgData.hasEncryptedMedia,
         contentPreview: msgData.content.substring(0, 100),
+        hasProfilePic: !!contactProfilePic,
       });
 
       // Buscar a instância para saber a organização (inclui configs de transcrição)
@@ -698,6 +702,7 @@ serve(async (req) => {
             customer_phone_e164: isGroup ? null : fromPhone,
             contact_name: displayName,
             display_name: displayName,
+            contact_profile_pic: isGroup ? null : contactProfilePic,
             chat_id: remoteJid,
             is_group: isGroup,
             group_subject: groupSubject,
@@ -760,6 +765,18 @@ serve(async (req) => {
           chat_id: remoteJid,
           current_instance_id: instance.id,
         };
+        
+        // Update contact profile picture if available and not a group
+        if (contactProfilePic && !isGroup) {
+          updateData.contact_profile_pic = contactProfilePic;
+          console.log("📸 Updating contact profile picture");
+        }
+        
+        // Update contact name from pushName if not already set
+        if (pushName && !isGroup) {
+          updateData.contact_name = pushName;
+          updateData.display_name = pushName;
+        }
         
         // REABERTURA: Se conversa está fechada, reabrir para distribuição
         wasClosed = conversation.status === 'closed';
