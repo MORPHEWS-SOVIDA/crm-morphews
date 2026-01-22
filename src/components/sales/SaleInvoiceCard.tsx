@@ -46,14 +46,20 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
   const [selectedType, setSelectedType] = useState<InvoiceType>('nfe');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
-  const hasActiveCompany = companies.some(c => c.is_active && c.certificate_file_path);
+  // Check if there's at least one active company (certificate is optional for initial draft)
+  const activeCompanies = companies.filter(c => c.is_active);
+  const hasActiveCompany = activeCompanies.length > 0;
   const primaryCompany = companies.find(c => c.is_primary && c.is_active);
+  
+  // Default to primary company or first active
+  const defaultCompanyId = primaryCompany?.id || activeCompanies[0]?.id || '';
 
   const handleCreateDraft = async () => {
+    const companyId = selectedCompanyId || defaultCompanyId;
     await createDraft.mutateAsync({
       sale_id: saleId,
       invoice_type: selectedType,
-      fiscal_company_id: selectedCompanyId || undefined,
+      fiscal_company_id: companyId || undefined,
     });
     setIsDialogOpen(false);
   };
@@ -177,27 +183,32 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
               </Select>
             </div>
 
-            {companies.length > 1 && (
+            {/* Always show company selector */}
+            {activeCompanies.length > 0 && (
               <div className="space-y-2">
                 <Label>Empresa Emissora</Label>
                 <Select
-                  value={selectedCompanyId || primaryCompany?.id || ''}
+                  value={selectedCompanyId || defaultCompanyId}
                   onValueChange={setSelectedCompanyId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a empresa" />
                   </SelectTrigger>
                   <SelectContent>
-                    {companies
-                      .filter(c => c.is_active && c.certificate_file_path)
-                      .map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.company_name} ({formatCNPJ(company.cnpj)})
-                          {company.is_primary && ' ★'}
-                        </SelectItem>
-                      ))}
+                    {activeCompanies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.company_name} ({formatCNPJ(company.cnpj)})
+                        {company.is_primary && ' ★'}
+                        {!company.certificate_file_path && ' (sem certificado)'}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {activeCompanies.find(c => c.id === (selectedCompanyId || defaultCompanyId))?.certificate_file_path === null && (
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Esta empresa não tem certificado. A nota será criada como rascunho.
+                  </p>
+                )}
               </div>
             )}
           </div>
