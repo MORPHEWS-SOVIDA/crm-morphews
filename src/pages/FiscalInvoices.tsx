@@ -66,6 +66,7 @@ import {
 } from '@/hooks/useFiscalInvoices';
 import { formatCNPJ } from '@/hooks/useFiscalCompanies';
 import { FiscalInvoiceFormDialog } from '@/components/fiscal/FiscalInvoiceFormDialog';
+import { useSendFiscalInvoice } from '@/hooks/useFiscalInvoiceDraft';
 import { toast } from '@/hooks/use-toast';
 
 export default function FiscalInvoices() {
@@ -80,6 +81,7 @@ export default function FiscalInvoices() {
   );
   const refreshStatus = useRefreshInvoiceStatus();
   const refreshAllProcessing = useRefreshAllProcessingInvoices();
+  const sendInvoice = useSendFiscalInvoice();
 
   // Count processing invoices
   const processingCount = useMemo(() => 
@@ -137,8 +139,29 @@ export default function FiscalInvoices() {
       toast({ title: 'Selecione notas pendentes para enviar', variant: 'destructive' });
       return;
     }
-    // TODO: Implement batch send
+
     toast({ title: `Enviando ${pendingIds.length} notas...` });
+
+    const results = await Promise.allSettled(
+      pendingIds.map((id) => sendInvoice.mutateAsync(id))
+    );
+
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
+
+    if (failed.length > 0) {
+      const firstError = failed[0]?.reason as Error | unknown;
+      const message = firstError instanceof Error ? firstError.message : String(firstError);
+      toast({
+        title: `${successCount} enviadas, ${failed.length} falharam`,
+        description: message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({ title: `${successCount} notas enviadas para processamento!` });
+    }
+
+    setSelectedIds([]);
   };
 
   const handleBatchPrint = async () => {
@@ -373,10 +396,14 @@ export default function FiscalInvoices() {
                 variant="ghost"
                 className="w-full justify-start"
                 size="sm"
-                disabled={selectedIds.length === 0}
+                disabled={selectedIds.length === 0 || sendInvoice.isPending}
                 onClick={handleBatchSend}
               >
+                {sendInvoice.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
                 <Send className="w-4 h-4 mr-2" />
+                )}
                 Enviar NF-es selecionadas
               </Button>
               <Button

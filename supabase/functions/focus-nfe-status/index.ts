@@ -6,7 +6,8 @@ const corsHeaders = {
 };
 
 const FOCUS_NFE_GLOBAL_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
-const FOCUS_NFE_BASE_URL = 'https://api.focusnfe.com.br/v2';
+const FOCUS_NFE_PRODUCTION_URL = 'https://api.focusnfe.com.br/v2';
+const FOCUS_NFE_HOMOLOGACAO_URL = 'https://homologacao.focusnfe.com.br/v2';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -99,13 +100,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Select base URL based on environment
+    const focusBaseUrl = environment === 'producao'
+      ? FOCUS_NFE_PRODUCTION_URL
+      : FOCUS_NFE_HOMOLOGACAO_URL;
+
     // Query Focus NFe for status
     const endpoint = invoice.invoice_type === 'nfe' ? '/nfe' : '/nfse';
-    console.log(`Querying Focus NFe: ${FOCUS_NFE_BASE_URL}${endpoint}/${invoice.focus_nfe_ref}`);
+    console.log(`Querying Focus NFe: ${focusBaseUrl}${endpoint}/${invoice.focus_nfe_ref}`);
     console.log(`Using token (first 6 chars): ${focusToken?.substring(0, 6)}...`);
     console.log(`Environment: ${environment}`);
     
-    const focusResponse = await fetch(`${FOCUS_NFE_BASE_URL}${endpoint}/${invoice.focus_nfe_ref}`, {
+    const focusResponse = await fetch(`${focusBaseUrl}${endpoint}/${invoice.focus_nfe_ref}`, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${btoa(focusToken + ':')}`,
