@@ -17,7 +17,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Lead, FunnelStage } from '@/types/lead';
 import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
-import { computePrimaryStages, groupLeadsByPrimaryStage } from '@/lib/funnelStageAssignment';
+import { groupLeadsByFunnelStageId, findLeadStage } from '@/lib/funnelStageAssignment';
 import { useUpdateLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useAuth } from '@/hooks/useAuth';
@@ -265,15 +265,16 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     return filtered;
   }, [leads, selectedStars, selectedResponsavel]);
 
-  // Ensure each lead appears in only ONE column even if multiple stages map to the same enum.
-  const { primaryStages, primaryStageByEnum } = useMemo(
-    () => computePrimaryStages(stages),
+  // Sort stages by position for display order
+  const sortedStages = useMemo(
+    () => [...stages].sort((a, b) => a.position - b.position),
     [stages]
   );
 
+  // Group leads by funnel_stage_id (stable UUID-based grouping)
   const leadsByStage = useMemo(
-    () => groupLeadsByPrimaryStage(filteredLeads, primaryStages, primaryStageByEnum),
-    [filteredLeads, primaryStages, primaryStageByEnum]
+    () => groupLeadsByFunnelStageId(filteredLeads, sortedStages),
+    [filteredLeads, sortedStages]
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -290,14 +291,14 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     }
 
     // Check if over a column directly
-    const overColumn = primaryStages.find(s => s.id === over.id);
+    const overColumn = sortedStages.find(s => s.id === over.id);
     if (overColumn) {
       setActiveColumnId(overColumn.id);
       return;
     }
 
     // Check if over a card - find its column
-    for (const stage of primaryStages) {
+    for (const stage of sortedStages) {
       const leadsInStage = leadsByStage[stage.id];
       if (leadsInStage?.some(l => l.id === over.id)) {
         setActiveColumnId(stage.id);
@@ -321,11 +322,11 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
 
     // Find which column the card was dropped in
     // First check if dropped directly on a column
-    let overStage = primaryStages.find((s) => s.id === over.id);
+    let overStage = sortedStages.find((s) => s.id === over.id);
     
     // If not, check if dropped on a card within a column
     if (!overStage) {
-      for (const stage of primaryStages) {
+      for (const stage of sortedStages) {
         const leadsInStage = leadsByStage[stage.id];
         if (leadsInStage?.some((l) => l.id === over.id)) {
           overStage = stage;
@@ -336,9 +337,13 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
 
     if (!overStage) return;
 
-    const newStageEnum = getStageEnumValue(overStage) as FunnelStage;
+    // Check if lead is actually changing stages
+    const isChangingStage = lead.funnel_stage_id 
+      ? lead.funnel_stage_id !== overStage.id
+      : lead.stage !== getStageEnumValue(overStage);
     
-    if (lead.stage !== newStageEnum) {
+    if (isChangingStage) {
+      const newStageEnum = getStageEnumValue(overStage) as FunnelStage;
       // Open dialog to ask for justification
       setPendingChange({
         leadId,
@@ -404,7 +409,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
       >
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-4 min-w-max">
-            {primaryStages.map((stage) => (
+            {sortedStages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
@@ -421,14 +426,11 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
 
       {/* Stage Change Dialog */}
       {pendingChange && (() => {
-        // Find tenant custom stage info for the dialog
-        // For previous stage, use the primary stage for that enum (prevents mismatches when duplicated)
-        const prevCustomStage = primaryStageByEnum.get(pendingChange.previousStage);
-        // For new stage, use the target stage ID (the column they dropped into) for accuracy
-        // This handles the case where multiple custom stages map to the same enum_value
+        // Find tenant custom stage info for the dialog using funnel_stage_id or enum fallback
+        const prevCustomStage = findLeadStage(pendingChange.lead, sortedStages);
         const newCustomStage = pendingChange.targetStageId 
-          ? primaryStages.find(s => s.id === pendingChange.targetStageId)
-          : primaryStageByEnum.get(pendingChange.newStage);
+          ? sortedStages.find(s => s.id === pendingChange.targetStageId)
+          : sortedStages.find(s => s.enum_value === pendingChange.newStage);
         
         return (
           <StageChangeDialog

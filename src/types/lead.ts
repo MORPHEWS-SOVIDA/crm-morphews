@@ -11,6 +11,8 @@ export interface Lead {
   whatsapp: string;
   email: string | null;
   stage: FunnelStage;
+  /** Direct link to organization_funnel_stages.id for stable multi-tenant mapping */
+  funnel_stage_id: string | null;
   stars: number;
   assigned_to: string;
   whatsapp_group: string | null;
