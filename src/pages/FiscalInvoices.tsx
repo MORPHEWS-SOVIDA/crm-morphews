@@ -57,6 +57,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   useFiscalInvoices,
   useRefreshInvoiceStatus,
+  useRefreshAllProcessingInvoices,
   getStatusLabel,
   getStatusColor,
   getInvoiceTypeLabel,
@@ -78,6 +79,13 @@ export default function FiscalInvoices() {
     statusFilter !== 'all' ? { status: statusFilter } : undefined
   );
   const refreshStatus = useRefreshInvoiceStatus();
+  const refreshAllProcessing = useRefreshAllProcessingInvoices();
+
+  // Count processing invoices
+  const processingCount = useMemo(() => 
+    invoices.filter(inv => inv.status === 'processing').length,
+    [invoices]
+  );
 
   // Filter invoices by search
   const filteredInvoices = useMemo(() => {
@@ -392,6 +400,26 @@ export default function FiscalInvoices() {
               </Button>
 
               <div className="border-t my-3" />
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                disabled={processingCount === 0 || refreshAllProcessing.isPending}
+                onClick={() => refreshAllProcessing.mutate()}
+              >
+                {refreshAllProcessing.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Atualizar todas em processamento
+                {processingCount > 0 && (
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {processingCount}
+                  </Badge>
+                )}
+              </Button>
 
               <Button
                 variant="ghost"

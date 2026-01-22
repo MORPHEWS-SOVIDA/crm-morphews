@@ -345,3 +345,54 @@ export function useRefreshInvoiceStatus() {
     },
   });
 }
+
+export function useRefreshAllProcessingInvoices() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!profile?.organization_id) throw new Error('Organização não encontrada');
+
+      // Get all processing invoices
+      const { data: processingInvoices, error: fetchError } = await (supabase as any)
+        .from('fiscal_invoices')
+        .select('id')
+        .eq('organization_id', profile.organization_id)
+        .eq('status', 'processing');
+
+      if (fetchError) throw fetchError;
+      if (!processingInvoices || processingInvoices.length === 0) {
+        return { updated: 0, results: [] };
+      }
+
+      // Refresh each invoice status
+      const results = await Promise.allSettled(
+        processingInvoices.map(async (inv: { id: string }) => {
+          const { data: result, error } = await supabase.functions.invoke('focus-nfe-status', {
+            body: { invoice_id: inv.id },
+          });
+          if (error) throw error;
+          return { id: inv.id, ...result };
+        })
+      );
+
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      return { updated: successful, total: processingInvoices.length, results };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['fiscal-invoices'] });
+      toast({ 
+        title: `${data.updated} de ${data.total} notas atualizadas`,
+        description: 'Verifique o status de cada nota na lista.'
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao atualizar status em lote',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
