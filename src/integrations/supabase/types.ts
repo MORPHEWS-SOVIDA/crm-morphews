@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_action_costs: {
+        Row: {
+          action_key: string
+          action_name: string
+          base_energy_cost: number
+          created_at: string | null
+          default_model_key: string | null
+          description: string | null
+          estimated_real_cost_usd: number | null
+          id: string
+          is_active: boolean | null
+          is_fixed_cost: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          action_key: string
+          action_name: string
+          base_energy_cost?: number
+          created_at?: string | null
+          default_model_key?: string | null
+          description?: string | null
+          estimated_real_cost_usd?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_fixed_cost?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          action_key?: string
+          action_name?: string
+          base_energy_cost?: number
+          created_at?: string | null
+          default_model_key?: string | null
+          description?: string | null
+          estimated_real_cost_usd?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_fixed_cost?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_bot_knowledge: {
         Row: {
           answer: string | null
@@ -244,6 +286,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_model_costs: {
+        Row: {
+          created_at: string | null
+          energy_per_1000_tokens: number | null
+          energy_per_call: number | null
+          fixed_cost_usd: number | null
+          id: string
+          input_cost_per_million_tokens: number | null
+          is_active: boolean | null
+          margin_multiplier: number | null
+          max_context_tokens: number | null
+          model_key: string
+          model_name: string
+          notes: string | null
+          output_cost_per_million_tokens: number | null
+          provider: string
+          supports_audio: boolean | null
+          supports_vision: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          energy_per_1000_tokens?: number | null
+          energy_per_call?: number | null
+          fixed_cost_usd?: number | null
+          id?: string
+          input_cost_per_million_tokens?: number | null
+          is_active?: boolean | null
+          margin_multiplier?: number | null
+          max_context_tokens?: number | null
+          model_key: string
+          model_name: string
+          notes?: string | null
+          output_cost_per_million_tokens?: number | null
+          provider?: string
+          supports_audio?: boolean | null
+          supports_vision?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          energy_per_1000_tokens?: number | null
+          energy_per_call?: number | null
+          fixed_cost_usd?: number | null
+          id?: string
+          input_cost_per_million_tokens?: number | null
+          is_active?: boolean | null
+          margin_multiplier?: number | null
+          max_context_tokens?: number | null
+          model_key?: string
+          model_name?: string
+          notes?: string | null
+          output_cost_per_million_tokens?: number | null
+          provider?: string
+          supports_audio?: boolean | null
+          supports_vision?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       carrier_tracking_statuses: {
         Row: {
@@ -1422,7 +1524,9 @@ export type Database = {
           details: Json | null
           energy_consumed: number
           id: string
+          model_used: string | null
           organization_id: string
+          real_cost_usd: number | null
           tokens_used: number | null
         }
         Insert: {
@@ -1433,7 +1537,9 @@ export type Database = {
           details?: Json | null
           energy_consumed: number
           id?: string
+          model_used?: string | null
           organization_id: string
+          real_cost_usd?: number | null
           tokens_used?: number | null
         }
         Update: {
@@ -1444,7 +1550,9 @@ export type Database = {
           details?: Json | null
           energy_consumed?: number
           id?: string
+          model_used?: string | null
           organization_id?: string
+          real_cost_usd?: number | null
           tokens_used?: number | null
         }
         Relationships: [
@@ -8759,6 +8867,15 @@ export type Database = {
       backfill_contacts_from_existing_conversations: {
         Args: { _organization_id: string }
         Returns: number
+      }
+      calculate_energy_cost: {
+        Args: {
+          p_action_key?: string
+          p_input_tokens?: number
+          p_model_key: string
+          p_output_tokens?: number
+        }
+        Returns: Json
       }
       claim_lead: {
         Args: {
