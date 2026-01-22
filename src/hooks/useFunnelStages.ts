@@ -35,26 +35,28 @@ export function useFunnelStages() {
 
 /**
  * Returns the enum_value for a custom funnel stage.
- * Uses the database enum_value if available, otherwise falls back to position-based mapping.
+ * CRITICAL: Each stage MUST have an explicit enum_value in the database.
+ * Falls back to stage_type-based defaults if missing (should not happen in production).
  */
 export function getStageEnumValue(stage: FunnelStageCustom): FunnelStage {
+  // Use explicit enum_value from database (the correct approach)
   if (stage.enum_value) {
     return stage.enum_value;
   }
   
-  // Fallback for stages without enum_value
-  const positionToEnum: Record<number, FunnelStage> = {
-    0: 'cloud',
-    1: 'prospect',
-    2: 'contacted',
-    3: 'convincing',
-    4: 'scheduled',
-    5: 'positive',
-    6: 'waiting_payment',
-    7: 'success',
-    8: 'trash',
-  };
-  return positionToEnum[stage.position] || 'cloud';
+  // Safe fallback based on stage_type (NOT position - position can change!)
+  // This should rarely happen as all stages should have enum_value set
+  console.warn(`Stage "${stage.name}" (id: ${stage.id}) is missing enum_value. Using stage_type fallback.`);
+  
+  switch (stage.stage_type) {
+    case 'cloud':
+      return 'cloud';
+    case 'trash':
+      return 'trash';
+    case 'funnel':
+    default:
+      return 'unclassified';
+  }
 }
 
 export function useUpdateFunnelStage() {
