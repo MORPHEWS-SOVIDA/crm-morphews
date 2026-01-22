@@ -4131,6 +4131,7 @@ export type Database = {
         Row: {
           changed_by: string | null
           created_at: string
+          funnel_stage_id: string | null
           id: string
           lead_id: string
           organization_id: string
@@ -4141,6 +4142,7 @@ export type Database = {
         Insert: {
           changed_by?: string | null
           created_at?: string
+          funnel_stage_id?: string | null
           id?: string
           lead_id: string
           organization_id: string
@@ -4151,6 +4153,7 @@ export type Database = {
         Update: {
           changed_by?: string | null
           created_at?: string
+          funnel_stage_id?: string | null
           id?: string
           lead_id?: string
           organization_id?: string
@@ -4159,6 +4162,13 @@ export type Database = {
           stage?: Database["public"]["Enums"]["funnel_stage"]
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_stage_history_funnel_stage_id_fkey"
+            columns: ["funnel_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_stage_history_lead_id_fkey"
             columns: ["lead_id"]
@@ -4318,6 +4328,7 @@ export type Database = {
           email: string | null
           favorite_team: string | null
           followers: number | null
+          funnel_stage_id: string | null
           gender: string | null
           google_maps_link: string | null
           id: string
@@ -4364,6 +4375,7 @@ export type Database = {
           email?: string | null
           favorite_team?: string | null
           followers?: number | null
+          funnel_stage_id?: string | null
           gender?: string | null
           google_maps_link?: string | null
           id?: string
@@ -4410,6 +4422,7 @@ export type Database = {
           email?: string | null
           favorite_team?: string | null
           followers?: number | null
+          funnel_stage_id?: string | null
           gender?: string | null
           google_maps_link?: string | null
           id?: string
@@ -4447,6 +4460,13 @@ export type Database = {
             columns: ["delivery_region_id"]
             isOneToOne: false
             referencedRelation: "delivery_regions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_funnel_stage_id_fkey"
+            columns: ["funnel_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
             referencedColumns: ["id"]
           },
           {

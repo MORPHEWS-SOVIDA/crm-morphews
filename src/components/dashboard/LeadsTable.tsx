@@ -7,6 +7,8 @@ import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl, normalizeInstagramHandle } from '@/lib/instagram';
 import { useAuth } from '@/hooks/useAuth';
+import { useFunnelStages } from '@/hooks/useFunnelStages';
+import { findLeadStage } from '@/lib/funnelStageAssignment';
 import {
   Table,
   TableBody,
@@ -26,6 +28,7 @@ interface LeadsTableProps {
 export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: funnelStages = [] } = useFunnelStages();
 
   const formatFollowers = (num: number | null) => {
     if (!num) return '0';
@@ -78,10 +81,20 @@ export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leads.map((lead, index) => {
-              const stageInfo = FUNNEL_STAGES[lead.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: lead.stage };
+          {leads.map((lead, index) => {
+              // Use funnel_stage_id-based lookup (stable) with enum fallback
+              const customStage = findLeadStage(lead, funnelStages);
+              const fallbackStage = FUNNEL_STAGES[lead.stage] || { color: 'bg-muted', textColor: 'text-foreground', label: lead.stage };
+              
+              const stageInfo = customStage 
+                ? { color: customStage.color, textColor: customStage.text_color, label: customStage.name }
+                : fallbackStage;
+                
               const instagramUrl = getInstagramProfileUrl(lead.instagram);
               const instagramHandle = normalizeInstagramHandle(lead.instagram);
+              
+              // Determine if using custom hex color or Tailwind class
+              const isCustomColor = stageInfo.color.startsWith('#') || stageInfo.color.startsWith('rgb');
               
               return (
                 <TableRow
@@ -112,7 +125,10 @@ export function LeadsTable({ leads, title, headerRight }: LeadsTableProps) {
                     {formatFollowers(lead.followers)}
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn(stageInfo.color, stageInfo.textColor, 'border-0')}>
+                    <Badge 
+                      className={cn(!isCustomColor && stageInfo.color, !isCustomColor && stageInfo.textColor, 'border-0')}
+                      style={isCustomColor ? { backgroundColor: stageInfo.color, color: stageInfo.textColor } : undefined}
+                    >
                       {stageInfo.label}
                     </Badge>
                   </TableCell>

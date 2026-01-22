@@ -2,7 +2,8 @@ import { Cloud, Trash2, Kanban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Lead, FunnelStage } from '@/types/lead';
 import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
-import { computePrimaryStages } from '@/lib/funnelStageAssignment';
+import { groupLeadsByFunnelStageId } from '@/lib/funnelStageAssignment';
+import { useMemo } from 'react';
 
 interface FunnelVisualizationProps {
   leads: Lead[];
@@ -13,18 +14,18 @@ interface FunnelVisualizationProps {
 }
 
 export function FunnelVisualization({ leads, stages, selectedStage, onSelectStage, onSwitchToKanban }: FunnelVisualizationProps) {
-  const getStageCounts = (enumValue: FunnelStage) => 
-    leads.filter((lead) => lead.stage === enumValue).length;
+  // Group leads by funnel_stage_id for accurate counts
+  const leadsByStage = useMemo(() => groupLeadsByFunnelStageId(leads, stages), [leads, stages]);
+  
+  // Sort stages by position
+  const sortedStages = useMemo(() => [...stages].sort((a, b) => a.position - b.position), [stages]);
 
-  // Ensure each enum stage is rendered only once to avoid “same lead in multiple stages” visuals.
-  const { primaryStages } = computePrimaryStages(stages);
+  const cloudStage = sortedStages.find(s => s.stage_type === 'cloud');
+  const funnelStages = sortedStages.filter(s => s.stage_type === 'funnel');
+  const trashStage = sortedStages.find(s => s.stage_type === 'trash');
 
-  const cloudStage = primaryStages.find(s => s.stage_type === 'cloud');
-  const funnelStages = primaryStages.filter(s => s.stage_type === 'funnel').sort((a, b) => a.position - b.position);
-  const trashStage = primaryStages.find(s => s.stage_type === 'trash');
-
-  const cloudCount = cloudStage ? getStageCounts(getStageEnumValue(cloudStage)) : getStageCounts('cloud');
-  const trashCount = trashStage ? getStageCounts(getStageEnumValue(trashStage)) : getStageCounts('trash');
+  const cloudCount = cloudStage ? (leadsByStage[cloudStage.id]?.length || 0) : 0;
+  const trashCount = trashStage ? (leadsByStage[trashStage.id]?.length || 0) : 0;
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-shadow duration-300">
@@ -67,7 +68,7 @@ export function FunnelVisualization({ leads, stages, selectedStage, onSelectStag
         <div className="flex flex-col items-center gap-1">
           {funnelStages.map((stage, index) => {
             const enumValue = getStageEnumValue(stage);
-            const count = getStageCounts(enumValue);
+            const count = leadsByStage[stage.id]?.length || 0;
             const widthPercent = 100 - (index * 10);
             
             return (

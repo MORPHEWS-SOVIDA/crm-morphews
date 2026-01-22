@@ -177,9 +177,10 @@ export default function LeadDetail() {
     );
   }
 
-  // Find current stage from custom stages by enum_value (not position!)
-  // This ensures we always match the tenant's custom stage configuration
-  const currentStage = funnelStages.find(s => s.enum_value === lead.stage);
+  // Find current stage using funnel_stage_id (stable) with enum fallback
+  const currentStage = lead.funnel_stage_id 
+    ? funnelStages.find(s => s.id === lead.funnel_stage_id)
+    : funnelStages.find(s => s.enum_value === lead.stage);
   
   // Fallback to FUNNEL_STAGES if no custom stage matches
   const fallbackStage = FUNNEL_STAGES[lead.stage as keyof typeof FUNNEL_STAGES];
