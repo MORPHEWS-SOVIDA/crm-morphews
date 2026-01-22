@@ -149,7 +149,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
-  };
   
   const handleAddFAQ = () => {
     if (!botId || !newQuestion.trim() || !newAnswer.trim()) return;
