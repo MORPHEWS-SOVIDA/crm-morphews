@@ -234,7 +234,7 @@ export default function FiscalInvoiceDetail() {
             )}
             {invoice.pdf_url && (
               <Button variant="outline" asChild>
-                <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
+                <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer" download>
                   <Printer className="w-4 h-4 mr-2" />
                   DANFE
                 </a>
@@ -242,7 +242,7 @@ export default function FiscalInvoiceDetail() {
             )}
             {invoice.xml_url && (
               <Button variant="outline" asChild>
-                <a href={invoice.xml_url} target="_blank" rel="noopener noreferrer">
+                <a href={invoice.xml_url} target="_blank" rel="noopener noreferrer" download>
                   <Download className="w-4 h-4 mr-2" />
                   XML
                 </a>
