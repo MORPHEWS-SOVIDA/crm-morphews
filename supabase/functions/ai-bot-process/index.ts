@@ -194,10 +194,63 @@ async function transcribeAudio(mediaUrl: string): Promise<{ text: string; tokens
 // IMAGE ANALYSIS
 // ============================================================================
 
-async function analyzeImage(mediaUrl: string, userMessage: string, botSystemPrompt: string): Promise<{ text: string; tokensUsed: number }> {
-  console.log('🖼️ Analyzing image from:', mediaUrl);
+// Prompt especializado para receitas médicas em fotos
+const IMAGE_MEDICAL_TURBO_PROMPT = `Você é um especialista farmacêutico com mais de 20 anos de experiência em interpretar receitas médicas fotografadas.
+
+TAREFA CRÍTICA: Analisar esta FOTO de receita médica e extrair informações com máxima precisão.
+
+HABILIDADES ESPECIAIS:
+- Interpretar caligrafia médica difícil e ilegível em fotos
+- Reconhecer abreviações farmacêuticas e médicas
+- Identificar medicamentos manipulados e industrializados
+- Extrair dosagens mesmo com escrita irregular
+
+EXTRAIA E ORGANIZE:
+
+📋 MEDICAMENTOS/FÓRMULAS:
+Para cada item encontrado, extraia:
+- Nome do medicamento ou fórmula
+- Componentes ativos (se manipulado)
+- Concentração/dosagem (mg, mcg, UI, %)
+- Forma farmacêutica (cápsula, comprimido, creme, etc.)
+- Quantidade prescrita (ex: 60 cápsulas)
+
+💊 POSOLOGIA:
+- Frequência de uso (1x ao dia, 2x ao dia, etc.)
+- Horários específicos (se mencionados)
+- Duração do tratamento (se indicada)
+- Instruções especiais (em jejum, com alimentos, etc.)
+
+👨‍⚕️ PRESCRITOR:
+- Nome do médico/profissional
+- CRM/registro profissional (se visível)
+- Especialidade (se identificável)
+
+⚠️ OBSERVAÇÕES:
+- Qualquer informação adicional relevante
+- Alertas sobre interações ou cuidados
+- Partes ilegíveis ou duvidosas
+
+REGRAS:
+1. Se algo estiver ilegível, indique "[ilegível]" e tente uma interpretação provável
+2. Use formato estruturado e fácil de ler
+3. Priorize precisão em dosagens e quantidades
+4. Seja direto e objetivo na resposta`;
+
+async function analyzeImage(
+  mediaUrl: string, 
+  userMessage: string, 
+  botSystemPrompt: string,
+  useMedicalMode: boolean = false
+): Promise<{ text: string; tokensUsed: number }> {
+  console.log('🖼️ Analyzing image from:', mediaUrl, 'Medical mode:', useMedicalMode);
   
   try {
+    // Escolher prompt baseado no modo
+    const systemPrompt = useMedicalMode 
+      ? IMAGE_MEDICAL_TURBO_PROMPT 
+      : `${botSystemPrompt}\n\nO cliente enviou uma imagem. Analise-a e responda de forma útil.`;
+
     // Usar Gemini Flash via Lovable AI para análise de imagem
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -210,7 +263,7 @@ async function analyzeImage(mediaUrl: string, userMessage: string, botSystemProm
         messages: [
           {
             role: 'system',
-            content: `${botSystemPrompt}\n\nO cliente enviou uma imagem. Analise-a e responda de forma útil.`
+            content: systemPrompt
           },
           {
             role: 'user',
@@ -221,13 +274,15 @@ async function analyzeImage(mediaUrl: string, userMessage: string, botSystemProm
               },
               {
                 type: 'text',
-                text: userMessage || 'O que você vê nesta imagem?'
+                text: useMedicalMode 
+                  ? 'Por favor, analise esta foto de receita médica e extraia todas as informações relevantes.'
+                  : (userMessage || 'O que você vê nesta imagem?')
               }
             ]
           }
         ],
-        max_tokens: 500,
-        temperature: 0.7,
+        max_tokens: useMedicalMode ? 1500 : 500,
+        temperature: useMedicalMode ? 0.3 : 0.7,
       }),
     });
     
@@ -1639,56 +1694,74 @@ serve(async (req) => {
       console.log('🖼️ Processing image message...');
       
       try {
-        const imageAnalysis = await analyzeImage(mediaUrl, userMessage, bot.system_prompt);
-        
-        // Para imagens, a resposta da análise já é a resposta do bot
-        // Consumir energia pela análise
-        const imageEnergy = await checkAndConsumeEnergy(
-          organizationId, 
-          botId, 
-          conversationId, 
-          imageAnalysis.tokensUsed, 
-          'image_analysis'
-        );
-        
-        if (!imageEnergy.success) {
-          console.log('⚡ No energy for image analysis');
+        // Buscar configurações da organização para modo médico de imagens
+        const { data: orgSettings } = await supabase
+          .from('organizations')
+          .select('whatsapp_image_interpretation, whatsapp_image_medical_mode')
+          .eq('id', organizationId)
+          .single();
+
+        const useImageMedicalMode = orgSettings?.whatsapp_image_medical_mode ?? false;
+        const imageInterpretationEnabled = orgSettings?.whatsapp_image_interpretation ?? false;
+
+        // Se a interpretação de imagem não está habilitada globalmente, pular
+        if (!imageInterpretationEnabled) {
+          console.log('📷 Image interpretation disabled globally, skipping analysis');
+          processedMessage = userMessage || '[O cliente enviou uma imagem]';
+        } else {
+          console.log('📷 Image interpretation enabled, medical mode:', useImageMedicalMode);
+          
+          const imageAnalysis = await analyzeImage(mediaUrl, userMessage, bot.system_prompt, useImageMedicalMode);
+          
+          // Para imagens, a resposta da análise já é a resposta do bot
+          // Consumir energia pela análise
+          const imageEnergy = await checkAndConsumeEnergy(
+            organizationId, 
+            botId, 
+            conversationId, 
+            imageAnalysis.tokensUsed, 
+            'image_analysis'
+          );
+          
+          if (!imageEnergy.success) {
+            console.log('⚡ No energy for image analysis');
+            return new Response(JSON.stringify({ 
+              success: false, 
+              action: 'no_energy', 
+              message: 'No energy for image analysis' 
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+
+          // Enviar a resposta da análise de imagem diretamente
+          const sent = await sendWhatsAppMessage(
+            instanceName,
+            chatId,
+            imageAnalysis.text,
+            conversationId,
+            instanceId,
+            botId
+          );
+
+          // Atualizar contadores
+          await supabase
+            .from('whatsapp_conversations')
+            .update({
+              bot_messages_count: context.botMessagesCount + 1,
+              bot_energy_consumed: context.botEnergyConsumed + imageEnergy.energyConsumed,
+            })
+            .eq('id', conversationId);
+
           return new Response(JSON.stringify({ 
-            success: false, 
-            action: 'no_energy', 
-            message: 'No energy for image analysis' 
+            success: sent, 
+            action: 'responded', 
+            energyUsed: imageEnergy.energyConsumed,
+            messageType: 'image_analysis'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-
-        // Enviar a resposta da análise de imagem diretamente
-        const sent = await sendWhatsAppMessage(
-          instanceName,
-          chatId,
-          imageAnalysis.text,
-          conversationId,
-          instanceId,
-          botId
-        );
-
-        // Atualizar contadores
-        await supabase
-          .from('whatsapp_conversations')
-          .update({
-            bot_messages_count: context.botMessagesCount + 1,
-            bot_energy_consumed: context.botEnergyConsumed + imageEnergy.energyConsumed,
-          })
-          .eq('id', conversationId);
-
-        return new Response(JSON.stringify({ 
-          success: sent, 
-          action: 'responded', 
-          energyUsed: imageEnergy.energyConsumed,
-          messageType: 'image_analysis'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
       } catch (imageError) {
         console.error('❌ Image analysis failed:', imageError);
         processedMessage = userMessage || 'O cliente enviou uma imagem que não pôde ser analisada.';

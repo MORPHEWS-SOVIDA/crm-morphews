@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic, UserCircle, Clock, Star, Bot, User, Calendar, Info } from "lucide-react";
+import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic, UserCircle, Clock, Star, Bot, User, Calendar, Info, Image } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ interface WhatsAppAISettings {
   whatsapp_document_reading_enabled: boolean;
   whatsapp_document_auto_reply_message: string | null;
   whatsapp_document_medical_mode: boolean;
+  whatsapp_image_interpretation: boolean;
+  whatsapp_image_medical_mode: boolean;
   whatsapp_audio_transcription_enabled: boolean;
   whatsapp_sender_name_prefix_enabled: boolean;
   // Auto-close settings (global)
@@ -50,6 +52,8 @@ export function WhatsAppAISettingsManager() {
     whatsapp_document_reading_enabled: false,
     whatsapp_document_auto_reply_message: "Nossa IA recebeu seu arquivo e interpretou assim:",
     whatsapp_document_medical_mode: false,
+    whatsapp_image_interpretation: false,
+    whatsapp_image_medical_mode: false,
     whatsapp_audio_transcription_enabled: false,
     whatsapp_sender_name_prefix_enabled: false,
     auto_close_enabled: true,
@@ -79,6 +83,8 @@ export function WhatsAppAISettingsManager() {
           whatsapp_document_reading_enabled,
           whatsapp_document_auto_reply_message,
           whatsapp_document_medical_mode,
+          whatsapp_image_interpretation,
+          whatsapp_image_medical_mode,
           whatsapp_audio_transcription_enabled,
           whatsapp_sender_name_prefix_enabled,
           auto_close_enabled,
@@ -111,6 +117,8 @@ export function WhatsAppAISettingsManager() {
         whatsapp_document_reading_enabled: orgSettings.whatsapp_document_reading_enabled ?? false,
         whatsapp_document_auto_reply_message: orgSettings.whatsapp_document_auto_reply_message || "Nossa IA recebeu seu arquivo e interpretou assim:",
         whatsapp_document_medical_mode: (orgSettings as any).whatsapp_document_medical_mode ?? false,
+        whatsapp_image_interpretation: (orgSettings as any).whatsapp_image_interpretation ?? false,
+        whatsapp_image_medical_mode: (orgSettings as any).whatsapp_image_medical_mode ?? false,
         whatsapp_audio_transcription_enabled: orgSettings.whatsapp_audio_transcription_enabled ?? false,
         whatsapp_sender_name_prefix_enabled: orgSettings.whatsapp_sender_name_prefix_enabled ?? false,
         auto_close_enabled: orgSettings.auto_close_enabled ?? true,
@@ -510,7 +518,88 @@ export function WhatsAppAISettingsManager() {
 
       <Separator />
 
-      {/* ============= LEITURA DE PDFS ============= */}
+      {/* ============= INTERPRETAÇÃO DE FOTOS ============= */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-cyan-500/10">
+              <Image className="w-5 h-5 text-cyan-500" />
+            </div>
+            <div>
+              <Label className="text-base font-medium">Interpretação de Fotos (IA)</Label>
+              <p className="text-sm text-muted-foreground">
+                IA analisa e interpreta fotos enviadas pelos clientes
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={settings.whatsapp_image_interpretation}
+            onCheckedChange={(checked) =>
+              setSettings((prev) => ({ ...prev, whatsapp_image_interpretation: checked }))
+            }
+          />
+        </div>
+
+        {settings.whatsapp_image_interpretation && (
+          <div className="ml-12 p-4 border rounded-lg bg-cyan-50 dark:bg-cyan-950/30 space-y-4">
+            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+              <Zap className="h-3.5 w-3.5" />
+              <span>Consome Energia IA (150 unidades/imagem)</span>
+            </div>
+
+            {/* Modo Turbo para Receitas em Fotos */}
+            <div className={cn(
+              "space-y-3 p-3 border rounded-lg",
+              settings.whatsapp_image_medical_mode && "border-pink-500/50 bg-pink-50/50 dark:bg-pink-950/20"
+            )}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    📸 Modo Turbo para Fotos de Receitas
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Otimizado para interpretar fotos de receitas médicas
+                  </p>
+                </div>
+                <Switch 
+                  checked={settings.whatsapp_image_medical_mode}
+                  onCheckedChange={(checked) => setSettings(prev => ({ 
+                    ...prev,
+                    whatsapp_image_medical_mode: checked
+                  }))}
+                />
+              </div>
+              
+              {settings.whatsapp_image_medical_mode && (
+                <div className="p-3 bg-pink-100/50 dark:bg-pink-900/20 rounded-lg text-xs space-y-1">
+                  <p className="font-medium text-pink-800 dark:text-pink-200">IA especializada para fotos de receitas:</p>
+                  <ul className="text-pink-700 dark:text-pink-300 list-disc list-inside space-y-0.5">
+                    <li>Interpretação de caligrafia médica em fotos</li>
+                    <li>Extração de nome do medicamento/fórmula</li>
+                    <li>Componentes e concentração (mg, mcg, UI)</li>
+                    <li>Quantidade de cápsulas/doses prescritas</li>
+                    <li>Posologia e forma de uso</li>
+                    <li>Nome e CRM do médico prescritor</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
+              <p className="font-medium">Como funciona:</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Cliente envia foto de receita, pedido ou documento</li>
+                <li>IA analisa a imagem e extrai informações relevantes</li>
+                <li>Resposta automática com interpretação da foto</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
