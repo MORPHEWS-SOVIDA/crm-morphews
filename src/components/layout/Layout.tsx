@@ -11,6 +11,9 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { data: permissions } = useMyPermissions();
   
+  // Check if user can see the helper (default true if not set)
+  const canSeeHelper = permissions?.helper_donna_view !== false;
+  
   // If user has hide_sidebar preference, show minimal layout
   if (permissions?.hide_sidebar) {
     return (
@@ -20,7 +23,7 @@ export function Layout({ children }: LayoutProps) {
             {children}
           </div>
         </main>
-        <DonnaHelperButton />
+        {canSeeHelper && <DonnaHelperButton />}
       </div>
     );
   }
@@ -34,7 +37,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </main>
       <MobileNav />
-      <DonnaHelperButton />
+      {canSeeHelper && <DonnaHelperButton />}
     </div>
   );
 }

@@ -107,6 +107,9 @@ export interface UserPermissions {
   scheduled_messages_view: boolean;
   scheduled_messages_manage: boolean;
   
+  // Helper / Suporte
+  helper_donna_view: boolean;
+  
   created_at: string;
   updated_at: string;
 }
@@ -208,9 +211,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   // Mensagens
   scheduled_messages_view: { label: 'Ver Mensagens Agendadas', description: 'Visualizar mensagens agendadas', group: 'Mensagens' },
   scheduled_messages_manage: { label: 'Gerenciar Mensagens Agendadas', description: 'Cancelar e reagendar mensagens', group: 'Mensagens' },
+  
+  // Suporte
+  helper_donna_view: { label: 'Assistente Virtual (Donna)', description: 'Acesso à assistente de ajuda integrada', group: 'Suporte' },
 };
 
-export const PERMISSION_GROUPS = ['Dashboard', 'Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens'];
+export const PERMISSION_GROUPS = ['Dashboard', 'Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens', 'Suporte'];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {
