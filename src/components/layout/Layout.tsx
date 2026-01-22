@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { DonnaHelperButton } from '@/components/helper';
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
             {children}
           </div>
         </main>
+        <DonnaHelperButton />
       </div>
     );
   }
@@ -32,6 +34,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </main>
       <MobileNav />
+      <DonnaHelperButton />
     </div>
   );
 }

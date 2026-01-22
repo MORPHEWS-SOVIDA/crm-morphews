@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -29,6 +29,7 @@ import { AdminWhatsAppInstanceTab } from "@/components/super-admin/AdminWhatsApp
 import { AIModelCostsTab } from "@/components/super-admin/AIModelCostsTab";
 import { OnboardingEmailsManager } from "@/components/super-admin/OnboardingEmailsManager";
 import { SecretaryMessagesManager } from "@/components/super-admin/SecretaryMessagesManager";
+import { HelperConversationsTab } from "@/components/super-admin/HelperConversationsTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -803,6 +804,10 @@ export default function SuperAdmin() {
               <MessageSquare className="h-3 w-3" />
               Secretária WhatsApp
             </TabsTrigger>
+            <TabsTrigger value="helper-donna" className="gap-1">
+              <HelpCircle className="h-3 w-3" />
+              Helper Donna
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="organizations">
@@ -1266,6 +1271,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="secretary-messages">
             <SecretaryMessagesManager />
+          </TabsContent>
+
+          <TabsContent value="helper-donna">
+            <HelperConversationsTab />
           </TabsContent>
         </Tabs>
       </div>
