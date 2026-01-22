@@ -12,13 +12,24 @@ const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Curated voices for Brazilian Portuguese
+// Curated voices for Brazilian Portuguese - expanded selection
 export const CURATED_VOICES = [
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male", description: "Voz masculina profissional e amigável" },
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female", description: "Voz feminina jovem e acolhedora" },
-  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", gender: "female", description: "Voz feminina suave e tranquila" },
-  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male", description: "Voz masculina madura e confiante" },
-  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female", description: "Voz feminina expressiva e energética" },
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male", description: "Profissional e amigável" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male", description: "Madura e confiante" },
+  { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", gender: "male", description: "Grave e autoritária" },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", gender: "male", description: "Jovem e dinâmico" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "male", description: "Casual e descontraído" },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", gender: "male", description: "Narrador profissional" },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male", description: "Tom comercial/vendas" },
+  { id: "iP95p4xoKVk53GoZ742B", name: "Chris", gender: "male", description: "Amigável e acessível" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female", description: "Jovem e acolhedora" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", gender: "female", description: "Suave e tranquila" },
+  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female", description: "Expressiva e energética" },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", gender: "female", description: "Profissional e clara" },
+  { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", gender: "female", description: "Elegante e sofisticada" },
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", gender: "female", description: "Calorosa e maternal" },
+  { id: "SAz9YHcvj6GT2YYXdXww", name: "River", gender: "female", description: "Neutra e versátil" },
+  { id: "bIHbv24MWmeRgasZH58o", name: "Will", gender: "male", description: "Inspirador e motivador" },
 ];
 
 interface TTSRequest {
