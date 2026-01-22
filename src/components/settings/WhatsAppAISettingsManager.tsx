@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Save, Brain, FileText, Zap, MessageSquare } from "lucide-react";
+import { Loader2, Save, Brain, FileText, Zap, MessageSquare, Mic } from "lucide-react";
 import { toast } from "sonner";
 
 interface WhatsAppAISettings {
@@ -16,6 +16,7 @@ interface WhatsAppAISettings {
   whatsapp_ai_seller_briefing_enabled: boolean;
   whatsapp_document_reading_enabled: boolean;
   whatsapp_document_auto_reply_message: string | null;
+  whatsapp_audio_transcription_enabled: boolean;
 }
 
 export function WhatsAppAISettingsManager() {
@@ -28,6 +29,7 @@ export function WhatsAppAISettingsManager() {
     whatsapp_ai_seller_briefing_enabled: false,
     whatsapp_document_reading_enabled: false,
     whatsapp_document_auto_reply_message: "Nossa IA recebeu seu arquivo e interpretou assim:",
+    whatsapp_audio_transcription_enabled: false,
   });
 
   const { data: orgSettings, isLoading } = useQuery({
@@ -42,7 +44,8 @@ export function WhatsAppAISettingsManager() {
           whatsapp_ai_learning_enabled,
           whatsapp_ai_seller_briefing_enabled,
           whatsapp_document_reading_enabled,
-          whatsapp_document_auto_reply_message
+          whatsapp_document_auto_reply_message,
+          whatsapp_audio_transcription_enabled
         `)
         .eq("id", profile.organization_id)
         .single();
@@ -61,6 +64,7 @@ export function WhatsAppAISettingsManager() {
         whatsapp_ai_seller_briefing_enabled: orgSettings.whatsapp_ai_seller_briefing_enabled ?? false,
         whatsapp_document_reading_enabled: orgSettings.whatsapp_document_reading_enabled ?? false,
         whatsapp_document_auto_reply_message: orgSettings.whatsapp_document_auto_reply_message || "Nossa IA recebeu seu arquivo e interpretou assim:",
+        whatsapp_audio_transcription_enabled: orgSettings.whatsapp_audio_transcription_enabled ?? false,
       });
     }
   }, [orgSettings]);
@@ -165,7 +169,48 @@ export function WhatsAppAISettingsManager() {
 
       <Separator />
 
-      {/* Leitura de Documentos */}
+      {/* Transcrição de Áudio */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <Mic className="w-5 h-5 text-green-500" />
+            </div>
+            <div>
+              <Label className="text-base font-medium">Transcrição de Áudio</Label>
+              <p className="text-sm text-muted-foreground">
+                IA transcreve automaticamente áudios recebidos dos clientes
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={settings.whatsapp_audio_transcription_enabled}
+            onCheckedChange={(checked) =>
+              setSettings((prev) => ({ ...prev, whatsapp_audio_transcription_enabled: checked }))
+            }
+          />
+        </div>
+
+        {settings.whatsapp_audio_transcription_enabled && (
+          <div className="ml-12 p-4 border rounded-lg bg-green-50 dark:bg-green-950/30 space-y-3">
+            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+              <Zap className="h-3.5 w-3.5" />
+              <span>Consome Energia IA (50 unidades/áudio)</span>
+            </div>
+
+            <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
+              <p className="font-medium">Como funciona:</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Áudios recebidos são transcritos automaticamente</li>
+                <li>Texto aparece logo abaixo do áudio no chat</li>
+                <li>Permite pesquisa e indexação do conteúdo</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Separator />
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
