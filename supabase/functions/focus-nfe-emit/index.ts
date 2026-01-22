@@ -346,9 +346,9 @@ Deno.serve(async (req) => {
     const focusCode = String(focusResult?.codigo || '').toLowerCase();
     const focusStatus = String(focusResult?.status || '').toLowerCase();
 
-    // Focus may return errors via `codigo` (e.g. permissao_negada) rather than `status`.
+    // Focus may return errors via `codigo` (e.g. permissao_negada, empresa_nao_habilitada) rather than `status`.
     const isImmediateError =
-      ['permissao_negada', 'requisicao_invalida', 'erro_validacao_schema', 'certificado_vencido', 'erro_autenticacao'].includes(focusCode) ||
+      ['permissao_negada', 'requisicao_invalida', 'erro_validacao_schema', 'certificado_vencido', 'erro_autenticacao', 'empresa_nao_habilitada', 'cnpj_emitente_nao_autorizado'].includes(focusCode) ||
       ['erro_autorizacao', 'erro_validacao', 'nfe_nao_autorizada'].includes(focusStatus);
 
     if (isImmediateError) {
