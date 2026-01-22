@@ -18,6 +18,7 @@ export interface WhatsAppInstance {
   payment_source: "stripe" | "admin_grant";
   applied_coupon_id: string | null;
   discount_applied_cents: number | null;
+  distribution_mode: "manual" | "auto" | "bot" | null;
   created_at: string;
   updated_at: string;
 }

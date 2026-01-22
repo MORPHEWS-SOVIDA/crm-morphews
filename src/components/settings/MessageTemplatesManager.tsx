@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { 
   Select, 
   SelectContent, 
@@ -33,8 +34,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info, HelpCircle, Image, Mic, FileIcon } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info, HelpCircle, Image, Mic, FileIcon, Bot, AlertTriangle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -49,6 +51,7 @@ import {
   type MessageTemplateFormData
 } from '@/hooks/useNonPurchaseMessageTemplates';
 import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
+import { useAIBots } from '@/hooks/useAIBots';
 import { useAuth } from '@/hooks/useAuth';
 import { MediaUploader } from '@/components/scheduled-messages/MediaUploader';
 
@@ -67,6 +70,10 @@ interface TemplateFormData {
   media_type: 'image' | 'audio' | 'document' | null;
   media_url: string | null;
   media_filename: string | null;
+  // Bot fallback
+  fallback_bot_enabled: boolean;
+  fallback_bot_id: string | null;
+  fallback_timeout_minutes: number;
 }
 
 const initialFormData: TemplateFormData = {
@@ -79,6 +86,9 @@ const initialFormData: TemplateFormData = {
   media_type: null,
   media_url: null,
   media_filename: null,
+  fallback_bot_enabled: false,
+  fallback_bot_id: null,
+  fallback_timeout_minutes: 30,
 };
 
 const VARIABLES = [
@@ -92,6 +102,7 @@ const VARIABLES = [
 export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplatesManagerProps) {
   const { data: templates = [], isLoading } = useNonPurchaseMessageTemplates(reasonId);
   const { data: instances = [] } = useWhatsAppInstances();
+  const { data: bots = [] } = useAIBots();
   const { profile } = useAuth();
   
   const createTemplate = useCreateMessageTemplate();
@@ -103,6 +114,12 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TemplateFormData>(initialFormData);
+
+  const activeBots = bots.filter(b => b.is_active);
+
+  // Check if selected instance has compatible distribution mode
+  const selectedInstance = instances.find(i => i.id === formData.whatsapp_instance_id);
+  const isDistributionModeCompatible = selectedInstance?.distribution_mode === 'manual' || selectedInstance?.distribution_mode === 'auto';
 
   const formatDelay = (minutes: number) => {
     if (minutes === 0) return 'Imediato';
@@ -129,6 +146,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
       media_type: formData.media_type,
       media_url: formData.media_url,
       media_filename: formData.media_filename,
+      fallback_bot_enabled: formData.fallback_bot_enabled,
+      fallback_bot_id: formData.fallback_bot_id,
+      fallback_timeout_minutes: formData.fallback_timeout_minutes,
     });
 
     setFormData(initialFormData);
@@ -149,6 +169,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
         media_type: formData.media_type,
         media_url: formData.media_url,
         media_filename: formData.media_filename,
+        fallback_bot_enabled: formData.fallback_bot_enabled,
+        fallback_bot_id: formData.fallback_bot_id,
+        fallback_timeout_minutes: formData.fallback_timeout_minutes,
       },
     });
 
@@ -173,6 +196,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
       media_type: template.media_type || null,
       media_url: template.media_url || null,
       media_filename: template.media_filename || null,
+      fallback_bot_enabled: template.fallback_bot_enabled ?? false,
+      fallback_bot_id: template.fallback_bot_id || null,
+      fallback_timeout_minutes: template.fallback_timeout_minutes ?? 30,
     });
     setEditingId(template.id);
   };
@@ -181,6 +207,12 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
     if (!instanceId) return 'Nenhuma';
     const instance = instances.find(i => i.id === instanceId);
     return instance?.name || 'Instância não encontrada';
+  };
+
+  const getBotName = (botId: string | null) => {
+    if (!botId) return null;
+    const bot = bots.find(b => b.id === botId);
+    return bot?.name || null;
   };
 
   const getMediaIcon = (type: string | null) => {
@@ -256,6 +288,21 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                           <Badge variant="secondary" className="text-[10px] px-1 py-0">
                             {getMediaIcon(template.media_type)}
                           </Badge>
+                        )}
+                        {template.fallback_bot_enabled && template.fallback_bot_id && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="secondary" className="text-[10px] px-1 py-0 bg-purple-500/20 text-purple-700">
+                                  <Bot className="w-2 h-2 mr-0.5" />
+                                  {template.fallback_timeout_minutes}min
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Robô assume após {template.fallback_timeout_minutes} min: {getBotName(template.fallback_bot_id) || 'Bot'}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
                       </div>
                       <p className="text-muted-foreground truncate">
@@ -471,6 +518,105 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                 <p className="text-xs text-muted-foreground">
                   Anexe uma imagem, documento ou grave um áudio para enviar junto com a mensagem.
                 </p>
+              </div>
+
+              {/* Bot Fallback Section */}
+              <div className="space-y-3 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-purple-500" />
+                      Fallback para Robô IA
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Se nenhum vendedor assumir a conversa, um robô pode atender automaticamente.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.fallback_bot_enabled}
+                    onCheckedChange={(checked) => setFormData(prev => ({
+                      ...prev,
+                      fallback_bot_enabled: checked,
+                      fallback_bot_id: checked ? prev.fallback_bot_id : null,
+                    }))}
+                  />
+                </div>
+
+                {formData.fallback_bot_enabled && (
+                  <div className="space-y-3 pl-2 border-l-2 border-purple-500/30">
+                    {/* Warning about distribution mode */}
+                    {formData.whatsapp_instance_id && !isDistributionModeCompatible && (
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          A instância selecionada está com "Robô de IA" como modo de distribuição. 
+                          Dois robôs podem responder a mesma conversa. Altere o modo da instância 
+                          para "Pendentes" ou "Distribuição Automática" para usar esta funcionalidade.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {!formData.whatsapp_instance_id && (
+                      <Alert>
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          Selecione uma instância WhatsApp para validar a compatibilidade do modo de distribuição.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label>Tempo de espera antes do robô assumir</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.fallback_timeout_minutes}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            fallback_timeout_minutes: parseInt(e.target.value) || 30
+                          }))}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-muted-foreground">minutos</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Robô que deve assumir</Label>
+                      <Select
+                        value={formData.fallback_bot_id || '__none__'}
+                        onValueChange={(value) => setFormData(prev => ({
+                          ...prev,
+                          fallback_bot_id: value === '__none__' ? null : value
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o robô" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhum (desativado)</SelectItem>
+                          {activeBots.map((bot) => (
+                            <SelectItem key={bot.id} value={bot.id}>
+                              {bot.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {activeBots.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum robô ativo encontrado. Crie um robô em "Robôs IA".
+                        </p>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                      <strong>Como funciona:</strong> Após a mensagem ser enviada, se nenhum vendedor 
+                      assumir ou responder em <strong>{formData.fallback_timeout_minutes} minutos</strong>, 
+                      o robô selecionado começará a atender o cliente automaticamente.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

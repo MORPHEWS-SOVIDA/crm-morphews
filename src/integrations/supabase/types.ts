@@ -2861,6 +2861,11 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           failure_reason: string | null
+          fallback_bot_enabled: boolean | null
+          fallback_bot_id: string | null
+          fallback_status: string | null
+          fallback_timeout_minutes: number | null
+          fallback_triggered_at: string | null
           final_message: string
           id: string
           lead_id: string
@@ -2883,6 +2888,11 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           failure_reason?: string | null
+          fallback_bot_enabled?: boolean | null
+          fallback_bot_id?: string | null
+          fallback_status?: string | null
+          fallback_timeout_minutes?: number | null
+          fallback_triggered_at?: string | null
           final_message: string
           id?: string
           lead_id: string
@@ -2905,6 +2915,11 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           failure_reason?: string | null
+          fallback_bot_enabled?: boolean | null
+          fallback_bot_id?: string | null
+          fallback_status?: string | null
+          fallback_timeout_minutes?: number | null
+          fallback_triggered_at?: string | null
           final_message?: string
           id?: string
           lead_id?: string
@@ -2921,6 +2936,13 @@ export type Database = {
           whatsapp_instance_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_scheduled_messages_fallback_bot_id_fkey"
+            columns: ["fallback_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_scheduled_messages_lead_id_fkey"
             columns: ["lead_id"]
@@ -3450,6 +3472,9 @@ export type Database = {
         Row: {
           created_at: string
           delay_minutes: number
+          fallback_bot_enabled: boolean | null
+          fallback_bot_id: string | null
+          fallback_timeout_minutes: number | null
           id: string
           is_active: boolean
           media_filename: string | null
@@ -3467,6 +3492,9 @@ export type Database = {
         Insert: {
           created_at?: string
           delay_minutes?: number
+          fallback_bot_enabled?: boolean | null
+          fallback_bot_id?: string | null
+          fallback_timeout_minutes?: number | null
           id?: string
           is_active?: boolean
           media_filename?: string | null
@@ -3484,6 +3512,9 @@ export type Database = {
         Update: {
           created_at?: string
           delay_minutes?: number
+          fallback_bot_enabled?: boolean | null
+          fallback_bot_id?: string | null
+          fallback_timeout_minutes?: number | null
           id?: string
           is_active?: boolean
           media_filename?: string | null
@@ -3499,6 +3530,13 @@ export type Database = {
           whatsapp_instance_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "non_purchase_message_templates_fallback_bot_id_fkey"
+            columns: ["fallback_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "non_purchase_message_templates_non_purchase_reason_id_fkey"
             columns: ["non_purchase_reason_id"]

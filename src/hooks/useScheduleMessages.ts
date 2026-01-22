@@ -160,6 +160,10 @@ export function useScheduleMessages() {
           media_type: template.media_type || null,
           media_url: template.media_url || null,
           media_filename: template.media_filename || null,
+          // Bot fallback fields
+          fallback_bot_enabled: template.fallback_bot_enabled ?? false,
+          fallback_bot_id: template.fallback_bot_id || null,
+          fallback_timeout_minutes: template.fallback_timeout_minutes ?? 30,
         });
       }
 
