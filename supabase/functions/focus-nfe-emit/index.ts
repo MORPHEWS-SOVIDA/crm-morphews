@@ -539,16 +539,34 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
     : undefined;
 
   // Data de emissão (obrigatório) - formato ISO: "2026-01-22T10:30:00-03:00"
+  // IMPORTANTE: A SEFAZ rejeita notas com horário no futuro (erro 703).
+  // Usamos o horário atual do servidor formatado corretamente para o timezone de Brasília.
+  function formatDateTimeBrazil(date: Date): string {
+    // Subtrair 3 horas para converter UTC para Brasília, depois formatar
+    const brasiliaOffset = -3 * 60; // -3 horas em minutos
+    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const brasilia = new Date(utc + (brasiliaOffset * 60000));
+    
+    const year = brasilia.getFullYear();
+    const month = String(brasilia.getMonth() + 1).padStart(2, '0');
+    const day = String(brasilia.getDate()).padStart(2, '0');
+    const hours = String(brasilia.getHours()).padStart(2, '0');
+    const minutes = String(brasilia.getMinutes()).padStart(2, '0');
+    const seconds = String(brasilia.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+  }
+  
   const emissionDateTime = draft?.emission_date 
     ? new Date(draft.emission_date) 
     : new Date();
-  const dataEmissao = emissionDateTime.toISOString().replace('Z', '-03:00').replace('.000', '');
+  const dataEmissao = formatDateTimeBrazil(emissionDateTime);
   
   // Data de saída (opcional, pode ser igual à emissão)
   const exitDateTime = draft?.exit_date 
     ? new Date(draft.exit_date) 
     : emissionDateTime;
-  const dataSaiEnt = exitDateTime.toISOString().replace('Z', '-03:00').replace('.000', '');
+  const dataSaiEnt = formatDateTimeBrazil(exitDateTime);
 
   const payload: any = {
     // Emitente (obrigatório para evitar permissao_negada/requisicao_invalida)

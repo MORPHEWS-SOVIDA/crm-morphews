@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,18 +63,16 @@ import {
   getStatusColor,
   getInvoiceTypeLabel,
   type InvoiceStatus,
-  type FiscalInvoice,
 } from '@/hooks/useFiscalInvoices';
 import { formatCNPJ } from '@/hooks/useFiscalCompanies';
-import { FiscalInvoiceFormDialog } from '@/components/fiscal/FiscalInvoiceFormDialog';
 import { useSendFiscalInvoice } from '@/hooks/useFiscalInvoiceDraft';
 import { toast } from '@/hooks/use-toast';
 
 export default function FiscalInvoices() {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [editingInvoice, setEditingInvoice] = useState<FiscalInvoice | null>(null);
   const [showFilters, setShowFilters] = useState(true);
 
   const { data: invoices = [], isLoading } = useFiscalInvoices(
@@ -211,7 +210,7 @@ export default function FiscalInvoices() {
               </p>
             </div>
           </div>
-          <Button onClick={() => setEditingInvoice({} as FiscalInvoice)}>
+          <Button onClick={() => navigate('/notas-fiscais/nova')}>
             <Plus className="w-4 h-4 mr-2" />
             Incluir nota fiscal
           </Button>
@@ -299,7 +298,7 @@ export default function FiscalInvoices() {
                       <TableRow
                         key={invoice.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setEditingInvoice(invoice)}
+                        onClick={() => navigate(`/notas-fiscais/${invoice.id}`)}
                       >
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox
@@ -349,7 +348,7 @@ export default function FiscalInvoices() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setEditingInvoice(invoice)}>
+                              <DropdownMenuItem onClick={() => navigate(`/notas-fiscais/${invoice.id}`)}>
                                 <Eye className="w-4 h-4 mr-2" />
                                 Visualizar
                               </DropdownMenuItem>
@@ -504,11 +503,6 @@ export default function FiscalInvoices() {
           </Card>
         </div>
 
-        {/* Invoice Form Dialog */}
-        <FiscalInvoiceFormDialog
-          invoice={editingInvoice}
-          onClose={() => setEditingInvoice(null)}
-        />
       </div>
     </Layout>
   );
