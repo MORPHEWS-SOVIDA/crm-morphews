@@ -30,6 +30,8 @@ import { AIModelCostsTab } from "@/components/super-admin/AIModelCostsTab";
 import { OnboardingEmailsManager } from "@/components/super-admin/OnboardingEmailsManager";
 import { SecretaryMessagesManager } from "@/components/super-admin/SecretaryMessagesManager";
 import { HelperConversationsTab } from "@/components/super-admin/HelperConversationsTab";
+import { SubscriptionKPIs } from "@/components/super-admin/SubscriptionKPIs";
+import { BillingManagementTab } from "@/components/super-admin/BillingManagementTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -109,6 +111,7 @@ export default function SuperAdmin() {
   const [selectedOrgForUser, setSelectedOrgForUser] = useState<string | null>(null);
   const [selectedOrgDetails, setSelectedOrgDetails] = useState<string | null>(null);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
     owner_name: "",
@@ -696,124 +699,105 @@ export default function SuperAdmin() {
           </Dialog>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Organizações
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                {organizations?.length || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Assinaturas Ativas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-green-500" />
-                {subscriptions?.filter((s) => s.status === "active").length || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Usuários
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-500" />
-                {members?.length || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                MRR (Receita Mensal)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-emerald-500" />
-                {formatPrice(totalMRR)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Stats Cards with Filters */}
+        <SubscriptionKPIs 
+          organizations={organizations || []}
+          subscriptions={subscriptions || []}
+          members={members || []}
+          onFilterChange={setStatusFilter}
+          activeFilter={statusFilter}
+        />
 
         <Tabs defaultValue="organizations" className="space-y-4">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="organizations">Organizações</TabsTrigger>
-            <TabsTrigger value="interested">Quiz Interessados ({interestedLeads?.length || 0})</TabsTrigger>
+          <TabsList className="flex-wrap gap-1">
+            {/* 📊 Clientes */}
+            <TabsTrigger value="organizations" className="gap-1">
+              <Building2 className="h-3 w-3" />
+              Organizações
+            </TabsTrigger>
+            <TabsTrigger value="interested" className="gap-1">
+              <Users className="h-3 w-3" />
+              Quiz ({interestedLeads?.length || 0})
+            </TabsTrigger>
+            <TabsTrigger value="all-users" className="gap-1">
+              <Users className="h-3 w-3" />
+              Usuários
+            </TabsTrigger>
+            
+            {/* 💰 Billing */}
+            <TabsTrigger value="billing" className="gap-1 text-amber-600">
+              <CreditCard className="h-3 w-3" />
+              Inadimplência
+            </TabsTrigger>
             <TabsTrigger value="coupons" className="gap-1">
               <Tag className="h-3 w-3" />
               Cupons
             </TabsTrigger>
+            <TabsTrigger value="plan-editor" className="gap-1">
+              <Package className="h-3 w-3" />
+              Planos
+            </TabsTrigger>
+            
+            {/* 📱 WhatsApp */}
             <TabsTrigger value="whatsapp" className="gap-1">
               <MessageSquare className="h-3 w-3" />
-              WhatsApp Créditos
+              WA Créditos
             </TabsTrigger>
             <TabsTrigger value="providers" className="gap-1">
               <Globe className="h-3 w-3" />
-              WhatsApp Providers
-            </TabsTrigger>
-            <TabsTrigger value="plan-editor" className="gap-1">
-              <Package className="h-3 w-3" />
-              Editor de Planos
-            </TabsTrigger>
-            <TabsTrigger value="org-overrides">
-              Overrides Org
-            </TabsTrigger>
-            <TabsTrigger value="users">Usuários sem Org</TabsTrigger>
-            <TabsTrigger value="all-users" className="gap-1">
-              <Users className="h-3 w-3" />
-              Todos Usuários
-            </TabsTrigger>
-            <TabsTrigger value="error-logs" className="gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Logs de Erros
-            </TabsTrigger>
-            <TabsTrigger value="energy" className="gap-1">
-              <Zap className="h-3 w-3" />
-              Energia IA
+              WA Providers
             </TabsTrigger>
             <TabsTrigger value="admin-whatsapp" className="gap-1">
               <Smartphone className="h-3 w-3" />
-              WhatsApp Admin
+              WA Admin
+            </TabsTrigger>
+            
+            {/* ⚙️ Sistema */}
+            <TabsTrigger value="energy" className="gap-1">
+              <Zap className="h-3 w-3" />
+              Energia IA
             </TabsTrigger>
             <TabsTrigger value="ai-costs" className="gap-1">
               <Cpu className="h-3 w-3" />
               Custos IA
             </TabsTrigger>
+            <TabsTrigger value="org-overrides">Overrides</TabsTrigger>
+            <TabsTrigger value="error-logs" className="gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Logs
+            </TabsTrigger>
+            
+            {/* 📧 Comunicação */}
             <TabsTrigger value="onboarding-emails" className="gap-1">
               <MailOpen className="h-3 w-3" />
-              Emails Onboarding
+              Emails
             </TabsTrigger>
             <TabsTrigger value="secretary-messages" className="gap-1">
               <MessageSquare className="h-3 w-3" />
-              Secretária WhatsApp
+              Secretária
             </TabsTrigger>
             <TabsTrigger value="helper-donna" className="gap-1">
               <HelpCircle className="h-3 w-3" />
-              Helper Donna
+              Donna
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="organizations">
             <Card>
               <CardHeader>
-                <CardTitle>Todas as Organizações</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>
+                    {statusFilter 
+                      ? `Organizações - ${statusFilter === 'active' ? 'Ativas' : statusFilter === 'trialing' ? 'Trial' : statusFilter === 'past_due' ? 'Inadimplentes' : 'Canceladas'}`
+                      : 'Todas as Organizações'
+                    }
+                  </CardTitle>
+                  {statusFilter && (
+                    <Button variant="ghost" size="sm" onClick={() => setStatusFilter(null)}>
+                      Limpar filtro
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {organizations?.length === 0 ? (
@@ -836,7 +820,13 @@ export default function SuperAdmin() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {organizations?.map((org) => {
+                      {organizations
+                        ?.filter((org) => {
+                          if (!statusFilter) return true;
+                          const sub = getSubscriptionForOrg(org.id);
+                          return sub?.status === statusFilter;
+                        })
+                        .map((org) => {
                         const subscription = getSubscriptionForOrg(org.id);
                         const memberCount = getMemberCountForOrg(org.id);
                         const onboarding = getOnboardingForOrg(org.id);
@@ -1231,6 +1221,10 @@ export default function SuperAdmin() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="billing">
+            <BillingManagementTab />
           </TabsContent>
 
           <TabsContent value="coupons">
