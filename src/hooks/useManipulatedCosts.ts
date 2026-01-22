@@ -13,7 +13,7 @@ export interface ManipulatedSaleItem {
   requisition_number: string;
   cost_cents: number | null;
   created_at: string;
-  // From sales join
+  // From view join
   sale_created_at: string;
   sale_status: string;
   client_name: string;
@@ -32,35 +32,11 @@ export function useManipulatedSaleItems(filters?: {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Query sale_items directly - RLS will filter by organization automatically
-      let query = supabase
-        .from('sale_items')
-        .select(`
-          id,
-          sale_id,
-          product_id,
-          product_name,
-          quantity,
-          unit_price_cents,
-          total_cents,
-          requisition_number,
-          cost_cents,
-          created_at,
-          sales!inner (
-            id,
-            created_at,
-            status,
-            organization_id,
-            leads (
-              name
-            ),
-            profiles:seller_id (
-              first_name,
-              last_name
-            )
-          )
-        `)
-        .not('requisition_number', 'is', null)
+      // Use the view which already handles all joins
+      let query = (supabase as any)
+        .from('manipulated_sale_items_view')
+        .select('*')
+        .eq('organization_id', tenantId)
         .order('created_at', { ascending: false });
 
       // Apply cost filter at database level
@@ -70,59 +46,26 @@ export function useManipulatedSaleItems(filters?: {
         query = query.is('cost_cents', null);
       }
 
-      const { data, error } = await query;
+      // Apply date filters at database level
+      if (filters?.startDate) {
+        const startDateStr = filters.startDate.toISOString().split('T')[0];
+        query = query.gte('sale_created_at', startDateStr);
+      }
+      if (filters?.endDate) {
+        const endDate = new Date(filters.endDate);
+        endDate.setDate(endDate.getDate() + 1);
+        const endDateStr = endDate.toISOString().split('T')[0];
+        query = query.lt('sale_created_at', endDateStr);
+      }
 
-      console.log('[ManipulatedCosts] Raw query result:', { 
-        count: data?.length,
-        error,
-        sample: data?.slice(0, 2)
-      });
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching manipulated items:', error);
         throw error;
       }
 
-      // Transform data
-      let items = (data || []).map((item: any) => ({
-        id: item.id,
-        sale_id: item.sale_id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        quantity: item.quantity,
-        unit_price_cents: item.unit_price_cents,
-        total_cents: item.total_cents,
-        requisition_number: item.requisition_number,
-        cost_cents: item.cost_cents,
-        created_at: item.created_at,
-        sale_created_at: item.sales?.created_at,
-        sale_status: item.sales?.status,
-        client_name: item.sales?.leads?.name || 'Cliente não identificado',
-        seller_name: item.sales?.profiles 
-          ? `${item.sales.profiles.first_name} ${item.sales.profiles.last_name}`
-          : 'Vendedor não identificado',
-      })) as ManipulatedSaleItem[];
-
-      // Apply date filter client-side (only if dates are set)
-      if (filters?.startDate) {
-        const startDate = new Date(filters.startDate);
-        startDate.setHours(0, 0, 0, 0);
-        items = items.filter(item => {
-          if (!item.sale_created_at) return true; // Include items without date
-          return new Date(item.sale_created_at) >= startDate;
-        });
-      }
-      if (filters?.endDate) {
-        const endDate = new Date(filters.endDate);
-        endDate.setHours(23, 59, 59, 999);
-        items = items.filter(item => {
-          if (!item.sale_created_at) return true; // Include items without date
-          return new Date(item.sale_created_at) <= endDate;
-        });
-      }
-
-      console.log('[ManipulatedCosts] Final items count:', items.length);
-      return items;
+      return (data || []) as ManipulatedSaleItem[];
     },
     enabled: !!tenantId && enabled,
     staleTime: Infinity,
