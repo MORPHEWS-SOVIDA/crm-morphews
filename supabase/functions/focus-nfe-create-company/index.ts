@@ -79,13 +79,10 @@ Deno.serve(async (req) => {
       enviar_email_destinatario: false, // Can be configured later
     };
 
-    // Determine API URL based on environment
-    // Note: Focus NFe uses the base domain for the API, not a specific path
-    // The API requires authentication via token parameter OR basic auth
-    const baseUrl = environment === 'producao' 
-      ? 'https://api.focusnfe.com.br'
-      : 'https://homologacao.focusnfe.com.br';
-    
+    // IMPORTANT (Focus NFe): the *company management* endpoints (/v2/empresas and /v2/hooks)
+    // live on the production API domain, even when the company will be used for homologação.
+    // Using homologacao.focusnfe.com.br for /v2/empresas returns 404.
+    const baseUrl = 'https://api.focusnfe.com.br';
     const apiUrl = `${baseUrl}/v2/empresas`;
 
     console.log('Creating company in Focus NFe:', { cnpj, environment, apiUrl, payload: focusCompanyData });
