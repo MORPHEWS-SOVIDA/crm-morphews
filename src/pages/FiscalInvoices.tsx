@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -17,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -44,14 +44,13 @@ import {
   RefreshCw,
   MoreVertical,
   Plus,
-  Calendar,
   X,
-  ChevronDown,
   Mail,
   FileDown,
   Eye,
   Loader2,
   AlertCircle,
+  Ban,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -61,12 +60,12 @@ import {
   useRefreshAllProcessingInvoices,
   getStatusLabel,
   getStatusColor,
-  getInvoiceTypeLabel,
   type InvoiceStatus,
+  type FiscalInvoice,
 } from '@/hooks/useFiscalInvoices';
-import { formatCNPJ } from '@/hooks/useFiscalCompanies';
 import { useSendFiscalInvoice } from '@/hooks/useFiscalInvoiceDraft';
 import { toast } from '@/hooks/use-toast';
+import { InvalidateNumbersDialog } from '@/components/fiscal/InvalidateNumbersDialog';
 
 export default function FiscalInvoices() {
   const navigate = useNavigate();
@@ -74,6 +73,7 @@ export default function FiscalInvoices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(true);
+  const [showInvalidateDialog, setShowInvalidateDialog] = useState(false);
 
   const { data: invoices = [], isLoading } = useFiscalInvoices(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
@@ -92,12 +92,15 @@ export default function FiscalInvoices() {
   const filteredInvoices = useMemo(() => {
     if (!searchQuery.trim()) return invoices;
     const query = searchQuery.toLowerCase();
-    return invoices.filter(inv => 
-      inv.invoice_number?.toLowerCase().includes(query) ||
-      inv.sale?.lead?.name?.toLowerCase().includes(query) ||
-      inv.fiscal_company?.company_name?.toLowerCase().includes(query) ||
-      inv.recipient_name?.toLowerCase().includes(query)
-    );
+    return invoices.filter(inv => {
+      const invAny = inv as any;
+      return (
+        inv.invoice_number?.toLowerCase().includes(query) ||
+        inv.sale?.lead?.name?.toLowerCase().includes(query) ||
+        inv.fiscal_company?.company_name?.toLowerCase().includes(query) ||
+        invAny.recipient_name?.toLowerCase().includes(query)
+      );
+    });
   }, [invoices, searchQuery]);
 
   // Calculate summary
@@ -131,7 +134,7 @@ export default function FiscalInvoices() {
 
   const handleBatchSend = async () => {
     const pendingIds = selectedIds.filter(id => {
-      const inv = invoices.find(i => i.id === id);
+      const inv = invoices.find(i => i.id === id) as any;
       return inv?.status === 'pending' || inv?.is_draft;
     });
     if (pendingIds.length === 0) {
@@ -294,7 +297,9 @@ export default function FiscalInvoices() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInvoices.map((invoice) => (
+                    {filteredInvoices.map((invoice) => {
+                      const invAny = invoice as any;
+                      return (
                       <TableRow
                         key={invoice.id}
                         className="cursor-pointer hover:bg-muted/50"
@@ -307,13 +312,13 @@ export default function FiscalInvoices() {
                           />
                         </TableCell>
                         <TableCell className="font-mono">
-                          {invoice.invoice_number || (invoice.is_draft ? 'Rascunho' : '—')}
+                          {invoice.invoice_number || (invAny.is_draft ? 'Rascunho' : '—')}
                         </TableCell>
                         <TableCell>
                           {format(new Date(invoice.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                         </TableCell>
                         <TableCell>
-                          {invoice.recipient_name || invoice.sale?.lead?.name || '—'}
+                          {invAny.recipient_name || invoice.sale?.lead?.name || '—'}
                         </TableCell>
                         <TableCell>
                           <TooltipProvider>
@@ -321,7 +326,7 @@ export default function FiscalInvoices() {
                               <TooltipTrigger asChild>
                                 <div className="flex items-center gap-1.5">
                                   <Badge className={getStatusColor(invoice.status)}>
-                                    {invoice.is_draft ? 'Rascunho' : getStatusLabel(invoice.status)}
+                                    {invAny.is_draft ? 'Rascunho' : getStatusLabel(invoice.status)}
                                   </Badge>
                                   {invoice.status === 'rejected' && invoice.error_message && (
                                     <AlertCircle className="w-4 h-4 text-destructive" />
@@ -378,7 +383,8 @@ export default function FiscalInvoices() {
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -480,11 +486,25 @@ export default function FiscalInvoices() {
                 disabled={selectedIds.length === 0}
                 onClick={handleBatchExportXML}
               >
-                <Download className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 mr-2" />
                 Exportar XML
               </Button>
 
-              <div className="border-t my-3" />
+              <Separator className="my-3" />
+
+              {/* Outras ações */}
+              <p className="text-xs font-medium text-muted-foreground mb-2">Outros</p>
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                size="sm"
+                onClick={() => setShowInvalidateDialog(true)}
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                Inutilizar numeração
+              </Button>
+
+              <Separator className="my-3" />
 
               {/* Summary */}
               <div className="text-sm space-y-1">
@@ -502,6 +522,12 @@ export default function FiscalInvoices() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Dialogs */}
+        <InvalidateNumbersDialog 
+          open={showInvalidateDialog} 
+          onOpenChange={setShowInvalidateDialog} 
+        />
 
       </div>
     </Layout>

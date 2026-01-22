@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
       invoiceNumber = parseInt(draft.invoice_number, 10);
       serie = parseInt(draft.invoice_series, 10);
     } else {
-      // Fallback: calculate next number (legacy behavior)
+      // Fallback: calculate next number (for rejected invoices being resent or legacy behavior)
       serie = invoice_type === 'nfe'
         ? (fiscalCompany.nfe_serie || 1)
         : (fiscalCompany.nfse_serie || 1);
@@ -270,6 +270,18 @@ Deno.serve(async (req) => {
         .from('fiscal_companies')
         .update({ [updateField]: invoiceNumber })
         .eq('id', fiscalCompany.id);
+      
+      // IMPORTANT: Also save the reserved number to the invoice record
+      // This prevents duplicate numbers if this invoice is rejected and resent
+      await supabase
+        .from('fiscal_invoices')
+        .update({ 
+          invoice_number: String(invoiceNumber), 
+          invoice_series: String(serie) 
+        })
+        .eq('id', invoice.id);
+      
+      console.log(`Reserved new invoice number ${invoiceNumber} serie ${serie} for invoice ${invoice.id}`);
     }
 
     // Select base URL based on environment
@@ -377,17 +389,34 @@ Deno.serve(async (req) => {
       updateData.invoice_series = focusResult.serie;
       updateData.access_key = focusResult.chave_nfe;
       updateData.protocol_number = focusResult.protocolo;
-      updateData.xml_url = focusResult.caminho_xml_nota_fiscal;
-      updateData.pdf_url = focusResult.caminho_danfe;
+      
+      // Build full URLs for PDF and XML
+      const focusFilesBaseUrl = environment === 'producao'
+        ? 'https://api.focusnfe.com.br'
+        : 'https://homologacao.focusnfe.com.br';
+      
+      if (focusResult.caminho_xml_nota_fiscal) {
+        updateData.xml_url = `${focusFilesBaseUrl}${focusResult.caminho_xml_nota_fiscal}`;
+      }
+      if (focusResult.caminho_danfe) {
+        updateData.pdf_url = `${focusFilesBaseUrl}${focusResult.caminho_danfe}`;
+      }
       updateData.authorized_at = new Date().toISOString();
 
       // Update last invoice number on fiscal company (use authorized number from Focus)
       const updateField = invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
       const authorizedNumber = parseInt(focusResult.numero) || invoiceNumber;
-      await supabase
-        .from('fiscal_companies')
-        .update({ [updateField]: authorizedNumber })
-        .eq('id', fiscalCompany.id);
+      const currentLastNumber = invoice_type === 'nfe'
+        ? (fiscalCompany.nfe_last_number || 0)
+        : (fiscalCompany.nfse_last_number || 0);
+      
+      // Only update if the authorized number is greater than current
+      if (authorizedNumber > currentLastNumber) {
+        await supabase
+          .from('fiscal_companies')
+          .update({ [updateField]: authorizedNumber })
+          .eq('id', fiscalCompany.id);
+      }
     }
     // Otherwise keep as 'processing' - webhook/status polling will update
 
