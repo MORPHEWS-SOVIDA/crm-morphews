@@ -30,13 +30,14 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Building2, Upload, CheckCircle2, XCircle, Star } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Building2, Upload, CheckCircle2, XCircle, Star, Webhook } from 'lucide-react';
 import {
   useFiscalCompanies,
   useCreateFiscalCompany,
   useUpdateFiscalCompany,
   useDeleteFiscalCompany,
   useUploadCertificate,
+  useRegisterWebhooks,
   formatCNPJ,
   type FiscalCompany,
   type CreateFiscalCompanyData,
@@ -64,6 +65,7 @@ export function FiscalCompaniesManager() {
   const updateCompany = useUpdateFiscalCompany();
   const deleteCompany = useDeleteFiscalCompany();
   const uploadCertificate = useUploadCertificate();
+  const registerWebhooks = useRegisterWebhooks();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<FiscalCompany | null>(null);
@@ -290,6 +292,20 @@ export function FiscalCompaniesManager() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => registerWebhooks.mutate({ fiscalCompanyId: company.id })}
+                      disabled={registerWebhooks.isPending}
+                      title="Registrar webhooks na API Focus NFe"
+                    >
+                      {registerWebhooks.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Webhook className="w-4 h-4 mr-1" />
+                      )}
+                      Webhooks
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

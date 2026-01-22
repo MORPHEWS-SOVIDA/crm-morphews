@@ -14,6 +14,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const focusToken = Deno.env.get('FOCUS_NFE_TOKEN')!;
+    const webhookSecret = Deno.env.get('FOCUS_WEBHOOK_SECRET') || 'morphews_focus_webhook_2024';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { fiscal_company_id, events } = await req.json();
@@ -63,6 +64,8 @@ Deno.serve(async (req) => {
             cnpj,
             event,
             url: webhookUrl,
+            authorization_key: webhookSecret,
+            authorization_header: 'X-Webhook-Secret',
           }),
         });
 

@@ -22,11 +22,18 @@ Integração com Focus NFe para emissão de NF-e (produtos) e NFS-e (serviços).
 
 ### Edge Functions
 - `focus-nfe-emit`: Emite nota fiscal (chamado com sale_id, invoice_type, fiscal_company_id opcional)
-- `focus-nfe-webhook`: Recebe callbacks do Focus NFe para atualizar status
+- `focus-nfe-webhook`: Recebe callbacks do Focus NFe para atualizar status (valida header X-Webhook-Secret)
 - `focus-nfe-status`: Consulta status de nota no Focus NFe
+- `focus-nfe-register-hooks`: Registra webhooks automaticamente via API Focus NFe
 
-### Webhook URL para Focus NFe
-Configurar no painel Focus NFe: `https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/focus-nfe-webhook`
+### Registro de Webhooks
+O botão "Webhooks" no FiscalCompaniesManager chama `focus-nfe-register-hooks` que:
+- Usa `/v2/hooks` da API Focus NFe
+- Envia `authorization_key` e `authorization_header: X-Webhook-Secret`
+- Registra eventos 'nfe' e 'nfse' simultaneamente
+
+### Webhook URL
+`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/focus-nfe-webhook`
 
 ### Componentes
 - `FiscalCompaniesManager`: Gestão de CNPJs/certificados em Settings
