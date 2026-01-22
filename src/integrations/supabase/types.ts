@@ -3982,6 +3982,8 @@ export type Database = {
           whatsapp_document_auto_reply_message: string | null
           whatsapp_document_medical_mode: boolean | null
           whatsapp_document_reading_enabled: boolean
+          whatsapp_image_interpretation: boolean | null
+          whatsapp_image_medical_mode: boolean | null
           whatsapp_sender_name_prefix_enabled: boolean
         }
         Insert: {
@@ -4013,6 +4015,8 @@ export type Database = {
           whatsapp_document_auto_reply_message?: string | null
           whatsapp_document_medical_mode?: boolean | null
           whatsapp_document_reading_enabled?: boolean
+          whatsapp_image_interpretation?: boolean | null
+          whatsapp_image_medical_mode?: boolean | null
           whatsapp_sender_name_prefix_enabled?: boolean
         }
         Update: {
@@ -4044,6 +4048,8 @@ export type Database = {
           whatsapp_document_auto_reply_message?: string | null
           whatsapp_document_medical_mode?: boolean | null
           whatsapp_document_reading_enabled?: boolean
+          whatsapp_image_interpretation?: boolean | null
+          whatsapp_image_medical_mode?: boolean | null
           whatsapp_sender_name_prefix_enabled?: boolean
         }
         Relationships: []
