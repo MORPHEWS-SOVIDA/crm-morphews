@@ -122,18 +122,35 @@ async function createPrePostagem(
   const formatCode = config.default_package_type === 'envelope' ? '1' : 
                      config.default_package_type === 'cilindro' ? '3' : '2'; // 1=Envelope, 2=Caixa, 3=Cilindro
   
-  // Format phone: must be DDD (2 digits) + number (8-9 digits)
-  const formatPhone = (phone?: string | null): { ddd?: string; numero?: string } => {
-    if (!phone) return {};
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length >= 10) {
-      return { ddd: digits.slice(0, 2), numero: digits.slice(2) };
+  // Format phone according to Correios expectations.
+  // Common pitfalls:
+  // - Values may include country code (55) or duplicated DDI (e.g. 5555...)
+  // - Field `celular` should only be used for mobile numbers (DDD + 9 digits => 11 digits)
+  // - Landlines should go in dddTelefone + telefone (DDD + 8 digits => 10 digits)
+  type ParsedPhone = { ddd: string; numero: string; kind: 'mobile' | 'landline' };
+  const parseBrPhone = (phone?: string | null): ParsedPhone | null => {
+    if (!phone) return null;
+    let digits = phone.replace(/\D/g, '');
+
+    // Strip country code while we have more than 11 digits.
+    while (digits.startsWith('55') && digits.length > 11) {
+      digits = digits.slice(2);
     }
-    return {};
+
+    // If still too long, keep the last 11 digits (best-effort for weird inputs)
+    if (digits.length > 11) {
+      digits = digits.slice(-11);
+    }
+
+    if (digits.length !== 10 && digits.length !== 11) return null;
+    const ddd = digits.slice(0, 2);
+    const numero = digits.slice(2);
+    const kind: ParsedPhone['kind'] = numero.length === 9 ? 'mobile' : 'landline';
+    return { ddd, numero, kind };
   };
-  
-  const senderPhone = formatPhone(config.sender_phone);
-  const recipientPhone = formatPhone(request.recipient.phone);
+
+  const senderPhone = parseBrPhone(config.sender_phone);
+  const recipientPhone = parseBrPhone(request.recipient.phone);
   
   // Ensure weight is in grams and required
   const weightGrams = pkg.weight_grams || config.default_weight_grams || 500;
@@ -154,7 +171,8 @@ async function createPrePostagem(
         uf: config.sender_state?.toUpperCase(),
         cep: config.sender_cep?.replace(/\D/g, ''),
       },
-      celular: senderPhone.numero ? `${senderPhone.ddd}${senderPhone.numero}` : undefined,
+      // Correios valida tamanho/forma do campo; só enviar celular quando for realmente celular
+      celular: senderPhone?.kind === 'mobile' ? `${senderPhone.ddd}${senderPhone.numero}` : undefined,
       email: config.sender_email,
     },
     destinatario: {
@@ -169,7 +187,7 @@ async function createPrePostagem(
         uf: request.recipient.state?.toUpperCase(),
         cep: request.recipient.cep?.replace(/\D/g, ''),
       },
-      celular: recipientPhone.numero ? `${recipientPhone.ddd}${recipientPhone.numero}` : undefined,
+      celular: recipientPhone?.kind === 'mobile' ? `${recipientPhone.ddd}${recipientPhone.numero}` : undefined,
       email: request.recipient.email || undefined,
     },
     objetoPostal: {
@@ -190,11 +208,11 @@ async function createPrePostagem(
   };
 
   // Add telefone as separate field if available (some services require it)
-  if (senderPhone.ddd && senderPhone.numero) {
+  if (senderPhone) {
     payload.remetente.dddTelefone = senderPhone.ddd;
     payload.remetente.telefone = senderPhone.numero;
   }
-  if (recipientPhone.ddd && recipientPhone.numero) {
+  if (recipientPhone) {
     payload.destinatario.dddTelefone = recipientPhone.ddd;
     payload.destinatario.telefone = recipientPhone.numero;
   }
