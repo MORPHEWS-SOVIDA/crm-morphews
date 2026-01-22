@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, ThumbsDown, Users, Bike, Award, Database, Package, FileUp, Bot } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Save, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -413,16 +413,16 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Non-Purchase Reasons */}
+        {/* Followups Automáticos */}
         {canAccess('settings_non_purchase_reasons') && (
           <div className="bg-card rounded-xl p-6 shadow-card">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-lg bg-red-500/10">
-                <ThumbsDown className="w-6 h-6 text-red-500" />
+              <div className="p-3 rounded-lg bg-amber-500/10">
+                <Zap className="w-6 h-6 text-amber-500" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Motivos de Não Compra</h2>
-                <p className="text-sm text-muted-foreground">Classifique por que leads não compraram</p>
+                <h2 className="text-lg font-semibold text-foreground">Followups Automáticos</h2>
+                <p className="text-sm text-muted-foreground">Configure mensagens automáticas de follow-up</p>
               </div>
             </div>
             <NonPurchaseReasonsManager />

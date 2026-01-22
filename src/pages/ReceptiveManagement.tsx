@@ -295,7 +295,7 @@ export default function ReceptiveManagement() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Motivo de Não Compra</Label>
+                <Label>Followup Automático</Label>
                 <Select
                   value={filters.nonPurchaseReasonId || 'all'}
                   onValueChange={(v) => setFilters(prev => ({ ...prev, nonPurchaseReasonId: v === 'all' ? undefined : v }))}

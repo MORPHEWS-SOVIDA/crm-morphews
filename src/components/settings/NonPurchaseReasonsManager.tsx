@@ -192,7 +192,7 @@ export function NonPurchaseReasonsManager() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Novo Motivo de Não Compra</DialogTitle>
+              <DialogTitle>Novo Followup Automático</DialogTitle>
             </DialogHeader>
             <ReasonForm 
               formData={formData} 
