@@ -658,14 +658,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for existing lead by whatsapp
-    let existingLead = null;
+    // ============================================================
+    // DEDUPLICATION: Check for existing lead by whatsapp OR email
+    // Each lead can only be in ONE stage. If found, UPDATE the stage.
+    // ============================================================
+    let existingLead: { id: string; name: string; whatsapp: string; stage: string } | null = null;
+
+    // Priority 1: Match by WhatsApp (most reliable identifier)
     if (leadData.whatsapp) {
       const { data: existing } = await supabase
         .from('leads')
-        .select('id, name, whatsapp')
+        .select('id, name, whatsapp, stage')
         .eq('organization_id', typedIntegration.organization_id)
         .eq('whatsapp', leadData.whatsapp)
+        .maybeSingle();
+      
+      existingLead = existing;
+    }
+
+    // Priority 2: If no WhatsApp match, try email
+    if (!existingLead && leadData.email) {
+      const { data: existing } = await supabase
+        .from('leads')
+        .select('id, name, whatsapp, stage')
+        .eq('organization_id', typedIntegration.organization_id)
+        .eq('email', leadData.email)
         .maybeSingle();
       
       existingLead = existing;
@@ -675,11 +692,44 @@ Deno.serve(async (req) => {
     let action: string;
 
     if (existingLead) {
-      // Update existing lead with webhook data (preserve webhook_data)
+      // ============================================================
+      // EXISTING LEAD: Update stage + data (CRITICAL: single stage rule)
+      // ============================================================
+      const previousStage = existingLead.stage;
+      const newStage = leadData.stage || typedIntegration.default_stage || previousStage;
+
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
-        webhook_data: payload, // Store raw webhook payload in dedicated field
+        webhook_data: payload,
       };
+
+      // Update stage if different (integration event changes the stage)
+      if (newStage && newStage !== previousStage) {
+        updateData.stage = newStage;
+        console.log(`Changing lead stage: ${previousStage} -> ${newStage}`);
+
+        // Record stage change in history for audit trail
+        try {
+          await supabase.from('lead_stage_history').insert({
+            lead_id: existingLead.id,
+            organization_id: typedIntegration.organization_id,
+            stage: newStage,
+            previous_stage: previousStage,
+            reason: `Evento de integração: ${typedIntegration.name}`,
+            changed_by: null, // System change
+          });
+        } catch (historyError) {
+          console.log('Could not insert stage history (table may not exist):', historyError);
+        }
+      }
+
+      // Update other fields if provided (name, email, etc.) - don't overwrite with nulls
+      if (leadData.name && leadData.name !== existingLead.name) {
+        updateData.name = leadData.name;
+      }
+      if (leadData.email && !updateData.email) {
+        updateData.email = leadData.email;
+      }
       
       // Only append minimal note to observations, not full JSON
       const integrationNote = `[Integração ${typedIntegration.name} - ${new Date().toLocaleString('pt-BR')}]`;
@@ -705,8 +755,8 @@ Deno.serve(async (req) => {
         .eq('id', existingLead.id);
 
       leadId = existingLead.id;
-      action = 'updated';
-      console.log(`Updated existing lead: ${leadId}`);
+      action = newStage !== previousStage ? 'stage_changed' : 'updated';
+      console.log(`Updated existing lead: ${leadId}, action: ${action}`);
     } else {
       // Create new lead
       if (!leadData.name) {
