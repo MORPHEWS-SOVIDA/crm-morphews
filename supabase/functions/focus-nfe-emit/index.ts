@@ -436,7 +436,7 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
       codigo_produto: String(item.code || product.sku || item.product_id || product.id || '').substring(0, 50) || String(index + 1),
       descricao: item.name || item.product_name || product.name || 'Produto',
       cfop: String(item.cfop || product.fiscal_cfop || cfop || '5102'),
-      ncm: String(item.ncm || product.fiscal_ncm || '00000000').replace(/\D/g, ''),
+      codigo_ncm: String(item.ncm || product.fiscal_ncm || '21069030').replace(/\D/g, '').padStart(8, '0'),
       cest: product.fiscal_cest ? product.fiscal_cest.replace(/\D/g, '') : undefined,
       unidade_comercial: item.unit || product.unit || 'UN',
       quantidade_comercial: qty,
