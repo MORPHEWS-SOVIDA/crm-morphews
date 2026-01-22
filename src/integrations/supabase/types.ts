@@ -4718,6 +4718,41 @@ export type Database = {
           },
         ]
       }
+      payment_reminder_log: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          reminder_type: string
+          sent_at: string
+          sent_to: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          reminder_type: string
+          sent_at?: string
+          sent_to: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          reminder_type?: string
+          sent_at?: string
+          sent_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reminder_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_features: {
         Row: {
           created_at: string

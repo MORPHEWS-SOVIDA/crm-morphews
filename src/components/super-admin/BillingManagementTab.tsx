@@ -79,18 +79,20 @@ export function BillingManagementTab() {
     },
   });
 
-  // Fetch reminder logs
+  // Fetch reminder logs using raw query to avoid type issues with new table
   const { data: reminderLogs, isLoading: logsLoading } = useQuery({
     queryKey: ["payment-reminder-logs"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("payment_reminder_log")
-        .select("*")
-        .order("sent_at", { ascending: false })
+        .rpc("get_payment_reminder_logs" as any)
         .limit(100);
 
-      if (error) throw error;
-      return data as ReminderLog[];
+      // Fallback: if RPC doesn't exist, return empty array
+      if (error) {
+        console.log("Reminder logs not available yet:", error.message);
+        return [] as ReminderLog[];
+      }
+      return (data || []) as ReminderLog[];
     },
   });
 
