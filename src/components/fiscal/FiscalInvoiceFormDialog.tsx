@@ -36,7 +36,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown, Loader2, X, Save, Send } from 'lucide-react';
+import { ChevronDown, Loader2, X, Save, Send, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { type FiscalInvoice, getStatusLabel, getStatusColor, useEmitInvoice } from '@/hooks/useFiscalInvoices';
 import { useFiscalCompanies, formatCNPJ } from '@/hooks/useFiscalCompanies';
 import { useSaveFiscalInvoiceDraft, useSendFiscalInvoice } from '@/hooks/useFiscalInvoiceDraft';
@@ -117,7 +118,9 @@ export function FiscalInvoiceFormDialog({ invoice, onClose }: Props) {
 
   const isOpen = invoice !== null;
   const isNew = !invoice?.id;
-  const isEditable = isNew || invoice?.is_draft || invoice?.status === 'pending';
+  // Allow editing and resending for: new, draft, pending, and rejected invoices
+  const isEditable = isNew || invoice?.is_draft || invoice?.status === 'pending' || invoice?.status === 'rejected';
+  const canResend = invoice?.status === 'rejected';
 
   // Form values from invoice - cast to partial FiscalInvoice
   const formData: Partial<FiscalInvoice> = invoice || {};
@@ -179,7 +182,7 @@ export function FiscalInvoiceFormDialog({ invoice, onClose }: Props) {
                   <Button onClick={handleSend} disabled={sendInvoice.isPending}>
                     {sendInvoice.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     <Send className="w-4 h-4 mr-2" />
-                    Enviar
+                    {canResend ? 'Reenviar' : 'Enviar'}
                   </Button>
                 </>
               )}
@@ -189,6 +192,15 @@ export function FiscalInvoiceFormDialog({ invoice, onClose }: Props) {
 
         <ScrollArea className="max-h-[calc(90vh-120px)]">
           <div className="p-6 space-y-6">
+            {/* Error Alert */}
+            {invoice?.status === 'rejected' && invoice?.error_message && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Erro na emissão</AlertTitle>
+                <AlertDescription>{invoice.error_message}</AlertDescription>
+              </Alert>
+            )}
+
             {/* Header Section */}
             <Collapsible open={openSections.header} onOpenChange={() => toggleSection('header')}>
               <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
