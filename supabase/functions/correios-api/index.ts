@@ -175,8 +175,9 @@ async function createPrePostagem(
   const pkg = request.package || {};
   
   // Determine package format based on type
-  const formatCode = config.default_package_type === 'envelope' ? '1' : 
-                     config.default_package_type === 'cilindro' ? '3' : '2'; // 1=Envelope, 2=Caixa, 3=Cilindro
+  // IMPORTANT: Correios valida como número (não string)
+  const formatCode = config.default_package_type === 'envelope' ? 1 :
+                     config.default_package_type === 'cilindro' ? 3 : 2; // 1=Envelope, 2=Caixa, 3=Cilindro
   
   // Format phone according to Correios expectations.
   // CORREIOS API v3 (prepostagem) expects phone fields to be structured as:
@@ -276,14 +277,15 @@ async function createPrePostagem(
       tipoObjeto: config.default_package_type === 'envelope' ? 'ENVELOPE' : 
                   config.default_package_type === 'cilindro' ? 'CILINDRO' : 'CAIXA',
       codigoFormatoObjeto: formatCode,
+      // Peso total do objeto (obrigatório)
       peso: weightGrams,
-      pesoRegistrado: weightGrams,
       dimensao: {
         altura: pkg.height_cm || config.default_height_cm || 10,
         largura: pkg.width_cm || config.default_width_cm || 15,
         comprimento: pkg.length_cm || config.default_length_cm || 20,
       },
-      objetosProibidos: false,
+      // Correios exige confirmação explícita (PPN-330) e usa "S"/"N"
+      objetosProibidos: 'N',
     },
     declaracaoConteudo: true,
   };
@@ -328,16 +330,21 @@ async function createPrePostagem(
 
   // Add declared value if provided
   if (pkg.declared_value_cents && pkg.declared_value_cents > 0) {
-    payload.objetoPostal.valorDeclarado = pkg.declared_value_cents / 100;
+    // Campo correto no PPN: vlrDeclarado
+    payload.objetoPostal.vlrDeclarado = pkg.declared_value_cents / 100;
   }
 
   // Add contents description for declaração de conteúdo
   if (payload.declaracaoConteudo) {
+    const declaredValue = (pkg.declared_value_cents || 10000) / 100;
     payload.itensDeclaracaoConteudo = [
       {
         conteudo: 'Produtos de saúde e bem-estar',
         quantidade: 1,
-        valor: (pkg.declared_value_cents || 10000) / 100,
+        // Correios exige peso por item (PPN-348)
+        peso: weightGrams,
+        // Valor unitário do item (para totalizar a declaração)
+        valor: declaredValue,
       }
     ];
   }
