@@ -61,6 +61,7 @@ import SellerPanel from "./pages/SellerPanel";
 import DashboardKanban from "./pages/DashboardKanban";
 import Integrations from "./pages/Integrations";
 import Power from "./pages/Power";
+import NichePage from "./pages/niches";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,7 @@ const App = () => (
               <Route path="/setup" element={<Setup />} />
               <Route path="/planos" element={<Planos />} />
               <Route path="/2026" element={<Power />} />
+              <Route path="/para/:niche" element={<NichePage />} />
               <Route path="/checkout" element={<DirectCheckout />} />
               <Route path="/signup-success" element={<SignupSuccess />} />
               <Route path="/auth/error" element={<AuthError />} />
