@@ -7199,6 +7199,7 @@ export type Database = {
           demands_view: boolean
           expedition_report_view: boolean | null
           expedition_view: boolean
+          helper_donna_view: boolean
           hide_sidebar: boolean | null
           id: string
           instagram_view: boolean
@@ -7272,6 +7273,7 @@ export type Database = {
           demands_view?: boolean
           expedition_report_view?: boolean | null
           expedition_view?: boolean
+          helper_donna_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
@@ -7345,6 +7347,7 @@ export type Database = {
           demands_view?: boolean
           expedition_report_view?: boolean | null
           expedition_view?: boolean
+          helper_donna_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
