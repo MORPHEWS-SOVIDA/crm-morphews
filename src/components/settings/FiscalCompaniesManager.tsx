@@ -126,6 +126,9 @@ export function FiscalCompaniesManager() {
     responsible_name: '',
     responsible_cpf: '',
     accountant_cpf_cnpj: '',
+    // Focus NFe Tokens
+    focus_nfe_token_homologacao: '',
+    focus_nfe_token_producao: '',
   });
 
   const { lookupCep, isLoading: isLoadingCep } = useCepLookup();
@@ -164,6 +167,8 @@ export function FiscalCompaniesManager() {
       responsible_name: '',
       responsible_cpf: '',
       accountant_cpf_cnpj: '',
+      focus_nfe_token_homologacao: '',
+      focus_nfe_token_producao: '',
     });
     setEditingCompany(null);
   };
@@ -204,6 +209,8 @@ export function FiscalCompaniesManager() {
         responsible_name: company.responsible_name || '',
         responsible_cpf: company.responsible_cpf || '',
         accountant_cpf_cnpj: company.accountant_cpf_cnpj || '',
+        focus_nfe_token_homologacao: company.focus_nfe_token_homologacao || '',
+        focus_nfe_token_producao: company.focus_nfe_token_producao || '',
       });
     } else {
       resetForm();
@@ -810,6 +817,39 @@ export function FiscalCompaniesManager() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Focus NFe Tokens */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <KeyRound className="w-4 h-4" />
+                Tokens Focus NFe
+              </h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                Copie os tokens da aba "TOKENS" no painel Focus NFe → Minhas Empresas → Editar Empresa
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Token de Homologação</Label>
+                  <Input
+                    type="password"
+                    value={formData.focus_nfe_token_homologacao}
+                    onChange={(e) => setFormData({ ...formData, focus_nfe_token_homologacao: e.target.value })}
+                    placeholder="Token para ambiente de testes"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Usado quando ambiente = Homologação</p>
+                </div>
+                <div>
+                  <Label>Token de Produção</Label>
+                  <Input
+                    type="password"
+                    value={formData.focus_nfe_token_producao}
+                    onChange={(e) => setFormData({ ...formData, focus_nfe_token_producao: e.target.value })}
+                    placeholder="Token para ambiente real"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Usado quando ambiente = Produção</p>
                 </div>
               </div>
             </div>

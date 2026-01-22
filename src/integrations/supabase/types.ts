@@ -1653,6 +1653,8 @@ export type Database = {
           default_nature_operation: string | null
           email: string | null
           focus_nfe_company_id: string | null
+          focus_nfe_token_homologacao: string | null
+          focus_nfe_token_producao: string | null
           id: string
           is_active: boolean | null
           is_primary: boolean | null
@@ -1695,6 +1697,8 @@ export type Database = {
           default_nature_operation?: string | null
           email?: string | null
           focus_nfe_company_id?: string | null
+          focus_nfe_token_homologacao?: string | null
+          focus_nfe_token_producao?: string | null
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
@@ -1737,6 +1741,8 @@ export type Database = {
           default_nature_operation?: string | null
           email?: string | null
           focus_nfe_company_id?: string | null
+          focus_nfe_token_homologacao?: string | null
+          focus_nfe_token_producao?: string | null
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null

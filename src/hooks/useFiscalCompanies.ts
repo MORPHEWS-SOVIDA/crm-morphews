@@ -50,6 +50,9 @@ export interface FiscalCompany {
   responsible_name: string | null;
   responsible_cpf: string | null;
   accountant_cpf_cnpj: string | null;
+  // Focus NFe tokens (per company)
+  focus_nfe_token_homologacao: string | null;
+  focus_nfe_token_producao: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +92,9 @@ export interface CreateFiscalCompanyData {
   responsible_name?: string;
   responsible_cpf?: string;
   accountant_cpf_cnpj?: string;
+  // Focus NFe tokens
+  focus_nfe_token_homologacao?: string;
+  focus_nfe_token_producao?: string;
 }
 
 export type UpdateFiscalCompanyData = Partial<CreateFiscalCompanyData> & {
@@ -96,6 +102,8 @@ export type UpdateFiscalCompanyData = Partial<CreateFiscalCompanyData> & {
   certificate_password_encrypted?: string;
   is_active?: boolean;
   focus_nfe_company_id?: string;
+  focus_nfe_token_homologacao?: string;
+  focus_nfe_token_producao?: string;
 };
 
 // =============================================================================
