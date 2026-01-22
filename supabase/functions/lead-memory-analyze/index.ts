@@ -375,6 +375,21 @@ serve(async (req) => {
         );
       }
 
+      // Verificar se aprendizado está habilitado globalmente
+      const { data: orgSettings } = await supabase
+        .from('organizations')
+        .select('whatsapp_ai_learning_enabled')
+        .eq('id', organizationId)
+        .single();
+      
+      if (!(orgSettings as any)?.whatsapp_ai_learning_enabled) {
+        console.log('🧠 AI Learning disabled globally, skipping analysis');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Learning disabled for organization' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Buscar mensagens da conversa
       const { data: dbMessages } = await supabase
         .from('whatsapp_messages')

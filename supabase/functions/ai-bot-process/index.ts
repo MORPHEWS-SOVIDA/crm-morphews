@@ -1501,17 +1501,29 @@ async function processMessage(
   const productScope = (bot as any).product_scope || 'all';
   const useRagSearch = (bot as any).use_rag_search ?? false;
   
-  // 5.1 Buscar contexto de memória do lead (cross-session learning)
+  // 5.1 Buscar configurações globais de IA da organização
+  const { data: orgAISettings } = await supabase
+    .from('organizations')
+    .select('whatsapp_ai_memory_enabled, whatsapp_ai_learning_enabled')
+    .eq('id', context.organizationId)
+    .single();
+  
+  const aiMemoryEnabled = (orgAISettings as any)?.whatsapp_ai_memory_enabled ?? false;
+  const aiLearningEnabled = (orgAISettings as any)?.whatsapp_ai_learning_enabled ?? false;
+  
+  // 5.2 Buscar contexto de memória do lead (cross-session learning) - SOMENTE se habilitado
   let leadMemory: LeadMemoryContext | null = null;
-  if (context.leadId) {
+  if (context.leadId && aiMemoryEnabled) {
     leadMemory = await getLeadMemoryContext(context.organizationId, context.leadId);
     if (leadMemory) {
-      console.log('🧠 Lead memory loaded:', {
+      console.log('🧠 Lead memory loaded (memory enabled):', {
         hasPreferences: leadMemory.preferences.length > 0,
         hasLastSummary: !!leadMemory.last_summary,
         leadName: leadMemory.lead_name
       });
     }
+  } else if (context.leadId && !aiMemoryEnabled) {
+    console.log('🧠 Lead memory disabled globally, skipping');
   }
   
   const [products, faqs] = await Promise.all([
