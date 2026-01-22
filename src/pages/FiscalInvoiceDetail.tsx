@@ -97,11 +97,12 @@ export default function FiscalInvoiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const { data: invoice, isLoading } = useFiscalInvoice(id);
+  const { data: invoice, isLoading, refetch } = useFiscalInvoice(id);
   const { data: events = [] } = useFiscalInvoiceEvents(id);
   const { data: companies = [] } = useFiscalCompanies();
   const sendInvoice = useSendFiscalInvoice();
   const refreshStatus = useRefreshInvoiceStatus();
+  const saveDraft = useSaveFiscalInvoiceDraft();
 
   const [openSections, setOpenSections] = useState({
     header: true,
@@ -112,6 +113,34 @@ export default function FiscalInvoiceDetail() {
     additional: false,
     events: false,
   });
+
+  // Editable form state
+  const [editMode, setEditMode] = useState(false);
+  const [formData, setFormData] = useState<Partial<typeof invoice>>({});
+
+  // Sync form data when invoice loads
+  useEffect(() => {
+    if (invoice) {
+      setFormData({
+        recipient_name: invoice.recipient_name || '',
+        recipient_type: invoice.recipient_type || 'fisica',
+        recipient_cpf_cnpj: invoice.recipient_cpf_cnpj || '',
+        recipient_email: invoice.recipient_email || '',
+        recipient_phone: invoice.recipient_phone || '',
+        recipient_cep: invoice.recipient_cep || '',
+        recipient_state: invoice.recipient_state || '',
+        recipient_city: invoice.recipient_city || '',
+        recipient_neighborhood: invoice.recipient_neighborhood || '',
+        recipient_street: invoice.recipient_street || '',
+        recipient_number: invoice.recipient_number || '',
+        recipient_complement: invoice.recipient_complement || '',
+        recipient_is_final_consumer: invoice.recipient_is_final_consumer ?? true,
+        nature_operation: invoice.nature_operation || 'Venda de mercadorias',
+        presence_indicator: invoice.presence_indicator || '0',
+        freight_responsibility: invoice.freight_responsibility || '9',
+      });
+    }
+  }, [invoice]);
 
   const isEditable = invoice?.is_draft || invoice?.status === 'pending' || invoice?.status === 'rejected';
   const canResend = invoice?.status === 'rejected';
@@ -125,6 +154,17 @@ export default function FiscalInvoiceDetail() {
 
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const updateFormField = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!invoice?.id) return;
+    await saveDraft.mutateAsync({ id: invoice.id, updates: formData });
+    setEditMode(false);
+    refetch();
   };
 
   const handleSend = async () => {
@@ -248,7 +288,24 @@ export default function FiscalInvoiceDetail() {
                 </a>
               </Button>
             )}
-            {isEditable && (
+            {isEditable && !editMode && (
+              <Button variant="outline" onClick={() => setEditMode(true)}>
+                Editar
+              </Button>
+            )}
+            {editMode && (
+              <>
+                <Button variant="outline" onClick={() => setEditMode(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSave} disabled={saveDraft.isPending}>
+                  {saveDraft.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Save className="w-4 h-4 mr-2" />
+                  Salvar
+                </Button>
+              </>
+            )}
+            {isEditable && !editMode && (
               <Button onClick={handleSend} disabled={sendInvoice.isPending}>
                 {sendInvoice.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 <Send className="w-4 h-4 mr-2" />
@@ -377,48 +434,186 @@ export default function FiscalInvoiceDetail() {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="col-span-2">
-                      <Label className="text-muted-foreground text-xs">Nome</Label>
-                      <p className="font-medium">{invoice.recipient_name || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">CPF/CNPJ</Label>
-                      <p className="font-medium">{invoice.recipient_cpf_cnpj || '-'}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-muted-foreground text-xs">Endereço</Label>
-                      <p className="font-medium">
-                        {[invoice.recipient_street, invoice.recipient_number, invoice.recipient_complement]
-                          .filter(Boolean).join(', ') || '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">Bairro</Label>
-                      <p className="font-medium">{invoice.recipient_neighborhood || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">Cidade</Label>
-                      <p className="font-medium">{invoice.recipient_city || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">UF</Label>
-                      <p className="font-medium">{invoice.recipient_state || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">CEP</Label>
-                      <p className="font-medium">{invoice.recipient_cep || '-'}</p>
-                    </div>
-                    {invoice.recipient_email && (
-                      <div>
-                        <Label className="text-muted-foreground text-xs">E-mail</Label>
-                        <p className="font-medium">{invoice.recipient_email}</p>
-                      </div>
-                    )}
-                    {invoice.recipient_phone && (
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Telefone</Label>
-                        <p className="font-medium">{invoice.recipient_phone}</p>
-                      </div>
+                    {editMode ? (
+                      <>
+                        <div className="col-span-2">
+                          <Label htmlFor="recipient_name">Nome *</Label>
+                          <Input
+                            id="recipient_name"
+                            value={formData.recipient_name || ''}
+                            onChange={(e) => updateFormField('recipient_name', e.target.value)}
+                            placeholder="Nome do destinatário"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_type">Tipo</Label>
+                          <Select
+                            value={formData.recipient_type || 'fisica'}
+                            onValueChange={(v) => updateFormField('recipient_type', v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fisica">Pessoa Física</SelectItem>
+                              <SelectItem value="juridica">Pessoa Jurídica</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_cpf_cnpj">CPF/CNPJ *</Label>
+                          <Input
+                            id="recipient_cpf_cnpj"
+                            value={formData.recipient_cpf_cnpj || ''}
+                            onChange={(e) => updateFormField('recipient_cpf_cnpj', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Apenas números"
+                            maxLength={14}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Apenas números, sem pontos ou traços</p>
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_email">E-mail</Label>
+                          <Input
+                            id="recipient_email"
+                            type="email"
+                            value={formData.recipient_email || ''}
+                            onChange={(e) => updateFormField('recipient_email', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_phone">Telefone</Label>
+                          <Input
+                            id="recipient_phone"
+                            value={formData.recipient_phone || ''}
+                            onChange={(e) => updateFormField('recipient_phone', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Apenas números"
+                          />
+                        </div>
+                        <Separator className="col-span-full my-2" />
+                        <div>
+                          <Label htmlFor="recipient_cep">CEP *</Label>
+                          <Input
+                            id="recipient_cep"
+                            value={formData.recipient_cep || ''}
+                            onChange={(e) => updateFormField('recipient_cep', e.target.value.replace(/\D/g, ''))}
+                            placeholder="00000000"
+                            maxLength={8}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label htmlFor="recipient_street">Logradouro *</Label>
+                          <Input
+                            id="recipient_street"
+                            value={formData.recipient_street || ''}
+                            onChange={(e) => updateFormField('recipient_street', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_number">Número</Label>
+                          <Input
+                            id="recipient_number"
+                            value={formData.recipient_number || ''}
+                            onChange={(e) => updateFormField('recipient_number', e.target.value)}
+                            placeholder="S/N"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_complement">Complemento</Label>
+                          <Input
+                            id="recipient_complement"
+                            value={formData.recipient_complement || ''}
+                            onChange={(e) => updateFormField('recipient_complement', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_neighborhood">Bairro *</Label>
+                          <Input
+                            id="recipient_neighborhood"
+                            value={formData.recipient_neighborhood || ''}
+                            onChange={(e) => updateFormField('recipient_neighborhood', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_city">Cidade *</Label>
+                          <Input
+                            id="recipient_city"
+                            value={formData.recipient_city || ''}
+                            onChange={(e) => updateFormField('recipient_city', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_state">UF *</Label>
+                          <Select
+                            value={formData.recipient_state || ''}
+                            onValueChange={(v) => updateFormField('recipient_state', v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BRAZILIAN_STATES.map(uf => (
+                                <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-full flex items-center gap-2 mt-2">
+                          <Checkbox
+                            id="recipient_is_final_consumer"
+                            checked={formData.recipient_is_final_consumer ?? true}
+                            onCheckedChange={(checked) => updateFormField('recipient_is_final_consumer', !!checked)}
+                          />
+                          <Label htmlFor="recipient_is_final_consumer" className="cursor-pointer">
+                            Consumidor final
+                          </Label>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="col-span-2">
+                          <Label className="text-muted-foreground text-xs">Nome</Label>
+                          <p className="font-medium">{invoice.recipient_name || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">CPF/CNPJ</Label>
+                          <p className="font-medium">{invoice.recipient_cpf_cnpj || '-'}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-muted-foreground text-xs">Endereço</Label>
+                          <p className="font-medium">
+                            {[invoice.recipient_street, invoice.recipient_number, invoice.recipient_complement]
+                              .filter(Boolean).join(', ') || '-'}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">Bairro</Label>
+                          <p className="font-medium">{invoice.recipient_neighborhood || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">Cidade</Label>
+                          <p className="font-medium">{invoice.recipient_city || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">UF</Label>
+                          <p className="font-medium">{invoice.recipient_state || '-'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">CEP</Label>
+                          <p className="font-medium">{invoice.recipient_cep || '-'}</p>
+                        </div>
+                        {invoice.recipient_email && (
+                          <div>
+                            <Label className="text-muted-foreground text-xs">E-mail</Label>
+                            <p className="font-medium">{invoice.recipient_email}</p>
+                          </div>
+                        )}
+                        {invoice.recipient_phone && (
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Telefone</Label>
+                            <p className="font-medium">{invoice.recipient_phone}</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </CardContent>
                 </CollapsibleContent>
