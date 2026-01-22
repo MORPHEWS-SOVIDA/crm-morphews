@@ -484,9 +484,11 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
         ? parseFloat(product.fiscal_cofins_fixed).toFixed(2) 
         : (isSimples ? '0.00' : (itemValue * 0.076).toFixed(2)),
       
-      // IPI fields (most products are exempt)
-      ipi_situacao_tributaria: '53', // 53 = Saída não tributada
-      ipi_codigo_enquadramento: product.fiscal_ipi_exception_code || '999',
+      // IPI fields - only for Regime Normal (not Simples Nacional)
+      ...(isSimples ? {} : {
+        ipi_situacao_tributaria: '53', // 53 = Saída não tributada
+        ipi_codigo_enquadramento: product.fiscal_ipi_exception_code || '999',
+      }),
       
       // Informações adicionais do item
       ...(product.fiscal_additional_info && {
