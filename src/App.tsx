@@ -63,6 +63,7 @@ import Integrations from "./pages/Integrations";
 import Power from "./pages/Power";
 import NichePage from "./pages/niches";
 import FiscalInvoices from "./pages/FiscalInvoices";
+import FiscalInvoiceDetail from "./pages/FiscalInvoiceDetail";
 
 const queryClient = new QueryClient();
 
@@ -468,6 +469,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['settings_view']}>
                     <FiscalInvoices />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/notas-fiscais/:id"
+                element={
+                  <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <FiscalInvoiceDetail />
                   </ProtectedRoute>
                 }
               />
