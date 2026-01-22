@@ -689,6 +689,221 @@ export type Database = {
           },
         ]
       }
+      correios_config: {
+        Row: {
+          ambiente: string
+          cartao_postagem: string | null
+          codigo_acesso_encrypted: string | null
+          contrato: string | null
+          created_at: string
+          default_height_cm: number | null
+          default_length_cm: number | null
+          default_package_type: string | null
+          default_service_code: string | null
+          default_weight_grams: number | null
+          default_width_cm: number | null
+          id: string
+          id_correios: string | null
+          is_active: boolean
+          organization_id: string
+          sender_cep: string | null
+          sender_city: string | null
+          sender_complement: string | null
+          sender_cpf_cnpj: string | null
+          sender_email: string | null
+          sender_name: string | null
+          sender_neighborhood: string | null
+          sender_number: string | null
+          sender_phone: string | null
+          sender_state: string | null
+          sender_street: string | null
+          updated_at: string
+        }
+        Insert: {
+          ambiente?: string
+          cartao_postagem?: string | null
+          codigo_acesso_encrypted?: string | null
+          contrato?: string | null
+          created_at?: string
+          default_height_cm?: number | null
+          default_length_cm?: number | null
+          default_package_type?: string | null
+          default_service_code?: string | null
+          default_weight_grams?: number | null
+          default_width_cm?: number | null
+          id?: string
+          id_correios?: string | null
+          is_active?: boolean
+          organization_id: string
+          sender_cep?: string | null
+          sender_city?: string | null
+          sender_complement?: string | null
+          sender_cpf_cnpj?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sender_neighborhood?: string | null
+          sender_number?: string | null
+          sender_phone?: string | null
+          sender_state?: string | null
+          sender_street?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ambiente?: string
+          cartao_postagem?: string | null
+          codigo_acesso_encrypted?: string | null
+          contrato?: string | null
+          created_at?: string
+          default_height_cm?: number | null
+          default_length_cm?: number | null
+          default_package_type?: string | null
+          default_service_code?: string | null
+          default_weight_grams?: number | null
+          default_width_cm?: number | null
+          id?: string
+          id_correios?: string | null
+          is_active?: boolean
+          organization_id?: string
+          sender_cep?: string | null
+          sender_city?: string | null
+          sender_complement?: string | null
+          sender_cpf_cnpj?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sender_neighborhood?: string | null
+          sender_number?: string | null
+          sender_phone?: string | null
+          sender_state?: string | null
+          sender_street?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correios_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      correios_labels: {
+        Row: {
+          api_response: Json | null
+          correios_prepostagem_id: string | null
+          created_at: string
+          created_by: string | null
+          declaration_pdf_url: string | null
+          declared_value_cents: number | null
+          error_message: string | null
+          height_cm: number | null
+          id: string
+          label_pdf_url: string | null
+          length_cm: number | null
+          organization_id: string
+          posted_at: string | null
+          recipient_cep: string
+          recipient_city: string | null
+          recipient_complement: string | null
+          recipient_cpf_cnpj: string | null
+          recipient_name: string
+          recipient_neighborhood: string | null
+          recipient_number: string | null
+          recipient_phone: string | null
+          recipient_state: string | null
+          recipient_street: string | null
+          sale_id: string | null
+          service_code: string
+          service_name: string | null
+          status: string
+          tracking_code: string
+          updated_at: string
+          weight_grams: number | null
+          width_cm: number | null
+        }
+        Insert: {
+          api_response?: Json | null
+          correios_prepostagem_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          declaration_pdf_url?: string | null
+          declared_value_cents?: number | null
+          error_message?: string | null
+          height_cm?: number | null
+          id?: string
+          label_pdf_url?: string | null
+          length_cm?: number | null
+          organization_id: string
+          posted_at?: string | null
+          recipient_cep: string
+          recipient_city?: string | null
+          recipient_complement?: string | null
+          recipient_cpf_cnpj?: string | null
+          recipient_name: string
+          recipient_neighborhood?: string | null
+          recipient_number?: string | null
+          recipient_phone?: string | null
+          recipient_state?: string | null
+          recipient_street?: string | null
+          sale_id?: string | null
+          service_code: string
+          service_name?: string | null
+          status?: string
+          tracking_code: string
+          updated_at?: string
+          weight_grams?: number | null
+          width_cm?: number | null
+        }
+        Update: {
+          api_response?: Json | null
+          correios_prepostagem_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          declaration_pdf_url?: string | null
+          declared_value_cents?: number | null
+          error_message?: string | null
+          height_cm?: number | null
+          id?: string
+          label_pdf_url?: string | null
+          length_cm?: number | null
+          organization_id?: string
+          posted_at?: string | null
+          recipient_cep?: string
+          recipient_city?: string | null
+          recipient_complement?: string | null
+          recipient_cpf_cnpj?: string | null
+          recipient_name?: string
+          recipient_neighborhood?: string | null
+          recipient_number?: string | null
+          recipient_phone?: string | null
+          recipient_state?: string | null
+          recipient_street?: string | null
+          sale_id?: string | null
+          service_code?: string
+          service_name?: string | null
+          status?: string
+          tracking_code?: string
+          updated_at?: string
+          weight_grams?: number | null
+          width_cm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correios_labels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correios_labels_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_region_schedules: {
         Row: {
           created_at: string
@@ -10022,6 +10237,7 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      is_org_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean

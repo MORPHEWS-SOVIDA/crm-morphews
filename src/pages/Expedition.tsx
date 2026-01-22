@@ -645,6 +645,10 @@ export default function Expedition() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/expedicao/etiquetas-correios')}>
+              <Package className="w-4 h-4 mr-2" />
+              Etiquetas Correios
+            </Button>
             <Button variant="outline" onClick={() => navigate('/relatorios/expedicao')}>
               <FileText className="w-4 h-4 mr-2" />
               Relatório

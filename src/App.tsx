@@ -64,6 +64,7 @@ import Power from "./pages/Power";
 import NichePage from "./pages/niches";
 import FiscalInvoices from "./pages/FiscalInvoices";
 import FiscalInvoiceDetail from "./pages/FiscalInvoiceDetail";
+import CorreiosLabels from "./pages/CorreiosLabels";
 
 const queryClient = new QueryClient();
 
@@ -369,6 +370,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredPermissions={['deliveries_view_all', 'sales_validate_expedition']}>
                     <Expedition />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/expedicao/etiquetas-correios"
+                element={
+                  <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                    <CorreiosLabels />
                   </ProtectedRoute>
                 }
               />
