@@ -184,7 +184,13 @@ Deno.serve(async (req) => {
 
     // Send to Focus NFe API
     const endpoint = invoice_type === 'nfe' ? '/nfe' : '/nfse';
-    const focusResponse = await fetch(`${focusBaseUrl}${endpoint}?ref=${focusRef}`, {
+    const focusUrl = `${focusBaseUrl}${endpoint}?ref=${focusRef}`;
+    
+    if (!FOCUS_NFE_TOKEN) {
+      throw new Error('FOCUS_NFE_TOKEN não configurado');
+    }
+    
+    const focusResponse = await fetch(focusUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${btoa(FOCUS_NFE_TOKEN + ':')}`,
@@ -193,7 +199,19 @@ Deno.serve(async (req) => {
       body: JSON.stringify(focusPayload),
     });
 
-    const focusResult = await focusResponse.json();
+    // Handle non-JSON responses (error pages, etc)
+    const responseText = await focusResponse.text();
+    let focusResult: any;
+    
+    try {
+      focusResult = JSON.parse(responseText);
+    } catch {
+      console.error('Focus NFe returned non-JSON response:', responseText.substring(0, 500));
+      focusResult = {
+        status: 'erro_autorizacao',
+        mensagem: `Erro na comunicação com Focus NFe: ${focusResponse.status} ${focusResponse.statusText}`,
+      };
+    }
     console.log('Focus NFe response:', focusResult);
 
     // Update invoice with response
@@ -257,27 +275,98 @@ Deno.serve(async (req) => {
 function buildNFePayload(sale: any, company: any, cfop: string, ref: string, serie: number, numero: number) {
   const items = sale.items.map((item: any, index: number) => {
     const product = item.product || {};
-    return {
+    const itemValue = (item.quantity * item.unit_price_cents) / 100;
+    const unitValue = item.unit_price_cents / 100;
+    
+    // CST or CSOSN depending on tax regime
+    const isSimples = company.tax_regime === 'simples_nacional';
+    const cst = product.fiscal_cst || company.default_cst || (isSimples ? '102' : '00');
+    
+    // Build item with all fiscal fields
+    const nfeItem: any = {
       numero_item: index + 1,
       codigo_produto: product.sku || product.id?.substring(0, 8) || String(index + 1),
       descricao: item.product_name || product.name || 'Produto',
-      cfop: product.fiscal_cfop || cfop,
-      ncm: product.fiscal_ncm || '00000000',
+      cfop: product.fiscal_cfop || cfop || '5102',
+      ncm: (product.fiscal_ncm || '00000000').replace(/\D/g, ''),
+      cest: product.fiscal_cest ? product.fiscal_cest.replace(/\D/g, '') : undefined,
       unidade_comercial: product.unit || 'UN',
       quantidade_comercial: item.quantity,
-      valor_unitario_comercial: (item.unit_price_cents / 100).toFixed(2),
-      valor_bruto: ((item.quantity * item.unit_price_cents) / 100).toFixed(2),
+      valor_unitario_comercial: unitValue.toFixed(2),
+      valor_bruto: itemValue.toFixed(2),
       unidade_tributavel: product.unit || 'UN',
       quantidade_tributavel: item.quantity,
-      valor_unitario_tributavel: (item.unit_price_cents / 100).toFixed(2),
-      origem: product.fiscal_origin ?? 0,
-      icms_situacao_tributaria: product.fiscal_cst || company.default_cst || '102',
+      valor_unitario_tributavel: unitValue.toFixed(2),
+      
+      // EAN / GTIN
+      codigo_barras_comercial: product.barcode_ean || '',
+      codigo_barras_tributavel: product.gtin_tax || product.barcode_ean || '',
+      
+      // ICMS fields
+      icms_origem: product.fiscal_origin ?? 0,
+      icms_situacao_tributaria: cst,
+      icms_modalidade_base_calculo: 0, // 0 = Margem Valor Agregado
+      icms_base_calculo: product.fiscal_icms_base ? parseFloat(product.fiscal_icms_base).toFixed(2) : '0.00',
+      icms_valor: product.fiscal_icms_own_value ? parseFloat(product.fiscal_icms_own_value).toFixed(2) : '0.00',
+      
+      // ICMS ST (if applicable)
+      ...(product.fiscal_icms_st_value && {
+        icms_base_calculo_st: product.fiscal_icms_st_base ? parseFloat(product.fiscal_icms_st_base).toFixed(2) : '0.00',
+        icms_valor_st: parseFloat(product.fiscal_icms_st_value).toFixed(2),
+      }),
+      
+      // Benefício fiscal
+      ...(product.fiscal_benefit_code && {
+        icms_codigo_beneficio_fiscal: product.fiscal_benefit_code,
+      }),
+      
+      // PIS fields - Simples Nacional uses CST 49 (Outras Operações de Saída)
+      pis_situacao_tributaria: isSimples ? '49' : '01',
+      pis_base_calculo: itemValue.toFixed(2),
+      pis_aliquota: product.fiscal_pis_fixed ? '0' : (isSimples ? '0' : '1.65'),
+      pis_valor: product.fiscal_pis_fixed 
+        ? parseFloat(product.fiscal_pis_fixed).toFixed(2) 
+        : (isSimples ? '0.00' : (itemValue * 0.0165).toFixed(2)),
+      
+      // COFINS fields
+      cofins_situacao_tributaria: isSimples ? '49' : '01',
+      cofins_base_calculo: itemValue.toFixed(2),
+      cofins_aliquota: product.fiscal_cofins_fixed ? '0' : (isSimples ? '0' : '7.60'),
+      cofins_valor: product.fiscal_cofins_fixed 
+        ? parseFloat(product.fiscal_cofins_fixed).toFixed(2) 
+        : (isSimples ? '0.00' : (itemValue * 0.076).toFixed(2)),
+      
+      // IPI fields (most products are exempt)
+      ipi_situacao_tributaria: '53', // 53 = Saída não tributada
+      ipi_codigo_enquadramento: product.fiscal_ipi_exception_code || '999',
+      
+      // Informações adicionais do item
+      ...(product.fiscal_additional_info && {
+        informacoes_adicionais_item: product.fiscal_additional_info,
+      }),
     };
+    
+    // Add ICMS info fields if present
+    if (product.fiscal_icms_info) {
+      nfeItem.informacoes_adicionais_item = (nfeItem.informacoes_adicionais_item || '') + ' ' + product.fiscal_icms_info;
+    }
+    
+    // Remove undefined values
+    Object.keys(nfeItem).forEach(key => {
+      if (nfeItem[key] === undefined || nfeItem[key] === '') {
+        delete nfeItem[key];
+      }
+    });
+    
+    return nfeItem;
   });
 
   const totalValue = items.reduce((sum: number, item: any) => sum + parseFloat(item.valor_bruto), 0);
+  const totalPis = items.reduce((sum: number, item: any) => sum + parseFloat(item.pis_valor || '0'), 0);
+  const totalCofins = items.reduce((sum: number, item: any) => sum + parseFloat(item.cofins_valor || '0'), 0);
 
-  return {
+  // Build clean payload removing undefined/null values
+  const payload: any = {
     numero: numero,
     serie: serie,
     natureza_operacao: company.default_nature_operation || 'Venda de mercadorias',
@@ -285,25 +374,50 @@ function buildNFePayload(sale: any, company: any, cfop: string, ref: string, ser
     tipo_documento: '1', // saída
     finalidade_emissao: '1', // normal
     consumidor_final: '1',
-    presenca_comprador: company.presence_indicator || '9', // indicador de presença
+    presenca_comprador: company.presence_indicator || '0',
+    
+    // Destinatário
     nome_destinatario: sale.lead?.name || 'Consumidor',
     cpf_destinatario: sale.lead?.cpf?.replace(/\D/g, ''),
-    email_destinatario: sale.lead?.email,
+    email_destinatario: sale.lead?.email || undefined,
     logradouro_destinatario: sale.delivery_street || sale.lead?.address_street,
     numero_destinatario: sale.delivery_number || sale.lead?.address_number || 'S/N',
     bairro_destinatario: sale.delivery_neighborhood || sale.lead?.address_neighborhood,
     municipio_destinatario: sale.delivery_city || sale.lead?.address_city,
     uf_destinatario: sale.delivery_state || sale.lead?.state,
     cep_destinatario: (sale.delivery_zip || sale.lead?.cep)?.replace(/\D/g, ''),
-    telefone_destinatario: sale.lead?.phone?.replace(/\D/g, ''),
-    indicador_inscricao_estadual_destinatario: '9',
+    telefone_destinatario: sale.lead?.phone?.replace(/\D/g, '') || undefined,
+    indicador_inscricao_estadual_destinatario: '9', // 9 = não contribuinte
+    
+    // Itens
     items,
+    
+    // Totais ICMS
     icms_base_calculo: '0.00',
     icms_valor_total: '0.00',
+    
+    // Totais PIS/COFINS
+    pis_base_calculo: totalValue.toFixed(2),
+    pis_valor_total: totalPis.toFixed(2),
+    cofins_base_calculo: totalValue.toFixed(2),
+    cofins_valor_total: totalCofins.toFixed(2),
+    
+    // Totais gerais
     valor_produtos: totalValue.toFixed(2),
     valor_total: totalValue.toFixed(2),
-    modalidade_frete: '9', // sem frete
+    
+    // Frete
+    modalidade_frete: '9', // 9 = sem frete
   };
+  
+  // Remove undefined/null/empty values from payload
+  Object.keys(payload).forEach(key => {
+    if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+      delete payload[key];
+    }
+  });
+  
+  return payload;
 }
 
 function buildNFSePayload(sale: any, company: any, ref: string, serie: number, numero: number) {
