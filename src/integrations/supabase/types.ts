@@ -1631,6 +1631,245 @@ export type Database = {
           },
         ]
       }
+      fiscal_companies: {
+        Row: {
+          address_city: string | null
+          address_city_code: string | null
+          address_complement: string | null
+          address_neighborhood: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          certificate_file_path: string | null
+          certificate_password_encrypted: string | null
+          cnpj: string
+          company_name: string
+          created_at: string
+          default_cfop_internal: string | null
+          default_cfop_interstate: string | null
+          default_cst: string | null
+          email: string | null
+          focus_nfe_company_id: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          municipal_registration: string | null
+          nfse_municipal_code: string | null
+          organization_id: string
+          phone: string | null
+          state_registration: string | null
+          tax_regime: string
+          trade_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_city?: string | null
+          address_city_code?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          certificate_file_path?: string | null
+          certificate_password_encrypted?: string | null
+          cnpj: string
+          company_name: string
+          created_at?: string
+          default_cfop_internal?: string | null
+          default_cfop_interstate?: string | null
+          default_cst?: string | null
+          email?: string | null
+          focus_nfe_company_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          municipal_registration?: string | null
+          nfse_municipal_code?: string | null
+          organization_id: string
+          phone?: string | null
+          state_registration?: string | null
+          tax_regime?: string
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_city?: string | null
+          address_city_code?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          certificate_file_path?: string | null
+          certificate_password_encrypted?: string | null
+          cnpj?: string
+          company_name?: string
+          created_at?: string
+          default_cfop_internal?: string | null
+          default_cfop_interstate?: string | null
+          default_cst?: string | null
+          email?: string | null
+          focus_nfe_company_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          municipal_registration?: string | null
+          nfse_municipal_code?: string | null
+          organization_id?: string
+          phone?: string | null
+          state_registration?: string | null
+          tax_regime?: string
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_companies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_invoice_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          fiscal_invoice_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          fiscal_invoice_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          fiscal_invoice_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_invoice_events_fiscal_invoice_id_fkey"
+            columns: ["fiscal_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_invoices: {
+        Row: {
+          access_key: string | null
+          authorized_at: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          customer_data: Json | null
+          error_message: string | null
+          fiscal_company_id: string
+          focus_nfe_id: string | null
+          focus_nfe_ref: string
+          focus_nfe_response: Json | null
+          id: string
+          invoice_number: string | null
+          invoice_series: string | null
+          invoice_type: string
+          items: Json | null
+          organization_id: string
+          pdf_url: string | null
+          protocol_number: string | null
+          sale_id: string | null
+          status: string
+          total_cents: number
+          verification_code: string | null
+          xml_url: string | null
+        }
+        Insert: {
+          access_key?: string | null
+          authorized_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          customer_data?: Json | null
+          error_message?: string | null
+          fiscal_company_id: string
+          focus_nfe_id?: string | null
+          focus_nfe_ref: string
+          focus_nfe_response?: Json | null
+          id?: string
+          invoice_number?: string | null
+          invoice_series?: string | null
+          invoice_type: string
+          items?: Json | null
+          organization_id: string
+          pdf_url?: string | null
+          protocol_number?: string | null
+          sale_id?: string | null
+          status?: string
+          total_cents: number
+          verification_code?: string | null
+          xml_url?: string | null
+        }
+        Update: {
+          access_key?: string | null
+          authorized_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          customer_data?: Json | null
+          error_message?: string | null
+          fiscal_company_id?: string
+          focus_nfe_id?: string | null
+          focus_nfe_ref?: string
+          focus_nfe_response?: Json | null
+          id?: string
+          invoice_number?: string | null
+          invoice_series?: string | null
+          invoice_type?: string
+          items?: Json | null
+          organization_id?: string
+          pdf_url?: string | null
+          protocol_number?: string | null
+          sale_id?: string | null
+          status?: string
+          total_cents?: number
+          verification_code?: string | null
+          xml_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_invoices_fiscal_company_id_fkey"
+            columns: ["fiscal_company_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_invoices_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_tokens: {
         Row: {
           access_token: string
@@ -2929,6 +3168,14 @@ export type Database = {
           crosssell_product_2_id: string | null
           depth_cm: number | null
           description: string | null
+          fiscal_cfop: string | null
+          fiscal_company_id: string | null
+          fiscal_cst: string | null
+          fiscal_iss_aliquota: number | null
+          fiscal_lc116_code: string | null
+          fiscal_ncm: string | null
+          fiscal_origin: number | null
+          fiscal_product_type: string | null
           gross_weight_grams: number | null
           gtin_tax: string | null
           height_cm: number | null
@@ -2972,6 +3219,14 @@ export type Database = {
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
           description?: string | null
+          fiscal_cfop?: string | null
+          fiscal_company_id?: string | null
+          fiscal_cst?: string | null
+          fiscal_iss_aliquota?: number | null
+          fiscal_lc116_code?: string | null
+          fiscal_ncm?: string | null
+          fiscal_origin?: number | null
+          fiscal_product_type?: string | null
           gross_weight_grams?: number | null
           gtin_tax?: string | null
           height_cm?: number | null
@@ -3015,6 +3270,14 @@ export type Database = {
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
           description?: string | null
+          fiscal_cfop?: string | null
+          fiscal_company_id?: string | null
+          fiscal_cst?: string | null
+          fiscal_iss_aliquota?: number | null
+          fiscal_lc116_code?: string | null
+          fiscal_ncm?: string | null
+          fiscal_origin?: number | null
+          fiscal_product_type?: string | null
           gross_weight_grams?: number | null
           gtin_tax?: string | null
           height_cm?: number | null
@@ -3068,6 +3331,13 @@ export type Database = {
             columns: ["crosssell_product_2_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_products_fiscal_company_id_fkey"
+            columns: ["fiscal_company_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_companies"
             referencedColumns: ["id"]
           },
           {
