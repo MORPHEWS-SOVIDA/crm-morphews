@@ -90,7 +90,6 @@ export function MobileNav() {
   const canSeeFinanceiro = isAdmin || permissions?.reports_view;
   const canSeeExpedition = isAdmin || permissions?.expedition_view;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
-  const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
   const canSeeTeam = isAdmin || permissions?.team_view;
   const canSeeInstagram = isAdmin || permissions?.instagram_view;
   const canSeePostSale = isAdmin || permissions?.post_sale_view;
@@ -155,9 +154,6 @@ export function MobileNav() {
     const commItems: NavItem[] = [];
     if (canSeeWhatsApp && hasFeature('whatsapp_v1')) {
       commItems.push({ icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat' });
-    }
-    if (canSeeWhatsAppV2 && hasFeature('whatsapp_v2')) {
-      commItems.push({ icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo' });
     }
     if (canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage')) {
       commItems.push({ icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' });
@@ -258,7 +254,7 @@ export function MobileNav() {
     permissions, isAdmin, isManager, isMasterAdmin, orgFeatures, featuresLoading,
     canSeeLeads, canCreateLeads, canSeeSales, canSeeProducts, canSeeSettings,
     canSeeDeliveries, canSeeAllDeliveries, canSeeReceptive, canSeeFinanceiro,
-    canSeeExpedition, canSeeWhatsApp, canSeeWhatsAppV2, canSeeTeam, canSeeInstagram,
+    canSeeExpedition, canSeeWhatsApp, canSeeTeam, canSeeInstagram,
     canSeePostSale, canSeeSac, canSeeSalesReport, canSeeExpeditionReport,
     canSeeWhatsAppManage, canSeeAIBots, canSeeDemands, canSeeScheduledMessages,
     canSeeDashboardFunnel, canSeeDashboardKanban, canSeeSellerPanel, canSeeSalesDashboard

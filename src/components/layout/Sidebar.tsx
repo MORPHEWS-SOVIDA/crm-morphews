@@ -79,7 +79,6 @@ export function Sidebar() {
   // Financial menu: requires reports_view permission - NOT sales_confirm_payment (which is for motoboy payment actions only)
   const canSeeFinanceiro = isAdmin || permissions?.reports_view;
   const canSeeWhatsApp = isAdmin || permissions?.whatsapp_view;
-  const canSeeWhatsAppV2 = isAdmin || permissions?.whatsapp_v2_view;
   const canSeeTeam = isAdmin || permissions?.team_view;
   const canSeeInstagram = isAdmin || permissions?.instagram_view;
   const canSeePostSale = isAdmin || permissions?.post_sale_view;
@@ -151,9 +150,6 @@ export function Sidebar() {
     // WhatsApp 1.0 (DMs)
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
     { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage') },
-    
-    // WhatsApp 2.0 (separate permission)
-    { icon: MessageSquare, label: 'WhatsApp 2.0', path: '/whatsapp-v2', badge: 'Novo', visible: canSeeWhatsAppV2 && hasFeature('whatsapp_v2') },
     
     // AI Bots (permission controlled)
     { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
