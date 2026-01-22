@@ -166,6 +166,97 @@ export function WhatsAppAISettingsManager() {
 
   return (
     <div className="space-y-6">
+      {/* ============= PESQUISA DE SATISFAÇÃO (NPS) ============= */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/10">
+              <Star className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <Label className="text-base font-medium">Pesquisa de Satisfação (NPS)</Label>
+              <p className="text-sm text-muted-foreground">
+                Enviar pesquisa de 0 a 10 ao encerrar conversas
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={settings.satisfaction_survey_enabled}
+            onCheckedChange={(checked) =>
+              setSettings((prev) => ({ ...prev, satisfaction_survey_enabled: checked }))
+            }
+          />
+        </div>
+
+        {settings.satisfaction_survey_enabled && (
+          <div className="ml-12 p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 space-y-4">
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium">Mensagem da pesquisa</Label>
+                <Textarea
+                  value={settings.satisfaction_survey_message}
+                  onChange={(e) => setSettings(prev => ({ ...prev, satisfaction_survey_message: e.target.value }))}
+                  placeholder={DEFAULT_SURVEY_MESSAGE}
+                  rows={2}
+                  className="text-sm mt-2"
+                />
+              </div>
+
+              {/* Quando enviar a pesquisa */}
+              <div className="space-y-3 p-3 border rounded-lg bg-background/50">
+                <p className="text-sm font-medium">Quando enviar a pesquisa:</p>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm">Encerramento automático</span>
+                    <p className="text-xs text-muted-foreground">
+                      Quando a conversa for fechada por inatividade
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={settings.auto_close_enabled && settings.auto_close_send_message}
+                    disabled
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Configure nas opções de Encerramento Automático abaixo
+                </p>
+
+                <Separator className="my-2" />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm">Encerramento manual pelo atendente</span>
+                    <p className="text-xs text-muted-foreground">
+                      Quando o vendedor clicar em "Encerrar" conversa
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={settings.satisfaction_survey_on_manual_close}
+                    onCheckedChange={(checked) => setSettings(prev => ({ 
+                      ...prev,
+                      satisfaction_survey_on_manual_close: checked
+                    }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
+              <p className="font-medium">Como funciona:</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Cliente recebe pergunta "De 0 a 10, como você avalia?"</li>
+                <li>Resposta é registrada automaticamente no NPS</li>
+                <li>Notas ≤6 ficam marcadas para revisão gerencial</li>
+                <li>Todas as notas contribuem para métricas da equipe</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
       {/* ============= ENCERRAMENTO AUTOMÁTICO ============= */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -298,74 +389,6 @@ export function WhatsAppAISettingsManager() {
                   rows={2}
                   className="text-sm"
                 />
-              )}
-            </div>
-
-            {/* Pesquisa de satisfação */}
-            <div className={cn(
-              "space-y-3 p-3 border rounded-lg",
-              settings.satisfaction_survey_enabled && "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20"
-            )}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" />
-                  <Label className="text-sm">Pesquisa de Satisfação (NPS)</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-xs">
-                          Ao encerrar, o cliente recebe uma pergunta de 0 a 10.
-                          Se responder com uma nota, ela é registrada e a conversa 
-                          permanece fechada. Notas ≤6 ficam marcadas para revisão.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Switch 
-                  checked={settings.satisfaction_survey_enabled}
-                  onCheckedChange={(checked) => setSettings(prev => ({ 
-                    ...prev,
-                    satisfaction_survey_enabled: checked,
-                    // Se ativar pesquisa, precisa ativar envio de mensagem também
-                    auto_close_send_message: checked ? true : prev.auto_close_send_message
-                  }))}
-                />
-              </div>
-              
-              {settings.satisfaction_survey_enabled && (
-                <>
-                  <Textarea
-                    value={settings.satisfaction_survey_message}
-                    onChange={(e) => setSettings(prev => ({ ...prev, satisfaction_survey_message: e.target.value }))}
-                    placeholder={DEFAULT_SURVEY_MESSAGE}
-                    rows={2}
-                    className="text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Esta mensagem é enviada APÓS a mensagem de encerramento (se houver).
-                  </p>
-                  
-                  {/* Opção para enviar ao encerrar manualmente */}
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <div>
-                      <span className="text-sm">Enviar também ao encerrar manualmente</span>
-                      <p className="text-xs text-muted-foreground">
-                        Quando o atendente clicar em "Encerrar"
-                      </p>
-                    </div>
-                    <Switch 
-                      checked={settings.satisfaction_survey_on_manual_close}
-                      onCheckedChange={(checked) => setSettings(prev => ({ 
-                        ...prev,
-                        satisfaction_survey_on_manual_close: checked
-                      }))}
-                    />
-                  </div>
-                </>
               )}
             </div>
           </div>
