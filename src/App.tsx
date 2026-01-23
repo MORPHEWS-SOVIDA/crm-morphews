@@ -112,6 +112,17 @@ const Cadastro = lazy(() => import("./pages/Cadastro"));
 // Ecommerce
 const Ecommerce = lazy(() => import("./pages/Ecommerce"));
 
+// Public Storefront
+const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
+const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
+const StorefrontProducts = lazy(() => import("./components/storefront/StorefrontProducts").then(m => ({ default: m.StorefrontProducts })));
+const StorefrontCategory = lazy(() => import("./components/storefront/StorefrontCategory").then(m => ({ default: m.StorefrontCategory })));
+const StorefrontProductPage = lazy(() => import("./components/storefront/StorefrontProductPage").then(m => ({ default: m.StorefrontProductPage })));
+const StorefrontCart = lazy(() => import("./components/storefront/StorefrontCart").then(m => ({ default: m.StorefrontCart })));
+const StorefrontCheckout = lazy(() => import("./components/storefront/StorefrontCheckout").then(m => ({ default: m.StorefrontCheckout })));
+const StorefrontPage = lazy(() => import("./components/storefront/StorefrontPage").then(m => ({ default: m.StorefrontPage })));
+const StorefrontOrderConfirmed = lazy(() => import("./components/storefront/StorefrontOrderConfirmed").then(m => ({ default: m.StorefrontOrderConfirmed })));
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -135,6 +146,18 @@ const App = () => (
                 <Route path="/signup-success" element={<SignupSuccess />} />
                 <Route path="/auth/error" element={<AuthError />} />
                 <Route path="/legal" element={<Legal />} />
+
+                {/* Public Storefront Routes */}
+                <Route path="/loja/:slug" element={<StorefrontPublic />}>
+                  <Route index element={<StorefrontHome />} />
+                  <Route path="produtos" element={<StorefrontProducts />} />
+                  <Route path="categoria/:categorySlug" element={<StorefrontCategory />} />
+                  <Route path="produto/:productId" element={<StorefrontProductPage />} />
+                  <Route path="carrinho" element={<StorefrontCart />} />
+                  <Route path="checkout" element={<StorefrontCheckout />} />
+                  <Route path="pagina/:pageSlug" element={<StorefrontPage />} />
+                  <Route path="pedido-confirmado" element={<StorefrontOrderConfirmed />} />
+                </Route>
 
                 {/* Home - shows landing for non-auth, dashboard funnel for auth */}
                 <Route path="/" element={<Home />} />
