@@ -256,6 +256,7 @@ function validateAndAdjustDimensions(
 
 // Build objetoPostal structure for PPN v3 API
 // CRITICAL: The API requires specific field names and structure
+// Based on latest Correios API docs: https://cws.correios.com.br/
 function buildObjetoPostalPPNv3(
   tipoObjeto: string,
   formatCode: number,
@@ -263,20 +264,33 @@ function buildObjetoPostalPPNv3(
   declaredValueCents?: number,
   includeDeclaracao: boolean = true
 ): Record<string, unknown> {
-  const peso = Math.round(Number(dimensions.weight));
-  const altura = Math.round(Number(dimensions.height));
-  const largura = Math.round(Number(dimensions.width));
-  const comprimento = Math.round(Number(dimensions.length));
+  // CRITICAL: All numeric values must be integers, not strings
+  const peso = Math.max(1, Math.round(Number(dimensions.weight) || 500));
+  const altura = Math.max(2, Math.round(Number(dimensions.height) || 10));
+  const largura = Math.max(11, Math.round(Number(dimensions.width) || 15));
+  const comprimento = Math.max(16, Math.round(Number(dimensions.length) || 20));
+  
+  // Valor declarado em reais (decimal)
   const valorDeclarado = declaredValueCents && declaredValueCents > 0 
     ? Number((declaredValueCents / 100).toFixed(2)) 
-    : 100; // Default R$ 100 if not specified
+    : 100.00; // Default R$ 100 if not specified
+
+  console.log('Building objetoPostal with values:', {
+    tipoObjeto: String(tipoObjeto).toUpperCase(),
+    codigoFormatoObjeto: formatCode,
+    peso,
+    altura,
+    largura,
+    comprimento,
+    valorDeclarado,
+    includeDeclaracao
+  });
 
   const obj: Record<string, unknown> = {
     tipoObjeto: String(tipoObjeto).toUpperCase(),
-    codigoFormatoObjeto: Number(formatCode),
-    peso: peso,
-    pesoInformado: peso, // Some API versions use this field
-    objetosProibidos: 'N',
+    codigoFormatoObjeto: formatCode,  // 1=Envelope, 2=Caixa, 3=Cilindro/Rolo
+    peso: peso,  // Em gramas
+    objetosProibidos: "N",
     vlrDeclarado: valorDeclarado,
     dimensao: {
       altura: altura,
@@ -286,13 +300,13 @@ function buildObjetoPostalPPNv3(
   };
 
   // Include declaration content INSIDE the object (PPN v3 requirement)
+  // This is REQUIRED when not sending invoice (NFe)
   if (includeDeclaracao) {
     obj.itensDeclaracaoConteudo = [
       {
-        conteudo: 'Produtos diversos',
+        conteudo: "Produtos diversos",
         quantidade: 1,
         valor: valorDeclarado,
-        pesoInformado: peso, // Use pesoInformado instead of peso
       }
     ];
   }
@@ -311,8 +325,22 @@ async function createPrePostagem(
   const serviceCode = request.service_code || config.default_service_code;
   const pkg = request.package || {};
   
+  console.log('=== createPrePostagem DEBUG ===');
+  console.log('Config defaults:', {
+    default_weight_grams: config.default_weight_grams,
+    default_height_cm: config.default_height_cm,
+    default_width_cm: config.default_width_cm,
+    default_length_cm: config.default_length_cm,
+    default_package_type: config.default_package_type,
+    default_service_code: config.default_service_code,
+  });
+  console.log('Request package:', pkg);
+  console.log('Service code to use:', serviceCode);
+  
   // Validate and adjust dimensions according to Correios limits
   const dimensions = validateAndAdjustDimensions(pkg, config, serviceCode);
+  
+  console.log('Final dimensions after validation:', dimensions);
   
   // Determine package format
   const packageType = (config.default_package_type || 'caixa').toLowerCase().trim();
