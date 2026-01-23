@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Users, Copy, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Plus, Users, Copy, Trash2, Check, X, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AffiliateUserSelector } from './AffiliateUserSelector';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,8 @@ interface Affiliate {
   total_commission_cents: number;
   created_at: string;
   virtual_account?: {
+    id: string;
+    user_id: string | null;
     holder_name: string;
     holder_email: string;
     balance_cents: number;
@@ -67,7 +70,7 @@ export function AffiliatesManager() {
         .from('affiliates')
         .select(`
           *,
-          virtual_account:virtual_accounts(holder_name, holder_email, balance_cents)
+          virtual_account:virtual_accounts(id, user_id, holder_name, holder_email, balance_cents)
         `)
         .order('created_at', { ascending: false });
       
@@ -78,6 +81,7 @@ export function AffiliatesManager() {
 
   const createAffiliate = useMutation({
     mutationFn: async (input: {
+      user_id?: string;
       name: string;
       email: string;
       document?: string;
@@ -94,12 +98,13 @@ export function AffiliatesManager() {
 
       if (!profile?.organization_id) throw new Error('Organização não encontrada');
 
-      // Create virtual account first
+      // Create virtual account first (linked to user if provided)
       const { data: account, error: accError } = await supabase
         .from('virtual_accounts')
         .insert({
           organization_id: profile.organization_id,
           account_type: 'affiliate',
+          user_id: input.user_id || null, // Link to Morphews user
           holder_name: input.name,
           holder_email: input.email,
           holder_document: input.document,
@@ -191,6 +196,7 @@ export function AffiliatesManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
+    user_id: '' as string | undefined,
     name: '',
     email: '',
     document: '',
@@ -198,8 +204,17 @@ export function AffiliatesManager() {
   });
 
   const handleCreate = () => {
-    setFormData({ name: '', email: '', document: '', commission_percentage: 10 });
+    setFormData({ user_id: undefined, name: '', email: '', document: '', commission_percentage: 10 });
     setFormOpen(true);
+  };
+
+  const handleUserSelect = (userId: string | null, userData?: { full_name: string; email: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      user_id: userId || undefined,
+      name: userData?.full_name || prev.name,
+      email: userData?.email || prev.email,
+    }));
   };
 
   const handleSubmit = () => {
@@ -285,6 +300,12 @@ export function AffiliatesManager() {
                     <Badge variant="outline">
                       {affiliate.commission_percentage}%
                     </Badge>
+                    {affiliate.virtual_account?.user_id && (
+                      <Badge variant="secondary" className="gap-1">
+                        <UserCheck className="h-3 w-3" />
+                        Usuário Morphews
+                      </Badge>
+                    )}
                     {!affiliate.is_active && (
                       <Badge variant="secondary">Inativo</Badge>
                     )}
@@ -344,11 +365,23 @@ export function AffiliatesManager() {
 
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label>Vincular a Usuário Morphews (Recomendado)</Label>
+              <AffiliateUserSelector
+                value={formData.user_id}
+                onChange={handleUserSelect}
+              />
+              <p className="text-xs text-muted-foreground">
+                O afiliado precisa ter conta na Morphews para poder solicitar saques
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label>Nome *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                 placeholder="Nome completo"
+                disabled={!!formData.user_id}
               />
             </div>
 
@@ -359,6 +392,7 @@ export function AffiliatesManager() {
                 value={formData.email}
                 onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
                 placeholder="email@exemplo.com"
+                disabled={!!formData.user_id}
               />
             </div>
 
