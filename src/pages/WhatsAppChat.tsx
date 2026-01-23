@@ -827,14 +827,20 @@ export default function WhatsAppChat() {
     setClaimingConversationId(conversationId);
     try {
       await claimConversation.mutateAsync({ conversationId, userId: user.id });
-      // Atualizar conversa local
+      // Atualizar conversa local (status + assigned_user_id)
       setConversations(prev => prev.map(c => 
         c.id === conversationId 
           ? { ...c, status: 'assigned', assigned_user_id: user.id }
           : c
       ));
-      // Mover para aba atribuído
-      setStatusFilter('assigned');
+      // Atualizar selectedConversation se for a mesma (para liberar o input)
+      setSelectedConversation(prev => 
+        prev?.id === conversationId 
+          ? { ...prev, status: 'assigned', assigned_user_id: user.id }
+          : prev
+      );
+      // NÃO muda de aba - o vendedor continua vendo o chat aberto
+      // A conversa "some" da lista pendente, mas o chat permanece aberto à direita
     } finally {
       setClaimingConversationId(null);
     }
