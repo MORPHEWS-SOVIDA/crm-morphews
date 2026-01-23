@@ -164,6 +164,82 @@ async function authenticateCorreios(config: CorreiosConfig): Promise<string> {
   return data.token;
 }
 
+// Correios dimension and weight limits per service type
+// Reference: https://www.correios.com.br/enviar/encomendas/limites-de-dimensoes-e-peso
+interface ServiceLimits {
+  minWeight: number; // grams
+  maxWeight: number; // grams
+  minHeight: number; // cm
+  maxHeight: number; // cm
+  minWidth: number; // cm
+  maxWidth: number; // cm
+  minLength: number; // cm
+  maxLength: number; // cm
+  minSumDimensions: number; // cm (altura + largura + comprimento)
+  maxSumDimensions: number; // cm
+}
+
+const SERVICE_LIMITS: Record<string, ServiceLimits> = {
+  // PAC services
+  '03298': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  '03085': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  // SEDEX services
+  '03220': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  '03050': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  // SEDEX 10
+  '03158': { minWeight: 1, maxWeight: 10000, minHeight: 2, maxHeight: 60, minWidth: 11, maxWidth: 60, minLength: 16, maxLength: 60, minSumDimensions: 29, maxSumDimensions: 150 },
+  // SEDEX 12
+  '03140': { minWeight: 1, maxWeight: 10000, minHeight: 2, maxHeight: 60, minWidth: 11, maxWidth: 60, minLength: 16, maxLength: 60, minSumDimensions: 29, maxSumDimensions: 150 },
+  // SEDEX Hoje
+  '03204': { minWeight: 1, maxWeight: 10000, minHeight: 2, maxHeight: 60, minWidth: 11, maxWidth: 60, minLength: 16, maxLength: 60, minSumDimensions: 29, maxSumDimensions: 150 },
+};
+
+// Default limits for unknown services
+const DEFAULT_LIMITS: ServiceLimits = {
+  minWeight: 1, maxWeight: 30000,
+  minHeight: 2, maxHeight: 100,
+  minWidth: 11, maxWidth: 100,
+  minLength: 16, maxLength: 100,
+  minSumDimensions: 29, maxSumDimensions: 200
+};
+
+function validateAndAdjustDimensions(
+  pkg: { weight_grams?: number; height_cm?: number; width_cm?: number; length_cm?: number },
+  config: CorreiosConfig,
+  serviceCode: string
+): { weight: number; height: number; width: number; length: number } {
+  const limits = SERVICE_LIMITS[serviceCode] || DEFAULT_LIMITS;
+  
+  // Get values with fallbacks
+  let weight = pkg.weight_grams || config.default_weight_grams || 500;
+  let height = pkg.height_cm || config.default_height_cm || 2;
+  let width = pkg.width_cm || config.default_width_cm || 11;
+  let length = pkg.length_cm || config.default_length_cm || 16;
+  
+  // Apply minimum limits
+  weight = Math.max(weight, limits.minWeight);
+  height = Math.max(height, limits.minHeight);
+  width = Math.max(width, limits.minWidth);
+  length = Math.max(length, limits.minLength);
+  
+  // Apply maximum limits
+  weight = Math.min(weight, limits.maxWeight);
+  height = Math.min(height, limits.maxHeight);
+  width = Math.min(width, limits.maxWidth);
+  length = Math.min(length, limits.maxLength);
+  
+  // Ensure sum of dimensions is at least minSumDimensions
+  const sumDimensions = height + width + length;
+  if (sumDimensions < limits.minSumDimensions) {
+    // Increase length to meet minimum
+    length = limits.minSumDimensions - height - width;
+  }
+  
+  console.log(`Dimensions validated: weight=${weight}g, height=${height}cm, width=${width}cm, length=${length}cm (sum=${height + width + length}cm)`);
+  
+  return { weight, height, width, length };
+}
+
 async function createPrePostagem(
   config: CorreiosConfig,
   token: string,
@@ -174,10 +250,18 @@ async function createPrePostagem(
   const serviceCode = request.service_code || config.default_service_code;
   const pkg = request.package || {};
   
-  // Determine package format based on type
-  // IMPORTANT: Correios valida como número (não string)
-  const formatCode = config.default_package_type === 'envelope' ? 1 :
-                     config.default_package_type === 'cilindro' ? 3 : 2; // 1=Envelope, 2=Caixa, 3=Cilindro
+  // Validate and adjust dimensions according to Correios limits
+  const dimensions = validateAndAdjustDimensions(pkg, config, serviceCode);
+  
+  // Determine package format - ALWAYS use CAIXA (2) for standard shipments
+  // 1=Envelope, 2=Caixa/Pacote, 3=Rolo/Prisma
+  const packageType = config.default_package_type || 'caixa';
+  const formatCode = packageType === 'envelope' ? 1 :
+                     packageType === 'cilindro' ? 3 : 2;
+  const tipoObjeto = packageType === 'envelope' ? 'ENVELOPE' : 
+                     packageType === 'cilindro' ? 'ROLO' : 'CAIXA';
+  
+  console.log(`Package type: ${packageType}, formatCode: ${formatCode}, tipoObjeto: ${tipoObjeto}`);
   
   // Format phone according to Correios expectations.
   // CORREIOS API v3 (prepostagem) expects phone fields to be structured as:
@@ -237,9 +321,6 @@ async function createPrePostagem(
   console.log('Sender phone parsed:', senderPhone);
   console.log('Recipient phone parsed:', recipientPhone);
   
-  // Ensure weight is in grams and required
-  const weightGrams = pkg.weight_grams || config.default_weight_grams || 500;
-  
   // Build pre-postagem payload according to Correios API v3
   // IMPORTANT: Use separate dddCelular/celular fields instead of single 11-digit celular
   const payload: any = {
@@ -274,19 +355,19 @@ async function createPrePostagem(
       email: request.recipient.email || undefined,
     },
     objetoPostal: {
-      tipoObjeto: config.default_package_type === 'envelope' ? 'ENVELOPE' : 
-                  config.default_package_type === 'cilindro' ? 'CILINDRO' : 'CAIXA',
+      tipoObjeto: tipoObjeto,
       codigoFormatoObjeto: formatCode,
-      // Peso total do objeto (obrigatório)
-      peso: weightGrams,
+      // Peso total do objeto em gramas (obrigatório)
+      peso: dimensions.weight,
       dimensao: {
-        altura: pkg.height_cm || config.default_height_cm || 10,
-        largura: pkg.width_cm || config.default_width_cm || 15,
-        comprimento: pkg.length_cm || config.default_length_cm || 20,
+        altura: dimensions.height,
+        largura: dimensions.width,
+        comprimento: dimensions.length,
       },
-      // Correios exige confirmação explícita (PPN-330) e usa "S"/"N"
+      // Correios exige confirmação explícita (PPN-330) - String 'N' ou 'S'
       objetosProibidos: 'N',
     },
+    // Flag to indicate we're sending declaration of contents
     declaracaoConteudo: true,
   };
 
@@ -330,21 +411,21 @@ async function createPrePostagem(
 
   // Add declared value if provided
   if (pkg.declared_value_cents && pkg.declared_value_cents > 0) {
-    // Campo correto no PPN: vlrDeclarado
+    // Campo correto no PPN: vlrDeclarado (em Reais, não centavos)
     payload.objetoPostal.vlrDeclarado = pkg.declared_value_cents / 100;
   }
 
-  // Add contents description for declaração de conteúdo
+  // CRITICAL: Add contents description for declaração de conteúdo (PPN-348)
+  // The API requires ALL fields: conteudo, quantidade, valor AND peso per item
   if (payload.declaracaoConteudo) {
     const declaredValue = (pkg.declared_value_cents || 10000) / 100;
     payload.itensDeclaracaoConteudo = [
       {
-        conteudo: 'Produtos de saúde e bem-estar',
+        conteudo: 'Produtos diversos',
         quantidade: 1,
-        // Correios exige peso por item (PPN-348)
-        peso: weightGrams,
-        // Valor unitário do item (para totalizar a declaração)
         valor: declaredValue,
+        // CRITICAL: peso por item é OBRIGATÓRIO para evitar PPN-348
+        peso: dimensions.weight,
       }
     ];
   }
