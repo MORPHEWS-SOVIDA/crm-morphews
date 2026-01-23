@@ -19,6 +19,20 @@ export default function Home() {
     return localStorage.getItem(onboardingBypassKey) === "1";
   }, [onboardingBypassKey]);
 
+  // Check if user is organization owner (only owners see onboarding)
+  const { data: isOwner, isLoading: isOwnerLoading } = useQuery({
+    queryKey: ["is-org-owner", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("is_current_user_org_owner");
+      if (error) {
+        console.error("Error checking owner status:", error);
+        return false;
+      }
+      return data ?? false;
+    },
+    enabled: !!user && !!profile?.organization_id,
+  });
+
   // Check if onboarding is completed using RPC (bypasses RLS issues)
   const { data: onboardingCompleted, isLoading: onboardingLoading } = useQuery({
     queryKey: ["onboarding-check-rpc", user?.id],
@@ -32,7 +46,8 @@ export default function Home() {
       }
       return data ?? false;
     },
-    enabled: !!user && !!profile?.organization_id,
+    // Only check onboarding if user is owner
+    enabled: !!user && !!profile?.organization_id && isOwner === true,
   });
 
   // Cleanup: if onboarding is completed, remove any temporary bypass flag
@@ -43,7 +58,11 @@ export default function Home() {
     }
   }, [onboardingBypassKey, onboardingCompleted]);
 
-  if (isLoading || (user && profile?.organization_id && onboardingLoading)) {
+  const stillLoading = isLoading || 
+    (user && profile?.organization_id && isOwnerLoading) ||
+    (user && profile?.organization_id && isOwner === true && onboardingLoading);
+
+  if (stillLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -53,8 +72,8 @@ export default function Home() {
 
   // If user is logged in
   if (user) {
-    // Check if onboarding is needed (user has org but onboarding not completed)
-    if (profile?.organization_id && onboardingCompleted === false && !onboardingBypass) {
+    // Only show onboarding to OWNERS when onboarding is not completed
+    if (isOwner && profile?.organization_id && onboardingCompleted === false && !onboardingBypass) {
       return <Navigate to="/onboarding" replace />;
     }
     return <Dashboard />;

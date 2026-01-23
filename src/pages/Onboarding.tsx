@@ -27,7 +27,7 @@ export default function Onboarding() {
     business_description: "",
   });
 
-  // Check if onboarding was already completed using RPC
+  // Check if user should see onboarding (must be owner AND onboarding not completed)
   useEffect(() => {
     const checkOnboarding = async () => {
       if (!user?.id) {
@@ -49,6 +49,22 @@ export default function Onboarding() {
       }
 
       try {
+        // First check if user is owner - only owners should see onboarding
+        const { data: isOwner, error: ownerError } = await supabase.rpc("is_current_user_org_owner");
+        
+        if (ownerError) {
+          console.error("Error checking owner status:", ownerError);
+          navigate("/", { replace: true });
+          return;
+        }
+
+        // If not owner, redirect to dashboard immediately
+        if (!isOwner) {
+          console.log("User is not owner, skipping onboarding");
+          navigate("/", { replace: true });
+          return;
+        }
+
         // Use RPC to check if onboarding is completed (bypasses RLS issues)
         const { data: hasCompleted, error } = await supabase.rpc("has_onboarding_completed");
 
