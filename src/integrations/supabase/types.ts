@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliates: {
+        Row: {
+          affiliate_code: string
+          commission_fixed_cents: number | null
+          commission_percentage: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          total_commission_cents: number | null
+          total_sales: number | null
+          updated_at: string
+          virtual_account_id: string
+        }
+        Insert: {
+          affiliate_code: string
+          commission_fixed_cents?: number | null
+          commission_percentage?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          total_commission_cents?: number | null
+          total_sales?: number | null
+          updated_at?: string
+          virtual_account_id: string
+        }
+        Update: {
+          affiliate_code?: string
+          commission_fixed_cents?: number | null
+          commission_percentage?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          total_commission_cents?: number | null
+          total_sales?: number | null
+          updated_at?: string
+          virtual_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliates_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_action_costs: {
         Row: {
           action_key: string
@@ -686,6 +743,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      coproducers: {
+        Row: {
+          commission_percentage: number
+          created_at: string
+          id: string
+          is_active: boolean | null
+          product_id: string
+          virtual_account_id: string
+        }
+        Insert: {
+          commission_percentage: number
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          product_id: string
+          virtual_account_id: string
+        }
+        Update: {
+          commission_percentage?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          product_id?: string
+          virtual_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coproducers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coproducers_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1835,6 +1934,172 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: []
+      }
+      ecommerce_cart_items: {
+        Row: {
+          cart_id: string
+          created_at: string
+          id: string
+          landing_offer_id: string | null
+          product_id: string
+          quantity: number
+          total_cents: number
+          unit_price_cents: number
+        }
+        Insert: {
+          cart_id: string
+          created_at?: string
+          id?: string
+          landing_offer_id?: string | null
+          product_id: string
+          quantity?: number
+          total_cents: number
+          unit_price_cents: number
+        }
+        Update: {
+          cart_id?: string
+          created_at?: string
+          id?: string
+          landing_offer_id?: string | null
+          product_id?: string
+          quantity?: number
+          total_cents?: number
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_cart_items_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_cart_items_landing_offer_id_fkey"
+            columns: ["landing_offer_id"]
+            isOneToOne: false
+            referencedRelation: "landing_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ecommerce_carts: {
+        Row: {
+          abandoned_at: string | null
+          converted_sale_id: string | null
+          coupon_code: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          discount_cents: number | null
+          expires_at: string | null
+          id: string
+          landing_page_id: string | null
+          lead_id: string | null
+          organization_id: string
+          recovery_email_sent_at: string | null
+          recovery_whatsapp_sent_at: string | null
+          session_id: string
+          shipping_cents: number | null
+          status: string | null
+          storefront_id: string | null
+          subtotal_cents: number | null
+          total_cents: number | null
+          updated_at: string
+        }
+        Insert: {
+          abandoned_at?: string | null
+          converted_sale_id?: string | null
+          coupon_code?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_cents?: number | null
+          expires_at?: string | null
+          id?: string
+          landing_page_id?: string | null
+          lead_id?: string | null
+          organization_id: string
+          recovery_email_sent_at?: string | null
+          recovery_whatsapp_sent_at?: string | null
+          session_id: string
+          shipping_cents?: number | null
+          status?: string | null
+          storefront_id?: string | null
+          subtotal_cents?: number | null
+          total_cents?: number | null
+          updated_at?: string
+        }
+        Update: {
+          abandoned_at?: string | null
+          converted_sale_id?: string | null
+          coupon_code?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_cents?: number | null
+          expires_at?: string | null
+          id?: string
+          landing_page_id?: string | null
+          lead_id?: string | null
+          organization_id?: string
+          recovery_email_sent_at?: string | null
+          recovery_whatsapp_sent_at?: string | null
+          session_id?: string
+          shipping_cents?: number | null
+          status?: string | null
+          storefront_id?: string | null
+          subtotal_cents?: number | null
+          total_cents?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_carts_converted_sale_id_fkey"
+            columns: ["converted_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       energy_usage_log: {
         Row: {
@@ -3041,6 +3306,162 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_offers: {
+        Row: {
+          badge_text: string | null
+          created_at: string
+          discount_percentage: number | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          is_highlighted: boolean | null
+          label: string
+          landing_page_id: string
+          original_price_cents: number | null
+          price_cents: number
+          quantity: number
+        }
+        Insert: {
+          badge_text?: string | null
+          created_at?: string
+          discount_percentage?: number | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_highlighted?: boolean | null
+          label: string
+          landing_page_id: string
+          original_price_cents?: number | null
+          price_cents: number
+          quantity?: number
+        }
+        Update: {
+          badge_text?: string | null
+          created_at?: string
+          discount_percentage?: number | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_highlighted?: boolean | null
+          label?: string
+          landing_page_id?: string
+          original_price_cents?: number | null
+          price_cents?: number
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_offers_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_pages: {
+        Row: {
+          benefits: Json | null
+          created_at: string
+          custom_css: string | null
+          facebook_pixel_id: string | null
+          faq: Json | null
+          google_analytics_id: string | null
+          guarantee_text: string | null
+          headline: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          organization_id: string
+          primary_color: string | null
+          product_id: string
+          settings: Json | null
+          slug: string
+          subheadline: string | null
+          template_id: string | null
+          testimonials: Json | null
+          updated_at: string
+          urgency_text: string | null
+          video_url: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          benefits?: Json | null
+          created_at?: string
+          custom_css?: string | null
+          facebook_pixel_id?: string | null
+          faq?: Json | null
+          google_analytics_id?: string | null
+          guarantee_text?: string | null
+          headline?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          organization_id: string
+          primary_color?: string | null
+          product_id: string
+          settings?: Json | null
+          slug: string
+          subheadline?: string | null
+          template_id?: string | null
+          testimonials?: Json | null
+          updated_at?: string
+          urgency_text?: string | null
+          video_url?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          benefits?: Json | null
+          created_at?: string
+          custom_css?: string | null
+          facebook_pixel_id?: string | null
+          faq?: Json | null
+          google_analytics_id?: string | null
+          guarantee_text?: string | null
+          headline?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          organization_id?: string
+          primary_color?: string | null
+          product_id?: string
+          settings?: Json | null
+          slug?: string
+          subheadline?: string | null
+          template_id?: string | null
+          testimonials?: Json | null
+          updated_at?: string
+          urgency_text?: string | null
+          video_url?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_pages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_pages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_pages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -5460,6 +5881,62 @@ export type Database = {
           },
         ]
       }
+      payment_gateways: {
+        Row: {
+          api_key_encrypted: string | null
+          api_secret_encrypted: string | null
+          created_at: string
+          gateway_type: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          is_sandbox: boolean | null
+          name: string
+          organization_id: string
+          settings: Json | null
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_secret_encrypted?: string | null
+          created_at?: string
+          gateway_type: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          is_sandbox?: boolean | null
+          name: string
+          organization_id: string
+          settings?: Json | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_secret_encrypted?: string | null
+          created_at?: string
+          gateway_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          is_sandbox?: boolean | null
+          name?: string
+          organization_id?: string
+          settings?: Json | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_gateways_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_method_transaction_fees: {
         Row: {
           created_at: string
@@ -5713,6 +6190,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       post_sale_surveys: {
         Row: {
@@ -7162,6 +7666,67 @@ export type Database = {
           },
         ]
       }
+      sale_splits: {
+        Row: {
+          created_at: string
+          fee_cents: number | null
+          gross_amount_cents: number
+          id: string
+          net_amount_cents: number
+          percentage: number | null
+          sale_id: string
+          split_type: string
+          transaction_id: string | null
+          virtual_account_id: string
+        }
+        Insert: {
+          created_at?: string
+          fee_cents?: number | null
+          gross_amount_cents: number
+          id?: string
+          net_amount_cents: number
+          percentage?: number | null
+          sale_id: string
+          split_type: string
+          transaction_id?: string | null
+          virtual_account_id: string
+        }
+        Update: {
+          created_at?: string
+          fee_cents?: number | null
+          gross_amount_cents?: number
+          id?: string
+          net_amount_cents?: number
+          percentage?: number | null
+          sale_id?: string
+          split_type?: string
+          transaction_id?: string | null
+          virtual_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_splits_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_splits_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_splits_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_status_history: {
         Row: {
           changed_by: string | null
@@ -7810,6 +8375,134 @@ export type Database = {
           },
         ]
       }
+      storefront_domains: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          is_primary: boolean | null
+          ssl_status: string | null
+          storefront_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          is_primary?: boolean | null
+          ssl_status?: string | null
+          storefront_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          is_primary?: boolean | null
+          ssl_status?: string | null
+          storefront_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_domains_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storefront_products: {
+        Row: {
+          created_at: string
+          custom_description: string | null
+          custom_price_cents: number | null
+          display_order: number | null
+          id: string
+          is_featured: boolean | null
+          is_visible: boolean | null
+          product_id: string
+          storefront_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_description?: string | null
+          custom_price_cents?: number | null
+          display_order?: number | null
+          id?: string
+          is_featured?: boolean | null
+          is_visible?: boolean | null
+          product_id: string
+          storefront_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_description?: string | null
+          custom_price_cents?: number | null
+          display_order?: number | null
+          id?: string
+          is_featured?: boolean | null
+          is_visible?: boolean | null
+          product_id?: string
+          storefront_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_products_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storefront_templates: {
+        Row: {
+          config: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          preview_image_url: string | null
+          slug: string
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          preview_image_url?: string | null
+          slug: string
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          preview_image_url?: string | null
+          slug?: string
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           annual_price_cents: number | null
@@ -8046,6 +8739,87 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tenant_storefronts: {
+        Row: {
+          created_at: string
+          custom_css: string | null
+          facebook_pixel_id: string | null
+          favicon_url: string | null
+          google_analytics_id: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          meta_description: string | null
+          meta_title: string | null
+          name: string
+          organization_id: string
+          primary_color: string | null
+          secondary_color: string | null
+          settings: Json | null
+          slug: string
+          template_id: string | null
+          updated_at: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          custom_css?: string | null
+          facebook_pixel_id?: string | null
+          favicon_url?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          name: string
+          organization_id: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          settings?: Json | null
+          slug: string
+          template_id?: string | null
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          custom_css?: string | null
+          facebook_pixel_id?: string | null
+          favicon_url?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          name?: string
+          organization_id?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          settings?: Json | null
+          slug?: string
+          template_id?: string | null
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_storefronts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_storefronts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_onboarding_progress: {
         Row: {
@@ -8359,6 +9133,184 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      virtual_account_bank_data: {
+        Row: {
+          account_number: string
+          account_type: string
+          agency: string
+          bank_code: string
+          bank_name: string
+          created_at: string
+          holder_document: string
+          holder_name: string
+          id: string
+          is_primary: boolean | null
+          pix_key: string | null
+          pix_key_type: string | null
+          virtual_account_id: string
+        }
+        Insert: {
+          account_number: string
+          account_type: string
+          agency: string
+          bank_code: string
+          bank_name: string
+          created_at?: string
+          holder_document: string
+          holder_name: string
+          id?: string
+          is_primary?: boolean | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          virtual_account_id: string
+        }
+        Update: {
+          account_number?: string
+          account_type?: string
+          agency?: string
+          bank_code?: string
+          bank_name?: string
+          created_at?: string
+          holder_document?: string
+          holder_name?: string
+          id?: string
+          is_primary?: boolean | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          virtual_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_account_bank_data_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      virtual_accounts: {
+        Row: {
+          account_type: string
+          balance_cents: number | null
+          created_at: string
+          holder_document: string | null
+          holder_email: string
+          holder_name: string
+          id: string
+          is_active: boolean | null
+          organization_id: string | null
+          pending_balance_cents: number | null
+          total_received_cents: number | null
+          total_withdrawn_cents: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          account_type: string
+          balance_cents?: number | null
+          created_at?: string
+          holder_document?: string | null
+          holder_email: string
+          holder_name: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string | null
+          pending_balance_cents?: number | null
+          total_received_cents?: number | null
+          total_withdrawn_cents?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          account_type?: string
+          balance_cents?: number | null
+          created_at?: string
+          holder_document?: string | null
+          holder_email?: string
+          holder_name?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string | null
+          pending_balance_cents?: number | null
+          total_received_cents?: number | null
+          total_withdrawn_cents?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      virtual_transactions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          description: string | null
+          fee_cents: number | null
+          id: string
+          net_amount_cents: number
+          reference_id: string | null
+          release_at: string | null
+          released_at: string | null
+          sale_id: string | null
+          status: string | null
+          transaction_type: string
+          virtual_account_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          description?: string | null
+          fee_cents?: number | null
+          id?: string
+          net_amount_cents: number
+          reference_id?: string | null
+          release_at?: string | null
+          released_at?: string | null
+          sale_id?: string | null
+          status?: string | null
+          transaction_type: string
+          virtual_account_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          description?: string | null
+          fee_cents?: number | null
+          id?: string
+          net_amount_cents?: number
+          reference_id?: string | null
+          release_at?: string | null
+          released_at?: string | null
+          sale_id?: string | null
+          status?: string | null
+          transaction_type?: string
+          virtual_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtual_transactions_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_assistant_states: {
         Row: {
@@ -9666,6 +10618,65 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_requests: {
+        Row: {
+          amount_cents: number
+          bank_data: Json
+          completed_at: string | null
+          created_at: string
+          fee_cents: number | null
+          id: string
+          net_amount_cents: number
+          rejection_reason: string | null
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          transfer_proof_url: string | null
+          virtual_account_id: string
+        }
+        Insert: {
+          amount_cents: number
+          bank_data: Json
+          completed_at?: string | null
+          created_at?: string
+          fee_cents?: number | null
+          id?: string
+          net_amount_cents: number
+          rejection_reason?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          transfer_proof_url?: string | null
+          virtual_account_id: string
+        }
+        Update: {
+          amount_cents?: number
+          bank_data?: Json
+          completed_at?: string | null
+          created_at?: string
+          fee_cents?: number | null
+          id?: string
+          net_amount_cents?: number
+          rejection_reason?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          transfer_proof_url?: string | null
+          virtual_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
             referencedColumns: ["id"]
           },
         ]
