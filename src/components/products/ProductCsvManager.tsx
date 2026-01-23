@@ -33,10 +33,17 @@ const CSV_COLUMNS = [
   { key: 'brand_name', label: 'Marca', editable: true }, // Virtual column - maps to brand_id
   { key: 'sku', label: 'SKU', editable: true },
   { key: 'barcode_ean', label: 'Código de Barras (EAN)', editable: true },
-  { key: 'price_1_unit', label: 'Preço 1 un (centavos)', editable: true },
-  { key: 'price_3_units', label: 'Preço 3 un (centavos)', editable: true },
-  { key: 'price_6_units', label: 'Preço 6 un (centavos)', editable: true },
-  { key: 'price_12_units', label: 'Preço 12 un (centavos)', editable: true },
+  // Campos NOVOS de 1 Unidade (base fixa)
+  { key: 'base_price_cents', label: 'Preço 1 UN (centavos)', editable: true },
+  { key: 'base_commission_percentage', label: 'Comissão 1 UN (%)', editable: true },
+  { key: 'base_use_default_commission', label: 'Comissão Padrão 1 UN (true/false)', editable: true },
+  { key: 'base_points', label: 'Pontos 1 UN', editable: true },
+  { key: 'base_usage_period_days', label: 'Período de Uso 1 UN (dias)', editable: true },
+  // Campos legados (mantidos para compatibilidade)
+  { key: 'price_1_unit', label: 'Preço 1 un LEGADO (centavos)', editable: true },
+  { key: 'price_3_units', label: 'Preço 3 un LEGADO (centavos)', editable: true },
+  { key: 'price_6_units', label: 'Preço 6 un LEGADO (centavos)', editable: true },
+  { key: 'price_12_units', label: 'Preço 12 un LEGADO (centavos)', editable: true },
   { key: 'minimum_price', label: 'Preço Mínimo (centavos)', editable: true },
   { key: 'cost_cents', label: 'Custo (centavos)', editable: true },
   { key: 'stock_quantity', label: 'Estoque', editable: true },

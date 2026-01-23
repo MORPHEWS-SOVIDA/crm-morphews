@@ -57,6 +57,8 @@ const Attribution = lazy(() => import("./pages/Attribution"));
 // Products
 const Products = lazy(() => import("./pages/Products"));
 const ManipulatedCosts = lazy(() => import("./pages/ManipulatedCosts"));
+const ProductCombos = lazy(() => import("./pages/ProductCombos"));
+const ComboForm = lazy(() => import("./pages/ComboForm"));
 
 // Expedition & Deliveries
 const Expedition = lazy(() => import("./pages/Expedition"));
@@ -339,6 +341,22 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['products_view']}>
                       <Products />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/produtos/combos"
+                  element={
+                    <ProtectedRoute requiredPermissions={['products_view']}>
+                      <ProductCombos />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/produtos/combos/:id"
+                  element={
+                    <ProtectedRoute requiredPermissions={['products_view']}>
+                      <ComboForm />
                     </ProtectedRoute>
                   }
                 />
