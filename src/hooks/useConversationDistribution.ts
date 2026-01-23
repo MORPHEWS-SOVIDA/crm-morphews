@@ -53,6 +53,62 @@ export function useConversationDistribution() {
         throw new Error(result.error || 'Não foi possível assumir a conversa');
       }
 
+      // Após assumir com sucesso, verificar se o briefing automático está ativo
+      try {
+        // Buscar dados da conversa e configurações da organização
+        const { data: conv } = await supabase
+          .from("whatsapp_conversations")
+          .select(`
+            lead_id,
+            contact_name,
+            whatsapp_instances!inner(
+              organization_id,
+              organizations!inner(
+                whatsapp_ai_seller_briefing_enabled
+              )
+            )
+          `)
+          .eq("id", conversationId)
+          .single();
+
+        const orgConfig = (conv?.whatsapp_instances as any)?.organizations;
+        const shouldSendBriefing = orgConfig?.whatsapp_ai_seller_briefing_enabled && conv?.lead_id;
+
+        console.log('[claimConversation] Briefing check:', {
+          conversationId,
+          leadId: conv?.lead_id,
+          briefingEnabled: orgConfig?.whatsapp_ai_seller_briefing_enabled,
+          shouldSendBriefing
+        });
+
+        if (shouldSendBriefing) {
+          // Disparar geração do briefing de forma assíncrona (não bloquear a UI)
+          supabase.functions.invoke("lead-memory-analyze", {
+            body: {
+              action: "briefing",
+              leadId: conv.lead_id,
+              conversationId,
+              contactName: conv.contact_name || undefined
+            }
+          }).then(briefingResult => {
+            if (briefingResult.data?.briefing) {
+              // Briefing gerado - exibir como toast informativo para o vendedor
+              console.log('[claimConversation] Briefing generated:', briefingResult.data.briefing.substring(0, 100));
+              toast.info("📋 Briefing do lead carregado!", { 
+                duration: 5000,
+                description: "Verifique o resumo na aba do lead"
+              });
+            }
+          }).catch(briefingError => {
+            console.warn('[claimConversation] Briefing generation failed:', briefingError);
+            // Não bloqueia o fluxo, apenas loga o erro
+          });
+        }
+      } catch (briefingCheckError) {
+        console.warn('[claimConversation] Error checking briefing settings:', briefingCheckError);
+        // Continua normalmente, briefing é feature opcional
+      }
+
       return result;
     },
     onSuccess: () => {
