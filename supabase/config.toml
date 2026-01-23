@@ -104,3 +104,9 @@ verify_jwt = false
 
 [functions.correios-api]
 verify_jwt = false
+
+[functions.asaas-webhook]
+verify_jwt = false
+
+[functions.payment-webhook]
+verify_jwt = false

@@ -62,7 +62,7 @@ serve(async (req) => {
     const status = data?.status?.toLowerCase() || event?.toLowerCase() || '';
 
     if (['paid', 'approved', 'captured'].includes(status) || event === 'order.paid') {
-      newStatus = 'confirmed';
+      newStatus = 'payment_confirmed';
       paymentStatus = 'paid';
     } else if (['refused', 'cancelled', 'denied'].includes(status) || event === 'order.cancelled') {
       newStatus = 'cancelled';
