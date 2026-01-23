@@ -141,6 +141,41 @@ function DeliveryActionsCard({
       })
       .eq('id', sale.id);
 
+    // Automatically unmark printed and dispatched checkpoints with history
+    const { data: existingCheckpoints } = await supabase
+      .from('sale_checkpoints')
+      .select('id, checkpoint_type, completed_at')
+      .eq('sale_id', sale.id)
+      .in('checkpoint_type', ['printed', 'dispatched']);
+
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+
+    for (const checkpoint of existingCheckpoints || []) {
+      if (checkpoint.completed_at) {
+        // Update checkpoint to uncompleted
+        await supabase
+          .from('sale_checkpoints')
+          .update({
+            completed_at: null,
+            completed_by: null,
+          })
+          .eq('id', checkpoint.id);
+
+        // Insert history record
+        await supabase
+          .from('sale_checkpoint_history')
+          .insert({
+            sale_id: sale.id,
+            checkpoint_id: checkpoint.id,
+            checkpoint_type: checkpoint.checkpoint_type,
+            action: 'uncompleted',
+            changed_by: userId,
+            notes: `Desmarcado automaticamente porque venda foi marcada como "Voltou"`,
+            organization_id: sale.organization_id,
+          });
+      }
+    }
+
     setShowReturnDialog(false);
     toast.success('Venda marcada como retornada');
   };
@@ -938,12 +973,14 @@ export default function SaleDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {canEditDraft && isEditable && (
+            {canEditDraft && (
               <Button 
                 variant="outline"
                 size="sm"
-                className="flex-1 sm:flex-none"
-                onClick={() => navigate(`/vendas/${sale.id}/editar`)}
+                className={`flex-1 sm:flex-none ${!isEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => isEditable && navigate(`/vendas/${sale.id}/editar`)}
+                disabled={!isEditable}
+                title={!isEditable ? 'Só é possível editar vendas em rascunho ou que voltaram' : 'Editar venda'}
               >
                 <Pencil className="w-4 h-4 mr-2" />
                 Editar
