@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCart } from './cart/CartContext';
+import { SavedCardsSelector } from './checkout/SavedCardsSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 
 function formatCurrency(cents: number): string {
@@ -17,6 +20,12 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
+// Mock saved cards for demo - in production, would fetch based on lead
+const MOCK_SAVED_CARDS = [
+  { id: 'card_1', card_brand: 'visa', card_last_digits: '4242', is_default: true, gateway_type: 'pagarme' },
+  { id: 'card_2', card_brand: 'mastercard', card_last_digits: '5555', is_default: false, gateway_type: 'pagarme' },
+];
+
 export function StorefrontCheckout() {
   const navigate = useNavigate();
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
@@ -24,6 +33,8 @@ export function StorefrontCheckout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(MOCK_SAVED_CARDS[0]?.id || null);
+  const [saveCard, setSaveCard] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -48,7 +59,12 @@ export function StorefrontCheckout() {
     collectAddress?: boolean;
     requirePhone?: boolean;
     termsUrl?: string;
+    allowSaveCard?: boolean;
   } || {};
+
+  // Show saved cards only for credit card payment
+  const showSavedCards = paymentMethod === 'credit_card' && MOCK_SAVED_CARDS.length > 0;
+  const isOneClickCheckout = selectedCardId !== null && paymentMethod === 'credit_card';
 
   if (items.length === 0) {
     return (
@@ -75,24 +91,71 @@ export function StorefrontCheckout() {
     setIsSubmitting(true);
     
     try {
-      // TODO: Integrate with checkout edge function
-      console.log('Checkout data:', {
+      const checkoutPayload = {
         storefront_id: storefront.id,
-        items,
-        customer: formData,
+        items: items.map(item => ({
+          product_id: item.productId,
+          quantity: item.quantity * item.kitSize,
+          price_cents: item.unitPrice,
+        })),
+        customer: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          document: formData.cpf,
+        },
+        shipping: checkoutConfig.collectAddress !== false ? {
+          address: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.cep,
+          complement: formData.complement,
+        } : undefined,
         payment_method: paymentMethod,
-        subtotal,
-        shipping: shippingCents,
-        total,
-      });
-      
-      // Simulate success
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+        card_token: isOneClickCheckout ? selectedCardId : undefined,
+        save_card: !isOneClickCheckout && saveCard,
+      };
+
+      console.log('Sending checkout:', checkoutPayload);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ecommerce-checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(checkoutPayload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Erro ao processar pagamento');
+      }
+
+      // Handle different payment methods
+      if (paymentMethod === 'pix' && result.pix_code) {
+        // Store PIX data for confirmation page
+        sessionStorage.setItem('checkout_result', JSON.stringify(result));
+      } else if (paymentMethod === 'boleto' && result.payment_url) {
+        // Open boleto URL
+        window.open(result.payment_url, '_blank');
+      } else if (paymentMethod === 'credit_card' && result.payment_url) {
+        // Redirect to payment URL for card
+        window.location.href = result.payment_url;
+        return;
+      }
+
       clearCart();
-      navigate(`/loja/${storefront.slug}/pedido-confirmado`);
+      navigate(`/loja/${storefront.slug}/pedido-confirmado`, {
+        state: { saleId: result.sale_id, paymentMethod, ...result },
+      });
     } catch (error) {
       console.error('Checkout error:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar pagamento');
     } finally {
       setIsSubmitting(false);
     }
@@ -287,7 +350,15 @@ export function StorefrontCheckout() {
             <CardContent>
               <RadioGroup 
                 value={paymentMethod} 
-                onValueChange={(v) => setPaymentMethod(v as any)}
+                onValueChange={(v) => {
+                  setPaymentMethod(v as any);
+                  if (v !== 'credit_card') {
+                    setSelectedCardId(null);
+                    setSaveCard(false);
+                  } else {
+                    setSelectedCardId(MOCK_SAVED_CARDS[0]?.id || null);
+                  }
+                }}
                 className="space-y-3"
               >
                 <div className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-muted/50">
@@ -321,6 +392,31 @@ export function StorefrontCheckout() {
                   </Label>
                 </div>
               </RadioGroup>
+
+              {/* Saved Cards */}
+              {showSavedCards && (
+                <SavedCardsSelector
+                  cards={MOCK_SAVED_CARDS}
+                  selectedCardId={selectedCardId}
+                  onSelectCard={setSelectedCardId}
+                  primaryColor={storefront.primary_color}
+                />
+              )}
+
+              {/* Save Card Option */}
+              {paymentMethod === 'credit_card' && selectedCardId === null && checkoutConfig.allowSaveCard !== false && (
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+                  <Checkbox
+                    id="save-card"
+                    checked={saveCard}
+                    onCheckedChange={(checked) => setSaveCard(checked === true)}
+                  />
+                  <Label htmlFor="save-card" className="text-sm cursor-pointer flex items-center gap-2">
+                    <Save className="h-4 w-4" />
+                    Salvar cartão para compras futuras
+                  </Label>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -362,6 +458,17 @@ export function StorefrontCheckout() {
                 </div>
               </div>
 
+              {/* One-Click Badge */}
+              {isOneClickCheckout && (
+                <div 
+                  className="flex items-center gap-2 p-3 rounded-lg text-sm"
+                  style={{ backgroundColor: `${storefront.primary_color}15`, color: storefront.primary_color }}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span className="font-medium">Compra com 1-Clique ativada</span>
+                </div>
+              )}
+
               {/* Terms */}
               <div className="flex items-start gap-2 pt-4">
                 <Checkbox 
@@ -401,6 +508,11 @@ export function StorefrontCheckout() {
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Processando...
+                  </>
+                ) : isOneClickCheckout ? (
+                  <>
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Pagar com 1-Clique
                   </>
                 ) : (
                   <>

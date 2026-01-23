@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Store, FileText, ShoppingCart, Wallet, CreditCard, Users } from 'lucide-react';
+import { Store, FileText, ShoppingCart, Wallet, CreditCard, Users, Phone } from 'lucide-react';
 import { StorefrontsManager } from '@/components/ecommerce/StorefrontsManager';
 import { LandingPagesManager } from '@/components/ecommerce/LandingPagesManager';
 import { CartsManager } from '@/components/ecommerce/CartsManager';
 import { VirtualAccountPanel } from '@/components/ecommerce/VirtualAccountPanel';
 import { PaymentGatewaysManager } from '@/components/ecommerce/PaymentGatewaysManager';
 import { AffiliatesManager } from '@/components/ecommerce/AffiliatesManager';
+import TelesalesPanel from '@/pages/ecommerce/TelesalesPanel';
 
 export default function Ecommerce() {
   const [activeTab, setActiveTab] = useState('storefronts');
@@ -23,7 +24,7 @@ export default function Ecommerce() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="storefronts" className="gap-2">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Lojas</span>
@@ -47,6 +48,10 @@ export default function Ecommerce() {
             <TabsTrigger value="wallet" className="gap-2">
               <Wallet className="h-4 w-4" />
               <span className="hidden sm:inline">Carteira</span>
+            </TabsTrigger>
+            <TabsTrigger value="telesales" className="gap-2">
+              <Phone className="h-4 w-4" />
+              <span className="hidden sm:inline">Televendas</span>
             </TabsTrigger>
           </TabsList>
 
@@ -72,6 +77,10 @@ export default function Ecommerce() {
 
           <TabsContent value="wallet" className="mt-6">
             <VirtualAccountPanel />
+          </TabsContent>
+
+          <TabsContent value="telesales" className="mt-6">
+            <TelesalesPanel />
           </TabsContent>
         </Tabs>
       </div>
