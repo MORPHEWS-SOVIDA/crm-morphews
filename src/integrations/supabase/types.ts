@@ -3960,6 +3960,109 @@ export type Database = {
           },
         ]
       }
+      keyword_bot_routers: {
+        Row: {
+          created_at: string
+          description: string | null
+          fallback_bot_id: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fallback_bot_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fallback_bot_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_bot_routers_fallback_bot_id_fkey"
+            columns: ["fallback_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "keyword_bot_routers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      keyword_bot_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          keywords: string[]
+          organization_id: string
+          priority: number
+          router_id: string
+          target_bot_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords: string[]
+          organization_id: string
+          priority?: number
+          router_id: string
+          target_bot_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          organization_id?: string
+          priority?: number
+          router_id?: string
+          target_bot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_bot_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "keyword_bot_rules_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_bot_routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "keyword_bot_rules_target_bot_id_fkey"
+            columns: ["target_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_offers: {
         Row: {
           badge_text: string | null
@@ -11747,6 +11850,7 @@ export type Database = {
           evolution_webhook_configured: boolean | null
           id: string
           is_connected: boolean
+          keyword_router_id: string | null
           last_assigned_user_id: string | null
           manual_device_label: string | null
           manual_instance_number: string | null
@@ -11800,6 +11904,7 @@ export type Database = {
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
+          keyword_router_id?: string | null
           last_assigned_user_id?: string | null
           manual_device_label?: string | null
           manual_instance_number?: string | null
@@ -11853,6 +11958,7 @@ export type Database = {
           evolution_webhook_configured?: boolean | null
           id?: string
           is_connected?: boolean
+          keyword_router_id?: string | null
           last_assigned_user_id?: string | null
           manual_device_label?: string | null
           manual_instance_number?: string | null
@@ -11899,6 +12005,13 @@ export type Database = {
             columns: ["bot_team_id"]
             isOneToOne: false
             referencedRelation: "bot_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instances_keyword_router_id_fkey"
+            columns: ["keyword_router_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_bot_routers"
             referencedColumns: ["id"]
           },
           {
