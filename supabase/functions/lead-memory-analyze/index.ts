@@ -484,14 +484,36 @@ serve(async (req) => {
 
     // Action: briefing - Gera briefing para o vendedor
     if (action === 'briefing') {
-      if (!organizationId || !leadId) {
+      if (!leadId) {
         return new Response(
-          JSON.stringify({ error: 'Missing required fields' }),
+          JSON.stringify({ error: 'Missing leadId' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const briefing = await generateSellerBriefing(organizationId, leadId, contactName || 'Cliente');
+      // Buscar organizationId do lead se não fornecido
+      let resolvedOrgId = organizationId;
+      if (!resolvedOrgId) {
+        const { data: leadData } = await supabase
+          .from('leads')
+          .select('organization_id')
+          .eq('id', leadId)
+          .single();
+        
+        if (!leadData?.organization_id) {
+          return new Response(
+            JSON.stringify({ error: 'Lead not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        resolvedOrgId = leadData.organization_id;
+      }
+
+      console.log('📋 Generating seller briefing for lead:', leadId);
+
+      const briefing = await generateSellerBriefing(resolvedOrgId, leadId, contactName || 'Cliente');
+
+      console.log('📋 Briefing generated, length:', briefing.length);
 
       return new Response(
         JSON.stringify({ success: true, briefing }),
