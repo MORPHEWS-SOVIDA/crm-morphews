@@ -254,6 +254,44 @@ function validateAndAdjustDimensions(
   return { weight, height, width, length };
 }
 
+// Build objetoPostal structure used by both payload formats
+function buildObjetoPostal(
+  tipoObjeto: string,
+  formatCode: number,
+  dimensions: { weight: number; height: number; width: number; length: number },
+  declaredValueCents?: number
+) {
+  const obj: Record<string, unknown> = {
+    tipoObjeto: String(tipoObjeto),
+    codigoFormatoObjeto: Number(formatCode),
+    peso: Math.round(Number(dimensions.weight)),
+    dimensao: {
+      altura: Math.round(Number(dimensions.height)),
+      largura: Math.round(Number(dimensions.width)),
+      comprimento: Math.round(Number(dimensions.length)),
+    },
+    objetosProibidos: 'N',
+  };
+  if (declaredValueCents && declaredValueCents > 0) {
+    obj.vlrDeclarado = Number((declaredValueCents / 100).toFixed(2));
+  }
+  return obj;
+}
+
+// Build itensDeclaracaoConteudo array
+function buildDeclaracaoConteudo(dimensions: { weight: number }, declaredValueCents?: number) {
+  const declaredValue = Number(((declaredValueCents || 10000) / 100).toFixed(2));
+  const itemWeight = Math.round(Number(dimensions.weight));
+  return [
+    {
+      conteudo: 'Produtos diversos',
+      quantidade: 1,
+      valor: declaredValue,
+      peso: itemWeight,
+    }
+  ];
+}
+
 async function createPrePostagem(
   config: CorreiosConfig,
   token: string,
@@ -267,9 +305,7 @@ async function createPrePostagem(
   // Validate and adjust dimensions according to Correios limits
   const dimensions = validateAndAdjustDimensions(pkg, config, serviceCode);
   
-  // Determine package format - ALWAYS use CAIXA (2) for standard shipments
-  // 1=Envelope, 2=Caixa/Pacote, 3=Rolo/Prisma
-  // CRITICAL: formatCode MUST be an integer, not a string
+  // Determine package format
   const packageType = (config.default_package_type || 'caixa').toLowerCase().trim();
   const formatCode: number = packageType === 'envelope' ? 1 :
                              packageType === 'cilindro' ? 3 : 2;
@@ -278,11 +314,7 @@ async function createPrePostagem(
   
   console.log(`Package type: ${packageType}, formatCode: ${formatCode} (type: ${typeof formatCode}), tipoObjeto: ${tipoObjeto}`);
   
-  // Format phone according to Correios expectations.
-  // CORREIOS API v3 (prepostagem) expects phone fields to be structured as:
-  // - Mobile: separate fields `dddCelular` (2 digits) and `celular` (9 digits starting with 9)
-  // - Landline: separate fields `dddTelefone` (2 digits) and `telefone` (8 digits)
-  // CRITICAL: The old single `celular` field with 11 digits causes "Excedeu tamanho" errors!
+  // Parse phones
   type ParsedPhone = { ddd: string; numero: string; kind: 'mobile' | 'landline' } | null;
   
   const parseBrPhone = (phone?: string | null): ParsedPhone => {
@@ -291,37 +323,29 @@ async function createPrePostagem(
     
     console.log(`Parsing phone: "${phone}" -> digits: "${digits}" (length: ${digits.length})`);
 
-    // Strip country code (55) aggressively - handle multiple 55 prefixes too
     while (digits.length > 11 && digits.startsWith('55')) {
       digits = digits.slice(2);
     }
     
-    // Handle edge case: 5554... where 55 was DDI and 54 is DDD
-    // After stripping 55, we should have 11 digits max
     if (digits.length > 11) {
-      // Take the last 11 digits as best effort
       digits = digits.slice(-11);
     }
 
-    // Validate final length
     if (digits.length < 10) {
       console.log(`Phone too short after processing: ${digits.length} digits`);
       return null;
     }
     
     if (digits.length === 10) {
-      // Landline: DDD (2) + number (8)
       return { ddd: digits.slice(0, 2), numero: digits.slice(2), kind: 'landline' };
     }
     
     if (digits.length === 11) {
       const ddd = digits.slice(0, 2);
       const numero = digits.slice(2);
-      // Validate mobile format: must start with 9
       if (numero.startsWith('9')) {
         return { ddd, numero, kind: 'mobile' };
       } else {
-        // 11 digits but doesn't start with 9 - treat as invalid mobile, try as landline
         console.log(`11 digits but not starting with 9 - treating as landline`);
         return { ddd, numero: numero.slice(1), kind: 'landline' };
       }
@@ -335,147 +359,219 @@ async function createPrePostagem(
   
   console.log('Sender phone parsed:', senderPhone);
   console.log('Recipient phone parsed:', recipientPhone);
-  
-  // Build pre-postagem payload according to Correios API v3
-  // IMPORTANT: Use separate dddCelular/celular fields instead of single 11-digit celular
-  const payload: any = {
-    idCorreios: config.id_correios,
-    codigoServico: serviceCode,
-    remetente: {
-      nome: config.sender_name,
-      cpfCnpj: config.sender_cpf_cnpj?.replace(/\D/g, ''),
-      endereco: {
-        logradouro: config.sender_street,
-        numero: config.sender_number,
-        complemento: config.sender_complement || '',
-        bairro: config.sender_neighborhood,
-        cidade: config.sender_city,
-        uf: config.sender_state?.toUpperCase(),
-        cep: config.sender_cep?.replace(/\D/g, ''),
-      },
-      email: config.sender_email,
-    },
-    destinatario: {
-      nome: request.recipient.name,
-      cpfCnpj: request.recipient.cpf_cnpj?.replace(/\D/g, ''),
-      endereco: {
-        logradouro: request.recipient.street,
-        numero: request.recipient.number,
-        complemento: request.recipient.complement || '',
-        bairro: request.recipient.neighborhood,
-        cidade: request.recipient.city,
-        uf: request.recipient.state?.toUpperCase(),
-        cep: request.recipient.cep?.replace(/\D/g, ''),
-      },
-      email: request.recipient.email || undefined,
-    },
-    objetoPostal: {
-      tipoObjeto: String(tipoObjeto),
-      // CRITICAL: codigoFormatoObjeto MUST be an integer - Correios API returns "null" if not
-      codigoFormatoObjeto: Number(formatCode),
-      // Peso total do objeto em gramas (obrigatório) - MUST be integer
-      peso: Math.round(Number(dimensions.weight)),
-      dimensao: {
-        altura: Math.round(Number(dimensions.height)),
-        largura: Math.round(Number(dimensions.width)),
-        comprimento: Math.round(Number(dimensions.length)),
-      },
-      // Correios exige confirmação explícita (PPN-330) - MUST be String 'N' ou 'S'
-      objetosProibidos: 'N',
-    },
-    // Flag to indicate we're sending declaration of contents
-    declaracaoConteudo: true,
-  };
 
-  // Add phone fields using SEPARATE ddd and number fields to avoid "Excedeu tamanho" errors
-  // Correios API v3 expects: dddCelular (2 digits) + celular (9 digits) for mobile
-  // Or: dddTelefone (2 digits) + telefone (8 digits) for landline
+  // Build remetente object
+  const remetente: Record<string, unknown> = {
+    nome: config.sender_name,
+    cpfCnpj: config.sender_cpf_cnpj?.replace(/\D/g, ''),
+    endereco: {
+      logradouro: config.sender_street,
+      numero: config.sender_number,
+      complemento: config.sender_complement || '',
+      bairro: config.sender_neighborhood,
+      cidade: config.sender_city,
+      uf: config.sender_state?.toUpperCase(),
+      cep: config.sender_cep?.replace(/\D/g, ''),
+    },
+    email: config.sender_email,
+  };
+  
   if (senderPhone) {
     if (senderPhone.kind === 'mobile') {
-      payload.remetente.dddCelular = senderPhone.ddd;
-      payload.remetente.celular = senderPhone.numero;
+      remetente.dddCelular = senderPhone.ddd;
+      remetente.celular = senderPhone.numero;
     } else {
-      payload.remetente.dddTelefone = senderPhone.ddd;
-      payload.remetente.telefone = senderPhone.numero;
+      remetente.dddTelefone = senderPhone.ddd;
+      remetente.telefone = senderPhone.numero;
     }
   }
+
+  // Build destinatario object
+  const destinatario: Record<string, unknown> = {
+    nome: request.recipient.name,
+    cpfCnpj: request.recipient.cpf_cnpj?.replace(/\D/g, '') || undefined,
+    endereco: {
+      logradouro: request.recipient.street,
+      numero: request.recipient.number,
+      complemento: request.recipient.complement || '',
+      bairro: request.recipient.neighborhood,
+      cidade: request.recipient.city,
+      uf: request.recipient.state?.toUpperCase(),
+      cep: request.recipient.cep?.replace(/\D/g, ''),
+    },
+    email: request.recipient.email || undefined,
+  };
   
   if (recipientPhone) {
     if (recipientPhone.kind === 'mobile') {
-      payload.destinatario.dddCelular = recipientPhone.ddd;
-      payload.destinatario.celular = recipientPhone.numero;
+      destinatario.dddCelular = recipientPhone.ddd;
+      destinatario.celular = recipientPhone.numero;
     } else {
-      payload.destinatario.dddTelefone = recipientPhone.ddd;
-      payload.destinatario.telefone = recipientPhone.numero;
+      destinatario.dddTelefone = recipientPhone.ddd;
+      destinatario.telefone = recipientPhone.numero;
     }
   }
 
-  // Add invoice info if provided
+  // Build objetoPostal
+  const objetoPostal = buildObjetoPostal(tipoObjeto, formatCode, dimensions, pkg.declared_value_cents);
+  
+  // Build declaração de conteúdo
+  const useDeclaracao = !request.invoice_key;
+  const itensDeclaracaoConteudo = useDeclaracao ? buildDeclaracaoConteudo(dimensions, pkg.declared_value_cents) : undefined;
+
+  // Build documentoFiscal if needed
+  let documentoFiscal: Record<string, unknown> | undefined;
   if (request.invoice_key) {
-    payload.documentoFiscal = {
+    documentoFiscal = {
       tipo: 'NFE',
       numero: request.invoice_number || '',
       chave: request.invoice_key,
     };
-    payload.declaracaoConteudo = false; // When using NFe, disable declaração
   } else if (request.invoice_number) {
-    payload.documentoFiscal = {
+    documentoFiscal = {
       tipo: 'DECLARACAO',
       numero: request.invoice_number,
     };
   }
 
-  // Add declared value if provided
+  // ============================================
+  // PAYLOAD FORMAT 1: Current structure (objetoPostal as object)
+  // ============================================
+  const payloadV1: Record<string, unknown> = {
+    idCorreios: config.id_correios,
+    codigoServico: serviceCode,
+    remetente,
+    destinatario,
+    objetoPostal,
+    declaracaoConteudo: useDeclaracao,
+  };
+  if (itensDeclaracaoConteudo) {
+    payloadV1.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
+  }
+  if (documentoFiscal) {
+    payloadV1.documentoFiscal = documentoFiscal;
+  }
+
+  // ============================================
+  // PAYLOAD FORMAT 2: Alternative structure (objetosPostais as array)
+  // Some Correios contracts expect this structure
+  // ============================================
+  const payloadV2: Record<string, unknown> = {
+    idCorreios: config.id_correios,
+    codigoServico: serviceCode,
+    remetente,
+    destinatario,
+    objetosPostais: [objetoPostal],
+    declaracaoConteudo: useDeclaracao,
+  };
+  if (itensDeclaracaoConteudo) {
+    payloadV2.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
+  }
+  if (documentoFiscal) {
+    payloadV2.documentoFiscal = documentoFiscal;
+  }
+
+  // ============================================
+  // PAYLOAD FORMAT 3: Flat structure with peso/dimensao at root level
+  // Some older API versions expect this
+  // ============================================
+  const payloadV3: Record<string, unknown> = {
+    idCorreios: config.id_correios,
+    codigoServico: serviceCode,
+    remetente,
+    destinatario,
+    tipoObjeto: String(tipoObjeto),
+    codigoFormatoObjeto: Number(formatCode),
+    peso: Math.round(Number(dimensions.weight)),
+    altura: Math.round(Number(dimensions.height)),
+    largura: Math.round(Number(dimensions.width)),
+    comprimento: Math.round(Number(dimensions.length)),
+    objetosProibidos: 'N',
+    declaracaoConteudo: useDeclaracao,
+  };
   if (pkg.declared_value_cents && pkg.declared_value_cents > 0) {
-    // Campo correto no PPN: vlrDeclarado (em Reais, não centavos)
-    payload.objetoPostal.vlrDeclarado = pkg.declared_value_cents / 100;
+    payloadV3.vlrDeclarado = Number((pkg.declared_value_cents / 100).toFixed(2));
+  }
+  if (itensDeclaracaoConteudo) {
+    payloadV3.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
+  }
+  if (documentoFiscal) {
+    payloadV3.documentoFiscal = documentoFiscal;
   }
 
-  // CRITICAL: Add contents description for declaração de conteúdo (PPN-348)
-  // The API requires ALL fields: conteudo, quantidade, valor AND peso per item
-  // All fields must have correct types: conteudo=string, quantidade=int, valor=float, peso=int
-  if (payload.declaracaoConteudo) {
-    const declaredValue = Number((pkg.declared_value_cents || 10000) / 100);
-    const itemWeight = Math.round(Number(dimensions.weight));
-    
-    console.log(`Declaration content: valor=${declaredValue}, peso=${itemWeight} (type: ${typeof itemWeight})`);
-    
-    payload.itensDeclaracaoConteudo = [
-      {
-        conteudo: 'Produtos diversos',
-        quantidade: 1,
-        valor: Number(declaredValue.toFixed(2)),
-        // CRITICAL: peso por item é OBRIGATÓRIO e DEVE ser inteiro
-        peso: itemWeight,
-      }
-    ];
-  }
-
-  console.log('Creating pre-postagem with payload:', JSON.stringify(payload, null, 2));
+  const payloads = [
+    { name: 'V1 (objetoPostal object)', payload: payloadV1 },
+    { name: 'V2 (objetosPostais array)', payload: payloadV2 },
+    { name: 'V3 (flat structure)', payload: payloadV3 },
+  ];
 
   const endpoint = `${baseUrl}/prepostagem/v1/prepostagens`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  let lastError: CorreiosApiError | null = null;
 
-  if (!response.ok) {
-    const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
-    console.error('Correios pre-postagem error:', response.status, rawBody);
-    throw new CorreiosApiError({
-      message: `Falha ao criar pré-postagem (${response.status}): ${humanMessage}`,
-      status: response.status,
-      endpoint,
-      rawBody,
-      parsedBody,
-    });
+  for (const { name, payload } of payloads) {
+    console.log(`\n========== Trying payload format: ${name} ==========`);
+    console.log('Payload:', JSON.stringify(payload, null, 2));
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        console.log(`SUCCESS with payload format: ${name}`);
+        return await response.json();
+      }
+
+      const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+      console.error(`Payload format ${name} failed (${response.status}):`, rawBody);
+      
+      // Check if this is a schema/structure error (try next format)
+      const isStructureError = rawBody.includes('null') || 
+                               rawBody.includes('não informado') ||
+                               rawBody.includes('PPN-348') ||
+                               rawBody.includes('PPN-330');
+      
+      lastError = new CorreiosApiError({
+        message: `Falha ao criar pré-postagem (${response.status}): ${humanMessage}`,
+        status: response.status,
+        endpoint,
+        rawBody,
+        parsedBody,
+      });
+
+      if (!isStructureError) {
+        // If it's not a structure error, no point trying other formats
+        throw lastError;
+      }
+      
+      // Continue to next payload format
+      console.log(`Structure error detected, trying next payload format...`);
+      
+    } catch (fetchError) {
+      if (fetchError instanceof CorreiosApiError) {
+        lastError = fetchError;
+        // Check if we should continue trying
+        const isStructureError = fetchError.rawBody?.includes('null') || 
+                                 fetchError.rawBody?.includes('não informado') ||
+                                 fetchError.rawBody?.includes('PPN-348') ||
+                                 fetchError.rawBody?.includes('PPN-330');
+        if (!isStructureError) {
+          throw fetchError;
+        }
+      } else {
+        throw fetchError;
+      }
+    }
   }
 
-  return await response.json();
+  // All formats failed
+  console.error('All payload formats failed. Last error:', lastError);
+  throw lastError || new Error('Todos os formatos de payload falharam');
 }
 
 async function getLabel(config: CorreiosConfig, token: string, prePostagemId: string): Promise<ArrayBuffer> {
