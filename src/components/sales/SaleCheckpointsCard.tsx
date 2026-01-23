@@ -185,6 +185,41 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
       })
       .eq('id', saleId);
 
+    // Automatically unmark printed and dispatched checkpoints with history
+    const { data: existingCheckpoints } = await supabase
+      .from('sale_checkpoints')
+      .select('id, checkpoint_type, completed_at, organization_id')
+      .eq('sale_id', saleId)
+      .in('checkpoint_type', ['printed', 'dispatched']);
+
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+
+    for (const checkpoint of existingCheckpoints || []) {
+      if (checkpoint.completed_at) {
+        // Update checkpoint to uncompleted
+        await supabase
+          .from('sale_checkpoints')
+          .update({
+            completed_at: null,
+            completed_by: null,
+          })
+          .eq('id', checkpoint.id);
+
+        // Insert history record
+        await supabase
+          .from('sale_checkpoint_history')
+          .insert({
+            sale_id: saleId,
+            checkpoint_id: checkpoint.id,
+            checkpoint_type: checkpoint.checkpoint_type,
+            action: 'uncompleted',
+            changed_by: userId,
+            notes: `Desmarcado automaticamente porque venda foi marcada como "Voltou"`,
+            organization_id: checkpoint.organization_id,
+          });
+      }
+    }
+
     setShowReturnDialog(false);
     setSelectedReturnReason('');
     setReturnNotes('');
