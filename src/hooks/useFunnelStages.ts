@@ -14,6 +14,7 @@ export interface FunnelStageCustom {
   is_default: boolean;
   enum_value: FunnelStage | null; // NEW: maps to lead.stage
   requires_contact: boolean; // Leads in this stage appear in "Clientes sem contato"
+  default_followup_reason_id: string | null; // Follow-up automático preferencial para esta etapa
   created_at: string;
   updated_at: string;
 }

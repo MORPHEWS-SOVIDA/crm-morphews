@@ -6018,6 +6018,7 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          default_followup_reason_id: string | null
           enum_value: Database["public"]["Enums"]["funnel_stage"] | null
           id: string
           is_default: boolean
@@ -6032,6 +6033,7 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string
+          default_followup_reason_id?: string | null
           enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
@@ -6046,6 +6048,7 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string
+          default_followup_reason_id?: string | null
           enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
@@ -6058,6 +6061,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_funnel_stages_default_followup_reason_id_fkey"
+            columns: ["default_followup_reason_id"]
+            isOneToOne: false
+            referencedRelation: "non_purchase_reasons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_funnel_stages_organization_id_fkey"
             columns: ["organization_id"]

@@ -17,13 +17,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom } from '@/hooks/useFunnelStages';
+import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -121,6 +122,12 @@ function StageEditForm({
   const [stageType, setStageType] = useState<'funnel' | 'cloud' | 'trash'>(stage?.stage_type || 'funnel');
   const [requiresContact, setRequiresContact] = useState(stage?.requires_contact || false);
   const [enumValue, setEnumValue] = useState<FunnelStage | 'none'>(stage?.enum_value || 'none');
+  const [defaultFollowupReasonId, setDefaultFollowupReasonId] = useState<string | null>(
+    stage?.default_followup_reason_id || null
+  );
+
+  // Fetch non-purchase reasons for followup selector
+  const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
 
   const selectedColorInfo = STAGE_COLORS.find(c => c.value === color);
 
@@ -142,6 +149,7 @@ function StageEditForm({
       stage_type: stageType,
       requires_contact: requiresContact,
       enum_value: enumValue === 'none' ? null : enumValue,
+      default_followup_reason_id: defaultFollowupReasonId,
     };
 
     if (isNew) {
@@ -287,6 +295,52 @@ function StageEditForm({
             Leads nesta etapa aparecem em "Clientes sem contato" para vendedores assumirem
           </p>
         </div>
+      </div>
+
+      {/* Default Follow-up Selector */}
+      <div className="space-y-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-amber-600" />
+          <Label className="text-sm font-medium">Follow-up Automático Preferencial</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Quando um lead entrar nesta etapa, este follow-up será sugerido automaticamente. O usuário pode escolher outro ou desativar.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Select 
+          value={defaultFollowupReasonId || 'none'} 
+          onValueChange={(v) => setDefaultFollowupReasonId(v === 'none' ? null : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Nenhum follow-up padrão" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">
+              <span className="text-muted-foreground">Nenhum follow-up padrão</span>
+            </SelectItem>
+            {nonPurchaseReasons.map((reason) => (
+              <SelectItem key={reason.id} value={reason.id}>
+                <div className="flex items-center gap-2">
+                  <span>{reason.name}</span>
+                  {reason.followup_hours > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {reason.followup_hours}h
+                    </Badge>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Este follow-up será sugerido ao mover um lead para esta etapa
+        </p>
       </div>
 
       {/* Preview */}

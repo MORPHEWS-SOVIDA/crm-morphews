@@ -20,10 +20,11 @@ import { FunnelStageCustom, getStageEnumValue } from '@/hooks/useFunnelStages';
 import { groupLeadsByFunnelStageId, findLeadStage } from '@/lib/funnelStageAssignment';
 import { useUpdateLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
+import { useCreateFollowup } from '@/hooks/useLeadFollowups';
 import { useAuth } from '@/hooks/useAuth';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
-import { StageChangeDialog } from '@/components/StageChangeDialog';
+import { StageChangeDialog, StageChangeResult } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
 import { GripVertical, User, DollarSign } from 'lucide-react';
@@ -232,6 +233,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
   const { profile, user } = useAuth();
   const updateLead = useUpdateLead();
   const addStageHistory = useAddStageHistory();
+  const createFollowup = useCreateFollowup();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   
   // State for stage change dialog
@@ -355,7 +357,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     }
   };
 
-  const handleConfirmStageChange = async (reason: string | null) => {
+  const handleConfirmStageChange = async (result: StageChangeResult) => {
     if (!pendingChange || !profile?.organization_id) return;
     
     setIsUpdating(true);
@@ -373,13 +375,26 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
         organization_id: profile.organization_id,
         stage: pendingChange.newStage,
         previous_stage: pendingChange.previousStage,
-        reason: reason,
+        reason: result.reason,
         changed_by: user?.id || null,
       });
 
+      // Schedule follow-up if selected
+      if (result.followupReasonId && result.followupDate) {
+        await createFollowup.mutateAsync({
+          lead_id: pendingChange.leadId,
+          scheduled_at: result.followupDate,
+          reason: `Mudança de etapa: ${pendingChange.previousStage} → ${pendingChange.newStage}`,
+          source_type: 'stage_change',
+          source_id: result.followupReasonId,
+        });
+      }
+
       toast({
         title: "Etapa atualizada",
-        description: "O lead foi movido e o histórico foi registrado.",
+        description: result.followupReasonId 
+          ? "O lead foi movido e o follow-up foi agendado."
+          : "O lead foi movido e o histórico foi registrado.",
       });
     } catch (error: any) {
       console.error("Error updating stage:", error);
@@ -450,6 +465,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
               color: newCustomStage.color,
               textColor: newCustomStage.text_color,
             } : undefined}
+            defaultFollowupReasonId={newCustomStage?.default_followup_reason_id}
           />
         );
       })()}
