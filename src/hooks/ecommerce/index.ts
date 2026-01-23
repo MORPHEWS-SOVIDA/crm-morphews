@@ -141,6 +141,26 @@ export {
 } from './usePaymentGateways';
 
 // =============================================================================
+// PLATFORM GATEWAYS (Super Admin - Multi-Gateway Fallback)
+// =============================================================================
+export {
+  useActivePlatformGateways,
+  useGatewayFallbackConfig,
+  useTenantPaymentFees,
+  usePaymentAttempts,
+  useSavedPaymentMethods,
+  calculateTransactionFees,
+  GATEWAY_INFO,
+  PAYMENT_METHOD_LABELS,
+  type PlatformGatewayConfig,
+  type GatewayFallbackConfig,
+  type TenantPaymentFees,
+  type PaymentAttempt,
+  type SavedPaymentMethod,
+  type PaymentMethodType,
+} from './usePlatformGateways';
+
+// =============================================================================
 // PUBLIC STOREFRONT (Frontend Público)
 // =============================================================================
 export {

@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -32,6 +32,8 @@ import { SecretaryMessagesManager } from "@/components/super-admin/SecretaryMess
 import { HelperConversationsTab } from "@/components/super-admin/HelperConversationsTab";
 import { SubscriptionKPIs } from "@/components/super-admin/SubscriptionKPIs";
 import { BillingManagementTab } from "@/components/super-admin/BillingManagementTab";
+import { PlatformGatewaysTab } from "@/components/super-admin/PlatformGatewaysTab";
+import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFeesTab";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -737,6 +739,14 @@ export default function SuperAdmin() {
               <Package className="h-3 w-3" />
               Planos
             </TabsTrigger>
+            <TabsTrigger value="gateways" className="gap-1">
+              <Wallet className="h-3 w-3" />
+              Gateways
+            </TabsTrigger>
+            <TabsTrigger value="tenant-fees" className="gap-1">
+              <Percent className="h-3 w-3" />
+              Taxas
+            </TabsTrigger>
             
             {/* 📱 WhatsApp */}
             <TabsTrigger value="whatsapp" className="gap-1">
@@ -1269,6 +1279,14 @@ export default function SuperAdmin() {
 
           <TabsContent value="helper-donna">
             <HelperConversationsTab />
+          </TabsContent>
+
+          <TabsContent value="gateways">
+            <PlatformGatewaysTab />
+          </TabsContent>
+
+          <TabsContent value="tenant-fees">
+            <TenantPaymentFeesTab />
           </TabsContent>
         </Tabs>
       </div>

@@ -2716,6 +2716,45 @@ export type Database = {
           },
         ]
       }
+      gateway_fallback_config: {
+        Row: {
+          created_at: string | null
+          fallback_enabled: boolean | null
+          fallback_gateways: string[] | null
+          fallback_on_error_codes: string[] | null
+          id: string
+          max_fallback_attempts: number | null
+          no_fallback_error_codes: string[] | null
+          payment_method: string
+          primary_gateway: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fallback_enabled?: boolean | null
+          fallback_gateways?: string[] | null
+          fallback_on_error_codes?: string[] | null
+          id?: string
+          max_fallback_attempts?: number | null
+          no_fallback_error_codes?: string[] | null
+          payment_method: string
+          primary_gateway: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fallback_enabled?: boolean | null
+          fallback_gateways?: string[] | null
+          fallback_on_error_codes?: string[] | null
+          id?: string
+          max_fallback_attempts?: number | null
+          no_fallback_error_codes?: string[] | null
+          payment_method?: string
+          primary_gateway?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       google_tokens: {
         Row: {
           access_token: string
@@ -5828,6 +5867,167 @@ export type Database = {
           },
         ]
       }
+      payment_admin_actions: {
+        Row: {
+          action_type: string
+          amount_cents: number | null
+          created_at: string | null
+          gateway: string | null
+          id: string
+          metadata: Json | null
+          new_status: string | null
+          notes: string | null
+          organization_id: string | null
+          payment_attempt_id: string | null
+          performed_by: string | null
+          previous_status: string | null
+          sale_id: string | null
+        }
+        Insert: {
+          action_type: string
+          amount_cents?: number | null
+          created_at?: string | null
+          gateway?: string | null
+          id?: string
+          metadata?: Json | null
+          new_status?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          payment_attempt_id?: string | null
+          performed_by?: string | null
+          previous_status?: string | null
+          sale_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          amount_cents?: number | null
+          created_at?: string | null
+          gateway?: string | null
+          id?: string
+          metadata?: Json | null
+          new_status?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          payment_attempt_id?: string | null
+          performed_by?: string | null
+          previous_status?: string | null
+          sale_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_admin_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_admin_actions_payment_attempt_id_fkey"
+            columns: ["payment_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "payment_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_admin_actions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_attempts: {
+        Row: {
+          amount_cents: number
+          attempt_number: number | null
+          cart_id: string | null
+          created_at: string | null
+          error_code: string | null
+          error_message: string | null
+          fallback_from_gateway: string | null
+          gateway: string
+          gateway_response: Json | null
+          gateway_transaction_id: string | null
+          id: string
+          installments: number | null
+          ip_address: string | null
+          is_fallback: boolean | null
+          organization_id: string | null
+          payment_method: string
+          response_time_ms: number | null
+          sale_id: string | null
+          status: string
+          user_agent: string | null
+        }
+        Insert: {
+          amount_cents: number
+          attempt_number?: number | null
+          cart_id?: string | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          fallback_from_gateway?: string | null
+          gateway: string
+          gateway_response?: Json | null
+          gateway_transaction_id?: string | null
+          id?: string
+          installments?: number | null
+          ip_address?: string | null
+          is_fallback?: boolean | null
+          organization_id?: string | null
+          payment_method: string
+          response_time_ms?: number | null
+          sale_id?: string | null
+          status: string
+          user_agent?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          attempt_number?: number | null
+          cart_id?: string | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          fallback_from_gateway?: string | null
+          gateway?: string
+          gateway_response?: Json | null
+          gateway_transaction_id?: string | null
+          id?: string
+          installments?: number | null
+          ip_address?: string | null
+          is_fallback?: boolean | null
+          organization_id?: string | null
+          payment_method?: string
+          response_time_ms?: number | null
+          sale_id?: string | null
+          status?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_attempts_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_bank_destinations: {
         Row: {
           created_at: string
@@ -6236,6 +6436,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_gateway_config: {
+        Row: {
+          api_key_encrypted: string | null
+          api_secret_encrypted: string | null
+          created_at: string | null
+          display_name: string
+          gateway_type: string
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          is_sandbox: boolean | null
+          priority: number | null
+          settings: Json | null
+          updated_at: string | null
+          webhook_secret_encrypted: string | null
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_secret_encrypted?: string | null
+          created_at?: string | null
+          display_name: string
+          gateway_type: string
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          is_sandbox?: boolean | null
+          priority?: number | null
+          settings?: Json | null
+          updated_at?: string | null
+          webhook_secret_encrypted?: string | null
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_secret_encrypted?: string | null
+          created_at?: string | null
+          display_name?: string
+          gateway_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          is_sandbox?: boolean | null
+          priority?: number | null
+          settings?: Json | null
+          updated_at?: string | null
+          webhook_secret_encrypted?: string | null
+        }
+        Relationships: []
       }
       platform_settings: {
         Row: {
@@ -8122,6 +8370,87 @@ export type Database = {
           },
         ]
       }
+      saved_payment_methods: {
+        Row: {
+          card_brand: string | null
+          card_expiry_month: number | null
+          card_expiry_year: number | null
+          card_first6: string | null
+          card_holder_name: string | null
+          card_last4: string | null
+          created_at: string | null
+          fingerprint_hash: string | null
+          gateway: string
+          gateway_card_id: string | null
+          gateway_customer_id: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          last_used_at: string | null
+          lead_id: string
+          organization_id: string
+          payment_type: string
+          times_used: number | null
+        }
+        Insert: {
+          card_brand?: string | null
+          card_expiry_month?: number | null
+          card_expiry_year?: number | null
+          card_first6?: string | null
+          card_holder_name?: string | null
+          card_last4?: string | null
+          created_at?: string | null
+          fingerprint_hash?: string | null
+          gateway: string
+          gateway_card_id?: string | null
+          gateway_customer_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          last_used_at?: string | null
+          lead_id: string
+          organization_id: string
+          payment_type: string
+          times_used?: number | null
+        }
+        Update: {
+          card_brand?: string | null
+          card_expiry_month?: number | null
+          card_expiry_year?: number | null
+          card_first6?: string | null
+          card_holder_name?: string | null
+          card_last4?: string | null
+          created_at?: string | null
+          fingerprint_hash?: string | null
+          gateway?: string
+          gateway_card_id?: string | null
+          gateway_customer_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          last_used_at?: string | null
+          lead_id?: string
+          organization_id?: string
+          payment_type?: string
+          times_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_payment_methods_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_payment_methods_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       secretary_conversation_history: {
         Row: {
           created_at: string
@@ -9020,6 +9349,89 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tenant_payment_fees: {
+        Row: {
+          allow_save_card: boolean | null
+          boleto_enabled: boolean | null
+          boleto_expiration_days: number | null
+          boleto_fee_fixed_cents: number | null
+          boleto_fee_percentage: number | null
+          boleto_release_days: number | null
+          card_enabled: boolean | null
+          card_fee_fixed_cents: number | null
+          card_fee_percentage: number | null
+          card_release_days: number | null
+          created_at: string | null
+          id: string
+          installment_fee_passed_to_buyer: boolean | null
+          installment_fees: Json | null
+          max_installments: number | null
+          notes: string | null
+          organization_id: string
+          pix_enabled: boolean | null
+          pix_fee_fixed_cents: number | null
+          pix_fee_percentage: number | null
+          pix_release_days: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          allow_save_card?: boolean | null
+          boleto_enabled?: boolean | null
+          boleto_expiration_days?: number | null
+          boleto_fee_fixed_cents?: number | null
+          boleto_fee_percentage?: number | null
+          boleto_release_days?: number | null
+          card_enabled?: boolean | null
+          card_fee_fixed_cents?: number | null
+          card_fee_percentage?: number | null
+          card_release_days?: number | null
+          created_at?: string | null
+          id?: string
+          installment_fee_passed_to_buyer?: boolean | null
+          installment_fees?: Json | null
+          max_installments?: number | null
+          notes?: string | null
+          organization_id: string
+          pix_enabled?: boolean | null
+          pix_fee_fixed_cents?: number | null
+          pix_fee_percentage?: number | null
+          pix_release_days?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          allow_save_card?: boolean | null
+          boleto_enabled?: boolean | null
+          boleto_expiration_days?: number | null
+          boleto_fee_fixed_cents?: number | null
+          boleto_fee_percentage?: number | null
+          boleto_release_days?: number | null
+          card_enabled?: boolean | null
+          card_fee_fixed_cents?: number | null
+          card_fee_percentage?: number | null
+          card_release_days?: number | null
+          created_at?: string | null
+          id?: string
+          installment_fee_passed_to_buyer?: boolean | null
+          installment_fees?: Json | null
+          max_installments?: number | null
+          notes?: string | null
+          organization_id?: string
+          pix_enabled?: boolean | null
+          pix_fee_fixed_cents?: number | null
+          pix_fee_percentage?: number | null
+          pix_release_days?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_payment_fees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_storefronts: {
         Row: {
