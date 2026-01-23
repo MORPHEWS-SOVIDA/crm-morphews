@@ -254,42 +254,51 @@ function validateAndAdjustDimensions(
   return { weight, height, width, length };
 }
 
-// Build objetoPostal structure used by both payload formats
-function buildObjetoPostal(
+// Build objetoPostal structure for PPN v3 API
+// CRITICAL: The API requires specific field names and structure
+function buildObjetoPostalPPNv3(
   tipoObjeto: string,
   formatCode: number,
   dimensions: { weight: number; height: number; width: number; length: number },
-  declaredValueCents?: number
-) {
-  const obj: Record<string, unknown> = {
-    tipoObjeto: String(tipoObjeto),
-    codigoFormatoObjeto: Number(formatCode),
-    peso: Math.round(Number(dimensions.weight)),
-    dimensao: {
-      altura: Math.round(Number(dimensions.height)),
-      largura: Math.round(Number(dimensions.width)),
-      comprimento: Math.round(Number(dimensions.length)),
-    },
-    objetosProibidos: 'N',
-  };
-  if (declaredValueCents && declaredValueCents > 0) {
-    obj.vlrDeclarado = Number((declaredValueCents / 100).toFixed(2));
-  }
-  return obj;
-}
+  declaredValueCents?: number,
+  includeDeclaracao: boolean = true
+): Record<string, unknown> {
+  const peso = Math.round(Number(dimensions.weight));
+  const altura = Math.round(Number(dimensions.height));
+  const largura = Math.round(Number(dimensions.width));
+  const comprimento = Math.round(Number(dimensions.length));
+  const valorDeclarado = declaredValueCents && declaredValueCents > 0 
+    ? Number((declaredValueCents / 100).toFixed(2)) 
+    : 100; // Default R$ 100 if not specified
 
-// Build itensDeclaracaoConteudo array
-function buildDeclaracaoConteudo(dimensions: { weight: number }, declaredValueCents?: number) {
-  const declaredValue = Number(((declaredValueCents || 10000) / 100).toFixed(2));
-  const itemWeight = Math.round(Number(dimensions.weight));
-  return [
-    {
-      conteudo: 'Produtos diversos',
-      quantidade: 1,
-      valor: declaredValue,
-      peso: itemWeight,
-    }
-  ];
+  const obj: Record<string, unknown> = {
+    tipoObjeto: String(tipoObjeto).toUpperCase(),
+    codigoFormatoObjeto: Number(formatCode),
+    peso: peso,
+    pesoInformado: peso, // Some API versions use this field
+    objetosProibidos: 'N',
+    vlrDeclarado: valorDeclarado,
+    dimensao: {
+      altura: altura,
+      largura: largura,
+      comprimento: comprimento,
+    },
+  };
+
+  // Include declaration content INSIDE the object (PPN v3 requirement)
+  if (includeDeclaracao) {
+    obj.itensDeclaracaoConteudo = [
+      {
+        conteudo: 'Produtos diversos',
+        quantidade: 1,
+        valor: valorDeclarado,
+        pesoInformado: peso, // Use pesoInformado instead of peso
+      }
+    ];
+  }
+
+  console.log('Built objetoPostal:', JSON.stringify(obj, null, 2));
+  return obj;
 }
 
 async function createPrePostagem(
@@ -412,12 +421,9 @@ async function createPrePostagem(
     }
   }
 
-  // Build objetoPostal
-  const objetoPostal = buildObjetoPostal(tipoObjeto, formatCode, dimensions, pkg.declared_value_cents);
-  
-  // Build declaração de conteúdo
+  // Build objetoPostal with declaração de conteúdo INSIDE (PPN v3 requirement)
   const useDeclaracao = !request.invoice_key;
-  const itensDeclaracaoConteudo = useDeclaracao ? buildDeclaracaoConteudo(dimensions, pkg.declared_value_cents) : undefined;
+  const objetoPostal = buildObjetoPostalPPNv3(tipoObjeto, formatCode, dimensions, pkg.declared_value_cents, useDeclaracao);
 
   // Build documentoFiscal if needed
   let documentoFiscal: Record<string, unknown> | undefined;
@@ -435,55 +441,45 @@ async function createPrePostagem(
   }
 
   // ============================================
-  // PAYLOAD FORMAT 1: Current structure (objetoPostal as object)
+  // PAYLOAD FORMAT 1 (PPN v3 CORRECT): 
+  // objetosPostais as array with itensDeclaracaoConteudo INSIDE each object
+  // This is the correct structure for PPN v3 API with contract
   // ============================================
   const payloadV1: Record<string, unknown> = {
-    idCorreios: config.id_correios,
     codigoServico: serviceCode,
     remetente,
     destinatario,
-    objetoPostal,
-    declaracaoConteudo: useDeclaracao,
+    objetosPostais: [objetoPostal],
   };
-  if (itensDeclaracaoConteudo) {
-    payloadV1.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
-  }
   if (documentoFiscal) {
     payloadV1.documentoFiscal = documentoFiscal;
   }
 
   // ============================================
-  // PAYLOAD FORMAT 2 (ChatGPT/PPN v3 CORRECT): 
-  // objetosPostais as array with itensDeclaracaoConteudo INSIDE each object
-  // This is the correct structure for PPN v3 API with contract
+  // PAYLOAD FORMAT 2: With idCorreios added
+  // Some contract types may require this
   // ============================================
-  const objetoPostalComDeclaracao: Record<string, unknown> = {
-    ...objetoPostal,
-  };
-  if (useDeclaracao && itensDeclaracaoConteudo) {
-    objetoPostalComDeclaracao.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
-  }
-  
   const payloadV2: Record<string, unknown> = {
+    idCorreios: config.id_correios,
     codigoServico: serviceCode,
     remetente,
     destinatario,
-    objetosPostais: [objetoPostalComDeclaracao],
+    objetosPostais: [objetoPostal],
   };
   if (documentoFiscal) {
     payloadV2.documentoFiscal = documentoFiscal;
   }
 
   // ============================================
-  // PAYLOAD FORMAT 3: Similar to V2 but with idCorreios added
-  // Some contract types may require this
+  // PAYLOAD FORMAT 3: Legacy singular objetoPostal (fallback)
   // ============================================
   const payloadV3: Record<string, unknown> = {
     idCorreios: config.id_correios,
     codigoServico: serviceCode,
     remetente,
     destinatario,
-    objetosPostais: [objetoPostalComDeclaracao],
+    objetoPostal,
+    declaracaoConteudo: useDeclaracao,
   };
   if (documentoFiscal) {
     payloadV3.documentoFiscal = documentoFiscal;
