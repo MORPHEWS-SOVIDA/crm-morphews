@@ -636,6 +636,65 @@ function buildLeadMemoryPrompt(memory: LeadMemoryContext): string {
 // AI PROCESSING
 // ============================================================================
 
+// ============================================================================
+// CONTEXT PROTECTION - Filter problematic messages from history
+// ============================================================================
+
+const MAX_MESSAGE_LENGTH = 500; // Maximum chars per message in context
+const TECHNICAL_PATTERNS = [
+  /^#+\s*[A-Z].*refactor/im,       // Markdown headers with "refactor"
+  /^\s*```/m,                       // Code blocks
+  /^\s*-{3,}/m,                     // Horizontal rules
+  /\b(function|const|let|var|import|export)\s+\w+/i, // Code keywords
+  /\.(ts|tsx|js|jsx|py|sql|json):/i, // File references
+  /wavoip|webhook|endpoint|api_key|supabase|postgres/i, // Technical terms
+  /^\s*\d+\.\s+\*\*[A-Z]/m,        // Numbered technical lists
+  /\bPROBLEMA\s*:/i,               // Technical problem descriptions
+  /\bSOLUÇÃO\s*:/i,                // Technical solution descriptions
+];
+
+function isLikelyTechnicalContent(content: string): boolean {
+  // Check for multiple technical indicators
+  let technicalScore = 0;
+  
+  for (const pattern of TECHNICAL_PATTERNS) {
+    if (pattern.test(content)) {
+      technicalScore++;
+    }
+  }
+  
+  // If 2+ patterns match, likely technical
+  return technicalScore >= 2;
+}
+
+function sanitizeMessageForContext(content: string, direction: 'inbound' | 'outbound'): string | null {
+  if (!content || content.length < 2) return null;
+  
+  // Skip messages that are too long (likely documents/pastes)
+  if (content.length > MAX_MESSAGE_LENGTH * 3 && direction === 'inbound') {
+    // Check if it's technical content
+    if (isLikelyTechnicalContent(content)) {
+      console.log('🛡️ Filtering technical content from context:', content.substring(0, 100) + '...');
+      return null; // Remove entirely from context
+    }
+    
+    // For non-technical long messages, truncate
+    return content.substring(0, MAX_MESSAGE_LENGTH) + '... [mensagem longa truncada]';
+  }
+  
+  // For outbound (bot) messages, just truncate if too long
+  if (content.length > MAX_MESSAGE_LENGTH && direction === 'outbound') {
+    return content.substring(0, MAX_MESSAGE_LENGTH) + '...';
+  }
+  
+  // Regular messages pass through with standard truncation
+  if (content.length > MAX_MESSAGE_LENGTH) {
+    return content.substring(0, MAX_MESSAGE_LENGTH) + '...';
+  }
+  
+  return content;
+}
+
 async function getConversationHistory(conversationId: string, limit = 20): Promise<Array<{role: string, content: string}>> {
   const { data: messages } = await supabase
     .from('whatsapp_messages')
@@ -646,11 +705,19 @@ async function getConversationHistory(conversationId: string, limit = 20): Promi
 
   if (!messages) return [];
 
-  // Inverter para ordem cronológica e mapear para formato OpenAI
-  return messages.reverse().map(msg => ({
-    role: msg.direction === 'inbound' ? 'user' : 'assistant',
-    content: msg.content || ''
-  })).filter(m => m.content);
+  // Inverter para ordem cronológica, sanitizar e mapear para formato OpenAI
+  return messages.reverse()
+    .map(msg => {
+      const sanitizedContent = sanitizeMessageForContext(
+        msg.content || '', 
+        msg.direction as 'inbound' | 'outbound'
+      );
+      return {
+        role: msg.direction === 'inbound' ? 'user' : 'assistant',
+        content: sanitizedContent
+      };
+    })
+    .filter((m): m is {role: string, content: string} => !!m.content);
 }
 
 function buildBotPersonalityPrompt(bot: AIBot): string {
