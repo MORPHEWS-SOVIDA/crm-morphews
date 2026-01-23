@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-type NotificationType = 'assignment' | 'status_change' | 'sla_warning' | 'comment';
+type NotificationType = 'assignment' | 'status_change' | 'sla_warning' | 'comment' | 'update';
 
 interface SendDemandNotificationParams {
   organizationId: string;
@@ -8,6 +8,7 @@ interface SendDemandNotificationParams {
   notificationType: NotificationType;
   targetUserIds?: string[];
   extraData?: Record<string, any>;
+  creatorName?: string;
 }
 
 export async function sendDemandNotification(params: SendDemandNotificationParams) {
@@ -67,5 +68,23 @@ export async function notifyDemandComment(
     demandId,
     notificationType: 'comment',
     extraData: { commenterName },
+  });
+}
+
+// Helper to send notification when demand is updated
+export async function notifyDemandUpdate(
+  organizationId: string,
+  demandId: string,
+  targetUserIds: string[],
+  updaterName: string,
+  changes: string
+) {
+  return sendDemandNotification({
+    organizationId,
+    demandId,
+    notificationType: 'update',
+    targetUserIds,
+    creatorName: updaterName,
+    extraData: { changes },
   });
 }

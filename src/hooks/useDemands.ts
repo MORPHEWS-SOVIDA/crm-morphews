@@ -304,9 +304,11 @@ export function useCreateDemand() {
           throw new Error('Não foi possível atribuir os responsáveis selecionados. Por favor, tente novamente.');
         }
 
-        // Send WhatsApp notification to assignees
-        notifyDemandAssignment(profile.organization_id, demand.id, input.assignee_ids)
-          .catch(err => console.error('Failed to send assignment notification:', err));
+        // Send WhatsApp notification to assignees (only if notify_whatsapp is true)
+        if (input.notify_whatsapp !== false) {
+          notifyDemandAssignment(profile.organization_id, demand.id, input.assignee_ids)
+            .catch(err => console.error('Failed to send assignment notification:', err));
+        }
       }
 
       return demand as Demand;

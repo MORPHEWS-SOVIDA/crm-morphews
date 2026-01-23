@@ -11,9 +11,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 interface NotificationPayload {
   organizationId: string;
   demandId: string;
-  notificationType: "assignment" | "status_change" | "sla_warning" | "comment";
+  notificationType: "assignment" | "status_change" | "sla_warning" | "comment" | "update";
   targetUserIds?: string[];
   extraData?: Record<string, any>;
+  creatorName?: string; // Nome de quem criou/alterou a demanda
 }
 
 interface AdminConfig {
@@ -75,9 +76,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body: NotificationPayload = await req.json();
-    const { organizationId, demandId, notificationType, targetUserIds, extraData } = body;
+    const { organizationId, demandId, notificationType, targetUserIds, extraData, creatorName } = body;
 
-    console.log(`[${requestId}] Notification:`, { organizationId, demandId, notificationType });
+    console.log(`[${requestId}] Notification:`, { organizationId, demandId, notificationType, creatorName });
 
     if (!organizationId || !demandId || !notificationType) {
       return new Response(
@@ -106,84 +107,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get organization settings for notifications
-    const { data: orgSettings } = await supabaseAdmin
-      .from("organization_settings")
-      .select("demand_notifications_enabled, demand_notification_instance_id")
-      .eq("organization_id", organizationId)
-      .single();
-
-    if (!orgSettings?.demand_notifications_enabled) {
-      console.log(`[${requestId}] Notifications disabled for org`);
+    // SEMPRE usar WhatsApp Admin para notificações de demanda
+    // Isso garante que usamos o número oficial do sistema
+    const adminConfig = await getAdminWhatsAppConfig(supabaseAdmin);
+    
+    if (!adminConfig) {
+      console.log(`[${requestId}] No admin WhatsApp config available`);
       return new Response(
-        JSON.stringify({ success: true, message: "Notifications disabled" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "WhatsApp Admin não configurado" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get instance for sending
-    let instanceId = orgSettings.demand_notification_instance_id;
-    if (!instanceId) {
-      // Get first active instance
-      const { data: instances } = await supabaseAdmin
-        .from("whatsapp_instances")
-        .select("id, evolution_instance_id")
-        .eq("organization_id", organizationId)
-        .eq("status", "connected")
-        .limit(1);
-      
-      if (instances?.length) {
-        instanceId = instances[0].id;
-      }
-    }
+    const apiUrl = adminConfig.api_url;
+    const apiKey = adminConfig.api_key;
+    const evolutionInstanceName = adminConfig.instance_name;
 
-    if (!instanceId) {
-      console.log(`[${requestId}] No WhatsApp instance available`);
-      return new Response(
-        JSON.stringify({ success: true, message: "No instance available" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Get instance details OR use admin config
-    let apiUrl = "";
-    let apiKey = "";
-    let evolutionInstanceName = "";
-
-    const { data: instance } = await supabaseAdmin
-      .from("whatsapp_instances")
-      .select("evolution_instance_id, evolution_api_token")
-      .eq("id", instanceId)
-      .single();
-
-    if (instance?.evolution_instance_id) {
-      // Use organization's instance
-      const adminConfig = await getAdminWhatsAppConfig(supabaseAdmin);
-      apiUrl = adminConfig?.api_url || "";
-      apiKey = instance.evolution_api_token || adminConfig?.api_key || "";
-      evolutionInstanceName = instance.evolution_instance_id;
-    } else {
-      // Fallback to admin instance
-      const adminConfig = await getAdminWhatsAppConfig(supabaseAdmin);
-      if (!adminConfig) {
-        console.log(`[${requestId}] No instance or admin config available`);
-        return new Response(
-          JSON.stringify({ success: true, message: "No instance configured" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      apiUrl = adminConfig.api_url;
-      apiKey = adminConfig.api_key;
-      evolutionInstanceName = adminConfig.instance_name;
-    }
-
-    if (!apiUrl || !apiKey || !evolutionInstanceName) {
-      console.log(`[${requestId}] Instance not configured`);
-      return new Response(
-        JSON.stringify({ success: true, message: "Instance not configured" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    console.log(`[${requestId}] Using Admin WhatsApp instance: ${evolutionInstanceName}`);
 
     // Get target users
     let userIds = targetUserIds || [];
@@ -223,22 +163,31 @@ Deno.serve(async (req) => {
       high: "🔴 Alta",
     };
 
+    // Link exclusivo para a demanda
+    const demandLink = `https://crm-morphews.lovable.app/demandas?demand=${demandId}`;
+    const creatorInfo = creatorName ? `*Criado por:* ${creatorName}\n` : "";
+    const updaterInfo = creatorName ? `*Alterado por:* ${creatorName}\n` : "";
+
     let messageTemplate = "";
     switch (notificationType) {
       case "assignment":
-        messageTemplate = `📋 *Nova Demanda Atribuída*\n\n*Título:* ${demand.title}\n*Quadro:* ${demand.board?.name || "N/A"}\n*Coluna:* ${demand.column?.name || "N/A"}\n*Urgência:* ${urgencyLabels[demand.urgency] || demand.urgency}\n${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}${demand.lead?.name ? `*Cliente:* ${demand.lead.name}\n` : ""}\n_Acesse o sistema para mais detalhes._`;
+        messageTemplate = `📋 *Nova Demanda Atribuída*\n\n*Título:* ${demand.title}\n*Quadro:* ${demand.board?.name || "N/A"}\n*Coluna:* ${demand.column?.name || "N/A"}\n*Urgência:* ${urgencyLabels[demand.urgency] || demand.urgency}\n${creatorInfo}${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}${demand.lead?.name ? `*Cliente:* ${demand.lead.name}\n` : ""}\n🔗 *Acesse aqui:* ${demandLink}`;
         break;
       case "status_change":
         const newColumn = extraData?.newColumn || demand.column?.name;
-        messageTemplate = `🔄 *Demanda Movida*\n\n*Título:* ${demand.title}\n*Nova Coluna:* ${newColumn}\n${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}\n_Acesse o sistema para mais detalhes._`;
+        messageTemplate = `🔄 *Demanda Movida*\n\n*Título:* ${demand.title}\n*Nova Coluna:* ${newColumn}\n${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}\n🔗 *Acesse aqui:* ${demandLink}`;
         break;
       case "sla_warning":
         const hoursLeft = extraData?.hoursLeft || 0;
-        messageTemplate = `⚠️ *Alerta de SLA*\n\n*Título:* ${demand.title}\n*Tempo Restante:* ${hoursLeft} horas\n*Prazo:* ${demand.sla_deadline ? new Date(demand.sla_deadline).toLocaleString("pt-BR") : "N/A"}\n\n_Esta demanda está próxima do prazo!_`;
+        messageTemplate = `⚠️ *Alerta de SLA*\n\n*Título:* ${demand.title}\n*Tempo Restante:* ${hoursLeft} horas\n*Prazo:* ${demand.sla_deadline ? new Date(demand.sla_deadline).toLocaleString("pt-BR") : "N/A"}\n\n_Esta demanda está próxima do prazo!_\n\n🔗 *Acesse aqui:* ${demandLink}`;
         break;
       case "comment":
         const commenterName = extraData?.commenterName || "Alguém";
-        messageTemplate = `💬 *Novo Comentário*\n\n*Demanda:* ${demand.title}\n*Por:* ${commenterName}\n\n_Acesse o sistema para ver o comentário._`;
+        messageTemplate = `💬 *Novo Comentário*\n\n*Demanda:* ${demand.title}\n*Por:* ${commenterName}\n\n🔗 *Acesse aqui:* ${demandLink}`;
+        break;
+      case "update":
+        const changes = extraData?.changes || "Informações";
+        messageTemplate = `✏️ *Demanda Atualizada*\n\n*Título:* ${demand.title}\n${updaterInfo}*Alterações:* ${changes}\n*Urgência:* ${urgencyLabels[demand.urgency] || demand.urgency}\n${demand.sla_deadline ? `*Prazo SLA:* ${new Date(demand.sla_deadline).toLocaleString("pt-BR")}\n` : ""}\n🔗 *Acesse aqui:* ${demandLink}`;
         break;
     }
 
