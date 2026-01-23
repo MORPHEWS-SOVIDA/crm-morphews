@@ -11,6 +11,7 @@ import { useCart } from './cart/CartContext';
 import { SavedCardsSelector } from './checkout/SavedCardsSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useUtmTracker } from '@/hooks/useUtmTracker';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 
 function formatCurrency(cents: number): string {
@@ -30,6 +31,7 @@ export function StorefrontCheckout() {
   const navigate = useNavigate();
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
   const { items, subtotal, clearCart } = useCart();
+  const { getUtmForCheckout } = useUtmTracker();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -91,6 +93,9 @@ export function StorefrontCheckout() {
     setIsSubmitting(true);
     
     try {
+      // Get UTM data for attribution
+      const utmData = getUtmForCheckout();
+      
       const checkoutPayload = {
         storefront_id: storefront.id,
         items: items.map(item => ({
@@ -114,6 +119,8 @@ export function StorefrontCheckout() {
         payment_method: paymentMethod,
         card_token: isOneClickCheckout ? selectedCardId : undefined,
         save_card: !isOneClickCheckout && saveCard,
+        // Attribution data
+        utm: utmData,
       };
 
       console.log('Sending checkout:', checkoutPayload);

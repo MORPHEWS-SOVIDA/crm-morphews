@@ -145,6 +145,7 @@ export function Sidebar() {
     // Reports
     { icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
     { icon: FileText, label: 'Relatório Expedição', path: '/relatorios/expedicao', visible: canSeeExpeditionReport && hasFeature('expedition_report') },
+    { icon: BarChart3, label: 'Atribuição de Tráfego', path: '/relatorios/atribuicao', visible: canSeeSalesReport && hasFeature('sales_report') },
     
     // Deliveries & Expedition
     { icon: Package, label: 'Expedição', path: '/expedicao', visible: canSeeExpedition && hasFeature('expedition') },

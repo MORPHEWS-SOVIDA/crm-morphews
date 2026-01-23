@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/queryClient";
+import { UtmProvider } from "@/hooks/useUtmTracker";
 
 // Loading fallback for lazy-loaded routes
 const PageLoader = () => (
@@ -127,13 +128,14 @@ const StorefrontOrderConfirmed = lazy(() => import("./components/storefront/Stor
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <ErrorBoundary title="Ops! Algo deu errado">
-            <Suspense fallback={<PageLoader />}>
+    <UtmProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <ErrorBoundary title="Ops! Algo deu errado">
+              <Suspense fallback={<PageLoader />}>
               <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
@@ -609,6 +611,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+  </UtmProvider>
   </QueryClientProvider>
 );
 

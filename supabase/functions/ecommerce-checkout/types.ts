@@ -58,6 +58,21 @@ export interface GatewayResponse {
   raw_response?: Record<string, unknown>;
 }
 
+export interface UtmData {
+  src?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+  fbclid?: string;
+  gclid?: string;
+  ttclid?: string;
+  first_touch_url?: string;
+  first_touch_referrer?: string;
+  first_touch_at?: string;
+}
+
 export interface CheckoutRequest {
   cart_id?: string;
   storefront_id?: string;
@@ -83,6 +98,8 @@ export interface CheckoutRequest {
   card_token?: string;
   card_hash?: string;
   save_card?: boolean;
+  // Attribution data
+  utm?: UtmData;
 }
 
 export interface PaymentAttemptRecord {
