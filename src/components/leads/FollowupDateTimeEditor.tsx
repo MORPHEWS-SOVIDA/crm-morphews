@@ -13,16 +13,18 @@ interface FollowupDateTimeEditorProps {
   suggestedHours: number;
   onConfirm: (scheduledAt: Date) => void;
   disabled?: boolean;
+  initialDate?: Date; // Optional initial date to use instead of calculated suggestion
 }
 
 export function FollowupDateTimeEditor({ 
   suggestedHours, 
   onConfirm,
-  disabled = false 
+  disabled = false,
+  initialDate,
 }: FollowupDateTimeEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(() => addHours(new Date(), suggestedHours));
-  const [timeValue, setTimeValue] = useState(() => format(addHours(new Date(), suggestedHours), 'HH:mm'));
+  const [selectedDate, setSelectedDate] = useState<Date>(() => initialDate || addHours(new Date(), suggestedHours));
+  const [timeValue, setTimeValue] = useState(() => format(initialDate || addHours(new Date(), suggestedHours), 'HH:mm'));
   
   // Calculate the scheduled date based on suggested hours
   const suggestedDate = addHours(new Date(), suggestedHours);

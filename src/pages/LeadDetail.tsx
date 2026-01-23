@@ -28,7 +28,7 @@ import { InlineSelect } from '@/components/InlineSelect';
 import { MultiSelect } from '@/components/MultiSelect';
 import { DeleteLeadDialog } from '@/components/DeleteLeadDialog';
 import { LeadStageTimeline } from '@/components/LeadStageTimeline';
-import { StageChangeDialog } from '@/components/StageChangeDialog';
+import { StageChangeDialog, StageChangeResult } from '@/components/StageChangeDialog';
 import { LeadProductAnswersSection } from '@/components/leads/LeadProductAnswersSection';
 import { LeadSalesSection } from '@/components/leads/LeadSalesSection';
 import { LeadPostSaleHistory } from '@/components/leads/LeadPostSaleHistory';
@@ -49,6 +49,7 @@ import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
+import { useCreateFollowup } from '@/hooks/useLeadFollowups';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,6 +84,7 @@ export default function LeadDetail() {
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
   const addStageHistory = useAddStageHistory();
+  const createFollowup = useCreateFollowup();
   
   // Permission checks
   const canEditLead = permissions?.leads_edit;
@@ -124,7 +126,7 @@ export default function LeadDetail() {
     updateLead.mutate({ id, [field]: value });
   };
 
-  const handleStageChange = async (reason: string | null) => {
+  const handleStageChange = async (result: StageChangeResult) => {
     if (!id || !lead || !stageChangeDialog.newStage) return;
     
     try {
@@ -137,9 +139,20 @@ export default function LeadDetail() {
         organization_id: lead.organization_id!,
         stage: stageChangeDialog.newStage,
         previous_stage: lead.stage,
-        reason,
+        reason: result.reason,
         changed_by: user?.id || null,
       });
+      
+      // Schedule follow-up if selected
+      if (result.followupReasonId && result.followupDate) {
+        await createFollowup.mutateAsync({
+          lead_id: id,
+          scheduled_at: result.followupDate,
+          reason: `Mudança de etapa: ${lead.stage} → ${stageChangeDialog.newStage}`,
+          source_type: 'stage_change',
+          source_id: result.followupReasonId,
+        });
+      }
       
       setStageChangeDialog({ open: false, newStage: null });
     } catch (error) {
@@ -883,6 +896,7 @@ export default function LeadDetail() {
               color: newCustomStage.color,
               textColor: newCustomStage.text_color,
             } : undefined}
+            defaultFollowupReasonId={newCustomStage?.default_followup_reason_id}
           />
         );
       })()}
