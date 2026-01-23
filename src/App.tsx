@@ -51,6 +51,7 @@ const EditSale = lazy(() => import("./pages/EditSale"));
 const SaleDetail = lazy(() => import("./pages/SaleDetail"));
 const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
 const SalesReport = lazy(() => import("./pages/SalesReport"));
+const Attribution = lazy(() => import("./pages/Attribution"));
 
 // Products
 const Products = lazy(() => import("./pages/Products"));
@@ -469,6 +470,16 @@ const App = () => (
                     <ProtectedRoute requiredPermissions={['reports_view']}>
                       <ErrorBoundary title="Relatórios indisponíveis">
                         <SalesReport />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/relatorios/atribuicao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['reports_view']}>
+                      <ErrorBoundary title="Atribuição indisponível">
+                        <Attribution />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   }

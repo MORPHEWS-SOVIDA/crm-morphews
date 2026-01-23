@@ -746,6 +746,76 @@ export type Database = {
           },
         ]
       }
+      conversion_events: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_id: string | null
+          event_type: string
+          id: string
+          lead_id: string | null
+          organization_id: string
+          payload: Json | null
+          platform: string
+          response: Json | null
+          sale_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          organization_id: string
+          payload?: Json | null
+          platform: string
+          response?: Json | null
+          sale_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          organization_id?: string
+          payload?: Json | null
+          platform?: string
+          response?: Json | null
+          sale_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversion_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversion_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversion_events_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coproducers: {
         Row: {
           commission_percentage: number
@@ -5276,8 +5346,13 @@ export type Database = {
           desired_products: string | null
           email: string | null
           favorite_team: string | null
+          fbclid: string | null
+          first_touch_at: string | null
+          first_touch_referrer: string | null
+          first_touch_url: string | null
           followers: number | null
           funnel_stage_id: string | null
+          gclid: string | null
           gender: string | null
           google_maps_link: string | null
           id: string
@@ -5298,13 +5373,20 @@ export type Database = {
           secondary_phone: string | null
           site: string | null
           specialty: string | null
+          src: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
           stars: number
           state: string | null
           street: string | null
           street_number: string | null
           tiktok: string | null
+          ttclid: string | null
           updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
           webhook_data: Json | null
           whatsapp: string
           whatsapp_group: string | null
@@ -5323,8 +5405,13 @@ export type Database = {
           desired_products?: string | null
           email?: string | null
           favorite_team?: string | null
+          fbclid?: string | null
+          first_touch_at?: string | null
+          first_touch_referrer?: string | null
+          first_touch_url?: string | null
           followers?: number | null
           funnel_stage_id?: string | null
+          gclid?: string | null
           gender?: string | null
           google_maps_link?: string | null
           id?: string
@@ -5345,13 +5432,20 @@ export type Database = {
           secondary_phone?: string | null
           site?: string | null
           specialty?: string | null
+          src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
           stars?: number
           state?: string | null
           street?: string | null
           street_number?: string | null
           tiktok?: string | null
+          ttclid?: string | null
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           webhook_data?: Json | null
           whatsapp: string
           whatsapp_group?: string | null
@@ -5370,8 +5464,13 @@ export type Database = {
           desired_products?: string | null
           email?: string | null
           favorite_team?: string | null
+          fbclid?: string | null
+          first_touch_at?: string | null
+          first_touch_referrer?: string | null
+          first_touch_url?: string | null
           followers?: number | null
           funnel_stage_id?: string | null
+          gclid?: string | null
           gender?: string | null
           google_maps_link?: string | null
           id?: string
@@ -5392,13 +5491,20 @@ export type Database = {
           secondary_phone?: string | null
           site?: string | null
           specialty?: string | null
+          src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
           stars?: number
           state?: string | null
           street?: string | null
           street_number?: string | null
           tiktok?: string | null
+          ttclid?: string | null
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           webhook_data?: Json | null
           whatsapp?: string
           whatsapp_group?: string | null
@@ -8423,8 +8529,12 @@ export type Database = {
           carrier_tracking_status:
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
+          checkout_url: string | null
           conference_completed_at: string | null
           conference_completed_by: string | null
+          conversion_sent_at: string | null
+          conversion_sent_to_google: boolean | null
+          conversion_sent_to_meta: boolean | null
           created_at: string
           created_by: string
           delivered_at: string | null
@@ -8442,6 +8552,8 @@ export type Database = {
           external_order_id: string | null
           external_order_url: string | null
           external_source: string | null
+          fbclid: string | null
+          gclid: string | null
           id: string
           invoice_pdf_url: string | null
           invoice_xml_url: string | null
@@ -8484,11 +8596,18 @@ export type Database = {
           shipping_address_id: string | null
           shipping_carrier_id: string | null
           shipping_cost_cents: number | null
+          src: string | null
           status: Database["public"]["Enums"]["sale_status"]
           subtotal_cents: number
           total_cents: number
           tracking_code: string | null
+          ttclid: string | null
           updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
           was_edited: boolean | null
         }
         Insert: {
@@ -8496,8 +8615,12 @@ export type Database = {
           carrier_tracking_status?:
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
+          checkout_url?: string | null
           conference_completed_at?: string | null
           conference_completed_by?: string | null
+          conversion_sent_at?: string | null
+          conversion_sent_to_google?: boolean | null
+          conversion_sent_to_meta?: boolean | null
           created_at?: string
           created_by: string
           delivered_at?: string | null
@@ -8517,6 +8640,8 @@ export type Database = {
           external_order_id?: string | null
           external_order_url?: string | null
           external_source?: string | null
+          fbclid?: string | null
+          gclid?: string | null
           id?: string
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
@@ -8559,11 +8684,18 @@ export type Database = {
           shipping_address_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
+          src?: string | null
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal_cents?: number
           total_cents?: number
           tracking_code?: string | null
+          ttclid?: string | null
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           was_edited?: boolean | null
         }
         Update: {
@@ -8571,8 +8703,12 @@ export type Database = {
           carrier_tracking_status?:
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
+          checkout_url?: string | null
           conference_completed_at?: string | null
           conference_completed_by?: string | null
+          conversion_sent_at?: string | null
+          conversion_sent_to_google?: boolean | null
+          conversion_sent_to_meta?: boolean | null
           created_at?: string
           created_by?: string
           delivered_at?: string | null
@@ -8592,6 +8728,8 @@ export type Database = {
           external_order_id?: string | null
           external_order_url?: string | null
           external_source?: string | null
+          fbclid?: string | null
+          gclid?: string | null
           id?: string
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
@@ -8634,11 +8772,18 @@ export type Database = {
           shipping_address_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
+          src?: string | null
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal_cents?: number
           total_cents?: number
           tracking_code?: string | null
+          ttclid?: string | null
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           was_edited?: boolean | null
         }
         Relationships: [
@@ -9883,6 +10028,68 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "storefront_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_config: {
+        Row: {
+          created_at: string
+          google_ads_customer_id: string | null
+          google_conversion_action_id: string | null
+          google_developer_token: string | null
+          google_enabled: boolean | null
+          id: string
+          meta_access_token: string | null
+          meta_enabled: boolean | null
+          meta_pixel_id: string | null
+          meta_test_event_code: string | null
+          organization_id: string
+          tiktok_access_token: string | null
+          tiktok_enabled: boolean | null
+          tiktok_pixel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          google_ads_customer_id?: string | null
+          google_conversion_action_id?: string | null
+          google_developer_token?: string | null
+          google_enabled?: boolean | null
+          id?: string
+          meta_access_token?: string | null
+          meta_enabled?: boolean | null
+          meta_pixel_id?: string | null
+          meta_test_event_code?: string | null
+          organization_id: string
+          tiktok_access_token?: string | null
+          tiktok_enabled?: boolean | null
+          tiktok_pixel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          google_ads_customer_id?: string | null
+          google_conversion_action_id?: string | null
+          google_developer_token?: string | null
+          google_enabled?: boolean | null
+          id?: string
+          meta_access_token?: string | null
+          meta_enabled?: boolean | null
+          meta_pixel_id?: string | null
+          meta_test_event_code?: string | null
+          organization_id?: string
+          tiktok_access_token?: string | null
+          tiktok_enabled?: boolean | null
+          tiktok_pixel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
