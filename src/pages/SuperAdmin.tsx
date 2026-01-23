@@ -13,9 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent, Settings, Store, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CouponsTab } from "@/components/super-admin/CouponsTab";
 import { WhatsAppCreditsTab } from "@/components/super-admin/WhatsAppCreditsTab";
@@ -34,6 +34,8 @@ import { SubscriptionKPIs } from "@/components/super-admin/SubscriptionKPIs";
 import { BillingManagementTab } from "@/components/super-admin/BillingManagementTab";
 import { PlatformGatewaysTab } from "@/components/super-admin/PlatformGatewaysTab";
 import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFeesTab";
+import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
+import { cn } from "@/lib/utils";
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
