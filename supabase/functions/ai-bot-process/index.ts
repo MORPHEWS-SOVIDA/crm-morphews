@@ -760,22 +760,28 @@ function buildBotPersonalityPrompt(bot: AIBot): string {
     parts.push(`Sua personalidade: ${bot.personality_description}`);
   }
   
-  // Tipo de atendimento
+  // Tipo de atendimento - alinhado com wizard (sales, support, sac, social_selling, qualification)
   if (bot.service_type) {
     const serviceTypes: Record<string, string> = {
-      'sales': 'Você é especialista em vendas consultivas. Foque em entender a necessidade e oferecer a melhor solução.',
-      'support': 'Você foca em suporte e atendimento. Resolva dúvidas e problemas com empatia.',
+      'sales': 'Você é especialista em vendas consultivas. Foque em entender a necessidade do cliente, apresentar produtos que resolvam seu problema, e fechar vendas. Seja persuasivo mas não insistente.',
+      'support': 'Você foca em suporte técnico. Resolva problemas técnicos com paciência e clareza. Guie o cliente passo a passo quando necessário.',
+      'sac': 'Você é especialista em SAC (Serviço de Atendimento ao Cliente). Acolha reclamações com empatia, busque soluções rápidas e transforme problemas em oportunidades de fidelização.',
+      'social_selling': 'Você foca em Social Selling e relacionamento. Crie conexões genuínas, engaje o cliente com conteúdo relevante e construa confiança antes de oferecer produtos.',
+      'qualification': 'Você é especialista em qualificação de leads. Faça perguntas estratégicas para entender o perfil, necessidades e potencial de compra do cliente. Colete informações importantes.',
+      // Fallbacks para compatibilidade
       'scheduling': 'Você é especialista em agendamentos. Ajude a encontrar o melhor horário.',
       'general': 'Você oferece atendimento geral, adaptando-se à necessidade do cliente.'
     };
-    parts.push(serviceTypes[bot.service_type] || '');
+    parts.push(serviceTypes[bot.service_type] || 'Você oferece atendimento ao cliente.');
   }
   
-  // Tamanho da resposta
+  // Tamanho da resposta - alinhado com wizard (short, medium, detailed)
   if (bot.response_length) {
     const lengthGuides: Record<string, string> = {
-      'short': 'Seja BREVE e DIRETO. Respostas curtas de 1-2 frases quando possível.',
-      'medium': 'Use respostas de tamanho médio, equilibradas entre brevidade e completude.',
+      'short': 'Seja BREVE e DIRETO. Respostas curtas de 1-2 frases quando possível. Máximo 50 palavras.',
+      'medium': 'Use respostas de tamanho médio, equilibradas entre brevidade e completude. Entre 50-100 palavras.',
+      'detailed': 'Dê respostas mais detalhadas e explicativas quando necessário. Seja completo nas explicações.',
+      // Fallback para compatibilidade
       'long': 'Pode usar respostas mais detalhadas quando necessário explicar algo complexo.'
     };
     parts.push(lengthGuides[bot.response_length] || '');
