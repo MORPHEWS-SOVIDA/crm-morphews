@@ -38,6 +38,13 @@ export interface Storefront {
   template?: StorefrontTemplate;
   domains?: StorefrontDomain[];
   products_count?: number;
+  // New config fields
+  header_config?: Record<string, any>;
+  footer_config?: Record<string, any>;
+  checkout_config?: Record<string, any>;
+  cart_config?: Record<string, any>;
+  social_links?: Record<string, any>;
+  payment_methods_display?: string[];
 }
 
 export interface StorefrontDomain {

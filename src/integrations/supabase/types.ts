@@ -3366,6 +3366,7 @@ export type Database = {
       landing_pages: {
         Row: {
           benefits: Json | null
+          checkout_config: Json | null
           created_at: string
           custom_css: string | null
           facebook_pixel_id: string | null
@@ -3377,6 +3378,7 @@ export type Database = {
           is_active: boolean | null
           logo_url: string | null
           name: string
+          order_bump_product_id: string | null
           organization_id: string
           primary_color: string | null
           product_id: string
@@ -3392,6 +3394,7 @@ export type Database = {
         }
         Insert: {
           benefits?: Json | null
+          checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
@@ -3403,6 +3406,7 @@ export type Database = {
           is_active?: boolean | null
           logo_url?: string | null
           name: string
+          order_bump_product_id?: string | null
           organization_id: string
           primary_color?: string | null
           product_id: string
@@ -3418,6 +3422,7 @@ export type Database = {
         }
         Update: {
           benefits?: Json | null
+          checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
@@ -3429,6 +3434,7 @@ export type Database = {
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
+          order_bump_product_id?: string | null
           organization_id?: string
           primary_color?: string | null
           product_id?: string
@@ -3443,6 +3449,13 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "landing_pages_order_bump_product_id_fkey"
+            columns: ["order_bump_product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "landing_pages_organization_id_fkey"
             columns: ["organization_id"]
@@ -4170,6 +4183,14 @@ export type Database = {
           crosssell_product_2_id: string | null
           depth_cm: number | null
           description: string | null
+          ecommerce_benefits: Json | null
+          ecommerce_description: string | null
+          ecommerce_enabled: boolean | null
+          ecommerce_images: Json | null
+          ecommerce_short_description: string | null
+          ecommerce_specifications: Json | null
+          ecommerce_title: string | null
+          ecommerce_video_url: string | null
           fiscal_additional_info: string | null
           fiscal_benefit_code: string | null
           fiscal_cest: string | null
@@ -4215,6 +4236,9 @@ export type Database = {
           price_6_units: number | null
           restrict_to_users: boolean
           sales_script: string | null
+          seo_description: string | null
+          seo_keywords: string[] | null
+          seo_title: string | null
           sku: string | null
           stock_quantity: number | null
           stock_reserved: number | null
@@ -4235,6 +4259,14 @@ export type Database = {
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
           description?: string | null
+          ecommerce_benefits?: Json | null
+          ecommerce_description?: string | null
+          ecommerce_enabled?: boolean | null
+          ecommerce_images?: Json | null
+          ecommerce_short_description?: string | null
+          ecommerce_specifications?: Json | null
+          ecommerce_title?: string | null
+          ecommerce_video_url?: string | null
           fiscal_additional_info?: string | null
           fiscal_benefit_code?: string | null
           fiscal_cest?: string | null
@@ -4280,6 +4312,9 @@ export type Database = {
           price_6_units?: number | null
           restrict_to_users?: boolean
           sales_script?: string | null
+          seo_description?: string | null
+          seo_keywords?: string[] | null
+          seo_title?: string | null
           sku?: string | null
           stock_quantity?: number | null
           stock_reserved?: number | null
@@ -4300,6 +4335,14 @@ export type Database = {
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
           description?: string | null
+          ecommerce_benefits?: Json | null
+          ecommerce_description?: string | null
+          ecommerce_enabled?: boolean | null
+          ecommerce_images?: Json | null
+          ecommerce_short_description?: string | null
+          ecommerce_specifications?: Json | null
+          ecommerce_title?: string | null
+          ecommerce_video_url?: string | null
           fiscal_additional_info?: string | null
           fiscal_benefit_code?: string | null
           fiscal_cest?: string | null
@@ -4345,6 +4388,9 @@ export type Database = {
           price_6_units?: number | null
           restrict_to_users?: boolean
           sales_script?: string | null
+          seo_description?: string | null
+          seo_keywords?: string[] | null
+          seo_title?: string | null
           sku?: string | null
           stock_quantity?: number | null
           stock_reserved?: number | null
@@ -8375,6 +8421,137 @@ export type Database = {
           },
         ]
       }
+      storefront_banners: {
+        Row: {
+          button_style: string | null
+          button_text: string | null
+          created_at: string
+          display_order: number | null
+          ends_at: string | null
+          id: string
+          image_mobile_url: string | null
+          image_url: string
+          is_active: boolean | null
+          link_target: string | null
+          link_url: string | null
+          overlay_color: string | null
+          position: string | null
+          starts_at: string | null
+          storefront_id: string
+          subtitle: string | null
+          text_color: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          button_style?: string | null
+          button_text?: string | null
+          created_at?: string
+          display_order?: number | null
+          ends_at?: string | null
+          id?: string
+          image_mobile_url?: string | null
+          image_url: string
+          is_active?: boolean | null
+          link_target?: string | null
+          link_url?: string | null
+          overlay_color?: string | null
+          position?: string | null
+          starts_at?: string | null
+          storefront_id: string
+          subtitle?: string | null
+          text_color?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          button_style?: string | null
+          button_text?: string | null
+          created_at?: string
+          display_order?: number | null
+          ends_at?: string | null
+          id?: string
+          image_mobile_url?: string | null
+          image_url?: string
+          is_active?: boolean | null
+          link_target?: string | null
+          link_url?: string | null
+          overlay_color?: string | null
+          position?: string | null
+          starts_at?: string | null
+          storefront_id?: string
+          subtitle?: string | null
+          text_color?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_banners_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storefront_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          parent_id: string | null
+          slug: string
+          storefront_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          parent_id?: string | null
+          slug: string
+          storefront_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          parent_id?: string | null
+          slug?: string
+          storefront_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_categories_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storefront_domains: {
         Row: {
           created_at: string
@@ -8413,38 +8590,142 @@ export type Database = {
           },
         ]
       }
+      storefront_pages: {
+        Row: {
+          content: string | null
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          meta_description: string | null
+          meta_title: string | null
+          page_type: string
+          slug: string
+          storefront_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          page_type: string
+          slug: string
+          storefront_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          page_type?: string
+          slug?: string
+          storefront_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_pages_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storefront_product_categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          storefront_product_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          storefront_product_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          storefront_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_product_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_product_categories_storefront_product_id_fkey"
+            columns: ["storefront_product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storefront_products: {
         Row: {
+          category_label: string | null
           created_at: string
           custom_description: string | null
+          custom_images: Json | null
           custom_price_cents: number | null
           display_order: number | null
+          highlight_badge: string | null
           id: string
           is_featured: boolean | null
           is_visible: boolean | null
           product_id: string
+          show_crosssell: boolean | null
+          show_kit_upsell: boolean | null
           storefront_id: string
         }
         Insert: {
+          category_label?: string | null
           created_at?: string
           custom_description?: string | null
+          custom_images?: Json | null
           custom_price_cents?: number | null
           display_order?: number | null
+          highlight_badge?: string | null
           id?: string
           is_featured?: boolean | null
           is_visible?: boolean | null
           product_id: string
+          show_crosssell?: boolean | null
+          show_kit_upsell?: boolean | null
           storefront_id: string
         }
         Update: {
+          category_label?: string | null
           created_at?: string
           custom_description?: string | null
+          custom_images?: Json | null
           custom_price_cents?: number | null
           display_order?: number | null
+          highlight_badge?: string | null
           id?: string
           is_featured?: boolean | null
           is_visible?: boolean | null
           product_id?: string
+          show_crosssell?: boolean | null
+          show_kit_upsell?: boolean | null
           storefront_id?: string
         }
         Relationships: [
@@ -8742,11 +9023,15 @@ export type Database = {
       }
       tenant_storefronts: {
         Row: {
+          cart_config: Json | null
+          checkout_config: Json | null
           created_at: string
           custom_css: string | null
           facebook_pixel_id: string | null
           favicon_url: string | null
+          footer_config: Json | null
           google_analytics_id: string | null
+          header_config: Json | null
           id: string
           is_active: boolean | null
           logo_url: string | null
@@ -8754,20 +9039,26 @@ export type Database = {
           meta_title: string | null
           name: string
           organization_id: string
+          payment_methods_display: string[] | null
           primary_color: string | null
           secondary_color: string | null
           settings: Json | null
           slug: string
+          social_links: Json | null
           template_id: string | null
           updated_at: string
           whatsapp_number: string | null
         }
         Insert: {
+          cart_config?: Json | null
+          checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
           favicon_url?: string | null
+          footer_config?: Json | null
           google_analytics_id?: string | null
+          header_config?: Json | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -8775,20 +9066,26 @@ export type Database = {
           meta_title?: string | null
           name: string
           organization_id: string
+          payment_methods_display?: string[] | null
           primary_color?: string | null
           secondary_color?: string | null
           settings?: Json | null
           slug: string
+          social_links?: Json | null
           template_id?: string | null
           updated_at?: string
           whatsapp_number?: string | null
         }
         Update: {
+          cart_config?: Json | null
+          checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
           favicon_url?: string | null
+          footer_config?: Json | null
           google_analytics_id?: string | null
+          header_config?: Json | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -8796,10 +9093,12 @@ export type Database = {
           meta_title?: string | null
           name?: string
           organization_id?: string
+          payment_methods_display?: string[] | null
           primary_color?: string | null
           secondary_color?: string | null
           settings?: Json | null
           slug?: string
+          social_links?: Json | null
           template_id?: string | null
           updated_at?: string
           whatsapp_number?: string | null

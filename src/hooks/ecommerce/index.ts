@@ -29,6 +29,52 @@ export {
 } from './useStorefronts';
 
 // =============================================================================
+// STOREFRONT BANNERS
+// =============================================================================
+export {
+  useStorefrontBanners,
+  useCreateStorefrontBanner,
+  useUpdateStorefrontBanner,
+  useDeleteStorefrontBanner,
+  useReorderStorefrontBanners,
+  type StorefrontBanner,
+  type CreateBannerInput,
+} from './useStorefrontBanners';
+
+// =============================================================================
+// STOREFRONT PAGES (Institucionais)
+// =============================================================================
+export {
+  useStorefrontPages,
+  useStorefrontPage,
+  useCreateStorefrontPage,
+  useUpdateStorefrontPage,
+  useDeleteStorefrontPage,
+  useCreateDefaultPages,
+  PAGE_TYPE_LABELS,
+  DEFAULT_PAGE_TEMPLATES,
+  type StorefrontPage,
+  type PageType,
+  type CreatePageInput,
+} from './useStorefrontPages';
+
+// =============================================================================
+// STOREFRONT CATEGORIES
+// =============================================================================
+export {
+  useStorefrontCategories,
+  useFlatStorefrontCategories,
+  useCreateStorefrontCategory,
+  useUpdateStorefrontCategory,
+  useDeleteStorefrontCategory,
+  useAssignProductToCategory,
+  useRemoveProductFromCategory,
+  useUpdateProductCategories,
+  type StorefrontCategory,
+  type CreateCategoryInput,
+} from './useStorefrontCategories';
+
+// =============================================================================
 // LANDING PAGES (VSL)
 // =============================================================================
 export {
