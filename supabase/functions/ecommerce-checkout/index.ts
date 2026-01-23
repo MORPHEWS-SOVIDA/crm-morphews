@@ -19,7 +19,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CheckoutRequest = await req.json();
-    const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, offer_id, cart_id } = body;
+    const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, offer_id, cart_id, utm } = body;
 
     // 1. Determine organization from storefront or landing page
     let organizationId: string | null = null;
@@ -61,7 +61,7 @@ serve(async (req) => {
       throw new Error('Organização não identificada');
     }
 
-    // 2. Create or update lead
+    // 2. Create or update lead with UTM data
     const normalizedPhone = customer.phone.replace(/\D/g, '');
     
     let { data: lead } = await supabase
@@ -80,12 +80,45 @@ serve(async (req) => {
           email: customer.email,
           whatsapp: normalizedPhone,
           source: storefront_id ? 'ecommerce' : 'landing_page',
+          // Attribution UTM data
+          src: utm?.src || null,
+          utm_source: utm?.utm_source || null,
+          utm_medium: utm?.utm_medium || null,
+          utm_campaign: utm?.utm_campaign || null,
+          utm_term: utm?.utm_term || null,
+          utm_content: utm?.utm_content || null,
+          fbclid: utm?.fbclid || null,
+          gclid: utm?.gclid || null,
+          ttclid: utm?.ttclid || null,
+          first_touch_url: utm?.first_touch_url || null,
+          first_touch_referrer: utm?.first_touch_referrer || null,
+          first_touch_at: utm?.first_touch_at || null,
         })
         .select('id')
         .single();
       
       if (leadError) throw leadError;
       lead = newLead;
+    } else if (utm && Object.keys(utm).length > 0) {
+      // Update existing lead with UTM data if it doesn't have it yet
+      await supabase
+        .from('leads')
+        .update({
+          src: utm.src || null,
+          utm_source: utm.utm_source || null,
+          utm_medium: utm.utm_medium || null,
+          utm_campaign: utm.utm_campaign || null,
+          utm_term: utm.utm_term || null,
+          utm_content: utm.utm_content || null,
+          fbclid: utm.fbclid || null,
+          gclid: utm.gclid || null,
+          ttclid: utm.ttclid || null,
+          first_touch_url: utm.first_touch_url || null,
+          first_touch_referrer: utm.first_touch_referrer || null,
+          first_touch_at: utm.first_touch_at || null,
+        })
+        .eq('id', lead.id)
+        .is('utm_source', null); // Only update if no UTM was set before
     }
 
     // 3. Calculate totals
@@ -112,7 +145,7 @@ serve(async (req) => {
       }
     }
 
-    // 5. Create sale in pending status
+    // 5. Create sale in pending status with UTM attribution
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
@@ -125,6 +158,16 @@ serve(async (req) => {
         total_cents: totalCents,
         source: storefront_id ? 'ecommerce' : 'landing_page',
         notes: `Checkout - ${payment_method}`,
+        // Attribution UTM data on sale
+        src: utm?.src || null,
+        utm_source: utm?.utm_source || null,
+        utm_medium: utm?.utm_medium || null,
+        utm_campaign: utm?.utm_campaign || null,
+        utm_term: utm?.utm_term || null,
+        utm_content: utm?.utm_content || null,
+        fbclid: utm?.fbclid || null,
+        gclid: utm?.gclid || null,
+        ttclid: utm?.ttclid || null,
       })
       .select('id')
       .single();

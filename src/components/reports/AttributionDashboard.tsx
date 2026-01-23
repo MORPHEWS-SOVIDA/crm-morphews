@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -12,23 +11,14 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  DollarSign, 
-  Users, 
-  ShoppingCart,
-  Loader2,
-  Calendar,
-  Filter,
-  Download
-} from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import { 
   useAttributionSummary, 
   useTopCampaigns, 
   useSourceBreakdown,
   useRecentAttributedSales 
 } from '@/hooks/useAttributionReport';
+import { AttributionFiltersComponent, AttributionFilters } from './AttributionFilters';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
@@ -41,12 +31,21 @@ function formatCurrency(cents: number) {
 }
 
 export function AttributionDashboard() {
-  const [dateRange, setDateRange] = useState<{ start: string; end: string } | undefined>();
+  const [filters, setFilters] = useState<AttributionFilters>({});
+  
+  const dateRange = filters.startDate && filters.endDate 
+    ? { start: filters.startDate.toISOString(), end: filters.endDate.toISOString() }
+    : undefined;
   
   const { data: attributionData, isLoading: loadingAttribution } = useAttributionSummary(dateRange);
   const { data: topCampaigns, isLoading: loadingCampaigns } = useTopCampaigns(10);
   const { data: sourceBreakdown, isLoading: loadingBreakdown } = useSourceBreakdown();
   const { data: recentSales, isLoading: loadingSales } = useRecentAttributedSales(15);
+
+  // Extract unique values for filters
+  const sources = [...new Set(attributionData?.map(d => d.source).filter(Boolean) || [])];
+  const mediums = [...new Set(attributionData?.map(d => d.medium).filter(Boolean) || [])];
+  const campaigns = [...new Set(attributionData?.map(d => d.campaign).filter(Boolean) || [])];
 
   const totalRevenue = attributionData?.reduce((sum, item) => sum + item.total_revenue_cents, 0) || 0;
   const totalLeads = attributionData?.reduce((sum, item) => sum + item.leads_count, 0) || 0;
@@ -68,23 +67,28 @@ export function AttributionDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Dashboard de Atribuição</h2>
-          <p className="text-muted-foreground">
-            Visualize o ROI por campanha e origem de tráfego
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Calendar className="mr-2 h-4 w-4" />
-            Período
-          </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">Dashboard de Atribuição</h2>
+            <p className="text-muted-foreground">
+              Visualize o ROI por campanha e origem de tráfego
+            </p>
+          </div>
           <Button variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
         </div>
+        
+        {/* Filters */}
+        <AttributionFiltersComponent 
+          filters={filters}
+          onFiltersChange={setFilters}
+          sources={sources}
+          mediums={mediums}
+          campaigns={campaigns}
+        />
       </div>
 
       {/* KPIs */}

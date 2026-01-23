@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, CreditCard, QrCode, Barcode, Shield, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { trackEvent } from './TrackingPixels';
+import { useUtmTracker } from '@/hooks/useUtmTracker';
 
 interface LandingOffer {
   id: string;
@@ -48,6 +49,7 @@ export function LandingCheckoutModal({
 }: LandingCheckoutModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
+  const { getUtmForCheckout } = useUtmTracker();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -81,6 +83,9 @@ export function LandingCheckoutModal({
         currency: 'BRL',
       });
 
+      // Get UTM data for attribution
+      const utmData = getUtmForCheckout();
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ecommerce-checkout`,
         {
@@ -96,6 +101,8 @@ export function LandingCheckoutModal({
               document: formData.cpf.replace(/\D/g, '') || undefined,
             },
             payment_method: paymentMethod,
+            // Attribution data
+            utm: utmData,
           }),
         }
       );
