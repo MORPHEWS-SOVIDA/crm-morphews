@@ -9,6 +9,8 @@ import { Check, Shield, Clock, Star, Play, ShoppingCart, ChevronDown, ChevronUp 
 import { LandingCheckoutModal } from '@/components/ecommerce/LandingCheckoutModal';
 import { CountdownTimer } from '@/components/ecommerce/CountdownTimer';
 import { TrackingPixels } from '@/components/ecommerce/TrackingPixels';
+import { SalesChatbot } from '@/components/ecommerce/SalesChatbot';
+import { LandingPageStructuredData } from '@/components/ecommerce/StructuredData';
 
 interface LandingOffer {
   id: string;
@@ -504,6 +506,28 @@ export default function PublicLandingPage() {
             )}
           </div>
         </footer>
+
+        {/* Structured Data for SEO & ChatGPT Shopping */}
+        <LandingPageStructuredData
+          productName={landing.product.name}
+          productDescription={landing.product.description || landing.subheadline || undefined}
+          productImage={landing.product.image_url || undefined}
+          productPrice={selectedOffer?.price_cents || landing.offers[0]?.price_cents || 0}
+          faqs={landing.faq}
+          organizationName={landing.name}
+          organizationLogo={landing.logo_url || undefined}
+          pageUrl={window.location.href}
+        />
+
+        {/* Sales Chatbot */}
+        <SalesChatbot
+          landingPageId={landing.id}
+          productId={landing.product_id}
+          productName={landing.product.name}
+          productPrice={selectedOffer?.price_cents}
+          primaryColor={primaryColor}
+          welcomeMessage={`Olá! 👋 Está com dúvidas sobre ${landing.product.name}? Posso ajudar!`}
+        />
 
         {/* Checkout Modal */}
         {selectedOffer && (
