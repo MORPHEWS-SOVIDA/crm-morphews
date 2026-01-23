@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Loader2, Tag, Package, MapPin, User, FileText, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Loader2, Tag, Package, MapPin, User, FileText, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   useGenerateCorreiosLabel, 
   useCorreiosConfig,
@@ -18,6 +19,45 @@ interface CorreiosLabelGeneratorProps {
   onSuccess: () => void;
   onCancel: () => void;
 }
+
+// Correios dimension and weight limits per service type
+// Reference: https://www.correios.com.br/enviar/encomendas/limites-de-dimensoes-e-peso
+interface ServiceLimits {
+  minWeight: number; // grams
+  maxWeight: number; // grams
+  minHeight: number; // cm
+  maxHeight: number; // cm
+  minWidth: number; // cm
+  maxWidth: number; // cm
+  minLength: number; // cm
+  maxLength: number; // cm
+  minSumDimensions: number; // cm (altura + largura + comprimento)
+  maxSumDimensions: number; // cm
+}
+
+const SERVICE_LIMITS: Record<string, ServiceLimits> = {
+  // PAC services
+  '03298': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  '03085': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  // SEDEX services
+  '03220': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  '03050': { minWeight: 1, maxWeight: 30000, minHeight: 2, maxHeight: 100, minWidth: 11, maxWidth: 100, minLength: 16, maxLength: 100, minSumDimensions: 29, maxSumDimensions: 200 },
+  // SEDEX 10
+  '03158': { minWeight: 1, maxWeight: 10000, minHeight: 2, maxHeight: 60, minWidth: 11, maxWidth: 60, minLength: 16, maxLength: 60, minSumDimensions: 29, maxSumDimensions: 150 },
+  // SEDEX 12
+  '03140': { minWeight: 1, maxWeight: 10000, minHeight: 2, maxHeight: 60, minWidth: 11, maxWidth: 60, minLength: 16, maxLength: 60, minSumDimensions: 29, maxSumDimensions: 150 },
+  // SEDEX Hoje
+  '03204': { minWeight: 1, maxWeight: 10000, minHeight: 2, maxHeight: 60, minWidth: 11, maxWidth: 60, minLength: 16, maxLength: 60, minSumDimensions: 29, maxSumDimensions: 150 },
+};
+
+// Default limits for unknown services
+const DEFAULT_LIMITS: ServiceLimits = {
+  minWeight: 1, maxWeight: 30000,
+  minHeight: 2, maxHeight: 100,
+  minWidth: 11, maxWidth: 100,
+  minLength: 16, maxLength: 100,
+  minSumDimensions: 29, maxSumDimensions: 200
+};
 
 export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLabelGeneratorProps) {
   const { data: config } = useCorreiosConfig();
@@ -37,11 +77,11 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
     recipient_cep: '',
     recipient_phone: '',
     recipient_email: '',
-    // Package
-    weight_grams: config?.default_weight_grams || 500,
-    height_cm: config?.default_height_cm || 10,
-    width_cm: config?.default_width_cm || 15,
-    length_cm: config?.default_length_cm || 20,
+    // Package - use Correios minimum dimensions as defaults
+    weight_grams: config?.default_weight_grams || 300,
+    height_cm: config?.default_height_cm || 2,
+    width_cm: config?.default_width_cm || 11,
+    length_cm: config?.default_length_cm || 16,
     declared_value_cents: 0,
     // Service
     service_code: config?.default_service_code || '03298',
@@ -49,6 +89,31 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
     invoice_number: '',
     invoice_key: '',
   });
+
+  // Get current service limits
+  const currentLimits = useMemo(() => {
+    return SERVICE_LIMITS[formData.service_code] || DEFAULT_LIMITS;
+  }, [formData.service_code]);
+
+  // Calculate dimension sum and validation
+  const dimensionValidation = useMemo(() => {
+    const sum = formData.height_cm + formData.width_cm + formData.length_cm;
+    const isValidSum = sum >= currentLimits.minSumDimensions && sum <= currentLimits.maxSumDimensions;
+    const isValidWeight = formData.weight_grams >= currentLimits.minWeight && formData.weight_grams <= currentLimits.maxWeight;
+    const isValidHeight = formData.height_cm >= currentLimits.minHeight && formData.height_cm <= currentLimits.maxHeight;
+    const isValidWidth = formData.width_cm >= currentLimits.minWidth && formData.width_cm <= currentLimits.maxWidth;
+    const isValidLength = formData.length_cm >= currentLimits.minLength && formData.length_cm <= currentLimits.maxLength;
+    
+    return {
+      sum,
+      isValidSum,
+      isValidWeight,
+      isValidHeight,
+      isValidWidth,
+      isValidLength,
+      isValid: isValidSum && isValidWeight && isValidHeight && isValidWidth && isValidLength
+    };
+  }, [formData, currentLimits]);
 
   // Pre-fill from sale data - prioritize shipping_address over lead
   useEffect(() => {
@@ -94,6 +159,18 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
     }
   }, [sale]);
 
+  // Apply minimum dimensions when service changes
+  useEffect(() => {
+    const limits = SERVICE_LIMITS[formData.service_code] || DEFAULT_LIMITS;
+    setFormData(prev => ({
+      ...prev,
+      height_cm: Math.max(prev.height_cm, limits.minHeight),
+      width_cm: Math.max(prev.width_cm, limits.minWidth),
+      length_cm: Math.max(prev.length_cm, limits.minLength),
+      weight_grams: Math.max(prev.weight_grams, limits.minWeight),
+    }));
+  }, [formData.service_code]);
+
   const handleSubmit = async () => {
     await generateLabel.mutateAsync({
       sale_id: sale.id,
@@ -132,7 +209,8 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
     formData.recipient_neighborhood &&
     formData.recipient_city &&
     formData.recipient_state &&
-    formData.recipient_cep;
+    formData.recipient_cep &&
+    dimensionValidation.isValid;
 
   return (
     <div className="space-y-4">
@@ -287,48 +365,105 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
 
       {/* Package Dimensions */}
       <div className="space-y-3">
-        <Label className="flex items-center gap-2 text-base font-medium">
-          <Package className="w-4 h-4" />
-          Dimensões do Pacote
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="flex items-center gap-2 text-base font-medium">
+            <Package className="w-4 h-4" />
+            Dimensões do Pacote
+          </Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
+                <Info className="w-3 h-3" />
+                <span>Limites Correios</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-xs">
+              <div className="space-y-1 text-xs">
+                <p><strong>Peso:</strong> {currentLimits.minWeight}g - {(currentLimits.maxWeight / 1000).toFixed(0)}kg</p>
+                <p><strong>Altura:</strong> {currentLimits.minHeight}cm - {currentLimits.maxHeight}cm</p>
+                <p><strong>Largura:</strong> {currentLimits.minWidth}cm - {currentLimits.maxWidth}cm</p>
+                <p><strong>Comprimento:</strong> {currentLimits.minLength}cm - {currentLimits.maxLength}cm</p>
+                <p><strong>Soma (A+L+C):</strong> {currentLimits.minSumDimensions}cm - {currentLimits.maxSumDimensions}cm</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </div>
 
         <div className="grid grid-cols-4 gap-3">
           <div className="space-y-1">
-            <Label className="text-xs">Peso (g)</Label>
+            <Label className={`text-xs ${!dimensionValidation.isValidWeight ? 'text-destructive' : ''}`}>
+              Peso (g) *
+            </Label>
             <Input
               type="number"
               value={formData.weight_grams}
               onChange={(e) => setFormData(prev => ({ ...prev, weight_grams: Number(e.target.value) }))}
-              min={1}
+              min={currentLimits.minWeight}
+              max={currentLimits.maxWeight}
+              className={!dimensionValidation.isValidWeight ? 'border-destructive' : ''}
             />
+            <p className="text-[10px] text-muted-foreground">
+              mín: {currentLimits.minWeight}g
+            </p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Altura (cm)</Label>
+            <Label className={`text-xs ${!dimensionValidation.isValidHeight ? 'text-destructive' : ''}`}>
+              Altura (cm) *
+            </Label>
             <Input
               type="number"
               value={formData.height_cm}
               onChange={(e) => setFormData(prev => ({ ...prev, height_cm: Number(e.target.value) }))}
-              min={1}
+              min={currentLimits.minHeight}
+              max={currentLimits.maxHeight}
+              className={!dimensionValidation.isValidHeight ? 'border-destructive' : ''}
             />
+            <p className="text-[10px] text-muted-foreground">
+              mín: {currentLimits.minHeight}cm
+            </p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Largura (cm)</Label>
+            <Label className={`text-xs ${!dimensionValidation.isValidWidth ? 'text-destructive' : ''}`}>
+              Largura (cm) *
+            </Label>
             <Input
               type="number"
               value={formData.width_cm}
               onChange={(e) => setFormData(prev => ({ ...prev, width_cm: Number(e.target.value) }))}
-              min={1}
+              min={currentLimits.minWidth}
+              max={currentLimits.maxWidth}
+              className={!dimensionValidation.isValidWidth ? 'border-destructive' : ''}
             />
+            <p className="text-[10px] text-muted-foreground">
+              mín: {currentLimits.minWidth}cm
+            </p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Comprimento (cm)</Label>
+            <Label className={`text-xs ${!dimensionValidation.isValidLength ? 'text-destructive' : ''}`}>
+              Comprimento (cm) *
+            </Label>
             <Input
               type="number"
               value={formData.length_cm}
               onChange={(e) => setFormData(prev => ({ ...prev, length_cm: Number(e.target.value) }))}
-              min={1}
+              min={currentLimits.minLength}
+              max={currentLimits.maxLength}
+              className={!dimensionValidation.isValidLength ? 'border-destructive' : ''}
             />
+            <p className="text-[10px] text-muted-foreground">
+              mín: {currentLimits.minLength}cm
+            </p>
           </div>
+        </div>
+
+        {/* Dimension sum indicator */}
+        <div className={`text-xs p-2 rounded-md ${dimensionValidation.isValidSum ? 'bg-muted' : 'bg-destructive/10 text-destructive'}`}>
+          <span className="font-medium">Soma das dimensões:</span> {dimensionValidation.sum}cm 
+          {dimensionValidation.isValidSum ? (
+            <span className="text-muted-foreground"> (válido: {currentLimits.minSumDimensions}-{currentLimits.maxSumDimensions}cm)</span>
+          ) : (
+            <span> (necessário: {currentLimits.minSumDimensions}-{currentLimits.maxSumDimensions}cm)</span>
+          )}
         </div>
       </div>
 
@@ -358,6 +493,16 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
           </div>
         </div>
       </div>
+
+      {/* Validation Errors */}
+      {!dimensionValidation.isValid && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Ajuste as dimensões para atender aos limites do Correios para o serviço selecionado.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-4 border-t">
