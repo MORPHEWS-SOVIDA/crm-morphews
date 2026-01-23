@@ -111,6 +111,8 @@ const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
 
 // Admin
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
+const FeatureOverrides = lazy(() => import("./pages/super-admin/FeatureOverrides"));
+const PlanEditorPage = lazy(() => import("./pages/super-admin/PlanEditorPage"));
 const InterestedLeads = lazy(() => import("./pages/InterestedLeads"));
 const Cadastro = lazy(() => import("./pages/Cadastro"));
 
@@ -311,6 +313,22 @@ const App = () => (
                   element={
                     <ProtectedRoute requireAdmin>
                       <SuperAdmin />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/feature-overrides"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <FeatureOverrides />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/plan-editor"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <PlanEditorPage />
                     </ProtectedRoute>
                   }
                 />
