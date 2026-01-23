@@ -3,12 +3,14 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Plus, Settings, Trash2, Zap, MessageSquare, Clock, Brain } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bot, Plus, Settings, Trash2, Zap, MessageSquare, Clock, Brain, Users } from "lucide-react";
 import { useAIBots, useOrganizationEnergy, useDeleteAIBot } from "@/hooks/useAIBots";
 import { AIBotWizard } from "@/components/ai-bots/AIBotWizard";
 import { AIBotDetailDialog } from "@/components/ai-bots/AIBotDetailDialog";
 import { EnergyDashboard } from "@/components/ai-bots/EnergyDashboard";
 import { EnergyUsageChart } from "@/components/ai-bots/EnergyUsageChart";
+import { BotTeamsSection } from "@/components/ai-bots/BotTeamsSection";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -66,6 +68,20 @@ export default function AIBots() {
           </div>
         </div>
 
+        {/* Tabs: Bots & Teams */}
+        <Tabs defaultValue="bots" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="bots" className="gap-2">
+              <Bot className="h-4 w-4" />
+              Robôs
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="gap-2">
+              <Users className="h-4 w-4" />
+              Times de Robôs
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="bots" className="mt-6">
         {/* Bots Grid */}
         {isLoading ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -210,6 +226,12 @@ export default function AIBots() {
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="teams" className="mt-6">
+            <BotTeamsSection />
+          </TabsContent>
+        </Tabs>
       </div>
       
       {/* Wizard de Criação */}
