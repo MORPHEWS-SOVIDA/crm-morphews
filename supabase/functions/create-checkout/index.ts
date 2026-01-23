@@ -114,16 +114,17 @@ serve(async (req) => {
 
     console.log("Create checkout request:", { planId, customerEmail, customerName });
 
-    // Get plan details
-    const { data: plan, error: planError } = await supabaseClient
+    // Get plan details (use admin client to bypass RLS since this is public checkout)
+    const { data: plan, error: planError } = await supabaseAdmin
       .from("subscription_plans")
       .select("*")
       .eq("id", planId)
+      .eq("is_active", true)
       .single();
 
     if (planError || !plan) {
       console.error("Plan not found:", planError);
-      throw new Error("Plan not found");
+      throw new Error("Plano não encontrado ou inativo");
     }
 
     console.log("Plan found:", plan.name, "Price:", plan.price_cents);
