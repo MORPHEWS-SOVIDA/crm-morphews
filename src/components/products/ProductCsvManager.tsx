@@ -33,6 +33,7 @@ const CSV_COLUMNS = [
   { key: 'brand_name', label: 'Marca', editable: true }, // Virtual column - maps to brand_id
   { key: 'sku', label: 'SKU', editable: true },
   { key: 'barcode_ean', label: 'Código de Barras (EAN)', editable: true },
+  { key: 'gtin_tax', label: 'GTIN Tributável', editable: true },
   // Campos NOVOS de 1 Unidade (base fixa)
   { key: 'base_price_cents', label: 'Preço 1 UN (centavos)', editable: true },
   { key: 'base_commission_percentage', label: 'Comissão 1 UN (%)', editable: true },
@@ -61,6 +62,33 @@ const CSV_COLUMNS = [
   { key: 'hot_site_url', label: 'URL Hot Site', editable: true },
   { key: 'youtube_video_url', label: 'URL YouTube', editable: true },
   { key: 'sales_script', label: 'Script de Vendas', editable: true },
+  // =========== CAMPOS FISCAIS (NF-e / NFS-e) ===========
+  { key: 'fiscal_origin', label: 'Origem Fiscal (0-8)', editable: true },
+  { key: 'fiscal_ncm', label: 'NCM (8 dígitos)', editable: true },
+  { key: 'fiscal_cest', label: 'CEST (7 dígitos)', editable: true },
+  { key: 'fiscal_cfop', label: 'CFOP', editable: true },
+  { key: 'fiscal_cst', label: 'CST/CSOSN', editable: true },
+  { key: 'fiscal_product_type', label: 'Tipo Fiscal (product/service/mixed)', editable: true },
+  { key: 'fiscal_item_type', label: 'Tipo Item (revenda/insumo/etc)', editable: true },
+  { key: 'fiscal_tax_percentage', label: 'Tributos Aproximados (%)', editable: true },
+  // ICMS
+  { key: 'fiscal_icms_base', label: 'ICMS Base Cálculo', editable: true },
+  { key: 'fiscal_icms_own_value', label: 'ICMS Próprio Valor', editable: true },
+  { key: 'fiscal_icms_st_base', label: 'ICMS ST Base', editable: true },
+  { key: 'fiscal_icms_st_value', label: 'ICMS ST Valor', editable: true },
+  { key: 'fiscal_icms_info', label: 'ICMS Info Adicional', editable: true },
+  { key: 'fiscal_icms_fisco_info', label: 'ICMS Info Fisco', editable: true },
+  { key: 'fiscal_benefit_code', label: 'Código Benefício Fiscal', editable: true },
+  // IPI
+  { key: 'fiscal_ipi_exception_code', label: 'IPI Código Exceção', editable: true },
+  // PIS/COFINS
+  { key: 'fiscal_pis_fixed', label: 'PIS Valor Fixo', editable: true },
+  { key: 'fiscal_cofins_fixed', label: 'COFINS Valor Fixo', editable: true },
+  // ISS (Serviços)
+  { key: 'fiscal_lc116_code', label: 'Código LC 116 (Serviços)', editable: true },
+  { key: 'fiscal_iss_aliquota', label: 'ISS Alíquota (%)', editable: true },
+  // Info adicional
+  { key: 'fiscal_additional_info', label: 'Info Adicional Nota', editable: true },
 ];
 
 interface ProductCsvManagerProps {
@@ -238,17 +266,46 @@ export function ProductCsvManager({ products, canManage }: ProductCsvManagerProp
 
             if (!value && value !== '0') {
               // For nullable fields, set null
-              if (['description', 'sales_script', 'sku', 'barcode_ean', 'unit', 'hot_site_url', 'youtube_video_url', 'brand_id'].includes(col.key)) {
+              const nullableTextFields = [
+                'description', 'sales_script', 'sku', 'barcode_ean', 'gtin_tax', 'unit', 
+                'hot_site_url', 'youtube_video_url', 'brand_id',
+                // Campos fiscais texto
+                'fiscal_ncm', 'fiscal_cest', 'fiscal_cfop', 'fiscal_cst', 'fiscal_product_type',
+                'fiscal_item_type', 'fiscal_icms_info', 'fiscal_icms_fisco_info', 'fiscal_benefit_code',
+                'fiscal_ipi_exception_code', 'fiscal_lc116_code', 'fiscal_additional_info'
+              ];
+              if (nullableTextFields.includes(col.key)) {
                 productData[col.key] = null;
               }
               return;
             }
 
             // Parse based on column type
-            if (['price_1_unit', 'price_3_units', 'price_6_units', 'price_12_units', 'minimum_price', 'cost_cents', 'stock_quantity', 'minimum_stock', 'usage_period_days', 'net_weight_grams', 'gross_weight_grams', 'width_cm', 'height_cm', 'depth_cm'].includes(col.key)) {
+            // Integer fields
+            const integerFields = [
+              'price_1_unit', 'price_3_units', 'price_6_units', 'price_12_units', 
+              'minimum_price', 'cost_cents', 'stock_quantity', 'minimum_stock', 
+              'usage_period_days', 'net_weight_grams', 'gross_weight_grams', 
+              'width_cm', 'height_cm', 'depth_cm',
+              'base_price_cents', 'base_points', 'base_usage_period_days',
+              'fiscal_origin'
+            ];
+            // Decimal/float fields
+            const decimalFields = [
+              'base_commission_percentage', 'fiscal_tax_percentage', 'fiscal_iss_aliquota',
+              'fiscal_icms_base', 'fiscal_icms_own_value', 'fiscal_icms_st_base', 'fiscal_icms_st_value',
+              'fiscal_pis_fixed', 'fiscal_cofins_fixed'
+            ];
+            // Boolean fields
+            const booleanFields = ['track_stock', 'is_active', 'is_featured', 'base_use_default_commission'];
+
+            if (integerFields.includes(col.key)) {
               const num = parseInt(value, 10);
               if (!isNaN(num)) productData[col.key] = num;
-            } else if (['track_stock', 'is_active', 'is_featured'].includes(col.key)) {
+            } else if (decimalFields.includes(col.key)) {
+              const num = parseFloat(value.replace(',', '.'));
+              if (!isNaN(num)) productData[col.key] = num;
+            } else if (booleanFields.includes(col.key)) {
               productData[col.key] = value.toLowerCase() === 'true';
             } else {
               productData[col.key] = value;
