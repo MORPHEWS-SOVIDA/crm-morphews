@@ -110,6 +110,27 @@ export interface UserPermissions {
   // Helper / Suporte
   helper_donna_view: boolean;
   
+  // E-commerce
+  ecommerce_view: boolean;
+  ecommerce_manage: boolean;
+  storefronts_manage: boolean;
+  landing_pages_manage: boolean;
+  affiliates_view: boolean;
+  affiliates_manage: boolean;
+  payment_gateways_manage: boolean;
+  virtual_wallet_view: boolean;
+  telesales_view: boolean;
+  telesales_manage: boolean;
+  
+  // IA de Vendas
+  ai_sales_chatbot_view: boolean;
+  ai_product_recommendations_view: boolean;
+  ai_telesales_copilot_view: boolean;
+  
+  // Google Integrations
+  google_integrations_manage: boolean;
+  tracking_pixels_manage: boolean;
+  
   created_at: string;
   updated_at: string;
 }
@@ -212,11 +233,51 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   scheduled_messages_view: { label: 'Ver Mensagens Agendadas', description: 'Visualizar mensagens agendadas', group: 'Mensagens' },
   scheduled_messages_manage: { label: 'Gerenciar Mensagens Agendadas', description: 'Cancelar e reagendar mensagens', group: 'Mensagens' },
   
+  // E-commerce
+  ecommerce_view: { label: 'Ver E-commerce', description: 'Acessar módulo de e-commerce', group: 'E-commerce' },
+  ecommerce_manage: { label: 'Gerenciar E-commerce', description: 'Configurar lojas e landing pages', group: 'E-commerce' },
+  storefronts_manage: { label: 'Gerenciar Lojas', description: 'Criar e editar lojas virtuais', group: 'E-commerce' },
+  landing_pages_manage: { label: 'Gerenciar Landing Pages', description: 'Criar e editar landing pages VSL', group: 'E-commerce' },
+  affiliates_view: { label: 'Ver Afiliados', description: 'Visualizar afiliados e comissões', group: 'E-commerce' },
+  affiliates_manage: { label: 'Gerenciar Afiliados', description: 'Cadastrar e configurar afiliados', group: 'E-commerce' },
+  payment_gateways_manage: { label: 'Gerenciar Gateways', description: 'Configurar gateways de pagamento', group: 'E-commerce' },
+  virtual_wallet_view: { label: 'Ver Carteira Virtual', description: 'Visualizar saldo e transações', group: 'E-commerce' },
+  telesales_view: { label: 'Ver Televendas', description: 'Acessar painel de televendas', group: 'E-commerce' },
+  telesales_manage: { label: 'Gerenciar Televendas', description: 'Configurar televendas e filas', group: 'E-commerce' },
+  
+  // IA de Vendas
+  ai_sales_chatbot_view: { label: 'Chatbot IA Vendas', description: 'Usar chatbot de vendas nas landing pages', group: 'IA de Vendas' },
+  ai_product_recommendations_view: { label: 'Recomendações IA', description: 'Ver recomendações de produtos por IA', group: 'IA de Vendas' },
+  ai_telesales_copilot_view: { label: 'Copiloto Televendas', description: 'Usar IA como copiloto em televendas', group: 'IA de Vendas' },
+  
+  // Integrações & Tracking
+  google_integrations_manage: { label: 'Integrações Google', description: 'Configurar GA4, GTM, Ads e Meu Negócio', group: 'Integrações & Tracking' },
+  tracking_pixels_manage: { label: 'Pixels de Tracking', description: 'Configurar Facebook, TikTok e outros pixels', group: 'Integrações & Tracking' },
+  
   // Suporte
   helper_donna_view: { label: 'Assistente Virtual (Donna)', description: 'Acesso à assistente de ajuda integrada', group: 'Suporte' },
 };
 
-export const PERMISSION_GROUPS = ['Dashboard', 'Leads', 'Vendas', 'Financeiro', 'WhatsApp', 'Produtos', 'Configurações', 'Relatórios', 'Entregas', 'Módulos', 'Equipe', 'Pós-Venda', 'SAC', 'Mensagens', 'Suporte'];
+export const PERMISSION_GROUPS = [
+  'Dashboard', 
+  'Leads', 
+  'Vendas', 
+  'Financeiro', 
+  'WhatsApp', 
+  'Produtos', 
+  'Configurações', 
+  'Relatórios', 
+  'Entregas', 
+  'Módulos', 
+  'Equipe', 
+  'Pós-Venda', 
+  'SAC', 
+  'Mensagens', 
+  'E-commerce', 
+  'IA de Vendas', 
+  'Integrações & Tracking', 
+  'Suporte'
+];
 
 // Hook to get current user's permissions
 export function useMyPermissions() {

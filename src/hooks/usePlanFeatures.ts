@@ -35,6 +35,9 @@ export const AVAILABLE_FEATURES = {
   scheduled_messages: { label: "Mensagens Agendadas", group: "Mensagens & Automação" },
   ai_bots: { label: "Robôs de IA", group: "Mensagens & Automação" },
   bot_voice_responses: { label: "Voz IA (ElevenLabs)", group: "Mensagens & Automação" },
+  ai_sales_chatbot: { label: "Chatbot IA de Vendas", group: "Mensagens & Automação" },
+  ai_product_recommendations: { label: "Recomendação IA de Produtos", group: "Mensagens & Automação" },
+  ai_telesales_copilot: { label: "Copiloto IA Televendas", group: "Mensagens & Automação" },
   
   // WhatsApp
   whatsapp_v1: { label: "WhatsApp 1.0 (DMs)", group: "WhatsApp" },
@@ -45,6 +48,28 @@ export const AVAILABLE_FEATURES = {
   
   // Canais Adicionais
   instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
+  
+  // E-commerce
+  ecommerce: { label: "E-commerce (Menu)", group: "E-commerce" },
+  storefronts: { label: "Lojas Virtuais", group: "E-commerce" },
+  landing_pages: { label: "Landing Pages VSL", group: "E-commerce" },
+  ecommerce_carts: { label: "Carrinhos Abandonados", group: "E-commerce" },
+  affiliates: { label: "Afiliados", group: "E-commerce" },
+  payment_gateways: { label: "Gateways de Pagamento", group: "E-commerce" },
+  virtual_wallet: { label: "Carteira Virtual", group: "E-commerce" },
+  telesales: { label: "Televendas", group: "E-commerce" },
+  
+  // Integrações Google
+  google_analytics: { label: "Google Analytics 4", group: "Integrações Google" },
+  google_tag_manager: { label: "Google Tag Manager", group: "Integrações Google" },
+  google_ads_conversions: { label: "Google Ads Conversions", group: "Integrações Google" },
+  google_my_business: { label: "Google Meu Negócio", group: "Integrações Google" },
+  google_shopping_feed: { label: "Google Shopping Feed", group: "Integrações Google" },
+  schema_org_structured_data: { label: "Schema.org / JSON-LD", group: "Integrações Google" },
+  
+  // Pixels & Tracking
+  facebook_pixel: { label: "Facebook Pixel", group: "Pixels & Tracking" },
+  tiktok_pixel: { label: "TikTok Pixel", group: "Pixels & Tracking" },
   
   // Demandas
   demands: { label: "Demandas", group: "Demandas" },
