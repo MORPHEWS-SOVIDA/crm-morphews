@@ -40,33 +40,63 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
   'Pós-Venda': ['post_sale', 'post_sale_kanban'],
   'SAC': ['sac'],
   'Mensagens': ['scheduled_messages'],
+  // E-commerce e Tracking agora mapeados
+  'E-commerce': ['ecommerce', 'storefronts', 'landing_pages', 'email_marketing', 'affiliates', 'payment_gateways', 'virtual_wallet', 'telesales'],
+  'IA de Vendas': ['ai_sales_chatbot', 'ai_product_recommendations', 'ai_telesales_copilot'],
+  'Integrações & Tracking': ['google_analytics', 'google_tag_manager', 'google_ads_conversions', 'facebook_pixel', 'tiktok_pixel'],
 };
 
 // Mapeia permissões individuais para features específicas
 // Se a feature está desativada para a org, a permissão não aparece
 const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
+  // Dashboard
   'dashboard_funnel_view': 'dashboard_funnel',
   'dashboard_kanban_view': 'dashboard_kanban',
   'seller_panel_view': 'seller_panel',
   'sales_dashboard_view': 'sales_dashboard',
+  // Módulos
   'ai_bots_view': 'ai_bots',
   'instagram_view': 'instagram',
   'demands_view': 'demands',
   'whatsapp_v2_view': 'whatsapp_v2',
+  // Pós-venda & SAC
   'post_sale_view': 'post_sale',
   'post_sale_manage': 'post_sale',
   'sac_view': 'sac',
   'sac_manage': 'sac',
+  // Relatórios
   'sales_report_view': 'sales_report',
   'expedition_report_view': 'expedition_report',
+  // Configurações
   'settings_standard_questions': 'standard_questions',
+  // Mensagens
   'scheduled_messages_view': 'scheduled_messages',
   'scheduled_messages_manage': 'scheduled_messages',
+  // Entregas
   'deliveries_view_own': 'deliveries',
   'deliveries_view_all': 'deliveries',
-  'expedition_view': 'deliveries',
+  'expedition_view': 'expedition',
+  // Módulos especiais
   'receptive_module_access': 'receptive',
-  'integrations_view': 'settings',
+  'integrations_view': 'integrations',
+  // E-commerce - Cada permissão mapeada para sua feature específica
+  'ecommerce_view': 'ecommerce',
+  'ecommerce_manage': 'ecommerce',
+  'storefronts_manage': 'storefronts',
+  'landing_pages_manage': 'landing_pages',
+  'affiliates_view': 'affiliates',
+  'affiliates_manage': 'affiliates',
+  'payment_gateways_manage': 'payment_gateways',
+  'virtual_wallet_view': 'virtual_wallet',
+  'telesales_view': 'telesales',
+  'telesales_manage': 'telesales',
+  // IA de Vendas
+  'ai_sales_chatbot_view': 'ai_sales_chatbot',
+  'ai_product_recommendations_view': 'ai_product_recommendations',
+  'ai_telesales_copilot_view': 'ai_telesales_copilot',
+  // Integrações Google & Tracking
+  'google_integrations_manage': 'google_analytics', // Usa GA4 como proxy para todo grupo Google
+  'tracking_pixels_manage': 'facebook_pixel', // Usa FB Pixel como proxy para grupo de pixels
 };
 
 export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermissionsEditorProps) {
