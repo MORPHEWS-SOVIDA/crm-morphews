@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { DonnaHelperButton } from '@/components/helper';
 
 interface LayoutProps {
@@ -10,9 +11,14 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { data: permissions } = useMyPermissions();
+  const { data: orgFeatures } = useOrgFeatures();
   
-  // Check if user can see the helper (default true if not set)
-  const canSeeHelper = permissions?.helper_donna_view !== false;
+  // Check if user can see the helper:
+  // 1. User permission must be true (default true if not set)
+  // 2. Org feature "donna_helper" must be enabled (default false if not set for this feature specifically)
+  const userCanSeeHelper = permissions?.helper_donna_view !== false;
+  const orgHasDonnaFeature = orgFeatures?.donna_helper === true; // Default to false for donna
+  const canSeeHelper = userCanSeeHelper && orgHasDonnaFeature;
   
   // If user has hide_sidebar preference, show minimal layout
   if (permissions?.hide_sidebar) {

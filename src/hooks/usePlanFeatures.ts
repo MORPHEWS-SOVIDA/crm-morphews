@@ -89,6 +89,7 @@ export const AVAILABLE_FEATURES = {
   // Super Admin (interno)
   new_organization: { label: "Nova Organização", group: "Super Admin" },
   interested_leads: { label: "Leads Interessados", group: "Super Admin" },
+  donna_helper: { label: "Donna (Assistente)", group: "Super Admin" },
 } as const;
 
 export type FeatureKey = keyof typeof AVAILABLE_FEATURES;

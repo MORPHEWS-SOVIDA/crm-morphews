@@ -34,6 +34,12 @@ export default function Dashboard() {
   // Check if user can see leads
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
+  const canSeeSales = permissions?.sales_view || permissions?.sales_view_all;
+  const canSeeWhatsapp = permissions?.whatsapp_view;
+  const canSeeProducts = permissions?.products_view;
+  
+  // User has some useful permissions even if not leads/deliveries
+  const hasAnyUsefulPermission = canSeeLeads || canSeeDeliveries || canSeeSales || canSeeWhatsapp || canSeeProducts;
 
   const responsaveis = useMemo(() => {
     const uniqueResponsaveis = [...new Set(leads.map(lead => lead.assigned_to))];
@@ -136,8 +142,65 @@ export default function Dashboard() {
     );
   }
 
+  // If user has some permissions but not leads, show helpful navigation
+  if (!canSeeLeads && hasAnyUsefulPermission) {
+    return (
+      <SmartLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
+              Bem-vindo ao sistema! Use o menu lateral para navegar.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {canSeeSales && (
+              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/vendas')}>
+                <CardHeader>
+                  <CardTitle className="text-lg">Vendas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Visualize e gerencie vendas
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {canSeeWhatsapp && (
+              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/whatsapp')}>
+                <CardHeader>
+                  <CardTitle className="text-lg">WhatsApp</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Acesse suas conversas
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {canSeeProducts && (
+              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/produtos')}>
+                <CardHeader>
+                  <CardTitle className="text-lg">Produtos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Visualize o catálogo de produtos
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </SmartLayout>
+    );
+  }
+
   // If user has no relevant permissions at all
-  if (!canSeeLeads && !canSeeDeliveries) {
+  if (!canSeeLeads && !hasAnyUsefulPermission) {
     return (
       <SmartLayout>
         <div className="space-y-6">
