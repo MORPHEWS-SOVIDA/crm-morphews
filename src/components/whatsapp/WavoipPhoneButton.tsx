@@ -68,20 +68,17 @@ export function WavoipPhoneButton({ instanceId, className }: WavoipPhoneButtonPr
   const { user, profile } = useAuth();
   const { data: hasWavoipFeature = false, isLoading: loadingFeature } = useOrgHasFeature("wavoip_calls");
 
+  const featureEnabled = !loadingFeature && hasWavoipFeature;
+
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [activeTab, setActiveTab] = useState<'dial' | 'queue'>('dial');
   const [activeInstanceId, setActiveInstanceId] = useState<string | null>(instanceId ?? null);
 
-  // Don't render if Wavoip feature is not enabled for the organization
-  if (!loadingFeature && !hasWavoipFeature) {
-    return null;
-  }
-
   // Instâncias onde o usuário tem permissão de "Telefone" + chamadas habilitadas
   const { data: phoneInstances = [], isLoading: loadingInstances } = useQuery({
     queryKey: ['wavoip-phone-instances', user?.id],
-    enabled: !!user?.id,
+    enabled: !!user?.id && featureEnabled,
     queryFn: async (): Promise<PhoneInstanceOption[]> => {
       if (!user?.id) return [];
 
@@ -153,7 +150,7 @@ export function WavoipPhoneButton({ instanceId, className }: WavoipPhoneButtonPr
   // Usuários com permissão "Telefone" na instância ativa (somente para visualização)
   const { data: phoneUsers = [], isLoading: loadingPhoneUsers } = useQuery({
     queryKey: ['wavoip-phone-users', activeInstanceId],
-    enabled: !!activeInstanceId && open,
+    enabled: !!activeInstanceId && open && featureEnabled,
     queryFn: async () => {
       if (!activeInstanceId) return [];
 
@@ -179,6 +176,11 @@ export function WavoipPhoneButton({ instanceId, className }: WavoipPhoneButtonPr
       return (rows || []).map((r: any) => ({ ...r, profiles: byUserId.get(r.user_id) || null }));
     },
   });
+
+  // IMPORTANTE: nunca retornar antes de declarar todos os hooks.
+  // Caso a feature esteja desabilitada, retornamos apenas aqui (depois dos hooks),
+  // evitando o erro React #300 ("Rendered fewer hooks than expected").
+  if (!featureEnabled) return null;
 
   // Se ainda estiver carregando instâncias, não renderiza nada para não "pular" layout
   if (loadingInstances) return null;
