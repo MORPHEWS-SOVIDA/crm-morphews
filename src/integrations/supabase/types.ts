@@ -2006,6 +2006,7 @@ export type Database = {
           lead_id: string | null
           organization_id: string
           recovery_email_sent_at: string | null
+          recovery_sent_at: string | null
           recovery_whatsapp_sent_at: string | null
           session_id: string
           shipping_cents: number | null
@@ -2030,6 +2031,7 @@ export type Database = {
           lead_id?: string | null
           organization_id: string
           recovery_email_sent_at?: string | null
+          recovery_sent_at?: string | null
           recovery_whatsapp_sent_at?: string | null
           session_id: string
           shipping_cents?: number | null
@@ -2054,6 +2056,7 @@ export type Database = {
           lead_id?: string | null
           organization_id?: string
           recovery_email_sent_at?: string | null
+          recovery_sent_at?: string | null
           recovery_whatsapp_sent_at?: string | null
           session_id?: string
           shipping_cents?: number | null
