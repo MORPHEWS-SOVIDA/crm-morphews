@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building2, RotateCcw, ShieldCheck, ShieldX } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Loader2, Building2, RotateCcw, ShieldCheck, ShieldX, MinusCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -29,6 +28,8 @@ interface Subscription {
     name: string;
   } | null;
 }
+
+type OverrideState = "plan" | "force_on" | "force_off";
 
 export function OrgFeatureOverridesEditor() {
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
@@ -80,40 +81,51 @@ export function OrgFeatureOverridesEditor() {
   });
 
   // Build a map of overrides
-  const overridesMap: Record<string, boolean> = {};
+  const overridesMap: Record<string, { isEnabled: boolean; id: string }> = {};
   overrides?.forEach((o) => {
-    overridesMap[o.feature_key] = o.is_enabled;
+    overridesMap[o.feature_key] = { isEnabled: o.is_enabled, id: o.id };
   });
 
-  const getFeatureStatus = (featureKey: string): { enabled: boolean; source: "plan" | "override" } => {
+  const getFeatureState = (featureKey: string): { 
+    overrideState: OverrideState; 
+    planDefault: boolean;
+    finalEnabled: boolean;
+  } => {
+    const planDefault = planFeaturesMap[featureKey] ?? false; // Default to FALSE if not in plan
+    
     if (overridesMap[featureKey] !== undefined) {
-      return { enabled: overridesMap[featureKey], source: "override" };
+      const overrideEnabled = overridesMap[featureKey].isEnabled;
+      return { 
+        overrideState: overrideEnabled ? "force_on" : "force_off",
+        planDefault,
+        finalEnabled: overrideEnabled
+      };
     }
-    // Default to true if not defined in plan
-    return { enabled: planFeaturesMap[featureKey] ?? true, source: "plan" };
+    
+    return { 
+      overrideState: "plan", 
+      planDefault,
+      finalEnabled: planDefault
+    };
   };
 
-  const handleToggleOverride = (featureKey: string) => {
+  const handleSetOverrideState = (featureKey: string, newState: OverrideState) => {
     if (!selectedOrgId) return;
     
-    const currentStatus = getFeatureStatus(featureKey);
-    
-    // If it's currently from plan, create an override with opposite value
-    // If it's currently an override, toggle the override value
-    updateOverride.mutate({
-      organizationId: selectedOrgId,
-      featureKey,
-      isEnabled: !currentStatus.enabled,
-    });
-  };
-
-  const handleRemoveOverride = (featureKey: string) => {
-    if (!selectedOrgId) return;
-    
-    deleteOverride.mutate({
-      organizationId: selectedOrgId,
-      featureKey,
-    });
+    if (newState === "plan") {
+      // Remove override - use plan default
+      deleteOverride.mutate({
+        organizationId: selectedOrgId,
+        featureKey,
+      });
+    } else {
+      // Create/update override
+      updateOverride.mutate({
+        organizationId: selectedOrgId,
+        featureKey,
+        isEnabled: newState === "force_on",
+      });
+    }
   };
 
   // Group features by category
@@ -131,6 +143,7 @@ export function OrgFeatureOverridesEditor() {
   };
 
   const isLoading = orgsLoading || planFeaturesLoading || overridesLoading;
+  const isMutating = updateOverride.isPending || deleteOverride.isPending;
 
   return (
     <Card>
@@ -173,6 +186,24 @@ export function OrgFeatureOverridesEditor() {
           </div>
         )}
 
+        {/* Legend */}
+        {selectedOrgId && (
+          <div className="flex flex-wrap gap-4 p-3 rounded-lg bg-muted/50 text-xs">
+            <div className="flex items-center gap-2">
+              <MinusCircle className="h-4 w-4 text-muted-foreground" />
+              <span>Usar Plano (default)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-green-500" />
+              <span>Forçar Ativado</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ShieldX className="h-4 w-4 text-red-500" />
+              <span>Forçar Desativado</span>
+            </div>
+          </div>
+        )}
+
         {/* Features List */}
         {selectedOrgId && (
           <>
@@ -189,77 +220,96 @@ export function OrgFeatureOverridesEditor() {
                     </h4>
                     <div className="grid md:grid-cols-2 gap-3">
                       {features.map(({ key, label }) => {
-                        const status = getFeatureStatus(key);
-                        const hasOverride = overridesMap[key] !== undefined;
+                        const state = getFeatureState(key);
+                        const hasOverride = state.overrideState !== "plan";
                         
                         return (
                           <div
                             key={key}
-                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                            className={`p-3 rounded-lg border ${
                               hasOverride 
-                                ? status.enabled 
+                                ? state.overrideState === "force_on"
                                   ? "border-green-500/50 bg-green-500/5" 
                                   : "border-red-500/50 bg-red-500/5"
                                 : "bg-card"
                             }`}
                           >
-                            <div className="flex items-center gap-2">
-                              {hasOverride && (
-                                status.enabled ? (
-                                  <ShieldCheck className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <ShieldX className="h-4 w-4 text-red-500" />
-                                )
-                              )}
-                              <Label htmlFor={`override-${key}`} className="cursor-pointer">
-                                {label}
-                              </Label>
-                              {hasOverride && (
-                                <Badge variant="outline" className="text-xs">
-                                  Override
-                                </Badge>
-                              )}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{label}</span>
+                                {hasOverride && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-xs ${
+                                      state.overrideState === "force_on" 
+                                        ? "border-green-500 text-green-600" 
+                                        : "border-red-500 text-red-600"
+                                    }`}
+                                  >
+                                    Override
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {hasOverride && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => handleRemoveOverride(key)}
-                                  title="Usar padrão do plano"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Switch
-                                id={`override-${key}`}
-                                checked={status.enabled}
-                                onCheckedChange={() => handleToggleOverride(key)}
-                                disabled={updateOverride.isPending || deleteOverride.isPending}
-                              />
+                            
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant={state.overrideState === "plan" ? "default" : "outline"}
+                                className="h-7 text-xs flex-1"
+                                onClick={() => handleSetOverrideState(key, "plan")}
+                                disabled={isMutating}
+                              >
+                                <MinusCircle className="h-3 w-3 mr-1" />
+                                Plano
+                                {state.overrideState === "plan" && (
+                                  <span className="ml-1 opacity-70">
+                                    ({state.planDefault ? "ON" : "OFF"})
+                                  </span>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={state.overrideState === "force_on" ? "default" : "outline"}
+                                className={`h-7 text-xs flex-1 ${
+                                  state.overrideState === "force_on" 
+                                    ? "bg-green-600 hover:bg-green-700" 
+                                    : ""
+                                }`}
+                                onClick={() => handleSetOverrideState(key, "force_on")}
+                                disabled={isMutating}
+                              >
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                                Forçar ON
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={state.overrideState === "force_off" ? "default" : "outline"}
+                                className={`h-7 text-xs flex-1 ${
+                                  state.overrideState === "force_off" 
+                                    ? "bg-red-600 hover:bg-red-700" 
+                                    : ""
+                                }`}
+                                onClick={() => handleSetOverrideState(key, "force_off")}
+                                disabled={isMutating}
+                              >
+                                <ShieldX className="h-3 w-3 mr-1" />
+                                Forçar OFF
+                              </Button>
                             </div>
+                            
+                            {/* Show plan default info when using plan */}
+                            {state.overrideState === "plan" && (
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Padrão do plano: {state.planDefault ? "Ativado" : "Desativado"}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
                 ))}
-
-                <div className="text-xs text-muted-foreground pt-4 border-t">
-                  <p className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-green-500" />
-                    Feature liberada manualmente (override)
-                  </p>
-                  <p className="flex items-center gap-2 mt-1">
-                    <ShieldX className="h-4 w-4 text-red-500" />
-                    Feature bloqueada manualmente (override)
-                  </p>
-                  <p className="mt-1">
-                    Clique em <RotateCcw className="h-3 w-3 inline" /> para remover o override 
-                    e usar o padrão do plano
-                  </p>
-                </div>
               </div>
             )}
           </>
