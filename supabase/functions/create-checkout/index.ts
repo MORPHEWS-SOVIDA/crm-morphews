@@ -372,12 +372,13 @@ serve(async (req) => {
     }
 
     // Create checkout session
+    const appOrigin = req.headers.get("origin") || "https://crm.morphews.com";
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: successUrl || `${req.headers.get("origin")}/?subscription=success`,
-      cancel_url: cancelUrl || `${req.headers.get("origin")}/planos`,
+      success_url: successUrl || `${appOrigin}/?subscription=success`,
+      cancel_url: cancelUrl || `${appOrigin}/planos`,
       metadata: {
         plan_id: plan.id,
         customer_email: email,
