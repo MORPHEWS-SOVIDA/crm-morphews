@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useDemandColumns } from '@/hooks/useDemandBoards';
 import { useCreateDemand } from '@/hooks/useDemands';
 import { useUsers } from '@/hooks/useUsers';
@@ -15,7 +16,7 @@ import { useLeads } from '@/hooks/useLeads';
 import { useAssignDemandLabel, useDemandLabels } from '@/hooks/useDemandDetails';
 import { URGENCY_CONFIG, type DemandUrgency } from '@/types/demand';
 import { MultiSelect } from '@/components/MultiSelect';
-import { Check, ChevronsUpDown, User, Tag, ExternalLink } from 'lucide-react';
+import { Check, ChevronsUpDown, User, Tag, ExternalLink, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CreateDemandDialogProps {
@@ -43,6 +44,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
     label_ids: [] as string[],
     lead_id: leadId || '',
     due_at: '',
+    notify_whatsapp: true, // Checkbox para notificar por WhatsApp
   });
   
   const [leadSearchOpen, setLeadSearchOpen] = useState(false);
@@ -65,6 +67,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       assignee_ids: form.assignee_ids.length > 0 ? form.assignee_ids : undefined,
       lead_id: form.lead_id || leadId || undefined,
       due_at: form.due_at ? new Date(form.due_at).toISOString() : undefined,
+      notify_whatsapp: form.notify_whatsapp && form.assignee_ids.length > 0,
     });
 
     if (form.label_ids.length > 0) {
@@ -82,6 +85,7 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
       label_ids: [],
       lead_id: leadId || '',
       due_at: '',
+      notify_whatsapp: true,
     });
     onOpenChange(false);
   };
@@ -285,6 +289,29 @@ export function CreateDemandDialog({ open, onOpenChange, boardId, leadId }: Crea
                 />
               </div>
             </div>
+
+            {/* Checkbox de notificação WhatsApp */}
+            {form.assignee_ids.length > 0 && (
+              <div className="flex items-center space-x-2 p-3 rounded-lg bg-muted/50 border">
+                <Checkbox
+                  id="notify_whatsapp"
+                  checked={form.notify_whatsapp}
+                  onCheckedChange={(checked) => 
+                    setForm(prev => ({ ...prev, notify_whatsapp: checked === true }))
+                  }
+                />
+                <label
+                  htmlFor="notify_whatsapp"
+                  className="flex items-center gap-2 text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  <MessageSquare className="h-4 w-4 text-green-600" />
+                  Notificar envolvidos por WhatsApp
+                </label>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {form.assignee_ids.length} pessoa(s) será(ão) notificada(s)
+                </span>
+              </div>
+            )}
           </div>
         </ScrollArea>
 

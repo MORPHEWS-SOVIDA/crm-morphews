@@ -188,6 +188,7 @@ export interface CreateDemandInput {
   due_at?: string | null;
   estimated_time_seconds?: number | null;
   assignee_ids?: string[];
+  notify_whatsapp?: boolean; // Se true, notifica envolvidos por WhatsApp
 }
 
 export interface UpdateDemandInput {
