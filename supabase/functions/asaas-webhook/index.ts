@@ -1,14 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, access_token",
 };
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Accept GET/HEAD for webhook validation
+  if (req.method === "GET" || req.method === "HEAD") {
+    return new Response(JSON.stringify({ status: "ok" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -17,45 +25,74 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    console.log("Pagarme webhook received:", JSON.stringify(body));
+    console.log("Asaas webhook received:", JSON.stringify(body));
 
-    // Pagarme sends transaction updates
-    const { id, current_status, metadata } = body;
-    const saleId = metadata?.sale_id;
+    // Asaas sends payment updates
+    const { event, payment } = body;
 
-    if (!saleId) {
-      console.log("No sale_id in metadata, ignoring");
+    if (!payment) {
+      console.log("No payment data in payload");
       return new Response(JSON.stringify({ received: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Map Pagarme status to our status
+    // Get sale ID from external reference
+    const saleId = payment.externalReference;
+
+    if (!saleId) {
+      console.log("No externalReference (sale_id) in payment");
+      return new Response(JSON.stringify({ received: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Find sale
+    const { data: sale, error: saleError } = await supabase
+      .from('sales')
+      .select('id, organization_id, total_cents, status, payment_status')
+      .eq('id', saleId)
+      .maybeSingle();
+
+    if (!sale) {
+      console.log(`Sale not found: ${saleId}`);
+      return new Response(JSON.stringify({ received: true, message: 'Sale not found' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Map Asaas event to status
     let newStatus = '';
     let paymentStatus = '';
 
-    switch (current_status) {
-      case 'paid':
+    switch (event) {
+      case 'PAYMENT_CONFIRMED':
+      case 'PAYMENT_RECEIVED':
         newStatus = 'payment_confirmed';
         paymentStatus = 'paid';
         break;
-      case 'refused':
-      case 'refunded':
-      case 'chargedback':
+      case 'PAYMENT_OVERDUE':
+        paymentStatus = 'overdue';
+        break;
+      case 'PAYMENT_DELETED':
+      case 'PAYMENT_REFUNDED':
         newStatus = 'cancelled';
-        paymentStatus = current_status === 'refunded' ? 'refunded' : 'cancelled';
+        paymentStatus = event === 'PAYMENT_REFUNDED' ? 'refunded' : 'cancelled';
         break;
-      case 'pending_refund':
-        paymentStatus = 'pending_refund';
+      case 'PAYMENT_CHARGEBACK_REQUESTED':
+      case 'PAYMENT_CHARGEBACK_DISPUTE':
+        paymentStatus = 'chargeback';
         break;
-      case 'waiting_payment':
-      case 'processing':
-      case 'authorized':
+      case 'PAYMENT_AWAITING_RISK_ANALYSIS':
+        paymentStatus = 'analyzing';
+        break;
+      case 'PAYMENT_CREATED':
+      case 'PAYMENT_UPDATED':
         // Keep as pending
         paymentStatus = 'pending';
         break;
       default:
-        console.log(`Unknown status: ${current_status}`);
+        console.log(`Unknown event: ${event}`);
         return new Response(JSON.stringify({ received: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -70,6 +107,11 @@ serve(async (req) => {
       updateData.status = newStatus;
     }
 
+    // Add payment reference if available
+    if (payment.id) {
+      updateData.notes = `ASAAS ID: ${payment.id}`;
+    }
+
     const { error: updateError } = await supabase
       .from('sales')
       .update(updateData)
@@ -80,8 +122,25 @@ serve(async (req) => {
       throw updateError;
     }
 
+    console.log(`Sale ${saleId} updated: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+
+    // Log payment attempt
+    await supabase
+      .from('payment_attempts')
+      .insert({
+        sale_id: saleId,
+        gateway: 'asaas',
+        payment_method: payment.billingType?.toLowerCase() || 'unknown',
+        amount_cents: Math.round((payment.value || 0) * 100),
+        status: paymentStatus === 'paid' ? 'success' : paymentStatus === 'pending' ? 'pending' : 'failed',
+        gateway_transaction_id: payment.id,
+        attempt_number: 1,
+        is_fallback: false,
+        response_data: payment,
+      });
+
     // If paid, process splits
-    if (current_status === 'paid') {
+    if (paymentStatus === 'paid') {
       await processSaleSplits(supabase, saleId);
     }
 
@@ -99,7 +158,7 @@ serve(async (req) => {
   }
 });
 
-async function processSaleSplits(supabase: any, saleId: string) {
+async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
   // Fetch sale details
   const { data: sale, error: saleError } = await supabase
     .from('sales')
@@ -112,35 +171,46 @@ async function processSaleSplits(supabase: any, saleId: string) {
     return;
   }
 
+  // Check if splits already processed
+  const { data: existingSplits } = await supabase
+    .from('sale_splits')
+    .select('id')
+    .eq('sale_id', saleId)
+    .eq('split_type', 'tenant');
+
+  if (existingSplits && existingSplits.length > 0) {
+    console.log(`Splits already processed for sale ${saleId}`);
+    return;
+  }
+
   // Fetch platform settings
   const { data: platformSettings } = await supabase
     .from('platform_settings')
     .select('setting_key, setting_value');
 
-  const settings = (platformSettings || []).reduce((acc: Record<string, any>, s: any) => {
-    acc[s.setting_key] = s.setting_value;
+  const settings = (platformSettings || []).reduce((acc: Record<string, unknown>, s: Record<string, unknown>) => {
+    acc[s.setting_key as string] = s.setting_value;
     return acc;
-  }, {});
+  }, {} as Record<string, unknown>);
 
-  const platformFees = settings.platform_fees || { percentage: 5.0, fixed_cents: 0 };
-  const withdrawalRules = settings.withdrawal_rules || { release_days: 14 };
+  const platformFees = (settings.platform_fees as { percentage?: number; fixed_cents?: number }) || { percentage: 5.0, fixed_cents: 0 };
+  const withdrawalRules = (settings.withdrawal_rules as { release_days?: number }) || { release_days: 14 };
 
   const totalCents = sale.total_cents;
-  const platformFeeCents = Math.round(totalCents * (platformFees.percentage / 100)) + (platformFees.fixed_cents || 0);
+  const platformFeeCents = Math.round(totalCents * ((platformFees.percentage || 5) / 100)) + (platformFees.fixed_cents || 0);
   
   // Release date
   const releaseAt = new Date();
   releaseAt.setDate(releaseAt.getDate() + (withdrawalRules.release_days || 14));
 
-  // Get tenant virtual account
+  // Get or create tenant virtual account
   let { data: tenantAccount } = await supabase
     .from('virtual_accounts')
-    .select('id')
+    .select('id, pending_balance_cents, total_received_cents')
     .eq('organization_id', sale.organization_id)
     .eq('account_type', 'tenant')
     .maybeSingle();
 
-  // Create tenant account if not exists
   if (!tenantAccount) {
     const { data: org } = await supabase
       .from('organizations')
@@ -153,26 +223,34 @@ async function processSaleSplits(supabase: any, saleId: string) {
       .insert({
         organization_id: sale.organization_id,
         account_type: 'tenant',
-        holder_name: org?.name || 'Tenant',
-        holder_email: org?.email || 'tenant@morphews.com',
+        holder_name: (org as Record<string, unknown>)?.name || 'Tenant',
+        holder_email: (org as Record<string, unknown>)?.email || 'tenant@example.com',
+        pending_balance_cents: 0,
+        total_received_cents: 0,
       })
-      .select('id')
+      .select('id, pending_balance_cents, total_received_cents')
       .single();
 
     tenantAccount = newAccount;
   }
 
+  if (!tenantAccount) {
+    console.error("Failed to get/create tenant account");
+    return;
+  }
+
   // Check for existing affiliate split
-  const { data: existingSplits } = await supabase
+  const { data: affiliateSplits } = await supabase
     .from('sale_splits')
     .select('*')
-    .eq('sale_id', saleId);
+    .eq('sale_id', saleId)
+    .eq('split_type', 'affiliate');
 
   let affiliateSplitCents = 0;
-  const affiliateSplit = existingSplits?.find((s: any) => s.split_type === 'affiliate');
+  const affiliateSplit = (affiliateSplits as Record<string, unknown>[])?.[0];
   
   if (affiliateSplit) {
-    affiliateSplitCents = affiliateSplit.gross_amount_cents;
+    affiliateSplitCents = affiliateSplit.gross_amount_cents as number || 0;
     
     // Credit affiliate account
     const { data: affAccount } = await supabase
@@ -202,15 +280,15 @@ async function processSaleSplits(supabase: any, saleId: string) {
       // Update affiliate split with transaction id
       await supabase
         .from('sale_splits')
-        .update({ transaction_id: affTx?.id })
+        .update({ transaction_id: (affTx as Record<string, unknown>)?.id })
         .eq('id', affiliateSplit.id);
 
       // Update pending balance
       await supabase
         .from('virtual_accounts')
         .update({
-          pending_balance_cents: affAccount.pending_balance_cents + affiliateSplitCents,
-          total_received_cents: affAccount.total_received_cents + affiliateSplitCents,
+          pending_balance_cents: (affAccount.pending_balance_cents || 0) + affiliateSplitCents,
+          total_received_cents: (affAccount.total_received_cents || 0) + affiliateSplitCents,
         })
         .eq('id', affAccount.id);
     }
@@ -233,7 +311,7 @@ async function processSaleSplits(supabase: any, saleId: string) {
     });
 
   // Create tenant transaction
-  const { data: tenantTx } = await supabase
+  await supabase
     .from('virtual_transactions')
     .insert({
       virtual_account_id: tenantAccount.id,
@@ -245,36 +323,28 @@ async function processSaleSplits(supabase: any, saleId: string) {
       description: `Venda #${saleId.slice(0, 8)} (- taxa plataforma)`,
       status: 'pending',
       release_at: releaseAt.toISOString(),
-    })
-    .select('id')
-    .single();
+    });
 
   // Update tenant pending balance
-  const { data: tenantAccountData } = await supabase
-    .from('virtual_accounts')
-    .select('pending_balance_cents, total_received_cents')
-    .eq('id', tenantAccount.id)
-    .single();
-
   await supabase
     .from('virtual_accounts')
     .update({
-      pending_balance_cents: (tenantAccountData?.pending_balance_cents || 0) + tenantAmount,
-      total_received_cents: (tenantAccountData?.total_received_cents || 0) + tenantAmount,
+      pending_balance_cents: (tenantAccount.pending_balance_cents || 0) + tenantAmount,
+      total_received_cents: (tenantAccount.total_received_cents || 0) + tenantAmount,
     })
     .eq('id', tenantAccount.id);
 
-  // Create platform fee record (for accounting)
+  // Create platform fee record
   await supabase
     .from('sale_splits')
     .insert({
       sale_id: saleId,
-      virtual_account_id: tenantAccount.id, // Using tenant account as reference
+      virtual_account_id: tenantAccount.id,
       split_type: 'platform',
       gross_amount_cents: platformFeeCents,
       fee_cents: 0,
       net_amount_cents: platformFeeCents,
-      percentage: platformFees.percentage,
+      percentage: platformFees.percentage || 5,
     });
 
   console.log(`Processed splits for sale ${saleId}: Tenant=${tenantAmount}, Affiliate=${affiliateSplitCents}, Platform=${platformFeeCents}`);
