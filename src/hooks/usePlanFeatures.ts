@@ -54,6 +54,7 @@ export const AVAILABLE_FEATURES = {
   storefronts: { label: "Lojas Virtuais", group: "E-commerce" },
   landing_pages: { label: "Landing Pages VSL", group: "E-commerce" },
   ecommerce_carts: { label: "Carrinhos Abandonados", group: "E-commerce" },
+  email_marketing: { label: "Email Marketing", group: "E-commerce" },
   affiliates: { label: "Afiliados", group: "E-commerce" },
   payment_gateways: { label: "Gateways de Pagamento", group: "E-commerce" },
   virtual_wallet: { label: "Carteira Virtual", group: "E-commerce" },
