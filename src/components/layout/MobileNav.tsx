@@ -84,6 +84,7 @@ export function MobileNav() {
   const canSeeSales = isAdmin || permissions?.sales_view;
   const canSeeProducts = isAdmin || permissions?.products_view;
   const canSeeSettings = isAdmin || permissions?.settings_view;
+  const canSeeEcommerce = isAdmin || permissions?.settings_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
   const canSeeAllDeliveries = permissions?.deliveries_view_all;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
@@ -209,6 +210,10 @@ export function MobileNav() {
     if (canSeeDemands && hasFeature('demands')) {
       mgmtItems.push({ icon: ListTodo, label: 'Demandas', path: '/demandas' });
     }
+    // E-commerce - check feature
+    if (canSeeEcommerce && hasFeature('ecommerce')) {
+      mgmtItems.push({ icon: ShoppingCart, label: 'E-commerce', path: '/ecommerce' });
+    }
     if (mgmtItems.length > 0) {
       groups.push({ id: 'management', label: 'Gestão', icon: UsersRound, items: mgmtItems });
     }
@@ -257,7 +262,8 @@ export function MobileNav() {
     canSeeExpedition, canSeeWhatsApp, canSeeTeam, canSeeInstagram,
     canSeePostSale, canSeeSac, canSeeSalesReport, canSeeExpeditionReport,
     canSeeWhatsAppManage, canSeeAIBots, canSeeDemands, canSeeScheduledMessages,
-    canSeeDashboardFunnel, canSeeDashboardKanban, canSeeSellerPanel, canSeeSalesDashboard
+    canSeeDashboardFunnel, canSeeDashboardKanban, canSeeSellerPanel, canSeeSalesDashboard,
+    canSeeEcommerce
   ]);
 
   // Smart quick access items - first 4 items from available groups

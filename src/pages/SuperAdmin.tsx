@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent, Settings, Store, ChevronRight } from "lucide-react";
@@ -134,6 +134,7 @@ export default function SuperAdmin() {
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [sendingCredentialsFor, setSendingCredentialsFor] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("organizations");
 
   // Only allow master admin
   if (!authLoading && user?.email !== MASTER_ADMIN_EMAIL) {
@@ -712,585 +713,219 @@ export default function SuperAdmin() {
           activeFilter={statusFilter}
         />
 
-        <Tabs defaultValue="organizations" className="space-y-4">
-          <TabsList className="flex-wrap gap-1">
-            {/* 📊 Clientes */}
-            <TabsTrigger value="organizations" className="gap-1">
-              <Building2 className="h-3 w-3" />
-              Organizações
-            </TabsTrigger>
-            <TabsTrigger value="interested" className="gap-1">
-              <Users className="h-3 w-3" />
-              Quiz ({interestedLeads?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="all-users" className="gap-1">
-              <Users className="h-3 w-3" />
-              Usuários
-            </TabsTrigger>
-            
-            {/* 💰 Billing */}
-            <TabsTrigger value="billing" className="gap-1 text-amber-600">
-              <CreditCard className="h-3 w-3" />
-              Inadimplência
-            </TabsTrigger>
-            <TabsTrigger value="coupons" className="gap-1">
-              <Tag className="h-3 w-3" />
-              Cupons
-            </TabsTrigger>
-            <TabsTrigger value="plan-editor" className="gap-1">
-              <Package className="h-3 w-3" />
-              Planos
-            </TabsTrigger>
-            <TabsTrigger value="gateways" className="gap-1">
-              <Wallet className="h-3 w-3" />
-              Gateways
-            </TabsTrigger>
-            <TabsTrigger value="tenant-fees" className="gap-1">
-              <Percent className="h-3 w-3" />
-              Taxas
-            </TabsTrigger>
-            
-            {/* 📱 WhatsApp */}
-            <TabsTrigger value="whatsapp" className="gap-1">
-              <MessageSquare className="h-3 w-3" />
-              WA Créditos
-            </TabsTrigger>
-            <TabsTrigger value="providers" className="gap-1">
-              <Globe className="h-3 w-3" />
-              WA Providers
-            </TabsTrigger>
-            <TabsTrigger value="admin-whatsapp" className="gap-1">
-              <Smartphone className="h-3 w-3" />
-              WA Admin
-            </TabsTrigger>
-            
-            {/* ⚙️ Sistema */}
-            <TabsTrigger value="energy" className="gap-1">
-              <Zap className="h-3 w-3" />
-              Energia IA
-            </TabsTrigger>
-            <TabsTrigger value="ai-costs" className="gap-1">
-              <Cpu className="h-3 w-3" />
-              Custos IA
-            </TabsTrigger>
-            <TabsTrigger value="org-overrides">Overrides</TabsTrigger>
-            <TabsTrigger value="error-logs" className="gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Logs
-            </TabsTrigger>
-            
-            {/* 📧 Comunicação */}
-            <TabsTrigger value="onboarding-emails" className="gap-1">
-              <MailOpen className="h-3 w-3" />
-              Emails
-            </TabsTrigger>
-            <TabsTrigger value="secretary-messages" className="gap-1">
-              <MessageSquare className="h-3 w-3" />
-              Secretária
-            </TabsTrigger>
-            <TabsTrigger value="helper-donna" className="gap-1">
-              <HelpCircle className="h-3 w-3" />
-              Donna
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="organizations">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>
-                    {statusFilter 
-                      ? `Organizações - ${statusFilter === 'active' ? 'Ativas' : statusFilter === 'trialing' ? 'Trial' : statusFilter === 'past_due' ? 'Inadimplentes' : 'Canceladas'}`
-                      : 'Todas as Organizações'
-                    }
-                  </CardTitle>
-                  {statusFilter && (
-                    <Button variant="ghost" size="sm" onClick={() => setStatusFilter(null)}>
-                      Limpar filtro
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {organizations?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Nenhuma organização cadastrada ainda.</p>
+        <div className="flex gap-6">
+          {/* Sidebar Navigation */}
+          <SuperAdminNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+          
+          {/* Content Area */}
+          <div className="flex-1 min-w-0">
+            {activeTab === "organizations" && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>
+                      {statusFilter 
+                        ? `Organizações - ${statusFilter === 'active' ? 'Ativas' : statusFilter === 'trialing' ? 'Trial' : statusFilter === 'past_due' ? 'Inadimplentes' : 'Canceladas'}`
+                        : 'Todas as Organizações'
+                      }
+                    </CardTitle>
+                    {statusFilter && (
+                      <Button variant="ghost" size="sm" onClick={() => setStatusFilter(null)}>
+                        Limpar filtro
+                      </Button>
+                    )}
                   </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Organização</TableHead>
-                        <TableHead>Dono</TableHead>
-                        <TableHead>Contato</TableHead>
-                        <TableHead>Plano</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Usuários</TableHead>
-                        <TableHead>Criado em</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {organizations
-                        ?.filter((org) => {
-                          if (!statusFilter) return true;
-                          const sub = getSubscriptionForOrg(org.id);
-                          return sub?.status === statusFilter;
-                        })
-                        .map((org) => {
-                        const subscription = getSubscriptionForOrg(org.id);
-                        const memberCount = getMemberCountForOrg(org.id);
-                        const onboarding = getOnboardingForOrg(org.id);
+                </CardHeader>
+                <CardContent>
+                  {organizations?.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhuma organização cadastrada ainda.</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Organização</TableHead>
+                          <TableHead>Dono</TableHead>
+                          <TableHead>Contato</TableHead>
+                          <TableHead>Plano</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Usuários</TableHead>
+                          <TableHead>Criado em</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {organizations
+                          ?.filter((org) => {
+                            if (!statusFilter) return true;
+                            const sub = getSubscriptionForOrg(org.id);
+                            return sub?.status === statusFilter;
+                          })
+                          .map((org) => {
+                          const subscription = getSubscriptionForOrg(org.id);
+                          const memberCount = getMemberCountForOrg(org.id);
 
-                        return (
-                          <TableRow key={org.id}>
-                            <TableCell className="font-medium">
-                              {org.name}
-                              <div className="text-xs text-muted-foreground">{org.slug}</div>
-                            </TableCell>
-                            <TableCell>
-                              {org.owner_name || "-"}
-                              {org.owner_email && (
-                                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {org.owner_email}
+                          return (
+                            <TableRow key={org.id}>
+                              <TableCell className="font-medium">
+                                {org.name}
+                                <div className="text-xs text-muted-foreground">{org.slug}</div>
+                              </TableCell>
+                              <TableCell>
+                                {org.owner_name || "-"}
+                                {org.owner_email && (
+                                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    {org.owner_email}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {org.phone ? (
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <Phone className="h-3 w-3" />
+                                    {org.phone}
+                                  </div>
+                                ) : "-"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={subscription?.subscription_plans?.price_cents === 0 ? "secondary" : "outline"}>
+                                  {subscription?.subscription_plans?.name || "Sem plano"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {subscription ? getStatusBadge(subscription.status) : "-"}
+                              </TableCell>
+                              <TableCell>{memberCount}</TableCell>
+                              <TableCell>
+                                {format(new Date(org.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => openEditDialog(org)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  {subscription && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleSubscriptionStatusMutation.mutate({
+                                        subId: subscription.id,
+                                        newStatus: subscription.status === "active" ? "canceled" : "active"
+                                      })}
+                                    >
+                                      {subscription.status === "active" ? (
+                                        <PowerOff className="h-4 w-4 text-destructive" />
+                                      ) : (
+                                        <Power className="h-4 w-4 text-green-500" />
+                                      )}
+                                    </Button>
+                                  )}
+                                  {memberCount === 0 && org.owner_email && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => sendCredentialsToOrg(org)}
+                                      disabled={sendingCredentialsFor === org.id}
+                                      title="Enviar credenciais por email"
+                                    >
+                                      {sendingCredentialsFor === org.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Send className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  )}
                                 </div>
-                              )}
-                            </TableCell>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === "interested" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quiz Preenchidos (Interessados)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {interestedLeads?.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhum interessado ainda.</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>WhatsApp</TableHead>
+                          <TableHead>Plano Interesse</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Data</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {interestedLeads?.map((lead) => (
+                          <TableRow key={lead.id}>
+                            <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell>
-                              {org.phone ? (
-                                <div className="flex items-center gap-1 text-sm">
-                                  <Phone className="h-3 w-3" />
-                                  {org.phone}
-                                </div>
+                              {lead.email ? (
+                                <a href={`mailto:${lead.email}`} className="text-primary hover:underline">
+                                  {lead.email}
+                                </a>
                               ) : "-"}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={subscription?.subscription_plans?.price_cents === 0 ? "secondary" : "outline"}>
-                                {subscription?.subscription_plans?.name || "Sem plano"}
-                              </Badge>
+                              <a 
+                                href={`https://wa.me/${lead.whatsapp.replace(/\D/g, "")}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:underline"
+                              >
+                                {lead.whatsapp}
+                              </a>
                             </TableCell>
+                            <TableCell>{lead.plan_name || "-"}</TableCell>
+                            <TableCell>{getInterestedStatusBadge(lead.status)}</TableCell>
                             <TableCell>
-                              {subscription ? getStatusBadge(subscription.status) : "-"}
-                            </TableCell>
-                            <TableCell>{memberCount}</TableCell>
-                            <TableCell>
-                              {format(new Date(org.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                {/* View Details */}
-                                <Dialog open={selectedOrgDetails === org.id} onOpenChange={(open) => setSelectedOrgDetails(open ? org.id : null)}>
-                                  <DialogTrigger asChild>
-                                    <Button variant="ghost" size="sm" title="Ver detalhes">
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="max-w-2xl">
-                                    <DialogHeader>
-                                      <DialogTitle>Detalhes: {org.name}</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                          <Label className="text-muted-foreground">Nome do Dono</Label>
-                                          <p className="font-medium">{org.owner_name || "-"}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-muted-foreground">Email</Label>
-                                          <p className="font-medium">{org.owner_email || "-"}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-muted-foreground">Telefone</Label>
-                                          <p className="font-medium">{org.phone || "-"}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-muted-foreground">Plano</Label>
-                                          <p className="font-medium">{subscription?.subscription_plans?.name || "-"}</p>
-                                        </div>
-                                      </div>
-                                      
-                                      {onboarding && (
-                                        <div className="border-t pt-4">
-                                          <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                            <FileText className="h-4 w-4" />
-                                            Dados do Onboarding
-                                          </h4>
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <Label className="text-muted-foreground">CNPJ</Label>
-                                              <p className="font-medium">{onboarding.cnpj || "-"}</p>
-                                            </div>
-                                            <div>
-                                              <Label className="text-muted-foreground">Site</Label>
-                                              <p className="font-medium">
-                                                {onboarding.company_site ? (
-                                                  <a href={onboarding.company_site} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                                                    <Globe className="h-3 w-3" />
-                                                    {onboarding.company_site}
-                                                  </a>
-                                                ) : "-"}
-                                              </p>
-                                            </div>
-                                          </div>
-                                          <div className="mt-3">
-                                            <Label className="text-muted-foreground">Como pretende usar o CRM</Label>
-                                            <p className="font-medium text-sm mt-1">{onboarding.crm_usage_intent || "-"}</p>
-                                          </div>
-                                          <div className="mt-3">
-                                            <Label className="text-muted-foreground">Sobre o Negócio</Label>
-                                            <p className="font-medium text-sm mt-1">{onboarding.business_description || "-"}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {!onboarding && (
-                                        <div className="border-t pt-4 text-center text-muted-foreground">
-                                          <p>Onboarding ainda não foi preenchido</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-
-                                {/* Edit Organization */}
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  title="Editar organização"
-                                  onClick={() => openEditDialog(org)}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-
-                                {/* Send Credentials - show when org has email but no users */}
-                                {memberCount === 0 && org.owner_email && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title="Enviar credenciais para o dono"
-                                    onClick={() => sendCredentialsToOrg(org)}
-                                    disabled={sendingCredentialsFor === org.id}
-                                    className="text-primary hover:text-primary"
-                                  >
-                                    {sendingCredentialsFor === org.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Send className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                )}
-
-                                {/* Toggle Status */}
-                                {subscription && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title={subscription.status === "canceled" ? "Reativar assinatura" : "Desativar assinatura"}
-                                    onClick={() => {
-                                      const newStatus = subscription.status === "canceled" ? "active" : "canceled";
-                                      toggleSubscriptionStatusMutation.mutate({ subId: subscription.id, newStatus });
-                                    }}
-                                    className={subscription.status === "canceled" ? "text-green-600 hover:text-green-700" : "text-destructive hover:text-destructive"}
-                                  >
-                                    {subscription.status === "canceled" ? (
-                                      <Power className="h-4 w-4" />
-                                    ) : (
-                                      <PowerOff className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                )}
-                              </div>
+                              {format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                             </TableCell>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Edit Organization Dialog */}
-            <Dialog open={!!editingOrg} onOpenChange={(open) => !open && setEditingOrg(null)}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Editar Organização</DialogTitle>
-                  <DialogDescription>
-                    Atualize os dados da organização e do plano
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Nome da Organização *</Label>
-                    <Input
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Plano</Label>
-                    <Select
-                      value={editForm.planId}
-                      onValueChange={(value) => setEditForm({ ...editForm, planId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um plano" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {plans?.map((plan) => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            {plan.name} ({formatPrice(plan.price_cents)}/mês) - Máx {plan.max_users} usuários
-                          </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Usuários Extras (além do limite do plano)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={editForm.extraUsers}
-                      onChange={(e) => setEditForm({ ...editForm, extraUsers: parseInt(e.target.value) || 0 })}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Total permitido = usuários do plano + usuários extras
-                    </p>
-                  </div>
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium mb-3">Dados do Dono</h4>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Nome do Dono</Label>
-                        <Input
-                          value={editForm.owner_name}
-                          onChange={(e) => setEditForm({ ...editForm, owner_name: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Email do Dono</Label>
-                        <Input
-                          type="email"
-                          value={editForm.owner_email}
-                          onChange={(e) => setEditForm({ ...editForm, owner_email: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Telefone</Label>
-                        <Input
-                          value={editForm.phone}
-                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setEditingOrg(null)} className="flex-1">
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={handleSaveEdit}
-                    disabled={!editForm.name || isSavingEdit}
-                    className="flex-1"
-                  >
-                    {isSavingEdit && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Salvar Alterações
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </TabsContent>
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-          <TabsContent value="interested">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quiz Preenchidos (Interessados)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {interestedLeads?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Nenhum interessado ainda.</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>WhatsApp</TableHead>
-                        <TableHead>Plano Interesse</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Data</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {interestedLeads?.map((lead) => (
-                        <TableRow key={lead.id}>
-                          <TableCell className="font-medium">{lead.name}</TableCell>
-                          <TableCell>
-                            {lead.email ? (
-                              <a href={`mailto:${lead.email}`} className="text-primary hover:underline">
-                                {lead.email}
-                              </a>
-                            ) : "-"}
-                          </TableCell>
-                          <TableCell>
-                            <a 
-                              href={`https://wa.me/${lead.whatsapp.replace(/\D/g, "")}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-green-600 hover:underline"
-                            >
-                              {lead.whatsapp}
-                            </a>
-                          </TableCell>
-                          <TableCell>{lead.plan_name || "-"}</TableCell>
-                          <TableCell>{getInterestedStatusBadge(lead.status)}</TableCell>
-                          <TableCell>
-                            {format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="plan-editor">
-            <PlanEditor />
-          </TabsContent>
-
-          <TabsContent value="org-overrides">
-            <OrgFeatureOverridesEditor />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>Usuários sem Organização</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {usersWithoutOrg?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Todos os usuários estão em organizações.</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {usersWithoutOrg?.map((profile) => (
-                        <TableRow key={profile.id}>
-                          <TableCell>{profile.first_name} {profile.last_name}</TableCell>
-                          <TableCell>
-                            <Dialog open={selectedOrgForUser === profile.user_id} onOpenChange={(open) => setSelectedOrgForUser(open ? profile.user_id : null)}>
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-2">
-                                  <UserPlus className="h-4 w-4" />
-                                  Adicionar a Org
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Adicionar à Organização</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                  <Select
-                                    onValueChange={(orgId) => {
-                                      addUserToOrgMutation.mutate({ orgId, userId: profile.user_id });
-                                    }}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Selecione uma organização" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {organizations?.map((org) => (
-                                        <SelectItem key={org.id} value={org.id}>
-                                          {org.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="billing">
-            <BillingManagementTab />
-          </TabsContent>
-
-          <TabsContent value="coupons">
-            <CouponsTab />
-          </TabsContent>
-
-          <TabsContent value="whatsapp">
-            <WhatsAppCreditsTab />
-          </TabsContent>
-
-          <TabsContent value="providers">
-            <WhatsAppProvidersTab />
-          </TabsContent>
-
-          <TabsContent value="all-users">
-            <AllUsersTab />
-          </TabsContent>
-
-          <TabsContent value="error-logs">
-            <ErrorLogsTab />
-          </TabsContent>
-
-          <TabsContent value="energy">
-            <EnergyManagementTab />
-          </TabsContent>
-
-          <TabsContent value="admin-whatsapp">
-            <AdminWhatsAppInstanceTab />
-          </TabsContent>
-
-          <TabsContent value="ai-costs">
-            <AIModelCostsTab />
-          </TabsContent>
-
-          <TabsContent value="onboarding-emails">
-            <OnboardingEmailsManager />
-          </TabsContent>
-
-          <TabsContent value="secretary-messages">
-            <SecretaryMessagesManager />
-          </TabsContent>
-
-          <TabsContent value="helper-donna">
-            <HelperConversationsTab />
-          </TabsContent>
-
-          <TabsContent value="gateways">
-            <PlatformGatewaysTab />
-          </TabsContent>
-
-          <TabsContent value="tenant-fees">
-            <TenantPaymentFeesTab />
-          </TabsContent>
-        </Tabs>
+            {activeTab === "all-users" && <AllUsersTab />}
+            {activeTab === "billing" && <BillingManagementTab />}
+            {activeTab === "coupons" && <CouponsTab />}
+            {activeTab === "plan-editor" && <PlanEditor />}
+            {activeTab === "gateways" && <PlatformGatewaysTab />}
+            {activeTab === "tenant-fees" && <TenantPaymentFeesTab />}
+            {activeTab === "whatsapp" && <WhatsAppCreditsTab />}
+            {activeTab === "providers" && <WhatsAppProvidersTab />}
+            {activeTab === "admin-whatsapp" && <AdminWhatsAppInstanceTab />}
+            {activeTab === "energy" && <EnergyManagementTab />}
+            {activeTab === "ai-costs" && <AIModelCostsTab />}
+            {activeTab === "secretary-messages" && <SecretaryMessagesManager />}
+            {activeTab === "helper-donna" && <HelperConversationsTab />}
+            {activeTab === "org-overrides" && <OrgFeatureOverridesEditor />}
+            {activeTab === "error-logs" && <ErrorLogsTab />}
+            {activeTab === "onboarding-emails" && <OnboardingEmailsManager />}
+          </div>
+        </div>
       </div>
     </Layout>
   );
