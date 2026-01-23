@@ -227,6 +227,7 @@ export type Database = {
           avatar_url: string | null
           brazilian_state: string | null
           company_differential: string | null
+          company_name: string | null
           created_at: string
           document_reply_message: string | null
           gender: string
@@ -275,6 +276,7 @@ export type Database = {
           avatar_url?: string | null
           brazilian_state?: string | null
           company_differential?: string | null
+          company_name?: string | null
           created_at?: string
           document_reply_message?: string | null
           gender?: string
@@ -323,6 +325,7 @@ export type Database = {
           avatar_url?: string | null
           brazilian_state?: string | null
           company_differential?: string | null
+          company_name?: string | null
           created_at?: string
           document_reply_message?: string | null
           gender?: string
@@ -12657,19 +12660,34 @@ export type Database = {
           owner_user_id: string
         }[]
       }
-      generate_bot_system_prompt: {
-        Args: {
-          p_age_range: string
-          p_company_differential: string
-          p_gender: string
-          p_personality_description: string
-          p_regional_expressions: string[]
-          p_response_length: string
-          p_service_type: string
-          p_state: string
-        }
-        Returns: string
-      }
+      generate_bot_system_prompt:
+        | {
+            Args: {
+              p_age_range: string
+              p_company_differential: string
+              p_gender: string
+              p_personality_description: string
+              p_regional_expressions: string[]
+              p_response_length: string
+              p_service_type: string
+              p_state: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_age_range: string
+              p_company_differential: string
+              p_company_name?: string
+              p_gender: string
+              p_personality_description: string
+              p_regional_expressions: string[]
+              p_response_length: string
+              p_service_type: string
+              p_state: string
+            }
+            Returns: string
+          }
       get_active_bot_for_instance: {
         Args: {
           p_current_day?: number
