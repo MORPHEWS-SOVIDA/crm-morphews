@@ -182,8 +182,8 @@ export function Sidebar() {
     // Instagram (permission controlled)
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
     
-    // Ecommerce
-    { icon: Store, label: 'E-commerce', path: '/ecommerce', visible: canSeeSettings && hasFeature('settings') },
+    // Ecommerce (uses ecommerce feature key, not settings)
+    { icon: Store, label: 'E-commerce', path: '/ecommerce', visible: canSeeSettings && hasFeature('ecommerce') },
     
     // Settings
     { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings && hasFeature('settings') },
