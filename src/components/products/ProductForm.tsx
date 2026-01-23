@@ -26,7 +26,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
 import { PriceKitsManager } from './PriceKitsManager';
@@ -113,6 +114,10 @@ const formSchema = z.object({
   fiscal_benefit_code: z.string().optional(),
   fiscal_icms_info: z.string().optional(),
   fiscal_icms_fisco_info: z.string().optional(),
+  // Controle de mídia para robô
+  bot_can_send_image: z.boolean().optional(),
+  bot_can_send_video: z.boolean().optional(),
+  bot_can_send_site_link: z.boolean().optional(),
 });
 
 interface ProductFormProps {
@@ -559,6 +564,79 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                     </FormItem>
                   )}
                 />
+
+                {/* Toggle para Robô enviar mídia */}
+                <div className="pt-4 border-t">
+                  <Label className="text-sm font-medium flex items-center gap-2 mb-3">
+                    <Bot className="h-4 w-4" />
+                    Robô de IA - Compartilhamento Automático
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Quando o robô identificar este produto na conversa, ele pode enviar:
+                  </p>
+                  <div className="space-y-3">
+                    <FormField
+                      control={form.control}
+                      name="bot_can_send_image"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <ImageIcon className="h-4 w-4 text-blue-500" />
+                            <div>
+                              <FormLabel className="cursor-pointer">Enviar Foto do Produto</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Robô envia a imagem principal automaticamente
+                              </p>
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="bot_can_send_video"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Youtube className="h-4 w-4 text-red-500" />
+                            <div>
+                              <FormLabel className="cursor-pointer">Enviar Vídeo do Produto</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Robô envia o link do vídeo YouTube
+                              </p>
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="bot_can_send_site_link"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-green-500" />
+                            <div>
+                              <FormLabel className="cursor-pointer">Enviar Link do Site</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Robô envia o Hot Site para mais detalhes
+                              </p>
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

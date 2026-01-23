@@ -245,9 +245,13 @@ export type Database = {
           organization_id: string
           out_of_hours_message: string | null
           personality_description: string | null
+          product_media_confidence_threshold: number | null
           product_scope: string | null
           regional_expressions: string[] | null
           response_length: string
+          send_product_images: boolean | null
+          send_product_links: boolean | null
+          send_product_videos: boolean | null
           service_type: string
           system_prompt: string
           transfer_keywords: string[] | null
@@ -289,9 +293,13 @@ export type Database = {
           organization_id: string
           out_of_hours_message?: string | null
           personality_description?: string | null
+          product_media_confidence_threshold?: number | null
           product_scope?: string | null
           regional_expressions?: string[] | null
           response_length?: string
+          send_product_images?: boolean | null
+          send_product_links?: boolean | null
+          send_product_videos?: boolean | null
           service_type?: string
           system_prompt?: string
           transfer_keywords?: string[] | null
@@ -333,9 +341,13 @@ export type Database = {
           organization_id?: string
           out_of_hours_message?: string | null
           personality_description?: string | null
+          product_media_confidence_threshold?: number | null
           product_scope?: string | null
           regional_expressions?: string[] | null
           response_length?: string
+          send_product_images?: boolean | null
+          send_product_links?: boolean | null
+          send_product_videos?: boolean | null
           service_type?: string
           system_prompt?: string
           transfer_keywords?: string[] | null
@@ -4645,6 +4657,9 @@ export type Database = {
           base_sales_hack: string | null
           base_usage_period_days: number | null
           base_use_default_commission: boolean | null
+          bot_can_send_image: boolean | null
+          bot_can_send_site_link: boolean | null
+          bot_can_send_video: boolean | null
           brand_id: string | null
           category: string
           cost_cents: number | null
@@ -4727,6 +4742,9 @@ export type Database = {
           base_sales_hack?: string | null
           base_usage_period_days?: number | null
           base_use_default_commission?: boolean | null
+          bot_can_send_image?: boolean | null
+          bot_can_send_site_link?: boolean | null
+          bot_can_send_video?: boolean | null
           brand_id?: string | null
           category?: string
           cost_cents?: number | null
@@ -4809,6 +4827,9 @@ export type Database = {
           base_sales_hack?: string | null
           base_usage_period_days?: number | null
           base_use_default_commission?: boolean | null
+          bot_can_send_image?: boolean | null
+          bot_can_send_site_link?: boolean | null
+          bot_can_send_video?: boolean | null
           brand_id?: string | null
           category?: string
           cost_cents?: number | null
