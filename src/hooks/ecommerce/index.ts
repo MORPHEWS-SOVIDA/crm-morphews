@@ -73,3 +73,23 @@ export {
   type VirtualTransaction,
   type WithdrawalRequest,
 } from './useVirtualAccounts';
+
+// =============================================================================
+// PAYMENT GATEWAYS (Pagarme, Appmax, Stripe, Asaas)
+// =============================================================================
+export {
+  // Query hooks
+  usePaymentGateways,
+  useActivePaymentGateways,
+  // Mutation hooks
+  useCreatePaymentGateway,
+  useUpdatePaymentGateway,
+  useTogglePaymentGateway,
+  useDeletePaymentGateway,
+  // Constants
+  GATEWAY_LABELS,
+  // Types
+  type GatewayType,
+  type PaymentGateway,
+  type CreateGatewayInput,
+} from './usePaymentGateways';
