@@ -358,8 +358,8 @@ export function PlanEditor() {
               <div className="flex items-center justify-between">
                 <Label>Visível no site</Label>
                 <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  checked={formData.is_visible_on_site}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_visible_on_site: checked })}
                 />
               </div>
             </div>

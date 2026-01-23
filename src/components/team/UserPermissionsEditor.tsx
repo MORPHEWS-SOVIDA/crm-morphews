@@ -151,6 +151,22 @@ export function UserPermissionsEditor({ userId, userRole, onClose }: UserPermiss
   // Verifica se uma permissão individual deve ser exibida
   const isPermissionVisible = (permKey: PermissionKey): boolean => {
     if (!orgFeatures) return true;
+
+    // Permissões agregadas (um toggle controla várias features)
+    if (permKey === 'google_integrations_manage') {
+      return (
+        orgFeatures.google_analytics === true ||
+        orgFeatures.google_tag_manager === true ||
+        orgFeatures.google_ads_conversions === true ||
+        orgFeatures.google_my_business === true ||
+        orgFeatures.google_shopping_feed === true ||
+        orgFeatures.schema_org_structured_data === true
+      );
+    }
+
+    if (permKey === 'tracking_pixels_manage') {
+      return orgFeatures.facebook_pixel === true || orgFeatures.tiktok_pixel === true;
+    }
     
     const requiredFeature = PERMISSION_TO_FEATURE[permKey];
     if (!requiredFeature) return true; // Se não tem mapeamento, mostra
