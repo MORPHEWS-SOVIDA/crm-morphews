@@ -4639,6 +4639,12 @@ export type Database = {
       lead_products: {
         Row: {
           barcode_ean: string | null
+          base_commission_percentage: number | null
+          base_points: number | null
+          base_price_cents: number | null
+          base_sales_hack: string | null
+          base_usage_period_days: number | null
+          base_use_default_commission: boolean | null
           brand_id: string | null
           category: string
           cost_cents: number | null
@@ -4715,6 +4721,12 @@ export type Database = {
         }
         Insert: {
           barcode_ean?: string | null
+          base_commission_percentage?: number | null
+          base_points?: number | null
+          base_price_cents?: number | null
+          base_sales_hack?: string | null
+          base_usage_period_days?: number | null
+          base_use_default_commission?: boolean | null
           brand_id?: string | null
           category?: string
           cost_cents?: number | null
@@ -4791,6 +4803,12 @@ export type Database = {
         }
         Update: {
           barcode_ean?: string | null
+          base_commission_percentage?: number | null
+          base_points?: number | null
+          base_price_cents?: number | null
+          base_sales_hack?: string | null
+          base_usage_period_days?: number | null
+          base_use_default_commission?: boolean | null
           brand_id?: string | null
           category?: string
           cost_cents?: number | null
@@ -7086,6 +7104,179 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "product_brands_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_combo_items: {
+        Row: {
+          combo_id: string
+          created_at: string
+          id: string
+          position: number
+          product_id: string
+          quantity: number
+        }
+        Insert: {
+          combo_id: string
+          created_at?: string
+          id?: string
+          position?: number
+          product_id: string
+          quantity?: number
+        }
+        Update: {
+          combo_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          product_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_combo_items_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "product_combos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_combo_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_combo_prices: {
+        Row: {
+          combo_id: string
+          created_at: string
+          id: string
+          minimum_custom_commission: number | null
+          minimum_price_cents: number | null
+          minimum_use_default_commission: boolean | null
+          multiplier: number
+          organization_id: string
+          points: number | null
+          position: number
+          promotional_2_custom_commission: number | null
+          promotional_2_use_default_commission: boolean | null
+          promotional_custom_commission: number | null
+          promotional_price_2_cents: number | null
+          promotional_price_cents: number | null
+          promotional_use_default_commission: boolean | null
+          regular_custom_commission: number | null
+          regular_price_cents: number
+          regular_use_default_commission: boolean | null
+          sales_hack: string | null
+          updated_at: string
+        }
+        Insert: {
+          combo_id: string
+          created_at?: string
+          id?: string
+          minimum_custom_commission?: number | null
+          minimum_price_cents?: number | null
+          minimum_use_default_commission?: boolean | null
+          multiplier?: number
+          organization_id: string
+          points?: number | null
+          position?: number
+          promotional_2_custom_commission?: number | null
+          promotional_2_use_default_commission?: boolean | null
+          promotional_custom_commission?: number | null
+          promotional_price_2_cents?: number | null
+          promotional_price_cents?: number | null
+          promotional_use_default_commission?: boolean | null
+          regular_custom_commission?: number | null
+          regular_price_cents?: number
+          regular_use_default_commission?: boolean | null
+          sales_hack?: string | null
+          updated_at?: string
+        }
+        Update: {
+          combo_id?: string
+          created_at?: string
+          id?: string
+          minimum_custom_commission?: number | null
+          minimum_price_cents?: number | null
+          minimum_use_default_commission?: boolean | null
+          multiplier?: number
+          organization_id?: string
+          points?: number | null
+          position?: number
+          promotional_2_custom_commission?: number | null
+          promotional_2_use_default_commission?: boolean | null
+          promotional_custom_commission?: number | null
+          promotional_price_2_cents?: number | null
+          promotional_price_cents?: number | null
+          promotional_use_default_commission?: boolean | null
+          regular_custom_commission?: number | null
+          regular_price_cents?: number
+          regular_use_default_commission?: boolean | null
+          sales_hack?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_combo_prices_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "product_combos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_combo_prices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_combos: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          sku?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_combos_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

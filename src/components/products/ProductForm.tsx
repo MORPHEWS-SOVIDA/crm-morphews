@@ -39,21 +39,38 @@ import { useUsers } from '@/hooks/useUsers';
 import { useProductVisibility } from '@/hooks/useProductVisibility';
 import { useProductBrands } from '@/hooks/useProductBrands';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
+import { CreateBrandDialog } from './CreateBrandDialog';
+import { BaseUnitPricing } from './BaseUnitPricing';
+import { ProductCombosReadOnly } from './ProductCombosReadOnly';
 
-// Categorias que usam o sistema de kits dinâmicos
-const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
+// Categorias que usam o sistema de kits dinâmicos (múltiplos de 2+)
+const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping', 'outro'];
+
+// Categorias que têm preço único (sem kits)
+const CATEGORIES_SINGLE_PRICE = ['ebook', 'info_video_aula', 'servico'];
+
+// Categorias sem preço no cadastro (preço definido na hora da venda)
+const CATEGORIES_NO_PRICE = ['manipulado'];
 
 const formSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().max(200, 'Máximo 200 caracteres').optional(),
   category: z.string().min(1, 'Categoria é obrigatória'),
   sales_script: z.string().optional(),
+  // Campos legados (mantidos para compatibilidade)
   price_1_unit: z.coerce.number().min(0).optional(),
   price_3_units: z.coerce.number().min(0).optional(),
   price_6_units: z.coerce.number().min(0).optional(),
   price_12_units: z.coerce.number().min(0).optional(),
   minimum_price: z.coerce.number().min(0).optional(),
   usage_period_days: z.coerce.number().min(0).optional(),
+  // Campos NOVOS de 1 Unidade (base fixa)
+  base_price_cents: z.coerce.number().min(0).optional(),
+  base_commission_percentage: z.coerce.number().min(0).max(100).nullable().optional(),
+  base_use_default_commission: z.boolean().optional(),
+  base_points: z.coerce.number().min(0).optional(),
+  base_usage_period_days: z.coerce.number().min(0).optional(),
+  base_sales_hack: z.string().optional(),
   is_active: z.boolean().optional(),
   is_featured: z.boolean().optional(),
   cost_cents: z.coerce.number().min(0).optional(),
@@ -172,6 +189,13 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       price_12_units: product?.price_12_units || 0,
       minimum_price: product?.minimum_price || 0,
       usage_period_days: product?.usage_period_days || 0,
+      // Campos de 1 Unidade (base fixa)
+      base_price_cents: (product as any)?.base_price_cents || 0,
+      base_commission_percentage: (product as any)?.base_commission_percentage || null,
+      base_use_default_commission: (product as any)?.base_use_default_commission ?? true,
+      base_points: (product as any)?.base_points || 0,
+      base_usage_period_days: (product as any)?.base_usage_period_days || 0,
+      base_sales_hack: (product as any)?.base_sales_hack || '',
       is_active: product?.is_active ?? true,
       is_featured: product?.is_featured ?? false,
       cost_cents: product?.cost_cents || 0,
@@ -215,9 +239,16 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   });
 
   const watchedCategory = form.watch('category');
-  const isManipulado = watchedCategory === 'manipulado';
+  const isManipulado = CATEGORIES_NO_PRICE.includes(watchedCategory);
+  const isSinglePrice = CATEGORIES_SINGLE_PRICE.includes(watchedCategory);
   const usesKits = CATEGORIES_WITH_KITS.includes(watchedCategory);
+  const showBaseUnitPricing = !isManipulado; // Todos exceto manipulados têm preço de 1 UN
   const watchedRestrictToUsers = form.watch('restrict_to_users');
+
+  // Callback para quando uma nova marca é criada
+  const handleBrandCreated = (brandId: string) => {
+    form.setValue('brand_id', brandId);
+  };
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     const validQuestions = questions.filter(q => q.question_text.trim() !== '');
@@ -370,24 +401,27 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Marca</FormLabel>
-                        <Select 
-                          onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
-                          value={field.value || 'none'}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a marca" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">Sem marca</SelectItem>
-                            {brands.map((brand) => (
-                              <SelectItem key={brand.id} value={brand.id}>
-                                {brand.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                          <Select 
+                            onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                            value={field.value || 'none'}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Selecione a marca" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Sem marca</SelectItem>
+                              {brands.map((brand) => (
+                                <SelectItem key={brand.id} value={brand.id}>
+                                  {brand.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <CreateBrandDialog onBrandCreated={handleBrandCreated} />
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -531,6 +565,18 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
 
           {/* =============== TAB PREÇOS =============== */}
           <TabsContent value="pricing" className="mt-6 space-y-6">
+            {/* Aviso para Manipulados */}
+            {isManipulado && (
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="pt-6">
+                  <p className="text-amber-800 text-sm">
+                    <strong>Produtos manipulados</strong> não possuem preço fixo. O valor é definido pelo vendedor na hora da venda, 
+                    e os custos são lançados separadamente no menu <strong>Produtos → Custos Manipulados</strong>.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Custo */}
             <Card>
               <CardHeader className="pb-3">
@@ -562,14 +608,22 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
               </CardContent>
             </Card>
 
-            {/* Kits de Preço */}
-            {usesKits && (
+            {/* Preço de 1 Unidade - NOVO (para todos exceto manipulados) */}
+            {showBaseUnitPricing && (
+              <BaseUnitPricing form={form} disabled={isManipulado} />
+            )}
+
+            {/* Kits de Preço - apenas para categorias que suportam (múltiplos 2+) */}
+            {usesKits && !isSinglePrice && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <ShoppingBag className="h-5 w-5" />
-                    Kits de Preço
+                    Kits de Preço (Múltiplos)
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Configure kits com 2 ou mais unidades. O preço de 1 unidade já está definido acima.
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <PriceKitsManager
@@ -578,6 +632,11 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                   />
                 </CardContent>
               </Card>
+            )}
+
+            {/* Combos - read only (mostra quais combos este produto faz parte) */}
+            {product?.id && (
+              <ProductCombosReadOnly productId={product.id} />
             )}
 
             {/* ERP (min. price, usage period) */}
