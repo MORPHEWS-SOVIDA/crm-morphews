@@ -969,14 +969,103 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Mark non-purchase reason if configured
+      // Mark non-purchase reason if configured AND schedule automatic messages
       if (typedIntegration.non_purchase_reason_id) {
+        console.log(`[integration-webhook] Processing non_purchase_reason: ${typedIntegration.non_purchase_reason_id} for lead ${leadId}`);
+        
+        // Insert non-purchase record
         await supabase.from('lead_non_purchase').insert({
           lead_id: leadId,
           organization_id: typedIntegration.organization_id,
           reason_id: typedIntegration.non_purchase_reason_id,
           notes: `Via integração: ${typedIntegration.name}`,
         });
+
+        // CRITICAL: Schedule automatic WhatsApp messages based on templates
+        // This was missing before - messages were only being scheduled via frontend
+        try {
+          // Fetch active message templates for this reason
+          const { data: templates, error: templatesError } = await supabase
+            .from('non_purchase_message_templates')
+            .select('*')
+            .eq('non_purchase_reason_id', typedIntegration.non_purchase_reason_id)
+            .eq('is_active', true)
+            .order('position', { ascending: true });
+
+          if (templatesError) {
+            console.error('[integration-webhook] Error fetching templates:', templatesError);
+          } else if (templates && templates.length > 0) {
+            console.log(`[integration-webhook] Found ${templates.length} active templates to schedule`);
+            
+            const baseTime = new Date();
+            const scheduledMessages = [];
+
+            for (const template of templates) {
+              // Calculate scheduled time based on delay_minutes
+              let scheduledAt = new Date(baseTime.getTime() + (template.delay_minutes || 0) * 60 * 1000);
+
+              // Check business hours constraint
+              if (template.send_start_hour !== null && template.send_end_hour !== null) {
+                const hour = scheduledAt.getHours();
+                
+                // If outside business hours, adjust to next valid time
+                if (hour < template.send_start_hour) {
+                  scheduledAt.setHours(template.send_start_hour, 0, 0, 0);
+                } else if (hour >= template.send_end_hour) {
+                  // Move to next day at start hour
+                  scheduledAt.setDate(scheduledAt.getDate() + 1);
+                  scheduledAt.setHours(template.send_start_hour, 0, 0, 0);
+                }
+              }
+
+              // Replace variables in message using lead data
+              const leadNameStr = String(leadData.name || '');
+              const firstName = leadNameStr.split(' ')[0] || leadNameStr;
+              
+              let finalMessage = template.message_template || '';
+              finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, leadNameStr);
+              finalMessage = finalMessage.replace(/\{\{primeiro_nome\}\}/gi, firstName);
+              finalMessage = finalMessage.replace(/\{\{vendedor\}\}/gi, ''); // No seller context in webhook
+              finalMessage = finalMessage.replace(/\{\{produto\}\}/gi, '');
+              finalMessage = finalMessage.replace(/\{\{marca_do_produto\}\}/gi, '');
+
+              scheduledMessages.push({
+                organization_id: typedIntegration.organization_id,
+                lead_id: leadId,
+                template_id: template.id,
+                whatsapp_instance_id: template.whatsapp_instance_id,
+                scheduled_at: scheduledAt.toISOString(),
+                original_scheduled_at: scheduledAt.toISOString(),
+                final_message: finalMessage,
+                status: 'pending',
+                created_by: null, // System-created
+                media_type: template.media_type || null,
+                media_url: template.media_url || null,
+                media_filename: template.media_filename || null,
+                fallback_bot_enabled: template.fallback_bot_enabled ?? false,
+                fallback_bot_id: template.fallback_bot_id || null,
+                fallback_timeout_minutes: template.fallback_timeout_minutes ?? 30,
+              });
+            }
+
+            if (scheduledMessages.length > 0) {
+              const { error: insertError } = await supabase
+                .from('lead_scheduled_messages')
+                .insert(scheduledMessages);
+
+              if (insertError) {
+                console.error('[integration-webhook] Error scheduling messages:', insertError);
+              } else {
+                console.log(`[integration-webhook] Successfully scheduled ${scheduledMessages.length} messages for lead ${leadId}`);
+              }
+            }
+          } else {
+            console.log(`[integration-webhook] No active templates found for reason ${typedIntegration.non_purchase_reason_id}`);
+          }
+        } catch (scheduleError) {
+          console.error('[integration-webhook] Error in message scheduling:', scheduleError);
+          // Don't fail the whole webhook for scheduling errors
+        }
       }
     }
 
