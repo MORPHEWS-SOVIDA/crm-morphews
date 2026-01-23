@@ -210,11 +210,19 @@ function validateAndAdjustDimensions(
 ): { weight: number; height: number; width: number; length: number } {
   const limits = SERVICE_LIMITS[serviceCode] || DEFAULT_LIMITS;
   
-  // Get values with fallbacks
-  let weight = pkg.weight_grams || config.default_weight_grams || 500;
-  let height = pkg.height_cm || config.default_height_cm || 2;
-  let width = pkg.width_cm || config.default_width_cm || 11;
-  let length = pkg.length_cm || config.default_length_cm || 16;
+  // CRITICAL: Parse values as integers to ensure proper typing for Correios API
+  // The API strictly requires integer values, not strings or floats
+  const parseIntSafe = (val: unknown, fallback: number): number => {
+    if (val === null || val === undefined) return fallback;
+    const parsed = parseInt(String(val), 10);
+    return isNaN(parsed) ? fallback : parsed;
+  };
+  
+  // Get values with explicit integer parsing and fallbacks
+  let weight = parseIntSafe(pkg.weight_grams, 0) || parseIntSafe(config.default_weight_grams, 500);
+  let height = parseIntSafe(pkg.height_cm, 0) || parseIntSafe(config.default_height_cm, 2);
+  let width = parseIntSafe(pkg.width_cm, 0) || parseIntSafe(config.default_width_cm, 11);
+  let length = parseIntSafe(pkg.length_cm, 0) || parseIntSafe(config.default_length_cm, 16);
   
   // Apply minimum limits
   weight = Math.max(weight, limits.minWeight);
@@ -234,6 +242,12 @@ function validateAndAdjustDimensions(
     // Increase length to meet minimum
     length = limits.minSumDimensions - height - width;
   }
+  
+  // Ensure all values are integers (Correios API requirement)
+  weight = Math.round(weight);
+  height = Math.round(height);
+  width = Math.round(width);
+  length = Math.round(length);
   
   console.log(`Dimensions validated: weight=${weight}g, height=${height}cm, width=${width}cm, length=${length}cm (sum=${height + width + length}cm)`);
   
@@ -255,13 +269,14 @@ async function createPrePostagem(
   
   // Determine package format - ALWAYS use CAIXA (2) for standard shipments
   // 1=Envelope, 2=Caixa/Pacote, 3=Rolo/Prisma
-  const packageType = config.default_package_type || 'caixa';
-  const formatCode = packageType === 'envelope' ? 1 :
-                     packageType === 'cilindro' ? 3 : 2;
-  const tipoObjeto = packageType === 'envelope' ? 'ENVELOPE' : 
-                     packageType === 'cilindro' ? 'ROLO' : 'CAIXA';
+  // CRITICAL: formatCode MUST be an integer, not a string
+  const packageType = (config.default_package_type || 'caixa').toLowerCase().trim();
+  const formatCode: number = packageType === 'envelope' ? 1 :
+                             packageType === 'cilindro' ? 3 : 2;
+  const tipoObjeto: string = packageType === 'envelope' ? 'ENVELOPE' : 
+                             packageType === 'cilindro' ? 'ROLO' : 'CAIXA';
   
-  console.log(`Package type: ${packageType}, formatCode: ${formatCode}, tipoObjeto: ${tipoObjeto}`);
+  console.log(`Package type: ${packageType}, formatCode: ${formatCode} (type: ${typeof formatCode}), tipoObjeto: ${tipoObjeto}`);
   
   // Format phone according to Correios expectations.
   // CORREIOS API v3 (prepostagem) expects phone fields to be structured as:
@@ -355,16 +370,17 @@ async function createPrePostagem(
       email: request.recipient.email || undefined,
     },
     objetoPostal: {
-      tipoObjeto: tipoObjeto,
-      codigoFormatoObjeto: formatCode,
-      // Peso total do objeto em gramas (obrigatório)
-      peso: dimensions.weight,
+      tipoObjeto: String(tipoObjeto),
+      // CRITICAL: codigoFormatoObjeto MUST be an integer - Correios API returns "null" if not
+      codigoFormatoObjeto: Number(formatCode),
+      // Peso total do objeto em gramas (obrigatório) - MUST be integer
+      peso: Math.round(Number(dimensions.weight)),
       dimensao: {
-        altura: dimensions.height,
-        largura: dimensions.width,
-        comprimento: dimensions.length,
+        altura: Math.round(Number(dimensions.height)),
+        largura: Math.round(Number(dimensions.width)),
+        comprimento: Math.round(Number(dimensions.length)),
       },
-      // Correios exige confirmação explícita (PPN-330) - String 'N' ou 'S'
+      // Correios exige confirmação explícita (PPN-330) - MUST be String 'N' ou 'S'
       objetosProibidos: 'N',
     },
     // Flag to indicate we're sending declaration of contents
@@ -417,15 +433,20 @@ async function createPrePostagem(
 
   // CRITICAL: Add contents description for declaração de conteúdo (PPN-348)
   // The API requires ALL fields: conteudo, quantidade, valor AND peso per item
+  // All fields must have correct types: conteudo=string, quantidade=int, valor=float, peso=int
   if (payload.declaracaoConteudo) {
-    const declaredValue = (pkg.declared_value_cents || 10000) / 100;
+    const declaredValue = Number((pkg.declared_value_cents || 10000) / 100);
+    const itemWeight = Math.round(Number(dimensions.weight));
+    
+    console.log(`Declaration content: valor=${declaredValue}, peso=${itemWeight} (type: ${typeof itemWeight})`);
+    
     payload.itensDeclaracaoConteudo = [
       {
         conteudo: 'Produtos diversos',
         quantidade: 1,
-        valor: declaredValue,
-        // CRITICAL: peso por item é OBRIGATÓRIO para evitar PPN-348
-        peso: dimensions.weight,
+        valor: Number(declaredValue.toFixed(2)),
+        // CRITICAL: peso por item é OBRIGATÓRIO e DEVE ser inteiro
+        peso: itemWeight,
       }
     ];
   }
