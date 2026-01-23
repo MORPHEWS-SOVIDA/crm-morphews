@@ -120,6 +120,7 @@ export function Sidebar() {
     
     // Products
     { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts && hasFeature('products') },
+    { icon: Package, label: 'Combos', path: '/produtos/combos', visible: canSeeProducts && hasFeature('products') },
     
     // Sales Dashboard - requires sales + sales_dashboard features + permission
     { icon: Trophy, label: 'Dashboard Vendas', path: '/dashboard-vendas', visible: canSeeSalesDashboard && hasFeature('sales') && hasFeature('sales_dashboard') },
