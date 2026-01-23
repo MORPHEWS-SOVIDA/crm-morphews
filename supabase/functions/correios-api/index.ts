@@ -453,56 +453,47 @@ async function createPrePostagem(
   }
 
   // ============================================
-  // PAYLOAD FORMAT 2: Alternative structure (objetosPostais as array)
-  // Some Correios contracts expect this structure
+  // PAYLOAD FORMAT 2 (ChatGPT/PPN v3 CORRECT): 
+  // objetosPostais as array with itensDeclaracaoConteudo INSIDE each object
+  // This is the correct structure for PPN v3 API with contract
   // ============================================
+  const objetoPostalComDeclaracao: Record<string, unknown> = {
+    ...objetoPostal,
+  };
+  if (useDeclaracao && itensDeclaracaoConteudo) {
+    objetoPostalComDeclaracao.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
+  }
+  
   const payloadV2: Record<string, unknown> = {
-    idCorreios: config.id_correios,
     codigoServico: serviceCode,
     remetente,
     destinatario,
-    objetosPostais: [objetoPostal],
-    declaracaoConteudo: useDeclaracao,
+    objetosPostais: [objetoPostalComDeclaracao],
   };
-  if (itensDeclaracaoConteudo) {
-    payloadV2.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
-  }
   if (documentoFiscal) {
     payloadV2.documentoFiscal = documentoFiscal;
   }
 
   // ============================================
-  // PAYLOAD FORMAT 3: Flat structure with peso/dimensao at root level
-  // Some older API versions expect this
+  // PAYLOAD FORMAT 3: Similar to V2 but with idCorreios added
+  // Some contract types may require this
   // ============================================
   const payloadV3: Record<string, unknown> = {
     idCorreios: config.id_correios,
     codigoServico: serviceCode,
     remetente,
     destinatario,
-    tipoObjeto: String(tipoObjeto),
-    codigoFormatoObjeto: Number(formatCode),
-    peso: Math.round(Number(dimensions.weight)),
-    altura: Math.round(Number(dimensions.height)),
-    largura: Math.round(Number(dimensions.width)),
-    comprimento: Math.round(Number(dimensions.length)),
-    objetosProibidos: 'N',
-    declaracaoConteudo: useDeclaracao,
+    objetosPostais: [objetoPostalComDeclaracao],
   };
-  if (pkg.declared_value_cents && pkg.declared_value_cents > 0) {
-    payloadV3.vlrDeclarado = Number((pkg.declared_value_cents / 100).toFixed(2));
-  }
-  if (itensDeclaracaoConteudo) {
-    payloadV3.itensDeclaracaoConteudo = itensDeclaracaoConteudo;
-  }
   if (documentoFiscal) {
     payloadV3.documentoFiscal = documentoFiscal;
   }
 
+  // Try V2 first (correct PPN v3 format) then fallbacks
   const payloads = [
-    { name: 'V1 (objetoPostal object)', payload: payloadV1 },
-    { name: 'V2 (objetosPostais array)', payload: payloadV2 },
-    { name: 'V3 (flat structure)', payload: payloadV3 },
+    { name: 'V2 (objetosPostais array - PPN v3 correct)', payload: payloadV2 },
+    { name: 'V3 (objetosPostais + idCorreios)', payload: payloadV3 },
+    { name: 'V1 (objetoPostal singular - legacy)', payload: payloadV1 },
   ];
 
   const endpoint = `${baseUrl}/prepostagem/v1/prepostagens`;
