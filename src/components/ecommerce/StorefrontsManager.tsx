@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Store, Globe, Settings, Trash2, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { Plus, Store, Globe, Settings, Trash2, ExternalLink, Eye, EyeOff, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import {
   type Storefront,
 } from '@/hooks/ecommerce';
 import { StorefrontFormDialog } from './StorefrontFormDialog';
+import { StorefrontDetailManager } from './StorefrontDetailManager';
 
 export function StorefrontsManager() {
   const { data: storefronts, isLoading } = useStorefronts();
@@ -30,6 +31,7 @@ export function StorefrontsManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingStorefront, setEditingStorefront] = useState<Storefront | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [managingStorefrontId, setManagingStorefrontId] = useState<string | null>(null);
 
   const handleEdit = (storefront: Storefront) => {
     setEditingStorefront(storefront);
@@ -55,6 +57,20 @@ export function StorefrontsManager() {
       });
     }
   };
+
+  const handleManage = (storefrontId: string) => {
+    setManagingStorefrontId(storefrontId);
+  };
+
+  // If managing a storefront, show the detail manager
+  if (managingStorefrontId) {
+    return (
+      <StorefrontDetailManager
+        storefrontId={managingStorefrontId}
+        onBack={() => setManagingStorefrontId(null)}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -153,13 +169,20 @@ export function StorefrontsManager() {
 
                 <div className="flex gap-2 pt-2">
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     className="flex-1"
+                    onClick={() => handleManage(storefront.id)}
+                  >
+                    <LayoutDashboard className="h-4 w-4 mr-1" />
+                    Gerenciar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleEdit(storefront)}
                   >
-                    <Settings className="h-4 w-4 mr-1" />
-                    Editar
+                    <Settings className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"

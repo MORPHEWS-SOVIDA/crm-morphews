@@ -67,10 +67,16 @@ export interface StorefrontProduct {
   custom_description: string | null;
   is_visible: boolean;
   created_at: string;
+  // New fields from migration
+  show_crosssell?: boolean;
+  show_kit_upsell?: boolean;
+  category_label?: string | null;
+  highlight_badge?: string | null;
+  custom_images?: any;
   product?: {
     id: string;
     name: string;
-    sale_price_cents: number | null;
+    sale_price_cents?: number | null;
     image_url: string | null;
   };
 }

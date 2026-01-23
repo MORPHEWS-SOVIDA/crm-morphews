@@ -139,3 +139,15 @@ export {
   type PaymentGateway,
   type CreateGatewayInput,
 } from './usePaymentGateways';
+
+// =============================================================================
+// PUBLIC STOREFRONT (Frontend Público)
+// =============================================================================
+export {
+  usePublicStorefront,
+  usePublicProduct,
+  usePublicCategoryProducts,
+  usePublicPage,
+  type PublicProduct,
+  type StorefrontData,
+} from './usePublicStorefront';
