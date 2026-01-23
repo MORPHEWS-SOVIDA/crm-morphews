@@ -142,16 +142,18 @@ function DeliveryActionsCard({
       .eq('id', sale.id);
 
     // Automatically unmark printed and dispatched checkpoints with history
-    const { data: existingCheckpoints } = await supabase
+    const { data: checkpointsToUnmark } = await supabase
       .from('sale_checkpoints')
-      .select('id, checkpoint_type, completed_at')
+      .select('id, checkpoint_type, completed_at, organization_id')
       .eq('sale_id', sale.id)
-      .in('checkpoint_type', ['printed', 'dispatched']);
+      .in('checkpoint_type', ['printed', 'dispatched'])
+      .not('completed_at', 'is', null);
 
-    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const currentUser = await supabase.auth.getUser();
+    const userId = currentUser.data.user?.id;
 
-    for (const checkpoint of existingCheckpoints || []) {
-      if (checkpoint.completed_at) {
+    if (checkpointsToUnmark && checkpointsToUnmark.length > 0) {
+      for (const cp of checkpointsToUnmark) {
         // Update checkpoint to uncompleted
         await supabase
           .from('sale_checkpoints')
@@ -159,19 +161,19 @@ function DeliveryActionsCard({
             completed_at: null,
             completed_by: null,
           })
-          .eq('id', checkpoint.id);
+          .eq('id', cp.id);
 
         // Insert history record
         await supabase
           .from('sale_checkpoint_history')
           .insert({
             sale_id: sale.id,
-            checkpoint_id: checkpoint.id,
-            checkpoint_type: checkpoint.checkpoint_type,
+            checkpoint_id: cp.id,
+            checkpoint_type: cp.checkpoint_type,
             action: 'uncompleted',
             changed_by: userId,
             notes: `Desmarcado automaticamente porque venda foi marcada como "Voltou"`,
-            organization_id: sale.organization_id,
+            organization_id: cp.organization_id,
           });
       }
     }
@@ -583,8 +585,8 @@ export default function SaleDetail() {
   const canCancel = permissions?.sales_cancel;
   const canEditDraft = permissions?.sales_edit_draft;
   
-  // Can only edit if not payment_confirmed or cancelled
-  const isEditable = sale && !['payment_confirmed', 'cancelled'].includes(sale.status);
+  // Can only edit if draft or returned status
+  const isEditable = sale && ['draft', 'returned'].includes(sale.status);
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -116,6 +117,9 @@ export default function EditSale() {
   // Payment state
   const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
 
+  // Observations state
+  const [observation1, setObservation1] = useState('');
+  const [observation2, setObservation2] = useState('');
   // Permission check - can only edit drafts
   const canEditSale = permissions?.sales_edit_draft;
   
@@ -170,6 +174,10 @@ export default function EditSale() {
       
       // Initialize payment status
       setPaymentStatus(sale.payment_status || 'not_paid');
+      
+      // Initialize observations
+      setObservation1((sale as any).observation_1 || '');
+      setObservation2((sale as any).observation_2 || '');
     }
   }, [sale]);
 
@@ -341,8 +349,31 @@ export default function EditSale() {
       });
     }
 
+    // Check observation changes
+    if (observation1 !== ((sale as any).observation_1 || '')) {
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'general_edit',
+        field_name: 'observation_1',
+        old_value: (sale as any).observation_1 || '(vazio)',
+        new_value: observation1 || '(vazio)',
+        notes: `Observação 1 alterada`,
+      });
+    }
+
+    if (observation2 !== ((sale as any).observation_2 || '')) {
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'general_edit',
+        field_name: 'observation_2',
+        old_value: (sale as any).observation_2 || '(vazio)',
+        new_value: observation2 || '(vazio)',
+        notes: `Observação 2 alterada`,
+      });
+    }
+
     return changeList;
-  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses, paymentStatus]);
+  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses, paymentStatus, observation1, observation2]);
 
   const hasChanges = changes.length > 0;
 
@@ -467,6 +498,9 @@ export default function EditSale() {
           shipping_address_id: selectedAddressId,
           // Payment status
           payment_status: paymentStatus,
+          // Observations
+          observation_1: observation1 || null,
+          observation_2: observation2 || null,
         })
         .eq('id', sale.id);
 
@@ -686,35 +720,41 @@ export default function EditSale() {
               </CardContent>
             </Card>
 
-            {/* Integration Observations - read only display */}
-            {((sale as any).observation_1 || (sale as any).observation_2) && (
-              <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                    ⚠️ Observações da Integração
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(sale as any).observation_1 && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Observação 1:</Label>
-                      <p className="text-sm font-medium">{(sale as any).observation_1}</p>
-                    </div>
-                  )}
-                  {(sale as any).observation_2 && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Observação 2:</Label>
-                      <p className="text-sm font-medium">{(sale as any).observation_2}</p>
-                    </div>
-                  )}
-                  {(sale as any).external_source && (
-                    <p className="text-xs text-muted-foreground">
-                      Origem: {(sale as any).external_source}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Observations Card - Editable */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  📝 Observações
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="observation_1">Observação 1</Label>
+                  <Textarea
+                    id="observation_1"
+                    value={observation1}
+                    onChange={(e) => setObservation1(e.target.value)}
+                    placeholder="Observação para entrega, instruções especiais..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="observation_2">Observação 2</Label>
+                  <Textarea
+                    id="observation_2"
+                    value={observation2}
+                    onChange={(e) => setObservation2(e.target.value)}
+                    placeholder="Observações adicionais..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+                {(sale as any).external_source && (
+                  <p className="text-xs text-muted-foreground">
+                    Origem: {(sale as any).external_source}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Delivery Settings Card */}
             <Card>
