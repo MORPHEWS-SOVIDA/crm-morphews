@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Package, Search, Sparkles, AlertCircle, Brain } from 'lucide-react';
+import { Package, Search, Sparkles, AlertCircle, Brain, Image, Youtube, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BotProductSelectorProps {
@@ -22,6 +22,13 @@ interface BotProductSelectorProps {
   onProductScopeChange: (scope: 'all' | 'selected' | 'none') => void;
   onSelectedProductsChange: (productIds: string[]) => void;
   onUseRagSearchChange: (enabled: boolean) => void;
+  // Novos campos para mídia de produtos
+  sendProductImages?: boolean;
+  sendProductVideos?: boolean;
+  sendProductLinks?: boolean;
+  onSendProductImagesChange?: (enabled: boolean) => void;
+  onSendProductVideosChange?: (enabled: boolean) => void;
+  onSendProductLinksChange?: (enabled: boolean) => void;
 }
 
 interface Product {
@@ -43,6 +50,12 @@ export function BotProductSelector({
   onProductScopeChange,
   onSelectedProductsChange,
   onUseRagSearchChange,
+  sendProductImages = true,
+  sendProductVideos = true,
+  sendProductLinks = true,
+  onSendProductImagesChange,
+  onSendProductVideosChange,
+  onSendProductLinksChange,
 }: BotProductSelectorProps) {
   const { tenantId } = useTenant();
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,6 +213,58 @@ export function BotProductSelector({
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               A IA usará essas informações para responder perguntas sobre produtos
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Product Media Sharing */}
+      {productScope !== 'none' && onSendProductImagesChange && (
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Image className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                Envio automático de mídia
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Quando o robô identificar um produto, ele pode enviar automaticamente:
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between py-2 px-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Image className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm">Foto do produto</span>
+                </div>
+                <Switch
+                  checked={sendProductImages}
+                  onCheckedChange={onSendProductImagesChange}
+                />
+              </div>
+              <div className="flex items-center justify-between py-2 px-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Youtube className="w-4 h-4 text-red-500" />
+                  <span className="text-sm">Vídeo YouTube</span>
+                </div>
+                <Switch
+                  checked={sendProductVideos}
+                  onCheckedChange={onSendProductVideosChange}
+                />
+              </div>
+              <div className="flex items-center justify-between py-2 px-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm">Link do site</span>
+                </div>
+                <Switch
+                  checked={sendProductLinks}
+                  onCheckedChange={onSendProductLinksChange}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              💡 O produto precisa ter a mídia configurada E habilitada no cadastro
             </p>
           </CardContent>
         </Card>

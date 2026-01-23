@@ -72,6 +72,11 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [audioResponseProbability, setAudioResponseProbability] = useState(30);
   const [voiceStyle, setVoiceStyle] = useState('natural');
   
+  // Product media sharing state
+  const [sendProductImages, setSendProductImages] = useState(true);
+  const [sendProductVideos, setSendProductVideos] = useState(true);
+  const [sendProductLinks, setSendProductLinks] = useState(true);
+  
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
@@ -102,6 +107,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setVoiceName((bot as any).voice_name || 'George');
       setAudioResponseProbability((bot as any).audio_response_probability ?? 30);
       setVoiceStyle((bot as any).voice_style || 'natural');
+      // Product media settings
+      setSendProductImages((bot as any).send_product_images ?? true);
+      setSendProductVideos((bot as any).send_product_videos ?? true);
+      setSendProductLinks((bot as any).send_product_links ?? true);
     }
   };
   
@@ -146,6 +155,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       voice_name: voiceName,
       audio_response_probability: audioResponseProbability,
       voice_style: voiceStyle,
+      // Product media settings
+      send_product_images: sendProductImages,
+      send_product_videos: sendProductVideos,
+      send_product_links: sendProductLinks,
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -480,6 +493,12 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                 onProductScopeChange={setProductScope}
                 onSelectedProductsChange={setSelectedProductIds}
                 onUseRagSearchChange={setUseRagSearch}
+                sendProductImages={sendProductImages}
+                sendProductVideos={sendProductVideos}
+                sendProductLinks={sendProductLinks}
+                onSendProductImagesChange={setSendProductImages}
+                onSendProductVideosChange={setSendProductVideos}
+                onSendProductLinksChange={setSendProductLinks}
               />
             </TabsContent>
           </Tabs>

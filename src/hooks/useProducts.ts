@@ -112,6 +112,10 @@ export interface ProductFormData {
   depth_cm?: number | null;
   barcode_ean?: string | null;
   gtin_tax?: string | null;
+  // Controle de mídia para robô
+  bot_can_send_image?: boolean;
+  bot_can_send_video?: boolean;
+  bot_can_send_site_link?: boolean;
 }
 
 export function useProducts() {
