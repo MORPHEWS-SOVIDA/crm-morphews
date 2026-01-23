@@ -437,6 +437,177 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_team_members: {
+        Row: {
+          bot_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          role: string
+          team_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: string
+          team_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_team_members_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_team_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "bot_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_team_routes: {
+        Row: {
+          created_at: string
+          id: string
+          intent_description: string | null
+          is_active: boolean
+          keywords: string[] | null
+          organization_id: string
+          priority: number
+          route_type: string
+          target_bot_id: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intent_description?: string | null
+          is_active?: boolean
+          keywords?: string[] | null
+          organization_id: string
+          priority?: number
+          route_type?: string
+          target_bot_id: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intent_description?: string | null
+          is_active?: boolean
+          keywords?: string[] | null
+          organization_id?: string
+          priority?: number
+          route_type?: string
+          target_bot_id?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_team_routes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_team_routes_target_bot_id_fkey"
+            columns: ["target_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_team_routes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "bot_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_teams: {
+        Row: {
+          created_at: string
+          description: string | null
+          fallback_bot_id: string | null
+          id: string
+          initial_bot_id: string | null
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fallback_bot_id?: string | null
+          id?: string
+          initial_bot_id?: string | null
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fallback_bot_id?: string | null
+          id?: string
+          initial_bot_id?: string | null
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_teams_fallback_bot_id_fkey"
+            columns: ["fallback_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_teams_initial_bot_id_fkey"
+            columns: ["initial_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carrier_tracking_statuses: {
         Row: {
           created_at: string
@@ -11155,6 +11326,7 @@ export type Database = {
           contact_name: string | null
           contact_profile_pic: string | null
           created_at: string
+          current_bot_id: string | null
           current_instance_id: string | null
           customer_phone_e164: string | null
           designated_at: string | null
@@ -11192,6 +11364,7 @@ export type Database = {
           contact_name?: string | null
           contact_profile_pic?: string | null
           created_at?: string
+          current_bot_id?: string | null
           current_instance_id?: string | null
           customer_phone_e164?: string | null
           designated_at?: string | null
@@ -11229,6 +11402,7 @@ export type Database = {
           contact_name?: string | null
           contact_profile_pic?: string | null
           created_at?: string
+          current_bot_id?: string | null
           current_instance_id?: string | null
           customer_phone_e164?: string | null
           designated_at?: string | null
@@ -11257,6 +11431,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_current_bot_id_fkey"
+            columns: ["current_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
             referencedColumns: ["id"]
           },
           {
@@ -11554,6 +11735,7 @@ export type Database = {
           auto_transcribe_enabled: boolean | null
           auto_transcribe_inbound: boolean | null
           auto_transcribe_outbound: boolean | null
+          bot_team_id: string | null
           created_at: string
           deleted_at: string | null
           discount_applied_cents: number | null
@@ -11606,6 +11788,7 @@ export type Database = {
           auto_transcribe_enabled?: boolean | null
           auto_transcribe_inbound?: boolean | null
           auto_transcribe_outbound?: boolean | null
+          bot_team_id?: string | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -11658,6 +11841,7 @@ export type Database = {
           auto_transcribe_enabled?: boolean | null
           auto_transcribe_inbound?: boolean | null
           auto_transcribe_outbound?: boolean | null
+          bot_team_id?: string | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -11708,6 +11892,13 @@ export type Database = {
             columns: ["applied_coupon_id"]
             isOneToOne: false
             referencedRelation: "discount_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instances_bot_team_id_fkey"
+            columns: ["bot_team_id"]
+            isOneToOne: false
+            referencedRelation: "bot_teams"
             referencedColumns: ["id"]
           },
           {
