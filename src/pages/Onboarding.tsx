@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Building2, Globe, Target, FileText } from "lucide-react";
 
@@ -15,6 +16,10 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+
+  const onboardingBypassKey = useMemo(() => {
+    return user?.id ? `onboarding_bypass:${user.id}` : null;
+  }, [user?.id]);
   const [formData, setFormData] = useState({
     cnpj: "",
     company_site: "",
@@ -27,6 +32,12 @@ export default function Onboarding() {
     const checkOnboarding = async () => {
       if (!user?.id) {
         setIsChecking(false);
+        return;
+      }
+
+      // If user already chose to bypass onboarding (temporary), don't block them here.
+      if (onboardingBypassKey && localStorage.getItem(onboardingBypassKey) === "1") {
+        navigate("/", { replace: true });
         return;
       }
 
@@ -64,7 +75,14 @@ export default function Onboarding() {
     };
 
     checkOnboarding();
-  }, [user?.id, profile?.organization_id, navigate]);
+  }, [user?.id, profile?.organization_id, navigate, onboardingBypassKey]);
+
+  const bypassOnboardingAndEnter = () => {
+    if (onboardingBypassKey) {
+      localStorage.setItem(onboardingBypassKey, "1");
+    }
+    navigate("/", { replace: true });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +126,11 @@ export default function Onboarding() {
         title: "Erro ao salvar dados",
         description: error.message || "Erro desconhecido. Tente novamente.",
         variant: "destructive",
+        action: (
+          <ToastAction altText="Entrar agora" onClick={bypassOnboardingAndEnter}>
+            Entrar agora
+          </ToastAction>
+        ),
       });
     } finally {
       setIsSubmitting(false);
@@ -133,13 +156,42 @@ export default function Onboarding() {
 
       if (error) {
         console.error("Error skipping onboarding:", error);
+        toast({
+          title: "Não foi possível finalizar agora",
+          description: "Você pode entrar mesmo assim e ajustar depois.",
+          variant: "destructive",
+          action: (
+            <ToastAction altText="Entrar agora" onClick={bypassOnboardingAndEnter}>
+              Entrar agora
+            </ToastAction>
+          ),
+        });
+        bypassOnboardingAndEnter();
+        return;
       }
     } catch (error) {
       console.error("Error skipping onboarding:", error);
+      toast({
+        title: "Não foi possível finalizar agora",
+        description: "Você pode entrar mesmo assim e ajustar depois.",
+        variant: "destructive",
+        action: (
+          <ToastAction altText="Entrar agora" onClick={bypassOnboardingAndEnter}>
+            Entrar agora
+          </ToastAction>
+        ),
+      });
+      bypassOnboardingAndEnter();
+      return;
     } finally {
       setIsSubmitting(false);
-      navigate("/", { replace: true });
     }
+
+    // Success path
+    if (onboardingBypassKey) {
+      localStorage.removeItem(onboardingBypassKey);
+    }
+    navigate("/", { replace: true });
   };
 
   if (isChecking) {

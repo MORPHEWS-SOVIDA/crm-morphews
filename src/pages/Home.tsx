@@ -2,12 +2,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import { Navigate } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import Planos from "./Planos";
 
 export default function Home() {
   const { user, profile, isLoading } = useAuth();
+
+  const onboardingBypassKey = useMemo(() => {
+    return user?.id ? `onboarding_bypass:${user.id}` : null;
+  }, [user?.id]);
+
+  const onboardingBypass = useMemo(() => {
+    if (!onboardingBypassKey) return false;
+    return localStorage.getItem(onboardingBypassKey) === "1";
+  }, [onboardingBypassKey]);
 
   // Check if onboarding is completed using RPC (bypasses RLS issues)
   const { data: onboardingCompleted, isLoading: onboardingLoading } = useQuery({
@@ -25,6 +35,14 @@ export default function Home() {
     enabled: !!user && !!profile?.organization_id,
   });
 
+  // Cleanup: if onboarding is completed, remove any temporary bypass flag
+  useEffect(() => {
+    if (!onboardingBypassKey) return;
+    if (onboardingCompleted === true) {
+      localStorage.removeItem(onboardingBypassKey);
+    }
+  }, [onboardingBypassKey, onboardingCompleted]);
+
   if (isLoading || (user && profile?.organization_id && onboardingLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -36,7 +54,7 @@ export default function Home() {
   // If user is logged in
   if (user) {
     // Check if onboarding is needed (user has org but onboarding not completed)
-    if (profile?.organization_id && onboardingCompleted === false) {
+    if (profile?.organization_id && onboardingCompleted === false && !onboardingBypass) {
       return <Navigate to="/onboarding" replace />;
     }
     return <Dashboard />;
