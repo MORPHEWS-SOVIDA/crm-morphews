@@ -96,60 +96,87 @@ export function useConversationDistribution() {
   // Encerrar conversa (com opção de enviar pesquisa NPS)
   const closeConversation = useMutation({
     mutationFn: async (conversationId: string) => {
-      // Verificar se deve enviar pesquisa NPS
-      const shouldSendSurvey = orgSettings?.satisfaction_survey_enabled && 
-                               orgSettings?.satisfaction_survey_on_manual_close;
+      // Buscar dados da conversa E as configurações da organização diretamente
+      const { data: conv } = await supabase
+        .from("whatsapp_conversations")
+        .select(`
+          instance_id, 
+          phone_number, 
+          lead_id, 
+          assigned_user_id,
+          whatsapp_instances!inner(
+            organization_id,
+            organizations!inner(
+              satisfaction_survey_enabled,
+              satisfaction_survey_on_manual_close,
+              satisfaction_survey_message
+            )
+          )
+        `)
+        .eq("id", conversationId)
+        .single();
       
-      if (shouldSendSurvey) {
-        // Buscar dados da conversa para enviar a pesquisa
-        const { data: conv } = await supabase
-          .from("whatsapp_conversations")
-          .select("instance_id, phone_number, lead_id, assigned_user_id")
-          .eq("id", conversationId)
-          .single();
+      // Extrair configurações da organização da conversa
+      const orgConfig = (conv?.whatsapp_instances as any)?.organizations;
+      const shouldSendSurvey = orgConfig?.satisfaction_survey_enabled && 
+                               orgConfig?.satisfaction_survey_on_manual_close;
+      
+      console.log('[closeConversation] Config:', { 
+        conversationId,
+        shouldSendSurvey,
+        enabled: orgConfig?.satisfaction_survey_enabled,
+        onManualClose: orgConfig?.satisfaction_survey_on_manual_close,
+        hasInstance: !!conv?.instance_id,
+        hasPhone: !!conv?.phone_number
+      });
+      
+      if (shouldSendSurvey && conv?.instance_id && conv?.phone_number) {
+        // Enviar mensagem de pesquisa via edge function
+        const surveyMessage = orgConfig?.satisfaction_survey_message || 
+          "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏";
         
-        if (conv?.instance_id && conv?.phone_number) {
-          // Enviar mensagem de pesquisa via edge function
-          const surveyMessage = orgSettings?.satisfaction_survey_message || 
-            "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏";
-          
-          await supabase.functions.invoke("evolution-send-message", {
-            body: {
-              instanceId: conv.instance_id,
-              to: conv.phone_number,
-              message: surveyMessage,
-            },
-          });
-          
-          // Atualizar conversa para aguardar resposta
-          const now = new Date();
+        console.log('[closeConversation] Sending NPS survey to:', conv.phone_number);
+        
+        const sendResult = await supabase.functions.invoke("evolution-send-message", {
+          body: {
+            instanceId: conv.instance_id,
+            to: conv.phone_number,
+            message: surveyMessage,
+          },
+        });
+        
+        console.log('[closeConversation] Send result:', sendResult);
+        
+        // Atualizar conversa para aguardar resposta
+        const now = new Date();
+        const orgId = (conv.whatsapp_instances as any)?.organization_id;
+        
+        await supabase
+          .from("whatsapp_conversations")
+          .update({
+            status: "closed",
+            closed_at: now.toISOString(),
+            awaiting_satisfaction_response: true,
+            satisfaction_sent_at: now.toISOString(),
+          })
+          .eq("id", conversationId);
+        
+        // Criar registro na tabela de ratings
+        if (orgId) {
           await supabase
-            .from("whatsapp_conversations")
-            .update({
-              status: "closed",
+            .from("conversation_satisfaction_ratings")
+            .insert({
+              organization_id: orgId,
+              instance_id: conv.instance_id,
+              conversation_id: conversationId,
+              lead_id: conv.lead_id,
+              assigned_user_id: conv.assigned_user_id,
               closed_at: now.toISOString(),
-              awaiting_satisfaction_response: true,
-              satisfaction_sent_at: now.toISOString(),
-            })
-            .eq("id", conversationId);
-          
-          // Criar registro na tabela de ratings
-          if (profile?.organization_id) {
-            await supabase
-              .from("conversation_satisfaction_ratings")
-              .insert({
-                organization_id: profile.organization_id,
-                instance_id: conv.instance_id,
-                conversation_id: conversationId,
-                lead_id: conv.lead_id,
-                assigned_user_id: conv.assigned_user_id,
-                closed_at: now.toISOString(),
-                is_pending_review: false,
-              });
-          }
-          
-          return { success: true, surveySent: true };
+              is_pending_review: false,
+            });
         }
+        
+        return { success: true, surveySent: true };
       }
 
       // Encerramento normal sem pesquisa
