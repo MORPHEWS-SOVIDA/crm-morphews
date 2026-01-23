@@ -109,6 +109,9 @@ const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const InterestedLeads = lazy(() => import("./pages/InterestedLeads"));
 const Cadastro = lazy(() => import("./pages/Cadastro"));
 
+// Ecommerce
+const Ecommerce = lazy(() => import("./pages/Ecommerce"));
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -548,6 +551,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <DemandsSettings />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Ecommerce */}
+                <Route
+                  path="/ecommerce"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <Ecommerce />
                     </ProtectedRoute>
                   }
                 />

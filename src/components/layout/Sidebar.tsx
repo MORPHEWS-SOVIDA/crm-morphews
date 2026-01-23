@@ -30,6 +30,7 @@ import {
   Filter,
   Columns3,
   Plug2,
+  Store,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -178,6 +179,9 @@ export function Sidebar() {
     
     // Instagram (permission controlled)
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
+    
+    // Ecommerce
+    { icon: Store, label: 'E-commerce', path: '/ecommerce', visible: canSeeSettings && hasFeature('settings') },
     
     // Settings
     { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings && hasFeature('settings') },
