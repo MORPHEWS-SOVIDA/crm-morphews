@@ -68,6 +68,8 @@ import { ProductSelectionDialog } from '@/components/sales/ProductSelectionDialo
 import { useLeadAddresses, LeadAddress } from '@/hooks/useLeadAddresses';
 import { useDeliveryRegions, useActiveShippingCarriers, getAvailableDeliveryDates, formatShift, DELIVERY_TYPES } from '@/hooks/useDeliveryConfig';
 import { useQueryClient } from '@tanstack/react-query';
+import { useUsers } from '@/hooks/useUsers';
+import { useActivePaymentMethods } from '@/hooks/usePaymentMethods';
 
 interface EditableItem {
   id: string; // Sale item ID (existing) or temp ID (new)
@@ -95,6 +97,10 @@ export default function EditSale() {
   const { data: regions = [] } = useDeliveryRegions();
   const carriers = useActiveShippingCarriers();
   const { data: leadAddresses = [] } = useLeadAddresses(sale?.lead_id || null);
+  
+  // Users and payment methods for editing seller and payment
+  const { data: users = [] } = useUsers();
+  const { data: paymentMethods = [] } = useActivePaymentMethods();
 
   const [items, setItems] = useState<EditableItem[]>([]);
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
@@ -116,6 +122,8 @@ export default function EditSale() {
 
   // Payment state
   const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
 
   // Observations state
   const [observation1, setObservation1] = useState('');
@@ -172,8 +180,12 @@ export default function EditSale() {
       setScheduledShift(sale.scheduled_delivery_shift || null);
       setSelectedAddressId((sale as any).shipping_address_id || null);
       
-      // Initialize payment status
+      // Initialize payment status and method
       setPaymentStatus(sale.payment_status || 'not_paid');
+      setSelectedPaymentMethodId(sale.payment_method_id || null);
+      
+      // Initialize seller
+      setSelectedSellerId((sale as any).seller_id || null);
       
       // Initialize observations
       setObservation1((sale as any).observation_1 || '');
@@ -496,8 +508,11 @@ export default function EditSale() {
           shipping_carrier_id: deliveryType === 'carrier' ? selectedCarrierId : null,
           shipping_cost_cents: deliveryType === 'carrier' ? shippingCost : 0,
           shipping_address_id: selectedAddressId,
-          // Payment status
+          // Payment fields
           payment_status: paymentStatus,
+          payment_method_id: selectedPaymentMethodId,
+          // Seller
+          seller_id: selectedSellerId,
           // Observations
           observation_1: observation1 || null,
           observation_2: observation2 || null,
@@ -1011,40 +1026,86 @@ export default function EditSale() {
               </CardContent>
             </Card>
 
-            {/* Payment Status Card */}
+            {/* Seller and Payment Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5" />
-                  Status de Pagamento
+                  Vendedor e Pagamento
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    type="button"
-                    variant={paymentStatus === 'not_paid' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setPaymentStatus('not_paid')}
+              <CardContent className="space-y-4">
+                {/* Seller Select */}
+                <div className="space-y-2">
+                  <Label>Vendido por</Label>
+                  <Select
+                    value={selectedSellerId || 'none'}
+                    onValueChange={(value) => setSelectedSellerId(value === 'none' ? null : value)}
                   >
-                    Não Pago
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={paymentStatus === 'will_pay_before' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setPaymentStatus('will_pay_before')}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o vendedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem vendedor</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.user_id} value={u.user_id}>
+                          {u.first_name} {u.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Payment Method Select */}
+                <div className="space-y-2">
+                  <Label>Forma de Pagamento</Label>
+                  <Select
+                    value={selectedPaymentMethodId || 'none'}
+                    onValueChange={(value) => setSelectedPaymentMethodId(value === 'none' ? null : value)}
                   >
-                    Pagará Antes
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={paymentStatus === 'paid_now' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setPaymentStatus('paid_now')}
-                  >
-                    Pago
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a forma de pagamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem forma de pagamento</SelectItem>
+                      {paymentMethods.map((pm) => (
+                        <SelectItem key={pm.id} value={pm.id}>
+                          {pm.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Payment Status */}
+                <div className="space-y-2">
+                  <Label>Status de Pagamento</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      variant={paymentStatus === 'not_paid' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentStatus('not_paid')}
+                    >
+                      Não Pago
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={paymentStatus === 'will_pay_before' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentStatus('will_pay_before')}
+                    >
+                      Pagará Antes
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={paymentStatus === 'paid_now' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentStatus('paid_now')}
+                    >
+                      Pago
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
