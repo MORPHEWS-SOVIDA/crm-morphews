@@ -119,8 +119,8 @@ export default function EditSale() {
   // Permission check - can only edit drafts
   const canEditSale = permissions?.sales_edit_draft;
   
-  // Check if sale can be edited (not payment_confirmed or cancelled)
-  const isEditable = sale && !['payment_confirmed', 'cancelled'].includes(sale.status);
+  // Check if sale can be edited (only draft or returned status)
+  const isEditable = sale && ['draft', 'returned'].includes(sale.status);
 
   // Get active regions
   const activeRegions = regions.filter(r => r.is_active);
@@ -535,6 +535,8 @@ export default function EditSale() {
           <p className="text-muted-foreground mb-4">
             {sale.status === 'payment_confirmed' 
               ? 'Vendas com pagamento confirmado não podem ser alteradas.' 
+              : sale.status === 'pending_expedition' || sale.status === 'dispatched'
+              ? 'Vendas impressas ou despachadas não podem ser editadas. Apenas vendas em rascunho ou que voltaram podem ser alteradas.'
               : 'Esta venda não pode ser alterada no status atual.'}
           </p>
           <Button onClick={() => navigate(`/vendas/${sale.id}`)}>Voltar para Venda</Button>
