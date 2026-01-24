@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Package, ArrowUpRight, Search, Check } from 'lucide-react';
+import { Plus, Package, ArrowUpRight, Search, Check, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,9 +17,12 @@ import {
 import {
   useStorefrontProducts,
   useUpdateStorefrontProducts,
+  useUpdateStorefrontProduct,
   type Storefront,
+  type StorefrontProduct,
 } from '@/hooks/ecommerce';
 import { useProducts } from '@/hooks/useProducts';
+import { StorefrontProductEditDialog } from '../StorefrontProductEditDialog';
 
 interface StorefrontProductsTabProps {
   storefrontId: string;
@@ -37,10 +40,12 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
   const { data: storefrontProducts, isLoading } = useStorefrontProducts(storefrontId);
   const { data: allProducts } = useProducts();
   const updateProducts = useUpdateStorefrontProducts();
+  const updateProduct = useUpdateStorefrontProduct();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingProduct, setEditingProduct] = useState<(StorefrontProduct & { product: any }) | null>(null);
 
   // Products already in storefront
   const existingProductIds = useMemo(() => 
@@ -122,6 +127,24 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
     updateProducts.mutate({ storefrontId, products: updatedProducts });
   };
 
+  const handleEditProduct = (sp: StorefrontProduct & { product: any }) => {
+    setEditingProduct(sp);
+  };
+
+  const handleSaveProductEdit = (updates: Partial<StorefrontProduct>) => {
+    if (!editingProduct) return;
+    
+    updateProduct.mutate({
+      id: editingProduct.id,
+      storefrontId,
+      ...updates,
+    }, {
+      onSuccess: () => {
+        setEditingProduct(null);
+      },
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -138,7 +161,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
         <div>
           <h3 className="text-lg font-semibold">Produtos da Loja</h3>
           <p className="text-sm text-muted-foreground">
-            Selecione quais produtos aparecem nesta loja
+            Selecione e personalize os produtos desta loja
           </p>
         </div>
         <Button onClick={handleOpenAddDialog} className="gap-2">
@@ -164,7 +187,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {storefrontProducts?.map((sp) => (
-            <Card key={sp.id}>
+            <Card key={sp.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   {sp.product?.image_url ? (
@@ -180,7 +203,9 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
                   )}
 
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium truncate">{sp.product?.name}</h4>
+                    <h4 className="font-medium truncate">
+                      {sp.custom_name || sp.product?.name}
+                    </h4>
                     <p className="text-sm text-muted-foreground">
                       {sp.custom_price_cents 
                         ? formatCurrency(sp.custom_price_cents)
@@ -190,11 +215,24 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
                             ? formatCurrency(sp.product.base_price_cents)
                             : 'Preço não definido'
                       }
+                      {sp.custom_price_cents && (
+                        <span className="text-xs text-primary ml-1">(personalizado)</span>
+                      )}
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-1 mt-2 flex-wrap">
                       {sp.is_featured && (
                         <Badge variant="default" className="text-xs">
                           Destaque
+                        </Badge>
+                      )}
+                      {sp.highlight_badge && (
+                        <Badge variant="secondary" className="text-xs">
+                          {sp.highlight_badge}
+                        </Badge>
+                      )}
+                      {!sp.is_visible && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          Oculto
                         </Badge>
                       )}
                     </div>
@@ -209,14 +247,25 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
                     />
                     <span className="text-sm text-muted-foreground">Destaque</span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveProduct(sp.product_id)}
-                    className="text-destructive"
-                  >
-                    Remover
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditProduct(sp as StorefrontProduct & { product: any })}
+                      className="gap-1"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveProduct(sp.product_id)}
+                      className="text-destructive"
+                    >
+                      Remover
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -311,6 +360,17 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Product Dialog */}
+      {editingProduct && (
+        <StorefrontProductEditDialog
+          open={!!editingProduct}
+          onOpenChange={(open) => !open && setEditingProduct(null)}
+          storefrontProduct={editingProduct}
+          onSave={handleSaveProductEdit}
+          isPending={updateProduct.isPending}
+        />
+      )}
     </div>
   );
 }

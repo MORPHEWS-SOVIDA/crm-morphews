@@ -20,6 +20,7 @@ export {
   useDeleteStorefront,
   useAddStorefrontDomain,
   useUpdateStorefrontProducts,
+  useUpdateStorefrontProduct,
   // Types
   type StorefrontTemplate,
   type Storefront,

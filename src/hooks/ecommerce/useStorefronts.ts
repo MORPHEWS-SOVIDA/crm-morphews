@@ -64,6 +64,10 @@ export interface StorefrontProduct {
   display_order: number;
   is_featured: boolean;
   custom_price_cents: number | null;
+  custom_price_3_cents?: number | null;
+  custom_price_6_cents?: number | null;
+  custom_price_12_cents?: number | null;
+  custom_name?: string | null;
   custom_description: string | null;
   is_visible: boolean;
   created_at: string;
@@ -346,6 +350,36 @@ export function useUpdateStorefrontProducts() {
       queryClient.invalidateQueries({ queryKey: ['storefront-products', variables.storefrontId] });
       queryClient.invalidateQueries({ queryKey: ['storefronts'] });
       toast.success('Produtos atualizados!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Update single storefront product
+export function useUpdateStorefrontProduct() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ 
+      id,
+      storefrontId,
+      ...updates 
+    }: { 
+      id: string;
+      storefrontId: string;
+    } & Partial<Omit<StorefrontProduct, 'id' | 'storefront_id' | 'product_id' | 'created_at' | 'product'>>) => {
+      const { error } = await supabase
+        .from('storefront_products')
+        .update(updates)
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storefront-products', variables.storefrontId] });
+      toast.success('Produto atualizado!');
     },
     onError: (error: Error) => {
       toast.error(error.message);
