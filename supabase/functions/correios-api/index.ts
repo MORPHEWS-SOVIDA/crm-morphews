@@ -315,6 +315,50 @@ function buildObjetoPostalPPNv3(
   return obj;
 }
 
+async function getDeclaracaoConteudoPdf(
+  config: CorreiosConfig,
+  token: string,
+  prePostagemId: string
+): Promise<ArrayBuffer> {
+  const baseUrl = CORREIOS_API_URLS[config.ambiente];
+
+  // A documentação já mudou esse endpoint algumas vezes; tentamos os 2 formatos mais comuns.
+  const endpoints = [
+    `${baseUrl}/prepostagem/v1/prepostagens/${prePostagemId}/declaracaoConteudo`,
+    `${baseUrl}/prepostagem/v1/prepostagens/declaracaoconteudo/${prePostagemId}`,
+  ];
+
+  let lastError: unknown = null;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+        throw new CorreiosApiError({
+          message: `Falha ao obter declaração de conteúdo (${response.status}): ${humanMessage}`,
+          status: response.status,
+          endpoint,
+          rawBody,
+          parsedBody,
+        });
+      }
+
+      return await response.arrayBuffer();
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  throw lastError;
+}
+
 async function createPrePostagem(
   config: CorreiosConfig,
   token: string,
@@ -468,125 +512,53 @@ async function createPrePostagem(
     };
   }
 
-  // ============================================
-  // PAYLOAD FORMAT 1 (PPN v3 CORRECT): 
-  // objetosPostais as array with itensDeclaracaoConteudo INSIDE each object
-  // This is the correct structure for PPN v3 API with contract
-  // ============================================
-  const payloadV1: Record<string, unknown> = {
+  // ======================================================
+  // PPN v3: use ONLY the official/correct structure.
+  // We explicitly avoid legacy fallbacks, because they can
+  // trigger misleading validation errors on the Correios side.
+  // ======================================================
+  const payload: Record<string, unknown> = {
     codigoServico: serviceCode,
     remetente,
     destinatario,
     objetosPostais: [objetoPostal],
   };
-  if (documentoFiscal) {
-    payloadV1.documentoFiscal = documentoFiscal;
+
+  // idCorreios é opcional e NUNCA deve ir como null
+  if (config.id_correios) {
+    payload.idCorreios = config.id_correios;
   }
 
-  // ============================================
-  // PAYLOAD FORMAT 2: With idCorreios added
-  // Some contract types may require this
-  // ============================================
-  const payloadV2: Record<string, unknown> = {
-    idCorreios: config.id_correios,
-    codigoServico: serviceCode,
-    remetente,
-    destinatario,
-    objetosPostais: [objetoPostal],
-  };
   if (documentoFiscal) {
-    payloadV2.documentoFiscal = documentoFiscal;
+    payload.documentoFiscal = documentoFiscal;
   }
-
-  // ============================================
-  // PAYLOAD FORMAT 3: Legacy singular objetoPostal (fallback)
-  // ============================================
-  const payloadV3: Record<string, unknown> = {
-    idCorreios: config.id_correios,
-    codigoServico: serviceCode,
-    remetente,
-    destinatario,
-    objetoPostal,
-    declaracaoConteudo: useDeclaracao,
-  };
-  if (documentoFiscal) {
-    payloadV3.documentoFiscal = documentoFiscal;
-  }
-
-  // Try V2 first (correct PPN v3 format) then fallbacks
-  const payloads = [
-    { name: 'V2 (objetosPostais array - PPN v3 correct)', payload: payloadV2 },
-    { name: 'V3 (objetosPostais + idCorreios)', payload: payloadV3 },
-    { name: 'V1 (objetoPostal singular - legacy)', payload: payloadV1 },
-  ];
 
   const endpoint = `${baseUrl}/prepostagem/v1/prepostagens`;
-  let lastError: CorreiosApiError | null = null;
+  console.log(`\n========== Creating prepostagem (PPN v3) ==========`);
+  console.log('Payload:', JSON.stringify(payload, null, 2));
 
-  for (const { name, payload } of payloads) {
-    console.log(`\n========== Trying payload format: ${name} ==========`);
-    console.log('Payload:', JSON.stringify(payload, null, 2));
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        console.log(`SUCCESS with payload format: ${name}`);
-        return await response.json();
-      }
-
-      const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
-      console.error(`Payload format ${name} failed (${response.status}):`, rawBody);
-      
-      // Check if this is a schema/structure error (try next format)
-      const isStructureError = rawBody.includes('null') || 
-                               rawBody.includes('não informado') ||
-                               rawBody.includes('PPN-348') ||
-                               rawBody.includes('PPN-330');
-      
-      lastError = new CorreiosApiError({
-        message: `Falha ao criar pré-postagem (${response.status}): ${humanMessage}`,
-        status: response.status,
-        endpoint,
-        rawBody,
-        parsedBody,
-      });
-
-      if (!isStructureError) {
-        // If it's not a structure error, no point trying other formats
-        throw lastError;
-      }
-      
-      // Continue to next payload format
-      console.log(`Structure error detected, trying next payload format...`);
-      
-    } catch (fetchError) {
-      if (fetchError instanceof CorreiosApiError) {
-        lastError = fetchError;
-        // Check if we should continue trying
-        const isStructureError = fetchError.rawBody?.includes('null') || 
-                                 fetchError.rawBody?.includes('não informado') ||
-                                 fetchError.rawBody?.includes('PPN-348') ||
-                                 fetchError.rawBody?.includes('PPN-330');
-        if (!isStructureError) {
-          throw fetchError;
-        }
-      } else {
-        throw fetchError;
-      }
-    }
+  if (response.ok) {
+    return await response.json();
   }
 
-  // All formats failed
-  console.error('All payload formats failed. Last error:', lastError);
-  throw lastError || new Error('Todos os formatos de payload falharam');
+  const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+  console.error(`Prepostagem failed (${response.status}):`, rawBody);
+  throw new CorreiosApiError({
+    message: `Falha ao criar pré-postagem (${response.status}): ${humanMessage}`,
+    status: response.status,
+    endpoint,
+    rawBody,
+    parsedBody,
+  });
 }
 
 async function getLabel(config: CorreiosConfig, token: string, prePostagemId: string): Promise<ArrayBuffer> {
@@ -695,6 +667,34 @@ serve(async (req) => {
         // Get label PDF
         const labelPdf = await getLabel(config, token, prePostagem.id);
 
+        // (Opcional) Get declaração de conteúdo PDF quando não há NF-e
+        // Não deve bloquear a geração da etiqueta se falhar.
+        let declaracaoPublicUrl: string | null = null;
+        if (!invoice_key) {
+          try {
+            const declPdf = await getDeclaracaoConteudoPdf(config, token, prePostagem.id);
+            const declFileName = `correios-declaracoes/${organization_id}/${prePostagem.codigoRastreio || prePostagem.id}.pdf`;
+
+            const { error: declUploadError } = await supabase.storage
+              .from('sales-documents')
+              .upload(declFileName, declPdf, {
+                contentType: 'application/pdf',
+                upsert: true,
+              });
+
+            if (declUploadError) {
+              console.error('Declaration upload error:', declUploadError);
+            } else {
+              const { data: declUrlData } = supabase.storage
+                .from('sales-documents')
+                .getPublicUrl(declFileName);
+              declaracaoPublicUrl = declUrlData?.publicUrl ?? null;
+            }
+          } catch (e) {
+            console.error('Declaration PDF fetch error (non-blocking):', e);
+          }
+        }
+
         // Upload PDF to Supabase Storage
         const fileName = `correios-labels/${organization_id}/${prePostagem.codigoRastreio || prePostagem.id}.pdf`;
         
@@ -739,6 +739,7 @@ serve(async (req) => {
             length_cm: pkg?.length_cm || config.default_length_cm,
             declared_value_cents: pkg?.declared_value_cents,
             label_pdf_url: urlData?.publicUrl,
+            declaration_pdf_url: declaracaoPublicUrl,
             status: 'generated',
             correios_prepostagem_id: prePostagem.id,
             api_response: prePostagem,
