@@ -80,6 +80,7 @@ export const AVAILABLE_FEATURES = {
   sales_report: { label: "Relatório de Vendas", group: "Relatórios" },
   expedition_report: { label: "Relatório de Expedição", group: "Relatórios" },
   financial: { label: "Financeiro", group: "Relatórios" },
+  fiscal_notes: { label: "Notas Fiscais", group: "Relatórios" },
   
   // Gerenciamento
   team: { label: "Minha Equipe", group: "Gerenciamento" },
