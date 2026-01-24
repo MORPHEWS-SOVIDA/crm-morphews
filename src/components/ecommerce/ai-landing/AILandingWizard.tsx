@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -12,14 +11,23 @@ import { useProductFaqs } from '@/hooks/useProductFaqs';
 import type { CreateLandingPageInput } from '@/hooks/ecommerce';
 
 import { StepTypeSelection } from './StepTypeSelection';
+import { StepPageConfig } from './StepPageConfig';
+import { StepOffers } from './StepOffers';
 import { StepImageUploads } from './StepImageUploads';
+import { StepTestimonials } from './StepTestimonials';
+import { StepGuarantee } from './StepGuarantee';
 import { StepBriefing } from './StepBriefing';
 import { StepPreview } from './StepPreview';
 import { 
   type AILandingWizardState, 
   type OfferType,
   type GeneratedContent,
-  OFFER_TYPE_CONFIGS 
+  OFFER_TYPE_CONFIGS,
+  DEFAULT_PAGE_CONFIG,
+  DEFAULT_TESTIMONIAL_CONFIG,
+  DEFAULT_GUARANTEE_CONFIG,
+  DEFAULT_OFFERS,
+  ENERGY_COSTS,
 } from './types';
 
 interface AILandingWizardProps {
@@ -40,12 +48,18 @@ const INITIAL_BRIEFING = {
   generateMissingImages: true,
 };
 
+const STEPS = ['type', 'page_config', 'offers', 'uploads', 'testimonials', 'briefing', 'generating', 'preview'] as const;
+
 export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps) {
   const { data: products } = useProducts();
   
   const [state, setState] = useState<AILandingWizardState>({
     step: 'type',
     offerType: null,
+    pageConfig: DEFAULT_PAGE_CONFIG,
+    offers: DEFAULT_OFFERS,
+    testimonialConfig: DEFAULT_TESTIMONIAL_CONFIG,
+    guaranteeConfig: DEFAULT_GUARANTEE_CONFIG,
     uploadedImages: [],
     testimonialUploads: [],
     briefing: INITIAL_BRIEFING,
@@ -87,13 +101,18 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
   const selectedProduct = products?.find(p => p.id === state.briefing.productId);
 
   const canProceedFromType = !!state.offerType;
+  const canProceedFromPageConfig = !!state.pageConfig.name && !!state.pageConfig.slug;
+  const canProceedFromOffers = state.offers.some(o => o.price_cents > 0);
   
   const canProceedFromUploads = () => {
-    if (!config) return false;
-    // Check if all required uploads are present
-    return config.requiredUploads.every(type => 
-      state.uploadedImages.some(img => img.type === type)
+    if (!config) return true; // Allow skip if no config
+    // Check if all required uploads are present OR product has image
+    if (config.requiredUploads.length === 0) return true;
+    const hasRequired = config.requiredUploads.every(type => 
+      state.uploadedImages.some(img => img.type === type) || 
+      (type === 'product_image' && selectedProduct?.image_url)
     );
+    return hasRequired;
   };
 
   const canProceedFromBriefing = 
@@ -102,6 +121,37 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
 
   const goToStep = (step: AILandingWizardState['step']) => {
     setState(prev => ({ ...prev, step }));
+  };
+
+  const estimateEnergyCost = () => {
+    let cost = ENERGY_COSTS.baseCopy;
+    
+    // Image generation
+    if (state.briefing.generateMissingImages) cost += ENERGY_COSTS.imageGeneration;
+    
+    // Kit image multiplication
+    state.offers.forEach(offer => {
+      if (offer.multiplyImage && offer.quantity > 1 && !offer.customKitImage) {
+        cost += ENERGY_COSTS.imageMultiplication;
+      }
+    });
+    
+    // Testimonials
+    cost += state.testimonialConfig.count * ENERGY_COSTS.testimonialGeneration;
+    if (!state.testimonialConfig.useRealPhotos) {
+      cost += state.testimonialConfig.count * ENERGY_COSTS.imageGeneration;
+    }
+    if (state.testimonialConfig.style === 'whatsapp') {
+      cost += state.testimonialConfig.count * ENERGY_COSTS.whatsappStyleConversion;
+    }
+    if (state.testimonialConfig.generateAudio) {
+      cost += state.testimonialConfig.count * ENERGY_COSTS.audioGeneration;
+    }
+    if (state.testimonialConfig.generateVideoAvatar) {
+      cost += state.testimonialConfig.count * ENERGY_COSTS.videoAvatarGeneration;
+    }
+    
+    return cost;
   };
 
   const handleGenerate = async (isRegeneration = false) => {
@@ -150,6 +200,10 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
             isRegeneration,
             offerType: state.offerType,
             pageStyle: config?.pageStyle,
+            // Pass new config
+            testimonialConfig: state.testimonialConfig,
+            guaranteeConfig: state.guaranteeConfig,
+            offers: state.offers,
           },
         },
       });
@@ -262,16 +316,27 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
 
     onGenerated({
       product_id: state.briefing.productId,
+      name: state.pageConfig.name,
+      slug: state.pageConfig.slug,
       headline: state.generatedContent.headline,
       subheadline: state.generatedContent.subheadline,
       benefits: state.generatedContent.benefits,
       urgency_text: state.generatedContent.urgencyText,
-      guarantee_text: state.generatedContent.guaranteeText,
+      guarantee_text: state.guaranteeConfig.enabled ? state.guaranteeConfig.text : '',
       primary_color: state.generatedContent.primaryColor,
-      // Note: heroImage?.url could be passed to logo_url or handled separately
+      whatsapp_number: state.pageConfig.whatsappNumber,
+      video_url: state.pageConfig.videoUrl,
+      offers: state.offers.filter(o => o.price_cents > 0).map(o => ({
+        quantity: o.quantity,
+        label: o.label,
+        price_cents: o.price_cents,
+        original_price_cents: o.original_price_cents,
+        badge_text: o.badge_text,
+        is_highlighted: o.is_highlighted,
+      })),
     });
 
-    toast.success('Conteúdo aplicado! Configure as ofertas e salve.');
+    toast.success('Conteúdo aplicado! Salvando landing page...');
   };
 
   const handleRegenerate = () => {
@@ -282,12 +347,6 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
     handleGenerate(true);
   };
 
-  const estimateEnergyCost = () => {
-    let cost = 300; // Base copy cost
-    if (state.briefing.generateMissingImages) cost += 100; // Potential image generation
-    return cost;
-  };
-
   // Render based on current step
   const renderStep = () => {
     switch (state.step) {
@@ -296,6 +355,23 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
           <StepTypeSelection
             selectedType={state.offerType}
             onSelect={(type) => setState(prev => ({ ...prev, offerType: type }))}
+          />
+        );
+
+      case 'page_config':
+        return (
+          <StepPageConfig
+            pageConfig={state.pageConfig}
+            onConfigChange={(pageConfig) => setState(prev => ({ ...prev, pageConfig }))}
+          />
+        );
+
+      case 'offers':
+        return (
+          <StepOffers
+            offers={state.offers}
+            onOffersChange={(offers) => setState(prev => ({ ...prev, offers }))}
+            productImageUrl={selectedProduct?.image_url}
           />
         );
 
@@ -311,15 +387,31 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
           />
         );
 
+      case 'testimonials':
+        return (
+          <StepTestimonials
+            config={state.testimonialConfig}
+            onConfigChange={(testimonialConfig) => setState(prev => ({ ...prev, testimonialConfig }))}
+          />
+        );
+
       case 'briefing':
         return (
-          <StepBriefing
-            offerType={state.offerType!}
-            briefing={state.briefing}
-            productIngredients={state.productIngredients}
-            productFaqs={state.productFaqs}
-            onBriefingChange={(briefing) => setState(prev => ({ ...prev, briefing }))}
-          />
+          <>
+            <StepBriefing
+              offerType={state.offerType!}
+              briefing={state.briefing}
+              productIngredients={state.productIngredients}
+              productFaqs={state.productFaqs}
+              onBriefingChange={(briefing) => setState(prev => ({ ...prev, briefing }))}
+            />
+            <div className="mt-6">
+              <StepGuarantee
+                config={state.guaranteeConfig}
+                onConfigChange={(guaranteeConfig) => setState(prev => ({ ...prev, guaranteeConfig }))}
+              />
+            </div>
+          </>
         );
 
       case 'generating':
@@ -358,15 +450,18 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
   };
 
   const getStepNumber = () => {
-    const steps = ['type', 'uploads', 'briefing', 'generating', 'preview'];
+    const steps = ['type', 'page_config', 'offers', 'uploads', 'testimonials', 'briefing', 'generating', 'preview'];
     return steps.indexOf(state.step) + 1;
   };
 
-  const canGoBack = state.step !== 'type' && state.step !== 'generating';
+  const canGoBack = !['type', 'generating'].includes(state.step);
   const canGoNext = () => {
     switch (state.step) {
       case 'type': return canProceedFromType;
+      case 'page_config': return canProceedFromPageConfig;
+      case 'offers': return canProceedFromOffers;
       case 'uploads': return canProceedFromUploads();
+      case 'testimonials': return true; // Always can proceed
       case 'briefing': return canProceedFromBriefing;
       default: return false;
     }
@@ -375,9 +470,18 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
   const handleNext = () => {
     switch (state.step) {
       case 'type':
+        goToStep('page_config');
+        break;
+      case 'page_config':
+        goToStep('offers');
+        break;
+      case 'offers':
         goToStep('uploads');
         break;
       case 'uploads':
+        goToStep('testimonials');
+        break;
+      case 'testimonials':
         goToStep('briefing');
         break;
       case 'briefing':
@@ -388,11 +492,20 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
 
   const handleBack = () => {
     switch (state.step) {
-      case 'uploads':
+      case 'page_config':
         goToStep('type');
         break;
-      case 'briefing':
+      case 'offers':
+        goToStep('page_config');
+        break;
+      case 'uploads':
+        goToStep('offers');
+        break;
+      case 'testimonials':
         goToStep('uploads');
+        break;
+      case 'briefing':
+        goToStep('testimonials');
         break;
       case 'preview':
         goToStep('briefing');
@@ -400,16 +513,18 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
     }
   };
 
+  const stepLabels = ['Tipo', 'Página', 'Ofertas', 'Imagens', 'Depoimentos', 'Briefing', 'Preview'];
+
   return (
     <div className="space-y-6">
       {/* Progress indicator */}
       {state.step !== 'generating' && (
         <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            {['type', 'uploads', 'briefing', 'preview'].map((step, idx) => (
-              <div key={step} className="flex items-center gap-2">
+          <div className="flex items-center gap-1 overflow-x-auto pb-2">
+            {stepLabels.map((label, idx) => (
+              <div key={label} className="flex items-center gap-1">
                 <div 
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
                     getStepNumber() > idx + 1 
                       ? 'bg-primary text-primary-foreground' 
                       : getStepNumber() === idx + 1 
@@ -419,11 +534,11 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
                 >
                   {idx + 1}
                 </div>
-                {idx < 3 && <div className="w-8 h-0.5 bg-muted" />}
+                {idx < stepLabels.length - 1 && <div className="w-4 h-0.5 bg-muted flex-shrink-0" />}
               </div>
             ))}
           </div>
-          <Badge variant="outline" className="gap-1">
+          <Badge variant="outline" className="gap-1 flex-shrink-0 ml-2">
             <Sparkles className="h-3 w-3" />
             ~{estimateEnergyCost()} energia
           </Badge>
