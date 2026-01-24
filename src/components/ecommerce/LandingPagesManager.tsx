@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, FileText, Trash2, ExternalLink, Eye, EyeOff, Copy, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, FileText, Trash2, ExternalLink, Eye, EyeOff, Copy, Settings, Paintbrush } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ function formatCurrency(cents: number) {
 }
 
 export function LandingPagesManager() {
+  const navigate = useNavigate();
   const { data: landingPages, isLoading, error } = useLandingPages();
   const deleteLandingPage = useDeleteLandingPage();
   const updateLandingPage = useUpdateLandingPage();
@@ -186,10 +188,18 @@ export function LandingPagesManager() {
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    onClick={() => handleEdit(page)}
+                    onClick={() => navigate(`/ecommerce/landpage-editor/${page.id}`)}
                   >
-                    <Settings className="h-4 w-4 mr-1" />
-                    Editar
+                    <Paintbrush className="h-4 w-4 mr-1" />
+                    Editor
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(page)}
+                    title="Configurações"
+                  >
+                    <Settings className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"

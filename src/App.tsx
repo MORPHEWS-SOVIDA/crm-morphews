@@ -121,7 +121,7 @@ const Cadastro = lazy(() => import("./pages/Cadastro"));
 
 // Ecommerce
 const Ecommerce = lazy(() => import("./pages/Ecommerce"));
-
+const LandingPageEditor = lazy(() => import("./pages/ecommerce/LandingPageEditor"));
 // Public Storefront
 const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
 const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
@@ -641,6 +641,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <Ecommerce />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/landpage-editor/:id"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <LandingPageEditor />
                     </ProtectedRoute>
                   }
                 />
