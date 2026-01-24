@@ -4257,6 +4257,99 @@ export type Database = {
           },
         ]
       }
+      landing_page_templates: {
+        Row: {
+          benefits: Json | null
+          branding: Json | null
+          category: string | null
+          clone_count: number | null
+          created_at: string | null
+          created_by: string | null
+          custom_css: string | null
+          description: string | null
+          faq: Json | null
+          full_html: string | null
+          guarantee_text: string | null
+          headline: string | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          secondary_color: string | null
+          settings: Json | null
+          source_type: string | null
+          source_url: string | null
+          subheadline: string | null
+          testimonials: Json | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          urgency_text: string | null
+          video_url: string | null
+        }
+        Insert: {
+          benefits?: Json | null
+          branding?: Json | null
+          category?: string | null
+          clone_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_css?: string | null
+          description?: string | null
+          faq?: Json | null
+          full_html?: string | null
+          guarantee_text?: string | null
+          headline?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          settings?: Json | null
+          source_type?: string | null
+          source_url?: string | null
+          subheadline?: string | null
+          testimonials?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          urgency_text?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          benefits?: Json | null
+          branding?: Json | null
+          category?: string | null
+          clone_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_css?: string | null
+          description?: string | null
+          faq?: Json | null
+          full_html?: string | null
+          guarantee_text?: string | null
+          headline?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          settings?: Json | null
+          source_type?: string | null
+          source_url?: string | null
+          subheadline?: string | null
+          testimonials?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          urgency_text?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       landing_pages: {
         Row: {
           benefits: Json | null

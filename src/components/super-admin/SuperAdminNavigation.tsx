@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Store,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 import {
   Collapsible,
@@ -74,6 +75,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     items: [
       { id: "gateways", label: "Gateways", icon: Wallet, description: "Pagarme, Stripe..." },
       { id: "tenant-fees", label: "Taxas Tenants", icon: Percent, description: "PIX, Cartão, Boleto" },
+      { id: "landing-templates", label: "Templates LP", icon: FileText, description: "Landing Pages" },
     ],
   },
   {
