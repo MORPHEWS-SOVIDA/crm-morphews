@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, CreditCard, Trash2, Check, X, Eye, EyeOff, Star } from 'lucide-react';
+import { Plus, CreditCard, Trash2, Check, X, Eye, EyeOff, Star, Copy, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,6 +45,18 @@ const GATEWAY_ICONS: Record<GatewayType, string> = {
   asaas: '🟡',
 };
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+const getWebhookUrl = (gatewayType: GatewayType): string => {
+  const webhookEndpoints: Record<GatewayType, string> = {
+    pagarme: `${SUPABASE_URL}/functions/v1/pagarme-webhook`,
+    stripe: `${SUPABASE_URL}/functions/v1/stripe-webhook`,
+    appmax: `${SUPABASE_URL}/functions/v1/appmax-webhook`,
+    asaas: `${SUPABASE_URL}/functions/v1/asaas-webhook`,
+  };
+  return webhookEndpoints[gatewayType];
+};
+
 export function PaymentGatewaysManager() {
   const { data: gateways, isLoading } = usePaymentGateways();
   const createGateway = useCreatePaymentGateway();
@@ -55,6 +68,7 @@ export function PaymentGatewaysManager() {
   const [editingGateway, setEditingGateway] = useState<PaymentGateway | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
 
   const [formData, setFormData] = useState({
     gateway_type: 'pagarme' as GatewayType,
@@ -331,13 +345,35 @@ export function PaymentGatewaysManager() {
               </div>
             )}
 
+            {/* Webhook URL - para copiar e configurar no gateway */}
             <div className="space-y-2">
-              <Label>Webhook Secret (opcional)</Label>
-              <Input
-                value={formData.webhook_secret}
-                onChange={(e) => setFormData((p) => ({ ...p, webhook_secret: e.target.value }))}
-                placeholder="whsec_..."
-              />
+              <Label className="flex items-center gap-2">
+                URL do Webhook
+                <Badge variant="outline" className="text-xs">Copie e configure no {GATEWAY_LABELS[formData.gateway_type]}</Badge>
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={getWebhookUrl(formData.gateway_type)}
+                  className="bg-muted text-xs font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    navigator.clipboard.writeText(getWebhookUrl(formData.gateway_type));
+                    setCopiedWebhook(true);
+                    toast.success('URL copiada!');
+                    setTimeout(() => setCopiedWebhook(false), 2000);
+                  }}
+                >
+                  {copiedWebhook ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure esta URL na seção de Webhooks do painel do {GATEWAY_LABELS[formData.gateway_type]}
+              </p>
             </div>
 
             <div className="flex items-center justify-between">
