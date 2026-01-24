@@ -819,7 +819,7 @@ export default function SalesReport() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/vendas/${sale.id}`)}
+                              onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
                             >
                               Ver
                             </Button>

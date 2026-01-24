@@ -1300,7 +1300,7 @@ export default function Expedition() {
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs ml-auto"
-                            onClick={() => navigate(`/vendas/${sale.id}`)}
+                            onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
                           >
                             <Eye className="w-3 h-3 mr-1" />
                             Ver
