@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useCart } from './cart/CartContext';
 import { SavedCardsSelector } from './checkout/SavedCardsSelector';
 import { ShippingSelector } from './checkout/ShippingSelector';
+import { CreditCardForm, type CreditCardData } from './checkout/CreditCardForm';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
@@ -36,6 +37,7 @@ export function StorefrontCheckout() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveCard, setSaveCard] = useState(false);
+  const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<{
     service_code: string;
     service_name: string;
@@ -114,6 +116,12 @@ export function StorefrontCheckout() {
     e.preventDefault();
     if (!acceptedTerms) return;
     
+    // Validate credit card data when credit_card is selected and no saved card
+    if (paymentMethod === 'credit_card' && !isOneClickCheckout && !cardData) {
+      toast.error('Preencha os dados do cartão de crédito');
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -143,6 +151,7 @@ export function StorefrontCheckout() {
         } : undefined,
         payment_method: paymentMethod,
         card_token: isOneClickCheckout ? selectedCardId : undefined,
+        card_data: paymentMethod === 'credit_card' && !isOneClickCheckout ? cardData : undefined,
         save_card: !isOneClickCheckout && saveCard,
         // Attribution data
         utm: utmData,
@@ -473,6 +482,14 @@ export function StorefrontCheckout() {
                   selectedCardId={selectedCardId}
                   onSelectCard={setSelectedCardId}
                   primaryColor={storefront.primary_color}
+                />
+              )}
+
+              {/* Credit Card Form - Show when credit_card selected and no saved card */}
+              {paymentMethod === 'credit_card' && selectedCardId === null && (
+                <CreditCardForm
+                  onCardDataChange={setCardData}
+                  totalCents={total}
                 />
               )}
 
