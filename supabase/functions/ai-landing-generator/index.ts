@@ -5,6 +5,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface TestimonialConfig {
+  count: number;
+  style: 'review' | 'whatsapp';
+  useRealPhotos: boolean;
+  generateAudio: boolean;
+  generateVideoAvatar: boolean;
+}
+
+interface GuaranteeConfig {
+  enabled: boolean;
+  days: number;
+  text: string;
+}
+
 interface BriefingData {
   productName: string;
   productDescription: string;
@@ -20,6 +34,26 @@ interface BriefingData {
   isRegeneration?: boolean;
   offerType?: string;
   pageStyle?: 'full' | 'minimal' | 'webinar';
+  // New fields
+  testimonialConfig?: TestimonialConfig;
+  guaranteeConfig?: GuaranteeConfig;
+  offers?: { quantity: number; label: string; price_cents: number }[];
+}
+
+interface WhatsAppMessage {
+  id: string;
+  text: string;
+  isFromClient: boolean;
+  timestamp: string;
+  hasImage?: boolean;
+}
+
+interface GeneratedTestimonial {
+  id: string;
+  name: string;
+  text: string;
+  style: 'review' | 'whatsapp';
+  whatsappMessages?: WhatsAppMessage[];
 }
 
 interface GeneratedContent {
@@ -28,7 +62,7 @@ interface GeneratedContent {
   benefits: string[];
   urgencyText: string;
   guaranteeText: string;
-  testimonials: { name: string; text: string }[];
+  testimonials: GeneratedTestimonial[];
   faq: { question: string; answer: string }[];
   ctaText: string;
   primaryColor: string;
@@ -54,6 +88,9 @@ serve(async (req) => {
     // Build the system prompt for high-conversion landing page copy
     const isWebinar = briefing.pageStyle === 'webinar';
     const isMinimal = briefing.pageStyle === 'minimal';
+    const testimonialCount = briefing.testimonialConfig?.count || 3;
+    const testimonialStyle = briefing.testimonialConfig?.style || 'review';
+    const guaranteeDays = briefing.guaranteeConfig?.days || 30;
     
     const systemPrompt = `Você é um copywriter especialista em landing pages de alta conversão.
 Seu objetivo é criar copy que VENDE. Você domina:
@@ -72,7 +109,7 @@ REGRAS IMPORTANTES:
 2. Subheadline expande a promessa em 1-2 frases
 3. Benefícios devem ser transformacionais (o que a pessoa GANHA, não o que o produto FAZ)
 4. Urgência deve parecer real, não forçada
-5. Depoimentos devem parecer autênticos (nomes comuns, textos naturais)
+5. Depoimentos devem parecer autênticos (nomes comuns brasileiros, textos naturais)
 6. FAQ deve responder objeções reais de compra
 ${isWebinar ? '7. Para webinário: foque em curiosidade e FOMO, sem revelar demais' : ''}
 
@@ -82,7 +119,28 @@ Tom de voz: ${briefing.tone === 'professional' ? 'Profissional e confiável' :
 
 Estilo visual sugerido: ${briefing.style === 'minimal' ? 'Cores: preto/branco com acento colorido' :
   briefing.style === 'bold' ? 'Cores vibrantes e contrastantes' :
-  briefing.style === 'luxury' ? 'Cores: dourado, preto, branco' : 'Cores: verde, branco, tons naturais'}`;
+  briefing.style === 'luxury' ? 'Cores: dourado, preto, branco' : 'Cores: verde, branco, tons naturais'}
+
+GARANTIA: ${guaranteeDays} dias
+QUANTIDADE DE DEPOIMENTOS: ${testimonialCount}
+ESTILO DOS DEPOIMENTOS: ${testimonialStyle === 'whatsapp' ? 'Conversa de WhatsApp (gere um array de mensagens simulando uma conversa real)' : 'Review tradicional (nome + texto)'}`;
+
+    // Build testimonial structure based on style
+    const testimonialStructure = testimonialStyle === 'whatsapp' 
+      ? `{
+        "id": "unique_id",
+        "name": "Nome Completo",
+        "text": "resumo curto do depoimento",
+        "style": "whatsapp",
+        "whatsappMessages": [
+          {"id": "1", "text": "Oi, comprei o produto semana passada", "isFromClient": true, "timestamp": "10:30"},
+          {"id": "2", "text": "E aí, o que achou?", "isFromClient": false, "timestamp": "10:31"},
+          {"id": "3", "text": "AMEI! Já estou vendo resultados 😍", "isFromClient": true, "timestamp": "10:32"},
+          {"id": "4", "text": "Sério? Me conta mais!", "isFromClient": false, "timestamp": "10:33"},
+          {"id": "5", "text": "Já perdi 3kg em uma semana, sem passar fome!", "isFromClient": true, "timestamp": "10:35"}
+        ]
+      }`
+      : `{"id": "unique_id", "name": "Nome Sobrenome", "text": "depoimento autêntico e natural", "style": "review"}`;
 
     const userPrompt = `Crie uma landing page de alta conversão para:
 
@@ -104,11 +162,10 @@ Retorne um JSON com a seguinte estrutura:
   "subheadline": "string (1-2 frases expandindo a promessa)",
   "benefits": ["array de 5-7 benefícios transformacionais"],
   "urgencyText": "string (texto de urgência/escassez)",
-  "guaranteeText": "string (garantia convincente)",
+  "guaranteeText": "string (garantia de ${guaranteeDays} dias, convincente)",
   "testimonials": [
-    {"name": "Nome Sobrenome", "text": "depoimento autêntico"},
-    {"name": "Nome Sobrenome", "text": "depoimento autêntico"},
-    {"name": "Nome Sobrenome", "text": "depoimento autêntico"}
+    ${testimonialStructure}
+    // Gere ${testimonialCount} depoimentos neste formato
   ],
   "faq": [
     {"question": "pergunta comum", "answer": "resposta objetiva"},
@@ -122,6 +179,7 @@ Retorne um JSON com a seguinte estrutura:
 Retorne APENAS o JSON, sem markdown ou explicações.`;
 
     console.log("Calling Lovable AI for landing page generation...");
+    console.log("Testimonial style:", testimonialStyle, "Count:", testimonialCount);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -136,7 +194,7 @@ Retorne APENAS o JSON, sem markdown ou explicações.`;
           { role: "user", content: userPrompt },
         ],
         temperature: 0.8,
-        max_tokens: 2000,
+        max_tokens: 3000, // Increased for WhatsApp style
       }),
     });
 
@@ -179,15 +237,33 @@ Retorne APENAS o JSON, sem markdown ou explicações.`;
       
       generatedContent = JSON.parse(cleanContent);
       generatedContent.estimatedTokens = usage.total_tokens;
+      
+      // Ensure testimonials have the correct structure
+      generatedContent.testimonials = generatedContent.testimonials.map((t, i) => ({
+        id: t.id || `testimonial_${i + 1}`,
+        name: t.name,
+        text: t.text,
+        style: t.style || testimonialStyle,
+        whatsappMessages: t.whatsappMessages?.map((m, j) => ({
+          ...m,
+          id: m.id || `msg_${j + 1}`,
+        })),
+      }));
+      
     } catch (parseError) {
       console.error("Failed to parse AI response:", content);
       throw new Error("Falha ao processar resposta da IA. Tente novamente.");
     }
 
-    // Calculate energy cost (tokens × 5 / 1000, minimum 300 for new, 150 for regen)
+    // Calculate energy cost
     const baseEnergy = Math.ceil((usage.total_tokens * 5) / 1000);
     const minimumEnergy = action === 'regenerate' ? 150 : 300;
-    const energyCost = Math.max(baseEnergy, minimumEnergy);
+    let energyCost = Math.max(baseEnergy, minimumEnergy);
+    
+    // Add extra cost for WhatsApp style (more complex generation)
+    if (testimonialStyle === 'whatsapp') {
+      energyCost += testimonialCount * 25; // 25 extra per WhatsApp testimonial
+    }
 
     return new Response(
       JSON.stringify({
