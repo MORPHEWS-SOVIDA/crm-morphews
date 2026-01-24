@@ -495,22 +495,33 @@ async function createPrePostagem(
     }
   }
 
-  // Build objetoPostal with declaração de conteúdo INSIDE (PPN v3 requirement)
-  const useDeclaracao = !request.invoice_key;
-  const objetoPostal = buildObjetoPostalPPNv3(tipoObjeto, formatCode, dimensions, pkg.declared_value_cents, useDeclaracao);
+  // ======================================================
+  // IMPORTANT: NF-e key validation (44 digits)
+  // Some clients accidentally send invoice_key as a non-empty string
+  // like "undefined" / "null" / whitespace / partial digits.
+  // If we treat that as "has invoice", we stop sending Declaração de
+  // Conteúdo, and the Correios API responds with PPN-347 + cascaded null errors.
+  // ======================================================
+  const invoiceKeyDigits = String((request as any)?.invoice_key ?? '').replace(/\D/g, '');
+  const hasValidInvoiceKey = invoiceKeyDigits.length === 44;
 
-  // Build documentoFiscal if needed
+  // Build objetoPostal with declaração de conteúdo INSIDE (PPN v3 requirement)
+  const useDeclaracao = !hasValidInvoiceKey;
+  const objetoPostal = buildObjetoPostalPPNv3(
+    tipoObjeto,
+    formatCode,
+    dimensions,
+    pkg.declared_value_cents,
+    useDeclaracao
+  );
+
+  // Build documentoFiscal ONLY when we have a valid NF-e key
   let documentoFiscal: Record<string, unknown> | undefined;
-  if (request.invoice_key) {
+  if (hasValidInvoiceKey) {
     documentoFiscal = {
       tipo: 'NFE',
       numero: request.invoice_number || '',
-      chave: request.invoice_key,
-    };
-  } else if (request.invoice_number) {
-    documentoFiscal = {
-      tipo: 'DECLARACAO',
-      numero: request.invoice_number,
+      chave: invoiceKeyDigits,
     };
   }
 
@@ -523,8 +534,6 @@ async function createPrePostagem(
   // and returns misleading "null" errors for all fields.
   // ======================================================
   
-  const hasInvoice = !!request.invoice_key;
-  
   const payload: Record<string, unknown> = {
     codigoServico: serviceCode,
     remetente,
@@ -532,9 +541,9 @@ async function createPrePostagem(
     objetosPostais: [objetoPostal],
   };
   
-  // CRITICAL: possuiDeclaracaoConteudo must be "S" (string) when no NFe is provided
+  // CRITICAL: possuiDeclaracaoConteudo must be "S" (string) when no valid NF-e is provided
   // This flag at root level tells the API to expect itensDeclaracaoConteudo inside objetosPostais
-  if (!hasInvoice) {
+  if (useDeclaracao) {
     payload.possuiDeclaracaoConteudo = "S";
   }
 
@@ -545,6 +554,33 @@ async function createPrePostagem(
 
   if (documentoFiscal) {
     payload.documentoFiscal = documentoFiscal;
+  }
+
+  // Compact debug line (keeps logs readable and avoids truncation)
+  try {
+    const op0 = objetoPostal as any;
+    console.log(
+      'PPN payload summary:',
+      JSON.stringify(
+        {
+          codigoServico: serviceCode,
+          possuiDeclaracaoConteudo: (payload as any).possuiDeclaracaoConteudo ?? null,
+          hasValidInvoiceKey,
+          objetoPostal: {
+            codigoFormatoObjeto: op0?.codigoFormatoObjeto ?? null,
+            peso: op0?.peso ?? null,
+            objetosProibidos: op0?.objetosProibidos ?? null,
+            itensDeclaracaoConteudo_len: Array.isArray(op0?.itensDeclaracaoConteudo)
+              ? op0.itensDeclaracaoConteudo.length
+              : 0,
+          },
+        },
+        null,
+        0
+      )
+    );
+  } catch {
+    // ignore logging errors
   }
 
   const endpoint = `${baseUrl}/prepostagem/v1/prepostagens`;
