@@ -119,22 +119,88 @@ interface Integration {
   sac_priority: string | null;
 }
 
-function normalizePhone(phone: string): string {
-  if (!phone) return '';
+/**
+ * Validates and normalizes a Brazilian phone number.
+ * Returns normalized phone if valid, or null if invalid.
+ * 
+ * Valid formats:
+ * - Mobile: 55 + DDD (2 digits) + 9 + 8 digits = 13 digits (e.g., 5565999934325)
+ * - Landline: 55 + DDD (2 digits) + 8 digits starting with 2/3/4/5 = 12 digits
+ */
+function validateBrazilianPhone(phone: string): { valid: boolean; normalized: string; message?: string } {
+  if (!phone) return { valid: false, normalized: '', message: 'Número vazio' };
+  
   // Remove all non-digit characters
   let digits = phone.replace(/\D/g, '');
-
-  // If starts with country code, keep it
-  if (digits.startsWith('55') && digits.length >= 12) {
-    return digits;
+  
+  if (!digits) return { valid: false, normalized: '', message: 'Nenhum dígito encontrado' };
+  
+  // Normalize: add country code if missing
+  if (!digits.startsWith('55')) {
+    if (digits.length === 10 || digits.length === 11) {
+      digits = '55' + digits;
+    }
   }
-
-  // Add Brazil country code if missing
-  if (digits.length === 10 || digits.length === 11) {
-    digits = '55' + digits;
+  
+  const length = digits.length;
+  
+  // Check valid lengths (12 for landline, 13 for mobile)
+  if (length < 12 || length > 13) {
+    return { 
+      valid: false, 
+      normalized: digits, 
+      message: `Número com ${length} dígitos - deve ter 12 ou 13` 
+    };
   }
+  
+  // Must start with Brazil country code
+  if (!digits.startsWith('55')) {
+    return { valid: false, normalized: digits, message: 'Deve começar com 55' };
+  }
+  
+  // Check for duplicated country code (e.g., 555565...)
+  if (digits.startsWith('5555')) {
+    return { valid: false, normalized: digits, message: 'Código do país duplicado (5555...)' };
+  }
+  
+  // Extract DDD and number
+  const ddd = digits.substring(2, 4);
+  const number = digits.substring(4);
+  
+  // Validate DDD
+  const dddNum = parseInt(ddd, 10);
+  if (dddNum < 11 || dddNum > 99) {
+    return { valid: false, normalized: digits, message: `DDD inválido: ${ddd}` };
+  }
+  
+  // For 13-digit numbers (mobile): must start with 9 after DDD
+  if (length === 13) {
+    if (!number.startsWith('9')) {
+      return { valid: false, normalized: digits, message: 'Celular deve começar com 9 após DDD' };
+    }
+    const secondDigit = number.charAt(1);
+    if (!['6', '7', '8', '9'].includes(secondDigit)) {
+      return { valid: false, normalized: digits, message: 'Celular inválido após o 9' };
+    }
+  }
+  
+  // For 12-digit numbers (landline): should start with 2, 3, 4, or 5
+  if (length === 12) {
+    const firstDigit = number.charAt(0);
+    if (!['2', '3', '4', '5'].includes(firstDigit)) {
+      return { valid: false, normalized: digits, message: 'Fixo deve começar com 2, 3, 4 ou 5 após DDD' };
+    }
+  }
+  
+  return { valid: true, normalized: digits };
+}
 
-  return digits;
+function normalizePhone(phone: string): string {
+  const result = validateBrazilianPhone(phone);
+  if (!result.valid) {
+    console.warn(`Invalid phone number: ${phone} - ${result.message}`);
+  }
+  return result.normalized;
 }
 
 function applyTransform(value: any, transformType: string): string {

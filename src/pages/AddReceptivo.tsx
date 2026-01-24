@@ -683,14 +683,21 @@ export default function AddReceptivo() {
   };
 
   const handlePhoneSearch = async () => {
-    if (phoneInput.length < 12) {
-      toast({ title: 'Digite um telefone válido', variant: 'destructive' });
+    // Validate Brazilian phone format
+    const { validateBrazilianPhone } = await import('@/lib/validations');
+    const validation = validateBrazilianPhone(phoneInput);
+    
+    if (!validation.valid) {
+      toast({ title: 'Telefone inválido', description: validation.message, variant: 'destructive' });
       return;
     }
+    
+    // Use the normalized phone for search
+    const normalizedPhone = validation.normalized || phoneInput;
 
     try {
       // First, check if lead exists for another user (bypasses RLS visibility restrictions)
-      const existingForOther = await checkLeadExistsForOtherUser(phoneInput);
+      const existingForOther = await checkLeadExistsForOtherUser(normalizedPhone);
       
       if (existingForOther) {
         // Lead exists but belongs to another user - show transfer dialog
@@ -700,7 +707,7 @@ export default function AddReceptivo() {
       }
 
       // Lead doesn't exist for another user, proceed with normal search
-      const result = await searchLead.mutateAsync(phoneInput);
+      const result = await searchLead.mutateAsync(normalizedPhone);
       
       if (result.lead) {
         setLeadData({
