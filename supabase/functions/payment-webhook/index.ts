@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildReferenceId, processSaleSplitsV3, processRefundOrChargeback, isUniqueViolation } from "./split-engine.ts";
+import { processSaleSplitsV3, processRefundOrChargeback } from "./split-engine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,9 +59,13 @@ serve(async (req) => {
       });
     }
 
-    // Build unique reference ID for idempotency
-    const referenceId = buildReferenceId(gateway, body);
-    console.log(`[PaymentWebhook] Gateway: ${gateway}, SaleId: ${saleId}, Status: ${status}, RefId: ${referenceId}`);
+    // Map status to our format FIRST to get stable eventType
+    const { newStatus, paymentStatus, eventType } = mapStatus(status, gateway);
+    
+    // Build STABLE reference ID using normalized eventType (not raw status!)
+    // This prevents duplicate processing when gateway resends with different raw statuses
+    const stableRef = `${gateway}:${transactionId || saleId || 'unknown'}:${eventType}`;
+    console.log(`[PaymentWebhook] Gateway: ${gateway}, SaleId: ${saleId}, RawStatus: ${status} -> EventType: ${eventType}, StableRef: ${stableRef}`);
 
     if (!saleId) {
       console.log("[PaymentWebhook] No sale ID found in payload");
@@ -79,8 +83,7 @@ serve(async (req) => {
       });
     }
 
-    // Map status to our format
-    const { newStatus, paymentStatus, eventType } = mapStatus(status, gateway);
+    // Status already mapped above (before stableRef)
     console.log(`[PaymentWebhook] Mapped status: ${status} -> ${paymentStatus} (event: ${eventType})`);
 
     // Update sale
@@ -116,13 +119,13 @@ serve(async (req) => {
       paymentStatus,
       transactionId,
       rawData,
-      referenceId,
+      referenceId: stableRef,
     });
 
-    // Process based on event type
+    // Process based on event type using STABLE reference ID
     switch (eventType) {
       case 'paid':
-        await processSaleSplitsV3(supabase, saleIdStr, referenceId, {
+        await processSaleSplitsV3(supabase, saleIdStr, stableRef, {
           transactionId: transactionId || '',
           feeCents: feeCents || 0,
           netAmountCents: (amountCents || saleTotalCents) - (feeCents || 0),
@@ -135,11 +138,11 @@ serve(async (req) => {
         break;
 
       case 'refunded':
-        await processRefundOrChargeback(supabase, saleIdStr, referenceId, 'refund');
+        await processRefundOrChargeback(supabase, saleIdStr, stableRef, 'refund');
         break;
 
       case 'chargedback':
-        await processRefundOrChargeback(supabase, saleIdStr, referenceId, 'chargeback');
+        await processRefundOrChargeback(supabase, saleIdStr, stableRef, 'chargeback');
         break;
 
       default:
@@ -151,7 +154,7 @@ serve(async (req) => {
       gateway, 
       saleId: saleIdStr,
       eventType,
-      referenceId,
+      referenceId: stableRef,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
