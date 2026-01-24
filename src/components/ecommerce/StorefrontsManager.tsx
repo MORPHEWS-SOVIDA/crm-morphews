@@ -201,7 +201,7 @@ export function StorefrontsManager() {
                     asChild
                   >
                     <a
-                      href={`https://${storefront.slug}.morphews.shop`}
+                      href={`/loja/${storefront.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

@@ -58,7 +58,8 @@ interface PublicLandingPage {
   product: {
     id: string;
     name: string;
-    price_cents: number;
+    base_price_cents?: number;
+    price_1_unit?: number;
     image_url: string | null;
     description: string | null;
   };
@@ -107,7 +108,7 @@ export default function PublicLandingPage() {
         .select(`
           *,
           offers:landing_offers(*),
-          product:lead_products!landing_pages_product_id_fkey(id, name, price_cents, image_url, description)
+          product:lead_products!landing_pages_product_id_fkey(id, name, base_price_cents, price_1_unit, image_url, description)
         `)
         .eq('slug', slug)
         .eq('is_active', true)

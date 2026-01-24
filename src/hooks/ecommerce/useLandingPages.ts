@@ -62,7 +62,7 @@ export function useLandingPages() {
         .from('landing_pages')
         .select(`
           *,
-          product:lead_products(id, name, base_price_cents, price_1_unit, image_url),
+          product:lead_products!landing_pages_product_id_fkey(id, name, base_price_cents, price_1_unit, image_url),
           offers:landing_offers(*)
         `)
         .order('created_at', { ascending: false });
@@ -83,7 +83,7 @@ export function useLandingPage(id: string | undefined) {
         .from('landing_pages')
         .select(`
           *,
-          product:lead_products(id, name, base_price_cents, price_1_unit, image_url, description),
+          product:lead_products!landing_pages_product_id_fkey(id, name, base_price_cents, price_1_unit, image_url, description),
           offers:landing_offers(*)
         `)
         .eq('id', id)
