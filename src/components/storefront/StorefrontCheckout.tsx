@@ -170,17 +170,36 @@ export function StorefrontCheckout() {
 
       // Handle different payment methods
       if (paymentMethod === 'pix' && result.pix_code) {
-        // Store PIX data for confirmation page
-        sessionStorage.setItem('checkout_result', JSON.stringify(result));
+        // Redirect to PIX payment page with QR code
+        clearCart();
+        navigate(`/loja/${storefront.slug}/pix-pagamento`, {
+          state: { 
+            saleId: result.sale_id, 
+            pix_code: result.pix_code,
+            pix_expiration: result.pix_expiration,
+            total_cents: total,
+            paymentMethod 
+          },
+        });
+        return;
       } else if (paymentMethod === 'boleto' && result.payment_url) {
-        // Open boleto URL
+        // Open boleto URL and go to confirmation
         window.open(result.payment_url, '_blank');
-      } else if (paymentMethod === 'credit_card' && result.payment_url) {
-        // Redirect to payment URL for card
-        window.location.href = result.payment_url;
+        clearCart();
+        navigate(`/loja/${storefront.slug}/pedido-confirmado`, {
+          state: { saleId: result.sale_id, paymentMethod, ...result },
+        });
+        return;
+      } else if (paymentMethod === 'credit_card') {
+        // Credit card - go to confirmation (payment already processed)
+        clearCart();
+        navigate(`/loja/${storefront.slug}/pedido-confirmado`, {
+          state: { saleId: result.sale_id, paymentMethod, ...result },
+        });
         return;
       }
 
+      // Fallback
       clearCart();
       navigate(`/loja/${storefront.slug}/pedido-confirmado`, {
         state: { saleId: result.sale_id, paymentMethod, ...result },

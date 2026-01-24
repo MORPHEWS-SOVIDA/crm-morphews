@@ -141,6 +141,7 @@ const StorefrontCart = lazy(() => import("./components/storefront/StorefrontCart
 const StorefrontCheckout = lazy(() => import("./components/storefront/StorefrontCheckout").then(m => ({ default: m.StorefrontCheckout })));
 const StorefrontPage = lazy(() => import("./components/storefront/StorefrontPage").then(m => ({ default: m.StorefrontPage })));
 const StorefrontOrderConfirmed = lazy(() => import("./components/storefront/StorefrontOrderConfirmed").then(m => ({ default: m.StorefrontOrderConfirmed })));
+const StorefrontPixPayment = lazy(() => import("./components/storefront/StorefrontPixPayment").then(m => ({ default: m.StorefrontPixPayment })));
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -182,6 +183,7 @@ const App = () => (
                   <Route path="checkout" element={<StorefrontCheckout />} />
                   <Route path="pagina/:pageSlug" element={<StorefrontPage />} />
                   <Route path="pedido-confirmado" element={<StorefrontOrderConfirmed />} />
+                  <Route path="pix-pagamento" element={<StorefrontPixPayment />} />
                 </Route>
 
                 {/* Home - shows landing for non-auth, dashboard funnel for auth */}
