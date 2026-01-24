@@ -188,10 +188,10 @@ serve(async (req) => {
         status: 'pending',
         payment_status: 'pending',
         subtotal_cents: subtotalCents,
-        shipping_cents: shippingCents,
+        shipping_cost_cents: shippingCents,
         total_cents: totalCents,
-        source: storefront_id ? 'ecommerce' : 'landing_page',
-        notes: `Checkout - ${payment_method}`,
+        payment_method: payment_method,
+        payment_notes: `Checkout via ${storefront_id ? 'loja' : 'landing page'}`,
         // Attribution UTM data on sale
         src: utm?.src || null,
         utm_source: utm?.utm_source || null,
@@ -277,7 +277,7 @@ serve(async (req) => {
       .from('sales')
       .update({
         payment_status: paymentStatus,
-        notes: `${paymentResult.usedGateway.toUpperCase()} ID: ${paymentResult.response.transaction_id || 'N/A'}`,
+        gateway_transaction_id: paymentResult.response.transaction_id || null,
       })
       .eq('id', sale.id);
 
