@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, Plus, Pencil, Trash2, Shield, ArrowUpDown, Eye, EyeOff, CreditCard, Zap } from 'lucide-react';
+import { AlertCircle, Plus, Pencil, Trash2, Shield, ArrowUpDown, Eye, EyeOff, CreditCard, Zap, Copy, CheckCheck, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 type GatewayType = 'pagarme' | 'appmax' | 'stripe' | 'asaas';
@@ -54,11 +54,24 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   boleto: 'Boleto',
 };
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+const getWebhookUrl = (gatewayType: GatewayType): string => {
+  const webhookEndpoints: Record<GatewayType, string> = {
+    pagarme: `${SUPABASE_URL}/functions/v1/pagarme-webhook`,
+    stripe: `${SUPABASE_URL}/functions/v1/stripe-webhook`,
+    appmax: `${SUPABASE_URL}/functions/v1/appmax-webhook`,
+    asaas: `${SUPABASE_URL}/functions/v1/asaas-webhook`,
+  };
+  return webhookEndpoints[gatewayType];
+};
+
 export function PlatformGatewaysTab() {
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [editingGateway, setEditingGateway] = useState<PlatformGatewayConfig | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [formData, setFormData] = useState({
     gateway_type: 'pagarme' as GatewayType,
     display_name: '',
@@ -326,14 +339,54 @@ export function PlatformGatewaysTab() {
                   />
                 </div>
 
+                {/* URL do Webhook - para copiar e configurar no gateway */}
                 <div className="space-y-2">
-                  <Label>Webhook Secret (opcional)</Label>
-                  <Input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={formData.webhook_secret}
-                    onChange={(e) => setFormData(prev => ({ ...prev, webhook_secret: e.target.value }))}
-                  />
+                  <Label className="flex items-center gap-2">
+                    URL do Webhook
+                    <Badge variant="outline" className="text-xs font-normal">
+                      Copie e configure no {GATEWAY_INFO[formData.gateway_type].label}
+                    </Badge>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={getWebhookUrl(formData.gateway_type)}
+                      className="bg-muted text-xs font-mono"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        navigator.clipboard.writeText(getWebhookUrl(formData.gateway_type));
+                        setCopiedWebhook(true);
+                        toast.success('URL do webhook copiada!');
+                        setTimeout(() => setCopiedWebhook(false), 2000);
+                      }}
+                    >
+                      {copiedWebhook ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Configure esta URL na seção de Webhooks do painel do {GATEWAY_INFO[formData.gateway_type].label}
+                  </p>
                 </div>
+
+                {/* Stripe já integrado - aviso especial */}
+                {formData.gateway_type === 'stripe' && (
+                  <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-purple-600 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-purple-700 dark:text-purple-300">Stripe já está integrado!</p>
+                        <p className="text-purple-600 dark:text-purple-400 text-xs mt-1">
+                          As credenciais do Stripe já estão configuradas no sistema (STRIPE_SECRET_KEY).
+                          Se quiser usar outro Stripe, preencha as chaves abaixo.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Prioridade (menor = primeiro)</Label>
