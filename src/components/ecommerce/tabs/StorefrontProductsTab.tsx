@@ -184,9 +184,11 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
                     <p className="text-sm text-muted-foreground">
                       {sp.custom_price_cents 
                         ? formatCurrency(sp.custom_price_cents)
-                        : sp.product?.sale_price_cents 
-                          ? formatCurrency(sp.product.sale_price_cents)
-                          : 'Preço não definido'
+                        : sp.product?.price_1_unit 
+                          ? formatCurrency(sp.product.price_1_unit)
+                          : sp.product?.base_price_cents
+                            ? formatCurrency(sp.product.base_price_cents)
+                            : 'Preço não definido'
                       }
                     </p>
                     <div className="flex items-center gap-2 mt-2">
