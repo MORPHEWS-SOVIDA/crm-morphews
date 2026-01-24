@@ -99,15 +99,16 @@ function addDays(days: number): string {
 
 /**
  * Try to acquire event lock via unique transaction
- * Returns true if lock acquired, false if already processed
+ * Returns: 'acquired' | 'already_processed' | 'needs_recovery'
  */
 async function tryAcquireEventLock(
   supabase: SupabaseClient, 
   referenceId: string, 
   platformAccountId: string,
   saleId: string
-): Promise<boolean> {
-  const lockReferenceId = `${referenceId}:LOCK`;
+): Promise<'acquired' | 'already_processed' | 'needs_recovery'> {
+  // Use ::LOCK suffix to prevent any collision with split reference IDs
+  const lockReferenceId = `${referenceId}::LOCK`;
   
   try {
     const { error } = await supabase
@@ -127,17 +128,37 @@ async function tryAcquireEventLock(
 
     if (error) {
       if (isUniqueViolation(error)) {
-        console.log(`[SplitEngine] Event ${referenceId} already locked/processed`);
-        return false;
+        // Lock exists - check if processing completed (tenant split exists)
+        const { data: tenantSplit } = await supabase
+          .from('sale_splits')
+          .select('id')
+          .eq('sale_id', saleId)
+          .eq('split_type', 'tenant')
+          .maybeSingle();
+
+        if (tenantSplit) {
+          console.log(`[SplitEngine] Event ${referenceId} fully processed (lock + tenant exist)`);
+          return 'already_processed';
+        } else {
+          console.log(`[SplitEngine] Event ${referenceId} has lock but no tenant - RECOVERY MODE`);
+          return 'needs_recovery';
+        }
       }
       throw error;
     }
 
     console.log(`[SplitEngine] Acquired lock for event ${referenceId}`);
-    return true;
+    return 'acquired';
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return false;
+      // Double-check recovery mode
+      const { data: tenantSplit } = await supabase
+        .from('sale_splits')
+        .select('id')
+        .eq('sale_id', saleId)
+        .eq('split_type', 'tenant')
+        .maybeSingle();
+      return tenantSplit ? 'already_processed' : 'needs_recovery';
     }
     throw error;
   }
@@ -369,25 +390,20 @@ export async function processSaleSplitsV3(
   const platformAccountId = await getPlatformAccount(supabase);
 
   // CRITICAL: Acquire event lock FIRST (all-or-nothing per event)
-  // This is the TRUE idempotency gate - if lock fails, event already processed
-  const lockAcquired = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
-  if (!lockAcquired) {
-    console.log(`[SplitEngine] Event already processed (lock exists), skipping`);
+  // Returns: 'acquired' | 'already_processed' | 'needs_recovery'
+  const lockResult = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
+  
+  if (lockResult === 'already_processed') {
+    console.log(`[SplitEngine] Event fully processed, skipping`);
     return { factory_amount: 0, industry_amount: 0, affiliate_amount: 0, tenant_amount: 0, platform_amount: 0, gateway_fee: 0 };
   }
-
-  // Fast path check (optimization, not the idempotency gate)
-  const { data: existingTenantSplit } = await supabase
-    .from('sale_splits')
-    .select('id')
-    .eq('sale_id', saleId)
-    .eq('split_type', 'tenant')
-    .maybeSingle();
-
-  if (existingTenantSplit) {
-    console.log(`[SplitEngine] Sale ${saleId} already has tenant split, skipping`);
-    return { factory_amount: 0, industry_amount: 0, affiliate_amount: 0, tenant_amount: 0, platform_amount: 0, gateway_fee: 0 };
+  
+  if (lockResult === 'needs_recovery') {
+    console.log(`[SplitEngine] RECOVERY MODE: Lock exists but incomplete, continuing to fill missing splits`);
+    // Continue processing - individual splits have their own idempotency via reference_id
   }
+  
+  // 'acquired' or 'needs_recovery' - proceed with processing
 
   // 2) Load sale with items
   const { data: sale, error: saleError } = await supabase
@@ -681,11 +697,12 @@ export async function processRefundOrChargeback(
   const platformAccountId = await getPlatformAccount(supabase);
 
   // CRITICAL: Acquire event lock for refund/chargeback (prevents double debit)
-  const lockAcquired = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
-  if (!lockAcquired) {
-    console.log(`[SplitEngine] ${kind} event already processed (lock exists), skipping`);
+  const lockResult = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
+  if (lockResult === 'already_processed') {
+    console.log(`[SplitEngine] ${kind} event already processed (lock + splits exist), skipping`);
     return;
   }
+  // For 'needs_recovery' or 'acquired', continue processing
 
   // Get all liable splits for this sale
   const liableColumn = kind === 'refund' ? 'liable_for_refund' : 'liable_for_chargeback';
@@ -710,18 +727,32 @@ export async function processRefundOrChargeback(
     const txReferenceId = `${referenceId}:${kind}:${split.split_type}`;
 
     try {
-      // Check original transaction status to determine which balance to debit
-      const { data: originalTx } = await supabase
-        .from('virtual_transactions')
-        .select('status')
-        .eq('sale_id', saleId)
-        .eq('virtual_account_id', account.id)
-        .eq('transaction_type', 'credit')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // ROBUST: Use split.transaction_id to find the EXACT original transaction status
+      // This eliminates ambiguity when same account has multiple credits
+      let originalStatus = 'pending';
+      
+      if (split.transaction_id) {
+        // Best case: we have the direct link to the original transaction
+        const { data: linkedTx } = await supabase
+          .from('virtual_transactions')
+          .select('status')
+          .eq('id', split.transaction_id)
+          .single();
+        originalStatus = linkedTx?.status || 'pending';
+      } else {
+        // Fallback: find by sale_id + account (less precise but works for legacy)
+        const { data: originalTx } = await supabase
+          .from('virtual_transactions')
+          .select('status')
+          .eq('sale_id', saleId)
+          .eq('virtual_account_id', account.id)
+          .eq('transaction_type', 'credit')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        originalStatus = originalTx?.status || 'pending';
+      }
 
-      const originalStatus = originalTx?.status || 'pending';
       const debitFromPending = originalStatus === 'pending';
 
       // Create debit transaction (idempotent)
