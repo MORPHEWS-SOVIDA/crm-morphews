@@ -76,7 +76,8 @@ export interface StorefrontProduct {
   product?: {
     id: string;
     name: string;
-    sale_price_cents?: number | null;
+    base_price_cents?: number | null;
+    price_1_unit?: number | null;
     image_url: string | null;
   };
 }
@@ -155,7 +156,7 @@ export function useStorefrontProducts(storefrontId: string | undefined) {
         .from('storefront_products')
         .select(`
           *,
-          product:lead_products(id, name, sale_price_cents, image_url)
+          product:lead_products(id, name, base_price_cents, price_1_unit, image_url)
         `)
         .eq('storefront_id', storefrontId)
         .order('display_order');
