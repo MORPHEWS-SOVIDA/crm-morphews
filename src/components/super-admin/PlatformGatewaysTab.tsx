@@ -113,11 +113,14 @@ export function PlatformGatewaysTab() {
   // Create/Update gateway
   const saveMutation = useMutation({
     mutationFn: async (data: typeof formData & { id?: string }) => {
+      // Para Stripe, usamos a integração nativa (não precisa de api_key manual)
+      const isStripeNative = data.gateway_type === 'stripe' && !data.api_key;
+      
       const payload = {
         gateway_type: data.gateway_type,
         display_name: data.display_name,
-        api_key_encrypted: data.api_key || null,
-        api_secret_encrypted: data.api_secret || null,
+        api_key_encrypted: isStripeNative ? 'NATIVE_INTEGRATION' : (data.api_key || null),
+        api_secret_encrypted: isStripeNative ? null : (data.api_secret || null),
         webhook_secret_encrypted: data.webhook_secret || null,
         is_primary: data.is_primary,
         priority: data.priority,
@@ -310,82 +313,86 @@ export function PlatformGatewaysTab() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="flex items-center justify-between">
-                    API Key
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                    >
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </Label>
-                  <Input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={formData.api_key}
-                    onChange={(e) => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
-                    placeholder="sk_live_..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>API Secret (opcional)</Label>
-                  <Input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={formData.api_secret}
-                    onChange={(e) => setFormData(prev => ({ ...prev, api_secret: e.target.value }))}
-                  />
-                </div>
-
-                {/* URL do Webhook - para copiar e configurar no gateway */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    URL do Webhook
-                    <Badge variant="outline" className="text-xs font-normal">
-                      Copie e configure no {GATEWAY_INFO[formData.gateway_type].label}
-                    </Badge>
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={getWebhookUrl(formData.gateway_type)}
-                      className="bg-muted text-xs font-mono"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        navigator.clipboard.writeText(getWebhookUrl(formData.gateway_type));
-                        setCopiedWebhook(true);
-                        toast.success('URL do webhook copiada!');
-                        setTimeout(() => setCopiedWebhook(false), 2000);
-                      }}
-                    >
-                      {copiedWebhook ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Configure esta URL na seção de Webhooks do painel do {GATEWAY_INFO[formData.gateway_type].label}
-                  </p>
-                </div>
-
-                {/* Stripe já integrado - aviso especial */}
-                {formData.gateway_type === 'stripe' && (
-                  <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
-                    <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-purple-600 mt-0.5" />
-                      <div className="text-sm">
+                {/* Stripe já integrado - aviso especial e campos ocultos */}
+                {formData.gateway_type === 'stripe' ? (
+                  <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900">
+                        <CreditCard className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div className="text-sm flex-1">
                         <p className="font-medium text-purple-700 dark:text-purple-300">Stripe já está integrado!</p>
                         <p className="text-purple-600 dark:text-purple-400 text-xs mt-1">
-                          As credenciais do Stripe já estão configuradas no sistema (STRIPE_SECRET_KEY).
-                          Se quiser usar outro Stripe, preencha as chaves abaixo.
+                          As credenciais do Stripe já estão configuradas automaticamente via integração nativa (STRIPE_SECRET_KEY).
+                          Basta definir o nome, prioridade e se é o gateway primário.
                         </p>
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="flex items-center justify-between">
+                        API Key
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                        >
+                          {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </Label>
+                      <Input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={formData.api_key}
+                        onChange={(e) => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
+                        placeholder="sk_live_..."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>API Secret (opcional)</Label>
+                      <Input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={formData.api_secret}
+                        onChange={(e) => setFormData(prev => ({ ...prev, api_secret: e.target.value }))}
+                      />
+                    </div>
+
+                    {/* URL do Webhook - para copiar e configurar no gateway */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        URL do Webhook
+                        <Badge variant="outline" className="text-xs font-normal">
+                          Copie e configure no {GATEWAY_INFO[formData.gateway_type].label}
+                        </Badge>
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={getWebhookUrl(formData.gateway_type)}
+                          className="bg-muted text-xs font-mono"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            navigator.clipboard.writeText(getWebhookUrl(formData.gateway_type));
+                            setCopiedWebhook(true);
+                            toast.success('URL do webhook copiada!');
+                            setTimeout(() => setCopiedWebhook(false), 2000);
+                          }}
+                        >
+                          {copiedWebhook ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Configure esta URL na seção de Webhooks do painel do {GATEWAY_INFO[formData.gateway_type].label}
+                      </p>
+                    </div>
+                  </>
                 )}
 
                 <div className="space-y-2">
@@ -466,11 +473,18 @@ export function PlatformGatewaysTab() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                        {gateway.api_key_encrypted 
-                          ? `${gateway.api_key_encrypted.slice(0, 8)}...` 
-                          : 'Não configurado'}
-                      </code>
+                      {gateway.api_key_encrypted === 'NATIVE_INTEGRATION' ? (
+                        <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Integração Nativa
+                        </Badge>
+                      ) : (
+                        <code className="text-xs bg-muted px-2 py-1 rounded">
+                          {gateway.api_key_encrypted 
+                            ? `${gateway.api_key_encrypted.slice(0, 8)}...` 
+                            : 'Não configurado'}
+                        </code>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Switch
