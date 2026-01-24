@@ -62,10 +62,11 @@ serve(async (req) => {
     // Map status to our format FIRST to get stable eventType
     const { newStatus, paymentStatus, eventType } = mapStatus(status, gateway);
     
-    // Build STABLE reference ID using normalized eventType (not raw status!)
-    // This prevents duplicate processing when gateway resends with different raw statuses
-    const stableRef = `${gateway}:${transactionId || saleId || 'unknown'}:${eventType}`;
-    console.log(`[PaymentWebhook] Gateway: ${gateway}, SaleId: ${saleId}, RawStatus: ${status} -> EventType: ${eventType}, StableRef: ${stableRef}`);
+    // Build STABLE reference ID using SALE ID (not transaction ID!)
+    // This prevents duplicate splits when gateway sends order.paid + charge.paid for same sale
+    // Each logical sale should only ever create ONE set of splits
+    const stableRef = `${gateway}:${saleId || 'unknown'}:${eventType}`;
+    console.log(`[PaymentWebhook] Gateway: ${gateway}, SaleId: ${saleId}, TxId: ${transactionId}, RawStatus: ${status} -> EventType: ${eventType}, StableRef: ${stableRef}`);
 
     if (!saleId) {
       console.log("[PaymentWebhook] No sale ID found in payload");
@@ -108,6 +109,40 @@ serve(async (req) => {
       console.error(`[PaymentWebhook] Failed to update sale ${saleRecord.id}:`, updateError);
     } else {
       console.log(`[PaymentWebhook] Sale ${saleRecord.id} updated successfully: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+    }
+
+    // Also update ecommerce_orders status when payment status changes
+    if (eventType === 'paid') {
+      await supabase
+        .from('ecommerce_orders')
+        .update({ 
+          status: 'approved',
+          paid_at: new Date().toISOString(),
+          payment_transaction_id: transactionId || null,
+          payment_gateway: gateway,
+        })
+        .eq('sale_id', saleRecord.id);
+      
+      // Update cart status to paid
+      await supabase
+        .from('ecommerce_carts')
+        .update({ status: 'paid' })
+        .eq('converted_sale_id', saleRecord.id);
+    } else if (eventType === 'refunded') {
+      await supabase
+        .from('ecommerce_orders')
+        .update({ status: 'refunded' })
+        .eq('sale_id', saleRecord.id);
+    } else if (eventType === 'chargedback') {
+      await supabase
+        .from('ecommerce_orders')
+        .update({ status: 'chargeback' })
+        .eq('sale_id', saleRecord.id);
+    } else if (eventType === 'cancelled') {
+      await supabase
+        .from('ecommerce_orders')
+        .update({ status: 'canceled' })
+        .eq('sale_id', saleRecord.id);
     }
 
     // Cast saleRecord fields with proper types

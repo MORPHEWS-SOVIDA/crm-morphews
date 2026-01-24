@@ -235,7 +235,46 @@ serve(async (req) => {
       }
     }
 
-    // 8. Convert cart if exists
+    // 8. Create ecommerce_order record for the Vendas Online panel
+    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+    await supabase
+      .from('ecommerce_orders')
+      .insert({
+        organization_id: organizationId,
+        cart_id: cart_id || null,
+        sale_id: sale.id,
+        lead_id: lead.id,
+        order_number: orderNumber,
+        customer_name: customer.name,
+        customer_email: customer.email || null,
+        customer_phone: normalizedPhone,
+        customer_cpf: customer.document || null,
+        shipping_cep: body.shipping?.zip || null,
+        shipping_street: body.shipping?.address || null,
+        shipping_city: body.shipping?.city || null,
+        shipping_state: body.shipping?.state || null,
+        shipping_complement: body.shipping?.complement || null,
+        subtotal_cents: subtotalCents,
+        shipping_cents: shippingCents,
+        discount_cents: 0,
+        total_cents: totalCents,
+        status: 'awaiting_payment',
+        source: storefront_id ? 'storefront' : 'landing_page',
+        storefront_id: storefront_id || null,
+        landing_page_id: landing_page_id || null,
+        utm_source: utm?.utm_source || null,
+        utm_medium: utm?.utm_medium || null,
+        utm_campaign: utm?.utm_campaign || null,
+        utm_term: utm?.utm_term || null,
+        utm_content: utm?.utm_content || null,
+        fbclid: utm?.fbclid || null,
+        gclid: utm?.gclid || null,
+        ttclid: utm?.ttclid || null,
+        affiliate_id: affiliateId || null,
+        payment_method: payment_method,
+      });
+
+    // 9. Convert cart if exists
     if (cart_id) {
       await supabase
         .from('ecommerce_carts')
@@ -247,7 +286,7 @@ serve(async (req) => {
         .eq('id', cart_id);
     }
 
-    // 9. Initialize Fallback Engine and process payment
+    // 10. Initialize Fallback Engine and process payment
     const fallbackEngine = new FallbackEngine(supabaseUrl, supabaseServiceKey);
     await fallbackEngine.initialize(payment_method);
 
@@ -277,7 +316,7 @@ serve(async (req) => {
       save_card: body.save_card,
     });
 
-    // 10. Update sale with payment info
+    // 11. Update sale with payment info
     const paymentStatus = paymentResult.response.success ? 'processing' : 'failed';
     await supabase
       .from('sales')
@@ -287,7 +326,7 @@ serve(async (req) => {
       })
       .eq('id', sale.id);
 
-    // 11. Save card if requested and successful
+    // 12. Save card if requested and successful
     if (body.save_card && paymentResult.response.success && paymentResult.response.card_id) {
       await supabase
         .from('saved_payment_methods')
