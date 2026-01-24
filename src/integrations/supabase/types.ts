@@ -488,7 +488,10 @@ export type Database = {
       }
       bot_team_routes: {
         Row: {
+          condition_label: string | null
+          condition_type: string
           created_at: string
+          crm_conditions: Json | null
           id: string
           intent_description: string | null
           is_active: boolean
@@ -496,12 +499,17 @@ export type Database = {
           organization_id: string
           priority: number
           route_type: string
+          sentiment_conditions: string[] | null
           target_bot_id: string
           team_id: string
+          time_conditions: Json | null
           updated_at: string
         }
         Insert: {
+          condition_label?: string | null
+          condition_type?: string
           created_at?: string
+          crm_conditions?: Json | null
           id?: string
           intent_description?: string | null
           is_active?: boolean
@@ -509,12 +517,17 @@ export type Database = {
           organization_id: string
           priority?: number
           route_type?: string
+          sentiment_conditions?: string[] | null
           target_bot_id: string
           team_id: string
+          time_conditions?: Json | null
           updated_at?: string
         }
         Update: {
+          condition_label?: string | null
+          condition_type?: string
           created_at?: string
+          crm_conditions?: Json | null
           id?: string
           intent_description?: string | null
           is_active?: boolean
@@ -522,8 +535,10 @@ export type Database = {
           organization_id?: string
           priority?: number
           route_type?: string
+          sentiment_conditions?: string[] | null
           target_bot_id?: string
           team_id?: string
+          time_conditions?: Json | null
           updated_at?: string
         }
         Relationships: [
