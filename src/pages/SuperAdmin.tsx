@@ -34,6 +34,7 @@ import { SubscriptionKPIs } from "@/components/super-admin/SubscriptionKPIs";
 import { BillingManagementTab } from "@/components/super-admin/BillingManagementTab";
 import { PlatformGatewaysTab } from "@/components/super-admin/PlatformGatewaysTab";
 import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFeesTab";
+import { LandingTemplatesTab } from "@/components/super-admin/LandingTemplatesTab";
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
 import { cn } from "@/lib/utils";
 
@@ -914,6 +915,7 @@ export default function SuperAdmin() {
             {activeTab === "plan-editor" && <PlanEditor />}
             {activeTab === "gateways" && <PlatformGatewaysTab />}
             {activeTab === "tenant-fees" && <TenantPaymentFeesTab />}
+            {activeTab === "landing-templates" && <LandingTemplatesTab />}
             {activeTab === "whatsapp" && <WhatsAppCreditsTab />}
             {activeTab === "providers" && <WhatsAppProvidersTab />}
             {activeTab === "admin-whatsapp" && <AdminWhatsAppInstanceTab />}

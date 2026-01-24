@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Trash2, ExternalLink, Eye, EyeOff, Copy, Settings, Paintbrush } from 'lucide-react';
+import { Plus, FileText, Trash2, ExternalLink, Eye, EyeOff, Copy, Settings, Paintbrush, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import {
   type LandingPage,
 } from '@/hooks/ecommerce';
 import { LandingPageFormDialog } from './LandingPageFormDialog';
+import { LandingImporter } from './LandingImporter';
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -111,10 +112,13 @@ export function LandingPagesManager() {
             Páginas de vendas focadas em um único produto
           </p>
         </div>
-        <Button onClick={handleCreate} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Landing
-        </Button>
+        <div className="flex gap-2">
+          <LandingImporter />
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova Landing
+          </Button>
+        </div>
       </div>
 
       {landingPages?.length === 0 ? (
@@ -123,12 +127,15 @@ export function LandingPagesManager() {
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhuma landing page</h3>
             <p className="text-muted-foreground mb-4 max-w-md">
-              Crie páginas de venda focadas com ofertas de 1, 3 ou 5 unidades.
+              Crie páginas de venda focadas ou importe de um site existente.
             </p>
-            <Button onClick={handleCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Criar Landing Page
-            </Button>
+            <div className="flex gap-2">
+              <LandingImporter />
+              <Button onClick={handleCreate} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Criar Landing Page
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
