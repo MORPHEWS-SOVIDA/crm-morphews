@@ -22,11 +22,9 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-// Mock saved cards for demo - in production, would fetch based on lead
-const MOCK_SAVED_CARDS = [
-  { id: 'card_1', card_brand: 'visa', card_last_digits: '4242', is_default: true, gateway_type: 'pagarme' },
-  { id: 'card_2', card_brand: 'mastercard', card_last_digits: '5555', is_default: false, gateway_type: 'pagarme' },
-];
+// Saved cards - will be fetched from saved_payment_methods once lead is identified
+// For now, empty array until we implement real lookup
+const SAVED_CARDS: { id: string; card_brand: string; card_last_digits: string; is_default: boolean; gateway_type: string }[] = [];
 
 export function StorefrontCheckout() {
   const navigate = useNavigate();
@@ -36,7 +34,7 @@ export function StorefrontCheckout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(MOCK_SAVED_CARDS[0]?.id || null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveCard, setSaveCard] = useState(false);
   const [selectedShipping, setSelectedShipping] = useState<{
     service_code: string;
@@ -90,8 +88,8 @@ export function StorefrontCheckout() {
     allowSaveCard?: boolean;
   } || {};
 
-  // Show saved cards only for credit card payment
-  const showSavedCards = paymentMethod === 'credit_card' && MOCK_SAVED_CARDS.length > 0;
+  // Show saved cards only for credit card payment (when cards exist)
+  const showSavedCards = paymentMethod === 'credit_card' && SAVED_CARDS.length > 0;
   const isOneClickCheckout = selectedCardId !== null && paymentMethod === 'credit_card';
 
   if (items.length === 0) {
@@ -412,7 +410,7 @@ export function StorefrontCheckout() {
                     setSelectedCardId(null);
                     setSaveCard(false);
                   } else {
-                    setSelectedCardId(MOCK_SAVED_CARDS[0]?.id || null);
+                    setSelectedCardId(SAVED_CARDS[0]?.id || null);
                   }
                 }}
                 className="space-y-3"
@@ -452,7 +450,7 @@ export function StorefrontCheckout() {
               {/* Saved Cards */}
               {showSavedCards && (
                 <SavedCardsSelector
-                  cards={MOCK_SAVED_CARDS}
+                  cards={SAVED_CARDS}
                   selectedCardId={selectedCardId}
                   onSelectCard={setSelectedCardId}
                   primaryColor={storefront.primary_color}
