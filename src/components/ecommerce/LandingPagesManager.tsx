@@ -146,7 +146,7 @@ export function LandingPagesManager() {
                     <div className="text-sm">
                       <div className="font-medium truncate">{page.product.name}</div>
                       <div className="text-muted-foreground">
-                        {formatCurrency(page.product.price_cents)}
+                        {formatCurrency(page.product.price_1_unit || page.product.base_price_cents || 0)}
                       </div>
                     </div>
                   </div>

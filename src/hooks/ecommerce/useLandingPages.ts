@@ -47,7 +47,8 @@ export interface LandingPage {
   product?: {
     id: string;
     name: string;
-    price_cents: number;
+    base_price_cents?: number;
+    price_1_unit?: number;
     image_url: string | null;
   };
 }
@@ -61,7 +62,7 @@ export function useLandingPages() {
         .from('landing_pages')
         .select(`
           *,
-          product:lead_products(id, name, price_cents, image_url),
+          product:lead_products(id, name, base_price_cents, price_1_unit, image_url),
           offers:landing_offers(*)
         `)
         .order('created_at', { ascending: false });
@@ -82,7 +83,7 @@ export function useLandingPage(id: string | undefined) {
         .from('landing_pages')
         .select(`
           *,
-          product:lead_products(id, name, price_cents, image_url, description),
+          product:lead_products(id, name, base_price_cents, price_1_unit, image_url, description),
           offers:landing_offers(*)
         `)
         .eq('id', id)
