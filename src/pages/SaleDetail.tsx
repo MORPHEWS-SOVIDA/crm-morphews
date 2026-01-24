@@ -1047,7 +1047,7 @@ export default function SaleDetail() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate(`/leads/${sale.lead_id}`)}
+                    onClick={() => window.open(`/leads/${sale.lead_id}`, '_blank')}
                   >
                     Ver Lead
                   </Button>

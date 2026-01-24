@@ -772,7 +772,7 @@ export default function Sales() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => navigate(`/vendas/${sale.id}`)}
+                            onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
                             className="gap-1"
                           >
                             <Eye className="w-4 h-4" />

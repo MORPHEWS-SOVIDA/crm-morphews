@@ -251,7 +251,7 @@ export default function SAC() {
                 onClose={() => setSelectedTicket(null)}
                 onViewLead={() => {
                   setSelectedTicket(null);
-                  navigate(`/leads/${selectedTicket.lead_id}`);
+                  window.open(`/leads/${selectedTicket.lead_id}`, '_blank');
                 }}
               />
             )}

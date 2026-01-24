@@ -567,7 +567,7 @@ export default function AllDeliveries() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate(`/vendas/${sale.id}`)}
+                        onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
                         className="shrink-0"
                       >
                         <Eye className="w-4 h-4 mr-1" />

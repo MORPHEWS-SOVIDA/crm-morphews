@@ -107,7 +107,7 @@ export function LeadSalesSection({ leadId, leadName }: LeadSalesSectionProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate(`/vendas/${sale.id}`)}
+                    onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
                     title="Ver detalhes"
                   >
                     <Eye className="w-4 h-4" />

@@ -210,10 +210,14 @@ async function getShippingQuotes(
           error: item.txErro,
         });
       } else {
+        // Parse price from Brazilian format (comma as decimal separator)
+        const priceString = String(item.pcFinal || item.pcBase || '0').replace(',', '.');
+        const priceValue = parseFloat(priceString) || 0;
+        
         results.push({
           service_code: code,
           service_name: serviceNames[code] || `Serviço ${code}`,
-          price_cents: Math.round((item.pcFinal || item.pcBase || 0) * 100),
+          price_cents: Math.round(priceValue * 100),
           delivery_days: item.prazoEntrega || 0,
           delivery_date: item.dataMaxima,
         });
