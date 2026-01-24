@@ -134,7 +134,7 @@ export function usePublicProduct(storefrontSlug: string | undefined, productId: 
             id, name, description, image_url,
             ecommerce_title, ecommerce_description, ecommerce_short_description,
             ecommerce_images, ecommerce_video_url, ecommerce_benefits,
-            price_1_unit, price_3_units, price_6_units, price_12_units,
+            base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units,
             crosssell_product_1_id, crosssell_product_2_id
           )
         `)
@@ -185,7 +185,7 @@ export function usePublicCategoryProducts(storefrontSlug: string | undefined, ca
             product:lead_products(
               id, name, description, image_url,
               ecommerce_title, ecommerce_short_description,
-              price_1_unit, price_3_units, price_6_units, price_12_units
+              base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units
             )
           )
         `)
