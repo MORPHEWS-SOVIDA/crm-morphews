@@ -14,6 +14,58 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliate_attributions: {
+        Row: {
+          affiliate_id: string | null
+          attribution_type: string
+          code_or_ref: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          sale_id: string
+        }
+        Insert: {
+          affiliate_id?: string | null
+          attribution_type: string
+          code_or_ref?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          sale_id: string
+        }
+        Update: {
+          affiliate_id?: string | null
+          attribution_type?: string
+          code_or_ref?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_attributions_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_attributions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_attributions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliates: {
         Row: {
           affiliate_code: string
@@ -1361,6 +1413,72 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "correios_quote_cache_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          affiliate_id: string | null
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_redemptions: number | null
+          min_order_cents: number | null
+          organization_id: string
+          product_ids: string[] | null
+          redemptions_count: number
+          updated_at: string
+        }
+        Insert: {
+          affiliate_id?: string | null
+          code: string
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          min_order_cents?: number | null
+          organization_id: string
+          product_ids?: string[] | null
+          redemptions_count?: number
+          updated_at?: string
+        }
+        Update: {
+          affiliate_id?: string | null
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          min_order_cents?: number | null
+          organization_id?: string
+          product_ids?: string[] | null
+          redemptions_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupons_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupons_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -3199,6 +3317,81 @@ export type Database = {
           },
         ]
       }
+      factories: {
+        Row: {
+          bank_account: string | null
+          bank_account_type: string | null
+          bank_agency: string | null
+          bank_name: string | null
+          created_at: string
+          document: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          legal_name: string | null
+          name: string
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          pix_key: string | null
+          updated_at: string
+          virtual_account_id: string | null
+        }
+        Insert: {
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          legal_name?: string | null
+          name: string
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          pix_key?: string | null
+          updated_at?: string
+          virtual_account_id?: string | null
+        }
+        Update: {
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          legal_name?: string | null
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          pix_key?: string | null
+          updated_at?: string
+          virtual_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factories_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fiscal_auto_send_config: {
         Row: {
           created_at: string
@@ -3928,6 +4121,7 @@ export type Database = {
           phone: string | null
           pix_key: string | null
           updated_at: string | null
+          virtual_account_id: string | null
         }
         Insert: {
           bank_account?: string | null
@@ -3946,6 +4140,7 @@ export type Database = {
           phone?: string | null
           pix_key?: string | null
           updated_at?: string | null
+          virtual_account_id?: string | null
         }
         Update: {
           bank_account?: string | null
@@ -3964,6 +4159,7 @@ export type Database = {
           phone?: string | null
           pix_key?: string | null
           updated_at?: string | null
+          virtual_account_id?: string | null
         }
         Relationships: [
           {
@@ -3971,6 +4167,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industries_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -6982,6 +7185,62 @@ export type Database = {
           },
         ]
       }
+      organization_split_rules: {
+        Row: {
+          allow_negative_balance: boolean
+          chargeback_debit_strategy: string
+          created_at: string
+          default_affiliate_percent: number
+          hold_days_affiliate: number
+          hold_days_factory: number
+          hold_days_industry: number
+          hold_days_platform: number
+          hold_days_tenant: number
+          organization_id: string
+          platform_fee_fixed_cents: number
+          platform_fee_percent: number
+          updated_at: string
+        }
+        Insert: {
+          allow_negative_balance?: boolean
+          chargeback_debit_strategy?: string
+          created_at?: string
+          default_affiliate_percent?: number
+          hold_days_affiliate?: number
+          hold_days_factory?: number
+          hold_days_industry?: number
+          hold_days_platform?: number
+          hold_days_tenant?: number
+          organization_id: string
+          platform_fee_fixed_cents?: number
+          platform_fee_percent?: number
+          updated_at?: string
+        }
+        Update: {
+          allow_negative_balance?: boolean
+          chargeback_debit_strategy?: string
+          created_at?: string
+          default_affiliate_percent?: number
+          hold_days_affiliate?: number
+          hold_days_factory?: number
+          hold_days_industry?: number
+          hold_days_platform?: number
+          hold_days_tenant?: number
+          organization_id?: string
+          platform_fee_fixed_cents?: number
+          platform_fee_percent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_split_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_whatsapp_credits: {
         Row: {
           created_at: string
@@ -8183,6 +8442,73 @@ export type Database = {
           },
           {
             foreignKeyName: "product_embeddings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_factory_costs: {
+        Row: {
+          additional_cost_cents: number | null
+          created_at: string
+          factory_fee_fixed_cents: number
+          factory_fee_percent: number
+          factory_id: string
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          product_id: string
+          shipping_cost_cents: number | null
+          unit_cost_cents: number | null
+          updated_at: string
+        }
+        Insert: {
+          additional_cost_cents?: number | null
+          created_at?: string
+          factory_fee_fixed_cents?: number
+          factory_fee_percent?: number
+          factory_id: string
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          product_id: string
+          shipping_cost_cents?: number | null
+          unit_cost_cents?: number | null
+          updated_at?: string
+        }
+        Update: {
+          additional_cost_cents?: number | null
+          created_at?: string
+          factory_fee_fixed_cents?: number
+          factory_fee_percent?: number
+          factory_id?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          product_id?: string
+          shipping_cost_cents?: number | null
+          unit_cost_cents?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_factory_costs_factory_id_fkey"
+            columns: ["factory_id"]
+            isOneToOne: false
+            referencedRelation: "factories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_factory_costs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_factory_costs_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
@@ -9544,8 +9870,11 @@ export type Database = {
           gross_amount_cents: number
           id: string
           industry_id: string | null
+          liable_for_chargeback: boolean
+          liable_for_refund: boolean
           net_amount_cents: number
           percentage: number | null
+          priority: number
           sale_id: string
           split_type: string
           transaction_id: string | null
@@ -9557,8 +9886,11 @@ export type Database = {
           gross_amount_cents: number
           id?: string
           industry_id?: string | null
+          liable_for_chargeback?: boolean
+          liable_for_refund?: boolean
           net_amount_cents: number
           percentage?: number | null
+          priority?: number
           sale_id: string
           split_type: string
           transaction_id?: string | null
@@ -9570,8 +9902,11 @@ export type Database = {
           gross_amount_cents?: number
           id?: string
           industry_id?: string | null
+          liable_for_chargeback?: boolean
+          liable_for_refund?: boolean
           net_amount_cents?: number
           percentage?: number | null
+          priority?: number
           sale_id?: string
           split_type?: string
           transaction_id?: string | null
