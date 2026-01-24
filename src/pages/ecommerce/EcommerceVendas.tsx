@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { EcommerceLayout } from '@/components/ecommerce/EcommerceLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +82,7 @@ const STATUS_GROUPS = [
 ];
 
 export default function EcommerceVendas() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -280,7 +282,11 @@ export default function EcommerceVendas() {
                             {order.payment_method?.replace('_', ' ') || 'N/A'}
                           </div>
                         </div>
-                        <Button size="sm" variant="ghost">
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => navigate(`/ecommerce/vendas/${order.id}`)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </div>
