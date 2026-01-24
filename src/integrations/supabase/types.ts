@@ -2301,6 +2301,7 @@ export type Database = {
           storefront_id: string | null
           subtotal_cents: number | null
           total_cents: number | null
+          ttclid: string | null
           updated_at: string
           utm_campaign: string | null
           utm_content: string | null
@@ -2341,6 +2342,7 @@ export type Database = {
           storefront_id?: string | null
           subtotal_cents?: number | null
           total_cents?: number | null
+          ttclid?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
@@ -2381,6 +2383,7 @@ export type Database = {
           storefront_id?: string | null
           subtotal_cents?: number | null
           total_cents?: number | null
+          ttclid?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null

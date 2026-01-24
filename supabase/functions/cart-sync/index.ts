@@ -113,6 +113,7 @@ serve(async (req) => {
       if (utm.src) cartData.src = utm.src;
       if (utm.fbclid) cartData.fbclid = utm.fbclid;
       if (utm.gclid) cartData.gclid = utm.gclid;
+      if (utm.ttclid) cartData.ttclid = utm.ttclid;
     }
 
     let resultCartId = cart_id;
