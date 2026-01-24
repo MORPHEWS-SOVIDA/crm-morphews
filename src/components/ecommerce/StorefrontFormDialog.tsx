@@ -136,6 +136,9 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
                 <div className="space-y-2">
                   <Label htmlFor="slug">URL da Loja *</Label>
                   <div className="flex items-center gap-1">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      sales.morphews.com/loja/
+                    </span>
                     <Input
                       id="slug"
                       value={formData.slug}
@@ -148,9 +151,6 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
                       placeholder="minha-loja"
                       required
                     />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      .morphews.shop
-                    </span>
                   </div>
                 </div>
               </div>

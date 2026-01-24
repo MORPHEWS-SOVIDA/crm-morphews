@@ -31,7 +31,7 @@ function formatCurrency(cents: number) {
 }
 
 export function LandingPagesManager() {
-  const { data: landingPages, isLoading } = useLandingPages();
+  const { data: landingPages, isLoading, error } = useLandingPages();
   const deleteLandingPage = useDeleteLandingPage();
   const updateLandingPage = useUpdateLandingPage();
   const duplicateLandingPage = useDuplicateLandingPage();
@@ -84,6 +84,19 @@ export function LandingPagesManager() {
           </Card>
         ))}
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Erro ao carregar landing pages</CardTitle>
+          <CardDescription className="text-sm">
+            {(error as Error).message || 'Tente novamente em alguns instantes.'}
+          </CardDescription>
+        </CardHeader>
+      </Card>
     );
   }
 
@@ -202,7 +215,7 @@ export function LandingPagesManager() {
                     asChild
                   >
                     <a
-                      href={`https://${page.slug}.morphews.shop`}
+                      href={`/lp/${page.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
