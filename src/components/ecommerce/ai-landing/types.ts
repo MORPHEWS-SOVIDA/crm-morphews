@@ -55,6 +55,39 @@ export interface TestimonialUpload {
   text?: string;
 }
 
+// New: Product Offer configuration
+export interface ProductOffer {
+  id: string;
+  quantity: number;
+  label: string;
+  price_cents: number;
+  original_price_cents?: number;
+  badge_text?: string;
+  is_highlighted: boolean;
+  // New: Option to multiply product image for kits
+  multiplyImage: boolean;
+  customKitImage?: string; // User can upload a custom kit image
+}
+
+// New: Testimonial configuration
+export type TestimonialStyle = 'review' | 'whatsapp';
+
+export interface TestimonialConfig {
+  count: number; // How many testimonials
+  style: TestimonialStyle;
+  useRealPhotos: boolean; // If false, AI generates faces
+  generateAudio: boolean; // Generate ElevenLabs audio
+  generateVideoAvatar: boolean; // Generate fake video with avatar
+  uploads: TestimonialUpload[];
+}
+
+// New: Guarantee configuration
+export interface GuaranteeConfig {
+  enabled: boolean;
+  days: number;
+  text: string;
+}
+
 export interface BriefingData {
   productId: string;
   productName: string;
@@ -68,22 +101,57 @@ export interface BriefingData {
   generateMissingImages: boolean;
 }
 
+// New: Page configuration collected before generating
+export interface PageConfig {
+  name: string;
+  slug: string;
+  whatsappNumber: string;
+  videoUrl?: string;
+}
+
 export interface GeneratedContent {
   headline: string;
   subheadline: string;
   benefits: string[];
   urgencyText: string;
   guaranteeText: string;
-  testimonials: { name: string; text: string; imageUrl?: string }[];
+  testimonials: GeneratedTestimonial[];
   faq: { question: string; answer: string }[];
   ctaText: string;
   primaryColor: string;
   estimatedTokens: number;
 }
 
+// New: Enhanced testimonial with audio/video support
+export interface GeneratedTestimonial {
+  id: string;
+  name: string;
+  text: string;
+  imageUrl?: string;
+  style: TestimonialStyle;
+  audioUrl?: string; // ElevenLabs generated audio
+  videoUrl?: string; // Fake avatar video
+  whatsappMessages?: WhatsAppMessage[]; // For WhatsApp style
+}
+
+// New: WhatsApp conversation message
+export interface WhatsAppMessage {
+  id: string;
+  text: string;
+  isFromClient: boolean;
+  timestamp: string;
+  hasImage?: boolean;
+  imageUrl?: string;
+}
+
+// Updated wizard state
 export interface AILandingWizardState {
-  step: 'type' | 'uploads' | 'briefing' | 'generating' | 'preview';
+  step: 'type' | 'page_config' | 'offers' | 'uploads' | 'testimonials' | 'briefing' | 'generating' | 'preview' | 'editor';
   offerType: OfferType | null;
+  pageConfig: PageConfig;
+  offers: ProductOffer[];
+  testimonialConfig: TestimonialConfig;
+  guaranteeConfig: GuaranteeConfig;
   uploadedImages: UploadedImage[];
   testimonialUploads: TestimonialUpload[];
   briefing: BriefingData;
@@ -92,6 +160,17 @@ export interface AILandingWizardState {
   productFaqs: { question: string; answer: string }[];
   totalEnergyCost: number;
 }
+
+// Energy costs for different features
+export const ENERGY_COSTS = {
+  baseCopy: 300,
+  imageGeneration: 100,
+  testimonialGeneration: 50, // per testimonial
+  audioGeneration: 75, // per audio with ElevenLabs
+  videoAvatarGeneration: 150, // per video avatar
+  whatsappStyleConversion: 25, // per WhatsApp conversation
+  imageMultiplication: 50, // per kit image multiplication
+};
 
 // Config for each offer type
 export const OFFER_TYPE_CONFIGS: OfferTypeConfig[] = [
@@ -239,3 +318,55 @@ export const UPLOAD_CONFIGS: Record<UploadType, UploadConfig> = {
     multiple: true,
   },
 };
+
+// Default values for new wizard
+export const DEFAULT_PAGE_CONFIG: PageConfig = {
+  name: '',
+  slug: '',
+  whatsappNumber: '',
+  videoUrl: '',
+};
+
+export const DEFAULT_TESTIMONIAL_CONFIG: TestimonialConfig = {
+  count: 3,
+  style: 'review',
+  useRealPhotos: false,
+  generateAudio: false,
+  generateVideoAvatar: false,
+  uploads: [],
+};
+
+export const DEFAULT_GUARANTEE_CONFIG: GuaranteeConfig = {
+  enabled: true,
+  days: 30,
+  text: 'Se você não ficar 100% satisfeito, devolvemos seu dinheiro.',
+};
+
+export const DEFAULT_OFFERS: ProductOffer[] = [
+  {
+    id: '1',
+    quantity: 1,
+    label: '1 unidade',
+    price_cents: 0,
+    is_highlighted: false,
+    multiplyImage: false,
+  },
+  {
+    id: '2',
+    quantity: 3,
+    label: 'Kit 3 unidades',
+    price_cents: 0,
+    badge_text: 'Mais vendido',
+    is_highlighted: true,
+    multiplyImage: true,
+  },
+  {
+    id: '3',
+    quantity: 6,
+    label: 'Kit 6 unidades',
+    price_cents: 0,
+    badge_text: 'Melhor custo-benefício',
+    is_highlighted: false,
+    multiplyImage: true,
+  },
+];
