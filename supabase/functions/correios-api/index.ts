@@ -621,47 +621,84 @@ async function createPrePostagem(
       first.rawBody.includes('PPN-330'));
 
   if (shouldRetry) {
-    const retryPayload = structuredClone(payload) as any;
-    const op0 = retryPayload?.objetosPostais?.[0];
+    // ======================================================
+    // IMPORTANT:
+    // Os Correios têm múltiplas variações de schema em produção (dependendo do contrato/cartão).
+    // Quando o parser NÃO reconhece a estrutura, ele acusa campos como se fossem "null".
+    // Então, além de stringificar, tentamos variações de nesting comuns:
+    //  - objetosPostais: [ { ... } ]  (nosso padrão)
+    //  - objetoPostal: { ... }       (variante singular)
+    //  - campos do objeto no root    (variante legacy)
+    // ======================================================
 
-    // Garantir flag tanto no root quanto dentro do objeto postal (algumas variações do parser exigem)
-    retryPayload.possuiDeclaracaoConteudo = retryPayload.possuiDeclaracaoConteudo ?? 'S';
-    if (op0 && typeof op0 === 'object') {
-      op0.possuiDeclaracaoConteudo = retryPayload.possuiDeclaracaoConteudo;
+    const stringifyObjetoPostal = (op: any) => {
+      if (!op || typeof op !== 'object') return op;
+      const next = structuredClone(op);
+      if (next.codigoFormatoObjeto != null) next.codigoFormatoObjeto = String(next.codigoFormatoObjeto);
+      if (next.peso != null) next.peso = String(next.peso);
+      if (next.objetosProibidos != null) next.objetosProibidos = String(next.objetosProibidos);
+      if (next.vlrDeclarado != null) next.vlrDeclarado = String(next.vlrDeclarado);
 
-      // Stringify campos que o parser está acusando como null
-      if (op0.codigoFormatoObjeto != null) op0.codigoFormatoObjeto = String(op0.codigoFormatoObjeto);
-      if (op0.peso != null) op0.peso = String(op0.peso);
-      if (op0.objetosProibidos != null) op0.objetosProibidos = String(op0.objetosProibidos);
-      if (op0.vlrDeclarado != null) op0.vlrDeclarado = String(op0.vlrDeclarado);
-
-      if (op0.dimensao && typeof op0.dimensao === 'object') {
-        if (op0.dimensao.altura != null) op0.dimensao.altura = String(op0.dimensao.altura);
-        if (op0.dimensao.largura != null) op0.dimensao.largura = String(op0.dimensao.largura);
-        if (op0.dimensao.comprimento != null) op0.dimensao.comprimento = String(op0.dimensao.comprimento);
+      if (next.dimensao && typeof next.dimensao === 'object') {
+        if (next.dimensao.altura != null) next.dimensao.altura = String(next.dimensao.altura);
+        if (next.dimensao.largura != null) next.dimensao.largura = String(next.dimensao.largura);
+        if (next.dimensao.comprimento != null) next.dimensao.comprimento = String(next.dimensao.comprimento);
       }
 
-      if (Array.isArray(op0.itensDeclaracaoConteudo)) {
-        op0.itensDeclaracaoConteudo = op0.itensDeclaracaoConteudo.map((it: any) => ({
+      if (Array.isArray(next.itensDeclaracaoConteudo)) {
+        next.itensDeclaracaoConteudo = next.itensDeclaracaoConteudo.map((it: any) => ({
           ...it,
           quantidade: it?.quantidade != null ? String(it.quantidade) : it?.quantidade,
           valor: it?.valor != null ? String(it.valor) : it?.valor,
           peso: it?.peso != null ? String(it.peso) : it?.peso,
         }));
       }
+      return next;
+    };
+
+    const baseRetry = structuredClone(payload) as any;
+    baseRetry.possuiDeclaracaoConteudo = baseRetry.possuiDeclaracaoConteudo ?? 'S';
+    const op0 = baseRetry?.objetosPostais?.[0];
+    const op0Str = stringifyObjetoPostal(op0);
+    if (op0Str && typeof op0Str === 'object') {
+      op0Str.possuiDeclaracaoConteudo = baseRetry.possuiDeclaracaoConteudo;
+      baseRetry.objetosPostais = [op0Str];
     }
 
-    console.log('Retrying prepostagem with stringified fields payload:', JSON.stringify(retryPayload, null, 2));
-    const second = await doRequest(retryPayload);
-    if (second.ok) return second.data;
+    console.log('Retry variant A (objetosPostais + stringified):', JSON.stringify(baseRetry, null, 2));
+    const secondA = await doRequest(baseRetry);
+    if (secondA.ok) return secondA.data;
 
-    console.error(`Prepostagem failed after retry (${second.status}):`, second.rawBody);
+    // Variant B: objetoPostal (singular)
+    const variantB = structuredClone(baseRetry) as any;
+    const opB = variantB?.objetosPostais?.[0];
+    delete variantB.objetosPostais;
+    variantB.objetoPostal = opB;
+    console.log('Retry variant B (objetoPostal singular):', JSON.stringify(variantB, null, 2));
+    const secondB = await doRequest(variantB);
+    if (secondB.ok) return secondB.data;
+
+    // Variant C: campos do objeto no root (legacy)
+    const variantC = structuredClone(baseRetry) as any;
+    const opC = variantC?.objetosPostais?.[0];
+    delete variantC.objetosPostais;
+    if (opC && typeof opC === 'object') {
+      // remove duplicações que poderiam conflitar no root
+      const { possuiDeclaracaoConteudo: _pdc, ...opNoFlag } = opC;
+      Object.assign(variantC, opNoFlag);
+    }
+    console.log('Retry variant C (flatten objetoPostal to root):', JSON.stringify(variantC, null, 2));
+    const secondC = await doRequest(variantC);
+    if (secondC.ok) return secondC.data;
+
+    // Se todas as variações falharem, devolve o último erro (mantendo rawBody)
+    console.error(`Prepostagem failed after retries (A/B/C). Last status (${secondC.status}):`, secondC.rawBody);
     throw new CorreiosApiError({
-      message: `Falha ao criar pré-postagem (${second.status}): ${second.humanMessage}`,
-      status: second.status,
+      message: `Falha ao criar pré-postagem (${secondC.status}): ${secondC.humanMessage}`,
+      status: secondC.status,
       endpoint,
-      rawBody: second.rawBody,
-      parsedBody: second.parsedBody,
+      rawBody: secondC.rawBody,
+      parsedBody: secondC.parsedBody,
     });
   }
 
