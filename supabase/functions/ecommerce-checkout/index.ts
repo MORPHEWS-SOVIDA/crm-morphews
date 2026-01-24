@@ -79,7 +79,7 @@ serve(async (req) => {
           name: customer.name,
           email: customer.email,
           whatsapp: normalizedPhone,
-          source: storefront_id ? 'ecommerce' : 'landing_page',
+          lead_source: storefront_id ? 'ecommerce' : 'landing_page',
           // Attribution UTM data
           src: utm?.src || null,
           utm_source: utm?.utm_source || null,
