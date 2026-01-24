@@ -161,6 +161,24 @@ export {
 } from './usePlatformGateways';
 
 // =============================================================================
+// INDUSTRIES (Fornecedores/Indústrias)
+// =============================================================================
+export {
+  useIndustries,
+  useActiveIndustries,
+  useCreateIndustry,
+  useUpdateIndustry,
+  useDeleteIndustry,
+  useProductIndustryCosts,
+  useCreateProductIndustryCost,
+  useUpdateProductIndustryCost,
+  useDeleteProductIndustryCost,
+  calculateIndustryCost,
+  type Industry,
+  type ProductIndustryCost,
+} from './useIndustries';
+
+// =============================================================================
 // PUBLIC STOREFRONT (Frontend Público)
 // =============================================================================
 export {

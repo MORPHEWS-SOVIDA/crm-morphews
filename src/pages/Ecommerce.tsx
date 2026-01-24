@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Store, FileText, ShoppingCart, Wallet, CreditCard, Users, Phone, Mail } from 'lucide-react';
+import { Store, FileText, ShoppingCart, Wallet, Users, Phone, Mail, Factory } from 'lucide-react';
 import { StorefrontsManager } from '@/components/ecommerce/StorefrontsManager';
 import { LandingPagesManager } from '@/components/ecommerce/LandingPagesManager';
 import { CartsManager } from '@/components/ecommerce/CartsManager';
 import { VirtualAccountPanel } from '@/components/ecommerce/VirtualAccountPanel';
-import { PaymentGatewaysManager } from '@/components/ecommerce/PaymentGatewaysManager';
 import { AffiliatesManager } from '@/components/ecommerce/AffiliatesManager';
+import { IndustriesManager } from '@/components/ecommerce/IndustriesManager';
 import TelesalesPanel from '@/pages/ecommerce/TelesalesPanel';
 import { EmailMarketingManager } from '@/pages/ecommerce/EmailMarketingManager';
 export default function Ecommerce() {
@@ -24,7 +24,7 @@ export default function Ecommerce() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="storefronts" className="gap-2">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Lojas</span>
@@ -45,17 +45,13 @@ export default function Ecommerce() {
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Afiliados</span>
             </TabsTrigger>
-            <TabsTrigger value="gateways" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Gateways</span>
+            <TabsTrigger value="industries" className="gap-2">
+              <Factory className="h-4 w-4" />
+              <span className="hidden sm:inline">Indústrias</span>
             </TabsTrigger>
             <TabsTrigger value="wallet" className="gap-2">
               <Wallet className="h-4 w-4" />
               <span className="hidden sm:inline">Carteira</span>
-            </TabsTrigger>
-            <TabsTrigger value="telesales" className="gap-2">
-              <Phone className="h-4 w-4" />
-              <span className="hidden sm:inline">Televendas</span>
             </TabsTrigger>
           </TabsList>
 
@@ -79,16 +75,12 @@ export default function Ecommerce() {
             <AffiliatesManager />
           </TabsContent>
 
-          <TabsContent value="gateways" className="mt-6">
-            <PaymentGatewaysManager />
+          <TabsContent value="industries" className="mt-6">
+            <IndustriesManager />
           </TabsContent>
 
           <TabsContent value="wallet" className="mt-6">
             <VirtualAccountPanel />
-          </TabsContent>
-
-          <TabsContent value="telesales" className="mt-6">
-            <TelesalesPanel />
           </TabsContent>
         </Tabs>
       </div>
