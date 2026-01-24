@@ -158,16 +158,16 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
               <div className="space-y-2">
                 <Label htmlFor="template">Template</Label>
                 <Select
-                  value={formData.template_id}
+                  value={formData.template_id || "__none__"}
                   onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, template_id: value }))
+                    setFormData((prev) => ({ ...prev, template_id: value === "__none__" ? "" : value }))
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um template" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem template (em branco)</SelectItem>
+                    <SelectItem value="__none__">Sem template (em branco)</SelectItem>
                     {templates
                       ?.filter((t) => t.template_type === 'store')
                       .map((template) => (

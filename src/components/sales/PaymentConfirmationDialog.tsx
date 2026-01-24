@@ -294,12 +294,12 @@ export function PaymentConfirmationDialog({
               {/* Acquirer */}
               <div className="space-y-2">
                 <Label>Adquirente (Operadora)</Label>
-                <Select value={acquirerId} onValueChange={setAcquirerId}>
+                <Select value={acquirerId || "__none__"} onValueChange={(value) => setAcquirerId(value === "__none__" ? "" : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Não informado</SelectItem>
+                    <SelectItem value="__none__">Não informado</SelectItem>
                     {acquirers.map(acq => (
                       <SelectItem key={acq.id} value={acq.id}>
                         {acq.name}
