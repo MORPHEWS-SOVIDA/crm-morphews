@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Sparkles, FileText } from 'lucide-react';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useProducts } from '@/hooks/useProducts';
 import {
@@ -17,6 +17,7 @@ import {
   type LandingPage,
   type CreateLandingPageInput,
 } from '@/hooks/ecommerce';
+import { AILandingGenerator } from './AILandingGenerator';
 
 interface LandingPageFormDialogProps {
   open: boolean;
@@ -39,6 +40,7 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
   const createLandingPage = useCreateLandingPage();
   const updateLandingPage = useUpdateLandingPage();
   
+  const [mode, setMode] = useState<'manual' | 'ai'>('manual');
   const [formData, setFormData] = useState<Omit<CreateLandingPageInput, 'offers'>>({
     product_id: '',
     name: '',
@@ -59,6 +61,17 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
   ]);
 
   const [benefitsText, setBenefitsText] = useState('');
+
+  const handleAIGenerated = (data: Partial<CreateLandingPageInput>) => {
+    setFormData(prev => ({
+      ...prev,
+      ...data,
+    }));
+    if (data.benefits) {
+      setBenefitsText((data.benefits as string[]).join('\n'));
+    }
+    setMode('manual'); // Switch to manual to review/edit
+  };
 
   useEffect(() => {
     if (landingPage) {
@@ -183,8 +196,37 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
           <DialogTitle>
             {landingPage ? 'Editar Landing Page' : 'Nova Landing Page'}
           </DialogTitle>
+          <DialogDescription>
+            {!landingPage && (
+              <div className="flex gap-2 mt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === 'ai' ? 'default' : 'outline'}
+                  onClick={() => setMode('ai')}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Gerar com IA
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === 'manual' ? 'default' : 'outline'}
+                  onClick={() => setMode('manual')}
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Manual
+                </Button>
+              </div>
+            )}
+          </DialogDescription>
         </DialogHeader>
 
+        {mode === 'ai' && !landingPage ? (
+          <AILandingGenerator onGenerated={handleAIGenerated} existingData={landingPage} />
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="basic">
             <TabsList className="grid w-full grid-cols-4">
@@ -482,6 +524,7 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
             </Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );
