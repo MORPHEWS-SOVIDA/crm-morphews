@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface CartSyncRequest {
   cart_id?: string;
+  session_id?: string;
   storefront_id?: string;
   landing_page_id?: string;
   offer_id?: string;
@@ -46,7 +47,10 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CartSyncRequest = await req.json();
-    const { cart_id, storefront_id, landing_page_id, offer_id, items, customer, shipping, utm, source } = body;
+    const { cart_id, session_id, storefront_id, landing_page_id, offer_id, items, customer, shipping, utm, source } = body;
+
+    // Generate session_id if not provided
+    const effectiveSessionId = session_id || crypto.randomUUID();
 
     // 1. Determine organization
     let organizationId: string | null = null;
@@ -77,6 +81,7 @@ serve(async (req) => {
     // 3. Prepare cart data
     const cartData: Record<string, any> = {
       organization_id: organizationId,
+      session_id: effectiveSessionId,
       storefront_id: storefront_id || null,
       landing_page_id: landing_page_id || null,
       offer_id: offer_id || null,

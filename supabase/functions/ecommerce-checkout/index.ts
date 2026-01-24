@@ -72,6 +72,14 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!lead) {
+      // Get a default user from the organization for assignment
+      const { data: orgMember } = await supabase
+        .from('user_organizations')
+        .select('user_id')
+        .eq('organization_id', organizationId)
+        .limit(1)
+        .single();
+      
       const { data: newLead, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -80,6 +88,7 @@ serve(async (req) => {
           email: customer.email,
           whatsapp: normalizedPhone,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
+          assigned_to: orgMember?.user_id || null,
           // Attribution UTM data
           src: utm?.src || null,
           utm_source: utm?.utm_source || null,
