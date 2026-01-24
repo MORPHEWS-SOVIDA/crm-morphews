@@ -25,7 +25,7 @@ function ProductCard({
   const displayName = product.ecommerce_title || product.name;
   const displayDescription = product.ecommerce_short_description || product.description;
   const displayImage = (product.ecommerce_images?.[0]) || product.image_url;
-  const price = storefrontProduct.custom_price_cents || product.price_1_unit;
+  const price = storefrontProduct.custom_price_cents || product.price_1_unit || product.base_price_cents || 0;
 
   return (
     <Link to={`/loja/${storefrontSlug}/produto/${product.id}`}>

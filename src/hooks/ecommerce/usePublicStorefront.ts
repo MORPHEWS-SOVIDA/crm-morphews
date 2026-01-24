@@ -15,6 +15,7 @@ export interface PublicProduct {
   ecommerce_images: string[];
   ecommerce_video_url: string | null;
   ecommerce_benefits: string[];
+  base_price_cents: number | null;
   price_1_unit: number;
   price_3_units: number;
   price_6_units: number;
@@ -87,7 +88,7 @@ export function usePublicStorefront(slug: string | undefined) {
               id, name, description, image_url,
               ecommerce_title, ecommerce_description, ecommerce_short_description,
               ecommerce_images, ecommerce_video_url, ecommerce_benefits,
-              price_1_unit, price_3_units, price_6_units, price_12_units,
+              base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units,
               crosssell_product_1_id, crosssell_product_2_id
             )
           `)

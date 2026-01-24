@@ -142,18 +142,20 @@ export function StorefrontProductPage() {
     : product.image_url ? [product.image_url] : [];
   const benefits = product.ecommerce_benefits || [];
 
+  const basePrice = storefrontProduct.custom_price_cents || product.price_1_unit || product.base_price_cents || 0;
+  
   const kitPrices = {
-    1: storefrontProduct.custom_price_cents || product.price_1_unit,
-    3: product.price_3_units,
-    6: product.price_6_units,
-    12: product.price_12_units,
+    1: basePrice,
+    3: product.price_3_units || basePrice * 3,
+    6: product.price_6_units || basePrice * 6,
+    12: product.price_12_units || basePrice * 12,
   };
 
   const originalPrices = {
-    1: product.price_1_unit,
-    3: product.price_1_unit * 3,
-    6: product.price_1_unit * 6,
-    12: product.price_1_unit * 12,
+    1: basePrice,
+    3: basePrice * 3,
+    6: basePrice * 6,
+    12: basePrice * 12,
   };
 
   const totalPrice = kitPrices[selectedKit] * quantity;
