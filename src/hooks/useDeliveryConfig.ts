@@ -45,6 +45,7 @@ export interface ShippingCarrier {
   cost_cents: number;
   estimated_days: number;
   is_active: boolean;
+  correios_service_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -390,6 +391,7 @@ export function useCreateShippingCarrier() {
       name: string;
       cost_cents: number;
       estimated_days: number;
+      correios_service_code?: string | null;
     }) => {
       if (!tenantId) throw new Error('Tenant não encontrado');
 
@@ -425,6 +427,7 @@ export function useUpdateShippingCarrier() {
       cost_cents?: number;
       estimated_days?: number;
       is_active?: boolean;
+      correios_service_code?: string | null;
     }) => {
       const { id, ...updateData } = data;
 

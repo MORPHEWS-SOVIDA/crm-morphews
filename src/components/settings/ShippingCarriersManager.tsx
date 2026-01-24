@@ -18,7 +18,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Loader2, Truck } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, Pencil, Trash2, Loader2, Truck, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   useShippingCarriers,
@@ -28,6 +35,7 @@ import {
   ShippingCarrier,
 } from '@/hooks/useDeliveryConfig';
 import { formatCurrency } from '@/hooks/useSales';
+import { CORREIOS_SERVICES } from '@/hooks/useShippingQuote';
 
 export function ShippingCarriersManager() {
   const { data: carriers = [], isLoading } = useShippingCarriers();
@@ -40,12 +48,14 @@ export function ShippingCarriersManager() {
   const [name, setName] = useState('');
   const [costCents, setCostCents] = useState(0);
   const [estimatedDays, setEstimatedDays] = useState(1);
+  const [correiosServiceCode, setCorreiosServiceCode] = useState<string | null>(null);
 
   const openCreateDialog = () => {
     setEditingCarrier(null);
     setName('');
     setCostCents(0);
     setEstimatedDays(1);
+    setCorreiosServiceCode(null);
     setDialogOpen(true);
   };
 
@@ -54,6 +64,7 @@ export function ShippingCarriersManager() {
     setName(carrier.name);
     setCostCents(carrier.cost_cents);
     setEstimatedDays(carrier.estimated_days);
+    setCorreiosServiceCode(carrier.correios_service_code);
     setDialogOpen(true);
   };
 
@@ -66,12 +77,14 @@ export function ShippingCarriersManager() {
         name: name.trim(),
         cost_cents: costCents,
         estimated_days: estimatedDays,
+        correios_service_code: correiosServiceCode,
       });
     } else {
       await createCarrier.mutateAsync({
         name: name.trim(),
         cost_cents: costCents,
         estimated_days: estimatedDays,
+        correios_service_code: correiosServiceCode,
       });
     }
 
@@ -89,6 +102,12 @@ export function ShippingCarriersManager() {
       id: carrier.id,
       is_active: !carrier.is_active,
     });
+  };
+
+  const getCorreiosServiceName = (code: string | null) => {
+    if (!code) return null;
+    const service = CORREIOS_SERVICES.find(s => s.code === code);
+    return service?.name || code;
   };
 
   if (isLoading) {
@@ -126,6 +145,7 @@ export function ShippingCarriersManager() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Serviço Correios</TableHead>
                 <TableHead>Custo</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead>Status</TableHead>
@@ -136,6 +156,16 @@ export function ShippingCarriersManager() {
               {carriers.map((carrier) => (
                 <TableRow key={carrier.id}>
                   <TableCell className="font-medium">{carrier.name}</TableCell>
+                  <TableCell>
+                    {carrier.correios_service_code ? (
+                      <Badge variant="outline" className="gap-1">
+                        <Package className="w-3 h-3" />
+                        {getCorreiosServiceName(carrier.correios_service_code)}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>{formatCurrency(carrier.cost_cents)}</TableCell>
                   <TableCell>
                     {carrier.estimated_days} dia{carrier.estimated_days !== 1 ? 's' : ''}
@@ -193,6 +223,32 @@ export function ShippingCarriersManager() {
                 placeholder="Ex: SEDEX, PAC, Jadlog..."
                 className="mt-1"
               />
+            </div>
+
+            <div>
+              <Label>Serviço Correios (opcional)</Label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Vincule a um serviço para pré-selecionar ao gerar etiquetas
+              </p>
+              <Select
+                value={correiosServiceCode || 'none'}
+                onValueChange={(value) => setCorreiosServiceCode(value === 'none' ? null : value)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Nenhum vínculo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum vínculo</SelectItem>
+                  {CORREIOS_SERVICES.map((service) => (
+                    <SelectItem key={service.code} value={service.code}>
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                        <span>{service.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
