@@ -312,7 +312,14 @@ serve(async (req) => {
       postback_url: `${supabaseUrl}/functions/v1/payment-webhook`,
       card_token: body.card_token,
       card_hash: body.card_hash,
-      card_data: body.card_data,
+      // Map frontend field names to backend CardData interface
+      card_data: body.card_data ? {
+        number: (body.card_data as unknown as { card_number?: string }).card_number || (body.card_data as CardData).number || '',
+        holder_name: (body.card_data as unknown as { card_holder_name?: string }).card_holder_name || (body.card_data as CardData).holder_name || '',
+        exp_month: (body.card_data as unknown as { card_expiration_month?: string }).card_expiration_month || (body.card_data as CardData).exp_month || '',
+        exp_year: (body.card_data as unknown as { card_expiration_year?: string }).card_expiration_year || (body.card_data as CardData).exp_year || '',
+        cvv: (body.card_data as unknown as { card_cvv?: string }).card_cvv || (body.card_data as CardData).cvv || '',
+      } as CardData : undefined,
       save_card: body.save_card,
     });
 
