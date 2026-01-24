@@ -99,12 +99,16 @@ serve(async (req) => {
       updateData.notes = `${gateway.toUpperCase()} ID: ${transactionId}`;
     }
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('sales')
       .update(updateData)
       .eq('id', saleRecord.id);
 
-    console.log(`[PaymentWebhook] Sale ${saleRecord.id} updated: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+    if (updateError) {
+      console.error(`[PaymentWebhook] Failed to update sale ${saleRecord.id}:`, updateError);
+    } else {
+      console.log(`[PaymentWebhook] Sale ${saleRecord.id} updated successfully: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+    }
 
     // Cast saleRecord fields with proper types
     const saleIdStr = saleRecord.id as string;
