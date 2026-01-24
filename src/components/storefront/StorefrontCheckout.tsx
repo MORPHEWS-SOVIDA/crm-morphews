@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCart } from './cart/CartContext';
 import { SavedCardsSelector } from './checkout/SavedCardsSelector';
+import { ShippingSelector } from './checkout/ShippingSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
@@ -37,6 +38,12 @@ export function StorefrontCheckout() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(MOCK_SAVED_CARDS[0]?.id || null);
   const [saveCard, setSaveCard] = useState(false);
+  const [selectedShipping, setSelectedShipping] = useState<{
+    service_code: string;
+    service_name: string;
+    price_cents: number;
+    delivery_days: number;
+  } | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -53,8 +60,12 @@ export function StorefrontCheckout() {
     state: '',
   });
 
-  const shippingCents = 0; // TODO: Calculate shipping
+  const shippingCents = selectedShipping?.price_cents || 0;
   const total = subtotal + shippingCents;
+
+  const handleShippingSelect = useCallback((option: typeof selectedShipping) => {
+    setSelectedShipping(option);
+  }, []);
 
   const checkoutConfig = storefront.checkout_config as {
     collectCpf?: boolean;
@@ -349,7 +360,25 @@ export function StorefrontCheckout() {
             </Card>
           )}
 
-          {/* Payment Method */}
+          {/* Shipping Options */}
+          {checkoutConfig.collectAddress !== false && formData.cep.length === 8 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  Opções de Entrega
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ShippingSelector
+                  cep={formData.cep}
+                  organizationId={storefront.organization_id}
+                  onSelect={handleShippingSelect}
+                  primaryColor={storefront.primary_color}
+                />
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Forma de Pagamento</CardTitle>
@@ -456,8 +485,15 @@ export function StorefrontCheckout() {
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Frete</span>
-                  <span>{shippingCents > 0 ? formatCurrency(shippingCents) : 'Grátis'}</span>
+                  <div className="text-muted-foreground">
+                    <span>Frete</span>
+                    {selectedShipping && (
+                      <span className="text-xs ml-1">
+                        ({selectedShipping.service_name} - {selectedShipping.delivery_days === 1 ? '1 dia' : `${selectedShipping.delivery_days} dias`})
+                      </span>
+                    )}
+                  </div>
+                  <span>{shippingCents > 0 ? formatCurrency(shippingCents) : formData.cep.length === 8 ? 'Grátis' : 'Calcular'}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg pt-2 border-t">
                   <span>Total</span>

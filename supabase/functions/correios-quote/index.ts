@@ -82,6 +82,34 @@ async function authenticateCorreios(config: CorreiosConfig, baseUrl: string): Pr
   return data.token;
 }
 
+// Fetch delivery time separately from /prazo/v1/nacional
+async function getDeliveryDays(
+  token: string,
+  baseUrl: string,
+  cepOrigem: string,
+  cepDestino: string,
+  serviceCode: string
+): Promise<number> {
+  try {
+    const response = await fetch(
+      `${baseUrl}/prazo/v1/nacional/${serviceCode}?cepOrigem=${cepOrigem}&cepDestino=${cepDestino}`,
+      {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      // API returns prazoEntrega as integer
+      return data.prazoEntrega || data.prazo || 0;
+    }
+  } catch (e) {
+    console.error(`Error fetching delivery days for ${serviceCode}:`, e);
+  }
+  return 0;
+}
+
 async function getShippingQuotes(
   config: CorreiosConfig,
   token: string,
@@ -115,6 +143,17 @@ async function getShippingQuotes(
     '04227': 'Mini Envios',
     '04510': 'PAC',
     '04014': 'SEDEX',
+  };
+  
+  // Default delivery days by service type (fallback if API fails)
+  const defaultDeliveryDays: Record<string, number> = {
+    '03220': 3, // SEDEX
+    '03298': 7, // PAC
+    '03140': 2, // SEDEX 12
+    '03158': 1, // SEDEX 10
+    '04227': 10, // Mini Envios
+    '04510': 7, // PAC
+    '04014': 3, // SEDEX
   };
   
   // Batch request using POST /preco/v1/nacional
@@ -162,11 +201,25 @@ async function getShippingQuotes(
           
           if (singleResponse.ok) {
             const data = await singleResponse.json();
+            
+            // Parse price properly
+            const priceString = String(data.pcFinal || data.pcBase || '0').replace(',', '.');
+            const priceValue = parseFloat(priceString) || 0;
+            
+            // Try to get delivery days from prazo endpoint
+            let deliveryDays = data.prazoEntrega || 0;
+            if (deliveryDays === 0) {
+              deliveryDays = await getDeliveryDays(token, baseUrl, cepOrigem, cepDestino, code);
+              if (deliveryDays === 0) {
+                deliveryDays = defaultDeliveryDays[code] || 5;
+              }
+            }
+            
             results.push({
               service_code: code,
               service_name: serviceNames[code] || `Serviço ${code}`,
-              price_cents: Math.round((data.pcFinal || data.pcBase || 0) * 100),
-              delivery_days: data.prazoEntrega || 0,
+              price_cents: Math.round(priceValue * 100),
+              delivery_days: deliveryDays,
               delivery_date: data.dataMaxima,
             });
           } else {
@@ -199,6 +252,10 @@ async function getShippingQuotes(
     
     // Parse batch response
     const items = data || [];
+    
+    // Collect successful price quotes first
+    const priceResults: { code: string; priceValue: number; prazoFromApi: number | null }[] = [];
+    
     for (const item of items) {
       const code = item.coProduto;
       if (item.txErro) {
@@ -214,15 +271,39 @@ async function getShippingQuotes(
         const priceString = String(item.pcFinal || item.pcBase || '0').replace(',', '.');
         const priceValue = parseFloat(priceString) || 0;
         
-        results.push({
-          service_code: code,
-          service_name: serviceNames[code] || `Serviço ${code}`,
-          price_cents: Math.round(priceValue * 100),
-          delivery_days: item.prazoEntrega || 0,
-          delivery_date: item.dataMaxima,
-        });
+        // prazoEntrega might be in the response, or not
+        const prazoFromApi = item.prazoEntrega || null;
+        
+        priceResults.push({ code, priceValue, prazoFromApi });
       }
     }
+    
+    // Fetch delivery days for services that got a price but no prazo
+    // Do this in parallel for efficiency
+    const deliveryPromises = priceResults.map(async ({ code, priceValue, prazoFromApi }) => {
+      let deliveryDays = prazoFromApi || 0;
+      
+      // If no prazo from price API, try to fetch from prazo endpoint
+      if (!prazoFromApi || prazoFromApi === 0) {
+        deliveryDays = await getDeliveryDays(token, baseUrl, cepOrigem, cepDestino, code);
+        
+        // If still no prazo, use default based on service type
+        if (deliveryDays === 0) {
+          deliveryDays = defaultDeliveryDays[code] || 5;
+        }
+      }
+      
+      return {
+        service_code: code,
+        service_name: serviceNames[code] || `Serviço ${code}`,
+        price_cents: Math.round(priceValue * 100),
+        delivery_days: deliveryDays,
+      };
+    });
+    
+    const finalResults = await Promise.all(deliveryPromises);
+    results.push(...finalResults);
+    
   } catch (e: unknown) {
     console.error('Quote fetch error:', e);
     const message = e instanceof Error ? e.message : 'Erro desconhecido';
