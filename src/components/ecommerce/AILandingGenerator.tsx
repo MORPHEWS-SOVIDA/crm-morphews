@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import { 
   Wand2, 
   Sparkles, 
@@ -22,9 +23,11 @@ import {
   Loader2,
   AlertCircle,
   Target,
-  Users,
   Lightbulb,
-  Palette
+  Palette,
+  Image as ImageIcon,
+  Video,
+  Play
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -42,6 +45,8 @@ interface BriefingData {
   style: 'minimal' | 'bold' | 'luxury' | 'health';
   useProductData: boolean;
   salesScript: string;
+  generateImages: boolean;
+  generateVideo: boolean;
 }
 
 interface GeneratedContent {
@@ -55,6 +60,20 @@ interface GeneratedContent {
   ctaText: string;
   primaryColor: string;
   estimatedTokens: number;
+}
+
+interface GeneratedImage {
+  type: string;
+  imageUrl: string;
+  prompt: string;
+}
+
+interface GenerationProgress {
+  step: 'idle' | 'copy' | 'images' | 'video' | 'done';
+  copyProgress: number;
+  imagesProgress: number;
+  videoProgress: number;
+  currentMessage: string;
 }
 
 interface AILandingGeneratorProps {
@@ -81,9 +100,19 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
   const [activeTab, setActiveTab] = useState('briefing');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
-  const [energyCost, setEnergyCost] = useState<number>(0);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [generatedVideoFrame, setGeneratedVideoFrame] = useState<string | null>(null);
+  const [totalEnergyCost, setTotalEnergyCost] = useState<number>(0);
   const [feedbackText, setFeedbackText] = useState('');
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  
+  const [progress, setProgress] = useState<GenerationProgress>({
+    step: 'idle',
+    copyProgress: 0,
+    imagesProgress: 0,
+    videoProgress: 0,
+    currentMessage: '',
+  });
 
   const [briefing, setBriefing] = useState<BriefingData>({
     productId: '',
@@ -96,9 +125,10 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
     style: 'health',
     useProductData: true,
     salesScript: '',
+    generateImages: true,
+    generateVideo: false,
   });
 
-  // Update briefing when product is selected
   useEffect(() => {
     if (briefing.productId && products) {
       const product = products.find(p => p.id === briefing.productId);
@@ -124,11 +154,21 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
 
     setIsGenerating(true);
     setShowFeedbackForm(false);
+    setGeneratedImages([]);
+    setGeneratedVideoFrame(null);
+    let accumulatedEnergy = 0;
 
     try {
-      // Get product details if using specifications/benefits
-      let specifications: string | undefined;
+      // Step 1: Generate Copy
+      setProgress({
+        step: 'copy',
+        copyProgress: 20,
+        imagesProgress: 0,
+        videoProgress: 0,
+        currentMessage: 'Gerando copy de alta conversão...',
+      });
 
+      let specifications: string | undefined;
       if (briefing.useProductData) {
         const { data: product } = await supabase
           .from('lead_products')
@@ -154,7 +194,7 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
         }
       }
 
-      const response = await supabase.functions.invoke('ai-landing-generator', {
+      const copyResponse = await supabase.functions.invoke('ai-landing-generator', {
         body: {
           action: isRegeneration ? 'regenerate' : 'generate',
           briefing: {
@@ -173,34 +213,124 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
         },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (copyResponse.error) {
+        throw new Error(copyResponse.error.message);
       }
 
-      const data = response.data;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Erro ao gerar conteúdo');
+      if (!copyResponse.data.success) {
+        throw new Error(copyResponse.data.error || 'Erro ao gerar conteúdo');
       }
 
-      setGeneratedContent(data.content);
-      setEnergyCost(data.energyCost);
+      setProgress(prev => ({ ...prev, copyProgress: 100, currentMessage: 'Copy gerado!' }));
+      setGeneratedContent(copyResponse.data.content);
+      accumulatedEnergy += copyResponse.data.energyCost;
+
+      // Step 2: Generate Images (if enabled)
+      if (briefing.generateImages) {
+        setProgress(prev => ({
+          ...prev,
+          step: 'images',
+          imagesProgress: 10,
+          currentMessage: 'Gerando imagens profissionais...',
+        }));
+
+        const imageRequests = [
+          {
+            type: 'hero',
+            productName: briefing.productName,
+            productDescription: briefing.productDescription,
+            style: briefing.style,
+          },
+          {
+            type: 'product',
+            productName: briefing.productName,
+            productDescription: briefing.productDescription,
+            style: briefing.style,
+          },
+          {
+            type: 'testimonial',
+            productName: briefing.productName,
+            style: briefing.style,
+          },
+          {
+            type: 'benefit',
+            productName: briefing.productName,
+            productDescription: briefing.promise,
+            style: briefing.style,
+            context: briefing.promise,
+          },
+        ];
+
+        setProgress(prev => ({ ...prev, imagesProgress: 30 }));
+
+        const imagesResponse = await supabase.functions.invoke('ai-landing-images', {
+          body: { requests: imageRequests },
+        });
+
+        if (imagesResponse.error) {
+          console.error('Image generation failed:', imagesResponse.error);
+          toast.warning('Algumas imagens não foram geradas. Você pode adicionar manualmente.');
+        } else if (imagesResponse.data.success) {
+          setGeneratedImages(imagesResponse.data.images);
+          accumulatedEnergy += imagesResponse.data.energyCost;
+        }
+
+        setProgress(prev => ({ ...prev, imagesProgress: 100, currentMessage: 'Imagens geradas!' }));
+      }
+
+      // Step 3: Generate Video Frame (if enabled)
+      if (briefing.generateVideo) {
+        setProgress(prev => ({
+          ...prev,
+          step: 'video',
+          videoProgress: 20,
+          currentMessage: 'Gerando frame de vídeo...',
+        }));
+
+        const videoResponse = await supabase.functions.invoke('ai-landing-video', {
+          body: {
+            request: {
+              type: 'hero',
+              productName: briefing.productName,
+              productDescription: briefing.productDescription,
+              style: briefing.style,
+            },
+          },
+        });
+
+        if (videoResponse.error) {
+          console.error('Video generation failed:', videoResponse.error);
+          toast.warning('Frame de vídeo não gerado. Você pode adicionar manualmente.');
+        } else if (videoResponse.data.success) {
+          setGeneratedVideoFrame(videoResponse.data.videoFrameUrl);
+          accumulatedEnergy += videoResponse.data.energyCost;
+        }
+
+        setProgress(prev => ({ ...prev, videoProgress: 100, currentMessage: 'Vídeo pronto!' }));
+      }
+
+      // Done!
+      setProgress(prev => ({ ...prev, step: 'done', currentMessage: 'Landing page gerada!' }));
+      setTotalEnergyCost(accumulatedEnergy);
       setActiveTab('preview');
       setFeedbackText('');
 
-      toast.success(`Landing page gerada! Custo: ${data.energyCost} energia`);
+      toast.success(`Landing page gerada! Custo total: ${accumulatedEnergy} energia`);
 
     } catch (error) {
       console.error('Generation error:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar landing page');
     } finally {
       setIsGenerating(false);
+      setProgress(prev => ({ ...prev, step: 'idle' }));
     }
   };
 
   const handleApprove = () => {
     if (!generatedContent) return;
 
+    const heroImage = generatedImages.find(img => img.type === 'hero');
+    
     onGenerated({
       product_id: briefing.productId,
       headline: generatedContent.headline,
@@ -209,6 +339,8 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
       urgency_text: generatedContent.urgencyText,
       guarantee_text: generatedContent.guaranteeText,
       primary_color: generatedContent.primaryColor,
+      // Note: Images would need to be uploaded to storage first
+      // For now, we pass the base64 URLs which can be processed later
     });
 
     toast.success('Conteúdo aplicado! Configure as ofertas e salve.');
@@ -224,6 +356,17 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
       return;
     }
     handleGenerate(true);
+  };
+
+  const getImageByType = (type: string) => {
+    return generatedImages.find(img => img.type === type)?.imageUrl;
+  };
+
+  const estimateEnergyCost = () => {
+    let cost = 300; // Base copy cost
+    if (briefing.generateImages) cost += 200; // 4 images × 50
+    if (briefing.generateVideo) cost += 100;
+    return cost;
   };
 
   return (
@@ -374,6 +517,54 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
             </CardContent>
           </Card>
 
+          {/* Media Generation Options */}
+          <Card className="border-primary/50 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Geração de Mídia com IA
+              </CardTitle>
+              <CardDescription>
+                A Super IA vai criar imagens e vídeos profissionais para sua landing page
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="h-5 w-5 text-primary" />
+                  <div className="space-y-0.5">
+                    <Label>Gerar Imagens</Label>
+                    <p className="text-xs text-muted-foreground">Hero, produto, depoimentos e benefícios</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">+200 energia</Badge>
+                  <Switch
+                    checked={briefing.generateImages}
+                    onCheckedChange={(checked) => setBriefing(prev => ({ ...prev, generateImages: checked }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Video className="h-5 w-5 text-primary" />
+                  <div className="space-y-0.5">
+                    <Label>Gerar Frame de Vídeo</Label>
+                    <p className="text-xs text-muted-foreground">Imagem dinâmica para hero section</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">+100 energia</Badge>
+                  <Switch
+                    checked={briefing.generateVideo}
+                    onCheckedChange={(checked) => setBriefing(prev => ({ ...prev, generateVideo: checked }))}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Optional: Sales Script */}
           <Card>
             <CardHeader className="pb-3">
@@ -395,6 +586,48 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
             </CardContent>
           </Card>
 
+          {/* Generation Progress */}
+          {isGenerating && (
+            <Card className="border-primary">
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span className="font-medium">{progress.currentMessage}</span>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Copy</span>
+                      <span>{progress.copyProgress}%</span>
+                    </div>
+                    <Progress value={progress.copyProgress} />
+                  </div>
+                  
+                  {briefing.generateImages && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Imagens</span>
+                        <span>{progress.imagesProgress}%</span>
+                      </div>
+                      <Progress value={progress.imagesProgress} />
+                    </div>
+                  )}
+                  
+                  {briefing.generateVideo && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Vídeo</span>
+                        <span>{progress.videoProgress}%</span>
+                      </div>
+                      <Progress value={progress.videoProgress} />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Generate Button */}
           <Button
             size="lg"
@@ -410,8 +643,8 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
             ) : (
               <>
                 <Sparkles className="h-5 w-5" />
-                Gerar Landing Page com IA
-                <Badge variant="secondary" className="ml-2">~300 energia</Badge>
+                Gerar Landing Page com Super IA
+                <Badge variant="secondary" className="ml-2">~{estimateEnergyCost()} energia</Badge>
               </>
             )}
           </Button>
@@ -424,105 +657,157 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
               <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-primary" />
-                  <span className="font-medium">Custo: {energyCost} energia</span>
+                  <span className="font-medium">Custo total: {totalEnergyCost} energia</span>
                 </div>
-                <Badge variant="outline">{generatedContent.estimatedTokens} tokens</Badge>
+                <div className="flex items-center gap-2">
+                  {generatedImages.length > 0 && (
+                    <Badge variant="outline" className="gap-1">
+                      <ImageIcon className="h-3 w-3" />
+                      {generatedImages.length} imagens
+                    </Badge>
+                  )}
+                  {generatedVideoFrame && (
+                    <Badge variant="outline" className="gap-1">
+                      <Video className="h-3 w-3" />
+                      1 vídeo
+                    </Badge>
+                  )}
+                </div>
               </div>
 
-              {/* Preview Content */}
-              <ScrollArea className="h-[500px] rounded-lg border p-6">
-                <div className="space-y-8">
-                  {/* Headline */}
-                  <div className="text-center space-y-4">
-                    <h1 
-                      className="text-3xl md:text-4xl font-bold"
-                      style={{ color: generatedContent.primaryColor }}
-                    >
-                      {generatedContent.headline}
-                    </h1>
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                      {generatedContent.subheadline}
-                    </p>
+              {/* Visual Preview */}
+              <ScrollArea className="h-[600px] rounded-lg border">
+                <div className="space-y-0">
+                  {/* Hero Section Preview */}
+                  <div 
+                    className="relative min-h-[400px] flex items-center justify-center p-8"
+                    style={{ 
+                      background: getImageByType('hero') 
+                        ? `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url(${getImageByType('hero')}) center/cover`
+                        : `linear-gradient(135deg, ${generatedContent.primaryColor}, ${generatedContent.primaryColor}dd)`
+                    }}
+                  >
+                    <div className="text-center text-white max-w-3xl">
+                      <h1 className="text-3xl md:text-5xl font-bold mb-4 drop-shadow-lg">
+                        {generatedContent.headline}
+                      </h1>
+                      <p className="text-lg md:text-xl opacity-90 mb-6">
+                        {generatedContent.subheadline}
+                      </p>
+                      <Button 
+                        size="lg" 
+                        className="text-lg px-8"
+                        style={{ backgroundColor: generatedContent.primaryColor }}
+                      >
+                        {generatedContent.ctaText}
+                      </Button>
+                    </div>
                   </div>
 
-                  <Separator />
+                  {/* Urgency Banner */}
+                  <div 
+                    className="py-3 px-4 text-center text-white font-medium"
+                    style={{ backgroundColor: generatedContent.primaryColor }}
+                  >
+                    🔥 {generatedContent.urgencyText}
+                  </div>
 
-                  {/* Benefits */}
-                  <div>
-                    <h3 className="font-semibold mb-4">Benefícios</h3>
-                    <div className="grid gap-2">
+                  {/* Benefits Section */}
+                  <div className="py-12 px-6 bg-muted/30">
+                    <h2 className="text-2xl font-bold text-center mb-8">O que você vai receber:</h2>
+                    <div className="grid gap-4 md:grid-cols-2 max-w-3xl mx-auto">
                       {generatedContent.benefits.map((benefit, idx) => (
-                        <div key={idx} className="flex items-start gap-2">
-                          <Check 
-                            className="h-5 w-5 mt-0.5 flex-shrink-0" 
-                            style={{ color: generatedContent.primaryColor }}
-                          />
-                          <span>{benefit}</span>
+                        <div key={idx} className="flex items-start gap-3 p-4 bg-background rounded-lg shadow-sm">
+                          <div 
+                            className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white"
+                            style={{ backgroundColor: generatedContent.primaryColor }}
+                          >
+                            <Check className="h-4 w-4" />
+                          </div>
+                          <span className="font-medium">{benefit}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <Separator />
-
-                  {/* Urgency & Guarantee */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Urgência</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm">{generatedContent.urgencyText}</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Garantia</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm">{generatedContent.guaranteeText}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Separator />
+                  {/* Product Image (if generated) */}
+                  {getImageByType('product') && (
+                    <div className="py-12 px-6">
+                      <div className="max-w-md mx-auto">
+                        <img 
+                          src={getImageByType('product')} 
+                          alt="Produto" 
+                          className="w-full rounded-xl shadow-2xl"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Testimonials */}
-                  <div>
-                    <h3 className="font-semibold mb-4">Depoimentos</h3>
-                    <div className="grid gap-4">
+                  <div className="py-12 px-6 bg-muted/30">
+                    <h2 className="text-2xl font-bold text-center mb-8">O que nossos clientes dizem:</h2>
+                    <div className="grid gap-4 md:grid-cols-3 max-w-4xl mx-auto">
                       {generatedContent.testimonials.map((testimonial, idx) => (
                         <Card key={idx}>
-                          <CardContent className="pt-4">
-                            <p className="text-sm italic mb-2">"{testimonial.text}"</p>
-                            <p className="text-sm font-medium">— {testimonial.name}</p>
+                          <CardContent className="pt-6">
+                            {getImageByType('testimonial') && idx === 0 && (
+                              <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4">
+                                <img 
+                                  src={getImageByType('testimonial')} 
+                                  alt={testimonial.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            <p className="text-sm italic mb-3">"{testimonial.text}"</p>
+                            <p className="text-sm font-medium text-center">— {testimonial.name}</p>
+                            <div className="flex justify-center mt-2">
+                              {[...Array(5)].map((_, i) => (
+                                <span key={i} className="text-yellow-500">★</span>
+                              ))}
+                            </div>
                           </CardContent>
                         </Card>
                       ))}
                     </div>
                   </div>
 
-                  <Separator />
+                  {/* Guarantee */}
+                  <div className="py-12 px-6">
+                    <div className="max-w-2xl mx-auto text-center">
+                      <div 
+                        className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
+                        style={{ backgroundColor: `${generatedContent.primaryColor}20` }}
+                      >
+                        <Check className="h-8 w-8" style={{ color: generatedContent.primaryColor }} />
+                      </div>
+                      <h3 className="text-xl font-bold mb-3">Garantia Total</h3>
+                      <p className="text-muted-foreground">{generatedContent.guaranteeText}</p>
+                    </div>
+                  </div>
 
                   {/* FAQ */}
-                  <div>
-                    <h3 className="font-semibold mb-4">FAQ</h3>
-                    <div className="space-y-4">
+                  <div className="py-12 px-6 bg-muted/30">
+                    <h2 className="text-2xl font-bold text-center mb-8">Perguntas Frequentes</h2>
+                    <div className="max-w-2xl mx-auto space-y-4">
                       {generatedContent.faq.map((item, idx) => (
-                        <div key={idx}>
-                          <p className="font-medium">{item.question}</p>
-                          <p className="text-sm text-muted-foreground mt-1">{item.answer}</p>
-                        </div>
+                        <Card key={idx}>
+                          <CardContent className="pt-4">
+                            <p className="font-medium mb-2">{item.question}</p>
+                            <p className="text-sm text-muted-foreground">{item.answer}</p>
+                          </CardContent>
+                        </Card>
                       ))}
                     </div>
                   </div>
 
-                  {/* CTA Preview */}
-                  <div className="text-center pt-4">
-                    <Button 
-                      size="lg" 
-                      style={{ backgroundColor: generatedContent.primaryColor }}
-                    >
+                  {/* Final CTA */}
+                  <div 
+                    className="py-12 px-6 text-center"
+                    style={{ backgroundColor: generatedContent.primaryColor }}
+                  >
+                    <h2 className="text-2xl font-bold text-white mb-4">Não perca essa oportunidade!</h2>
+                    <Button size="lg" variant="secondary" className="text-lg px-8">
                       {generatedContent.ctaText}
                     </Button>
                   </div>
@@ -538,14 +823,14 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
                       O que não ficou bom?
                     </CardTitle>
                     <CardDescription>
-                      Descreva o que você não gostou para a IA melhorar
+                      Descreva o que você não gostou para a Super IA melhorar
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <Textarea
                       value={feedbackText}
                       onChange={(e) => setFeedbackText(e.target.value)}
-                      placeholder="Ex: A headline não chamou atenção, os benefícios estão muito genéricos, as cores não combinam com minha marca..."
+                      placeholder="Ex: A headline não chamou atenção, os benefícios estão muito genéricos, as imagens não combinam com meu produto, as cores estão erradas..."
                       rows={4}
                     />
                     <div className="flex gap-2">
@@ -567,7 +852,7 @@ export function AILandingGenerator({ onGenerated, existingData }: AILandingGener
                           <RefreshCw className="h-4 w-4" />
                         )}
                         Regenerar
-                        <Badge variant="secondary">~150 energia</Badge>
+                        <Badge variant="secondary">~{Math.ceil(estimateEnergyCost() * 0.5)} energia</Badge>
                       </Button>
                     </div>
                   </CardContent>

@@ -110,3 +110,9 @@ verify_jwt = false
 
 [functions.payment-webhook]
 verify_jwt = false
+
+[functions.ai-landing-images]
+verify_jwt = false
+
+[functions.ai-landing-video]
+verify_jwt = false
