@@ -1,2 +1,11 @@
 export { AILandingWizard } from './AILandingWizard';
+export { StepTypeSelection } from './StepTypeSelection';
+export { StepPageConfig } from './StepPageConfig';
+export { StepOffers } from './StepOffers';
+export { StepImageUploads } from './StepImageUploads';
+export { StepTestimonials } from './StepTestimonials';
+export { StepGuarantee } from './StepGuarantee';
+export { StepBriefing } from './StepBriefing';
+export { StepPreview } from './StepPreview';
+export { WhatsAppConversation } from './WhatsAppConversation';
 export * from './types';

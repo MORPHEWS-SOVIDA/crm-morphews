@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, Trash2, Sparkles, FileText } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useProducts } from '@/hooks/useProducts';
 import {
@@ -40,7 +40,9 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
   const createLandingPage = useCreateLandingPage();
   const updateLandingPage = useUpdateLandingPage();
   
-  const [mode, setMode] = useState<'manual' | 'ai'>('manual');
+  // Now AI-only for new pages, edit mode for existing
+  const isEditMode = !!landingPage;
+  
   const [formData, setFormData] = useState<Omit<CreateLandingPageInput, 'offers'>>({
     product_id: '',
     name: '',
@@ -63,14 +65,27 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
   const [benefitsText, setBenefitsText] = useState('');
 
   const handleAIGenerated = (data: Partial<CreateLandingPageInput>) => {
-    setFormData(prev => ({
-      ...prev,
-      ...data,
-    }));
-    if (data.benefits) {
-      setBenefitsText((data.benefits as string[]).join('\n'));
-    }
-    setMode('manual'); // Switch to manual to review/edit
+    // AI wizard now handles full flow, just save directly
+    const benefits = data.benefits as string[] || [];
+    const dataToSend: CreateLandingPageInput = {
+      product_id: data.product_id || '',
+      name: data.name || '',
+      slug: data.slug || '',
+      headline: data.headline || '',
+      subheadline: data.subheadline || '',
+      video_url: data.video_url || '',
+      benefits,
+      urgency_text: data.urgency_text || '',
+      guarantee_text: data.guarantee_text || '',
+      logo_url: data.logo_url || '',
+      primary_color: data.primary_color || '#000000',
+      whatsapp_number: data.whatsapp_number || '',
+      offers: data.offers || [],
+    };
+    
+    createLandingPage.mutate(dataToSend, {
+      onSuccess: () => onOpenChange(false),
+    });
   };
 
   useEffect(() => {
@@ -194,40 +209,20 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {landingPage ? 'Editar Landing Page' : 'Nova Landing Page'}
+            {isEditMode ? 'Editar Landing Page' : 'Criar Landing Page com IA'}
           </DialogTitle>
           <DialogDescription>
-            {!landingPage && (
-              <div className="flex gap-2 mt-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={mode === 'ai' ? 'default' : 'outline'}
-                  onClick={() => setMode('ai')}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Gerar com IA
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={mode === 'manual' ? 'default' : 'outline'}
-                  onClick={() => setMode('manual')}
-                  className="gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  Manual
-                </Button>
-              </div>
-            )}
+            {isEditMode 
+              ? 'Edite os dados da sua landing page'
+              : 'Configure sua página e deixe a IA criar o conteúdo perfeito'
+            }
           </DialogDescription>
         </DialogHeader>
 
-        {mode === 'ai' && !landingPage ? (
+        {!isEditMode ? (
           <AILandingWizard 
             onGenerated={handleAIGenerated} 
-            onCancel={() => setMode('manual')} 
+            onCancel={() => onOpenChange(false)} 
           />
         ) : (
         <form onSubmit={handleSubmit} className="space-y-6">

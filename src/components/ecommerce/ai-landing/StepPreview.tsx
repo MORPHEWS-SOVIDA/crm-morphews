@@ -10,7 +10,8 @@ import {
   ImageIcon, 
   RefreshCw,
   AlertCircle,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react';
 import { 
   type GeneratedContent, 
@@ -19,6 +20,7 @@ import {
   type OfferType,
   OFFER_TYPE_CONFIGS 
 } from './types';
+import { WhatsAppConversation } from './WhatsAppConversation';
 import { cn } from '@/lib/utils';
 
 interface StepPreviewProps {
@@ -174,13 +176,30 @@ export function StepPreview({
                   <div className="grid gap-4 md:grid-cols-3 max-w-4xl mx-auto">
                     {generatedContent.testimonials.map((testimonial, idx) => {
                       const testimonialImage = testimonialUploads[idx];
+                      const isWhatsAppStyle = testimonial.style === 'whatsapp' && testimonial.whatsappMessages;
+                      
+                      if (isWhatsAppStyle) {
+                        return (
+                          <div key={idx} className="col-span-full md:col-span-1">
+                            <WhatsAppConversation
+                              messages={testimonial.whatsappMessages!}
+                              contactName={testimonial.name}
+                              contactPhoto={testimonial.imageUrl || testimonialImage?.imageUrl}
+                              audioUrl={testimonial.audioUrl}
+                              videoUrl={testimonial.videoUrl}
+                              autoAnimate={false}
+                            />
+                          </div>
+                        );
+                      }
+                      
                       return (
                         <Card key={idx}>
                           <CardContent className="pt-6">
-                            {testimonialImage && (
+                            {(testimonialImage || testimonial.imageUrl) && (
                               <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4">
                                 <img 
-                                  src={testimonialImage.imageUrl} 
+                                  src={testimonial.imageUrl || testimonialImage?.imageUrl} 
                                   alt={testimonial.name}
                                   className="w-full h-full object-cover"
                                 />
@@ -193,6 +212,13 @@ export function StepPreview({
                                 <span key={i} className="text-yellow-500">★</span>
                               ))}
                             </div>
+                            {testimonial.audioUrl && (
+                              <audio 
+                                src={testimonial.audioUrl} 
+                                controls 
+                                className="w-full mt-3 h-8"
+                              />
+                            )}
                           </CardContent>
                         </Card>
                       );
