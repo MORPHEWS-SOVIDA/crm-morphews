@@ -71,39 +71,33 @@ serve(async (req) => {
       .eq('whatsapp', normalizedPhone)
       .maybeSingle();
 
-    if (!lead) {
-      // Get a default user from the organization for assignment (required field)
-      const { data: orgMembers } = await supabase
-        .from('user_organizations')
+    // Get a default user from the organization for assignment (required for lead and sale)
+    let defaultUserId: string | null = null;
+    
+    const { data: orgMembers } = await supabase
+      .from('user_organizations')
+      .select('user_id')
+      .eq('organization_id', organizationId)
+      .limit(1);
+    
+    defaultUserId = orgMembers?.[0]?.user_id || null;
+    
+    if (!defaultUserId) {
+      // Fallback: get organization owner from profiles
+      const { data: orgOwner } = await supabase
+        .from('profiles')
         .select('user_id')
         .eq('organization_id', organizationId)
         .limit(1);
       
-      const assignedTo = orgMembers?.[0]?.user_id;
-      
-      if (!assignedTo) {
-        // Fallback: get organization owner from profiles
-        const { data: orgOwner } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('organization_id', organizationId)
-          .limit(1);
-        
-        if (!orgOwner?.[0]?.user_id) {
-          throw new Error('Organização sem usuários cadastrados para atribuição de lead');
-        }
-      }
-      
-      const finalAssignedTo = assignedTo || (await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('organization_id', organizationId)
-        .limit(1)
-        .then(res => res.data?.[0]?.user_id));
-      
-      if (!finalAssignedTo) {
-        throw new Error('Não foi possível identificar um responsável para o lead');
-      }
+      defaultUserId = orgOwner?.[0]?.user_id || null;
+    }
+    
+    if (!defaultUserId) {
+      throw new Error('Organização sem usuários cadastrados para atribuição');
+    }
+
+    if (!lead) {
       
       const { data: newLead, error: leadError } = await supabase
         .from('leads')
@@ -113,7 +107,7 @@ serve(async (req) => {
           email: customer.email,
           whatsapp: normalizedPhone,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
-          assigned_to: finalAssignedTo,
+          assigned_to: defaultUserId,
           // Attribution UTM data
           src: utm?.src || null,
           utm_source: utm?.utm_source || null,
@@ -185,6 +179,7 @@ serve(async (req) => {
       .insert({
         organization_id: organizationId,
         lead_id: lead.id,
+        created_by: defaultUserId, // Required field
         status: 'payment_pending', // Valid sale_status enum value
         payment_status: 'pending',
         subtotal_cents: subtotalCents,
