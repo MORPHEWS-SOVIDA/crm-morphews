@@ -587,27 +587,91 @@ async function createPrePostagem(
   console.log(`\n========== Creating prepostagem (PPN v3) ==========`);
   console.log('Payload:', JSON.stringify(payload, null, 2));
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  const doRequest = async (payloadToSend: Record<string, unknown>) => {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payloadToSend),
+    });
 
-  if (response.ok) {
-    return await response.json();
+    if (response.ok) {
+      return { ok: true as const, data: await response.json() };
+    }
+
+    const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
+    return { ok: false as const, status: response.status, rawBody, parsedBody, humanMessage };
+  };
+
+  const first = await doRequest(payload);
+  if (first.ok) return first.data;
+
+  // Heuristic retry:
+  // Correios frequentemente retorna validações como se os campos estivessem "null"
+  // mesmo quando enviados (parse/contrato extremamente rígido). Na prática, alguns
+  // contratos/ambientes aceitam apenas strings em certos campos.
+  const shouldRetry =
+    first.status === 400 &&
+    typeof first.rawBody === 'string' &&
+    (first.rawBody.includes('PPN-347') ||
+      first.rawBody.includes('Formato de objeto nao encontrado para o codigo: null') ||
+      first.rawBody.includes('Peso: Peso do objeto não informado') ||
+      first.rawBody.includes('PPN-330'));
+
+  if (shouldRetry) {
+    const retryPayload = structuredClone(payload) as any;
+    const op0 = retryPayload?.objetosPostais?.[0];
+
+    // Garantir flag tanto no root quanto dentro do objeto postal (algumas variações do parser exigem)
+    retryPayload.possuiDeclaracaoConteudo = retryPayload.possuiDeclaracaoConteudo ?? 'S';
+    if (op0 && typeof op0 === 'object') {
+      op0.possuiDeclaracaoConteudo = retryPayload.possuiDeclaracaoConteudo;
+
+      // Stringify campos que o parser está acusando como null
+      if (op0.codigoFormatoObjeto != null) op0.codigoFormatoObjeto = String(op0.codigoFormatoObjeto);
+      if (op0.peso != null) op0.peso = String(op0.peso);
+      if (op0.objetosProibidos != null) op0.objetosProibidos = String(op0.objetosProibidos);
+      if (op0.vlrDeclarado != null) op0.vlrDeclarado = String(op0.vlrDeclarado);
+
+      if (op0.dimensao && typeof op0.dimensao === 'object') {
+        if (op0.dimensao.altura != null) op0.dimensao.altura = String(op0.dimensao.altura);
+        if (op0.dimensao.largura != null) op0.dimensao.largura = String(op0.dimensao.largura);
+        if (op0.dimensao.comprimento != null) op0.dimensao.comprimento = String(op0.dimensao.comprimento);
+      }
+
+      if (Array.isArray(op0.itensDeclaracaoConteudo)) {
+        op0.itensDeclaracaoConteudo = op0.itensDeclaracaoConteudo.map((it: any) => ({
+          ...it,
+          quantidade: it?.quantidade != null ? String(it.quantidade) : it?.quantidade,
+          valor: it?.valor != null ? String(it.valor) : it?.valor,
+          peso: it?.peso != null ? String(it.peso) : it?.peso,
+        }));
+      }
+    }
+
+    console.log('Retrying prepostagem with stringified fields payload:', JSON.stringify(retryPayload, null, 2));
+    const second = await doRequest(retryPayload);
+    if (second.ok) return second.data;
+
+    console.error(`Prepostagem failed after retry (${second.status}):`, second.rawBody);
+    throw new CorreiosApiError({
+      message: `Falha ao criar pré-postagem (${second.status}): ${second.humanMessage}`,
+      status: second.status,
+      endpoint,
+      rawBody: second.rawBody,
+      parsedBody: second.parsedBody,
+    });
   }
 
-  const { rawBody, parsedBody, humanMessage } = await parseCorreiosErrorResponse(response, endpoint);
-  console.error(`Prepostagem failed (${response.status}):`, rawBody);
+  console.error(`Prepostagem failed (${first.status}):`, first.rawBody);
   throw new CorreiosApiError({
-    message: `Falha ao criar pré-postagem (${response.status}): ${humanMessage}`,
-    status: response.status,
+    message: `Falha ao criar pré-postagem (${first.status}): ${first.humanMessage}`,
+    status: first.status,
     endpoint,
-    rawBody,
-    parsedBody,
+    rawBody: first.rawBody,
+    parsedBody: first.parsedBody,
   });
 }
 
@@ -717,10 +781,12 @@ serve(async (req) => {
         // Get label PDF
         const labelPdf = await getLabel(config, token, prePostagem.id);
 
-        // (Opcional) Get declaração de conteúdo PDF quando não há NF-e
+        // (Opcional) Get declaração de conteúdo PDF quando NÃO há NF-e válida (44 dígitos)
         // Não deve bloquear a geração da etiqueta se falhar.
         let declaracaoPublicUrl: string | null = null;
-        if (!invoice_key) {
+        const invoiceKeyDigits = String(invoice_key ?? '').replace(/\D/g, '');
+        const hasValidInvoiceKey = invoiceKeyDigits.length === 44;
+        if (!hasValidInvoiceKey) {
           try {
             const declPdf = await getDeclaracaoConteudoPdf(config, token, prePostagem.id);
             const declFileName = `correios-declaracoes/${organization_id}/${prePostagem.codigoRastreio || prePostagem.id}.pdf`;
