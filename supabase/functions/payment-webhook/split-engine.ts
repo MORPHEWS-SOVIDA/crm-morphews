@@ -6,6 +6,11 @@
  * 2. Industry receives immediately (release_at=now), never debited
  * 3. Tenant + Affiliate are the only liable for refund/chargeback
  * 4. Platform fee (Morphews) includes interest profit, never debited
+ * 
+ * IDEMPOTENCY:
+ * - virtual_transactions has UNIQUE index on (virtual_account_id, reference_id, transaction_type)
+ * - We INSERT transaction FIRST, then split (if tx fails = already processed)
+ * - This prevents orphan splits
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -67,9 +72,11 @@ export function buildReferenceId(gateway: string, payload: Record<string, unknow
  */
 export function isUniqueViolation(error: unknown): boolean {
   const msg = String((error as { message?: string })?.message || '');
+  const code = String((error as { code?: string })?.code || '');
   return msg.includes('duplicate key') || 
          msg.includes('ux_virtual_tx_idempotency') ||
-         msg.includes('unique constraint');
+         msg.includes('unique constraint') ||
+         code === '23505'; // PostgreSQL unique_violation
 }
 
 /**
@@ -140,19 +147,22 @@ async function getOrCreateTenantAccount(
     .maybeSingle();
 
   if (!account) {
+    // Fetch org data for account creation
     const { data: org } = await supabase
       .from('organizations')
-      .select('name, email')
+      .select('name, owner_email')
       .eq('id', organizationId)
       .single();
 
+    const orgData = org as Record<string, unknown> | null;
+    
     const { data: newAccount } = await supabase
       .from('virtual_accounts')
       .insert({
         organization_id: organizationId,
         account_type: 'tenant',
-        holder_name: (org as Record<string, unknown>)?.name || 'Tenant',
-        holder_email: (org as Record<string, unknown>)?.email || 'tenant@morphews.com',
+        holder_name: (orgData?.name as string) || 'Tenant',
+        holder_email: (orgData?.owner_email as string) || 'noreply@morphews.com',
         balance_cents: 0,
         pending_balance_cents: 0,
         total_received_cents: 0,
@@ -179,7 +189,8 @@ async function getPlatformAccount(supabase: SupabaseClient): Promise<string> {
 }
 
 // =====================================================
-// SPLIT INSERTION
+// IDEMPOTENT SPLIT INSERTION
+// Order: Transaction FIRST, then Split (prevents orphan splits)
 // =====================================================
 
 interface InsertSplitParams {
@@ -202,34 +213,17 @@ interface InsertSplitParams {
 }
 
 async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boolean> {
-  const { supabase, saleId, organizationId, virtualAccountId, splitType, amountCents, 
+  const { supabase, saleId, virtualAccountId, splitType, amountCents, 
           feeCents = 0, percentage = 0, priority, liableForRefund, liableForChargeback,
           releaseAt, referenceId, description, industryId, factoryId } = params;
 
   if (amountCents <= 0) return true;
 
+  const txReferenceId = `${referenceId}:${splitType}`;
+
   try {
-    // Insert split record
-    const splitData: Record<string, unknown> = {
-      sale_id: saleId,
-      virtual_account_id: virtualAccountId,
-      split_type: splitType,
-      gross_amount_cents: amountCents + feeCents,
-      fee_cents: feeCents,
-      net_amount_cents: amountCents,
-      percentage,
-      priority,
-      liable_for_refund: liableForRefund,
-      liable_for_chargeback: liableForChargeback,
-    };
-
-    if (industryId) splitData.industry_id = industryId;
-    if (factoryId) splitData.factory_id = factoryId;
-
-    await supabase.from('sale_splits').insert(splitData);
-
-    // Insert virtual transaction with reference_id for idempotency
-    const { error: txError } = await supabase
+    // STEP 1: Insert virtual transaction FIRST (idempotency lock)
+    const { data: txData, error: txError } = await supabase
       .from('virtual_transactions')
       .insert({
         virtual_account_id: virtualAccountId,
@@ -241,18 +235,40 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
         description,
         status: 'pending',
         release_at: releaseAt,
-        reference_id: `${referenceId}:${splitType}`,
-      });
+        reference_id: txReferenceId,
+      })
+      .select('id')
+      .single();
 
     if (txError) {
       if (isUniqueViolation(txError)) {
         console.log(`[SplitEngine] Duplicate transaction for ${splitType}, already processed`);
-        return false;
+        return false; // Already processed - DO NOT create split
       }
       throw txError;
     }
 
-    // Update virtual account balances
+    // STEP 2: Insert split record (only if transaction succeeded)
+    const splitData: Record<string, unknown> = {
+      sale_id: saleId,
+      virtual_account_id: virtualAccountId,
+      split_type: splitType,
+      gross_amount_cents: amountCents + feeCents,
+      fee_cents: feeCents,
+      net_amount_cents: amountCents,
+      percentage,
+      priority,
+      liable_for_refund: liableForRefund,
+      liable_for_chargeback: liableForChargeback,
+      transaction_id: txData?.id, // Link to transaction
+    };
+
+    if (industryId) splitData.industry_id = industryId;
+    if (factoryId) splitData.factory_id = factoryId;
+
+    await supabase.from('sale_splits').insert(splitData);
+
+    // STEP 3: Update virtual account balances
     const { data: account } = await supabase
       .from('virtual_accounts')
       .select('pending_balance_cents, total_received_cents')
@@ -277,6 +293,7 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
       console.log(`[SplitEngine] Duplicate detected for ${splitType}, skipping`);
       return false;
     }
+    console.error(`[SplitEngine] Error creating ${splitType} split:`, error);
     throw error;
   }
 }
@@ -358,20 +375,27 @@ export async function processSaleSplitsV3(
         for (const cost of factoryCosts) {
           // Calculate factory amount (can be % or fixed)
           let factoryAmount = 0;
+          
+          // Percentage fee
           if (cost.factory_fee_percent > 0) {
-            factoryAmount = Math.round(item.total_cents * (cost.factory_fee_percent / 100));
+            factoryAmount = Math.round(item.total_cents * (Number(cost.factory_fee_percent) / 100));
           }
+          
+          // Fixed fee per unit
           factoryAmount += (cost.factory_fee_fixed_cents || 0) * (item.quantity || 1);
           
-          // Add unit costs if defined
+          // Unit costs (product cost + shipping + additional)
           const unitCosts = ((cost.unit_cost_cents || 0) + (cost.shipping_cost_cents || 0) + (cost.additional_cost_cents || 0)) * (item.quantity || 1);
           factoryAmount += unitCosts;
 
+          // CAP: Never exceed remaining amount
+          factoryAmount = Math.min(factoryAmount, remaining);
+
           if (factoryAmount > 0) {
             const factory = cost.factory as Record<string, unknown> | null;
-            const factoryAccountId = factory?.virtual_account_id as string || tenantAccount.id;
+            const factoryAccountId = (factory?.virtual_account_id as string) || tenantAccount.id;
 
-            await insertSplitAndTransaction({
+            const created = await insertSplitAndTransaction({
               supabase,
               saleId,
               organizationId: sale.organization_id,
@@ -387,8 +411,10 @@ export async function processSaleSplitsV3(
               factoryId: cost.factory_id,
             });
 
-            result.factory_amount += factoryAmount;
-            remaining -= factoryAmount;
+            if (created) {
+              result.factory_amount += factoryAmount;
+              remaining -= factoryAmount;
+            }
           }
         }
       }
@@ -409,13 +435,16 @@ export async function processSaleSplitsV3(
       if (industryCosts && industryCosts.length > 0) {
         for (const cost of industryCosts) {
           const unitTotal = ((cost.unit_cost_cents || 0) + (cost.shipping_cost_cents || 0) + (cost.additional_cost_cents || 0));
-          const industryAmount = unitTotal * (item.quantity || 1);
+          let industryAmount = unitTotal * (item.quantity || 1);
+
+          // CAP: Never exceed remaining amount
+          industryAmount = Math.min(industryAmount, remaining);
 
           if (industryAmount > 0) {
             const industry = cost.industry as Record<string, unknown> | null;
-            const industryAccountId = industry?.virtual_account_id as string || tenantAccount.id;
+            const industryAccountId = (industry?.virtual_account_id as string) || tenantAccount.id;
 
-            await insertSplitAndTransaction({
+            const created = await insertSplitAndTransaction({
               supabase,
               saleId,
               organizationId: sale.organization_id,
@@ -425,14 +454,16 @@ export async function processSaleSplitsV3(
               priority: 2,
               liableForRefund: false,
               liableForChargeback: false,
-              releaseAt: new Date().toISOString(), // Immediate release
+              releaseAt: new Date().toISOString(), // Immediate release (à vista)
               referenceId,
               description: `Indústria ${industry?.name || 'N/A'} - Venda #${saleId.slice(0, 8)}`,
               industryId: cost.industry_id,
             });
 
-            result.industry_amount += industryAmount;
-            remaining -= industryAmount;
+            if (created) {
+              result.industry_amount += industryAmount;
+              remaining -= industryAmount;
+            }
           }
         }
       }
@@ -442,10 +473,13 @@ export async function processSaleSplitsV3(
   // =====================================================
   // STEP C: PLATFORM FEE (never liable)
   // =====================================================
-  const platformFeeCents = Math.round(totalCents * (rules.platform_fee_percent / 100)) + (rules.platform_fee_fixed_cents || 0);
+  let platformFeeCents = Math.round(totalCents * (rules.platform_fee_percent / 100)) + (rules.platform_fee_fixed_cents || 0);
+  
+  // CAP: Never exceed remaining amount
+  platformFeeCents = Math.min(platformFeeCents, remaining);
   
   if (platformFeeCents > 0) {
-    await insertSplitAndTransaction({
+    const created = await insertSplitAndTransaction({
       supabase,
       saleId,
       organizationId: sale.organization_id,
@@ -461,105 +495,52 @@ export async function processSaleSplitsV3(
       description: `Taxa plataforma - Venda #${saleId.slice(0, 8)}`,
     });
 
-    result.platform_amount = platformFeeCents;
-    remaining -= platformFeeCents;
+    if (created) {
+      result.platform_amount = platformFeeCents;
+      remaining -= platformFeeCents;
+    }
   }
 
   // =====================================================
   // STEP D: AFFILIATE (liable for refund/chargeback)
+  // Source of truth: affiliate_attributions table
   // =====================================================
-  // Check for existing affiliate split (created at checkout)
-  const { data: affiliateSplits } = await supabase
-    .from('sale_splits')
-    .select('*, affiliate:affiliates(*)')
+  const { data: attribution } = await supabase
+    .from('affiliate_attributions')
+    .select('*, affiliate:affiliates(*, virtual_account:virtual_accounts(*))')
     .eq('sale_id', saleId)
-    .eq('split_type', 'affiliate');
+    .maybeSingle();
 
   let affiliateAmount = 0;
-  const affiliateSplit = (affiliateSplits as Record<string, unknown>[])?.[0];
 
-  if (affiliateSplit) {
-    affiliateAmount = (affiliateSplit.gross_amount_cents as number) || 0;
+  if (attribution?.affiliate_id) {
+    const affiliate = attribution.affiliate as Record<string, unknown>;
+    const commissionPercent = Number(affiliate?.commission_percentage) || rules.default_affiliate_percent;
+    affiliateAmount = Math.round(remaining * (commissionPercent / 100));
+    
+    // CAP: Never exceed remaining amount
+    affiliateAmount = Math.min(affiliateAmount, remaining);
+    
+    const virtualAccount = affiliate?.virtual_account as Record<string, unknown>;
 
-    // Get affiliate's virtual account
-    const { data: affAccount } = await supabase
-      .from('virtual_accounts')
-      .select('id, pending_balance_cents, total_received_cents')
-      .eq('id', affiliateSplit.virtual_account_id)
-      .single();
+    if (affiliateAmount > 0 && virtualAccount?.id) {
+      const created = await insertSplitAndTransaction({
+        supabase,
+        saleId,
+        organizationId: sale.organization_id,
+        virtualAccountId: virtualAccount.id as string,
+        splitType: 'affiliate',
+        amountCents: affiliateAmount,
+        percentage: commissionPercent,
+        priority: 2,
+        liableForRefund: true,
+        liableForChargeback: true,
+        releaseAt: addDays(rules.hold_days_affiliate),
+        referenceId,
+        description: `Comissão afiliado ${affiliate?.affiliate_code || 'N/A'} - Venda #${saleId.slice(0, 8)}`,
+      });
 
-    if (affAccount) {
-      // Create affiliate transaction
-      const { error: affTxError } = await supabase
-        .from('virtual_transactions')
-        .insert({
-          virtual_account_id: affAccount.id,
-          sale_id: saleId,
-          transaction_type: 'credit',
-          amount_cents: affiliateAmount,
-          fee_cents: 0,
-          net_amount_cents: affiliateAmount,
-          description: `Comissão afiliado - Venda #${saleId.slice(0, 8)}`,
-          status: 'pending',
-          release_at: addDays(rules.hold_days_affiliate),
-          reference_id: `${referenceId}:affiliate`,
-        });
-
-      if (!affTxError) {
-        // Update affiliate split with liability flags
-        await supabase
-          .from('sale_splits')
-          .update({
-            priority: 2,
-            liable_for_refund: true,
-            liable_for_chargeback: true,
-          })
-          .eq('id', affiliateSplit.id);
-
-        // Update pending balance
-        await supabase
-          .from('virtual_accounts')
-          .update({
-            pending_balance_cents: (affAccount.pending_balance_cents || 0) + affiliateAmount,
-            total_received_cents: (affAccount.total_received_cents || 0) + affiliateAmount,
-          })
-          .eq('id', affAccount.id);
-
-        result.affiliate_amount = affiliateAmount;
-        remaining -= affiliateAmount;
-      }
-    }
-  } else {
-    // Check for affiliate attribution
-    const { data: attribution } = await supabase
-      .from('affiliate_attributions')
-      .select('*, affiliate:affiliates(*, virtual_account:virtual_accounts(*))')
-      .eq('sale_id', saleId)
-      .maybeSingle();
-
-    if (attribution?.affiliate_id) {
-      const affiliate = attribution.affiliate as Record<string, unknown>;
-      const commissionPercent = (affiliate.commission_percentage as number) || rules.default_affiliate_percent;
-      affiliateAmount = Math.round(remaining * (commissionPercent / 100));
-      const virtualAccount = affiliate.virtual_account as Record<string, unknown>;
-
-      if (affiliateAmount > 0 && virtualAccount?.id) {
-        await insertSplitAndTransaction({
-          supabase,
-          saleId,
-          organizationId: sale.organization_id,
-          virtualAccountId: virtualAccount.id as string,
-          splitType: 'affiliate',
-          amountCents: affiliateAmount,
-          percentage: commissionPercent,
-          priority: 2,
-          liableForRefund: true,
-          liableForChargeback: true,
-          releaseAt: addDays(rules.hold_days_affiliate),
-          referenceId,
-          description: `Comissão afiliado ${affiliate.affiliate_code || 'N/A'} - Venda #${saleId.slice(0, 8)}`,
-        });
-
+      if (created) {
         result.affiliate_amount = affiliateAmount;
         remaining -= affiliateAmount;
       }
@@ -570,10 +551,10 @@ export async function processSaleSplitsV3(
   // STEP E: TENANT (receives the rest, liable for refund/chargeback)
   // =====================================================
   // Deduct gateway fee from tenant's share
-  const tenantAmount = remaining - gatewayFeeCents;
+  const tenantAmount = Math.max(0, remaining - gatewayFeeCents);
 
   if (tenantAmount > 0) {
-    await insertSplitAndTransaction({
+    const created = await insertSplitAndTransaction({
       supabase,
       saleId,
       organizationId: sale.organization_id,
@@ -589,13 +570,16 @@ export async function processSaleSplitsV3(
       description: `Venda #${saleId.slice(0, 8)} (- gateway R$${(gatewayFeeCents / 100).toFixed(2)})`,
     });
 
-    result.tenant_amount = tenantAmount;
+    if (created) {
+      result.tenant_amount = tenantAmount;
+    }
   }
 
   // =====================================================
-  // STEP F: GATEWAY FEE RECORD (for transparency)
+  // STEP F: GATEWAY FEE RECORD (for transparency, no transaction)
   // =====================================================
   if (gatewayFeeCents > 0) {
+    // Just record the split, no virtual transaction (money goes to gateway, not internal account)
     await supabase
       .from('sale_splits')
       .insert({
@@ -648,9 +632,10 @@ export async function processRefundOrChargeback(
     if (!account?.id) continue;
 
     const debitAmount = split.net_amount_cents || split.gross_amount_cents || 0;
+    const txReferenceId = `${referenceId}:${kind}:${split.split_type}`;
 
     try {
-      // Create debit transaction
+      // Create debit transaction (idempotent)
       const { error: txError } = await supabase
         .from('virtual_transactions')
         .insert({
@@ -662,19 +647,22 @@ export async function processRefundOrChargeback(
           net_amount_cents: -debitAmount,
           description: `${kind === 'refund' ? 'Reembolso' : 'Chargeback'} - Venda #${saleId.slice(0, 8)}`,
           status: 'completed',
-          reference_id: `${referenceId}:${kind}:${split.split_type}`,
+          reference_id: txReferenceId,
         });
 
-      if (txError && isUniqueViolation(txError)) {
-        console.log(`[SplitEngine] ${kind} already processed for ${split.split_type}`);
-        continue;
+      if (txError) {
+        if (isUniqueViolation(txError)) {
+          console.log(`[SplitEngine] ${kind} already processed for ${split.split_type}`);
+          continue;
+        }
+        throw txError;
       }
 
       // Update balance (can go negative)
       await supabase
         .from('virtual_accounts')
         .update({
-          balance_cents: (account.balance_cents as number || 0) - debitAmount,
+          balance_cents: ((account.balance_cents as number) || 0) - debitAmount,
         })
         .eq('id', account.id);
 
