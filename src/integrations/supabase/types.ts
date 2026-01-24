@@ -2212,6 +2212,68 @@ export type Database = {
         }
         Relationships: []
       }
+      ecommerce_automation_config: {
+        Row: {
+          cart_abandonment_minutes: number
+          created_at: string
+          email_recovery_delay_minutes: number
+          enable_email_recovery: boolean
+          enable_whatsapp_recovery: boolean
+          id: string
+          lead_assigned_user_id: string | null
+          lead_creation_trigger: string
+          lead_default_assignment: string | null
+          lead_funnel_stage_id: string | null
+          notify_team_on_cart: boolean
+          notify_team_on_payment: boolean
+          organization_id: string
+          updated_at: string
+          whatsapp_recovery_delay_minutes: number
+        }
+        Insert: {
+          cart_abandonment_minutes?: number
+          created_at?: string
+          email_recovery_delay_minutes?: number
+          enable_email_recovery?: boolean
+          enable_whatsapp_recovery?: boolean
+          id?: string
+          lead_assigned_user_id?: string | null
+          lead_creation_trigger?: string
+          lead_default_assignment?: string | null
+          lead_funnel_stage_id?: string | null
+          notify_team_on_cart?: boolean
+          notify_team_on_payment?: boolean
+          organization_id: string
+          updated_at?: string
+          whatsapp_recovery_delay_minutes?: number
+        }
+        Update: {
+          cart_abandonment_minutes?: number
+          created_at?: string
+          email_recovery_delay_minutes?: number
+          enable_email_recovery?: boolean
+          enable_whatsapp_recovery?: boolean
+          id?: string
+          lead_assigned_user_id?: string | null
+          lead_creation_trigger?: string
+          lead_default_assignment?: string | null
+          lead_funnel_stage_id?: string | null
+          notify_team_on_cart?: boolean
+          notify_team_on_payment?: boolean
+          organization_id?: string
+          updated_at?: string
+          whatsapp_recovery_delay_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_automation_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ecommerce_cart_items: {
         Row: {
           cart_id: string
@@ -2429,6 +2491,257 @@ export type Database = {
           },
           {
             foreignKeyName: "ecommerce_carts_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ecommerce_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string
+          product_image_url: string | null
+          product_name: string
+          quantity: number
+          total_cents: number
+          unit_price_cents: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id: string
+          product_image_url?: string | null
+          product_name: string
+          quantity?: number
+          total_cents: number
+          unit_price_cents: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          product_image_url?: string | null
+          product_name?: string
+          quantity?: number
+          total_cents?: number
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ecommerce_orders: {
+        Row: {
+          affiliate_commission_cents: number | null
+          affiliate_id: string | null
+          canceled_at: string | null
+          carrier: string | null
+          cart_id: string | null
+          created_at: string
+          customer_cpf: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          delivered_at: string | null
+          discount_cents: number
+          fbclid: string | null
+          gclid: string | null
+          id: string
+          internal_notes: string | null
+          landing_page_id: string | null
+          lead_id: string | null
+          order_number: string
+          organization_id: string
+          paid_at: string | null
+          payment_gateway: string | null
+          payment_method: string | null
+          payment_transaction_id: string | null
+          sale_id: string | null
+          shipped_at: string | null
+          shipping_cents: number
+          shipping_cep: string | null
+          shipping_city: string | null
+          shipping_complement: string | null
+          shipping_neighborhood: string | null
+          shipping_number: string | null
+          shipping_state: string | null
+          shipping_street: string | null
+          source: string | null
+          status: string
+          storefront_id: string | null
+          subtotal_cents: number
+          total_cents: number
+          tracking_code: string | null
+          ttclid: string | null
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          affiliate_commission_cents?: number | null
+          affiliate_id?: string | null
+          canceled_at?: string | null
+          carrier?: string | null
+          cart_id?: string | null
+          created_at?: string
+          customer_cpf?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          delivered_at?: string | null
+          discount_cents?: number
+          fbclid?: string | null
+          gclid?: string | null
+          id?: string
+          internal_notes?: string | null
+          landing_page_id?: string | null
+          lead_id?: string | null
+          order_number?: string
+          organization_id: string
+          paid_at?: string | null
+          payment_gateway?: string | null
+          payment_method?: string | null
+          payment_transaction_id?: string | null
+          sale_id?: string | null
+          shipped_at?: string | null
+          shipping_cents?: number
+          shipping_cep?: string | null
+          shipping_city?: string | null
+          shipping_complement?: string | null
+          shipping_neighborhood?: string | null
+          shipping_number?: string | null
+          shipping_state?: string | null
+          shipping_street?: string | null
+          source?: string | null
+          status?: string
+          storefront_id?: string | null
+          subtotal_cents?: number
+          total_cents?: number
+          tracking_code?: string | null
+          ttclid?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          affiliate_commission_cents?: number | null
+          affiliate_id?: string | null
+          canceled_at?: string | null
+          carrier?: string | null
+          cart_id?: string | null
+          created_at?: string
+          customer_cpf?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          delivered_at?: string | null
+          discount_cents?: number
+          fbclid?: string | null
+          gclid?: string | null
+          id?: string
+          internal_notes?: string | null
+          landing_page_id?: string | null
+          lead_id?: string | null
+          order_number?: string
+          organization_id?: string
+          paid_at?: string | null
+          payment_gateway?: string | null
+          payment_method?: string | null
+          payment_transaction_id?: string | null
+          sale_id?: string | null
+          shipped_at?: string | null
+          shipping_cents?: number
+          shipping_cep?: string | null
+          shipping_city?: string | null
+          shipping_complement?: string | null
+          shipping_neighborhood?: string | null
+          shipping_number?: string | null
+          shipping_state?: string | null
+          shipping_street?: string | null
+          source?: string | null
+          status?: string
+          storefront_id?: string | null
+          subtotal_cents?: number
+          total_cents?: number
+          tracking_code?: string | null
+          ttclid?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_orders_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_orders_storefront_id_fkey"
             columns: ["storefront_id"]
             isOneToOne: false
             referencedRelation: "tenant_storefronts"
