@@ -97,13 +97,16 @@ export function usePublicStorefront(slug: string | undefined) {
           .order('display_order'),
       ]);
 
+      // Filter out products where the join returned null (RLS denied access to lead_products)
+      const validProducts = (productsRes.data || []).filter(p => p.product !== null);
+
       return {
         ...storefront,
         banners: bannersRes.data || [],
         pages: pagesRes.data || [],
         categories: categoriesRes.data || [],
-        featured_products: (productsRes.data || []).filter(p => p.is_featured),
-        all_products: productsRes.data || [],
+        featured_products: validProducts.filter(p => p.is_featured),
+        all_products: validProducts,
       } as unknown as StorefrontData & { all_products: (StorefrontProduct & { product: PublicProduct })[] };
     },
   });
@@ -144,6 +147,9 @@ export function usePublicProduct(storefrontSlug: string | undefined, productId: 
         .single();
 
       if (error) throw error;
+      if (!storefrontProduct || !storefrontProduct.product) {
+        throw new Error('Produto não encontrado ou sem permissão de acesso');
+      }
       return storefrontProduct as unknown as StorefrontProduct & { product: PublicProduct };
     },
   });
@@ -191,11 +197,14 @@ export function usePublicCategoryProducts(storefrontSlug: string | undefined, ca
         `)
         .eq('category_id', category.id);
 
+      // Filter out products where the join returned null
+      const validProducts = (productCategories || [])
+        .map(pc => pc.storefront_product)
+        .filter((sp): sp is NonNullable<typeof sp> => sp !== null && sp.product !== null);
+
       return {
         category,
-        products: (productCategories || [])
-          .map(pc => pc.storefront_product)
-          .filter(Boolean) as unknown as (StorefrontProduct & { product: PublicProduct })[],
+        products: validProducts as unknown as (StorefrontProduct & { product: PublicProduct })[],
       };
     },
   });
