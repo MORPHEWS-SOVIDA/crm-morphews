@@ -9270,6 +9270,9 @@ export type Database = {
           external_order_url: string | null
           external_source: string | null
           fbclid: string | null
+          gateway_fee_cents: number | null
+          gateway_net_cents: number | null
+          gateway_transaction_id: string | null
           gclid: string | null
           id: string
           invoice_pdf_url: string | null
@@ -9358,6 +9361,9 @@ export type Database = {
           external_order_url?: string | null
           external_source?: string | null
           fbclid?: string | null
+          gateway_fee_cents?: number | null
+          gateway_net_cents?: number | null
+          gateway_transaction_id?: string | null
           gclid?: string | null
           id?: string
           invoice_pdf_url?: string | null
@@ -9446,6 +9452,9 @@ export type Database = {
           external_order_url?: string | null
           external_source?: string | null
           fbclid?: string | null
+          gateway_fee_cents?: number | null
+          gateway_net_cents?: number | null
+          gateway_transaction_id?: string | null
           gclid?: string | null
           id?: string
           invoice_pdf_url?: string | null
