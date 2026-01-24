@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,17 @@ import { Loader2, CreditCard, QrCode, Barcode, Shield, Lock } from 'lucide-react
 import { toast } from 'sonner';
 import { trackEvent } from './TrackingPixels';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
+
+// Generate or retrieve session ID for cart tracking
+function getOrCreateSessionId(): string {
+  const storageKey = 'lp_cart_session_id';
+  let sessionId = localStorage.getItem(storageKey);
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem(storageKey, sessionId);
+  }
+  return sessionId;
+}
 
 interface LandingOffer {
   id: string;
@@ -50,12 +61,82 @@ export function LandingCheckoutModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const { getUtmForCheckout } = useUtmTracker();
+  const [cartId, setCartId] = useState<string | null>(null);
+  const [sessionId] = useState(() => getOrCreateSessionId());
+  const syncTimeoutRef = useRef<NodeJS.Timeout>();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     cpf: '',
   });
+
+  // Sync cart to backend for abandoned cart recovery
+  const syncCartToBackend = useCallback(async (customerData: typeof formData) => {
+    try {
+      const utmData = getUtmForCheckout();
+      
+      const payload = {
+        cart_id: cartId || undefined,
+        session_id: sessionId,
+        landing_page_id: landingPage.id,
+        offer_id: offer.id,
+        source: 'landing_page' as const,
+        items: [{
+          product_id: offer.id,
+          quantity: offer.quantity,
+          price_cents: offer.price_cents,
+        }],
+        customer: {
+          name: customerData.name || undefined,
+          email: customerData.email || undefined,
+          phone: customerData.phone || undefined,
+          cpf: customerData.cpf || undefined,
+        },
+        utm: utmData && Object.keys(utmData).length > 0 ? utmData : undefined,
+      };
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cart-sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.success && result.cart_id && !cartId) {
+        setCartId(result.cart_id);
+      }
+    } catch (error) {
+      console.error('Cart sync error:', error);
+    }
+  }, [cartId, sessionId, landingPage.id, offer, getUtmForCheckout]);
+
+  // Debounced sync on field blur
+  const handleFieldBlur = useCallback((field: keyof typeof formData) => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    syncTimeoutRef.current = setTimeout(() => {
+      if (formData[field]) {
+        syncCartToBackend(formData);
+      }
+    }, 500);
+  }, [formData, syncCartToBackend]);
+
+  // Sync when modal opens with offer
+  useEffect(() => {
+    if (open) {
+      syncCartToBackend(formData);
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +175,7 @@ export function LandingCheckoutModal({
           body: JSON.stringify({
             landing_page_id: landingPage.id,
             offer_id: offer.id,
+            cart_id: cartId || undefined,
             customer: {
               name: formData.name.trim(),
               email: formData.email.trim(),
@@ -175,6 +257,7 @@ export function LandingCheckoutModal({
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onBlur={() => handleFieldBlur('name')}
                 placeholder="Seu nome"
                 required
               />
@@ -187,6 +270,7 @@ export function LandingCheckoutModal({
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                onBlur={() => handleFieldBlur('email')}
                 placeholder="seu@email.com"
                 required
               />
@@ -198,6 +282,7 @@ export function LandingCheckoutModal({
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                onBlur={() => handleFieldBlur('phone')}
                 placeholder="(11) 99999-9999"
                 required
               />
@@ -209,6 +294,7 @@ export function LandingCheckoutModal({
                 id="cpf"
                 value={formData.cpf}
                 onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
+                onBlur={() => handleFieldBlur('cpf')}
                 placeholder="000.000.000-00"
               />
             </div>
