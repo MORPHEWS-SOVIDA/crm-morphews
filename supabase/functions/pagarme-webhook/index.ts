@@ -6,6 +6,120 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Interface para dados de conciliação extraídos do Pagar.me
+interface ReconciliationData {
+  transactionId: string;
+  nsu: string | null;
+  authorizationCode: string | null;
+  acquirerName: string | null;
+  cardBrand: string | null;
+  cardLastDigits: string | null;
+  installments: number;
+  feeCents: number;
+  anticipationFeeCents: number;
+  netAmountCents: number;
+  grossAmountCents: number;
+  settlementDate: string | null;
+  paidAt: string | null;
+  paymentMethod: string;
+}
+
+// Extrai dados de conciliação do payload do Pagar.me
+function extractReconciliationData(body: any): ReconciliationData {
+  // O Pagar.me pode enviar diferentes estruturas dependendo da versão da API
+  const transaction = body.transaction || body.data || body;
+  const charge = body.charges?.[0] || body.charge || {};
+  const lastTransaction = charge.last_transaction || transaction.last_transaction || {};
+  
+  // Taxas do gateway
+  const gatewayFee = lastTransaction.gateway_fee || transaction.gateway_fee || 0;
+  const anticipationFee = lastTransaction.anticipation_fee || transaction.anticipation_fee || 0;
+  
+  // Dados do adquirente
+  const acquirerResponse = lastTransaction.acquirer_response || transaction.acquirer_response || {};
+  const nsu = lastTransaction.nsu || transaction.nsu || acquirerResponse.nsu || null;
+  const authCode = lastTransaction.authorization_code || transaction.authorization_code || acquirerResponse.authorization_code || null;
+  const acquirerName = lastTransaction.acquirer_name || transaction.acquirer || acquirerResponse.acquirer_name || 'pagarme';
+  
+  // Dados do cartão
+  const card = charge.payment_method?.card || transaction.card || {};
+  const cardBrand = card.brand || lastTransaction.card_brand || null;
+  const cardLastDigits = card.last_four_digits || card.last_digits || null;
+  
+  // Valores
+  const grossAmount = charge.amount || transaction.amount || body.amount || 0;
+  const netAmount = grossAmount - gatewayFee - anticipationFee;
+  
+  // Datas
+  const paidAt = charge.paid_at || transaction.paid_at || body.paid_at || null;
+  const settlementDate = calculateSettlementDate(body.payment_method || 'credit_card', paidAt);
+  
+  // Parcelas
+  const installments = charge.payment_method?.installments || transaction.installments || 1;
+  
+  return {
+    transactionId: lastTransaction.id || transaction.id || body.id || '',
+    nsu,
+    authorizationCode: authCode,
+    acquirerName,
+    cardBrand: cardBrand?.toUpperCase() || null,
+    cardLastDigits,
+    installments,
+    feeCents: gatewayFee,
+    anticipationFeeCents: anticipationFee,
+    netAmountCents: netAmount,
+    grossAmountCents: grossAmount,
+    settlementDate,
+    paidAt,
+    paymentMethod: body.payment_method || lastTransaction.payment_method || 'credit_card',
+  };
+}
+
+// Calcula data de liquidação baseada no método de pagamento
+function calculateSettlementDate(paymentMethod: string, paidAt: string | null): string | null {
+  if (!paidAt) return null;
+  
+  const paidDate = new Date(paidAt);
+  let settlementDays = 30; // Default D+30 para cartão
+  
+  switch (paymentMethod) {
+    case 'pix':
+      settlementDays = 1; // D+1
+      break;
+    case 'boleto':
+      settlementDays = 1; // D+1
+      break;
+    case 'credit_card':
+    default:
+      settlementDays = 30; // D+30 (ou 31 dependendo do arranjo)
+      break;
+  }
+  
+  paidDate.setDate(paidDate.getDate() + settlementDays);
+  return paidDate.toISOString();
+}
+
+// Mapeia bandeira do cartão para o enum do banco
+function mapCardBrand(brand: string | null): string | null {
+  if (!brand) return null;
+  
+  const brandMap: Record<string, string> = {
+    'VISA': 'visa',
+    'MASTERCARD': 'mastercard',
+    'MASTER': 'mastercard',
+    'ELO': 'elo',
+    'AMEX': 'amex',
+    'AMERICAN EXPRESS': 'amex',
+    'HIPERCARD': 'hipercard',
+    'HIPER': 'hiper',
+    'DINERS': 'diners',
+    'DISCOVER': 'discover',
+    'JCB': 'jcb',
+  };
+  
+  return brandMap[brand.toUpperCase()] || brand.toLowerCase();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,6 +144,10 @@ serve(async (req) => {
       });
     }
 
+    // Extrai dados de conciliação
+    const reconciliationData = extractReconciliationData(body);
+    console.log("Reconciliation data extracted:", JSON.stringify(reconciliationData));
+
     // Map Pagarme status to our status
     let newStatus = '';
     let paymentStatus = '';
@@ -51,7 +169,6 @@ serve(async (req) => {
       case 'waiting_payment':
       case 'processing':
       case 'authorized':
-        // Keep as pending
         paymentStatus = 'pending';
         break;
       default:
@@ -61,9 +178,12 @@ serve(async (req) => {
         });
     }
 
-    // Update sale
+    // Update sale with reconciliation data
     const updateData: Record<string, unknown> = {
       payment_status: paymentStatus,
+      gateway_transaction_id: reconciliationData.transactionId,
+      gateway_fee_cents: reconciliationData.feeCents,
+      gateway_net_cents: reconciliationData.netAmountCents,
     };
 
     if (newStatus) {
@@ -80,9 +200,38 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // If paid, process splits
+    // Log payment attempt with full gateway response
+    await supabase
+      .from('payment_attempts')
+      .insert({
+        sale_id: saleId,
+        gateway: 'pagarme',
+        payment_method: reconciliationData.paymentMethod,
+        amount_cents: reconciliationData.grossAmountCents,
+        installments: reconciliationData.installments,
+        status: paymentStatus === 'paid' ? 'approved' : paymentStatus === 'pending' ? 'pending' : 'refused',
+        gateway_transaction_id: reconciliationData.transactionId,
+        gateway_response: {
+          raw: body,
+          reconciliation: {
+            nsu: reconciliationData.nsu,
+            authorization_code: reconciliationData.authorizationCode,
+            acquirer: reconciliationData.acquirerName,
+            card_brand: reconciliationData.cardBrand,
+            card_last_digits: reconciliationData.cardLastDigits,
+            fee_cents: reconciliationData.feeCents,
+            anticipation_fee_cents: reconciliationData.anticipationFeeCents,
+            net_amount_cents: reconciliationData.netAmountCents,
+            settlement_date: reconciliationData.settlementDate,
+            paid_at: reconciliationData.paidAt,
+          },
+        },
+      });
+
+    // If paid, create sale installments with reconciliation data
     if (current_status === 'paid') {
-      await processSaleSplits(supabase, saleId);
+      await createSaleInstallmentsWithReconciliation(supabase, saleId, reconciliationData);
+      await processSaleSplits(supabase, saleId, reconciliationData);
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -99,7 +248,70 @@ serve(async (req) => {
   }
 });
 
-async function processSaleSplits(supabase: any, saleId: string) {
+// Cria parcelas da venda com dados de conciliação
+async function createSaleInstallmentsWithReconciliation(
+  supabase: any, 
+  saleId: string, 
+  reconciliation: ReconciliationData
+) {
+  const { data: sale } = await supabase
+    .from('sales')
+    .select('organization_id, total_cents')
+    .eq('id', saleId)
+    .single();
+
+  if (!sale) return;
+
+  const installments = reconciliation.installments || 1;
+  const amountPerInstallment = Math.floor(reconciliation.grossAmountCents / installments);
+  const feePerInstallment = Math.floor(reconciliation.feeCents / installments);
+  const netPerInstallment = amountPerInstallment - feePerInstallment;
+
+  const transactionDate = reconciliation.paidAt ? new Date(reconciliation.paidAt) : new Date();
+  const cardBrand = mapCardBrand(reconciliation.cardBrand);
+
+  for (let i = 0; i < installments; i++) {
+    // Data de vencimento: primeira parcela na data de liquidação, demais +30 dias cada
+    const dueDate = new Date(reconciliation.settlementDate || transactionDate);
+    dueDate.setDate(dueDate.getDate() + (i * 30));
+
+    // Última parcela pode ter ajuste de centavos
+    const isLastInstallment = i === installments - 1;
+    const adjustedAmount = isLastInstallment 
+      ? reconciliation.grossAmountCents - (amountPerInstallment * (installments - 1))
+      : amountPerInstallment;
+    const adjustedFee = isLastInstallment
+      ? reconciliation.feeCents - (feePerInstallment * (installments - 1))
+      : feePerInstallment;
+    const adjustedNet = adjustedAmount - adjustedFee;
+
+    await supabase
+      .from('sale_installments')
+      .insert({
+        sale_id: saleId,
+        installment_number: i + 1,
+        total_installments: installments,
+        amount_cents: adjustedAmount,
+        fee_cents: adjustedFee,
+        fee_percentage: reconciliation.feeCents > 0 
+          ? Number(((reconciliation.feeCents / reconciliation.grossAmountCents) * 100).toFixed(2))
+          : 0,
+        net_amount_cents: adjustedNet,
+        due_date: dueDate.toISOString().split('T')[0],
+        status: 'confirmed',
+        transaction_date: transactionDate.toISOString(),
+        nsu_cv: reconciliation.nsu || reconciliation.authorizationCode,
+        card_brand: cardBrand,
+        transaction_type: reconciliation.paymentMethod === 'credit_card' 
+          ? (installments > 1 ? 'credit_installment' : 'credit') 
+          : reconciliation.paymentMethod === 'debit_card' ? 'debit' : null,
+      });
+  }
+
+  console.log(`Created ${installments} installments for sale ${saleId} with reconciliation data`);
+}
+
+async function processSaleSplits(supabase: any, saleId: string, reconciliation: ReconciliationData) {
   // Fetch sale details
   const { data: sale, error: saleError } = await supabase
     .from('sales')
@@ -126,11 +338,17 @@ async function processSaleSplits(supabase: any, saleId: string) {
   const withdrawalRules = settings.withdrawal_rules || { release_days: 14 };
 
   const totalCents = sale.total_cents;
+  const gatewayFeeCents = reconciliation.feeCents; // Taxa real do gateway
   const platformFeeCents = Math.round(totalCents * (platformFees.percentage / 100)) + (platformFees.fixed_cents || 0);
   
-  // Release date
-  const releaseAt = new Date();
-  releaseAt.setDate(releaseAt.getDate() + (withdrawalRules.release_days || 14));
+  // Use settlement date from gateway or calculate
+  const releaseAt = reconciliation.settlementDate 
+    ? new Date(reconciliation.settlementDate)
+    : (() => {
+        const date = new Date();
+        date.setDate(date.getDate() + (withdrawalRules.release_days || 14));
+        return date;
+      })();
 
   // Get tenant virtual account
   let { data: tenantAccount } = await supabase
@@ -216,8 +434,8 @@ async function processSaleSplits(supabase: any, saleId: string) {
     }
   }
 
-  // Calculate tenant amount
-  const tenantAmount = totalCents - platformFeeCents - affiliateSplitCents;
+  // Calculate tenant amount (desconta taxa do gateway + taxa da plataforma)
+  const tenantAmount = totalCents - gatewayFeeCents - platformFeeCents - affiliateSplitCents;
 
   // Create tenant split record
   await supabase
@@ -227,27 +445,25 @@ async function processSaleSplits(supabase: any, saleId: string) {
       virtual_account_id: tenantAccount.id,
       split_type: 'tenant',
       gross_amount_cents: totalCents - affiliateSplitCents,
-      fee_cents: platformFeeCents,
+      fee_cents: gatewayFeeCents + platformFeeCents,
       net_amount_cents: tenantAmount,
       percentage: 100 - (affiliateSplitCents / totalCents * 100),
     });
 
   // Create tenant transaction
-  const { data: tenantTx } = await supabase
+  await supabase
     .from('virtual_transactions')
     .insert({
       virtual_account_id: tenantAccount.id,
       sale_id: saleId,
       transaction_type: 'credit',
       amount_cents: tenantAmount,
-      fee_cents: platformFeeCents,
+      fee_cents: gatewayFeeCents + platformFeeCents,
       net_amount_cents: tenantAmount,
-      description: `Venda #${saleId.slice(0, 8)} (- taxa plataforma)`,
+      description: `Venda #${saleId.slice(0, 8)} (- gateway R$${(gatewayFeeCents/100).toFixed(2)} - plataforma R$${(platformFeeCents/100).toFixed(2)})`,
       status: 'pending',
       release_at: releaseAt.toISOString(),
-    })
-    .select('id')
-    .single();
+    });
 
   // Update tenant pending balance
   const { data: tenantAccountData } = await supabase
@@ -264,12 +480,25 @@ async function processSaleSplits(supabase: any, saleId: string) {
     })
     .eq('id', tenantAccount.id);
 
-  // Create platform fee record (for accounting)
+  // Create gateway fee record
   await supabase
     .from('sale_splits')
     .insert({
       sale_id: saleId,
-      virtual_account_id: tenantAccount.id, // Using tenant account as reference
+      virtual_account_id: tenantAccount.id,
+      split_type: 'gateway',
+      gross_amount_cents: gatewayFeeCents,
+      fee_cents: 0,
+      net_amount_cents: gatewayFeeCents,
+      percentage: (gatewayFeeCents / totalCents) * 100,
+    });
+
+  // Create platform fee record
+  await supabase
+    .from('sale_splits')
+    .insert({
+      sale_id: saleId,
+      virtual_account_id: tenantAccount.id,
       split_type: 'platform',
       gross_amount_cents: platformFeeCents,
       fee_cents: 0,
@@ -277,5 +506,5 @@ async function processSaleSplits(supabase: any, saleId: string) {
       percentage: platformFees.percentage,
     });
 
-  console.log(`Processed splits for sale ${saleId}: Tenant=${tenantAmount}, Affiliate=${affiliateSplitCents}, Platform=${platformFeeCents}`);
+  console.log(`Processed splits for sale ${saleId}: Tenant=${tenantAmount}, Gateway Fee=${gatewayFeeCents}, Platform=${platformFeeCents}, Affiliate=${affiliateSplitCents}`);
 }
