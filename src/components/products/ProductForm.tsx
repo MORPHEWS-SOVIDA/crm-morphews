@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
@@ -43,6 +43,7 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { CreateBrandDialog } from './CreateBrandDialog';
 import { BaseUnitPricing } from './BaseUnitPricing';
 import { ProductCombosReadOnly } from './ProductCombosReadOnly';
+import { ProductIndustryCostsManager } from './ProductIndustryCostsManager';
 
 // Categorias que usam o sistema de kits dinâmicos (múltiplos de 2+)
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping', 'outro'];
@@ -283,7 +284,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Header com abas */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-3 lg:grid-cols-6 gap-1 h-auto p-1">
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1">
             <TabsTrigger value="basic" className="gap-1.5 text-xs sm:text-sm py-2">
               <Package className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Básico</span>
@@ -303,6 +304,10 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
             <TabsTrigger value="fiscal" className="gap-1.5 text-xs sm:text-sm py-2">
               <FileText className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Fiscal</span>
+            </TabsTrigger>
+            <TabsTrigger value="industry" className="gap-1.5 text-xs sm:text-sm py-2">
+              <Factory className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Indústria</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm py-2">
               <Settings className="h-3.5 w-3.5" />
@@ -1358,6 +1363,23 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* =============== TAB INDÚSTRIA =============== */}
+          <TabsContent value="industry" className="mt-6 space-y-6">
+            {product?.id ? (
+              <ProductIndustryCostsManager productId={product.id} />
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Factory className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Salve o produto primeiro</h3>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Após criar o produto, você poderá vincular custos de indústrias/fornecedores
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* =============== TAB CONFIGURAÇÕES =============== */}
