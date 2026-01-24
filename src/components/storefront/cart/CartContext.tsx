@@ -62,6 +62,17 @@ function useDebouncedCallback<T extends (...args: any[]) => void>(
   }, [callback, delay]) as T;
 }
 
+// Generate a unique session ID for cart tracking
+function getOrCreateSessionId(): string {
+  const storageKey = 'cart_session_id';
+  let sessionId = localStorage.getItem(storageKey);
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem(storageKey, sessionId);
+  }
+  return sessionId;
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [storefrontSlug, setStorefrontSlug] = useState<string | null>(null);
@@ -69,6 +80,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartId, setCartId] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState<CartCustomerData>({});
   const [shippingData, setShippingData] = useState<CartShippingData>({});
+  const [sessionId] = useState<string>(() => getOrCreateSessionId());
   const { getUtmForCheckout } = useUtmTracker();
 
   // Load cart from localStorage on mount
@@ -128,6 +140,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       
       const payload = {
         cart_id: currentCartId || undefined,
+        session_id: sessionId,
         storefront_id: currentStorefrontId,
         source: 'storefront' as const,
         items: currentItems.map(item => ({
@@ -161,7 +174,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.error('Cart sync error:', error);
       // Don't show error to user - silent sync
     }
-  }, [getUtmForCheckout]);
+  }, [getUtmForCheckout, sessionId]);
 
   // Debounced sync for customer/shipping data updates
   const debouncedSync = useDebouncedCallback((
