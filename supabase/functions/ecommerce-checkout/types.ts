@@ -17,9 +17,9 @@ export interface GatewayConfig {
 export interface GatewayFallbackConfig {
   payment_method: PaymentMethod;
   primary_gateway: GatewayType;
-  fallback_sequence: GatewayType[];
-  max_retries: number;
-  retry_delay_ms: number;
+  fallback_gateways: GatewayType[]; // DB uses 'fallback_gateways' not 'fallback_sequence'
+  fallback_enabled: boolean; // DB uses 'fallback_enabled' not 'is_active'
+  max_fallback_attempts: number; // DB uses 'max_fallback_attempts' not 'max_retries'
 }
 
 export interface PaymentRequest {

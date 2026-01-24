@@ -105,6 +105,8 @@ export interface CreateLandingPageInput {
   subheadline?: string;
   video_url?: string;
   benefits?: string[];
+  testimonials?: { name: string; text: string; avatar?: string; style?: string; whatsappMessages?: unknown[] }[];
+  faq?: { question: string; answer: string }[];
   urgency_text?: string;
   guarantee_text?: string;
   logo_url?: string;
@@ -137,16 +139,30 @@ export function useCreateLandingPage() {
       
       if (!profile?.organization_id) throw new Error('Organização não encontrada');
       
-      const { offers, ...pageData } = input;
+      const { offers, testimonials, faq, ...pageData } = input;
       
       // Create landing page
+      // Create landing page - use explicit typing to avoid insert overload issues
       const { data: page, error } = await supabase
         .from('landing_pages')
         .insert({
-          ...pageData,
-          organization_id: profile.organization_id,
+          product_id: pageData.product_id,
+          name: pageData.name,
+          slug: pageData.slug,
+          template_id: pageData.template_id || null,
+          headline: pageData.headline || null,
+          subheadline: pageData.subheadline || null,
+          video_url: pageData.video_url || null,
           benefits: pageData.benefits || [],
-        })
+          testimonials: testimonials || [],
+          faq: faq || [],
+          urgency_text: pageData.urgency_text || null,
+          guarantee_text: pageData.guarantee_text || null,
+          logo_url: pageData.logo_url || null,
+          primary_color: pageData.primary_color || '#000000',
+          whatsapp_number: pageData.whatsapp_number || null,
+          organization_id: profile.organization_id,
+        } as any)
         .select()
         .single();
       

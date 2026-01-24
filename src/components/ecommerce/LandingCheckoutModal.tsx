@@ -190,9 +190,12 @@ export function LandingCheckoutModal({
       );
 
       const result = await response.json();
+      console.log('Checkout response:', result);
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Erro ao processar pagamento');
+      if (!response.ok || result.success === false) {
+        const errorMsg = result.error || 'Erro ao processar pagamento';
+        console.error('Checkout failed:', errorMsg, result);
+        throw new Error(errorMsg);
       }
 
       // Handle response based on payment method
