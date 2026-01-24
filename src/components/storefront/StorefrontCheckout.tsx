@@ -142,6 +142,8 @@ export function StorefrontCheckout() {
           phone: formData.phone,
           document: formData.cpf,
         },
+        // IMPORTANT: backend needs shipping cost to charge correct total (PIX/BOLETO/CARD)
+        shipping_cost_cents: shippingCents,
         shipping: checkoutConfig.collectAddress !== false ? {
           address: formData.street,
           city: formData.city,
@@ -186,7 +188,8 @@ export function StorefrontCheckout() {
             saleId: result.sale_id, 
             pix_code: result.pix_code,
             pix_expiration: result.pix_expiration,
-            total_cents: total,
+            // Prefer backend total to avoid any mismatch (e.g., shipping)
+            total_cents: typeof result.total_cents === 'number' ? result.total_cents : total,
             paymentMethod 
           },
         });

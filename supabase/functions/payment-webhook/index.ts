@@ -203,6 +203,57 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
     };
   }
 
+  // Pagar.me format (v5 core) - event wrapper with type + data
+  // Examples seen in the wild:
+  // - { id: 'hook_x', type: 'order.paid', data: { id: 'or_x', status: 'paid', code: '...', metadata: {...}, charges: [...] } }
+  // - { type: 'charge.paid', data: { id: 'ch_x', status: 'paid', metadata: {...}, amount: 1234 } }
+  if (typeof body.type === 'string' && body.data && typeof body.data === 'object') {
+    const type = (body.type as string).toLowerCase();
+    const rawData = body as Record<string, unknown>;
+
+    // Heuristic: consider it Pagar.me if event looks like order.* or charge.* and payload resembles a core object
+    if (type.startsWith('order.') || type.startsWith('charge.')) {
+      const dataWrapper = body.data as Record<string, unknown>;
+      const dataObj = (dataWrapper.object && typeof dataWrapper.object === 'object')
+        ? (dataWrapper.object as Record<string, unknown>)
+        : dataWrapper;
+
+      const metadata = (dataObj.metadata && typeof dataObj.metadata === 'object')
+        ? (dataObj.metadata as Record<string, unknown>)
+        : {};
+
+      // Try multiple places for sale id
+      const saleId = (metadata.sale_id as string)
+        || (dataObj.code as string)
+        || ((Array.isArray(dataObj.items) ? (dataObj.items as Record<string, unknown>[])[0]?.code : null) as string)
+        || null;
+
+      const charges = Array.isArray(dataObj.charges) ? (dataObj.charges as Record<string, unknown>[]) : [];
+      const charge0 = charges[0] || {};
+      const lastTx = (charge0.last_transaction && typeof charge0.last_transaction === 'object')
+        ? (charge0.last_transaction as Record<string, unknown>)
+        : {};
+
+      const status = (dataObj.status as string) || (charge0.status as string) || type;
+      const transactionId = (dataObj.id as string) || (charge0.id as string) || null;
+      const paymentMethod = (charge0.payment_method as string) || (dataObj.payment_method as string) || null;
+      const amountCents = (charge0.amount as number) || (dataObj.amount as number) || null;
+
+      const feeMaybe = (lastTx.gateway_fee ?? charge0.gateway_fee ?? 0) as number;
+
+      return {
+        gateway: 'pagarme',
+        saleId,
+        status,
+        transactionId,
+        paymentMethod,
+        amountCents,
+        feeCents: feeMaybe,
+        rawData,
+      };
+    }
+  }
+
   // Appmax format
   if (body.event !== undefined && body.data) {
     const data = body.data as Record<string, unknown>;

@@ -103,6 +103,9 @@ export interface CheckoutRequest {
     phone: string;
     document?: string;
   };
+  // Shipping cost must be sent from frontend; backend cannot calculate yet.
+  // This is critical so PIX/BOLETO totals match what the user sees.
+  shipping_cost_cents?: number;
   shipping?: {
     address: string;
     city: string;

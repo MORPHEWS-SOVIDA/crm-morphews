@@ -64,6 +64,7 @@ async function createPagarmePixV5(
   
   // V5 PIX uses /orders endpoint with pix payment
   const payload = {
+    code: request.sale_id,
     customer: {
       name: request.customer.name,
       email: request.customer.email,
@@ -173,6 +174,7 @@ async function createPagarmeCardV5(
   }
 
   const payload = {
+    code: request.sale_id,
     customer: {
       name: request.customer.name,
       email: request.customer.email,
@@ -267,6 +269,7 @@ async function createPagarmeBoletoV5(
   const expirationDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
   
   const payload = {
+    code: request.sale_id,
     customer: {
       name: request.customer.name,
       email: request.customer.email,

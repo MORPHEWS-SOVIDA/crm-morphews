@@ -37,6 +37,30 @@ serve(async (req) => {
 
     console.warn("[PagarmeWebhook] ⚠️ This endpoint is deprecated. Please configure Pagar.me to use /functions/v1/payment-webhook instead.");
 
+    // Best-effort forward to unified payment webhook so we don't depend on external reconfiguration.
+    // This keeps backward compatibility with existing Pagar.me webhook settings.
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      if (supabaseUrl) {
+        const forwardResp = await fetch(`${supabaseUrl}/functions/v1/payment-webhook`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Forwarded-From": "pagarme-webhook",
+          },
+          body,
+        });
+
+        const forwardText = await forwardResp.text();
+        console.log("[PagarmeWebhook] Forwarded to payment-webhook:", {
+          status: forwardResp.status,
+          body: forwardText.slice(0, 500),
+        });
+      }
+    } catch (forwardError) {
+      console.error("[PagarmeWebhook] Failed to forward to payment-webhook:", forwardError);
+    }
+
     // Return 200 to prevent Pagar.me from retrying
     // The payment-webhook should be the one processing this event
     return new Response(

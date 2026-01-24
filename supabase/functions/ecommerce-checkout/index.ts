@@ -151,7 +151,8 @@ serve(async (req) => {
 
     // 3. Calculate totals
     const subtotalCents = productItems.reduce((acc, item) => acc + (item.price_cents * item.quantity), 0);
-    const shippingCents = 0; // TODO: Calculate shipping
+    // NOTE: shipping is currently calculated on frontend (ShippingSelector). We must receive it here.
+    const shippingCents = Number.isFinite(Number(body.shipping_cost_cents)) ? Number(body.shipping_cost_cents) : 0;
     const totalCents = subtotalCents + shippingCents;
 
     // 4. Check affiliate
@@ -305,8 +306,12 @@ serve(async (req) => {
       JSON.stringify({
         success: paymentResult.response.success,
         sale_id: sale.id,
+        subtotal_cents: subtotalCents,
+        shipping_cost_cents: shippingCents,
+        total_cents: totalCents,
         payment_url: paymentResult.response.payment_url,
         pix_code: paymentResult.response.pix_code,
+        pix_expiration: paymentResult.response.pix_expiration,
         boleto_barcode: paymentResult.response.boleto_barcode,
         gateway_used: paymentResult.usedGateway,
         attempts_count: paymentResult.attempts.length,
