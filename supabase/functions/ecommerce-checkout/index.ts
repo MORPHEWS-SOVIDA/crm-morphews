@@ -221,19 +221,22 @@ serve(async (req) => {
         });
     }
 
-    // 7. Store affiliate reference if exists
-    if (affiliateId) {
-      await supabase
-        .from('sale_splits')
+    // 7. Store affiliate attribution if exists (splits are created by payment-webhook on payment confirmation)
+    if (affiliateId && affiliate_code) {
+      const { error: attrError } = await supabase
+        .from('affiliate_attributions')
         .insert({
           sale_id: sale.id,
-          virtual_account_id: affiliateId,
-          split_type: 'affiliate',
-          gross_amount_cents: Math.round(totalCents * (affiliateCommissionPercentage / 100)),
-          fee_cents: 0,
-          net_amount_cents: Math.round(totalCents * (affiliateCommissionPercentage / 100)),
-          percentage: affiliateCommissionPercentage,
+          organization_id: organizationId,
+          affiliate_id: affiliateId,
+          attribution_type: 'coupon',
+          code_or_ref: affiliate_code,
         });
+      
+      if (attrError) {
+        console.error('Failed to create affiliate attribution:', attrError);
+        // Non-blocking - continue with checkout even if attribution fails
+      }
     }
 
     // 8. Convert cart if exists
