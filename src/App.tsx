@@ -41,6 +41,7 @@ const PublicLandingPage = lazy(() => import("./pages/ecommerce/PublicLandingPage
 const PublicHelper = lazy(() => import("./pages/PublicHelper"));
 const PaymentSuccess = lazy(() => import("./pages/ecommerce/PaymentSuccess"));
 const PaymentCanceled = lazy(() => import("./pages/ecommerce/PaymentCanceled"));
+const UniversalCheckout = lazy(() => import("./pages/ecommerce/UniversalCheckout"));
 
 // Leads
 const LeadsList = lazy(() => import("./pages/LeadsList"));
@@ -161,6 +162,7 @@ const App = () => (
                 <Route path="/helper" element={<PublicHelper />} />
                 <Route path="/pagamento-sucesso" element={<PaymentSuccess />} />
                 <Route path="/pagamento-cancelado" element={<PaymentCanceled />} />
+                <Route path="/c/:cartId" element={<UniversalCheckout />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>
