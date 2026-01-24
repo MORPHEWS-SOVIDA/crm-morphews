@@ -58,13 +58,22 @@ interface SplitResult {
 
 /**
  * Build unique reference ID for idempotency
+ * CRITICAL: Reference ID is STABLE by logical event (no timestamp!)
+ * This prevents duplicate processing when gateway resends with different timestamps
  */
 export function buildReferenceId(gateway: string, payload: Record<string, unknown>): string {
   const tx = (payload.transaction || payload) as Record<string, unknown>;
-  const txId = tx.id || tx.transaction_id || payload.id || 'unknown';
-  const status = tx.status || payload.current_status || payload.event || 'unknown';
-  const ts = tx.updated_at || tx.date_updated || tx.created_at || payload.date_created || new Date().toISOString();
-  return `${gateway}:${txId}:${status}:${ts}`;
+  
+  // Get transaction ID (the most stable identifier)
+  const txId = tx?.id || tx?.transaction_id || payload?.id || 
+               (payload?.charge as Record<string, unknown>)?.id || 'unknown';
+  
+  // Get status - normalize to our internal status
+  const rawStatus = tx?.status || payload?.current_status || payload?.event || payload?.status || 'unknown';
+  
+  // DO NOT include timestamp - it varies across retries!
+  // Reference format: gateway:transactionId:status
+  return `${gateway}:${txId}:${rawStatus}`;
 }
 
 /**
@@ -86,6 +95,52 @@ function addDays(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString();
+}
+
+/**
+ * Try to acquire event lock via unique transaction
+ * Returns true if lock acquired, false if already processed
+ */
+async function tryAcquireEventLock(
+  supabase: SupabaseClient, 
+  referenceId: string, 
+  platformAccountId: string,
+  saleId: string
+): Promise<boolean> {
+  const lockReferenceId = `${referenceId}:LOCK`;
+  
+  try {
+    const { error } = await supabase
+      .from('virtual_transactions')
+      .insert({
+        virtual_account_id: platformAccountId,
+        sale_id: saleId,
+        transaction_type: 'credit',
+        amount_cents: 0,
+        fee_cents: 0,
+        net_amount_cents: 0,
+        description: `Event lock: ${referenceId}`,
+        status: 'completed',
+        release_at: new Date().toISOString(),
+        reference_id: lockReferenceId,
+      });
+
+    if (error) {
+      if (isUniqueViolation(error)) {
+        console.log(`[SplitEngine] Event ${referenceId} already locked/processed`);
+        return false;
+      }
+      throw error;
+    }
+
+    console.log(`[SplitEngine] Acquired lock for event ${referenceId}`);
+    return true;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 // =====================================================
@@ -310,7 +365,18 @@ export async function processSaleSplitsV3(
 ): Promise<SplitResult> {
   console.log(`[SplitEngine] Processing splits for sale ${saleId} with referenceId ${referenceId}`);
 
-  // 1) Check if already processed (idempotency via tenant split check)
+  // Get platform account for locking
+  const platformAccountId = await getPlatformAccount(supabase);
+
+  // CRITICAL: Acquire event lock FIRST (all-or-nothing per event)
+  // This is the TRUE idempotency gate - if lock fails, event already processed
+  const lockAcquired = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
+  if (!lockAcquired) {
+    console.log(`[SplitEngine] Event already processed (lock exists), skipping`);
+    return { factory_amount: 0, industry_amount: 0, affiliate_amount: 0, tenant_amount: 0, platform_amount: 0, gateway_fee: 0 };
+  }
+
+  // Fast path check (optimization, not the idempotency gate)
   const { data: existingTenantSplit } = await supabase
     .from('sale_splits')
     .select('id')
@@ -319,7 +385,7 @@ export async function processSaleSplitsV3(
     .maybeSingle();
 
   if (existingTenantSplit) {
-    console.log(`[SplitEngine] Sale ${saleId} already processed, skipping`);
+    console.log(`[SplitEngine] Sale ${saleId} already has tenant split, skipping`);
     return { factory_amount: 0, industry_amount: 0, affiliate_amount: 0, tenant_amount: 0, platform_amount: 0, gateway_fee: 0 };
   }
 
@@ -343,9 +409,8 @@ export async function processSaleSplitsV3(
   // 3) Load split rules
   const rules = await loadSplitRules(supabase, sale.organization_id);
   
-  // 4) Get accounts
+  // 4) Get tenant account (platform account already fetched above for lock)
   const tenantAccount = await getOrCreateTenantAccount(supabase, sale.organization_id);
-  const platformAccountId = await getPlatformAccount(supabase);
 
   const totalCents = sale.total_cents;
   const gatewayFeeCents = reconciliation?.feeCents || 0;
@@ -612,6 +677,16 @@ export async function processRefundOrChargeback(
 ): Promise<void> {
   console.log(`[SplitEngine] Processing ${kind} for sale ${saleId}`);
 
+  // Get platform account for event lock
+  const platformAccountId = await getPlatformAccount(supabase);
+
+  // CRITICAL: Acquire event lock for refund/chargeback (prevents double debit)
+  const lockAcquired = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
+  if (!lockAcquired) {
+    console.log(`[SplitEngine] ${kind} event already processed (lock exists), skipping`);
+    return;
+  }
+
   // Get all liable splits for this sale
   const liableColumn = kind === 'refund' ? 'liable_for_refund' : 'liable_for_chargeback';
   
@@ -635,6 +710,20 @@ export async function processRefundOrChargeback(
     const txReferenceId = `${referenceId}:${kind}:${split.split_type}`;
 
     try {
+      // Check original transaction status to determine which balance to debit
+      const { data: originalTx } = await supabase
+        .from('virtual_transactions')
+        .select('status')
+        .eq('sale_id', saleId)
+        .eq('virtual_account_id', account.id)
+        .eq('transaction_type', 'credit')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const originalStatus = originalTx?.status || 'pending';
+      const debitFromPending = originalStatus === 'pending';
+
       // Create debit transaction (idempotent)
       const { error: txError } = await supabase
         .from('virtual_transactions')
@@ -645,7 +734,7 @@ export async function processRefundOrChargeback(
           amount_cents: -debitAmount,
           fee_cents: 0,
           net_amount_cents: -debitAmount,
-          description: `${kind === 'refund' ? 'Reembolso' : 'Chargeback'} - Venda #${saleId.slice(0, 8)}`,
+          description: `${kind === 'refund' ? 'Reembolso' : 'Chargeback'} - Venda #${saleId.slice(0, 8)} (from ${debitFromPending ? 'pending' : 'balance'})`,
           status: 'completed',
           reference_id: txReferenceId,
         });
@@ -658,15 +747,28 @@ export async function processRefundOrChargeback(
         throw txError;
       }
 
-      // Update balance (can go negative)
-      await supabase
-        .from('virtual_accounts')
-        .update({
-          balance_cents: ((account.balance_cents as number) || 0) - debitAmount,
-        })
-        .eq('id', account.id);
-
-      console.log(`[SplitEngine] Debited R$${(debitAmount / 100).toFixed(2)} from ${split.split_type} for ${kind}`);
+      // CRITICAL: Debit from correct balance based on original transaction status
+      // If original was still pending, debit pending_balance
+      // If original was released/completed, debit balance
+      if (debitFromPending) {
+        // Debit from pending_balance_cents (original credit not yet released)
+        await supabase
+          .from('virtual_accounts')
+          .update({
+            pending_balance_cents: ((account.pending_balance_cents as number) || 0) - debitAmount,
+          })
+          .eq('id', account.id);
+        console.log(`[SplitEngine] Debited R$${(debitAmount / 100).toFixed(2)} from ${split.split_type} PENDING balance for ${kind}`);
+      } else {
+        // Debit from balance_cents (original credit already released) - can go negative
+        await supabase
+          .from('virtual_accounts')
+          .update({
+            balance_cents: ((account.balance_cents as number) || 0) - debitAmount,
+          })
+          .eq('id', account.id);
+        console.log(`[SplitEngine] Debited R$${(debitAmount / 100).toFixed(2)} from ${split.split_type} AVAILABLE balance for ${kind}`);
+      }
 
     } catch (error) {
       if (!isUniqueViolation(error)) {
