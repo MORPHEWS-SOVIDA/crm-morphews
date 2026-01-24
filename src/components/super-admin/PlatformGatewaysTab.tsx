@@ -56,14 +56,9 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-const getWebhookUrl = (gatewayType: GatewayType): string => {
-  const webhookEndpoints: Record<GatewayType, string> = {
-    pagarme: `${SUPABASE_URL}/functions/v1/pagarme-webhook`,
-    stripe: `${SUPABASE_URL}/functions/v1/stripe-webhook`,
-    appmax: `${SUPABASE_URL}/functions/v1/appmax-webhook`,
-    asaas: `${SUPABASE_URL}/functions/v1/asaas-webhook`,
-  };
-  return webhookEndpoints[gatewayType];
+// Unified webhook URL for all gateways - single source of truth
+const getWebhookUrl = (_gatewayType: GatewayType): string => {
+  return `${SUPABASE_URL}/functions/v1/payment-webhook`;
 };
 
 export function PlatformGatewaysTab() {
