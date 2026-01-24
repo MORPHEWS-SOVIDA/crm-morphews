@@ -39,6 +39,8 @@ const Power = lazy(() => import("./pages/Power"));
 const NichePage = lazy(() => import("./pages/niches"));
 const PublicLandingPage = lazy(() => import("./pages/ecommerce/PublicLandingPage"));
 const PublicHelper = lazy(() => import("./pages/PublicHelper"));
+const PaymentSuccess = lazy(() => import("./pages/ecommerce/PaymentSuccess"));
+const PaymentCanceled = lazy(() => import("./pages/ecommerce/PaymentCanceled"));
 
 // Leads
 const LeadsList = lazy(() => import("./pages/LeadsList"));
@@ -157,6 +159,8 @@ const App = () => (
                 <Route path="/legal" element={<Legal />} />
                 <Route path="/lp/:slug" element={<PublicLandingPage />} />
                 <Route path="/helper" element={<PublicHelper />} />
+                <Route path="/pagamento-sucesso" element={<PaymentSuccess />} />
+                <Route path="/pagamento-cancelado" element={<PaymentCanceled />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>

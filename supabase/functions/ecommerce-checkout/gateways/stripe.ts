@@ -17,7 +17,8 @@ export async function processStripePayment(
       };
     }
 
-    return await createStripePaymentIntent(apiKey, request);
+    // Use Stripe Checkout Session for better UX and security
+    return await createStripeCheckoutSession(apiKey, request);
   } catch (error) {
     console.error('Stripe error:', error);
     return {
@@ -28,30 +29,37 @@ export async function processStripePayment(
   }
 }
 
-async function createStripePaymentIntent(
+async function createStripeCheckoutSession(
   apiKey: string,
   request: PaymentRequest
 ): Promise<GatewayResponse> {
   // First, get or create customer
   const customerId = await getOrCreateStripeCustomer(apiKey, request);
 
+  // Build line items for checkout
   const params = new URLSearchParams();
-  params.append('amount', String(request.amount_cents));
-  params.append('currency', 'brl');
+  params.append('mode', 'payment');
   params.append('customer', customerId);
+  params.append('line_items[0][quantity]', '1');
+  params.append('line_items[0][price_data][currency]', 'brl');
+  params.append('line_items[0][price_data][unit_amount]', String(request.amount_cents));
+  params.append('line_items[0][price_data][product_data][name]', 'Pedido #' + request.sale_id.slice(0, 8));
+  
+  // Success and cancel URLs
+  const baseUrl = Deno.env.get('SITE_URL') || 'https://sales.morphews.com';
+  params.append('success_url', `${baseUrl}/pagamento-sucesso?sale=${request.sale_id}&session_id={CHECKOUT_SESSION_ID}`);
+  params.append('cancel_url', `${baseUrl}/pagamento-cancelado?sale=${request.sale_id}`);
+  
+  // Metadata for tracking
   params.append('metadata[sale_id]', request.sale_id);
   params.append('metadata[organization_id]', request.organization_id || '');
-  
-  // If we have a saved payment method, use it
-  if (request.card_token) {
-    params.append('payment_method', request.card_token);
-    params.append('confirm', 'true');
-    params.append('off_session', 'true');
-  } else {
-    params.append('payment_method_types[]', 'card');
-  }
+  params.append('payment_intent_data[metadata][sale_id]', request.sale_id);
+  params.append('payment_intent_data[metadata][organization_id]', request.organization_id || '');
 
-  const response = await fetch('https://api.stripe.com/v1/payment_intents', {
+  // Phone number collection
+  params.append('phone_number_collection[enabled]', 'false');
+
+  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -63,19 +71,21 @@ async function createStripePaymentIntent(
   const result = await response.json();
 
   if (!response.ok || result.error) {
+    console.error('Stripe checkout error:', result);
     return {
       success: false,
       error_code: result.error?.code || 'STRIPE_ERROR',
-      error_message: result.error?.message || 'Erro ao processar pagamento',
+      error_message: result.error?.message || 'Erro ao criar sessão de pagamento',
     };
   }
+
+  console.log('Stripe Checkout Session created:', result.id);
 
   return {
     success: true,
     transaction_id: result.id,
-    payment_url: result.next_action?.redirect_to_url?.url || '',
-    status: mapStripeStatus(result.status),
-    client_secret: result.client_secret,
+    payment_url: result.url, // This is the checkout URL
+    status: 'pending',
     raw_response: result,
   };
 }
@@ -108,7 +118,9 @@ async function getOrCreateStripeCustomer(
   const createParams = new URLSearchParams();
   createParams.append('email', request.customer.email);
   createParams.append('name', request.customer.name);
-  createParams.append('phone', request.customer.phone);
+  if (request.customer.phone) {
+    createParams.append('phone', request.customer.phone);
+  }
   createParams.append('metadata[organization_id]', request.organization_id || '');
 
   const createResponse = await fetch('https://api.stripe.com/v1/customers', {
@@ -121,6 +133,12 @@ async function getOrCreateStripeCustomer(
   });
 
   const createResult = await createResponse.json();
+  
+  if (!createResponse.ok || createResult.error) {
+    console.error('Stripe customer creation error:', createResult);
+    throw new Error(createResult.error?.message || 'Erro ao criar cliente');
+  }
+  
   return createResult.id;
 }
 
@@ -133,6 +151,8 @@ function mapStripeStatus(status: string): string {
     'requires_capture': 'authorized',
     'canceled': 'canceled',
     'succeeded': 'paid',
+    'complete': 'paid',
+    'expired': 'expired',
   };
   return statusMap[status] || status;
 }
