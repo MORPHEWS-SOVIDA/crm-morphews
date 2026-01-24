@@ -72,13 +72,38 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!lead) {
-      // Get a default user from the organization for assignment
-      const { data: orgMember } = await supabase
+      // Get a default user from the organization for assignment (required field)
+      const { data: orgMembers } = await supabase
         .from('user_organizations')
         .select('user_id')
         .eq('organization_id', organizationId)
+        .limit(1);
+      
+      const assignedTo = orgMembers?.[0]?.user_id;
+      
+      if (!assignedTo) {
+        // Fallback: get organization owner from profiles
+        const { data: orgOwner } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('organization_id', organizationId)
+          .limit(1);
+        
+        if (!orgOwner?.[0]?.user_id) {
+          throw new Error('Organização sem usuários cadastrados para atribuição de lead');
+        }
+      }
+      
+      const finalAssignedTo = assignedTo || (await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('organization_id', organizationId)
         .limit(1)
-        .single();
+        .then(res => res.data?.[0]?.user_id));
+      
+      if (!finalAssignedTo) {
+        throw new Error('Não foi possível identificar um responsável para o lead');
+      }
       
       const { data: newLead, error: leadError } = await supabase
         .from('leads')
@@ -88,7 +113,7 @@ serve(async (req) => {
           email: customer.email,
           whatsapp: normalizedPhone,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
-          assigned_to: orgMember?.user_id || null,
+          assigned_to: finalAssignedTo,
           // Attribution UTM data
           src: utm?.src || null,
           utm_source: utm?.utm_source || null,
