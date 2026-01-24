@@ -301,12 +301,14 @@ function buildObjetoPostalPPNv3(
 
   // Include declaration content INSIDE the object (PPN v3 requirement)
   // This is REQUIRED when not sending invoice (NFe)
+  // The itensDeclaracaoConteudo must include: conteudo, quantidade, valor, peso
   if (includeDeclaracao) {
     obj.itensDeclaracaoConteudo = [
       {
         conteudo: "Produtos diversos",
         quantidade: 1,
         valor: valorDeclarado,
+        peso: peso, // CRITICAL: peso is required in each item
       }
     ];
   }
@@ -513,16 +515,28 @@ async function createPrePostagem(
   }
 
   // ======================================================
-  // PPN v3: use ONLY the official/correct structure.
-  // We explicitly avoid legacy fallbacks, because they can
-  // trigger misleading validation errors on the Correios side.
+  // PPN v3: CRITICAL STRUCTURE
+  // 1. possuiDeclaracaoConteudo: "S" (string, not boolean!) at root level
+  // 2. itensDeclaracaoConteudo INSIDE objetosPostais (not at root)
+  // 3. objetosPostais (plural array), never objetoPostal (singular)
+  // Without this exact structure, the API ignores the entire object
+  // and returns misleading "null" errors for all fields.
   // ======================================================
+  
+  const hasInvoice = !!request.invoice_key;
+  
   const payload: Record<string, unknown> = {
     codigoServico: serviceCode,
     remetente,
     destinatario,
     objetosPostais: [objetoPostal],
   };
+  
+  // CRITICAL: possuiDeclaracaoConteudo must be "S" (string) when no NFe is provided
+  // This flag at root level tells the API to expect itensDeclaracaoConteudo inside objetosPostais
+  if (!hasInvoice) {
+    payload.possuiDeclaracaoConteudo = "S";
+  }
 
   // idCorreios é opcional e NUNCA deve ir como null
   if (config.id_correios) {
