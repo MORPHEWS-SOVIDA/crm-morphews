@@ -81,7 +81,7 @@ export function StorefrontProductPage() {
       quantity,
       kitSize,
       unitPrice: kitPrices[kitSize] / kitSize,
-    }, slug);
+    }, slug, storefront.id);
   };
 
   return (

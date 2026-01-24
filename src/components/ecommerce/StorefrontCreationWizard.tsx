@@ -85,6 +85,8 @@ const STEPS = [
 export function StorefrontCreationWizard({ templates, onComplete, onCancel }: StorefrontCreationWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
+  const [isGeneratingBanner, setIsGeneratingBanner] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   
@@ -152,6 +154,67 @@ export function StorefrontCreationWizard({ templates, onComplete, onCancel }: St
       templateSlug: template.slug,
       primaryColor: colors?.primary || prev.primaryColor,
     }));
+  };
+
+  // AI Image Generation
+  const generateAIImage = async (type: 'logo' | 'banner') => {
+    if (!wizardData.storeName.trim()) {
+      toast.error('Preencha o nome da loja primeiro');
+      return;
+    }
+
+    const setLoading = type === 'logo' ? setIsGeneratingLogo : setIsGeneratingBanner;
+    setLoading(true);
+
+    try {
+      const nicheLabels: Record<string, string> = {
+        saude: 'health supplements',
+        beleza: 'beauty cosmetics',
+        moda: 'fashion accessories',
+        alimentos: 'gourmet food',
+        casa: 'home decor',
+        tech: 'technology gadgets',
+        outro: 'retail',
+      };
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-storefront-images`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            type,
+            storeName: wizardData.storeName,
+            niche: nicheLabels[wizardData.niche] || 'retail',
+            primaryColor: wizardData.primaryColor,
+            style: 'Premium, professional, high-quality',
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!result.success || !result.imageUrl) {
+        throw new Error(result.error || 'Falha ao gerar imagem');
+      }
+
+      // Set the generated image as preview
+      if (type === 'logo') {
+        setWizardData(prev => ({ ...prev, logoPreview: result.imageUrl }));
+      } else {
+        setWizardData(prev => ({ ...prev, bannerPreview: result.imageUrl }));
+      }
+
+      toast.success(`${type === 'logo' ? 'Logo' : 'Banner'} gerado com sucesso!`);
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao gerar imagem');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const canProceed = () => {
@@ -326,10 +389,27 @@ export function StorefrontCreationWizard({ templates, onComplete, onCancel }: St
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label>Logo</Label>
-                    <Badge variant="outline" className="text-xs">
-                      <Info className="h-3 w-3 mr-1" />
-                      200×200px ideal
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateAIImage('logo')}
+                        disabled={isGeneratingLogo || !wizardData.storeName}
+                        className="gap-1"
+                      >
+                        {isGeneratingLogo ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        Gerar com IA
+                      </Button>
+                      <Badge variant="outline" className="text-xs">
+                        <Info className="h-3 w-3 mr-1" />
+                        200×200px
+                      </Badge>
+                    </div>
                   </div>
                   <input
                     ref={logoInputRef}
@@ -365,10 +445,27 @@ export function StorefrontCreationWizard({ templates, onComplete, onCancel }: St
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label>Banner Principal</Label>
-                    <Badge variant="outline" className="text-xs">
-                      <Info className="h-3 w-3 mr-1" />
-                      1920×600px ideal
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateAIImage('banner')}
+                        disabled={isGeneratingBanner || !wizardData.storeName}
+                        className="gap-1"
+                      >
+                        {isGeneratingBanner ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        Gerar com IA
+                      </Button>
+                      <Badge variant="outline" className="text-xs">
+                        <Info className="h-3 w-3 mr-1" />
+                        1920×600px
+                      </Badge>
+                    </div>
                   </div>
                   <input
                     ref={bannerInputRef}
