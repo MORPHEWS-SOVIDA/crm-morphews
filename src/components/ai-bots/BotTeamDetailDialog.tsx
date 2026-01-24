@@ -228,12 +228,12 @@ export function BotTeamDetailDialog({ teamId, open, onOpenChange }: BotTeamDetai
 
               <div className="space-y-2">
                 <Label>Robô Fallback</Label>
-                <Select value={fallbackBotId} onValueChange={setFallbackBotId}>
+                <Select value={fallbackBotId || "__none__"} onValueChange={(value) => setFallbackBotId(value === "__none__" ? "" : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o robô fallback" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
                     {members?.filter((m: any) => m.bot_id !== initialBotId).map((m: any) => (
                       <SelectItem key={m.bot_id} value={m.bot_id}>
                         {m.bot?.name || "Robô"}
