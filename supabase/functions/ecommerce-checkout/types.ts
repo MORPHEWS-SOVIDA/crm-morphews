@@ -41,6 +41,15 @@ export interface PaymentRequest {
     email: string;
     phone: string;
     document?: string;
+    address?: {
+      street?: string;
+      number?: string;
+      complement?: string;
+      neighborhood?: string;
+      city?: string;
+      state?: string;
+      zip_code?: string;
+    };
   };
   postback_url: string;
   card_token?: string;
