@@ -287,7 +287,7 @@ function mapStatus(rawStatus: string, gateway: string): { newStatus: string; pay
 }
 
 async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
-  // Fetch sale details
+  // Fetch sale details with items
   const { data: sale, error: saleError } = await supabase
     .from('sales')
     .select('id, organization_id, total_cents')
@@ -321,11 +321,11 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
     return acc;
   }, {} as Record<string, unknown>);
 
-  const platformFees = (settings.platform_fees as { percentage?: number; fixed_cents?: number }) || { percentage: 5.0, fixed_cents: 0 };
+  const platformFees = (settings.platform_fees as { percentage?: number; fixed_cents?: number }) || { percentage: 4.99, fixed_cents: 100 };
   const withdrawalRules = (settings.withdrawal_rules as { release_days?: number }) || { release_days: 14 };
 
   const totalCents = sale.total_cents;
-  const platformFeeCents = Math.round(totalCents * ((platformFees.percentage || 5) / 100)) + (platformFees.fixed_cents || 0);
+  const platformFeeCents = Math.round(totalCents * ((platformFees.percentage || 4.99) / 100)) + (platformFees.fixed_cents || 100);
   
   // Release date
   const releaseAt = new Date();
@@ -367,7 +367,55 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
     return;
   }
 
-  // Check for existing affiliate split
+  // ===============================
+  // CALCULATE INDUSTRY COSTS
+  // ===============================
+  let totalIndustryCosts = 0;
+  
+  // Fetch sale items with product info
+  const { data: saleItems } = await supabase
+    .from('sale_items')
+    .select('product_id, quantity')
+    .eq('sale_id', saleId);
+
+  if (saleItems && saleItems.length > 0) {
+    for (const item of saleItems) {
+      // Fetch industry costs for this product
+      const { data: industryCosts } = await supabase
+        .from('product_industry_costs')
+        .select('*, industry:industries(*)')
+        .eq('product_id', item.product_id)
+        .eq('is_active', true);
+
+      if (industryCosts && industryCosts.length > 0) {
+        for (const cost of industryCosts) {
+          const unitTotal = (cost.unit_cost_cents || 0) + (cost.shipping_cost_cents || 0) + (cost.additional_cost_cents || 0);
+          const itemIndustryCost = unitTotal * (item.quantity || 1);
+          totalIndustryCosts += itemIndustryCost;
+
+          // Create industry split record
+          await supabase
+            .from('sale_splits')
+            .insert({
+              sale_id: saleId,
+              virtual_account_id: tenantAccount.id, // Reference for accounting (industry doesn't have virtual account)
+              industry_id: cost.industry_id,
+              split_type: 'industry',
+              gross_amount_cents: itemIndustryCost,
+              fee_cents: 0,
+              net_amount_cents: itemIndustryCost,
+              percentage: (itemIndustryCost / totalCents) * 100,
+            });
+        }
+      }
+    }
+  }
+
+  console.log(`Industry costs for sale ${saleId}: ${totalIndustryCosts} cents`);
+
+  // ===============================
+  // CHECK FOR EXISTING AFFILIATE SPLIT
+  // ===============================
   const { data: affiliateSplits } = await supabase
     .from('sale_splits')
     .select('*')
@@ -418,7 +466,11 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
     }
   }
 
-  const tenantAmount = totalCents - platformFeeCents - affiliateSplitCents;
+  // ===============================
+  // CALCULATE TENANT AMOUNT
+  // Order: Total - Platform Fee - Industry Costs - Affiliate Commission = Tenant
+  // ===============================
+  const tenantAmount = totalCents - platformFeeCents - totalIndustryCosts - affiliateSplitCents;
 
   await supabase
     .from('sale_splits')
@@ -426,10 +478,10 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
       sale_id: saleId,
       virtual_account_id: tenantAccount.id,
       split_type: 'tenant',
-      gross_amount_cents: totalCents - affiliateSplitCents,
+      gross_amount_cents: totalCents - affiliateSplitCents - totalIndustryCosts,
       fee_cents: platformFeeCents,
       net_amount_cents: tenantAmount,
-      percentage: 100 - (affiliateSplitCents / totalCents * 100),
+      percentage: (tenantAmount / totalCents) * 100,
     });
 
   await supabase
@@ -441,7 +493,7 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
       amount_cents: tenantAmount,
       fee_cents: platformFeeCents,
       net_amount_cents: tenantAmount,
-      description: `Venda #${saleId.slice(0, 8)} (- taxa plataforma)`,
+      description: `Venda #${saleId.slice(0, 8)} (- taxa plataforma - indústria - afiliado)`,
       status: 'pending',
       release_at: releaseAt.toISOString(),
     });
@@ -454,6 +506,7 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
     })
     .eq('id', tenantAccount.id);
 
+  // Platform fee split record
   await supabase
     .from('sale_splits')
     .insert({
@@ -463,8 +516,8 @@ async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
       gross_amount_cents: platformFeeCents,
       fee_cents: 0,
       net_amount_cents: platformFeeCents,
-      percentage: platformFees.percentage || 5,
+      percentage: platformFees.percentage || 4.99,
     });
 
-  console.log(`Processed splits for sale ${saleId}: Tenant=${tenantAmount}, Affiliate=${affiliateSplitCents}, Platform=${platformFeeCents}`);
+  console.log(`Processed splits for sale ${saleId}: Tenant=${tenantAmount}, Industry=${totalIndustryCosts}, Affiliate=${affiliateSplitCents}, Platform=${platformFeeCents}`);
 }

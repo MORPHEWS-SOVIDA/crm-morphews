@@ -3536,6 +3536,71 @@ export type Database = {
         }
         Relationships: []
       }
+      industries: {
+        Row: {
+          bank_account: string | null
+          bank_account_type: string | null
+          bank_agency: string | null
+          bank_name: string | null
+          created_at: string | null
+          document: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          legal_name: string | null
+          name: string
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          pix_key: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          legal_name?: string | null
+          name: string
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          pix_key?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          legal_name?: string | null
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          pix_key?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installment_history: {
         Row: {
           changed_by: string | null
@@ -7706,6 +7771,76 @@ export type Database = {
           },
         ]
       }
+      product_industry_costs: {
+        Row: {
+          additional_cost_cents: number | null
+          additional_cost_description: string | null
+          created_at: string | null
+          id: string
+          industry_id: string
+          is_active: boolean | null
+          organization_id: string
+          product_id: string
+          shipping_cost_cents: number | null
+          shipping_cost_description: string | null
+          unit_cost_cents: number
+          unit_cost_description: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_cost_cents?: number | null
+          additional_cost_description?: string | null
+          created_at?: string | null
+          id?: string
+          industry_id: string
+          is_active?: boolean | null
+          organization_id: string
+          product_id: string
+          shipping_cost_cents?: number | null
+          shipping_cost_description?: string | null
+          unit_cost_cents?: number
+          unit_cost_description?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_cost_cents?: number | null
+          additional_cost_description?: string | null
+          created_at?: string | null
+          id?: string
+          industry_id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          product_id?: string
+          shipping_cost_cents?: number | null
+          shipping_cost_description?: string | null
+          unit_cost_cents?: number
+          unit_cost_description?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_industry_costs_industry_id_fkey"
+            columns: ["industry_id"]
+            isOneToOne: false
+            referencedRelation: "industries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_industry_costs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_industry_costs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_ingredients: {
         Row: {
           created_at: string
@@ -8941,6 +9076,7 @@ export type Database = {
           fee_cents: number | null
           gross_amount_cents: number
           id: string
+          industry_id: string | null
           net_amount_cents: number
           percentage: number | null
           sale_id: string
@@ -8953,6 +9089,7 @@ export type Database = {
           fee_cents?: number | null
           gross_amount_cents: number
           id?: string
+          industry_id?: string | null
           net_amount_cents: number
           percentage?: number | null
           sale_id: string
@@ -8965,6 +9102,7 @@ export type Database = {
           fee_cents?: number | null
           gross_amount_cents?: number
           id?: string
+          industry_id?: string | null
           net_amount_cents?: number
           percentage?: number | null
           sale_id?: string
@@ -8973,6 +9111,13 @@ export type Database = {
           virtual_account_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_splits_industry_id_fkey"
+            columns: ["industry_id"]
+            isOneToOne: false
+            referencedRelation: "industries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_splits_sale_id_fkey"
             columns: ["sale_id"]
