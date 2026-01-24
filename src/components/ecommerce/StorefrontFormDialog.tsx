@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   useStorefrontTemplates,
   useCreateStorefront,
@@ -14,6 +16,7 @@ import {
   type Storefront,
   type CreateStorefrontInput,
 } from '@/hooks/ecommerce';
+import { StorefrontCreationWizard } from './StorefrontCreationWizard';
 
 interface StorefrontFormDialogProps {
   open: boolean;
@@ -25,6 +28,9 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
   const { data: templates } = useStorefrontTemplates();
   const createStorefront = useCreateStorefront();
   const updateStorefront = useUpdateStorefront();
+  
+  const [useWizard, setUseWizard] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   
   const [formData, setFormData] = useState<CreateStorefrontInput>({
     name: '',
@@ -51,6 +57,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
         meta_description: storefront.meta_description || '',
         whatsapp_number: storefront.whatsapp_number || '',
       });
+      setUseWizard(false); // Always use form for editing
     } else {
       setFormData({
         name: '',
@@ -63,6 +70,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
         meta_description: '',
         whatsapp_number: '',
       });
+      setUseWizard(true); // Use wizard for new stores
     }
   }, [storefront, open]);
 
@@ -86,6 +94,114 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
     }
   };
 
+  const handleWizardComplete = async (
+    data: Partial<CreateStorefrontInput>, 
+    logoFile?: File | null, 
+    bannerFile?: File | null
+  ) => {
+    try {
+      setIsGeneratingImages(true);
+      
+      let logoUrl = data.logo_url || '';
+      let bannerUrl = '';
+      
+      // Upload logo if file provided
+      if (logoFile) {
+        const fileExt = logoFile.name.split('.').pop();
+        const fileName = `logo-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('storefronts')
+          .upload(fileName, logoFile);
+        
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('storefronts').getPublicUrl(fileName);
+          logoUrl = urlData.publicUrl;
+        }
+      } else if (!logoUrl && data.name) {
+        // Generate logo with AI if no file uploaded
+        try {
+          const { data: aiData, error: aiError } = await supabase.functions.invoke('generate-storefront-images', {
+            body: {
+              type: 'logo',
+              storeName: data.name,
+              niche: 'saude', // Default, could be from wizard
+              primaryColor: data.primary_color || '#10b981',
+            },
+          });
+          
+          if (!aiError && aiData?.imageUrl) {
+            logoUrl = aiData.imageUrl;
+            toast.success('Logo gerado com IA!');
+          }
+        } catch (e) {
+          console.warn('AI logo generation failed, continuing without:', e);
+        }
+      }
+
+      // Upload banner if file provided
+      if (bannerFile) {
+        const fileExt = bannerFile.name.split('.').pop();
+        const fileName = `banner-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('storefronts')
+          .upload(fileName, bannerFile);
+        
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('storefronts').getPublicUrl(fileName);
+          bannerUrl = urlData.publicUrl;
+          
+          // Create a banner entry for the storefront
+          // This would need to be handled after storefront creation
+        }
+      }
+
+      // Create storefront with processed data
+      const createData: CreateStorefrontInput = {
+        name: data.name || '',
+        slug: data.slug || '',
+        template_id: data.template_id || undefined,
+        logo_url: logoUrl || undefined,
+        primary_color: data.primary_color || '#000000',
+        secondary_color: data.secondary_color || '#ffffff',
+        meta_title: data.meta_title || undefined,
+        meta_description: data.meta_description || undefined,
+        whatsapp_number: data.whatsapp_number || undefined,
+      };
+
+      createStorefront.mutate(createData, {
+        onSuccess: async (newStorefront) => {
+          // If we have a banner, create it using the hook pattern
+          if (bannerUrl && newStorefront?.id) {
+            const { error: bannerError } = await supabase
+              .from('storefront_banners')
+              .insert({
+                storefront_id: newStorefront.id,
+                image_url: bannerUrl,
+                is_active: true,
+                position: 'hero',
+              });
+            
+            if (bannerError) {
+              console.warn('Failed to create banner:', bannerError);
+            }
+          }
+          toast.success('Loja criada com sucesso!');
+          onOpenChange(false);
+        },
+        onError: (error) => {
+          toast.error('Erro ao criar loja: ' + error.message);
+        },
+      });
+    } catch (error) {
+      console.error('Error in wizard completion:', error);
+      toast.error('Erro ao processar dados da loja');
+    } finally {
+      setIsGeneratingImages(false);
+    }
+  };
+
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
@@ -95,14 +211,58 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
       .replace(/^-|-$/g, '');
   };
 
-  const isLoading = createStorefront.isPending || updateStorefront.isPending;
+  const isLoading = createStorefront.isPending || updateStorefront.isPending || isGeneratingImages;
+
+  // Show wizard for new stores
+  if (!storefront && useWizard && templates) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Criar Nova Loja
+            </DialogTitle>
+          </DialogHeader>
+          
+          <StorefrontCreationWizard
+            templates={templates}
+            onComplete={handleWizardComplete}
+            onCancel={() => onOpenChange(false)}
+          />
+          
+          <div className="text-center pt-4 border-t">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setUseWizard(false)}
+              className="text-muted-foreground"
+            >
+              Prefiro usar o formulário simples
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {storefront ? 'Editar Loja' : 'Nova Loja'}
+          <DialogTitle className="flex items-center justify-between">
+            <span>{storefront ? 'Editar Loja' : 'Nova Loja'}</span>
+            {!storefront && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setUseWizard(true)}
+                className="gap-2"
+              >
+                <Wand2 className="h-4 w-4" />
+                Usar Wizard
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -137,7 +297,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
                   <Label htmlFor="slug">URL da Loja *</Label>
                   <div className="flex items-center gap-1">
                     <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      sales.morphews.com/loja/
+                      /loja/
                     </span>
                     <Input
                       id="slug"
