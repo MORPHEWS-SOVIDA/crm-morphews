@@ -10182,6 +10182,10 @@ export type Database = {
           created_at: string
           custom_description: string | null
           custom_images: Json | null
+          custom_name: string | null
+          custom_price_12_cents: number | null
+          custom_price_3_cents: number | null
+          custom_price_6_cents: number | null
           custom_price_cents: number | null
           display_order: number | null
           highlight_badge: string | null
@@ -10198,6 +10202,10 @@ export type Database = {
           created_at?: string
           custom_description?: string | null
           custom_images?: Json | null
+          custom_name?: string | null
+          custom_price_12_cents?: number | null
+          custom_price_3_cents?: number | null
+          custom_price_6_cents?: number | null
           custom_price_cents?: number | null
           display_order?: number | null
           highlight_badge?: string | null
@@ -10214,6 +10222,10 @@ export type Database = {
           created_at?: string
           custom_description?: string | null
           custom_images?: Json | null
+          custom_name?: string | null
+          custom_price_12_cents?: number | null
+          custom_price_3_cents?: number | null
+          custom_price_6_cents?: number | null
           custom_price_cents?: number | null
           display_order?: number | null
           highlight_badge?: string | null
