@@ -179,13 +179,13 @@ serve(async (req) => {
       }
     }
 
-    // 5. Create sale in pending status with UTM attribution
+    // 5. Create sale in payment_pending status with UTM attribution
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
         organization_id: organizationId,
         lead_id: lead.id,
-        status: 'pending',
+        status: 'payment_pending', // Valid sale_status enum value
         payment_status: 'pending',
         subtotal_cents: subtotalCents,
         shipping_cost_cents: shippingCents,
