@@ -84,6 +84,7 @@ export const TEMPLATE_STYLES = {
 } as const;
 
 export type TemplateStyleKey = keyof typeof TEMPLATE_STYLES;
+export type TemplateSlug = TemplateStyleKey;
 export type TemplateStyles = (typeof TEMPLATE_STYLES)[TemplateStyleKey];
 
 // Get template styles by slug or fallback to minimal-clean
