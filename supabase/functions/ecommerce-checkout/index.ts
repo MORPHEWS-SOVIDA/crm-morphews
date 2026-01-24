@@ -261,6 +261,13 @@ serve(async (req) => {
         email: customer.email,
         phone: normalizedPhone,
         document: customer.document,
+        address: body.shipping ? {
+          street: body.shipping.address,
+          city: body.shipping.city,
+          state: body.shipping.state,
+          zip_code: body.shipping.zip,
+          complement: body.shipping.complement,
+        } : undefined,
       },
       postback_url: `${supabaseUrl}/functions/v1/payment-webhook`,
       card_token: body.card_token,
