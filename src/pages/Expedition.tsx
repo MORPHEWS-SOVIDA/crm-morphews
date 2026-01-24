@@ -71,6 +71,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
+import { DispatchConfirmationDialog } from '@/components/expedition/DispatchConfirmationDialog';
 import { useAuth } from '@/hooks/useAuth';
 
 type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'pickup' | 'delivered' | 'cancelled';
@@ -132,6 +133,16 @@ export default function Expedition() {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   // Optimistic UI: track sales being marked as printed
   const [optimisticPrinted, setOptimisticPrinted] = useState<Set<string>>(new Set());
+  
+  // Conference state per sale - tracks if all items have been checked
+  const [conferenceStatus, setConferenceStatus] = useState<Record<string, boolean>>({});
+  
+  // Dispatch confirmation dialog state
+  const [dispatchConfirmDialog, setDispatchConfirmDialog] = useState<{
+    open: boolean;
+    saleId: string | null;
+    motoboyId?: string;
+  }>({ open: false, saleId: null });
 
   // Handle tab change (local only - filtering is client-side)
   const setActiveTab = useCallback((tab: TabFilter) => {
@@ -346,7 +357,56 @@ export default function Expedition() {
     }
   };
 
-  const handleDispatch = async (saleId: string, motoboyId?: string) => {
+  // Check if sale can be dispatched - validates business rules
+  const canDispatchSale = useCallback((sale: Sale): { allowed: boolean; reason?: string } => {
+    // Rule 1: Motoboy deliveries must have a motoboy selected
+    if (sale.delivery_type === 'motoboy' && !sale.assigned_delivery_user_id) {
+      return { 
+        allowed: false, 
+        reason: 'Selecione um motoboy antes de despachar esta venda.' 
+      };
+    }
+    
+    // Rule 2: Sale must be marked as "separated" (pending_expedition) before dispatching
+    // Note: status 'pending_expedition' means it was printed AND separated
+    if (sale.status !== 'pending_expedition') {
+      return { 
+        allowed: false, 
+        reason: 'A venda precisa estar marcada como "Pedido Separado" antes de despachar.' 
+      };
+    }
+    
+    return { allowed: true };
+  }, []);
+  
+  // Handle dispatch attempt - validates rules and shows confirmation if needed
+  const handleDispatchAttempt = useCallback((sale: Sale) => {
+    const { allowed, reason } = canDispatchSale(sale);
+    
+    if (!allowed) {
+      toast.error(reason || 'Não é possível despachar esta venda.');
+      return;
+    }
+    
+    // Check if items were conference (all checked)
+    const allItemsChecked = conferenceStatus[sale.id] ?? false;
+    
+    if (!allItemsChecked) {
+      // Show confirmation dialog
+      setDispatchConfirmDialog({
+        open: true,
+        saleId: sale.id,
+        motoboyId: sale.assigned_delivery_user_id || undefined,
+      });
+      return;
+    }
+    
+    // All validations passed - dispatch directly
+    handleDispatch(sale.id, sale.assigned_delivery_user_id || undefined, false);
+  }, [canDispatchSale, conferenceStatus]);
+  
+  // Execute dispatch with optional skip conference flag
+  const handleDispatch = async (saleId: string, motoboyId?: string, skippedConference: boolean = false) => {
     setIsUpdating(saleId);
     try {
       await updateSale.mutateAsync({
@@ -379,6 +439,20 @@ export default function Expedition() {
             checkpoint_type: 'dispatched',
             completed_at: new Date().toISOString(),
             completed_by: user.id,
+          });
+        }
+        
+        // Record in history whether conference was skipped
+        if (organizationId) {
+          await supabase.from('sale_checkpoint_history').insert({
+            sale_id: saleId,
+            organization_id: organizationId,
+            checkpoint_type: 'dispatched',
+            action: skippedConference ? 'dispatched_without_conference' : 'dispatched_with_conference',
+            changed_by: user.id,
+            notes: skippedConference 
+              ? 'Despachado SEM conferência de itens - usuário optou por prosseguir sem verificar quantidades'
+              : 'Despachado COM conferência de itens completa',
           });
         }
 
@@ -1016,6 +1090,12 @@ export default function Expedition() {
                             stage={sale.status === 'returned' ? 'return' : sale.status === 'dispatched' ? 'dispatch' : 'separation'}
                             showHistory={true}
                             allowAdditionalConference={true}
+                            onAllChecked={(allChecked) => {
+                              setConferenceStatus(prev => {
+                                if (prev[sale.id] === allChecked) return prev;
+                                return { ...prev, [sale.id]: allChecked };
+                              });
+                            }}
                           />
                         )}
 
@@ -1277,13 +1357,13 @@ export default function Expedition() {
                             </div>
                           )}
 
-                          {/* Dispatch button - hide for pickup */}
-                          {sale.delivery_type !== 'pickup' && (sale.status === 'draft' || sale.status === 'pending_expedition') && !isOptimisticPrinted && (
+                          {/* Dispatch button - hide for pickup, only show for pending_expedition (separated) */}
+                          {sale.delivery_type !== 'pickup' && sale.status === 'pending_expedition' && (
                             <Button
                               variant="default"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => handleDispatch(sale.id, sale.assigned_delivery_user_id || undefined)}
+                              onClick={() => handleDispatchAttempt(sale)}
                               disabled={isBeingUpdated}
                             >
                               {isBeingUpdated ? (
@@ -1314,6 +1394,22 @@ export default function Expedition() {
             })}
           </div>
         )}
+        
+        {/* Dispatch Confirmation Dialog */}
+        <DispatchConfirmationDialog
+          open={dispatchConfirmDialog.open}
+          onOpenChange={(open) => setDispatchConfirmDialog(prev => ({ ...prev, open }))}
+          onGoBackToCheck={() => {
+            // Just close the dialog - user will check items manually
+            setDispatchConfirmDialog({ open: false, saleId: null });
+          }}
+          onConfirmWithoutCheck={() => {
+            if (dispatchConfirmDialog.saleId) {
+              handleDispatch(dispatchConfirmDialog.saleId, dispatchConfirmDialog.motoboyId, true);
+            }
+            setDispatchConfirmDialog({ open: false, saleId: null });
+          }}
+        />
       </div>
     </SmartLayout>
   );
