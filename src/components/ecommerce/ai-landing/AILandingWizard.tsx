@@ -314,6 +314,17 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
       img => img.type === 'hero_background' || img.type === 'product_image'
     );
 
+    // Convert generated testimonials to the format expected by the database
+    const testimonialsForDb = state.generatedContent.testimonials.map(t => ({
+      name: t.name,
+      text: t.text,
+      avatar: t.imageUrl,
+      style: t.style,
+      whatsappMessages: t.whatsappMessages,
+      audioUrl: t.audioUrl,
+      videoUrl: t.videoUrl,
+    }));
+
     onGenerated({
       product_id: state.briefing.productId,
       name: state.pageConfig.name,
@@ -321,6 +332,8 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
       headline: state.generatedContent.headline,
       subheadline: state.generatedContent.subheadline,
       benefits: state.generatedContent.benefits,
+      testimonials: testimonialsForDb,
+      faq: state.generatedContent.faq,
       urgency_text: state.generatedContent.urgencyText,
       guarantee_text: state.guaranteeConfig.enabled ? state.guaranteeConfig.text : '',
       primary_color: state.generatedContent.primaryColor,

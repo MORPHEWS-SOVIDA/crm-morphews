@@ -42,7 +42,7 @@ export class FallbackEngine {
       .from('gateway_fallback_config')
       .select('*')
       .eq('payment_method', paymentMethod)
-      .eq('is_active', true)
+      .eq('fallback_enabled', true)
       .maybeSingle();
 
     this.fallbackConfig = fallback as GatewayFallbackConfig | null;
@@ -58,8 +58,8 @@ export class FallbackEngine {
 
     // Determine gateway sequence
     const sequence = this.getGatewaySequence(request.payment_method);
-    const maxRetries = this.fallbackConfig?.max_retries || sequence.length;
-    const retryDelay = this.fallbackConfig?.retry_delay_ms || 1000;
+    const maxRetries = this.fallbackConfig?.max_fallback_attempts || sequence.length;
+    const retryDelay = 1000; // Fixed 1s delay between retries
 
     let lastError: GatewayResponse | null = null;
     let previousGateway: GatewayType | undefined;
@@ -161,7 +161,7 @@ export class FallbackEngine {
     if (this.fallbackConfig) {
       return [
         this.fallbackConfig.primary_gateway,
-        ...(this.fallbackConfig.fallback_sequence || []),
+        ...(this.fallbackConfig.fallback_gateways || []),
       ];
     }
 
