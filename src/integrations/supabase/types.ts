@@ -13294,6 +13294,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      has_admin_role: { Args: { user_id: string }; Returns: boolean }
       has_onboarding_completed: { Args: never; Returns: boolean }
       has_role: {
         Args: {
