@@ -302,7 +302,7 @@ export function usePendingCorreiosSales() {
           *,
           lead:leads(id, name, whatsapp, email, cpf, cnpj, street, street_number, complement, neighborhood, city, state, cep),
           items:sale_items(id, product_name, quantity),
-          shipping_carrier:shipping_carriers(id, name),
+          shipping_carrier:shipping_carriers(id, name, correios_service_code),
           shipping_address:lead_addresses(id, label, street, street_number, complement, neighborhood, city, state, cep)
         `)
         .eq('organization_id', organizationId)

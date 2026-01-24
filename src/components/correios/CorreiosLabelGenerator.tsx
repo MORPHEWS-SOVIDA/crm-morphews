@@ -116,10 +116,15 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
   }, [formData, currentLimits]);
 
   // Pre-fill from sale data - prioritize shipping_address over lead
+  // Also use correios_service_code from shipping_carrier if available
   useEffect(() => {
     if (sale) {
       const shippingAddress = sale.shipping_address;
       const lead = sale.lead;
+      const carrier = sale.shipping_carrier;
+      
+      // Pre-select service code from carrier if available
+      const carrierServiceCode = carrier?.correios_service_code;
       
       if (shippingAddress) {
         // Use shipping_address from lead_addresses (preferred)
@@ -137,6 +142,8 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
           recipient_phone: lead?.whatsapp || '',
           recipient_email: lead?.email || '',
           declared_value_cents: sale.total_cents || 0,
+          // Use carrier's correios_service_code if available
+          ...(carrierServiceCode && { service_code: carrierServiceCode }),
         }));
       } else if (lead) {
         // Fallback to lead data
@@ -154,6 +161,14 @@ export function CorreiosLabelGenerator({ sale, onSuccess, onCancel }: CorreiosLa
           recipient_phone: lead.whatsapp || '',
           recipient_email: lead.email || '',
           declared_value_cents: sale.total_cents || 0,
+          // Use carrier's correios_service_code if available
+          ...(carrierServiceCode && { service_code: carrierServiceCode }),
+        }));
+      } else if (carrierServiceCode) {
+        // Only carrier service code available
+        setFormData(prev => ({
+          ...prev,
+          service_code: carrierServiceCode,
         }));
       }
     }

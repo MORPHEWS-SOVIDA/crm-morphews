@@ -9731,6 +9731,7 @@ export type Database = {
       }
       shipping_carriers: {
         Row: {
+          correios_service_code: string | null
           cost_cents: number
           created_at: string
           estimated_days: number
@@ -9741,6 +9742,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          correios_service_code?: string | null
           cost_cents?: number
           created_at?: string
           estimated_days?: number
@@ -9751,6 +9753,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          correios_service_code?: string | null
           cost_cents?: number
           created_at?: string
           estimated_days?: number
