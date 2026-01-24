@@ -123,6 +123,14 @@ const Cadastro = lazy(() => import("./pages/Cadastro"));
 // Ecommerce
 const Ecommerce = lazy(() => import("./pages/Ecommerce"));
 const LandingPageEditor = lazy(() => import("./pages/ecommerce/LandingPageEditor"));
+const EcommerceLojas = lazy(() => import("./pages/ecommerce/EcommerceLojas"));
+const EcommerceLandings = lazy(() => import("./pages/ecommerce/EcommerceLandings"));
+const EcommerceCarrinhos = lazy(() => import("./pages/ecommerce/EcommerceCarrinhos"));
+const EcommerceVendas = lazy(() => import("./pages/ecommerce/EcommerceVendas"));
+const EcommerceEmails = lazy(() => import("./pages/ecommerce/EcommerceEmails"));
+const EcommerceAfiliados = lazy(() => import("./pages/ecommerce/EcommerceAfiliados"));
+const EcommerceIndustrias = lazy(() => import("./pages/ecommerce/EcommerceIndustrias"));
+const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
 // Public Storefront
 const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
 const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
@@ -637,12 +645,76 @@ const App = () => (
                   }
                 />
                 
-                {/* Ecommerce */}
+                {/* Ecommerce - Main redirect */}
                 <Route
                   path="/ecommerce"
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
-                      <Ecommerce />
+                      <EcommerceLojas />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/lojas"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceLojas />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/landings"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceLandings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/vendas"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceVendas />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/carrinhos"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceCarrinhos />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/emails"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceEmails />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/afiliados"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceAfiliados />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/industrias"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceIndustrias />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/carteira"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceCarteira />
                     </ProtectedRoute>
                   }
                 />
