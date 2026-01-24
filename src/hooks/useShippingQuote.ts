@@ -29,6 +29,8 @@ export interface EnabledService {
   service_name: string;
   is_enabled: boolean;
   position: number;
+  picking_cost_cents: number;
+  extra_handling_days: number;
 }
 
 // All available Correios services
@@ -123,6 +125,48 @@ export function useToggleService() {
     },
     onError: (error: Error) => {
       toast.error(`Erro ao atualizar serviço: ${error.message}`);
+    },
+  });
+}
+
+export function useUpdateServiceConfig() {
+  const { tenantId } = useTenant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      serviceCode, 
+      serviceName,
+      pickingCostCents, 
+      extraHandlingDays 
+    }: { 
+      serviceCode: string; 
+      serviceName: string;
+      pickingCostCents: number; 
+      extraHandlingDays: number;
+    }) => {
+      if (!tenantId) throw new Error('Organização não identificada');
+
+      const { error } = await supabase
+        .from('correios_enabled_services')
+        .upsert({
+          organization_id: tenantId,
+          service_code: serviceCode,
+          service_name: serviceName,
+          picking_cost_cents: pickingCostCents,
+          extra_handling_days: extraHandlingDays,
+        }, {
+          onConflict: 'organization_id,service_code',
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['correios-enabled-services'] });
+      toast.success('Configuração salva!');
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao salvar: ${error.message}`);
     },
   });
 }

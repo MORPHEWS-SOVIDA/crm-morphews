@@ -348,23 +348,33 @@ serve(async (req) => {
       throw new Error('Integração com Correios está desativada');
     }
 
-    // Get enabled services for this org
+    // Get enabled services for this org with picking cost and extra days
     let servicesToQuote = service_codes || [];
+    let serviceExtras: Record<string, { pickingCostCents: number; extraDays: number }> = {};
+    
+    const { data: enabledServices } = await supabase
+      .from('correios_enabled_services')
+      .select('service_code, is_enabled, picking_cost_cents, extra_handling_days')
+      .eq('organization_id', organization_id)
+      .order('position');
+    
+    // Build extras map for all configured services
+    if (enabledServices && enabledServices.length > 0) {
+      for (const s of enabledServices) {
+        serviceExtras[s.service_code] = {
+          pickingCostCents: s.picking_cost_cents || 0,
+          extraDays: s.extra_handling_days || 0,
+        };
+      }
+      
+      if (servicesToQuote.length === 0) {
+        servicesToQuote = enabledServices.filter(s => s.is_enabled).map(s => s.service_code);
+      }
+    }
     
     if (servicesToQuote.length === 0) {
-      const { data: enabledServices } = await supabase
-        .from('correios_enabled_services')
-        .select('service_code')
-        .eq('organization_id', organization_id)
-        .eq('is_enabled', true)
-        .order('position');
-      
-      if (enabledServices && enabledServices.length > 0) {
-        servicesToQuote = enabledServices.map(s => s.service_code);
-      } else {
-        // Default to PAC and SEDEX
-        servicesToQuote = ['03220', '03298'];
-      }
+      // Default to PAC and SEDEX
+      servicesToQuote = ['03220', '03298'];
     }
 
     // Check cache first
@@ -433,11 +443,32 @@ serve(async (req) => {
       results = results.concat(freshQuotes);
     }
     
+    // Apply picking cost and extra handling days (internal only - not shown to end customers in quote)
+    // This is used for internal calculations and reporting
+    const resultsWithExtras = results.map(r => {
+      const extras = serviceExtras[r.service_code];
+      if (extras) {
+        return {
+          ...r,
+          // Add picking cost to final price
+          price_cents: r.price_cents + extras.pickingCostCents,
+          // Add extra handling days to delivery estimate
+          delivery_days: r.delivery_days + extras.extraDays,
+          // Store original values for reference if needed
+          _original_price_cents: r.price_cents,
+          _original_delivery_days: r.delivery_days,
+          _picking_cost_cents: extras.pickingCostCents,
+          _extra_handling_days: extras.extraDays,
+        };
+      }
+      return r;
+    });
+    
     // Sort by price
-    results.sort((a, b) => (a.price_cents || 999999) - (b.price_cents || 999999));
+    resultsWithExtras.sort((a, b) => (a.price_cents || 999999) - (b.price_cents || 999999));
 
     return new Response(
-      JSON.stringify({ success: true, quotes: results }),
+      JSON.stringify({ success: true, quotes: resultsWithExtras }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: unknown) {

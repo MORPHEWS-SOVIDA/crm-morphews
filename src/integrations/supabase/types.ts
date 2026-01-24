@@ -1160,9 +1160,11 @@ export type Database = {
       correios_enabled_services: {
         Row: {
           created_at: string
+          extra_handling_days: number
           id: string
           is_enabled: boolean
           organization_id: string
+          picking_cost_cents: number
           position: number
           service_code: string
           service_name: string
@@ -1170,9 +1172,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          extra_handling_days?: number
           id?: string
           is_enabled?: boolean
           organization_id: string
+          picking_cost_cents?: number
           position?: number
           service_code: string
           service_name: string
@@ -1180,9 +1184,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          extra_handling_days?: number
           id?: string
           is_enabled?: boolean
           organization_id?: string
+          picking_cost_cents?: number
           position?: number
           service_code?: string
           service_name?: string
