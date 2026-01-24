@@ -60,7 +60,16 @@ export function StorefrontCheckout() {
     state: '',
   });
 
-  const shippingCents = selectedShipping?.price_cents || 0;
+  // Cart config for free shipping threshold
+  const cartConfig = storefront.cart_config as { 
+    freeShippingThreshold?: number;
+    minOrderValue?: number;
+  } || {};
+  const freeShippingThreshold = cartConfig.freeShippingThreshold || 0;
+  const hasFreeShipping = freeShippingThreshold > 0 && subtotal >= freeShippingThreshold;
+  
+  // Apply free shipping if subtotal meets threshold
+  const shippingCents = hasFreeShipping ? 0 : (selectedShipping?.price_cents || 0);
   const total = subtotal + shippingCents;
 
   // Progressive capture - sync customer data on blur
@@ -89,6 +98,7 @@ export function StorefrontCheckout() {
     termsUrl?: string;
     allowSaveCard?: boolean;
   } || {};
+
 
   // Show saved cards only for credit card payment (when cards exist)
   const showSavedCards = paymentMethod === 'credit_card' && SAVED_CARDS.length > 0;
