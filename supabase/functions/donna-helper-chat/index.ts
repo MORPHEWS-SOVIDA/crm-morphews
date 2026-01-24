@@ -460,6 +460,356 @@ Seu resumo diário:
 
 ---
 
+## MÓDULO: E-COMMERCE (Lojas Online)
+
+### Visão Geral
+O módulo E-commerce permite criar lojas virtuais completas, landing pages de alta conversão e checkout integrado. Tudo sem precisar de plataformas externas.
+
+### 1. STOREFRONTS (Lojas Virtuais)
+Sua loja online completa com catálogo de produtos.
+
+#### Criar uma Loja - Passo a Passo:
+1. Vá em **E-commerce** > aba **Lojas**
+2. Clique em **"+ Nova Loja"**
+3. Configure:
+   - **Nome**: Nome da loja
+   - **Slug**: URL da loja (ex: "minhaloja" → /loja/minhaloja)
+   - **Logo e Banner**: Imagens da marca
+   - **Cores**: Personalize o visual
+4. Adicione produtos à loja
+5. Publique
+
+**URL pública:** Sua loja fica em \`/loja/seu-slug\`
+
+**Dica Donna:** Use um slug curto e memorável. Clientes digitam no navegador!
+
+### 2. LANDING PAGES (Páginas de Vendas)
+Páginas focadas em UM produto, otimizadas para conversão.
+
+#### Criar Landing Page - Passo a Passo:
+1. Vá em **E-commerce** > aba **Landings**
+2. Clique em **"+ Nova Landing Page"**
+3. Configure:
+   - **Título**: Headline chamativa
+   - **Slug**: URL curta
+   - **Produto Principal**: O que você vai vender
+   - **Vídeo de Vendas (VSL)**: URL do YouTube (opcional)
+4. Adicione seções:
+   - **Benefícios**: Por que comprar?
+   - **Depoimentos**: Prova social
+   - **FAQ**: Dúvidas frequentes
+   - **Garantia**: Reduza objeções
+5. Configure ofertas e preços
+6. Publique
+
+**Recursos de Conversão:**
+- **Timer de Escassez**: Cria urgência com contagem regressiva
+- **Contador de Estoque**: Mostra unidades disponíveis
+- **Chatbot de Vendas IA**: Robô que tira dúvidas na página
+
+**URL pública:** Sua landing fica em \`/lp/seu-slug\`
+
+**Dica Donna:** Landing page boa = 1 produto + 1 oferta clara + 1 botão de comprar. Simplicidade converte!
+
+### 3. CHECKOUT UNIVERSAL
+Sistema de checkout integrado com múltiplos gateways.
+
+#### Fluxo do Cliente:
+1. Cliente clica em "Comprar"
+2. Preenche dados pessoais e endereço
+3. Escolhe forma de pagamento:
+   - **PIX**: QR Code gerado na hora
+   - **Cartão de Crédito**: Parcelamento disponível
+   - **Boleto**: Para quem prefere
+4. Confirma e recebe confirmação
+
+#### Para o Administrador:
+- Vendas aparecem automaticamente no módulo Vendas
+- Lead é criado/atualizado automaticamente
+- Notificações por WhatsApp podem ser enviadas
+
+### 4. GATEWAYS DE PAGAMENTO
+Conecte processadores de pagamento.
+
+#### Gateways Suportados:
+- **Pagarme**: Completo, suporta tudo
+- **Stripe**: Internacional, cartões
+- **Asaas**: PIX, Boleto, Cartão
+- **Appmax**: Alternativa brasileira
+
+#### Configurar Gateway - Passo a Passo:
+1. Vá em **E-commerce** > aba **Gateways**
+2. Clique em **"+ Novo Gateway"**
+3. Selecione o provedor
+4. Cole as chaves de API (obtidas no painel do gateway)
+5. Defina prioridade (fallback automático se um falhar)
+6. Ative
+
+**Sistema de Fallback:** Se um gateway falhar, o próximo da lista assume automaticamente.
+
+**Dica Donna:** Tenha sempre 2 gateways configurados. Downtime acontece e você não perde vendas.
+
+### 5. SPLIT DE PAGAMENTOS
+Divida pagamentos automaticamente entre múltiplas partes.
+
+#### Funciona assim:
+- **Produtor**: Dono do produto - recebe a maior parte
+- **Afiliado**: Quem indicou - recebe comissão
+- **Plataforma**: Taxa fixa da transação
+- **Co-produtores**: Parceiros do produto
+
+#### Configurar Split:
+1. No produto, vá em "Split de Pagamentos"
+2. Adicione participantes com % de cada um
+3. O sistema divide automaticamente na venda
+
+### 6. PROGRAMA DE AFILIADOS
+Deixe outros venderem por você.
+
+#### Criar Afiliado - Passo a Passo:
+1. Vá em **E-commerce** > aba **Afiliados**
+2. Clique em **"+ Novo Afiliado"**
+3. Configure:
+   - **Código do Afiliado**: Identificador único
+   - **Comissão %**: Quanto ele ganha por venda
+   - **Conta Virtual**: Onde os ganhos acumulam
+4. Salve
+
+#### Como Funciona:
+- Afiliado divulga link: \`/loja/slug?ref=CODIGO\`
+- Sistema rastreia automaticamente
+- Comissão é calculada e creditada na conta virtual
+- Afiliado pode sacar quando quiser
+
+**Dica Donna:** Afiliados são vendedores que você não paga salário. Só comissão quando vendem. Baixo risco, alto potencial!
+
+### 7. RECUPERAÇÃO DE CARRINHO ABANDONADO
+Não perca vendas que quase aconteceram!
+
+#### Como Funciona:
+- Cliente começa checkout mas não finaliza
+- Sistema detecta automaticamente
+- Após X minutos, envia:
+  - E-mail lembrando do carrinho
+  - WhatsApp com link direto para finalizar
+
+#### Configurar:
+1. Vá em **E-commerce** > **Carrinhos**
+2. Veja carrinhos abandonados
+3. Configure automações de recuperação
+
+**Cron automático:** O sistema tenta recuperar carrinhos a cada hora.
+
+**Dica Donna:** Recuperação de carrinho pode trazer de volta 10-20% das vendas perdidas. Configure e esqueça!
+
+### 8. DOMÍNIO PERSONALIZADO
+Use seu próprio domínio na loja.
+
+#### Configurar - Passo a Passo:
+1. No seu provedor de domínio (GoDaddy, Registro.br, etc.)
+2. Adicione registros DNS:
+   - **Tipo A** para @ apontando para nosso IP
+   - **Tipo CNAME** para www
+3. Aguarde propagação (até 48h)
+4. Verifique no sistema se está ativo
+
+**SSL gratuito:** Certificado HTTPS é gerado automaticamente após verificação.
+
+---
+
+## MÓDULO: TRACKING E ANALYTICS
+
+### Visão Geral
+Rastreie visitantes e conversões para otimizar campanhas de marketing.
+
+### 1. GOOGLE ANALYTICS 4 (GA4)
+Análise completa de tráfego.
+
+#### Configurar GA4 - Passo a Passo:
+1. Crie uma conta em analytics.google.com
+2. Crie uma propriedade para seu site
+3. Copie o **Measurement ID** (formato: G-XXXXXXXXXX)
+4. No CRM, vá em sua Landing Page ou Storefront
+5. Cole o ID no campo **"Google Analytics ID"**
+6. Salve
+
+#### O que é Rastreado:
+- Visualizações de página
+- Eventos de conversão (view_item, add_to_cart, purchase)
+- Origem do tráfego (de onde o visitante veio)
+- Tempo na página
+
+**Dica Donna:** GA4 é gratuito e essencial. Sem dados, você está vendendo no escuro.
+
+### 2. GOOGLE TAG MANAGER (GTM)
+Container para múltiplos pixels e scripts.
+
+#### Configurar GTM - Passo a Passo:
+1. Crie uma conta em tagmanager.google.com
+2. Crie um container para seu site
+3. Copie o **Container ID** (formato: GTM-XXXXXXX)
+4. Cole no campo **"GTM Container ID"**
+5. Salve
+
+#### Por que usar GTM?
+- Adicione múltiplos pixels sem editar código
+- Controle disparo de eventos
+- Teste antes de publicar
+- Histórico de alterações
+
+### 3. FACEBOOK/META PIXEL
+Rastreie conversões de anúncios do Facebook/Instagram.
+
+#### Configurar Meta Pixel - Passo a Passo:
+1. Vá em business.facebook.com > Gerenciador de Eventos
+2. Crie um pixel se não tiver
+3. Copie o **Pixel ID** (número de 15-16 dígitos)
+4. Cole no campo **"Facebook Pixel ID"**
+5. (Opcional) Cole o **Access Token** para Conversions API (CAPI)
+6. Salve
+
+#### Eventos Enviados:
+- **PageView**: Visitou a página
+- **ViewContent**: Viu um produto
+- **AddToCart**: Adicionou ao carrinho
+- **InitiateCheckout**: Começou checkout
+- **Purchase**: Comprou (com valor!)
+
+#### Conversions API (CAPI):
+A CAPI envia eventos pelo servidor, não pelo navegador. Isso:
+- Evita bloqueios de adblocker
+- Melhora qualidade dos dados
+- Otimiza campanhas no Facebook
+
+**Dica Donna:** Sempre configure a CAPI. Até 30% dos eventos são perdidos sem ela por causa de bloqueadores.
+
+### 4. TIKTOK PIXEL
+Rastreie conversões de anúncios do TikTok.
+
+#### Configurar TikTok Pixel - Passo a Passo:
+1. Vá em ads.tiktok.com > Gerenciador de Eventos
+2. Crie um pixel
+3. Copie o **Pixel ID**
+4. Cole no campo **"TikTok Pixel ID"**
+5. Salve
+
+#### Eventos Enviados:
+Mesmos do Facebook: PageView, ViewContent, AddToCart, Purchase, etc.
+
+### 5. ATRIBUIÇÃO DE CONVERSÃO (UTM Tracking)
+Saiba qual campanha gerou cada venda.
+
+#### Como Funciona:
+1. Crie links com parâmetros UTM:
+   \`sualoja.com/lp/produto?utm_source=facebook&utm_campaign=black_friday\`
+2. O sistema captura automaticamente
+3. Quando lead converte, você sabe a origem
+4. Relatórios mostram ROI por campanha
+
+#### Parâmetros Suportados:
+- **utm_source**: De onde veio (facebook, google, email)
+- **utm_medium**: Tipo de mídia (cpc, organic, social)
+- **utm_campaign**: Nome da campanha
+- **utm_content**: Variação do anúncio
+- **fbclid/gclid**: Click IDs automáticos do Facebook/Google
+
+**Relatório de Atribuição:** Vá em Relatórios > Atribuição para ver ROI real por origem.
+
+**Dica Donna:** Sempre use UTMs nos seus links de anúncios. É a única forma de saber se está gastando bem.
+
+---
+
+## MÓDULO: EMAIL MARKETING AUTOMÁTICO
+
+### Visão Geral
+Envie e-mails automatizados baseados em comportamento do cliente.
+
+### 1. TEMPLATES DE E-MAIL
+Crie modelos reutilizáveis.
+
+#### Criar Template - Passo a Passo:
+1. Vá em **E-commerce** > aba **E-mails**
+2. Na seção Templates, clique em **"+ Novo Template"**
+3. Configure:
+   - **Nome**: Identificador interno
+   - **Assunto**: Linha de assunto do e-mail
+   - **Categoria**: welcome, recovery, purchase, etc.
+   - **Conteúdo HTML**: O corpo do e-mail
+4. Salve
+
+#### Variáveis Disponíveis:
+Use estas variáveis no template - são substituídas automaticamente:
+- \`{{nome}}\` - Nome do cliente
+- \`{{email}}\` - E-mail do cliente
+- \`{{produto}}\` - Nome do produto
+- \`{{valor}}\` - Valor da compra/carrinho
+- \`{{link_carrinho}}\` - Link para retomar carrinho
+- \`{{link_pedido}}\` - Link para ver pedido
+
+**Exemplo de assunto:**
+\`{{nome}}, você esqueceu algo no carrinho! 🛒\`
+
+### 2. SEQUÊNCIAS DE E-MAIL
+Automações baseadas em gatilhos.
+
+#### Criar Sequência - Passo a Passo:
+1. Na seção Sequências, clique em **"+ Nova Sequência"**
+2. Configure:
+   - **Nome**: Identificador
+   - **Gatilho**: O que inicia a sequência
+   - **Passos**: E-mails enviados em sequência
+3. Salve e ative
+
+#### Gatilhos Disponíveis:
+- **cart_abandoned**: Carrinho abandonado
+- **purchase_completed**: Após compra
+- **lead_created**: Novo lead cadastrado
+- **custom**: Gatilho manual via API
+
+#### Exemplo de Sequência (Carrinho Abandonado):
+1. **30 minutos**: "Ei, você esqueceu algo!"
+2. **6 horas**: "Seu carrinho ainda está esperando..."
+3. **24 horas**: "Última chance! 10% de desconto"
+
+### 3. BOAS PRÁTICAS
+
+#### Para não cair em SPAM:
+- Use domínio próprio verificado
+- Não envie para quem não pediu
+- Inclua link de descadastro
+- Mantenha lista limpa (remova bounces)
+
+#### Para aumentar abertura:
+- Assuntos curtos e curiosos
+- Personalize com nome
+- Envie no horário certo (10h ou 20h)
+- Teste A/B de assuntos
+
+**Dica Donna:** E-mail de carrinho abandonado em até 1 hora tem 3x mais conversão que 24h depois.
+
+---
+
+## DADOS ESTRUTURADOS (SEO)
+
+### O que são?
+Marcações que ajudam Google e ChatGPT a entender seus produtos.
+
+### Schema.org/JSON-LD:
+O sistema gera automaticamente dados estruturados:
+- **Product**: Nome, preço, disponibilidade
+- **Organization**: Dados da empresa
+- **FAQ**: Perguntas frequentes
+
+### Benefícios:
+- Rich snippets no Google (estrelas, preço)
+- Produtos aparecem no Google Shopping
+- ChatGPT pode recomendar seus produtos
+- Melhor ranking orgânico
+
+**Dica Donna:** Preencha bem as descrições e FAQs dos produtos. Robôs de busca usam essas informações!
+
+---
+
 ## QUANDO CHAMAR HUMANO
 
 Transfira para atendimento humano quando:
