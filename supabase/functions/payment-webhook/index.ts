@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildReferenceId, processSaleSplitsV3, processRefundOrChargeback, isUniqueViolation } from "./split-engine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,10 +8,11 @@ const corsHeaders = {
 };
 
 /**
- * Unified Payment Webhook
+ * Unified Payment Webhook - SOURCE OF TRUTH for all payment processing
  * 
- * This endpoint can be used as a single webhook URL for all gateways.
- * It auto-detects the gateway based on the payload structure.
+ * This is the ONLY endpoint that should process splits and update balances.
+ * Other gateway-specific webhooks (pagarme-webhook, stripe-webhook) should
+ * forward to this handler or be deprecated.
  * 
  * URL: /functions/v1/payment-webhook
  */
@@ -21,7 +23,7 @@ serve(async (req) => {
 
   // Accept GET/HEAD for validation
   if (req.method === "GET" || req.method === "HEAD") {
-    return new Response(JSON.stringify({ status: "ok", message: "Payment webhook active" }), {
+    return new Response(JSON.stringify({ status: "ok", message: "Payment webhook active (v3)" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -44,65 +46,42 @@ serve(async (req) => {
       });
     }
 
-    console.log("Payment webhook received:", JSON.stringify(body).slice(0, 500));
+    console.log("[PaymentWebhook] Received:", JSON.stringify(body).slice(0, 1000));
 
     // Detect gateway and extract sale info
-    const { gateway, saleId, status, transactionId, paymentMethod, amountCents, rawData } = detectGatewayAndExtract(body);
+    const extracted = detectGatewayAndExtract(body);
+    const { gateway, saleId, status, transactionId, paymentMethod, amountCents, rawData, feeCents } = extracted;
 
     if (!gateway) {
-      console.log("Could not detect gateway from payload");
+      console.log("[PaymentWebhook] Could not detect gateway from payload");
       return new Response(JSON.stringify({ received: true, message: "Unknown gateway format" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Detected gateway: ${gateway}, saleId: ${saleId}, status: ${status}`);
+    // Build unique reference ID for idempotency
+    const referenceId = buildReferenceId(gateway, body);
+    console.log(`[PaymentWebhook] Gateway: ${gateway}, SaleId: ${saleId}, Status: ${status}, RefId: ${referenceId}`);
 
     if (!saleId) {
-      console.log("No sale ID found in payload");
+      console.log("[PaymentWebhook] No sale ID found in payload");
       return new Response(JSON.stringify({ received: true, message: "No sale ID" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Find sale
-    const { data: sale } = await supabase
-      .from('sales')
-      .select('id, organization_id, total_cents, status, payment_status')
-      .eq('id', saleId)
-      .maybeSingle();
-
-    if (!sale) {
-      // Try finding by notes
-      const { data: salesByNote } = await supabase
-        .from('sales')
-        .select('id, organization_id, total_cents, status, payment_status')
-        .ilike('notes', `%${saleId}%`)
-        .limit(1);
-
-      if (!salesByNote?.length) {
-        console.log(`Sale not found: ${saleId}`);
-        return new Response(JSON.stringify({ received: true, message: "Sale not found" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    const saleRecord = sale || (await supabase
-      .from('sales')
-      .select('id, organization_id, total_cents, status, payment_status')
-      .ilike('notes', `%${saleId}%`)
-      .limit(1)
-      .single()).data;
-
+    // Find sale by ID or by notes containing the ID
+    const saleRecord = await findSale(supabase, saleId);
     if (!saleRecord) {
+      console.log(`[PaymentWebhook] Sale not found: ${saleId}`);
       return new Response(JSON.stringify({ received: true, message: "Sale not found" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // Map status to our format
-    const { newStatus, paymentStatus } = mapStatus(status, gateway);
+    const { newStatus, paymentStatus, eventType } = mapStatus(status, gateway);
+    console.log(`[PaymentWebhook] Mapped status: ${status} -> ${paymentStatus} (event: ${eventType})`);
 
     // Update sale
     const updateData: Record<string, unknown> = {
@@ -122,34 +101,63 @@ serve(async (req) => {
       .update(updateData)
       .eq('id', saleRecord.id);
 
-    console.log(`Sale ${saleRecord.id} updated: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+    console.log(`[PaymentWebhook] Sale ${saleRecord.id} updated: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+
+    // Cast saleRecord fields with proper types
+    const saleIdStr = saleRecord.id as string;
+    const saleTotalCents = saleRecord.total_cents as number;
 
     // Log payment attempt
-    await supabase
-      .from('payment_attempts')
-      .insert({
-        sale_id: saleRecord.id,
-        gateway,
-        payment_method: paymentMethod || 'unknown',
-        amount_cents: amountCents || saleRecord.total_cents,
-        status: paymentStatus === 'paid' ? 'success' : paymentStatus === 'pending' ? 'pending' : 'failed',
-        gateway_transaction_id: transactionId,
-        attempt_number: 1,
-        is_fallback: false,
-        response_data: rawData,
-      });
+    await logPaymentAttempt(supabase, {
+      saleId: saleIdStr,
+      gateway,
+      paymentMethod: paymentMethod || 'unknown',
+      amountCents: amountCents || saleTotalCents,
+      paymentStatus,
+      transactionId,
+      rawData,
+      referenceId,
+    });
 
-    // If paid, process splits
-    if (paymentStatus === 'paid') {
-      await processSaleSplits(supabase, saleRecord.id);
+    // Process based on event type
+    switch (eventType) {
+      case 'paid':
+        await processSaleSplitsV3(supabase, saleIdStr, referenceId, {
+          transactionId: transactionId || '',
+          feeCents: feeCents || 0,
+          netAmountCents: (amountCents || saleTotalCents) - (feeCents || 0),
+          grossAmountCents: amountCents || saleTotalCents,
+          settlementDate: null,
+          paidAt: new Date().toISOString(),
+          paymentMethod: paymentMethod || 'unknown',
+          installments: 1,
+        });
+        break;
+
+      case 'refunded':
+        await processRefundOrChargeback(supabase, saleIdStr, referenceId, 'refund');
+        break;
+
+      case 'chargedback':
+        await processRefundOrChargeback(supabase, saleIdStr, referenceId, 'chargeback');
+        break;
+
+      default:
+        console.log(`[PaymentWebhook] No action for event type: ${eventType}`);
     }
 
-    return new Response(JSON.stringify({ success: true, gateway, saleId: saleRecord.id }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      gateway, 
+      saleId: saleIdStr,
+      eventType,
+      referenceId,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("[PaymentWebhook] Error:", error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
@@ -158,6 +166,10 @@ serve(async (req) => {
   }
 });
 
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
 interface ExtractedData {
   gateway: string | null;
   saleId: string | null;
@@ -165,13 +177,17 @@ interface ExtractedData {
   transactionId: string | null;
   paymentMethod: string | null;
   amountCents: number | null;
+  feeCents: number | null;
   rawData: Record<string, unknown>;
 }
 
 function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
-  // Pagarme format
+  // Pagarme format (v4 legacy)
   if (body.current_status !== undefined && body.metadata) {
     const metadata = body.metadata as Record<string, unknown>;
+    const transaction = body as Record<string, unknown>;
+    const lastTx = (transaction.last_transaction || {}) as Record<string, unknown>;
+    
     return {
       gateway: 'pagarme',
       saleId: metadata.sale_id as string || null,
@@ -179,6 +195,7 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
       transactionId: String(body.id || ''),
       paymentMethod: body.payment_method as string || null,
       amountCents: body.amount as number || null,
+      feeCents: (lastTx.gateway_fee || transaction.gateway_fee || 0) as number,
       rawData: body,
     };
   }
@@ -193,6 +210,7 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
       transactionId: String(data.order_id || data.id || ''),
       paymentMethod: null,
       amountCents: data.total ? Math.round((data.total as number) * 100) : null,
+      feeCents: null,
       rawData: body,
     };
   }
@@ -207,6 +225,7 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
       transactionId: payment.id as string || null,
       paymentMethod: (payment.billingType as string || '').toLowerCase(),
       amountCents: payment.value ? Math.round((payment.value as number) * 100) : null,
+      feeCents: null,
       rawData: body,
     };
   }
@@ -222,6 +241,7 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
       transactionId: data.id as string || null,
       paymentMethod: 'card',
       amountCents: data.amount as number || null,
+      feeCents: null,
       rawData: body,
     };
   }
@@ -237,6 +257,7 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
       transactionId: data.id as string || null,
       paymentMethod: 'card',
       amountCents: data.amount as number || null,
+      feeCents: null,
       rawData: body,
     };
   }
@@ -248,276 +269,105 @@ function detectGatewayAndExtract(body: Record<string, unknown>): ExtractedData {
     transactionId: null,
     paymentMethod: null,
     amountCents: null,
+    feeCents: null,
     rawData: body,
   };
 }
 
-function mapStatus(rawStatus: string, gateway: string): { newStatus: string; paymentStatus: string } {
+interface StatusMapping {
+  newStatus: string;
+  paymentStatus: string;
+  eventType: 'paid' | 'pending' | 'refunded' | 'chargedback' | 'cancelled' | 'unknown';
+}
+
+function mapStatus(rawStatus: string, gateway: string): StatusMapping {
   const status = rawStatus.toLowerCase();
 
   // Paid statuses
   if (['paid', 'approved', 'captured', 'payment_confirmed', 'payment_received',
        'payment_intent.succeeded', 'charge.succeeded'].some(s => status.includes(s))) {
-    return { newStatus: 'payment_confirmed', paymentStatus: 'paid' };
+    return { newStatus: 'payment_confirmed', paymentStatus: 'paid', eventType: 'paid' };
   }
 
   // Refunded
   if (['refunded', 'payment_refunded', 'charge.refunded'].some(s => status.includes(s))) {
-    return { newStatus: 'cancelled', paymentStatus: 'refunded' };
+    return { newStatus: 'cancelled', paymentStatus: 'refunded', eventType: 'refunded' };
+  }
+
+  // Chargedback
+  if (['chargedback', 'chargeback', 'dispute'].some(s => status.includes(s))) {
+    return { newStatus: 'cancelled', paymentStatus: 'chargedback', eventType: 'chargedback' };
   }
 
   // Cancelled/Failed
-  if (['refused', 'cancelled', 'denied', 'failed', 'chargedback', 'payment_deleted',
+  if (['refused', 'cancelled', 'denied', 'failed', 'payment_deleted',
        'payment_intent.payment_failed', 'charge.failed'].some(s => status.includes(s))) {
-    return { newStatus: 'cancelled', paymentStatus: 'cancelled' };
+    return { newStatus: 'cancelled', paymentStatus: 'cancelled', eventType: 'cancelled' };
   }
 
   // Analyzing
   if (['analyzing', 'awaiting_risk_analysis', 'review'].some(s => status.includes(s))) {
-    return { newStatus: '', paymentStatus: 'analyzing' };
+    return { newStatus: '', paymentStatus: 'analyzing', eventType: 'pending' };
   }
 
   // Pending
   if (['pending', 'waiting', 'processing', 'authorized', 'created', 'updated',
        'payment_intent.created', 'payment_intent.processing'].some(s => status.includes(s))) {
-    return { newStatus: '', paymentStatus: 'pending' };
+    return { newStatus: '', paymentStatus: 'pending', eventType: 'pending' };
   }
 
-  return { newStatus: '', paymentStatus: 'pending' };
+  return { newStatus: '', paymentStatus: 'pending', eventType: 'unknown' };
 }
 
-async function processSaleSplits(supabase: SupabaseClient, saleId: string) {
-  // Fetch sale details with items
-  const { data: sale, error: saleError } = await supabase
+async function findSale(supabase: SupabaseClient, saleId: string): Promise<Record<string, unknown> | null> {
+  // Try direct ID match
+  const { data: sale } = await supabase
     .from('sales')
-    .select('id, organization_id, total_cents')
+    .select('id, organization_id, total_cents, status, payment_status')
     .eq('id', saleId)
-    .single();
-
-  if (saleError || !sale) {
-    console.error("Error fetching sale:", saleError);
-    return;
-  }
-
-  // Check if splits already processed
-  const { data: existingSplits } = await supabase
-    .from('sale_splits')
-    .select('id')
-    .eq('sale_id', saleId)
-    .eq('split_type', 'tenant');
-
-  if (existingSplits && existingSplits.length > 0) {
-    console.log(`Splits already processed for sale ${saleId}`);
-    return;
-  }
-
-  // Fetch platform settings
-  const { data: platformSettings } = await supabase
-    .from('platform_settings')
-    .select('setting_key, setting_value');
-
-  const settings = (platformSettings || []).reduce((acc: Record<string, unknown>, s: Record<string, unknown>) => {
-    acc[s.setting_key as string] = s.setting_value;
-    return acc;
-  }, {} as Record<string, unknown>);
-
-  const platformFees = (settings.platform_fees as { percentage?: number; fixed_cents?: number }) || { percentage: 4.99, fixed_cents: 100 };
-  const withdrawalRules = (settings.withdrawal_rules as { release_days?: number }) || { release_days: 14 };
-
-  const totalCents = sale.total_cents;
-  const platformFeeCents = Math.round(totalCents * ((platformFees.percentage || 4.99) / 100)) + (platformFees.fixed_cents || 100);
-  
-  // Release date
-  const releaseAt = new Date();
-  releaseAt.setDate(releaseAt.getDate() + (withdrawalRules.release_days || 14));
-
-  // Get or create tenant virtual account
-  let { data: tenantAccount } = await supabase
-    .from('virtual_accounts')
-    .select('id, pending_balance_cents, total_received_cents')
-    .eq('organization_id', sale.organization_id)
-    .eq('account_type', 'tenant')
     .maybeSingle();
 
-  if (!tenantAccount) {
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('name, email')
-      .eq('id', sale.organization_id)
-      .single();
+  if (sale) return sale;
 
-    const { data: newAccount } = await supabase
-      .from('virtual_accounts')
+  // Try finding by notes containing the ID
+  const { data: salesByNote } = await supabase
+    .from('sales')
+    .select('id, organization_id, total_cents, status, payment_status')
+    .ilike('notes', `%${saleId}%`)
+    .limit(1);
+
+  return salesByNote?.[0] || null;
+}
+
+interface LogParams {
+  saleId: string;
+  gateway: string;
+  paymentMethod: string;
+  amountCents: number;
+  paymentStatus: string;
+  transactionId: string | null;
+  rawData: Record<string, unknown>;
+  referenceId: string;
+}
+
+async function logPaymentAttempt(supabase: SupabaseClient, params: LogParams): Promise<void> {
+  const { saleId, gateway, paymentMethod, amountCents, paymentStatus, transactionId, rawData, referenceId } = params;
+
+  try {
+    await supabase
+      .from('payment_attempts')
       .insert({
-        organization_id: sale.organization_id,
-        account_type: 'tenant',
-        holder_name: (org as Record<string, unknown>)?.name || 'Tenant',
-        holder_email: (org as Record<string, unknown>)?.email || 'tenant@example.com',
-        pending_balance_cents: 0,
-        total_received_cents: 0,
-      })
-      .select('id, pending_balance_cents, total_received_cents')
-      .single();
-
-    tenantAccount = newAccount;
+        sale_id: saleId,
+        gateway_type: gateway,
+        payment_method: paymentMethod,
+        amount_cents: amountCents,
+        status: paymentStatus === 'paid' ? 'success' : paymentStatus === 'pending' ? 'pending' : 'failed',
+        gateway_transaction_id: transactionId,
+        attempt_number: 1,
+        is_fallback: false,
+        response_data: { ...rawData, reference_id: referenceId },
+      });
+  } catch (error) {
+    console.error('[PaymentWebhook] Error logging payment attempt:', error);
   }
-
-  if (!tenantAccount) {
-    console.error("Failed to get/create tenant account");
-    return;
-  }
-
-  // ===============================
-  // CALCULATE INDUSTRY COSTS
-  // ===============================
-  let totalIndustryCosts = 0;
-  
-  // Fetch sale items with product info
-  const { data: saleItems } = await supabase
-    .from('sale_items')
-    .select('product_id, quantity')
-    .eq('sale_id', saleId);
-
-  if (saleItems && saleItems.length > 0) {
-    for (const item of saleItems) {
-      // Fetch industry costs for this product
-      const { data: industryCosts } = await supabase
-        .from('product_industry_costs')
-        .select('*, industry:industries(*)')
-        .eq('product_id', item.product_id)
-        .eq('is_active', true);
-
-      if (industryCosts && industryCosts.length > 0) {
-        for (const cost of industryCosts) {
-          const unitTotal = (cost.unit_cost_cents || 0) + (cost.shipping_cost_cents || 0) + (cost.additional_cost_cents || 0);
-          const itemIndustryCost = unitTotal * (item.quantity || 1);
-          totalIndustryCosts += itemIndustryCost;
-
-          // Create industry split record
-          await supabase
-            .from('sale_splits')
-            .insert({
-              sale_id: saleId,
-              virtual_account_id: tenantAccount.id, // Reference for accounting (industry doesn't have virtual account)
-              industry_id: cost.industry_id,
-              split_type: 'industry',
-              gross_amount_cents: itemIndustryCost,
-              fee_cents: 0,
-              net_amount_cents: itemIndustryCost,
-              percentage: (itemIndustryCost / totalCents) * 100,
-            });
-        }
-      }
-    }
-  }
-
-  console.log(`Industry costs for sale ${saleId}: ${totalIndustryCosts} cents`);
-
-  // ===============================
-  // CHECK FOR EXISTING AFFILIATE SPLIT
-  // ===============================
-  const { data: affiliateSplits } = await supabase
-    .from('sale_splits')
-    .select('*')
-    .eq('sale_id', saleId)
-    .eq('split_type', 'affiliate');
-
-  let affiliateSplitCents = 0;
-  const affiliateSplit = (affiliateSplits as Record<string, unknown>[])?.[0];
-  
-  if (affiliateSplit) {
-    affiliateSplitCents = affiliateSplit.gross_amount_cents as number || 0;
-    
-    const { data: affAccount } = await supabase
-      .from('virtual_accounts')
-      .select('id, pending_balance_cents, total_received_cents')
-      .eq('id', affiliateSplit.virtual_account_id)
-      .single();
-
-    if (affAccount) {
-      const { data: affTx } = await supabase
-        .from('virtual_transactions')
-        .insert({
-          virtual_account_id: affAccount.id,
-          sale_id: saleId,
-          transaction_type: 'credit',
-          amount_cents: affiliateSplitCents,
-          fee_cents: 0,
-          net_amount_cents: affiliateSplitCents,
-          description: `Comissão venda #${saleId.slice(0, 8)}`,
-          status: 'pending',
-          release_at: releaseAt.toISOString(),
-        })
-        .select('id')
-        .single();
-
-      await supabase
-        .from('sale_splits')
-        .update({ transaction_id: (affTx as Record<string, unknown>)?.id })
-        .eq('id', affiliateSplit.id);
-
-      await supabase
-        .from('virtual_accounts')
-        .update({
-          pending_balance_cents: (affAccount.pending_balance_cents || 0) + affiliateSplitCents,
-          total_received_cents: (affAccount.total_received_cents || 0) + affiliateSplitCents,
-        })
-        .eq('id', affAccount.id);
-    }
-  }
-
-  // ===============================
-  // CALCULATE TENANT AMOUNT
-  // Order: Total - Platform Fee - Industry Costs - Affiliate Commission = Tenant
-  // ===============================
-  const tenantAmount = totalCents - platformFeeCents - totalIndustryCosts - affiliateSplitCents;
-
-  await supabase
-    .from('sale_splits')
-    .insert({
-      sale_id: saleId,
-      virtual_account_id: tenantAccount.id,
-      split_type: 'tenant',
-      gross_amount_cents: totalCents - affiliateSplitCents - totalIndustryCosts,
-      fee_cents: platformFeeCents,
-      net_amount_cents: tenantAmount,
-      percentage: (tenantAmount / totalCents) * 100,
-    });
-
-  await supabase
-    .from('virtual_transactions')
-    .insert({
-      virtual_account_id: tenantAccount.id,
-      sale_id: saleId,
-      transaction_type: 'credit',
-      amount_cents: tenantAmount,
-      fee_cents: platformFeeCents,
-      net_amount_cents: tenantAmount,
-      description: `Venda #${saleId.slice(0, 8)} (- taxa plataforma - indústria - afiliado)`,
-      status: 'pending',
-      release_at: releaseAt.toISOString(),
-    });
-
-  await supabase
-    .from('virtual_accounts')
-    .update({
-      pending_balance_cents: (tenantAccount.pending_balance_cents || 0) + tenantAmount,
-      total_received_cents: (tenantAccount.total_received_cents || 0) + tenantAmount,
-    })
-    .eq('id', tenantAccount.id);
-
-  // Platform fee split record
-  await supabase
-    .from('sale_splits')
-    .insert({
-      sale_id: saleId,
-      virtual_account_id: tenantAccount.id,
-      split_type: 'platform',
-      gross_amount_cents: platformFeeCents,
-      fee_cents: 0,
-      net_amount_cents: platformFeeCents,
-      percentage: platformFees.percentage || 4.99,
-    });
-
-  console.log(`Processed splits for sale ${saleId}: Tenant=${tenantAmount}, Industry=${totalIndustryCosts}, Affiliate=${affiliateSplitCents}, Platform=${platformFeeCents}`);
 }
