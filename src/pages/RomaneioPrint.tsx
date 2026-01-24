@@ -63,6 +63,7 @@ export default function RomaneioPrint() {
   const [deliveryUserName, setDeliveryUserName] = useState<string | null>(null);
   const [regionName, setRegionName] = useState<string | null>(null);
   const [carrierName, setCarrierName] = useState<string | null>(null);
+  const [fallbackAddress, setFallbackAddress] = useState<any>(null);
 
   // Fetch seller, delivery user, region and carrier names
   useEffect(() => {
@@ -120,6 +121,36 @@ export default function RomaneioPrint() {
           setCarrierName(carrier.name);
         }
       }
+
+      // Fetch fallback address from lead_addresses if no shipping_address is linked
+      const shippingAddr = (sale as any).shipping_address;
+      const leadHasAddress = sale.lead?.street;
+      
+      if (!shippingAddr && !leadHasAddress && sale.lead_id) {
+        const { data: primaryAddress } = await supabase
+          .from('lead_addresses')
+          .select('id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')
+          .eq('lead_id', sale.lead_id)
+          .eq('is_primary', true)
+          .maybeSingle();
+        
+        if (primaryAddress) {
+          setFallbackAddress(primaryAddress);
+        } else {
+          // Try to get any address if no primary
+          const { data: anyAddress } = await supabase
+            .from('lead_addresses')
+            .select('id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')
+            .eq('lead_id', sale.lead_id)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          
+          if (anyAddress) {
+            setFallbackAddress(anyAddress);
+          }
+        }
+      }
     };
 
     fetchAdditionalData();
@@ -164,10 +195,10 @@ export default function RomaneioPrint() {
   // Use production URL for QR code so it works when scanned
   const saleQrData = `https://sales.morphews.com/vendas/${sale.id}`;
   
-  // Use shipping_address if available, otherwise use lead address
+  // Use shipping_address if available, then fallback address from lead_addresses, then legacy lead address
   const shippingAddress = (sale as any).shipping_address;
-  const addressData = shippingAddress || sale.lead;
-  const deliveryNotes = shippingAddress?.delivery_notes || sale.lead?.delivery_notes;
+  const addressData = shippingAddress || fallbackAddress || sale.lead;
+  const deliveryNotes = shippingAddress?.delivery_notes || fallbackAddress?.delivery_notes || sale.lead?.delivery_notes;
   const observation1 = (sale as any).observation_1;
   const observation2 = (sale as any).observation_2;
 
