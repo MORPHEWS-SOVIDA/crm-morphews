@@ -2273,75 +2273,120 @@ export type Database = {
           converted_sale_id: string | null
           coupon_code: string | null
           created_at: string
+          customer_cpf: string | null
           customer_email: string | null
           customer_name: string | null
           customer_phone: string | null
           discount_cents: number | null
           expires_at: string | null
+          fbclid: string | null
+          gclid: string | null
           id: string
+          items: Json | null
           landing_page_id: string | null
           lead_id: string | null
+          offer_id: string | null
           organization_id: string
           recovery_email_sent_at: string | null
           recovery_sent_at: string | null
           recovery_whatsapp_sent_at: string | null
           session_id: string
+          shipping_address: string | null
           shipping_cents: number | null
+          shipping_cep: string | null
+          shipping_city: string | null
+          shipping_state: string | null
+          src: string | null
           status: string | null
           storefront_id: string | null
           subtotal_cents: number | null
           total_cents: number | null
           updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           abandoned_at?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
           created_at?: string
+          customer_cpf?: string | null
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           discount_cents?: number | null
           expires_at?: string | null
+          fbclid?: string | null
+          gclid?: string | null
           id?: string
+          items?: Json | null
           landing_page_id?: string | null
           lead_id?: string | null
+          offer_id?: string | null
           organization_id: string
           recovery_email_sent_at?: string | null
           recovery_sent_at?: string | null
           recovery_whatsapp_sent_at?: string | null
           session_id: string
+          shipping_address?: string | null
           shipping_cents?: number | null
+          shipping_cep?: string | null
+          shipping_city?: string | null
+          shipping_state?: string | null
+          src?: string | null
           status?: string | null
           storefront_id?: string | null
           subtotal_cents?: number | null
           total_cents?: number | null
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           abandoned_at?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
           created_at?: string
+          customer_cpf?: string | null
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           discount_cents?: number | null
           expires_at?: string | null
+          fbclid?: string | null
+          gclid?: string | null
           id?: string
+          items?: Json | null
           landing_page_id?: string | null
           lead_id?: string | null
+          offer_id?: string | null
           organization_id?: string
           recovery_email_sent_at?: string | null
           recovery_sent_at?: string | null
           recovery_whatsapp_sent_at?: string | null
           session_id?: string
+          shipping_address?: string | null
           shipping_cents?: number | null
+          shipping_cep?: string | null
+          shipping_city?: string | null
+          shipping_state?: string | null
+          src?: string | null
           status?: string | null
           storefront_id?: string | null
           subtotal_cents?: number | null
           total_cents?: number | null
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: [
           {
@@ -2363,6 +2408,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "landing_offers"
             referencedColumns: ["id"]
           },
           {

@@ -31,7 +31,7 @@ const MOCK_SAVED_CARDS = [
 export function StorefrontCheckout() {
   const navigate = useNavigate();
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, cartId, updateCustomerData, updateShippingData } = useCart();
   const { getUtmForCheckout } = useUtmTracker();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
@@ -62,6 +62,21 @@ export function StorefrontCheckout() {
 
   const shippingCents = selectedShipping?.price_cents || 0;
   const total = subtotal + shippingCents;
+
+  // Progressive capture - sync customer data on blur
+  const handleCustomerFieldBlur = useCallback((field: 'name' | 'email' | 'phone' | 'cpf') => {
+    if (formData[field]) {
+      updateCustomerData({ [field]: formData[field] });
+    }
+  }, [formData, updateCustomerData]);
+
+  // Progressive capture - sync shipping data on blur
+  const handleShippingFieldBlur = useCallback((field: keyof typeof formData) => {
+    const shippingFields = ['cep', 'street', 'number', 'complement', 'neighborhood', 'city', 'state'];
+    if (shippingFields.includes(field) && formData[field]) {
+      updateShippingData({ [field]: formData[field] });
+    }
+  }, [formData, updateShippingData]);
 
   const handleShippingSelect = useCallback((option: typeof selectedShipping) => {
     setSelectedShipping(option);
@@ -109,6 +124,7 @@ export function StorefrontCheckout() {
       
       const checkoutPayload = {
         storefront_id: storefront.id,
+        cart_id: cartId || undefined,
         items: items.map(item => ({
           product_id: item.productId,
           quantity: item.quantity * item.kitSize,
@@ -230,6 +246,7 @@ export function StorefrontCheckout() {
                     required
                     value={formData.name}
                     onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    onBlur={() => handleCustomerFieldBlur('name')}
                   />
                 </div>
                 <div className="space-y-2">
@@ -240,6 +257,7 @@ export function StorefrontCheckout() {
                     required
                     value={formData.email}
                     onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    onBlur={() => handleCustomerFieldBlur('email')}
                   />
                 </div>
               </div>
@@ -255,6 +273,7 @@ export function StorefrontCheckout() {
                     placeholder="(00) 00000-0000"
                     value={formData.phone}
                     onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    onBlur={() => handleCustomerFieldBlur('phone')}
                   />
                 </div>
                 {checkoutConfig.collectCpf !== false && (
@@ -266,6 +285,7 @@ export function StorefrontCheckout() {
                       placeholder="000.000.000-00"
                       value={formData.cpf}
                       onChange={e => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
+                      onBlur={() => handleCustomerFieldBlur('cpf')}
                     />
                   </div>
                 )}
