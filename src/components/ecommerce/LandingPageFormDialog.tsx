@@ -17,7 +17,7 @@ import {
   type LandingPage,
   type CreateLandingPageInput,
 } from '@/hooks/ecommerce';
-import { AILandingGenerator } from './AILandingGenerator';
+import { AILandingWizard } from './ai-landing';
 
 interface LandingPageFormDialogProps {
   open: boolean;
@@ -225,7 +225,10 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
         </DialogHeader>
 
         {mode === 'ai' && !landingPage ? (
-          <AILandingGenerator onGenerated={handleAIGenerated} existingData={landingPage} />
+          <AILandingWizard 
+            onGenerated={handleAIGenerated} 
+            onCancel={() => setMode('manual')} 
+          />
         ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="basic">

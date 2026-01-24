@@ -18,6 +18,8 @@ interface BriefingData {
   salesScript?: string;
   previousFeedback?: string;
   isRegeneration?: boolean;
+  offerType?: string;
+  pageStyle?: 'full' | 'minimal' | 'webinar';
 }
 
 interface GeneratedContent {
@@ -50,6 +52,9 @@ serve(async (req) => {
     };
 
     // Build the system prompt for high-conversion landing page copy
+    const isWebinar = briefing.pageStyle === 'webinar';
+    const isMinimal = briefing.pageStyle === 'minimal';
+    
     const systemPrompt = `Você é um copywriter especialista em landing pages de alta conversão.
 Seu objetivo é criar copy que VENDE. Você domina:
 - Gatilhos mentais (escassez, urgência, prova social, autoridade)
@@ -58,6 +63,10 @@ Seu objetivo é criar copy que VENDE. Você domina:
 - Headlines magnéticas que prendem atenção
 - Benefícios transformadores (não features)
 
+TIPO DE OFERTA: ${briefing.offerType || 'produto físico'}
+${isWebinar ? 'ESTILO: Página de Webinário - CURTA, apenas headline, subheadline e CTA para inscrição' : ''}
+${isMinimal ? 'ESTILO: Low Ticket - Página objetiva, poucos elementos, foco no CTA' : ''}
+
 REGRAS IMPORTANTES:
 1. Headline deve ter no MÁXIMO 10 palavras e ser impactante
 2. Subheadline expande a promessa em 1-2 frases
@@ -65,6 +74,7 @@ REGRAS IMPORTANTES:
 4. Urgência deve parecer real, não forçada
 5. Depoimentos devem parecer autênticos (nomes comuns, textos naturais)
 6. FAQ deve responder objeções reais de compra
+${isWebinar ? '7. Para webinário: foque em curiosidade e FOMO, sem revelar demais' : ''}
 
 Tom de voz: ${briefing.tone === 'professional' ? 'Profissional e confiável' : 
   briefing.tone === 'informal' ? 'Informal e próximo' : 
