@@ -22,6 +22,14 @@ export interface GatewayFallbackConfig {
   max_fallback_attempts: number; // DB uses 'max_fallback_attempts' not 'max_retries'
 }
 
+export interface CardData {
+  number: string;
+  holder_name: string;
+  exp_month: string;
+  exp_year: string;
+  cvv: string;
+}
+
 export interface PaymentRequest {
   sale_id: string;
   organization_id?: string;
@@ -37,6 +45,7 @@ export interface PaymentRequest {
   postback_url: string;
   card_token?: string;
   card_hash?: string;
+  card_data?: CardData;
   save_card?: boolean;
 }
 
@@ -97,6 +106,7 @@ export interface CheckoutRequest {
   affiliate_code?: string;
   card_token?: string;
   card_hash?: string;
+  card_data?: CardData;
   save_card?: boolean;
   // Attribution data
   utm?: UtmData;

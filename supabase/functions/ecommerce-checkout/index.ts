@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { CheckoutRequest, PaymentMethod } from "./types.ts";
+import { CheckoutRequest, PaymentMethod, CardData } from "./types.ts";
 import { FallbackEngine } from "./fallback-engine.ts";
 
 const corsHeaders = {
@@ -242,6 +242,7 @@ serve(async (req) => {
       postback_url: `${supabaseUrl}/functions/v1/payment-webhook`,
       card_token: body.card_token,
       card_hash: body.card_hash,
+      card_data: body.card_data,
       save_card: body.save_card,
     });
 
