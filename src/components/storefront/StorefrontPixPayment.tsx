@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle, Copy, Clock, Home, ArrowRight, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
+import { usePublicSaleStatus } from '@/hooks/ecommerce/usePublicSaleStatus';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -19,10 +20,30 @@ export function StorefrontPixPayment() {
   const location = useLocation();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes
-
   // Get data from navigation state
   const { saleId, pix_code, pix_expiration, total_cents, paymentMethod } = location.state || {};
+
+  const initialTimeLeft = useMemo(() => {
+    if (!pix_expiration) return 30 * 60;
+    const expiresAt = new Date(pix_expiration).getTime();
+    if (Number.isNaN(expiresAt)) return 30 * 60;
+    const diff = Math.floor((expiresAt - Date.now()) / 1000);
+    return Math.max(0, diff);
+  }, [pix_expiration]);
+
+  const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
+
+  // Poll backend to detect payment confirmation
+  const { sale, isLoading: isCheckingStatus, error: statusError, refresh } = usePublicSaleStatus({
+    saleId,
+    storefrontSlug: storefront.slug,
+    enabled: Boolean(saleId),
+    intervalMs: 5000,
+  });
+
+  const effectiveTotalCents = typeof sale?.total_cents === 'number'
+    ? sale.total_cents
+    : (typeof total_cents === 'number' ? total_cents : null);
 
   // Countdown timer
   useEffect(() => {
@@ -40,6 +61,17 @@ export function StorefrontPixPayment() {
 
     return () => clearInterval(timer);
   }, [pix_code]);
+
+  // Redirect once payment is confirmed
+  useEffect(() => {
+    const status = (sale?.payment_status || '').toLowerCase();
+    if (status === 'paid') {
+      navigate(`/loja/${storefront.slug}/pedido-confirmado`, {
+        state: { saleId, paymentMethod: paymentMethod || 'pix' },
+        replace: true,
+      });
+    }
+  }, [sale?.payment_status, navigate, storefront.slug, saleId, paymentMethod]);
 
   const handleCopy = () => {
     if (pix_code) {
@@ -96,10 +128,10 @@ export function StorefrontPixPayment() {
 
         <CardContent className="space-y-6">
           {/* Total */}
-          {total_cents && (
+          {effectiveTotalCents != null && (
             <div className="text-center p-4 bg-muted rounded-lg">
               <span className="text-sm text-muted-foreground">Valor a pagar:</span>
-              <p className="text-3xl font-bold">{formatCurrency(total_cents)}</p>
+              <p className="text-3xl font-bold">{formatCurrency(effectiveTotalCents)}</p>
             </div>
           )}
 
@@ -171,6 +203,20 @@ export function StorefrontPixPayment() {
           {/* Status notice */}
           <div className="text-center text-sm text-muted-foreground">
             <p>Após o pagamento, você receberá a confirmação por e-mail.</p>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refresh()}
+                disabled={isCheckingStatus}
+              >
+                {isCheckingStatus ? 'Verificando...' : 'Já paguei — verificar agora'}
+              </Button>
+              {statusError && (
+                <p className="text-xs text-destructive">{statusError}</p>
+              )}
+            </div>
             {storefront.whatsapp_number && (
               <p className="mt-2">
                 Dúvidas? WhatsApp:{' '}
