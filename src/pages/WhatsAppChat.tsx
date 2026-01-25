@@ -708,10 +708,11 @@ export default function WhatsAppChat() {
     }
   };
 
-  const handleCreateLead = async (name: string, phone: string) => {
+  const handleCreateLead = async (name: string, phone: string, funnelStageId?: string) => {
     if (!profile?.organization_id || !selectedConversation) return;
     
     try {
+      // Build lead insert data
       const { data: lead, error } = await supabase
         .from('leads')
         .insert({
@@ -721,8 +722,10 @@ export default function WhatsAppChat() {
           assigned_to: `${profile.first_name} ${profile.last_name}`,
           organization_id: profile.organization_id,
           created_by: profile.user_id,
-          stage: 'prospect',
+          stage: 'prospect' as const,
           stars: 3,
+          // If a funnel_stage_id was provided, use it directly
+          ...(funnelStageId && { funnel_stage_id: funnelStageId }),
         })
         .select()
         .single();

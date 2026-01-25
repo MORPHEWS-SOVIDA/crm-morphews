@@ -58,7 +58,8 @@ import { useProducts, Product } from '@/hooks/useProducts';
 import { useProductBrands } from '@/hooks/useProductBrands';
 import { ProductSelectorForSale } from '@/components/products/ProductSelectorForSale';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
-import { useFunnelStages } from '@/hooks/useFunnelStages';
+import { useFunnelStages, getStageEnumValue } from '@/hooks/useFunnelStages';
+import { useDefaultStageForSource } from '@/hooks/useDefaultFunnelStages';
 import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 import { useKitRejections, useCreateKitRejection } from '@/hooks/useKitRejections';
 import { useLeadProductAnswer } from '@/hooks/useLeadProductAnswers';
@@ -185,6 +186,7 @@ export default function AddReceptivo() {
   const { data: productBrands = [] } = useProductBrands();
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
   const { data: funnelStages = [] } = useFunnelStages();
+  const defaultStageId = useDefaultStageForSource('receptivo');
   const { data: users = [] } = useUsers();
   const { data: paymentMethods = [] } = useActivePaymentMethods();
   const { data: myCommission } = useMyCommission();
@@ -194,6 +196,17 @@ export default function AddReceptivo() {
   const createSale = useCreateSale();
   const { scheduleMessagesForReason } = useScheduleMessages();
   const updateLead = useUpdateLead();
+
+  // Selectable funnel stages (not trash)
+  const selectableStages = useMemo(() => 
+    funnelStages
+      .filter(s => s.stage_type !== 'trash')
+      .sort((a, b) => a.position - b.position),
+    [funnelStages]
+  );
+
+  // Selected funnel stage for new leads
+  const [selectedFunnelStageId, setSelectedFunnelStageId] = useState<string>('');
 
   const [currentStep, setCurrentStep] = useState<FlowStep>('phone');
   const [phoneInput, setPhoneInput] = useState('55');
@@ -319,6 +332,15 @@ export default function AddReceptivo() {
       setSellerUserId(user.id);
     }
   }, [user?.id, sellerUserId]);
+
+  // Set default funnel stage when configuration or stages load
+  useEffect(() => {
+    if (selectableStages.length > 0 && !selectedFunnelStageId) {
+      // Priority: configured default → first funnel stage
+      const stageId = defaultStageId || selectableStages.find(s => s.stage_type === 'funnel')?.id || selectableStages[0]?.id || '';
+      setSelectedFunnelStageId(stageId);
+    }
+  }, [defaultStageId, selectableStages, selectedFunnelStageId]);
 
   // Auto-fill phone from URL query parameters (VoIP integration)
   useEffect(() => {
@@ -836,7 +858,10 @@ export default function AddReceptivo() {
             observations: leadData.observations || null,
             secondary_phone: leadData.secondary_phone || null,
             cpf_cnpj: leadData.cpf_cnpj || null,
-            stage: 'prospect',
+            stage: selectedFunnelStageId 
+              ? getStageEnumValue(selectableStages.find(s => s.id === selectedFunnelStageId) || selectableStages[0])
+              : 'prospect' as const,
+            funnel_stage_id: selectedFunnelStageId || null,
           })
           .select()
           .single();
@@ -991,7 +1016,10 @@ export default function AddReceptivo() {
           state: leadData.state || null,
           secondary_phone: leadData.secondary_phone || null,
           cpf_cnpj: leadData.cpf_cnpj || null,
-          stage: 'prospect',
+          stage: selectedFunnelStageId 
+            ? getStageEnumValue(selectableStages.find(s => s.id === selectedFunnelStageId) || selectableStages[0])
+            : 'prospect' as const,
+          funnel_stage_id: selectedFunnelStageId || null,
         })
         .select()
         .single();
@@ -1628,6 +1656,34 @@ export default function AddReceptivo() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <Separator />
+
+                {/* Funnel Stage Selector - only for new leads */}
+                {!leadData.existed && (
+                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+                      <ClipboardList className="w-4 h-4 text-primary" />
+                      Etapa do Funil *
+                    </Label>
+                    <Select value={selectedFunnelStageId} onValueChange={setSelectedFunnelStageId}>
+                      <SelectTrigger className="w-full max-w-xs bg-background">
+                        <SelectValue placeholder="Selecione a etapa..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectableStages.map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className={`w-3 h-3 rounded-full ${stage.color.startsWith('bg-') ? stage.color : ''}`}
+                                style={{ backgroundColor: !stage.color.startsWith('bg-') ? stage.color : undefined }}
+                              />
+                              {stage.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Stage & Stars for existing leads */}
                 {leadData.existed && leadData.stage && (

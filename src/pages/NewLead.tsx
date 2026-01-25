@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
+import { useFunnelStages, getStageEnumValue } from '@/hooks/useFunnelStages';
+import { useDefaultStageForSource } from '@/hooks/useDefaultFunnelStages';
 import { useCreateLead } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,10 +57,13 @@ export default function NewLead() {
   const { data: users = [] } = useUsers();
   const { data: leadSources = [] } = useLeadSources();
   const { data: leadProducts = [] } = useLeadProducts();
+  const { data: funnelStages = [] } = useFunnelStages();
+  const defaultStageId = useDefaultStageForSource('new_lead');
   const createAddress = useCreateLeadAddress();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [existingLeadForTransfer, setExistingLeadForTransfer] = useState<ExistingLeadWithOwner | null>(null);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [selectedFunnelStageId, setSelectedFunnelStageId] = useState<string>('');
   
   // Address management state
   const [pendingAddresses, setPendingAddresses] = useState<Omit<LeadAddress, 'id' | 'lead_id' | 'organization_id' | 'created_at' | 'updated_at'>[]>([]);
@@ -95,7 +100,6 @@ export default function NewLead() {
     whatsapp: urlWhatsapp,
     secondary_phone: '',
     email: '',
-    stage: 'prospect' as FunnelStage,
     stars: 0,
     assigned_to: defaultAssignedTo,
     whatsapp_group: '',
@@ -116,6 +120,20 @@ export default function NewLead() {
     gender: '',
     favorite_team: '',
   });
+
+  // Get selectable stages (funnel and cloud, not trash)
+  const selectableStages = funnelStages
+    .filter(s => s.stage_type !== 'trash')
+    .sort((a, b) => a.position - b.position);
+
+  // Set default stage when configuration or stages load
+  useEffect(() => {
+    if (selectableStages.length > 0 && !selectedFunnelStageId) {
+      // Priority: configured default → first funnel stage
+      const stageId = defaultStageId || selectableStages.find(s => s.stage_type === 'funnel')?.id || selectableStages[0]?.id || '';
+      setSelectedFunnelStageId(stageId);
+    }
+  }, [defaultStageId, selectableStages.length, selectedFunnelStageId]);
 
   // Update formData when URL params or profile changes
   useEffect(() => {
@@ -195,6 +213,10 @@ export default function NewLead() {
     }
     
     try {
+      // Get the stage enum value from the selected funnel stage
+      const selectedStage = selectableStages.find(s => s.id === selectedFunnelStageId);
+      const stageEnumValue = selectedStage ? getStageEnumValue(selectedStage) : 'prospect';
+
       const newLead = await createLead.mutateAsync({
         name: formData.name.trim(),
         specialty: formData.specialty.trim() || null,
@@ -203,7 +225,8 @@ export default function NewLead() {
         whatsapp: formData.whatsapp.trim(),
         secondary_phone: formData.secondary_phone.trim() || null,
         email: formData.email || null,
-        stage: formData.stage,
+        stage: stageEnumValue,
+        funnel_stage_id: selectedFunnelStageId || null,
         stars: formData.stars,
         assigned_to: formData.assigned_to.trim(),
         whatsapp_group: formData.whatsapp_group || null,
@@ -606,16 +629,22 @@ export default function NewLead() {
             <div className="space-y-2">
               <Label htmlFor="stage">Etapa do Funil *</Label>
               <Select
-                value={formData.stage}
-                onValueChange={(value) => updateField('stage', value)}
+                value={selectedFunnelStageId}
+                onValueChange={setSelectedFunnelStageId}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione a etapa..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(FUNNEL_STAGES).map(([key, value]) => (
-                    <SelectItem key={key} value={key}>
-                      {value.label}
+                  {selectableStages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className={`w-3 h-3 rounded-full ${stage.color.startsWith('bg-') ? stage.color : ''}`}
+                          style={{ backgroundColor: !stage.color.startsWith('bg-') ? stage.color : undefined }}
+                        />
+                        {stage.name}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

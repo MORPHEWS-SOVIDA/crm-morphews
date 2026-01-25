@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, Plus, Loader2, User, Phone, Star } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, Plus, Loader2, User, Phone, Star, GitBranch } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useFunnelStages } from '@/hooks/useFunnelStages';
+import { useDefaultStageForSource } from '@/hooks/useDefaultFunnelStages';
 import { cn } from '@/lib/utils';
 
 interface Lead {
@@ -24,7 +28,7 @@ interface LeadSearchDialogProps {
   conversationPhone: string;
   contactName: string | null;
   onLeadSelected: (leadId: string) => void;
-  onCreateNew: (name: string, phone: string) => void;
+  onCreateNew: (name: string, phone: string, funnelStageId?: string) => void;
 }
 
 export function LeadSearchDialog({
@@ -36,11 +40,29 @@ export function LeadSearchDialog({
   onCreateNew,
 }: LeadSearchDialogProps) {
   const { profile } = useAuth();
+  const { data: funnelStages = [] } = useFunnelStages();
+  const defaultStageId = useDefaultStageForSource('whatsapp');
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [matchingLead, setMatchingLead] = useState<Lead | null>(null);
   const [newLeadName, setNewLeadName] = useState('');
+  const [selectedStageId, setSelectedStageId] = useState<string>('');
+
+  // Get selectable stages (funnel and cloud, not trash)
+  const selectableStages = funnelStages
+    .filter(s => s.stage_type !== 'trash')
+    .sort((a, b) => a.position - b.position);
+
+  // Set default stage when dialog opens or default changes
+  useEffect(() => {
+    if (open) {
+      // Priority: configured default → first funnel stage → empty
+      const stageId = defaultStageId || selectableStages.find(s => s.stage_type === 'funnel')?.id || '';
+      setSelectedStageId(stageId);
+    }
+  }, [open, defaultStageId, selectableStages.length]);
 
   // Search for matching lead by phone on dialog open
   useEffect(() => {
@@ -112,10 +134,12 @@ export function LeadSearchDialog({
 
   const handleCreateNew = () => {
     if (newLeadName.trim()) {
-      onCreateNew(newLeadName.trim(), conversationPhone);
+      onCreateNew(newLeadName.trim(), conversationPhone, selectedStageId || undefined);
       onOpenChange(false);
     }
   };
+
+  const selectedStage = selectableStages.find(s => s.id === selectedStageId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -220,25 +244,65 @@ export function LeadSearchDialog({
           )}
 
           {/* Create new lead */}
-          <div className="border-t pt-4">
-            <p className="text-sm text-muted-foreground mb-2">
+          <div className="border-t pt-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
               Ou criar novo lead:
             </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nome do lead"
-                value={newLeadName}
-                onChange={(e) => setNewLeadName(e.target.value)}
-                className="flex-1"
-              />
-              <Button onClick={handleCreateNew} disabled={!newLeadName.trim()}>
+            
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="new-lead-name" className="text-xs text-muted-foreground">Nome</Label>
+                <Input
+                  id="new-lead-name"
+                  placeholder="Nome do lead"
+                  value={newLeadName}
+                  onChange={(e) => setNewLeadName(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="new-lead-stage" className="text-xs text-muted-foreground flex items-center gap-1">
+                  <GitBranch className="h-3 w-3" />
+                  Etapa do Funil *
+                </Label>
+                <Select value={selectedStageId} onValueChange={setSelectedStageId}>
+                  <SelectTrigger id="new-lead-stage">
+                    <SelectValue placeholder="Selecione a etapa..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectableStages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className={cn(
+                              "w-3 h-3 rounded-full",
+                              stage.color.startsWith('bg-') ? stage.color : ''
+                            )}
+                            style={{ 
+                              backgroundColor: !stage.color.startsWith('bg-') ? stage.color : undefined 
+                            }}
+                          />
+                          <span>{stage.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                Telefone: {conversationPhone}
+              </p>
+              
+              <Button 
+                onClick={handleCreateNew} 
+                disabled={!newLeadName.trim() || !selectedStageId}
+                className="w-full"
+              >
                 <Plus className="h-4 w-4 mr-1" />
-                Criar
+                Criar Lead
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Telefone: {conversationPhone}
-            </p>
           </div>
         </div>
 
