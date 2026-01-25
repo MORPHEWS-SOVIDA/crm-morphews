@@ -98,6 +98,8 @@ export interface CostCenter {
   organization_id: string;
   name: string;
   normalized_name: string;
+  cnpj: string | null;
+  default_bank_account_id: string | null;
   is_active: boolean;
   created_at: string;
 }

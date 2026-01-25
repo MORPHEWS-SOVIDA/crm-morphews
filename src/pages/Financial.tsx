@@ -10,6 +10,7 @@ import { FinancialDashboard } from '@/components/financial/FinancialDashboard';
 import { ReceivablesTab } from '@/components/financial/ReceivablesTab';
 import { PayablesTab } from '@/components/financial/PayablesTab';
 import { CostCentersTab } from '@/components/financial/CostCentersTab';
+import { CostCentersManager } from '@/components/financial/CostCentersManager';
 import { BankAccountsTab } from '@/components/financial/BankAccountsTab';
 import { CashFlowTab } from '@/components/financial/CashFlowTab';
 import { ReconciliationTab } from '@/components/financial/ReconciliationTab';
@@ -136,7 +137,7 @@ export default function Financial() {
           </TabsContent>
           
           <TabsContent value="cost-centers" className="mt-6">
-            <CostCentersTab />
+            <CostCentersManager />
           </TabsContent>
           
           <TabsContent value="banks" className="mt-6">
