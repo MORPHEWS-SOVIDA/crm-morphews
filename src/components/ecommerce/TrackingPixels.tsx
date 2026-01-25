@@ -1,24 +1,11 @@
 import { useEffect } from 'react';
+import '@/types/tracking.d.ts';
 
 interface TrackingPixelsProps {
   facebookPixelId?: string | null;
   googleAnalyticsId?: string | null;
   tiktokPixelId?: string | null;
   gtmId?: string | null;
-}
-
-declare global {
-  interface Window {
-    fbq: (...args: unknown[]) => void;
-    _fbq: unknown;
-    gtag: (...args: unknown[]) => void;
-    dataLayer: unknown[];
-    ttq: {
-      load: (id: string) => void;
-      page: () => void;
-      track: (event: string, data?: Record<string, unknown>) => void;
-    };
-  }
 }
 
 export function TrackingPixels({
