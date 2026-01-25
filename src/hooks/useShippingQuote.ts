@@ -42,13 +42,17 @@ export interface EnabledService {
   company_name?: string;
 }
 
-// Melhor Envio services (populated dynamically from API)
-// These are common services for reference
+// Melhor Envio services (most common services)
+// IDs are based on Melhor Envio API service IDs
 export const MELHOR_ENVIO_SERVICES = [
-  { id: 1, name: 'PAC', company: 'Correios', description: 'Entrega econômica' },
-  { id: 2, name: 'SEDEX', company: 'Correios', description: 'Entrega expressa' },
-  { id: 3, name: '.Package', company: 'Jadlog', description: 'Entrega rápida' },
-  { id: 4, name: '.Com', company: 'Jadlog', description: 'Entrega econômica' },
+  { id: 1, name: 'PAC', company: 'Correios', description: 'Entrega econômica (5-10 dias)' },
+  { id: 2, name: 'SEDEX', company: 'Correios', description: 'Entrega expressa (1-3 dias)' },
+  { id: 3, name: '.Package', company: 'Jadlog', description: 'Entrega rápida rodoviária' },
+  { id: 4, name: '.Com', company: 'Jadlog', description: 'Entrega econômica rodoviária' },
+  { id: 12, name: 'Expresso', company: 'Loggi', description: 'Entrega expressa urbana' },
+  { id: 17, name: 'MINI Envios', company: 'Correios', description: 'Para pacotes pequenos' },
+  { id: 28, name: 'Rodoviário', company: 'Buslog', description: 'Entrega rodoviária' },
+  { id: 31, name: 'Rodo', company: 'Latam Cargo', description: 'Entrega aérea/rodoviária' },
 ];
 
 // Legacy export for backwards compatibility
