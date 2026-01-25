@@ -14020,6 +14020,10 @@ export type Database = {
         Returns: Json
       }
       current_tenant_id: { Args: never; Returns: string }
+      debit_organization_energy: {
+        Args: { amount: number; description?: string; org_id: string }
+        Returns: undefined
+      }
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
         Returns: undefined
