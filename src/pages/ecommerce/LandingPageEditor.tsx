@@ -70,13 +70,29 @@ export default function LandingPageEditor() {
 
       if (error) throw error;
 
+      // Normalize benefits - convert objects to strings if needed
+      const rawBenefits = Array.isArray(data.benefits) ? data.benefits : [];
+      const normalizedBenefits: string[] = rawBenefits.map((b: unknown) => {
+        if (typeof b === 'string') return b;
+        if (b && typeof b === 'object') {
+          const obj = b as Record<string, unknown>;
+          // Handle {title, description} or {text} formats from scraping
+          if (typeof obj.title === 'string') return obj.title;
+          if (typeof obj.text === 'string') return obj.text;
+          if (typeof obj.description === 'string') return obj.description;
+          // Last resort: stringify
+          try { return JSON.stringify(b); } catch { return ''; }
+        }
+        return String(b ?? '');
+      }).filter((b: string) => b.trim().length > 0);
+
       const lp: EditorLandingPage = {
         id: data.id,
         name: data.name,
         slug: data.slug,
         headline: data.headline,
         subheadline: data.subheadline,
-        benefits: Array.isArray(data.benefits) ? data.benefits : [],
+        benefits: normalizedBenefits,
         urgency_text: data.urgency_text,
         guarantee_text: data.guarantee_text,
         primary_color: data.primary_color,
@@ -85,7 +101,7 @@ export default function LandingPageEditor() {
       setLandingPage(lp);
       setHeadline(lp.headline || '');
       setSubheadline(lp.subheadline || '');
-      setBenefits((lp.benefits as string[]) || []);
+      setBenefits(normalizedBenefits);
       setUrgencyText(lp.urgency_text || '');
       setGuaranteeText(lp.guarantee_text || '');
       setPrimaryColor(lp.primary_color || '#10b981');
@@ -491,7 +507,7 @@ export default function LandingPageEditor() {
                         O que você vai receber:
                       </h2>
                       <div className="grid gap-3 max-w-xl mx-auto">
-                        {benefits.filter(b => b.trim()).map((benefit, idx) => (
+                        {benefits.filter(b => typeof b === 'string' && b.trim()).map((benefit, idx) => (
                           <div 
                             key={idx} 
                             className="flex items-start gap-3 p-3 bg-background rounded-lg"
