@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
 import { useQuery } from '@tanstack/react-query';
+import { useUniversalTracking } from '@/hooks/ecommerce/useUniversalTracking';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 
 function formatCurrency(cents: number): string {
@@ -61,6 +62,23 @@ export function StorefrontCheckout() {
     city: '',
     state: '',
   });
+
+  // Universal tracking for server-side CAPI
+  const trackingConfig = useMemo(() => ({
+    organizationId: storefront.organization_id,
+    facebookPixelId: null, // Storefront uses org-level tracking config
+    googleAnalyticsId: null,
+    tiktokPixelId: null,
+    source: 'storefront' as const,
+    sourceId: storefront.id,
+    sourceName: storefront.name,
+  }), [storefront]);
+
+  const { 
+    trackInitiateCheckout, 
+    trackAddPaymentInfo,
+    trackingParams,
+  } = useUniversalTracking(trackingConfig);
 
   // Fetch tenant payment fees for installment interest
   const { data: paymentFees } = useQuery({
@@ -172,6 +190,18 @@ export function StorefrontCheckout() {
     try {
       // Get UTM data for attribution
       const utmData = getUtmForCheckout();
+
+      // Server-side tracking - InitiateCheckout
+      trackInitiateCheckout(
+        {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          document: formData.cpf,
+        },
+        totalToCharge,
+        { contentName: `${storefront.name} - Checkout` }
+      );
       
       const checkoutPayload = {
         storefront_id: storefront.id,
@@ -208,6 +238,10 @@ export function StorefrontCheckout() {
           : undefined,
         // Attribution data
         utm: utmData,
+        // Tracking IDs for CAPI
+        fbclid: trackingParams.fbclid,
+        gclid: trackingParams.gclid,
+        ttclid: trackingParams.ttclid,
       };
 
       console.log('Sending checkout:', checkoutPayload);

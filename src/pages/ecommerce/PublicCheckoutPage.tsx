@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { usePublicCheckout, useCheckoutTestimonials, type CheckoutElements, type CheckoutTheme } from '@/hooks/ecommerce/useStandaloneCheckouts';
 import { CreditCardForm, type CreditCardData } from '@/components/storefront/checkout/CreditCardForm';
 import { supabase } from '@/integrations/supabase/client';
+import { useUniversalTracking, extractTrackingParams } from '@/hooks/ecommerce/useUniversalTracking';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -54,6 +55,31 @@ export default function PublicCheckoutPage() {
     phone: '',
     cpf: '',
   });
+
+  // Universal tracking for server-side CAPI
+  const trackingConfig = useMemo(() => ({
+    organizationId: checkout?.organization_id || '',
+    facebookPixelId: checkout?.facebook_pixel_id,
+    googleAnalyticsId: checkout?.google_analytics_id,
+    tiktokPixelId: checkout?.tiktok_pixel_id,
+    source: 'standalone_checkout' as const,
+    sourceId: checkout?.id,
+    sourceName: checkout?.name,
+  }), [checkout]);
+
+  const { 
+    trackViewContent,
+    trackInitiateCheckout, 
+    trackAddPaymentInfo,
+    trackingParams,
+  } = useUniversalTracking(trackingConfig);
+
+  // Track ViewContent when checkout loads
+  useEffect(() => {
+    if (checkout) {
+      trackViewContent(checkout.name, checkout.product?.price_1_unit || checkout.product?.base_price_cents);
+    }
+  }, [checkout, trackViewContent]);
 
   // Initialize countdown from elements
   useEffect(() => {
@@ -142,6 +168,18 @@ export default function PublicCheckoutPage() {
 
     setIsSubmitting(true);
 
+    // Server-side tracking - InitiateCheckout
+    trackInitiateCheckout(
+      {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        document: formData.cpf,
+      },
+      totalToCharge,
+      { contentName: checkout.name }
+    );
+
     try {
       // Build checkout request
       const items = [
@@ -179,6 +217,10 @@ export default function PublicCheckoutPage() {
           cvv: cardData.card_cvv,
         } : undefined,
         utm: {},
+        // Tracking IDs for CAPI
+        fbclid: trackingParams.fbclid,
+        gclid: trackingParams.gclid,
+        ttclid: trackingParams.ttclid,
       };
 
       const { data, error: checkoutError } = await supabase.functions.invoke('ecommerce-checkout', {
