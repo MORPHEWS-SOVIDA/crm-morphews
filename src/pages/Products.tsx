@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Search, Package, Loader2, FlaskConical } from 'lucide-react';
+import { Plus, Search, Package, Loader2, FlaskConical, FileInput } from 'lucide-react';
 import { ProductCsvManager } from '@/components/products/ProductCsvManager';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductForm } from '@/components/products/ProductForm';
@@ -348,6 +348,13 @@ export default function Products() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/produtos/notas-entrada')}
+            >
+              <FileInput className="h-4 w-4 mr-2" />
+              Notas de Entrada
+            </Button>
             {hasManipulatedCostsFeature && (myPermissions?.products_view_cost || isOwner) && (
               <Button 
                 variant="outline" 
