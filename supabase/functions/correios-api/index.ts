@@ -585,7 +585,10 @@ async function createPrePostagem(
 
   const endpoint = `${baseUrl}/prepostagem/v1/prepostagens`;
   console.log(`\n========== Creating prepostagem (PPN v3) ==========`);
-  console.log('Payload:', JSON.stringify(payload, null, 2));
+  console.log('Full Payload:', JSON.stringify(payload, null, 2));
+  
+  // Store payload for debugging in case of error
+  const payloadForDebug = structuredClone(payload);
 
   const doRequest = async (payloadToSend: Record<string, unknown>) => {
     const response = await fetch(endpoint, {
@@ -691,25 +694,31 @@ async function createPrePostagem(
     const secondC = await doRequest(variantC);
     if (secondC.ok) return secondC.data;
 
-    // Se todas as variações falharem, devolve o último erro (mantendo rawBody)
+    // Se todas as variações falharam, devolve o último erro (mantendo rawBody)
     console.error(`Prepostagem failed after retries (A/B/C). Last status (${secondC.status}):`, secondC.rawBody);
-    throw new CorreiosApiError({
+    const err = new CorreiosApiError({
       message: `Falha ao criar pré-postagem (${secondC.status}): ${secondC.humanMessage}`,
       status: secondC.status,
       endpoint,
       rawBody: secondC.rawBody,
       parsedBody: secondC.parsedBody,
     });
+    // Attach original payload for debugging
+    (err as any).payloadSent = payloadForDebug;
+    throw err;
   }
 
   console.error(`Prepostagem failed (${first.status}):`, first.rawBody);
-  throw new CorreiosApiError({
+  const err = new CorreiosApiError({
     message: `Falha ao criar pré-postagem (${first.status}): ${first.humanMessage}`,
     status: first.status,
     endpoint,
     rawBody: first.rawBody,
     parsedBody: first.parsedBody,
   });
+  // Attach original payload for debugging
+  (err as any).payloadSent = payloadForDebug;
+  throw err;
 }
 
 async function getLabel(config: CorreiosConfig, token: string, prePostagemId: string): Promise<ArrayBuffer> {
@@ -1018,8 +1027,12 @@ serve(async (req) => {
       const organization_id = (paramsForLog?.organization_id as string | undefined) || null;
       const details: Record<string, unknown> = {
         action: action || null,
-        // evita logar dados potencialmente sensíveis demais: mantemos apenas o necessário
         sale_id: (paramsForLog?.sale_id as string | undefined) || null,
+        // Full payload sent to Correios API for debugging
+        payload_sent: (paramsForLog as any)?.payloadForDebug || null,
+        recipient: (paramsForLog as any)?.recipient || null,
+        package: (paramsForLog as any)?.package || null,
+        service_code: (paramsForLog as any)?.service_code || null,
       };
 
       if (error?.name === 'CorreiosApiError') {
@@ -1028,6 +1041,8 @@ serve(async (req) => {
         details.status = e.status;
         details.rawBody = e.rawBody;
         details.parsedBody = e.parsedBody;
+        // Include the exact payload sent to Correios API
+        details.payload_sent = (e as any).payloadSent || null;
       }
 
       await supabase.from('error_logs').insert({
