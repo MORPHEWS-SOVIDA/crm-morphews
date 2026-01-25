@@ -65,6 +65,22 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
   });
 
   // Clone template mutation
+  // Helper to normalize benefits from objects to strings
+  const normalizeBenefits = (benefits: unknown): string[] => {
+    if (!Array.isArray(benefits)) return [];
+    return benefits.map((b: unknown) => {
+      if (typeof b === 'string') return b;
+      if (b && typeof b === 'object') {
+        const obj = b as Record<string, unknown>;
+        if (typeof obj.title === 'string') return obj.title;
+        if (typeof obj.text === 'string') return obj.text;
+        if (typeof obj.description === 'string') return obj.description;
+        try { return JSON.stringify(b); } catch { return ''; }
+      }
+      return String(b ?? '');
+    }).filter((b: string) => b && b.trim().length > 0);
+  };
+
   const cloneMutation = useMutation({
     mutationFn: async (templateId: string) => {
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
@@ -89,21 +105,24 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
         .substring(0, 30);
       const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
+      // Normalize benefits from objects to strings
+      const normalizedBenefits = normalizeBenefits(template.benefits);
+
       // Create landing page from template
       const insertData = {
         organization_id: profile.organization_id,
         name: `${template.name} (Clone)`,
         slug: slug,
-        headline: template.headline,
-        subheadline: template.subheadline,
+        headline: template.headline || "Título da sua Landing Page",
+        subheadline: template.subheadline || "",
         video_url: template.video_url,
-        benefits: template.benefits,
+        benefits: normalizedBenefits,
         testimonials: template.testimonials,
         faq: template.faq,
-        urgency_text: template.urgency_text,
-        guarantee_text: template.guarantee_text,
+        urgency_text: template.urgency_text || "",
+        guarantee_text: template.guarantee_text || "",
         logo_url: template.logo_url,
-        primary_color: template.primary_color,
+        primary_color: template.primary_color || "#10b981",
         custom_css: template.custom_css || "",
         is_active: false,
         settings: {
