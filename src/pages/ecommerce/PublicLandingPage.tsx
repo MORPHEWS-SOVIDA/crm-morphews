@@ -116,9 +116,23 @@ export default function PublicLandingPage() {
       
       if (error) throw error;
       
+      // Normalize benefits - convert objects to strings if needed
+      const rawBenefits = Array.isArray(data.benefits) ? data.benefits : [];
+      const normalizedBenefits: string[] = rawBenefits.map((b: unknown) => {
+        if (typeof b === 'string') return b;
+        if (b && typeof b === 'object') {
+          const obj = b as Record<string, unknown>;
+          if (typeof obj.title === 'string') return obj.title;
+          if (typeof obj.text === 'string') return obj.text;
+          if (typeof obj.description === 'string') return obj.description;
+          try { return JSON.stringify(b); } catch { return ''; }
+        }
+        return String(b ?? '');
+      }).filter((b: string) => b.trim().length > 0);
+
       return {
         ...data,
-        benefits: (data.benefits as string[]) || [],
+        benefits: normalizedBenefits,
         testimonials: (data.testimonials as { name: string; text: string; avatar?: string }[]) || [],
         faq: (data.faq as { question: string; answer: string }[]) || [],
         settings: (data.settings as PublicLandingPage['settings']) || {},
