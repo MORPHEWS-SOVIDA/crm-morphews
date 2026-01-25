@@ -14,6 +14,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function resolveN8nWebhookUrl(): string | null {
+  const explicit = (Deno.env.get('N8N_CORREIOS_WEBHOOK_URL') || '').trim();
+  const base = (Deno.env.get('N8N_BASE_URL') || '').trim();
+
+  const hasWebhookPath = (u: string) => /\/webhook(-test)?\//.test(u);
+
+  // If the user provided the exact webhook URL, use it.
+  if (explicit && hasWebhookPath(explicit)) return explicit;
+
+  // Otherwise, treat explicit/base as the instance base URL and build the known path.
+  const baseUrl = base || explicit;
+  if (!baseUrl) return null;
+
+  // This path is created by our n8n setup function (Webhook node path = "correios-proxy").
+  const normalized = baseUrl.replace(/\/+$/, '');
+  return `${normalized}/webhook/correios-proxy`;
+}
+
+function sanitizePayloadForLogs(payload: any) {
+  // Avoid leaking credentials/PII in logs or DB.
+  return {
+    action: payload?.action,
+    service_code: payload?.service_code,
+    package: payload?.package,
+    recipient: { cep: payload?.recipient?.cep },
+    sender: { cep: payload?.sender?.cep },
+    invoice_number_present: Boolean(payload?.invoice_number),
+    invoice_key_present: Boolean(payload?.invoice_key),
+  };
+}
+
 // Simple encryption/decryption using base64 + XOR
 function decrypt(encrypted: string): string {
   try {
@@ -50,7 +81,7 @@ serve(async (req) => {
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const n8nWebhookUrl = Deno.env.get('N8N_CORREIOS_WEBHOOK_URL');
+  const n8nWebhookUrl = resolveN8nWebhookUrl();
 
   if (!n8nWebhookUrl) {
     return new Response(
@@ -145,7 +176,13 @@ serve(async (req) => {
         invoice_key: invoice_key || '',
       };
 
-      console.log('[N8N Proxy] Sending to n8n:', JSON.stringify(n8nPayload, null, 2));
+      console.log('[N8N Proxy] Payload summary:', JSON.stringify({
+        organization_id,
+        sale_id,
+        service_code: n8nPayload.service_code,
+        recipient_cep: n8nPayload.recipient.cep,
+        weight_grams: n8nPayload.package.weight_grams,
+      }));
 
       // Call n8n webhook
       console.log('[N8N Proxy] Calling n8n at URL:', n8nWebhookUrl);
@@ -161,7 +198,8 @@ serve(async (req) => {
       // Get raw text first to diagnose HTML responses
       const responseText = await n8nResponse.text();
       console.log('[N8N Proxy] n8n response status:', n8nResponse.status);
-      console.log('[N8N Proxy] n8n response (first 500 chars):', responseText.substring(0, 500));
+      console.log('[N8N Proxy] n8n response content-type:', n8nResponse.headers.get('content-type'));
+      console.log('[N8N Proxy] n8n response length:', responseText.length);
 
       // Check if response is HTML (common when n8n returns login page or error page)
       if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html') || responseText.trim().startsWith('<')) {
@@ -203,18 +241,23 @@ serve(async (req) => {
         );
       }
 
-      console.log('[N8N Proxy] Response from n8n:', JSON.stringify(n8nResult, null, 2));
+       console.log('[N8N Proxy] Response from n8n (summary):', JSON.stringify({
+        success: n8nResult?.success,
+        has_tracking: Boolean(n8nResult?.tracking_code),
+        has_pdf: Boolean(n8nResult?.label_pdf_base64),
+        error: n8nResult?.error,
+      }));
 
       if (!n8nResult.success) {
         // Log error for debugging
-        await supabase.from('error_logs').insert({
+         await supabase.from('error_logs').insert({
           organization_id,
           source: 'correios-n8n-proxy',
           error_type: 'n8n_correios_error',
           error_message: n8nResult.error || 'Erro desconhecido do n8n',
           error_details: {
             n8n_response: n8nResult,
-            payload_sent: n8nPayload,
+             payload_sent: sanitizePayloadForLogs(n8nPayload),
           },
         });
 
