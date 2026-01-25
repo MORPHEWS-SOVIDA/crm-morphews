@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import '@/types/tracking.d.ts';
 
 interface ConversionData {
   transactionId: string;
@@ -15,13 +16,6 @@ interface ConversionData {
 interface GoogleAdsConfig {
   conversionId: string; // e.g., 'AW-123456789'
   conversionLabel?: string; // e.g., 'abc123'
-}
-
-declare global {
-  interface Window {
-    gtag: (...args: unknown[]) => void;
-    dataLayer: unknown[];
-  }
 }
 
 // Initialize Google Ads tracking

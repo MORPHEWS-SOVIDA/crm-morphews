@@ -17,6 +17,7 @@ import {
   type QuizStepOption,
   type QuizSession,
 } from '@/hooks/ecommerce/useQuizzes';
+import { useQuizTracking } from '@/hooks/ecommerce/useQuizTracking';
 
 export default function QuizPublic() {
   const { slug } = useParams<{ slug: string }>();
@@ -38,6 +39,15 @@ export default function QuizPublic() {
 
   const currentStep = quiz?.steps?.[currentStepIndex];
   const progress = quiz?.steps ? ((currentStepIndex + 1) / quiz.steps.length) * 100 : 0;
+
+  // Initialize tracking pixels
+  const { 
+    trackQuizStart, 
+    trackStepView, 
+    trackLeadCapture, 
+    trackQuizComplete, 
+    trackCtaClick 
+  } = useQuizTracking({ quiz });
 
   // Initialize session
   useEffect(() => {
@@ -66,10 +76,13 @@ export default function QuizPublic() {
           session_id: newSession.id,
           event_type: 'quiz_view',
         });
+
+        // Fire pixel events for quiz start
+        trackQuizStart();
       };
       initSession();
     }
-  }, [quiz, session]);
+  }, [quiz, session, trackQuizStart]);
 
   // Track step view
   useEffect(() => {
@@ -81,8 +94,11 @@ export default function QuizPublic() {
         step_id: currentStep.id,
         event_type: 'step_view',
       });
+
+      // Fire pixel events for step view
+      trackStepView(currentStepIndex, currentStep.title || '');
     }
-  }, [currentStepIndex, session, currentStep]);
+  }, [currentStepIndex, session, currentStep, trackStepView]);
 
   const handleOptionSelect = (option: QuizStepOption) => {
     if (!currentStep) return;
@@ -142,6 +158,13 @@ export default function QuizPublic() {
           session_id: session.id,
           event_type: 'lead_captured',
           metadata: { name: leadData.name, whatsapp: leadData.whatsapp },
+        });
+
+        // Fire pixel events for lead capture
+        trackLeadCapture({ 
+          name: leadData.name, 
+          email: leadData.email, 
+          whatsapp: leadData.whatsapp 
         });
       }
 
@@ -208,6 +231,9 @@ export default function QuizPublic() {
           session_id: session.id,
           event_type: 'quiz_complete',
         });
+
+        // Fire pixel events for quiz complete
+        trackQuizComplete(totalScore);
       }
     }
   };
@@ -221,6 +247,9 @@ export default function QuizPublic() {
       session_id: session.id,
       event_type: 'cta_click',
     });
+
+    // Fire pixel events for CTA click
+    trackCtaClick(currentStep.result_cta_text || undefined, currentStep.result_cta_url || undefined);
 
     if (currentStep.result_cta_type === 'url' && currentStep.result_cta_url) {
       window.location.href = currentStep.result_cta_url;
