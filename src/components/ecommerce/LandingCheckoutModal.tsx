@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Loader2, CreditCard, QrCode, Barcode, Shield, Lock } from 'lucide-react
 import { toast } from 'sonner';
 import { trackEvent } from './TrackingPixels';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
+import { useUniversalTracking } from '@/hooks/ecommerce/useUniversalTracking';
 
 // Generate or retrieve session ID for cart tracking
 function getOrCreateSessionId(): string {
@@ -71,6 +72,23 @@ export function LandingCheckoutModal({
     phone: '',
     cpf: '',
   });
+
+  // Universal tracking hook for server-side CAPI
+  const trackingConfig = useMemo(() => ({
+    organizationId: '', // Will be fetched from landing page org
+    facebookPixelId: landingPage.facebook_pixel_id,
+    googleAnalyticsId: landingPage.google_analytics_id,
+    tiktokPixelId: landingPage.settings?.tiktok_pixel_id,
+    source: 'landing_page' as const,
+    sourceId: landingPage.id,
+    sourceName: landingPage.name,
+  }), [landingPage]);
+
+  const { 
+    trackInitiateCheckout, 
+    trackAddPaymentInfo,
+    getTrackingParams,
+  } = useUniversalTracking(trackingConfig);
 
   // Sync cart to backend for abandoned cart recovery
   const syncCartToBackend = useCallback(async (customerData: typeof formData) => {
@@ -149,7 +167,7 @@ export function LandingCheckoutModal({
     setIsSubmitting(true);
 
     try {
-      // Track InitiateCheckout event
+      // Track InitiateCheckout event (client + server-side CAPI)
       trackEvent.facebook.initiateCheckout({
         value: offer.price_cents / 100,
         currency: 'BRL',
@@ -163,6 +181,18 @@ export function LandingCheckoutModal({
         value: offer.price_cents / 100,
         currency: 'BRL',
       });
+
+      // Server-side CAPI tracking
+      trackInitiateCheckout(
+        {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          document: formData.cpf,
+        },
+        offer.price_cents,
+        { contentName: offer.label }
+      );
 
       // Get UTM data for attribution
       const utmData = getUtmForCheckout();
