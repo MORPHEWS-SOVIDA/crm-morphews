@@ -2333,7 +2333,9 @@ export type Database = {
       ecommerce_automation_config: {
         Row: {
           cart_abandonment_minutes: number
+          cart_recovery_reason_id: string | null
           created_at: string
+          default_seller_id: string | null
           email_recovery_delay_minutes: number
           enable_email_recovery: boolean
           enable_whatsapp_recovery: boolean
@@ -2345,12 +2347,15 @@ export type Database = {
           notify_team_on_cart: boolean
           notify_team_on_payment: boolean
           organization_id: string
+          paid_notification_funnel_stage_id: string | null
           updated_at: string
           whatsapp_recovery_delay_minutes: number
         }
         Insert: {
           cart_abandonment_minutes?: number
+          cart_recovery_reason_id?: string | null
           created_at?: string
+          default_seller_id?: string | null
           email_recovery_delay_minutes?: number
           enable_email_recovery?: boolean
           enable_whatsapp_recovery?: boolean
@@ -2362,12 +2367,15 @@ export type Database = {
           notify_team_on_cart?: boolean
           notify_team_on_payment?: boolean
           organization_id: string
+          paid_notification_funnel_stage_id?: string | null
           updated_at?: string
           whatsapp_recovery_delay_minutes?: number
         }
         Update: {
           cart_abandonment_minutes?: number
+          cart_recovery_reason_id?: string | null
           created_at?: string
+          default_seller_id?: string | null
           email_recovery_delay_minutes?: number
           enable_email_recovery?: boolean
           enable_whatsapp_recovery?: boolean
@@ -2379,15 +2387,37 @@ export type Database = {
           notify_team_on_cart?: boolean
           notify_team_on_payment?: boolean
           organization_id?: string
+          paid_notification_funnel_stage_id?: string | null
           updated_at?: string
           whatsapp_recovery_delay_minutes?: number
         }
         Relationships: [
           {
+            foreignKeyName: "ecommerce_automation_config_cart_recovery_reason_id_fkey"
+            columns: ["cart_recovery_reason_id"]
+            isOneToOne: false
+            referencedRelation: "non_purchase_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_automation_config_default_seller_id_fkey"
+            columns: ["default_seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "ecommerce_automation_config_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_automation_config_paid_notification_funnel_stage_fkey"
+            columns: ["paid_notification_funnel_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
             referencedColumns: ["id"]
           },
         ]

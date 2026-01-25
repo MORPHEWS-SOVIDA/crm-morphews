@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SalesAutomationDialog } from '@/components/ecommerce/SalesAutomationDialog';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -150,6 +151,11 @@ export default function EcommerceVendas() {
   return (
     <EcommerceLayout title="Vendas Online" description="Acompanhe e gerencie seus pedidos online">
       <div className="space-y-6">
+        {/* Header with automation config */}
+        <div className="flex justify-end">
+          <SalesAutomationDialog />
+        </div>
+        
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-6">
           <Card>

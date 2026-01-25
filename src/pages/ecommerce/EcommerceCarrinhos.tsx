@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUsers } from '@/hooks/useUsers';
+import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { EcommerceLayout } from '@/components/ecommerce/EcommerceLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +28,8 @@ import {
   Settings, 
   AlertCircle,
   CreditCard,
-  Eye
+  Eye,
+  User
 } from 'lucide-react';
 
 interface Cart {
@@ -61,6 +64,10 @@ interface AutomationConfig {
   email_recovery_delay_minutes: number;
   notify_team_on_cart: boolean;
   notify_team_on_payment: boolean;
+  // New fields
+  default_seller_id: string | null;
+  cart_recovery_reason_id: string | null;
+  paid_notification_funnel_stage_id: string | null;
 }
 
 function formatCurrency(cents: number) {
@@ -93,6 +100,10 @@ export default function EcommerceCarrinhos() {
   const queryClient = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
   const [selectedCart, setSelectedCart] = useState<Cart | null>(null);
+  
+  // Load users and followup reasons for configuration
+  const { data: users = [] } = useUsers();
+  const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
 
   const { data: carts, isLoading: cartsLoading } = useQuery({
     queryKey: ['ecommerce-carts'],
@@ -184,6 +195,10 @@ export default function EcommerceCarrinhos() {
       email_recovery_delay_minutes: config?.email_recovery_delay_minutes || 60,
       notify_team_on_cart: config?.notify_team_on_cart ?? false,
       notify_team_on_payment: config?.notify_team_on_payment ?? true,
+      // New fields
+      default_seller_id: config?.default_seller_id || null,
+      cart_recovery_reason_id: config?.cart_recovery_reason_id || null,
+      paid_notification_funnel_stage_id: config?.paid_notification_funnel_stage_id || null,
     });
     setConfigOpen(true);
   };
@@ -232,7 +247,37 @@ export default function EcommerceCarrinhos() {
                   Configure quando criar leads e como recuperar carrinhos abandonados
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 pt-4">
+              <div className="space-y-6 pt-4 max-h-[70vh] overflow-y-auto">
+                {/* Seller Assignment - NEW */}
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Atribuição de Vendedor
+                  </Label>
+                  <div className="space-y-2">
+                    <Label>Vendedor padrão para vendas via e-commerce:</Label>
+                    <Select
+                      value={configForm.default_seller_id || '__none__'}
+                      onValueChange={(v) => setConfigForm({ ...configForm, default_seller_id: v === '__none__' ? null : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um vendedor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Nenhum (distribuição automática)</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.user_id} value={user.user_id}>
+                            {user.first_name} {user.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Todas as vendas criadas serão atribuídas a este vendedor
+                    </p>
+                  </div>
+                </div>
+
                 {/* Lead Creation */}
                 <div className="space-y-3">
                   <Label className="text-base font-semibold">Criação de Lead no CRM</Label>
@@ -271,9 +316,9 @@ export default function EcommerceCarrinhos() {
                   </div>
                 </div>
 
-                {/* Cart Abandonment */}
+                {/* Cart Abandonment & Recovery - REFACTORED */}
                 <div className="space-y-3">
-                  <Label className="text-base font-semibold">Carrinho Abandonado</Label>
+                  <Label className="text-base font-semibold">Recuperação de Carrinho Abandonado</Label>
                   <div className="flex items-center gap-3">
                     <Label>Considerar abandonado após:</Label>
                     <Input
@@ -286,24 +331,40 @@ export default function EcommerceCarrinhos() {
                     />
                     <span className="text-sm text-muted-foreground">minutos</span>
                   </div>
-                </div>
-
-                {/* Recovery */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Recuperação Automática</Label>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Enviar WhatsApp</Label>
-                      <p className="text-sm text-muted-foreground">Recuperar via WhatsApp automaticamente</p>
-                    </div>
-                    <Switch
-                      checked={configForm.enable_whatsapp_recovery}
-                      onCheckedChange={(v) => setConfigForm({ ...configForm, enable_whatsapp_recovery: v })}
-                    />
+                  
+                  <div className="space-y-2">
+                    <Label>Follow-up automático de recuperação:</Label>
+                    <Select
+                      value={configForm.cart_recovery_reason_id || '__none__'}
+                      onValueChange={(v) => setConfigForm({ ...configForm, cart_recovery_reason_id: v === '__none__' ? null : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um follow-up" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Nenhum (desativado)</SelectItem>
+                        {nonPurchaseReasons.map((reason) => (
+                          <SelectItem key={reason.id} value={reason.id}>
+                            <div className="flex items-center gap-2">
+                              {reason.name}
+                              {reason.followup_hours > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {reason.followup_hours}h
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      O lead será marcado com este motivo para iniciar a cadência de mensagens automáticas
+                    </p>
                   </div>
-                  {configForm.enable_whatsapp_recovery && (
-                    <div className="flex items-center gap-3 pl-4">
-                      <Label>Após:</Label>
+
+                  {configForm.cart_recovery_reason_id && (
+                    <div className="flex items-center gap-3 pl-4 border-l-2 border-primary/20">
+                      <Label>Aguardar:</Label>
                       <Input
                         type="number"
                         min={1}
@@ -311,45 +372,35 @@ export default function EcommerceCarrinhos() {
                         value={configForm.whatsapp_recovery_delay_minutes || 30}
                         onChange={(e) => setConfigForm({ ...configForm, whatsapp_recovery_delay_minutes: parseInt(e.target.value) || 30 })}
                       />
-                      <span className="text-sm text-muted-foreground">minutos do abandono</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Enviar E-mail</Label>
-                      <p className="text-sm text-muted-foreground">Recuperar via e-mail automaticamente</p>
-                    </div>
-                    <Switch
-                      checked={configForm.enable_email_recovery}
-                      onCheckedChange={(v) => setConfigForm({ ...configForm, enable_email_recovery: v })}
-                    />
-                  </div>
-                  {configForm.enable_email_recovery && (
-                    <div className="flex items-center gap-3 pl-4">
-                      <Label>Após:</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        className="w-20"
-                        value={configForm.email_recovery_delay_minutes || 60}
-                        onChange={(e) => setConfigForm({ ...configForm, email_recovery_delay_minutes: parseInt(e.target.value) || 60 })}
-                      />
-                      <span className="text-sm text-muted-foreground">minutos do abandono</span>
+                      <span className="text-sm text-muted-foreground">minutos após abandono</span>
                     </div>
                   )}
                 </div>
 
-                {/* Notifications */}
+                {/* Venda Confirmada - Notifications */}
                 <div className="space-y-3">
-                  <Label className="text-base font-semibold">Notificações</Label>
-                  <div className="flex items-center justify-between">
-                    <Label>Notificar equipe quando carrinho é criado</Label>
-                    <Switch
-                      checked={configForm.notify_team_on_cart}
-                      onCheckedChange={(v) => setConfigForm({ ...configForm, notify_team_on_cart: v })}
-                    />
+                  <Label className="text-base font-semibold">Venda Confirmada</Label>
+                  <div className="space-y-2">
+                    <Label>Mover lead para etapa do funil:</Label>
+                    <Select
+                      value={configForm.paid_notification_funnel_stage_id || '__none__'}
+                      onValueChange={(v) => setConfigForm({ ...configForm, paid_notification_funnel_stage_id: v === '__none__' ? null : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Manter etapa atual" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Manter etapa atual</SelectItem>
+                        {funnelStages?.map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Quando o pagamento é confirmado, o lead será movido para esta etapa
+                    </p>
                   </div>
+                  
                   <div className="flex items-center justify-between">
                     <Label>Notificar equipe quando pagamento é confirmado</Label>
                     <Switch
