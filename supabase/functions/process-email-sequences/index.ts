@@ -189,8 +189,9 @@ serve(async (req) => {
         });
 
         const emailResult = await emailRes.json();
+        const energyCost = 10; // 10 energy per email sent
 
-        // Log the send
+        // Log the send with energy cost
         await supabase.from('email_sends').insert({
           organization_id: enrollment.organization_id,
           enrollment_id: enrollment.id,
@@ -202,7 +203,17 @@ serve(async (req) => {
           resend_id: emailResult.id,
           sent_at: now,
           error_message: emailRes.ok ? null : JSON.stringify(emailResult),
+          energy_cost: emailRes.ok ? energyCost : 0,
         });
+
+        // Debit energy from organization
+        if (emailRes.ok) {
+          await supabase.rpc('debit_organization_energy', {
+            org_id: enrollment.organization_id,
+            amount: energyCost,
+            description: `Envio de e-mail: ${subject.substring(0, 50)}`
+          });
+        }
 
         // Update enrollment for next step
         const { data: nextStep } = await supabase

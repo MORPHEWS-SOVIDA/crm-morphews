@@ -2902,6 +2902,7 @@ export type Database = {
           clicked_at: string | null
           created_at: string
           email: string
+          energy_cost: number | null
           enrollment_id: string | null
           error_message: string | null
           id: string
@@ -2919,6 +2920,7 @@ export type Database = {
           clicked_at?: string | null
           created_at?: string
           email: string
+          energy_cost?: number | null
           enrollment_id?: string | null
           error_message?: string | null
           id?: string
@@ -2936,6 +2938,7 @@ export type Database = {
           clicked_at?: string | null
           created_at?: string
           email?: string
+          energy_cost?: number | null
           enrollment_id?: string | null
           error_message?: string | null
           id?: string
@@ -3047,6 +3050,42 @@ export type Database = {
           },
         ]
       }
+      email_sequence_presets: {
+        Row: {
+          created_at: string
+          default_html_template: string
+          default_subject: string
+          delay_minutes: number
+          id: string
+          is_active: boolean | null
+          preset_type: string
+          step_number: number
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string
+          default_html_template: string
+          default_subject: string
+          delay_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          preset_type: string
+          step_number: number
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string
+          default_html_template?: string
+          default_subject?: string
+          delay_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          preset_type?: string
+          step_number?: number
+          variables?: Json | null
+        }
+        Relationships: []
+      }
       email_sequence_steps: {
         Row: {
           created_at: string
@@ -3107,44 +3146,70 @@ export type Database = {
       }
       email_sequences: {
         Row: {
+          ai_generated: boolean | null
           created_at: string
           description: string | null
+          energy_cost_generation: number | null
           id: string
           is_active: boolean | null
+          landing_page_id: string | null
           name: string
           organization_id: string
+          storefront_id: string | null
           trigger_conditions: Json | null
           trigger_type: string
           updated_at: string
         }
         Insert: {
+          ai_generated?: boolean | null
           created_at?: string
           description?: string | null
+          energy_cost_generation?: number | null
           id?: string
           is_active?: boolean | null
+          landing_page_id?: string | null
           name: string
           organization_id: string
+          storefront_id?: string | null
           trigger_conditions?: Json | null
           trigger_type: string
           updated_at?: string
         }
         Update: {
+          ai_generated?: boolean | null
           created_at?: string
           description?: string | null
+          energy_cost_generation?: number | null
           id?: string
           is_active?: boolean | null
+          landing_page_id?: string | null
           name?: string
           organization_id?: string
+          storefront_id?: string | null
           trigger_conditions?: Json | null
           trigger_type?: string
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "email_sequences_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "email_sequences_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_sequences_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
             referencedColumns: ["id"]
           },
         ]
