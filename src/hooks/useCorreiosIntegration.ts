@@ -261,13 +261,35 @@ export function useGenerateCorreiosLabel() {
     }) => {
       if (!organizationId) throw new Error('Organization ID not found');
 
-      const { data, error } = await supabase.functions.invoke('correios-api', {
+      // Try n8n proxy first, fallback to direct API
+      let data: any;
+      let error: any;
+
+      // First try n8n proxy (more reliable)
+      const n8nResult = await supabase.functions.invoke('correios-n8n-proxy', {
         body: {
-          action: 'generate_label',
+          action: 'create_label',
           organization_id: organizationId,
           ...params,
         },
       });
+
+      if (n8nResult.error?.message?.includes('N8N_CORREIOS_WEBHOOK_URL não configurado')) {
+        // n8n not configured, fallback to direct API
+        console.log('n8n proxy not configured, falling back to direct API');
+        const directResult = await supabase.functions.invoke('correios-api', {
+          body: {
+            action: 'generate_label',
+            organization_id: organizationId,
+            ...params,
+          },
+        });
+        data = directResult.data;
+        error = directResult.error;
+      } else {
+        data = n8nResult.data;
+        error = n8nResult.error;
+      }
 
       if (error) throw new Error(extractFunctionInvokeError(error));
       if (!data?.success) throw new Error(data?.error || 'Falha ao gerar etiqueta.');
