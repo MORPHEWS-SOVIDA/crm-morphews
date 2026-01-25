@@ -48,21 +48,38 @@ interface LabelRequest {
   }>;
 }
 
+// Default services when API is unreachable
+const DEFAULT_SERVICES = [
+  { id: 1, name: 'PAC', company: { id: 1, name: 'Correios', picture: '' } },
+  { id: 2, name: 'SEDEX', company: { id: 1, name: 'Correios', picture: '' } },
+  { id: 3, name: 'Mini Envios', company: { id: 1, name: 'Correios', picture: '' } },
+  { id: 17, name: '.Package', company: { id: 2, name: 'Jadlog', picture: '' } },
+  { id: 27, name: '.Com', company: { id: 2, name: 'Jadlog', picture: '' } },
+  { id: 9, name: 'LATAM Cargo', company: { id: 3, name: 'LATAM Cargo', picture: '' } },
+  { id: 22, name: 'Expresso', company: { id: 9, name: 'Azul Cargo', picture: '' } },
+];
+
 async function getAvailableServices(token: string, baseUrl: string): Promise<any[]> {
-  const response = await fetch(`${baseUrl}/me/shipment/services`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
-    },
-  });
+  try {
+    const response = await fetch(`${baseUrl}/me/shipment/services`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error('Erro ao buscar serviços');
+    if (!response.ok) {
+      console.warn('[Melhor Envio] Failed to fetch services, using defaults');
+      return DEFAULT_SERVICES;
+    }
+
+    return response.json();
+  } catch (error) {
+    console.warn('[Melhor Envio] Error fetching services, using defaults:', error);
+    return DEFAULT_SERVICES;
   }
-
-  return response.json();
 }
 
 async function createLabel(
