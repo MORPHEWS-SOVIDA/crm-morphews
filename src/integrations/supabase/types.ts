@@ -5845,6 +5845,7 @@ export type Database = {
       }
       lead_products: {
         Row: {
+          average_cost_cents: number | null
           barcode_ean: string | null
           base_commission_percentage: number | null
           base_points: number | null
@@ -5905,6 +5906,8 @@ export type Database = {
           key_question_2: string | null
           key_question_3: string | null
           label_image_url: string | null
+          last_purchase_cost_cents: number | null
+          last_purchase_date: string | null
           minimum_price: number | null
           minimum_stock: number | null
           name: string
@@ -5930,6 +5933,7 @@ export type Database = {
           youtube_video_url: string | null
         }
         Insert: {
+          average_cost_cents?: number | null
           barcode_ean?: string | null
           base_commission_percentage?: number | null
           base_points?: number | null
@@ -5990,6 +5994,8 @@ export type Database = {
           key_question_2?: string | null
           key_question_3?: string | null
           label_image_url?: string | null
+          last_purchase_cost_cents?: number | null
+          last_purchase_date?: string | null
           minimum_price?: number | null
           minimum_stock?: number | null
           name: string
@@ -6015,6 +6021,7 @@ export type Database = {
           youtube_video_url?: string | null
         }
         Update: {
+          average_cost_cents?: number | null
           barcode_ean?: string | null
           base_commission_percentage?: number | null
           base_points?: number | null
@@ -6075,6 +6082,8 @@ export type Database = {
           key_question_2?: string | null
           key_question_3?: string | null
           label_image_url?: string | null
+          last_purchase_cost_cents?: number | null
+          last_purchase_date?: string | null
           minimum_price?: number | null
           minimum_stock?: number | null
           name?: string
@@ -7506,6 +7515,9 @@ export type Database = {
           satisfaction_survey_message: string | null
           satisfaction_survey_on_manual_close: boolean | null
           slug: string
+          stock_allow_negative: boolean | null
+          stock_use_average_cost: boolean | null
+          stock_use_locations: boolean | null
           updated_at: string
           whatsapp_ai_learning_enabled: boolean
           whatsapp_ai_memory_enabled: boolean
@@ -7547,6 +7559,9 @@ export type Database = {
           satisfaction_survey_message?: string | null
           satisfaction_survey_on_manual_close?: boolean | null
           slug: string
+          stock_allow_negative?: boolean | null
+          stock_use_average_cost?: boolean | null
+          stock_use_locations?: boolean | null
           updated_at?: string
           whatsapp_ai_learning_enabled?: boolean
           whatsapp_ai_memory_enabled?: boolean
@@ -7588,6 +7603,9 @@ export type Database = {
           satisfaction_survey_message?: string | null
           satisfaction_survey_on_manual_close?: boolean | null
           slug?: string
+          stock_allow_negative?: boolean | null
+          stock_use_average_cost?: boolean | null
+          stock_use_locations?: boolean | null
           updated_at?: string
           whatsapp_ai_learning_enabled?: boolean
           whatsapp_ai_memory_enabled?: boolean
@@ -9471,6 +9489,227 @@ export type Database = {
           },
         ]
       }
+      purchase_invoice_items: {
+        Row: {
+          cfop: string | null
+          cofins_cents: number | null
+          created_at: string
+          discount_cents: number | null
+          ean: string | null
+          freight_cents: number | null
+          icms_base_cents: number | null
+          icms_st_cents: number | null
+          icms_value_cents: number | null
+          id: string
+          invoice_id: string
+          ipi_cents: number | null
+          item_number: number
+          link_status: string | null
+          linked_at: string | null
+          linked_by: string | null
+          ncm: string | null
+          organization_id: string
+          pis_cents: number | null
+          product_id: string | null
+          quantity: number
+          stock_entered: boolean | null
+          stock_location_id: string | null
+          stock_movement_id: string | null
+          supplier_product_code: string | null
+          supplier_product_name: string
+          total_price_cents: number
+          unit: string | null
+          unit_price_cents: number
+        }
+        Insert: {
+          cfop?: string | null
+          cofins_cents?: number | null
+          created_at?: string
+          discount_cents?: number | null
+          ean?: string | null
+          freight_cents?: number | null
+          icms_base_cents?: number | null
+          icms_st_cents?: number | null
+          icms_value_cents?: number | null
+          id?: string
+          invoice_id: string
+          ipi_cents?: number | null
+          item_number: number
+          link_status?: string | null
+          linked_at?: string | null
+          linked_by?: string | null
+          ncm?: string | null
+          organization_id: string
+          pis_cents?: number | null
+          product_id?: string | null
+          quantity: number
+          stock_entered?: boolean | null
+          stock_location_id?: string | null
+          stock_movement_id?: string | null
+          supplier_product_code?: string | null
+          supplier_product_name: string
+          total_price_cents: number
+          unit?: string | null
+          unit_price_cents: number
+        }
+        Update: {
+          cfop?: string | null
+          cofins_cents?: number | null
+          created_at?: string
+          discount_cents?: number | null
+          ean?: string | null
+          freight_cents?: number | null
+          icms_base_cents?: number | null
+          icms_st_cents?: number | null
+          icms_value_cents?: number | null
+          id?: string
+          invoice_id?: string
+          ipi_cents?: number | null
+          item_number?: number
+          link_status?: string | null
+          linked_at?: string | null
+          linked_by?: string | null
+          ncm?: string | null
+          organization_id?: string
+          pis_cents?: number | null
+          product_id?: string | null
+          quantity?: number
+          stock_entered?: boolean | null
+          stock_location_id?: string | null
+          stock_movement_id?: string | null
+          supplier_product_code?: string | null
+          supplier_product_name?: string
+          total_price_cents?: number
+          unit?: string | null
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_stock_location_id_fkey"
+            columns: ["stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_stock_movement_id_fkey"
+            columns: ["stock_movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_invoices: {
+        Row: {
+          access_key: string | null
+          created_at: string
+          created_by: string | null
+          entry_date: string | null
+          id: string
+          issue_date: string
+          notes: string | null
+          number: string
+          organization_id: string
+          processed_at: string | null
+          processed_by: string | null
+          series: string | null
+          status: string
+          supplier_cnpj: string
+          supplier_ie: string | null
+          supplier_name: string
+          total_discount_cents: number
+          total_freight_cents: number
+          total_invoice_cents: number
+          total_products_cents: number
+          total_taxes_cents: number
+          updated_at: string
+          xml_content: string | null
+          xml_storage_path: string | null
+        }
+        Insert: {
+          access_key?: string | null
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string | null
+          id?: string
+          issue_date: string
+          notes?: string | null
+          number: string
+          organization_id: string
+          processed_at?: string | null
+          processed_by?: string | null
+          series?: string | null
+          status?: string
+          supplier_cnpj: string
+          supplier_ie?: string | null
+          supplier_name: string
+          total_discount_cents?: number
+          total_freight_cents?: number
+          total_invoice_cents?: number
+          total_products_cents?: number
+          total_taxes_cents?: number
+          updated_at?: string
+          xml_content?: string | null
+          xml_storage_path?: string | null
+        }
+        Update: {
+          access_key?: string | null
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string | null
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          number?: string
+          organization_id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          series?: string | null
+          status?: string
+          supplier_cnpj?: string
+          supplier_ie?: string | null
+          supplier_name?: string
+          total_discount_cents?: number
+          total_freight_cents?: number
+          total_invoice_cents?: number
+          total_products_cents?: number
+          total_taxes_cents?: number
+          updated_at?: string
+          xml_content?: string | null
+          xml_storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receptive_attendances: {
         Row: {
           call_quality_score: Json | null
@@ -11282,11 +11521,116 @@ export type Database = {
           },
         ]
       }
+      stock_by_location: {
+        Row: {
+          average_cost_cents: number | null
+          created_at: string
+          id: string
+          location_id: string
+          organization_id: string
+          product_id: string
+          quantity: number
+          reserved: number
+          updated_at: string
+        }
+        Insert: {
+          average_cost_cents?: number | null
+          created_at?: string
+          id?: string
+          location_id: string
+          organization_id: string
+          product_id: string
+          quantity?: number
+          reserved?: number
+          updated_at?: string
+        }
+        Update: {
+          average_cost_cents?: number | null
+          created_at?: string
+          id?: string
+          location_id?: string
+          organization_id?: string
+          product_id?: string
+          quantity?: number
+          reserved?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_by_location_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_by_location_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_by_location_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_locations: {
+        Row: {
+          address: string | null
+          code: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_locations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_movements: {
         Row: {
+          cost_cents: number | null
           created_at: string
           created_by: string | null
           id: string
+          invoice_id: string | null
+          location_id: string | null
           movement_type: string
           new_quantity: number
           notes: string | null
@@ -11298,9 +11642,12 @@ export type Database = {
           reference_type: string | null
         }
         Insert: {
+          cost_cents?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
+          invoice_id?: string | null
+          location_id?: string | null
           movement_type: string
           new_quantity: number
           notes?: string | null
@@ -11312,9 +11659,12 @@ export type Database = {
           reference_type?: string | null
         }
         Update: {
+          cost_cents?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
+          invoice_id?: string | null
+          location_id?: string | null
           movement_type?: string
           new_quantity?: number
           notes?: string | null
@@ -11326,6 +11676,20 @@ export type Database = {
           reference_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_movements_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_movements_organization_id_fkey"
             columns: ["organization_id"]
@@ -11855,6 +12219,54 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_product_mappings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string
+          product_id: string
+          supplier_cnpj: string
+          supplier_product_code: string
+          supplier_product_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id: string
+          product_id: string
+          supplier_cnpj: string
+          supplier_product_code: string
+          supplier_product_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string
+          product_id?: string
+          supplier_cnpj?: string
+          supplier_product_code?: string
+          supplier_product_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_product_mappings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_product_mappings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
             referencedColumns: ["id"]
           },
         ]
@@ -14497,6 +14909,16 @@ export type Database = {
         }
         Returns: Json
       }
+      calculate_weighted_average_cost: {
+        Args: {
+          p_current_avg_cost: number
+          p_current_quantity: number
+          p_new_cost: number
+          p_new_quantity: number
+          p_product_id: string
+        }
+        Returns: number
+      }
       claim_lead: {
         Args: {
           p_lead_id: string
@@ -14834,6 +15256,10 @@ export type Database = {
       org_has_feature: {
         Args: { _feature_key: string; _org_id: string }
         Returns: boolean
+      }
+      process_purchase_invoice_stock: {
+        Args: { p_invoice_id: string; p_user_id: string }
+        Returns: Json
       }
       reopen_whatsapp_conversation: {
         Args: { p_conversation_id: string; p_instance_id: string }

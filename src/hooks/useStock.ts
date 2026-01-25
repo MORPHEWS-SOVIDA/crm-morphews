@@ -115,9 +115,8 @@ export function useCreateStockMovement() {
           break;
       }
 
-      if (newQuantity < 0) {
-        throw new Error('Estoque insuficiente para essa operação');
-      }
+      // Estoque negativo é permitido conforme configuração da organização
+      // A validação agora é feita apenas para exibir alertas, não para bloquear
 
       // Create movement record
       const { data: movement, error: movementError } = await supabase

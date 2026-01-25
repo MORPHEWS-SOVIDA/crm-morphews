@@ -58,11 +58,12 @@ const SalesReport = lazy(() => import("./pages/SalesReport"));
 const Attribution = lazy(() => import("./pages/Attribution"));
 const PosTransactionsReport = lazy(() => import("./pages/PosTransactionsReport"));
 
-// Products
+// Products & Stock
 const Products = lazy(() => import("./pages/Products"));
 const ManipulatedCosts = lazy(() => import("./pages/ManipulatedCosts"));
 const ProductCombos = lazy(() => import("./pages/ProductCombos"));
 const ComboForm = lazy(() => import("./pages/ComboForm"));
+const PurchaseInvoices = lazy(() => import("./pages/PurchaseInvoices"));
 
 // Expedition & Deliveries
 const Expedition = lazy(() => import("./pages/Expedition"));
@@ -405,6 +406,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['products_view_cost']}>
                       <ManipulatedCosts />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/produtos/notas-entrada"
+                  element={
+                    <ProtectedRoute requiredPermissions={['products_manage']}>
+                      <PurchaseInvoices />
                     </ProtectedRoute>
                   }
                 />
