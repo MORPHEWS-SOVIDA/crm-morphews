@@ -173,6 +173,7 @@ export interface CreatePosTerminalInput {
   logical_number?: string;
   name: string;
   payment_method_id?: string;
+  cost_center_id?: string;
   assignment_type: string;
   assigned_user_id?: string;
   is_active?: boolean;
@@ -205,6 +206,7 @@ export function useCreatePosTerminal() {
           logical_number: input.logical_number || null,
           name: input.name,
           payment_method_id: input.payment_method_id || null,
+          cost_center_id: input.cost_center_id || null,
           assignment_type: input.assignment_type,
           is_active: input.is_active ?? true,
         })

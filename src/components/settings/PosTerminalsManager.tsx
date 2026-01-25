@@ -53,6 +53,7 @@ import {
 } from '@/hooks/usePosTerminals';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePaymentMethods } from '@/hooks/usePaymentMethods';
+import { useCostCenters } from '@/hooks/usePaymentMethodsEnhanced';
 
 const GATEWAY_OPTIONS: PosGatewayType[] = ['getnet', 'pagarme', 'banrisul', 'vero', 'banricompras', 'stone'];
 
@@ -68,6 +69,7 @@ interface FormData {
   serial_number: string;
   name: string;
   payment_method_id: string;
+  cost_center_id: string;
   assignment_type: string;
   assigned_user_id: string;
   is_active: boolean;
@@ -79,6 +81,7 @@ const initialFormData: FormData = {
   serial_number: '',
   name: '',
   payment_method_id: '',
+  cost_center_id: '',
   assignment_type: 'counter',
   assigned_user_id: '',
   is_active: true,
@@ -88,6 +91,7 @@ export function PosTerminalsManager() {
   const { data: terminals = [], isLoading } = usePosTerminals();
   const { data: teamMembers = [] } = useTeamMembers();
   const { data: paymentMethods = [] } = usePaymentMethods();
+  const { data: costCenters = [] } = useCostCenters();
   
   const createTerminal = useCreatePosTerminal();
   const updateTerminal = useUpdatePosTerminal();
@@ -117,6 +121,7 @@ export function PosTerminalsManager() {
       serial_number: terminal.serial_number || '',
       name: terminal.name,
       payment_method_id: terminal.payment_method_id || '',
+      cost_center_id: (terminal as any).cost_center_id || '',
       assignment_type: terminal.assignment_type || 'counter',
       assigned_user_id: terminal.current_assignment?.user_id || '',
       is_active: terminal.is_active,
@@ -133,6 +138,7 @@ export function PosTerminalsManager() {
       serial_number: formData.serial_number || undefined,
       name: formData.name.trim(),
       payment_method_id: formData.payment_method_id || undefined,
+      cost_center_id: formData.cost_center_id || undefined,
       assignment_type: formData.assignment_type,
       assigned_user_id: formData.assignment_type === 'user' ? formData.assigned_user_id : undefined,
       is_active: formData.is_active,
@@ -317,6 +323,27 @@ export function PosTerminalsManager() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Cost Center - Multi-CNPJ support */}
+            <div className="grid gap-2">
+              <Label>Centro de Custo / CNPJ</Label>
+              <Select
+                value={formData.cost_center_id || 'none'}
+                onValueChange={(v) => setFormData({ ...formData, cost_center_id: v === 'none' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o centro de custo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {costCenters.map((cc) => (
+                    <SelectItem key={cc.id} value={cc.id}>
+                      {cc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
