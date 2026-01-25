@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText, Wallet } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +30,7 @@ import { RomaneioImporter } from '@/components/settings/RomaneioImporter';
 import { CustomFieldsManager } from '@/components/settings/CustomFieldsManager';
 import { FiscalCompaniesManager } from '@/components/settings/FiscalCompaniesManager';
 import { FiscalInvoicesManager } from '@/components/settings/FiscalInvoicesManager';
+import { PosTerminalsManager } from '@/components/settings/PosTerminalsManager';
 import { cn } from '@/lib/utils';
 
 // Define setting categories with their tabs
@@ -436,6 +437,22 @@ export default function Settings() {
                   </div>
                 </div>
                 <PaymentMethodsManagerEnhanced />
+              </div>
+            )}
+
+            {/* POS Terminals (Card Machines) */}
+            {canAccess('settings_payment_methods') && (
+              <div className="bg-card rounded-xl p-6 shadow-card">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-emerald-500/10">
+                    <Wallet className="w-6 h-6 text-emerald-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Máquinas POS</h2>
+                    <p className="text-sm text-muted-foreground">Gerencie maquininhas de cartão e reconciliação</p>
+                  </div>
+                </div>
+                <PosTerminalsManager />
               </div>
             )}
           </TabsContent>
