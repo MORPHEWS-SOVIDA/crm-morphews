@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Mail } from 'lucide-react';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useProducts } from '@/hooks/useProducts';
 import {
@@ -18,7 +18,7 @@ import {
   type CreateLandingPageInput,
 } from '@/hooks/ecommerce';
 import { AILandingWizard } from './ai-landing';
-
+import { StorefrontEmailSequences } from './StorefrontEmailSequences';
 interface LandingPageFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -227,10 +227,14 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
         ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="basic">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="offers">Ofertas</TabsTrigger>
               <TabsTrigger value="content">Conteúdo</TabsTrigger>
+              <TabsTrigger value="emails" className="gap-1">
+                <Mail className="h-3 w-3" />
+                E-mails
+              </TabsTrigger>
               <TabsTrigger value="settings">Config</TabsTrigger>
             </TabsList>
 
@@ -509,6 +513,14 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
                   placeholder="5511999999999"
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="emails" className="mt-4">
+              <StorefrontEmailSequences 
+                landingPageId={landingPage?.id}
+                landingPageName={landingPage?.name || formData.name}
+                productName={products?.find(p => p.id === formData.product_id)?.name}
+              />
             </TabsContent>
           </Tabs>
 

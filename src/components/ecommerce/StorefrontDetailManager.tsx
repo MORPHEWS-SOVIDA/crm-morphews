@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Image, FileText, Layers, Package, Settings } from 'lucide-react';
+import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStorefront } from '@/hooks/ecommerce';
@@ -8,7 +8,7 @@ import { StorefrontPagesTab } from './tabs/StorefrontPagesTab';
 import { StorefrontCategoriesTab } from './tabs/StorefrontCategoriesTab';
 import { StorefrontProductsTab } from './tabs/StorefrontProductsTab';
 import { StorefrontSettingsTab } from './tabs/StorefrontSettingsTab';
-
+import { StorefrontEmailSequences } from './StorefrontEmailSequences';
 interface StorefrontDetailManagerProps {
   storefrontId: string;
   onBack: () => void;
@@ -68,7 +68,7 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="banners" className="gap-2">
             <Image className="h-4 w-4" />
             <span className="hidden sm:inline">Banners</span>
@@ -84,6 +84,10 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Produtos</span>
+          </TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2">
+            <Mail className="h-4 w-4" />
+            <span className="hidden sm:inline">E-mails</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />
@@ -105,6 +109,13 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
         <TabsContent value="products" className="mt-6">
           <StorefrontProductsTab storefrontId={storefrontId} storefront={storefront} />
+        </TabsContent>
+
+        <TabsContent value="emails" className="mt-6">
+          <StorefrontEmailSequences 
+            storefrontId={storefrontId} 
+            storefrontName={storefront.name}
+          />
         </TabsContent>
 
         <TabsContent value="settings" className="mt-6">
