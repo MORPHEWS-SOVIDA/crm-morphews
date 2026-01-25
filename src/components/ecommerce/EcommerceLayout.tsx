@@ -14,9 +14,12 @@ import {
   Settings
 } from 'lucide-react';
 
+import { CreditCard } from 'lucide-react';
+
 const navItems = [
   { path: '/ecommerce/lojas', label: 'Lojas', icon: Store },
   { path: '/ecommerce/landings', label: 'Landings', icon: FileText },
+  { path: '/ecommerce/checkouts', label: 'Checkouts', icon: CreditCard },
   { path: '/ecommerce/vendas', label: 'Vendas', icon: ShoppingBag },
   { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
   { path: '/ecommerce/emails', label: 'E-mails', icon: Mail },

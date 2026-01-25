@@ -9,8 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/queryClient";
 import { UtmProvider } from "@/hooks/useUtmTracker";
-
-// Loading fallback for lazy-loaded routes
+import { HelmetProvider } from "react-helmet-async";
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -42,8 +41,8 @@ const PublicHelper = lazy(() => import("./pages/PublicHelper"));
 const PaymentSuccess = lazy(() => import("./pages/ecommerce/PaymentSuccess"));
 const PaymentCanceled = lazy(() => import("./pages/ecommerce/PaymentCanceled"));
 const UniversalCheckout = lazy(() => import("./pages/ecommerce/UniversalCheckout"));
+const PublicCheckoutPage = lazy(() => import("./pages/ecommerce/PublicCheckoutPage"));
 
-// Leads
 const LeadsList = lazy(() => import("./pages/LeadsList"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
 const NewLead = lazy(() => import("./pages/NewLead"));
@@ -132,6 +131,7 @@ const EcommerceEmails = lazy(() => import("./pages/ecommerce/EcommerceEmails"));
 const EcommerceAfiliados = lazy(() => import("./pages/ecommerce/EcommerceAfiliados"));
 const EcommerceIndustrias = lazy(() => import("./pages/ecommerce/EcommerceIndustrias"));
 const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
+const CheckoutsPage = lazy(() => import("./pages/ecommerce/CheckoutsPage"));
 // Public Storefront
 const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
 const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
@@ -145,6 +145,7 @@ const StorefrontOrderConfirmed = lazy(() => import("./components/storefront/Stor
 const StorefrontPixPayment = lazy(() => import("./components/storefront/StorefrontPixPayment").then(m => ({ default: m.StorefrontPixPayment })));
 
 const App = () => (
+  <HelmetProvider>
   <QueryClientProvider client={queryClient}>
     <UtmProvider>
       <AuthProvider>
@@ -173,6 +174,7 @@ const App = () => (
                 <Route path="/pagamento-sucesso" element={<PaymentSuccess />} />
                 <Route path="/pagamento-cancelado" element={<PaymentCanceled />} />
                 <Route path="/c/:cartId" element={<UniversalCheckout />} />
+                <Route path="/pay/:slug" element={<PublicCheckoutPage />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>
@@ -674,6 +676,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/ecommerce/checkouts"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <CheckoutsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/ecommerce/vendas"
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
@@ -748,6 +758,7 @@ const App = () => (
     </AuthProvider>
   </UtmProvider>
   </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;
