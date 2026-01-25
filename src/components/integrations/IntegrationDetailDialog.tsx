@@ -50,6 +50,8 @@ import {
   Integration,
   IntegrationFieldMapping,
   IntegrationLog,
+  TriggerRule,
+  useIntegrations,
   useIntegrationFieldMappings,
   useIntegrationLogs,
   useUpdateIntegration,
@@ -58,6 +60,7 @@ import {
   TARGET_FIELDS,
   TRANSFORM_TYPES,
 } from '@/hooks/useIntegrations';
+import { IntegrationTriggerRules } from './IntegrationTriggerRules';
 import { useCustomFieldDefinitions } from '@/hooks/useLeadCustomFields';
 import { useProducts } from '@/hooks/useProducts';
 import { useUsers } from '@/hooks/useUsers';
@@ -96,6 +99,7 @@ export function IntegrationDetailDialog({
   const { data: nonPurchaseReasons } = useNonPurchaseReasons();
   const { data: funnelStages } = useFunnelStages();
   const { data: customFieldDefs = [] } = useCustomFieldDefinitions();
+  const { data: allIntegrations } = useIntegrations();
   
   const updateIntegration = useUpdateIntegration();
   const saveFieldMappings = useSaveFieldMappings();
@@ -137,6 +141,17 @@ export function IntegrationDetailDialog({
   );
   const [sacDefaultDescription, setSacDefaultDescription] = useState<string>(
     (integration as any).sac_default_description || ''
+  );
+  
+  // Seller and trigger rules for sales
+  const [defaultSellerId, setDefaultSellerId] = useState<string>(
+    integration.default_seller_id || ''
+  );
+  const [triggerRules, setTriggerRules] = useState<TriggerRule[]>(
+    integration.trigger_rules || []
+  );
+  const [triggerRulesLogic, setTriggerRulesLogic] = useState<'AND' | 'OR'>(
+    integration.trigger_rules_logic || 'AND'
   );
   
   const [mappings, setMappings] = useState<FieldMappingRow[]>([]);
@@ -454,9 +469,19 @@ export function IntegrationDetailDialog({
       sac_subcategory: sacSubcategory || null,
       sac_priority: sacPriority || 'normal',
       sac_default_description: sacDefaultDescription || null,
+      default_seller_id: defaultSellerId || null,
+      trigger_rules: triggerRules.length > 0 ? triggerRules : null,
+      trigger_rules_logic: triggerRulesLogic,
     } as any);
     toast.success('Configurações salvas!');
   };
+
+  // Other integrations for source rules (exclude current one)
+  const otherIntegrations = useMemo(() => {
+    return (allIntegrations || [])
+      .filter(i => i.id !== integration.id)
+      .map(i => ({ id: i.id, name: i.name }));
+  }, [allIntegrations, integration.id]);
 
   const handleAddMapping = () => {
     setMappings([
@@ -604,14 +629,16 @@ export function IntegrationDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
-          <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
+          <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
             <TabsTrigger value="config" className="gap-2">
               <Settings className="h-4 w-4" />
-              Configuração
+              <span className="hidden sm:inline">Configuração</span>
+              <span className="sm:hidden">Config</span>
             </TabsTrigger>
             <TabsTrigger value="mappings" className="gap-2">
               <MapPin className="h-4 w-4" />
-              Mapeamento
+              <span className="hidden sm:inline">Mapeamento</span>
+              <span className="sm:hidden">Map</span>
             </TabsTrigger>
             <TabsTrigger value="lead" className="gap-2">
               <Users className="h-4 w-4" />
@@ -620,6 +647,11 @@ export function IntegrationDetailDialog({
             <TabsTrigger value="sales" className="gap-2">
               <ShoppingCart className="h-4 w-4" />
               Vendas
+            </TabsTrigger>
+            <TabsTrigger value="rules" className="gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Regras</span>
+              <span className="sm:hidden">Regras</span>
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2">
               <Activity className="h-4 w-4" />
@@ -1359,6 +1391,35 @@ export function IntegrationDetailDialog({
                         </p>
                       </div>
 
+                      {/* Seller selector - REQUIRED for sales */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          Vendedor Padrão
+                          <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
+                        </Label>
+                        <Select value={defaultSellerId || '__none__'} onValueChange={(v) => setDefaultSellerId(v === '__none__' ? '' : v)}>
+                          <SelectTrigger className={!defaultSellerId ? 'border-destructive' : ''}>
+                            <SelectValue placeholder="Selecione um vendedor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Selecione um vendedor...</SelectItem>
+                            {users?.map(user => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.first_name} {user.last_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Todas as vendas criadas por esta integração serão atribuídas a este vendedor
+                        </p>
+                        {!defaultSellerId && (
+                          <p className="text-xs text-destructive">
+                            ⚠️ É necessário selecionar um vendedor para vendas funcionarem corretamente
+                          </p>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Status Inicial da Venda</Label>
@@ -1416,7 +1477,7 @@ export function IntegrationDetailDialog({
                       </div>
 
                       <div className="flex justify-end pt-2">
-                        <Button onClick={handleSaveConfig} disabled={updateIntegration.isPending}>
+                        <Button onClick={handleSaveConfig} disabled={updateIntegration.isPending || (!defaultSellerId && (eventMode === 'sale' || eventMode === 'both'))}>
                           {updateIntegration.isPending ? 'Salvando...' : 'Salvar Configurações'}
                         </Button>
                       </div>
@@ -1424,6 +1485,23 @@ export function IntegrationDetailDialog({
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Trigger Rules Tab */}
+            <TabsContent value="rules" className="space-y-4 mt-4">
+              <IntegrationTriggerRules
+                rules={triggerRules}
+                rulesLogic={triggerRulesLogic}
+                onRulesChange={setTriggerRules}
+                onRulesLogicChange={setTriggerRulesLogic}
+                integrations={otherIntegrations}
+              />
+              
+              <div className="flex justify-end">
+                <Button onClick={handleSaveConfig} disabled={updateIntegration.isPending}>
+                  {updateIntegration.isPending ? 'Salvando...' : 'Salvar Regras'}
+                </Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="logs" className="space-y-4 mt-4">

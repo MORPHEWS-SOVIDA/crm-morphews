@@ -99,6 +99,14 @@ interface FieldMapping {
   transform_type: string;
 }
 
+interface TriggerRule {
+  id: string;
+  type: 'time_since_webhook' | 'has_active_sale' | 'source_match' | 'source_exclude';
+  operator?: 'less_than' | 'greater_than' | 'equals' | 'not_equals';
+  value?: string | number;
+  integration_ids?: string[];
+}
+
 interface Integration {
   id: string;
   organization_id: string;
@@ -117,6 +125,10 @@ interface Integration {
   sac_category: string | null;
   sac_subcategory: string | null;
   sac_priority: string | null;
+  // New fields for seller and trigger rules
+  default_seller_id: string | null;
+  trigger_rules: TriggerRule[] | null;
+  trigger_rules_logic: 'AND' | 'OR' | null;
 }
 
 /**
@@ -265,6 +277,170 @@ function findValueInPayload(payload: any, sourceField: string): any {
   }
 
   return searchObject(payload, lowerField);
+}
+
+/**
+ * Evaluates trigger rules to determine if follow-ups should be created.
+ * Returns { shouldTrigger: boolean, reason: string }
+ */
+async function evaluateTriggerRules(
+  supabase: any,
+  integration: Integration,
+  leadId: string,
+  organizationId: string
+): Promise<{ shouldTrigger: boolean; reason: string }> {
+  const rules = integration.trigger_rules;
+  const logic = integration.trigger_rules_logic || 'AND';
+
+  // No rules = always trigger
+  if (!rules || rules.length === 0) {
+    return { shouldTrigger: true, reason: 'No rules configured' };
+  }
+
+  const ruleResults: { rule: TriggerRule; passed: boolean; detail: string }[] = [];
+
+  for (const rule of rules) {
+    let passed = true;
+    let detail = '';
+
+    switch (rule.type) {
+      case 'time_since_webhook': {
+        // Check last webhook log for this lead (from any integration)
+        const hoursLimit = Number(rule.value) || 24;
+        const cutoffTime = new Date(Date.now() - hoursLimit * 60 * 60 * 1000).toISOString();
+
+        const { data: recentLogs } = await supabase
+          .from('integration_logs')
+          .select('id, created_at')
+          .eq('organization_id', organizationId)
+          .eq('lead_id', leadId)
+          .neq('integration_id', integration.id) // Exclude current integration
+          .gte('created_at', cutoffTime)
+          .eq('status', 'success')
+          .limit(1);
+
+        const hasRecentWebhook = recentLogs && recentLogs.length > 0;
+
+        if (rule.operator === 'less_than') {
+          // "Don't trigger if < X hours" => passed = NOT hasRecentWebhook
+          passed = !hasRecentWebhook;
+          detail = hasRecentWebhook 
+            ? `Lead recebeu webhook há menos de ${hoursLimit}h` 
+            : `Nenhum webhook recente (>${hoursLimit}h)`;
+        } else {
+          // "Only trigger if > X hours"
+          passed = !hasRecentWebhook;
+          detail = hasRecentWebhook 
+            ? `Lead recebeu webhook recentemente (<${hoursLimit}h)` 
+            : `Passaram mais de ${hoursLimit}h desde último webhook`;
+        }
+        break;
+      }
+
+      case 'has_active_sale': {
+        // Check if lead has active (pending/paid but not delivered) sales
+        const { data: activeSales } = await supabase
+          .from('sales')
+          .select('id, status')
+          .eq('lead_id', leadId)
+          .eq('organization_id', organizationId)
+          .in('status', ['draft', 'pending', 'paid', 'processing'])
+          .limit(1);
+
+        const hasActiveSale = activeSales && activeSales.length > 0;
+
+        if (rule.operator === 'equals') {
+          // "Don't trigger if HAS active sale"
+          passed = !hasActiveSale;
+          detail = hasActiveSale 
+            ? 'Lead já tem venda ativa - follow-up bloqueado' 
+            : 'Nenhuma venda ativa';
+        } else {
+          // "Only trigger if HAS active sale"
+          passed = hasActiveSale;
+          detail = hasActiveSale 
+            ? 'Lead tem venda ativa - pode prosseguir' 
+            : 'Lead sem venda ativa';
+        }
+        break;
+      }
+
+      case 'source_match': {
+        // Only trigger if lead came from specific integrations
+        // Check lead_responsibles or leads.source_integration_id if exists
+        const targetIds = rule.integration_ids || [];
+        if (targetIds.length === 0) {
+          passed = true;
+          detail = 'Nenhuma integração configurada na regra';
+        } else {
+          // Check recent logs to see where lead came from
+          const { data: leadSources } = await supabase
+            .from('integration_logs')
+            .select('integration_id')
+            .eq('lead_id', leadId)
+            .eq('organization_id', organizationId)
+            .eq('status', 'success')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          const leadIntegrationIds = [...new Set((leadSources || []).map((l: any) => l.integration_id))];
+          const matchesSource = targetIds.some(id => leadIntegrationIds.includes(id));
+          passed = matchesSource;
+          detail = matchesSource 
+            ? 'Lead veio de integração permitida' 
+            : 'Lead não veio das integrações configuradas';
+        }
+        break;
+      }
+
+      case 'source_exclude': {
+        // Don't trigger if lead came from specific integrations
+        const excludeIds = rule.integration_ids || [];
+        if (excludeIds.length === 0) {
+          passed = true;
+          detail = 'Nenhuma integração configurada para exclusão';
+        } else {
+          const { data: leadSources } = await supabase
+            .from('integration_logs')
+            .select('integration_id')
+            .eq('lead_id', leadId)
+            .eq('organization_id', organizationId)
+            .eq('status', 'success')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          const leadIntegrationIds = [...new Set((leadSources || []).map((l: any) => l.integration_id))];
+          const matchesExclude = excludeIds.some(id => leadIntegrationIds.includes(id));
+          passed = !matchesExclude;
+          detail = matchesExclude 
+            ? 'Lead veio de integração excluída - follow-up bloqueado' 
+            : 'Lead não veio das integrações excluídas';
+        }
+        break;
+      }
+
+      default:
+        passed = true;
+        detail = `Unknown rule type: ${rule.type}`;
+    }
+
+    ruleResults.push({ rule, passed, detail });
+  }
+
+  // Apply logic
+  const allPassed = ruleResults.every(r => r.passed);
+  const anyPassed = ruleResults.some(r => r.passed);
+  const shouldTrigger = logic === 'AND' ? allPassed : anyPassed;
+
+  const failedRules = ruleResults.filter(r => !r.passed);
+  const reason = shouldTrigger
+    ? 'Todas as regras satisfeitas'
+    : failedRules.map(r => r.detail).join('; ');
+
+  console.log(`[trigger-rules] Integration ${integration.name}: shouldTrigger=${shouldTrigger}, logic=${logic}, results:`, 
+    ruleResults.map(r => ({ type: r.rule.type, passed: r.passed, detail: r.detail })));
+
+  return { shouldTrigger, reason };
 }
 
 Deno.serve(async (req) => {
@@ -1016,8 +1192,21 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create followup if configured
-      if (typedIntegration.auto_followup_days) {
+      // ========== TRIGGER RULES EVALUATION ==========
+      // Check if follow-ups should be created based on trigger rules
+      const triggerEvaluation = await evaluateTriggerRules(
+        supabase,
+        typedIntegration,
+        leadId,
+        typedIntegration.organization_id
+      );
+
+      if (!triggerEvaluation.shouldTrigger) {
+        console.log(`[integration-webhook] Follow-ups blocked by trigger rules: ${triggerEvaluation.reason}`);
+      }
+
+      // Create followup if configured AND trigger rules allow
+      if (typedIntegration.auto_followup_days && triggerEvaluation.shouldTrigger) {
         const followupDate = new Date();
         followupDate.setDate(followupDate.getDate() + typedIntegration.auto_followup_days);
         
@@ -1036,7 +1225,8 @@ Deno.serve(async (req) => {
       }
 
       // Mark non-purchase reason if configured AND schedule automatic messages
-      if (typedIntegration.non_purchase_reason_id) {
+      // Only schedule messages if trigger rules allow
+      if (typedIntegration.non_purchase_reason_id && triggerEvaluation.shouldTrigger) {
         console.log(`[integration-webhook] Processing non_purchase_reason: ${typedIntegration.non_purchase_reason_id} for lead ${leadId}`);
         
         // Insert non-purchase record
@@ -1301,8 +1491,10 @@ Deno.serve(async (req) => {
         console.log('Using kit price:', totalCents / 100);
       }
       
-      // Get seller user (first responsible)
-      const sellerUserId = typedIntegration.default_responsible_user_ids?.[0] || leadData.assigned_to;
+      // Get seller user - prioritize default_seller_id (new field), then first responsible, then lead's assigned_to
+      const sellerUserId = typedIntegration.default_seller_id 
+        || typedIntegration.default_responsible_user_ids?.[0] 
+        || leadData.assigned_to;
       
       // Get first address for the lead
       const { data: leadAddress } = await supabase

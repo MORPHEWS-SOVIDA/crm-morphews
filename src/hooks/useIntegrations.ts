@@ -4,6 +4,14 @@ import { useTenant } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/error-message';
 
+export interface TriggerRule {
+  id: string;
+  type: 'time_since_webhook' | 'has_active_sale' | 'source_match' | 'source_exclude';
+  operator?: 'less_than' | 'greater_than' | 'equals' | 'not_equals';
+  value?: string | number;
+  integration_ids?: string[];
+}
+
 export interface Integration {
   id: string;
   organization_id: string;
@@ -25,6 +33,10 @@ export interface Integration {
   event_mode: 'lead' | 'sale' | 'both';
   sale_status_on_create: string | null;
   sale_tag: string | null;
+  // New fields for seller and trigger rules
+  default_seller_id: string | null;
+  trigger_rules: TriggerRule[] | null;
+  trigger_rules_logic: 'AND' | 'OR';
 }
 
 export interface IntegrationFieldMapping {
@@ -115,6 +127,15 @@ export const TRANSFORM_TYPES = [
   { value: 'trim', label: 'Remover espaços' },
 ];
 
+// Helper to safely parse trigger_rules from JSON
+function parseIntegration(data: any): Integration {
+  return {
+    ...data,
+    trigger_rules: Array.isArray(data.trigger_rules) ? data.trigger_rules as TriggerRule[] : [],
+    trigger_rules_logic: data.trigger_rules_logic || 'AND',
+  };
+}
+
 export function useIntegrations() {
   const { tenantId } = useTenant();
   
@@ -130,7 +151,7 @@ export function useIntegrations() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Integration[];
+      return (data || []).map(parseIntegration);
     },
     enabled: !!tenantId,
   });
@@ -152,7 +173,7 @@ export function useIntegration(id: string | undefined) {
         .single();
       
       if (error) throw error;
-      return data as Integration;
+      return parseIntegration(data);
     },
     enabled: !!id && !!tenantId,
   });
@@ -251,7 +272,7 @@ export function useCreateIntegration() {
         .single();
       
       if (error) throw error;
-      return result as Integration;
+      return parseIntegration(result);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
@@ -268,10 +289,16 @@ export function useUpdateIntegration() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<Integration> & { id: string }) => {
+    mutationFn: async ({ id, trigger_rules, ...data }: Partial<Integration> & { id: string }) => {
+      // Convert trigger_rules to JSON-compatible format
+      const updateData: any = { ...data };
+      if (trigger_rules !== undefined) {
+        updateData.trigger_rules = trigger_rules as any;
+      }
+      
       const { error } = await supabase
         .from('integrations')
-        .update(data)
+        .update(updateData)
         .eq('id', id);
       
       if (error) throw error;
