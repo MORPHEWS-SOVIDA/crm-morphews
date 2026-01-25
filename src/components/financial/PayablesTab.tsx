@@ -34,6 +34,8 @@ import { PayableFormDialog } from './PayableFormDialog';
 import { PayableDetailDialog } from './PayableDetailDialog';
 import { ConfirmPayableDialog } from './ConfirmPayableDialog';
 
+const ALL_VALUE = '__all__';
+
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'secondary' },
   approved: { label: 'Aprovado', variant: 'default' },
@@ -44,7 +46,7 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
 
 export function PayablesTab() {
   const [statusFilter, setStatusFilter] = useState<string>('pending');
-  const [supplierFilter, setSupplierFilter] = useState<string>('');
+  const [supplierFilter, setSupplierFilter] = useState<string>(ALL_VALUE);
   const [search, setSearch] = useState('');
   
   const [formOpen, setFormOpen] = useState(false);
@@ -53,93 +55,90 @@ export function PayablesTab() {
   const [selectedPayable, setSelectedPayable] = useState<AccountPayable | null>(null);
   
   const { data: payables, isLoading } = useAccountsPayable({
-    status: statusFilter,
-    supplierId: supplierFilter || undefined,
-    search: search || undefined,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    supplierId: supplierFilter === ALL_VALUE ? undefined : supplierFilter,
+    search,
   });
   const { data: summary } = usePayableSummary();
   const { data: suppliers } = useSuppliers();
-  const approveMutation = useApprovePayable();
-  
-  const handleView = (payable: AccountPayable) => {
-    setSelectedPayable(payable);
-    setDetailOpen(true);
+  const approvePayable = useApprovePayable();
+
+  const handleApprove = (payable: AccountPayable) => {
+    approvePayable.mutate(payable.id);
   };
-  
-  const handleConfirmPayment = (payable: AccountPayable) => {
-    setSelectedPayable(payable);
-    setConfirmOpen(true);
-  };
-  
-  const handleApprove = async (payable: AccountPayable) => {
-    await approveMutation.mutateAsync(payable.id);
-  };
-  
-  const isOverdue = (dueDate: string, status: string) => {
-    if (status === 'paid' || status === 'cancelled') return false;
-    return new Date(dueDate) < new Date(format(new Date(), 'yyyy-MM-dd'));
-  };
-  
+
+  const summaryCards = [
+    {
+      title: 'Pendentes',
+      value: summary?.totalPending || 0,
+      count: summary?.countPending || 0,
+      icon: FileText,
+      color: 'text-amber-500',
+    },
+    {
+      title: 'Aguardando Aprovação',
+      value: summary?.totalApprovalPending || 0,
+      count: 0,
+      icon: AlertTriangle,
+      color: 'text-orange-500',
+    },
+    {
+      title: 'Pagos este Mês',
+      value: summary?.totalPaid || 0,
+      count: summary?.countPaid || 0,
+      icon: Check,
+      color: 'text-green-500',
+    },
+    {
+      title: 'Vencidos',
+      value: summary?.totalOverdue || 0,
+      count: summary?.countOverdue || 0,
+      icon: Ban,
+      color: 'text-red-500',
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">A Pagar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(summary?.totalPending || 0)}</p>
-            <p className="text-xs text-muted-foreground">{summary?.countPending || 0} contas</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Aguardando Aprovação</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-amber-600">{formatCurrency(summary?.totalApprovalPending || 0)}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Vencidos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">{formatCurrency(summary?.totalOverdue || 0)}</p>
-            <p className="text-xs text-muted-foreground">{summary?.countOverdue || 0} contas</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Esta Semana</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(summary?.weekDue || 0)}</p>
-            <p className="text-xs text-muted-foreground">vencendo</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-4 gap-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.title}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{card.title}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(card.value)}</p>
+                    {card.count > 0 && (
+                      <p className="text-xs text-muted-foreground">{card.count} itens</p>
+                    )}
+                  </div>
+                  <Icon className={`h-8 w-8 ${card.color}`} />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-      
+
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por descrição, documento ou fornecedor..."
+                placeholder="Buscar por descrição..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
+                className="pl-10"
               />
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -156,7 +155,7 @@ export function PayablesTab() {
                 <SelectValue placeholder="Fornecedor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value={ALL_VALUE}>Todos</SelectItem>
                 {suppliers?.map(s => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
@@ -173,106 +172,103 @@ export function PayablesTab() {
       
       {/* Table */}
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="pt-4">
           {isLoading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : !payables?.length ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Nenhuma conta encontrada
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vencimento</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Fornecedor</TableHead>
+                  <TableHead>Vencimento</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payables.map((item) => {
-                  const overdue = isOverdue(item.due_date, item.status);
-                  
-                  return (
-                    <TableRow key={item.id} className={overdue ? 'bg-red-50 dark:bg-red-950/20' : ''}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {overdue && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                          <span className={overdue ? 'text-red-600 font-medium' : ''}>
-                            {format(new Date(item.due_date), 'dd/MM/yyyy')}
+                {payables?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      Nenhuma conta encontrada
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  payables?.map((payable) => {
+                    const status = STATUS_CONFIG[payable.status] || STATUS_CONFIG.pending;
+                    const isOverdue = new Date(payable.due_date) < new Date() && payable.status !== 'paid';
+                    
+                    return (
+                      <TableRow key={payable.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{payable.description}</p>
+                            {payable.document_number && (
+                              <p className="text-xs text-muted-foreground">{payable.document_number}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {payable.supplier?.name || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <span className={isOverdue ? 'text-red-500 font-medium' : ''}>
+                            {format(new Date(payable.due_date), 'dd/MM/yyyy', { locale: ptBR })}
                           </span>
-                        </div>
-                        {item.total_installments > 1 && (
-                          <span className="text-xs text-muted-foreground">
-                            {item.installment_number}/{item.total_installments}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{item.description}</p>
-                          {item.document_number && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <FileText className="h-3 w-3" />
-                              {item.document_number}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {item.supplier?.name || '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(item.amount_cents)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant={overdue ? 'destructive' : STATUS_CONFIG[item.status]?.variant || 'secondary'}>
-                            {overdue ? 'Vencido' : STATUS_CONFIG[item.status]?.label || item.status}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(payable.amount_cents)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={isOverdue ? 'destructive' : status.variant}>
+                            {isOverdue ? 'Vencido' : status.label}
                           </Badge>
-                          {item.requires_approval && item.status === 'pending' && (
-                            <Badge variant="outline" className="text-amber-600">
-                              Aguarda aprovação
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleView(item)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          
-                          {item.requires_approval && item.status === 'pending' && (
-                            <Button 
-                              variant="ghost" 
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
                               size="icon"
-                              onClick={() => handleApprove(item)}
-                              disabled={approveMutation.isPending}
+                              onClick={() => {
+                                setSelectedPayable(payable);
+                                setDetailOpen(true);
+                              }}
                             >
-                              <Check className="h-4 w-4 text-green-600" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          )}
-                          
-                          {(item.status === 'pending' || item.status === 'approved') && !item.requires_approval && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleConfirmPayment(item)}
-                            >
-                              <Check className="h-4 w-4 text-green-600" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                            
+                            {payable.requires_approval && payable.status === 'pending' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleApprove(payable)}
+                                disabled={approvePayable.isPending}
+                              >
+                                <Check className="h-4 w-4 text-green-500" />
+                              </Button>
+                            )}
+                            
+                            {(payable.status === 'approved' || (!payable.requires_approval && payable.status === 'pending')) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPayable(payable);
+                                  setConfirmOpen(true);
+                                }}
+                              >
+                                Baixar
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           )}
