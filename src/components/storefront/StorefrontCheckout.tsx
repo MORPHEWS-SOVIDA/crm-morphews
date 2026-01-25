@@ -201,8 +201,10 @@ export function StorefrontCheckout() {
         card_data: paymentMethod === 'credit_card' && !isOneClickCheckout ? cardData : undefined,
         save_card: !isOneClickCheckout && saveCard,
         // Send total with interest for credit card payments
-        total_with_interest_cents: paymentMethod === 'credit_card' && cardData?.total_with_interest 
-          ? cardData.total_with_interest 
+        // Use totalWithInterest state which tracks the full total including interest
+        // This ensures we always send the correct total even if cardData hasn't updated yet
+        total_with_interest_cents: paymentMethod === 'credit_card' && totalWithInterest 
+          ? totalWithInterest 
           : undefined,
         // Attribution data
         utm: utmData,
