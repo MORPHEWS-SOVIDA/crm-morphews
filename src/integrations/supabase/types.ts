@@ -4471,6 +4471,7 @@ export type Database = {
           created_by: string | null
           default_product_id: string | null
           default_responsible_user_ids: string[] | null
+          default_seller_id: string | null
           default_stage: string | null
           description: string | null
           event_mode: string | null
@@ -4486,6 +4487,8 @@ export type Database = {
           sale_tag: string | null
           settings: Json | null
           status: string
+          trigger_rules: Json | null
+          trigger_rules_logic: string | null
           type: string
           updated_at: string
         }
@@ -4496,6 +4499,7 @@ export type Database = {
           created_by?: string | null
           default_product_id?: string | null
           default_responsible_user_ids?: string[] | null
+          default_seller_id?: string | null
           default_stage?: string | null
           description?: string | null
           event_mode?: string | null
@@ -4511,6 +4515,8 @@ export type Database = {
           sale_tag?: string | null
           settings?: Json | null
           status?: string
+          trigger_rules?: Json | null
+          trigger_rules_logic?: string | null
           type?: string
           updated_at?: string
         }
@@ -4521,6 +4527,7 @@ export type Database = {
           created_by?: string | null
           default_product_id?: string | null
           default_responsible_user_ids?: string[] | null
+          default_seller_id?: string | null
           default_stage?: string | null
           description?: string | null
           event_mode?: string | null
@@ -4536,6 +4543,8 @@ export type Database = {
           sale_tag?: string | null
           settings?: Json | null
           status?: string
+          trigger_rules?: Json | null
+          trigger_rules_logic?: string | null
           type?: string
           updated_at?: string
         }
@@ -4546,6 +4555,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lead_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integrations_default_seller_id_fkey"
+            columns: ["default_seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "integrations_non_purchase_reason_id_fkey"
