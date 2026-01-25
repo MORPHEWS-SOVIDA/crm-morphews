@@ -8314,6 +8314,261 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_terminal_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          pos_terminal_id: string
+          unassigned_at: string | null
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          pos_terminal_id: string
+          unassigned_at?: string | null
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          pos_terminal_id?: string
+          unassigned_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_terminal_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "pos_terminal_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_terminal_assignments_pos_terminal_id_fkey"
+            columns: ["pos_terminal_id"]
+            isOneToOne: false
+            referencedRelation: "pos_terminals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_terminal_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      pos_terminals: {
+        Row: {
+          assignment_type: string | null
+          created_at: string
+          extra_config: Json | null
+          gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
+          id: string
+          is_active: boolean
+          logical_number: string | null
+          name: string
+          organization_id: string
+          payment_method_id: string | null
+          serial_number: string | null
+          terminal_id: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          assignment_type?: string | null
+          created_at?: string
+          extra_config?: Json | null
+          gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
+          id?: string
+          is_active?: boolean
+          logical_number?: string | null
+          name: string
+          organization_id: string
+          payment_method_id?: string | null
+          serial_number?: string | null
+          terminal_id: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          assignment_type?: string | null
+          created_at?: string
+          extra_config?: Json | null
+          gateway_type?: Database["public"]["Enums"]["pos_gateway_type"]
+          id?: string
+          is_active?: boolean
+          logical_number?: string | null
+          name?: string
+          organization_id?: string
+          payment_method_id?: string | null
+          serial_number?: string | null
+          terminal_id?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_terminals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_terminals_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_transactions: {
+        Row: {
+          amount_cents: number
+          authorization_code: string | null
+          card_brand: string | null
+          card_last_digits: string | null
+          created_at: string
+          fee_cents: number | null
+          gateway_timestamp: string | null
+          gateway_transaction_id: string | null
+          gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
+          id: string
+          installments: number | null
+          match_status: Database["public"]["Enums"]["pos_match_status"]
+          matched_at: string | null
+          matched_by: string | null
+          matched_user_id: string | null
+          net_amount_cents: number | null
+          nsu: string | null
+          organization_id: string
+          pos_terminal_id: string | null
+          raw_payload: Json | null
+          sale_id: string | null
+          sale_installment_id: string | null
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          authorization_code?: string | null
+          card_brand?: string | null
+          card_last_digits?: string | null
+          created_at?: string
+          fee_cents?: number | null
+          gateway_timestamp?: string | null
+          gateway_transaction_id?: string | null
+          gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
+          id?: string
+          installments?: number | null
+          match_status?: Database["public"]["Enums"]["pos_match_status"]
+          matched_at?: string | null
+          matched_by?: string | null
+          matched_user_id?: string | null
+          net_amount_cents?: number | null
+          nsu?: string | null
+          organization_id: string
+          pos_terminal_id?: string | null
+          raw_payload?: Json | null
+          sale_id?: string | null
+          sale_installment_id?: string | null
+          transaction_type: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          authorization_code?: string | null
+          card_brand?: string | null
+          card_last_digits?: string | null
+          created_at?: string
+          fee_cents?: number | null
+          gateway_timestamp?: string | null
+          gateway_transaction_id?: string | null
+          gateway_type?: Database["public"]["Enums"]["pos_gateway_type"]
+          id?: string
+          installments?: number | null
+          match_status?: Database["public"]["Enums"]["pos_match_status"]
+          matched_at?: string | null
+          matched_by?: string | null
+          matched_user_id?: string | null
+          net_amount_cents?: number | null
+          nsu?: string | null
+          organization_id?: string
+          pos_terminal_id?: string | null
+          raw_payload?: Json | null
+          sale_id?: string | null
+          sale_installment_id?: string | null
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_transactions_matched_by_fkey"
+            columns: ["matched_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "pos_transactions_matched_user_id_fkey"
+            columns: ["matched_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "pos_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_transactions_pos_terminal_id_fkey"
+            columns: ["pos_terminal_id"]
+            isOneToOne: false
+            referencedRelation: "pos_terminals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_transactions_sale_installment_id_fkey"
+            columns: ["sale_installment_id"]
+            isOneToOne: false
+            referencedRelation: "sale_installments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_sale_surveys: {
         Row: {
           attempted_at: string | null
@@ -9792,6 +10047,8 @@ export type Database = {
           nsu_cv: string | null
           organization_id: string
           payment_proof_url: string | null
+          pos_transaction_id: string | null
+          reconciliation_status: string | null
           sale_id: string
           status: string
           total_installments: number
@@ -9818,6 +10075,8 @@ export type Database = {
           nsu_cv?: string | null
           organization_id: string
           payment_proof_url?: string | null
+          pos_transaction_id?: string | null
+          reconciliation_status?: string | null
           sale_id: string
           status?: string
           total_installments?: number
@@ -9844,6 +10103,8 @@ export type Database = {
           nsu_cv?: string | null
           organization_id?: string
           payment_proof_url?: string | null
+          pos_transaction_id?: string | null
+          reconciliation_status?: string | null
           sale_id?: string
           status?: string
           total_installments?: number
@@ -9866,6 +10127,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_installments_pos_transaction_id_fkey"
+            columns: ["pos_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "pos_transactions"
             referencedColumns: ["id"]
           },
           {
@@ -10246,6 +10514,7 @@ export type Database = {
           payment_notes: string | null
           payment_proof_url: string | null
           payment_status: string | null
+          pos_transaction_id: string | null
           post_sale_contact_status:
             | Database["public"]["Enums"]["post_sale_contact_status"]
             | null
@@ -10337,6 +10606,7 @@ export type Database = {
           payment_notes?: string | null
           payment_proof_url?: string | null
           payment_status?: string | null
+          pos_transaction_id?: string | null
           post_sale_contact_status?:
             | Database["public"]["Enums"]["post_sale_contact_status"]
             | null
@@ -10428,6 +10698,7 @@ export type Database = {
           payment_notes?: string | null
           payment_proof_url?: string | null
           payment_status?: string | null
+          pos_transaction_id?: string | null
           post_sale_contact_status?:
             | Database["public"]["Enums"]["post_sale_contact_status"]
             | null
@@ -10492,6 +10763,13 @@ export type Database = {
             columns: ["payment_method_id"]
             isOneToOne: false
             referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_pos_transaction_id_fkey"
+            columns: ["pos_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "pos_transactions"
             referencedColumns: ["id"]
           },
           {
@@ -14461,6 +14739,10 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      is_org_admin_or_manager: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_org_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
@@ -14675,6 +14957,14 @@ export type Database = {
         | "boleto_postpaid"
         | "boleto_installment"
         | "gift"
+      pos_gateway_type:
+        | "getnet"
+        | "pagarme"
+        | "banrisul"
+        | "vero"
+        | "banricompras"
+        | "stone"
+      pos_match_status: "pending" | "matched" | "orphan" | "manual"
       post_sale_contact_status:
         | "pending"
         | "attempted_1"
@@ -14956,6 +15246,15 @@ export const Constants = {
         "boleto_installment",
         "gift",
       ],
+      pos_gateway_type: [
+        "getnet",
+        "pagarme",
+        "banrisul",
+        "vero",
+        "banricompras",
+        "stone",
+      ],
+      pos_match_status: ["pending", "matched", "orphan", "manual"],
       post_sale_contact_status: [
         "pending",
         "attempted_1",
