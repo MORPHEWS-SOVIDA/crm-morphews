@@ -7492,6 +7492,10 @@ export type Database = {
           auto_close_only_business_hours: boolean | null
           auto_close_send_message: boolean | null
           created_at: string
+          default_stage_fallback: string | null
+          default_stage_new_lead: string | null
+          default_stage_receptivo: string | null
+          default_stage_whatsapp: string | null
           id: string
           name: string
           owner_email: string | null
@@ -7529,6 +7533,10 @@ export type Database = {
           auto_close_only_business_hours?: boolean | null
           auto_close_send_message?: boolean | null
           created_at?: string
+          default_stage_fallback?: string | null
+          default_stage_new_lead?: string | null
+          default_stage_receptivo?: string | null
+          default_stage_whatsapp?: string | null
           id?: string
           name: string
           owner_email?: string | null
@@ -7566,6 +7574,10 @@ export type Database = {
           auto_close_only_business_hours?: boolean | null
           auto_close_send_message?: boolean | null
           created_at?: string
+          default_stage_fallback?: string | null
+          default_stage_new_lead?: string | null
+          default_stage_receptivo?: string | null
+          default_stage_whatsapp?: string | null
           id?: string
           name?: string
           owner_email?: string | null
@@ -7591,7 +7603,36 @@ export type Database = {
           whatsapp_transcribe_client_audio?: boolean | null
           whatsapp_transcribe_team_audio?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_default_stage_fallback_fkey"
+            columns: ["default_stage_fallback"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organizations_default_stage_new_lead_fkey"
+            columns: ["default_stage_new_lead"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organizations_default_stage_receptivo_fkey"
+            columns: ["default_stage_receptivo"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organizations_default_stage_whatsapp_fkey"
+            columns: ["default_stage_whatsapp"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_acquirers: {
         Row: {

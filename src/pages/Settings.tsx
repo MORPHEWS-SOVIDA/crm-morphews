@@ -12,6 +12,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FunnelStagesManager } from '@/components/settings/FunnelStagesManager';
+import { DefaultStagesConfig } from '@/components/settings/DefaultStagesConfig';
 import { DeliveryRegionsManager } from '@/components/settings/DeliveryRegionsManager';
 import { ShippingCarriersManager } from '@/components/settings/ShippingCarriersManager';
 import { PaymentMethodsManagerEnhanced } from '@/components/settings/PaymentMethodsManagerEnhanced';
@@ -290,6 +291,11 @@ export default function Settings() {
                 </div>
                 <FunnelStagesManager />
               </div>
+            )}
+
+            {/* Etapa Padrão por Entrada */}
+            {canAccess('settings_funnel_stages') && (
+              <DefaultStagesConfig />
             )}
 
             {/* Custom Fields */}
