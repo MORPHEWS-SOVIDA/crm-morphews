@@ -148,6 +148,8 @@ serve(async (req) => {
       console.log('[N8N Proxy] Sending to n8n:', JSON.stringify(n8nPayload, null, 2));
 
       // Call n8n webhook
+      console.log('[N8N Proxy] Calling n8n at URL:', n8nWebhookUrl);
+      
       const n8nResponse = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: {
@@ -156,7 +158,50 @@ serve(async (req) => {
         body: JSON.stringify(n8nPayload),
       });
 
-      const n8nResult = await n8nResponse.json();
+      // Get raw text first to diagnose HTML responses
+      const responseText = await n8nResponse.text();
+      console.log('[N8N Proxy] n8n response status:', n8nResponse.status);
+      console.log('[N8N Proxy] n8n response (first 500 chars):', responseText.substring(0, 500));
+
+      // Check if response is HTML (common when n8n returns login page or error page)
+      if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html') || responseText.trim().startsWith('<')) {
+        console.error('[N8N Proxy] n8n returned HTML instead of JSON. This usually means:');
+        console.error('  - The webhook URL is incorrect');
+        console.error('  - The n8n workflow is not active/deployed');
+        console.error('  - The n8n instance is showing a login page');
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'O n8n retornou uma página HTML ao invés de JSON. Verifique se o workflow está ativo e se a URL do webhook está correta.',
+            details: {
+              status: n8nResponse.status,
+              response_preview: responseText.substring(0, 300),
+              webhook_url_used: n8nWebhookUrl.replace(/\/webhook\/.*/, '/webhook/***'),
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Parse JSON
+      let n8nResult: any;
+      try {
+        n8nResult = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('[N8N Proxy] Failed to parse n8n response as JSON:', parseError);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Resposta do n8n não é um JSON válido',
+            details: {
+              status: n8nResponse.status,
+              response_preview: responseText.substring(0, 300),
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       console.log('[N8N Proxy] Response from n8n:', JSON.stringify(n8nResult, null, 2));
 
@@ -318,7 +363,29 @@ serve(async (req) => {
       body: JSON.stringify({ action, ...params }),
     });
 
-    const n8nResult = await n8nResponse.json();
+    const responseText = await n8nResponse.text();
+    
+    // Check for HTML response
+    if (responseText.trim().startsWith('<')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'O n8n retornou HTML ao invés de JSON. Verifique se o workflow está ativo.',
+          details: { status: n8nResponse.status, preview: responseText.substring(0, 200) }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let n8nResult: any;
+    try {
+      n8nResult = JSON.parse(responseText);
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Resposta do n8n não é JSON válido', preview: responseText.substring(0, 200) }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify(n8nResult),
