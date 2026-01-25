@@ -338,6 +338,17 @@ export function MelhorEnvioLabelGenerator({ sale, onSuccess, onCancel }: MelhorE
 
       <Separator />
 
+      {/* DNS/Connection Warning */}
+      {config?.ambiente === 'production' && (
+        <Alert className="bg-amber-50 border-amber-200 my-4">
+          <Info className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-sm text-amber-800">
+            <strong>Atenção:</strong> Se houver erro ao gerar etiquetas, pode ser problema de conectividade com a API do Melhor Envio. 
+            Tente mudar para <strong>Ambiente Sandbox</strong> nas configurações ou entre em contato com o suporte técnico.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Actions */}
       <div className="flex gap-3 pt-2">
         <Button

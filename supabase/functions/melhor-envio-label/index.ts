@@ -151,39 +151,66 @@ async function createLabel(
 
   console.log('[Melhor Envio] Cart payload:', JSON.stringify(cartPayload, null, 2));
 
-  const cartResponse = await fetch(`${baseUrl}/me/cart`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
-    },
-    body: JSON.stringify(cartPayload),
-  });
+  let orderId: string | undefined;
 
-  const cartText = await cartResponse.text();
-  console.log('[Melhor Envio] Cart response:', cartResponse.status, cartText.substring(0, 500));
+  // Add timeout to avoid hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-  if (!cartResponse.ok) {
-    let errorMsg = 'Erro ao adicionar ao carrinho';
-    try {
-      const errorData = JSON.parse(cartText);
-      errorMsg = errorData.message || errorData.error || JSON.stringify(errorData.errors) || errorMsg;
-    } catch {
-      errorMsg = cartText.substring(0, 200);
+  try {
+    const cartResponse = await fetch(`${baseUrl}/me/cart`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+      },
+      body: JSON.stringify(cartPayload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const cartText = await cartResponse.text();
+    console.log('[Melhor Envio] Cart response:', cartResponse.status, cartText.substring(0, 500));
+
+    if (!cartResponse.ok) {
+      let errorMsg = 'Erro ao adicionar ao carrinho';
+      try {
+        const errorData = JSON.parse(cartText);
+        errorMsg = errorData.message || errorData.error || JSON.stringify(errorData.errors) || errorMsg;
+      } catch {
+        errorMsg = cartText.substring(0, 200);
+      }
+      throw new Error(errorMsg);
     }
-    throw new Error(errorMsg);
-  }
 
-  const cartData = JSON.parse(cartText);
-  const orderId = cartData.id;
+    const cartData = JSON.parse(cartText);
+    orderId = cartData.id;
+
+    if (!orderId) {
+      throw new Error('ID do pedido não retornado pelo Melhor Envio');
+    }
+
+    console.log('[Melhor Envio] Order ID:', orderId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Timeout ao conectar com Melhor Envio. Verifique sua conexão e tente novamente.');
+      }
+      // DNS or network error
+      if (error.message.includes('dns error') || error.message.includes('failed to lookup')) {
+        throw new Error('Não foi possível conectar com a API do Melhor Envio. Por favor, entre em contato com o suporte técnico.');
+      }
+    }
+    throw error;
+  }
 
   if (!orderId) {
-    throw new Error('ID do pedido não retornado pelo Melhor Envio');
+    throw new Error('ID do pedido não foi criado');
   }
-
-  console.log('[Melhor Envio] Order ID:', orderId);
 
   // Step 2: Checkout (pay for the label)
   const checkoutPayload = { orders: [orderId] };
