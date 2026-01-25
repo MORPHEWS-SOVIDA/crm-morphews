@@ -8,6 +8,8 @@ import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useDefaultStageConfig, useUpdateDefaultStageConfig } from '@/hooks/useDefaultFunnelStages';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+const NONE_VALUE = '__none__';
+
 interface StageOption {
   id: string;
   name: string;
@@ -20,30 +22,30 @@ export function DefaultStagesConfig() {
   const updateConfig = useUpdateDefaultStageConfig();
 
   const [formData, setFormData] = useState({
-    default_stage_new_lead: '',
-    default_stage_whatsapp: '',
-    default_stage_receptivo: '',
-    default_stage_fallback: '',
+    default_stage_new_lead: NONE_VALUE,
+    default_stage_whatsapp: NONE_VALUE,
+    default_stage_receptivo: NONE_VALUE,
+    default_stage_fallback: NONE_VALUE,
   });
 
   // Hydrate form when config loads
   useEffect(() => {
     if (config) {
       setFormData({
-        default_stage_new_lead: config.default_stage_new_lead || '',
-        default_stage_whatsapp: config.default_stage_whatsapp || '',
-        default_stage_receptivo: config.default_stage_receptivo || '',
-        default_stage_fallback: config.default_stage_fallback || '',
+        default_stage_new_lead: config.default_stage_new_lead || NONE_VALUE,
+        default_stage_whatsapp: config.default_stage_whatsapp || NONE_VALUE,
+        default_stage_receptivo: config.default_stage_receptivo || NONE_VALUE,
+        default_stage_fallback: config.default_stage_fallback || NONE_VALUE,
       });
     }
   }, [config]);
 
   const handleSave = () => {
     updateConfig.mutate({
-      default_stage_new_lead: formData.default_stage_new_lead || null,
-      default_stage_whatsapp: formData.default_stage_whatsapp || null,
-      default_stage_receptivo: formData.default_stage_receptivo || null,
-      default_stage_fallback: formData.default_stage_fallback || null,
+      default_stage_new_lead: formData.default_stage_new_lead === NONE_VALUE ? null : formData.default_stage_new_lead,
+      default_stage_whatsapp: formData.default_stage_whatsapp === NONE_VALUE ? null : formData.default_stage_whatsapp,
+      default_stage_receptivo: formData.default_stage_receptivo === NONE_VALUE ? null : formData.default_stage_receptivo,
+      default_stage_fallback: formData.default_stage_fallback === NONE_VALUE ? null : formData.default_stage_fallback,
     });
   };
 
@@ -120,8 +122,8 @@ export function DefaultStagesConfig() {
                       {item.label}
                     </Label>
                     <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">{item.description}</p>
@@ -136,7 +138,7 @@ export function DefaultStagesConfig() {
                       <SelectValue placeholder="Selecionar etapa..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">
+                      <SelectItem value={NONE_VALUE}>
                         <span className="text-muted-foreground">Nenhuma (usar fallback)</span>
                       </SelectItem>
                       {selectableStages.map((stage) => (
@@ -163,12 +165,8 @@ export function DefaultStagesConfig() {
           })}
         </TooltipProvider>
 
-        <div className="pt-4 border-t">
-          <Button 
-            onClick={handleSave} 
-            disabled={updateConfig.isPending}
-            className="w-full sm:w-auto"
-          >
+        <div className="pt-4 flex justify-end">
+          <Button onClick={handleSave} disabled={updateConfig.isPending}>
             {updateConfig.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
