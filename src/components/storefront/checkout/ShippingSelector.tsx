@@ -45,7 +45,8 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor }
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('correios-quote', {
+      // Use Melhor Envio quote function
+      const { data, error: fnError } = await supabase.functions.invoke('melhor-envio-quote', {
         body: {
           organization_id: organizationId,
           destination_cep: cep,

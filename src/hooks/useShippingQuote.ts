@@ -11,6 +11,11 @@ export interface ShippingQuote {
   delivery_days: number;
   delivery_date?: string;
   error?: string;
+  // Melhor Envio specific
+  service_id?: number;
+  company_name?: string;
+  company_picture?: string;
+  delivery_range?: { min: number; max: number };
 }
 
 export interface ShippingQuoteRequest {
@@ -20,6 +25,7 @@ export interface ShippingQuoteRequest {
   width_cm?: number;
   length_cm?: number;
   service_codes?: string[];
+  declared_value_cents?: number;
 }
 
 export interface EnabledService {
@@ -31,16 +37,26 @@ export interface EnabledService {
   position: number;
   picking_cost_cents: number;
   extra_handling_days: number;
+  // Melhor Envio specific
+  service_id?: number;
+  company_name?: string;
 }
 
-// All available Correios services
-export const CORREIOS_SERVICES = [
-  { code: '03220', name: 'SEDEX - Entrega expressa', description: 'Entrega rápida em 1-3 dias' },
-  { code: '03298', name: 'PAC - Entrega econômica', description: 'Entrega econômica em 5-15 dias' },
-  { code: '03140', name: 'SEDEX 12 - Entrega até 12h', description: 'Entrega até 12h do dia seguinte' },
-  { code: '03158', name: 'SEDEX 10 - Entrega até 10h', description: 'Entrega até 10h do dia seguinte' },
-  { code: '04227', name: 'Mini Envios - Objetos até 300g', description: 'Para objetos leves até 300g' },
+// Melhor Envio services (populated dynamically from API)
+// These are common services for reference
+export const MELHOR_ENVIO_SERVICES = [
+  { id: 1, name: 'PAC', company: 'Correios', description: 'Entrega econômica' },
+  { id: 2, name: 'SEDEX', company: 'Correios', description: 'Entrega expressa' },
+  { id: 3, name: '.Package', company: 'Jadlog', description: 'Entrega rápida' },
+  { id: 4, name: '.Com', company: 'Jadlog', description: 'Entrega econômica' },
 ];
+
+// Legacy export for backwards compatibility
+export const CORREIOS_SERVICES = MELHOR_ENVIO_SERVICES.map(s => ({
+  code: String(s.id),
+  name: `${s.company} - ${s.name}`,
+  description: s.description,
+}));
 
 export function useShippingQuote() {
   const { tenantId } = useTenant();
@@ -53,7 +69,8 @@ export function useShippingQuote() {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('correios-quote', {
+      // Use Melhor Envio quote function
+      const { data, error } = await supabase.functions.invoke('melhor-envio-quote', {
         body: {
           organization_id: tenantId,
           ...request,
@@ -68,7 +85,18 @@ export function useShippingQuote() {
         throw new Error(data.error || 'Falha na consulta de frete');
       }
 
-      return data.quotes || [];
+      // Map Melhor Envio response to ShippingQuote format
+      return (data.quotes || []).map((q: any) => ({
+        service_code: String(q.service_id),
+        service_id: q.service_id,
+        service_name: `${q.company_name} - ${q.service_name}`,
+        company_name: q.company_name,
+        company_picture: q.company_picture,
+        price_cents: q.price_cents,
+        delivery_days: q.delivery_days,
+        delivery_range: q.delivery_range,
+        error: q.error,
+      }));
     } finally {
       setIsLoading(false);
     }
@@ -81,18 +109,21 @@ export function useEnabledServices() {
   const { tenantId } = useTenant();
 
   return useQuery({
-    queryKey: ['correios-enabled-services', tenantId],
+    queryKey: ['melhor-envio-enabled-services', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
       const { data, error } = await supabase
-        .from('correios_enabled_services')
+        .from('melhor_envio_enabled_services')
         .select('*')
         .eq('organization_id', tenantId)
         .order('position');
 
       if (error) throw error;
-      return (data || []) as EnabledService[];
+      return (data || []).map((s: any) => ({
+        ...s,
+        service_code: String(s.service_id),
+      })) as EnabledService[];
     },
     enabled: !!tenantId,
   });
@@ -106,22 +137,22 @@ export function useToggleService() {
     mutationFn: async ({ serviceCode, serviceName, isEnabled }: { serviceCode: string; serviceName: string; isEnabled: boolean }) => {
       if (!tenantId) throw new Error('Organização não identificada');
 
-      // Upsert the service
+      const serviceId = parseInt(serviceCode);
       const { error } = await supabase
-        .from('correios_enabled_services')
+        .from('melhor_envio_enabled_services')
         .upsert({
           organization_id: tenantId,
-          service_code: serviceCode,
+          service_id: serviceId,
           service_name: serviceName,
           is_enabled: isEnabled,
         }, {
-          onConflict: 'organization_id,service_code',
+          onConflict: 'organization_id,service_id',
         });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['correios-enabled-services'] });
+      queryClient.invalidateQueries({ queryKey: ['melhor-envio-enabled-services'] });
     },
     onError: (error: Error) => {
       toast.error(`Erro ao atualizar serviço: ${error.message}`);
@@ -147,22 +178,23 @@ export function useUpdateServiceConfig() {
     }) => {
       if (!tenantId) throw new Error('Organização não identificada');
 
+      const serviceId = parseInt(serviceCode);
       const { error } = await supabase
-        .from('correios_enabled_services')
+        .from('melhor_envio_enabled_services')
         .upsert({
           organization_id: tenantId,
-          service_code: serviceCode,
+          service_id: serviceId,
           service_name: serviceName,
           picking_cost_cents: pickingCostCents,
           extra_handling_days: extraHandlingDays,
         }, {
-          onConflict: 'organization_id,service_code',
+          onConflict: 'organization_id,service_id',
         });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['correios-enabled-services'] });
+      queryClient.invalidateQueries({ queryKey: ['melhor-envio-enabled-services'] });
       toast.success('Configuração salva!');
     },
     onError: (error: Error) => {

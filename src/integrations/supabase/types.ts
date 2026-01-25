@@ -7207,6 +7207,265 @@ export type Database = {
           },
         ]
       }
+      melhor_envio_config: {
+        Row: {
+          ambiente: string
+          created_at: string
+          default_agency_id: number | null
+          default_height_cm: number | null
+          default_length_cm: number | null
+          default_weight_grams: number | null
+          default_width_cm: number | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          sender_cep: string | null
+          sender_city: string | null
+          sender_cnpj: string | null
+          sender_complement: string | null
+          sender_cpf_cnpj: string | null
+          sender_email: string | null
+          sender_ie: string | null
+          sender_name: string | null
+          sender_neighborhood: string | null
+          sender_number: string | null
+          sender_phone: string | null
+          sender_state: string | null
+          sender_street: string | null
+          token_encrypted: string | null
+          updated_at: string
+        }
+        Insert: {
+          ambiente?: string
+          created_at?: string
+          default_agency_id?: number | null
+          default_height_cm?: number | null
+          default_length_cm?: number | null
+          default_weight_grams?: number | null
+          default_width_cm?: number | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          sender_cep?: string | null
+          sender_city?: string | null
+          sender_cnpj?: string | null
+          sender_complement?: string | null
+          sender_cpf_cnpj?: string | null
+          sender_email?: string | null
+          sender_ie?: string | null
+          sender_name?: string | null
+          sender_neighborhood?: string | null
+          sender_number?: string | null
+          sender_phone?: string | null
+          sender_state?: string | null
+          sender_street?: string | null
+          token_encrypted?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ambiente?: string
+          created_at?: string
+          default_agency_id?: number | null
+          default_height_cm?: number | null
+          default_length_cm?: number | null
+          default_weight_grams?: number | null
+          default_width_cm?: number | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          sender_cep?: string | null
+          sender_city?: string | null
+          sender_cnpj?: string | null
+          sender_complement?: string | null
+          sender_cpf_cnpj?: string | null
+          sender_email?: string | null
+          sender_ie?: string | null
+          sender_name?: string | null
+          sender_neighborhood?: string | null
+          sender_number?: string | null
+          sender_phone?: string | null
+          sender_state?: string | null
+          sender_street?: string | null
+          token_encrypted?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhor_envio_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      melhor_envio_enabled_services: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          extra_handling_days: number
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          picking_cost_cents: number
+          position: number
+          service_id: number
+          service_name: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          extra_handling_days?: number
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          picking_cost_cents?: number
+          position?: number
+          service_id: number
+          service_name: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          extra_handling_days?: number
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          picking_cost_cents?: number
+          position?: number
+          service_id?: number
+          service_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhor_envio_enabled_services_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      melhor_envio_labels: {
+        Row: {
+          api_response: Json | null
+          company_name: string | null
+          created_at: string
+          created_by: string | null
+          declared_value_cents: number | null
+          error_message: string | null
+          height_cm: number | null
+          id: string
+          label_pdf_url: string | null
+          length_cm: number | null
+          melhor_envio_order_id: string
+          organization_id: string
+          posted_at: string | null
+          recipient_cep: string
+          recipient_city: string | null
+          recipient_complement: string | null
+          recipient_cpf_cnpj: string | null
+          recipient_name: string
+          recipient_neighborhood: string | null
+          recipient_number: string | null
+          recipient_phone: string | null
+          recipient_state: string | null
+          recipient_street: string | null
+          sale_id: string | null
+          service_id: number
+          service_name: string | null
+          status: string
+          tracking_code: string
+          updated_at: string
+          weight_grams: number | null
+          width_cm: number | null
+        }
+        Insert: {
+          api_response?: Json | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          declared_value_cents?: number | null
+          error_message?: string | null
+          height_cm?: number | null
+          id?: string
+          label_pdf_url?: string | null
+          length_cm?: number | null
+          melhor_envio_order_id: string
+          organization_id: string
+          posted_at?: string | null
+          recipient_cep: string
+          recipient_city?: string | null
+          recipient_complement?: string | null
+          recipient_cpf_cnpj?: string | null
+          recipient_name: string
+          recipient_neighborhood?: string | null
+          recipient_number?: string | null
+          recipient_phone?: string | null
+          recipient_state?: string | null
+          recipient_street?: string | null
+          sale_id?: string | null
+          service_id: number
+          service_name?: string | null
+          status?: string
+          tracking_code: string
+          updated_at?: string
+          weight_grams?: number | null
+          width_cm?: number | null
+        }
+        Update: {
+          api_response?: Json | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          declared_value_cents?: number | null
+          error_message?: string | null
+          height_cm?: number | null
+          id?: string
+          label_pdf_url?: string | null
+          length_cm?: number | null
+          melhor_envio_order_id?: string
+          organization_id?: string
+          posted_at?: string | null
+          recipient_cep?: string
+          recipient_city?: string | null
+          recipient_complement?: string | null
+          recipient_cpf_cnpj?: string | null
+          recipient_name?: string
+          recipient_neighborhood?: string | null
+          recipient_number?: string | null
+          recipient_phone?: string | null
+          recipient_state?: string | null
+          recipient_street?: string | null
+          sale_id?: string | null
+          service_id?: number
+          service_name?: string | null
+          status?: string
+          tracking_code?: string
+          updated_at?: string
+          weight_grams?: number | null
+          width_cm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "melhor_envio_labels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "melhor_envio_labels_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       motoboy_tracking_statuses: {
         Row: {
           created_at: string
@@ -11825,6 +12084,7 @@ export type Database = {
           estimated_days: number
           id: string
           is_active: boolean
+          melhor_envio_service_id: number | null
           name: string
           organization_id: string
           updated_at: string
@@ -11836,6 +12096,7 @@ export type Database = {
           estimated_days?: number
           id?: string
           is_active?: boolean
+          melhor_envio_service_id?: number | null
           name: string
           organization_id: string
           updated_at?: string
@@ -11847,6 +12108,7 @@ export type Database = {
           estimated_days?: number
           id?: string
           is_active?: boolean
+          melhor_envio_service_id?: number | null
           name?: string
           organization_id?: string
           updated_at?: string
