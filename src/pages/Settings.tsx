@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText, Wallet } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText, Wallet, Send } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +31,8 @@ import { CustomFieldsManager } from '@/components/settings/CustomFieldsManager';
 import { FiscalCompaniesManager } from '@/components/settings/FiscalCompaniesManager';
 import { FiscalInvoicesManager } from '@/components/settings/FiscalInvoicesManager';
 import { PosTerminalsManager } from '@/components/settings/PosTerminalsManager';
+import { ShippingServicesConfig } from '@/components/shipping/ShippingServicesConfig';
+import { MelhorEnvioConfigSection } from '@/components/settings/MelhorEnvioConfigSection';
 import { cn } from '@/lib/utils';
 
 // Define setting categories with their tabs
@@ -419,6 +421,38 @@ export default function Settings() {
                   </div>
                 </div>
                 <CarrierTrackingStatusesManager />
+              </div>
+            )}
+
+            {/* Melhor Envio Configuration */}
+            {canAccess('settings_carriers') && (
+              <div className="bg-card rounded-xl p-6 shadow-card">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-purple-500/10">
+                    <Send className="w-6 h-6 text-purple-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Melhor Envio</h2>
+                    <p className="text-sm text-muted-foreground">Configuração da integração para cotação e etiquetas</p>
+                  </div>
+                </div>
+                <MelhorEnvioConfigSection />
+              </div>
+            )}
+
+            {/* Shipping Services (Melhor Envio) */}
+            {canAccess('settings_carriers') && (
+              <div className="bg-card rounded-xl p-6 shadow-card">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-indigo-500/10">
+                    <Package className="w-6 h-6 text-indigo-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Serviços de Frete</h2>
+                    <p className="text-sm text-muted-foreground">Configure custo de picking e dias extras por serviço</p>
+                  </div>
+                </div>
+                <ShippingServicesConfig />
               </div>
             )}
           </TabsContent>
