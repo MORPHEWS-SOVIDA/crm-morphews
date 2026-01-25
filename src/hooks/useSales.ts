@@ -92,6 +92,9 @@ export interface Sale {
   external_order_id: string | null;
   external_order_url: string | null;
   external_source: string | null;
+  // Commission fields
+  seller_commission_percentage: number | null;
+  seller_commission_cents: number | null;
   // Joined data
   lead?: {
     id: string;
