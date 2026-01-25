@@ -748,6 +748,63 @@ export type Database = {
           },
         ]
       }
+      checkout_testimonials: {
+        Row: {
+          author_location: string | null
+          author_name: string
+          author_photo_url: string | null
+          checkout_id: string
+          content: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          position: number | null
+          rating: number | null
+        }
+        Insert: {
+          author_location?: string | null
+          author_name: string
+          author_photo_url?: string | null
+          checkout_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          position?: number | null
+          rating?: number | null
+        }
+        Update: {
+          author_location?: string | null
+          author_name?: string
+          author_photo_url?: string | null
+          checkout_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          position?: number | null
+          rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_testimonials_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_checkouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkout_testimonials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_identities: {
         Row: {
           contact_id: string
@@ -10691,6 +10748,106 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standalone_checkouts: {
+        Row: {
+          checkout_type: string
+          created_at: string
+          elements: Json
+          facebook_pixel_id: string | null
+          google_analytics_id: string | null
+          id: string
+          is_active: boolean | null
+          meta_description: string | null
+          meta_title: string | null
+          name: string
+          order_bump_description: string | null
+          order_bump_discount_percent: number | null
+          order_bump_enabled: boolean | null
+          order_bump_headline: string | null
+          order_bump_product_id: string | null
+          organization_id: string
+          payment_methods: string[]
+          pix_discount_percent: number | null
+          product_id: string
+          slug: string
+          theme: Json
+          tiktok_pixel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          checkout_type?: string
+          created_at?: string
+          elements?: Json
+          facebook_pixel_id?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          name: string
+          order_bump_description?: string | null
+          order_bump_discount_percent?: number | null
+          order_bump_enabled?: boolean | null
+          order_bump_headline?: string | null
+          order_bump_product_id?: string | null
+          organization_id: string
+          payment_methods?: string[]
+          pix_discount_percent?: number | null
+          product_id: string
+          slug: string
+          theme?: Json
+          tiktok_pixel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checkout_type?: string
+          created_at?: string
+          elements?: Json
+          facebook_pixel_id?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          name?: string
+          order_bump_description?: string | null
+          order_bump_discount_percent?: number | null
+          order_bump_enabled?: boolean | null
+          order_bump_headline?: string | null
+          order_bump_product_id?: string | null
+          organization_id?: string
+          payment_methods?: string[]
+          pix_discount_percent?: number | null
+          product_id?: string
+          slug?: string
+          theme?: Json
+          tiktok_pixel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_checkouts_order_bump_product_id_fkey"
+            columns: ["order_bump_product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standalone_checkouts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standalone_checkouts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
             referencedColumns: ["id"]
           },
         ]
