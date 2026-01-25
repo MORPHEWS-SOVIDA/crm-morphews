@@ -4884,7 +4884,7 @@ export type Database = {
           order_bump_product_id: string | null
           organization_id: string
           primary_color: string | null
-          product_id: string
+          product_id: string | null
           settings: Json | null
           slug: string
           subheadline: string | null
@@ -4912,7 +4912,7 @@ export type Database = {
           order_bump_product_id?: string | null
           organization_id: string
           primary_color?: string | null
-          product_id: string
+          product_id?: string | null
           settings?: Json | null
           slug: string
           subheadline?: string | null
@@ -4940,7 +4940,7 @@ export type Database = {
           order_bump_product_id?: string | null
           organization_id?: string
           primary_color?: string | null
-          product_id?: string
+          product_id?: string | null
           settings?: Json | null
           slug?: string
           subheadline?: string | null
