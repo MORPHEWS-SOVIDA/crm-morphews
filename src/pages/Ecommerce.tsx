@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Store, FileText, ShoppingCart, Wallet, Users, Phone, Mail, Factory } from 'lucide-react';
+import { Store, FileText, ShoppingCart, Wallet, Users, Mail, Factory, ClipboardList } from 'lucide-react';
 import { StorefrontsManager } from '@/components/ecommerce/StorefrontsManager';
 import { LandingPagesManager } from '@/components/ecommerce/LandingPagesManager';
 import { CartsManager } from '@/components/ecommerce/CartsManager';
 import { VirtualAccountPanel } from '@/components/ecommerce/VirtualAccountPanel';
 import { AffiliatesManager } from '@/components/ecommerce/AffiliatesManager';
 import { IndustriesManager } from '@/components/ecommerce/IndustriesManager';
-import TelesalesPanel from '@/pages/ecommerce/TelesalesPanel';
 import { EmailMarketingManager } from '@/pages/ecommerce/EmailMarketingManager';
+import { QuizManager } from '@/components/ecommerce/quiz';
+
 export default function Ecommerce() {
   const [activeTab, setActiveTab] = useState('storefronts');
 
@@ -24,7 +25,7 @@ export default function Ecommerce() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid">
             <TabsTrigger value="storefronts" className="gap-2">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Lojas</span>
@@ -32,6 +33,10 @@ export default function Ecommerce() {
             <TabsTrigger value="landing-pages" className="gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Landings</span>
+            </TabsTrigger>
+            <TabsTrigger value="quiz" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Quiz</span>
             </TabsTrigger>
             <TabsTrigger value="carts" className="gap-2">
               <ShoppingCart className="h-4 w-4" />
@@ -61,6 +66,10 @@ export default function Ecommerce() {
 
           <TabsContent value="landing-pages" className="mt-6">
             <LandingPagesManager />
+          </TabsContent>
+
+          <TabsContent value="quiz" className="mt-6">
+            <QuizManager />
           </TabsContent>
 
           <TabsContent value="carts" className="mt-6">

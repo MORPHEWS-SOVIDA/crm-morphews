@@ -10501,6 +10501,482 @@ export type Database = {
           },
         ]
       }
+      quiz_answers: {
+        Row: {
+          answered_at: string
+          id: string
+          imc_category: string | null
+          imc_height: number | null
+          imc_result: number | null
+          imc_weight: number | null
+          numeric_value: number | null
+          organization_id: string
+          selected_option_ids: string[] | null
+          session_id: string
+          step_id: string
+          text_value: string | null
+        }
+        Insert: {
+          answered_at?: string
+          id?: string
+          imc_category?: string | null
+          imc_height?: number | null
+          imc_result?: number | null
+          imc_weight?: number | null
+          numeric_value?: number | null
+          organization_id: string
+          selected_option_ids?: string[] | null
+          session_id: string
+          step_id: string
+          text_value?: string | null
+        }
+        Update: {
+          answered_at?: string
+          id?: string
+          imc_category?: string | null
+          imc_height?: number | null
+          imc_result?: number | null
+          imc_weight?: number | null
+          numeric_value?: number | null
+          organization_id?: string
+          selected_option_ids?: string[] | null
+          session_id?: string
+          step_id?: string
+          text_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_answers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_answers_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          quiz_id: string
+          session_id: string | null
+          step_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          quiz_id: string
+          session_id?: string | null
+          step_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          quiz_id?: string
+          session_id?: string | null
+          step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_events_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_sessions: {
+        Row: {
+          captured_cpf: string | null
+          captured_email: string | null
+          captured_name: string | null
+          captured_whatsapp: string | null
+          completed_at: string | null
+          current_step_id: string | null
+          fbclid: string | null
+          final_result_tag: string | null
+          gclid: string | null
+          id: string
+          ip_address: string | null
+          is_completed: boolean | null
+          lead_id: string | null
+          organization_id: string
+          quiz_id: string
+          referrer: string | null
+          started_at: string
+          total_score: number | null
+          ttclid: string | null
+          updated_at: string
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          visitor_fingerprint: string | null
+        }
+        Insert: {
+          captured_cpf?: string | null
+          captured_email?: string | null
+          captured_name?: string | null
+          captured_whatsapp?: string | null
+          completed_at?: string | null
+          current_step_id?: string | null
+          fbclid?: string | null
+          final_result_tag?: string | null
+          gclid?: string | null
+          id?: string
+          ip_address?: string | null
+          is_completed?: boolean | null
+          lead_id?: string | null
+          organization_id: string
+          quiz_id: string
+          referrer?: string | null
+          started_at?: string
+          total_score?: number | null
+          ttclid?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_fingerprint?: string | null
+        }
+        Update: {
+          captured_cpf?: string | null
+          captured_email?: string | null
+          captured_name?: string | null
+          captured_whatsapp?: string | null
+          completed_at?: string | null
+          current_step_id?: string | null
+          fbclid?: string | null
+          final_result_tag?: string | null
+          gclid?: string | null
+          id?: string
+          ip_address?: string | null
+          is_completed?: boolean | null
+          lead_id?: string | null
+          organization_id?: string
+          quiz_id?: string
+          referrer?: string | null
+          started_at?: string
+          total_score?: number | null
+          ttclid?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_fingerprint?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_step_options: {
+        Row: {
+          created_at: string
+          emoji: string | null
+          id: string
+          image_url: string | null
+          label: string
+          next_step_id: string | null
+          organization_id: string
+          position: number
+          result_tag: string | null
+          score: number | null
+          step_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          image_url?: string | null
+          label: string
+          next_step_id?: string | null
+          organization_id: string
+          position?: number
+          result_tag?: string | null
+          score?: number | null
+          step_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          image_url?: string | null
+          label?: string
+          next_step_id?: string | null
+          organization_id?: string
+          position?: number
+          result_tag?: string | null
+          score?: number | null
+          step_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_step_options_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_step_options_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_steps: {
+        Row: {
+          capture_cpf: boolean | null
+          capture_email: boolean | null
+          capture_name: boolean | null
+          capture_whatsapp: boolean | null
+          created_at: string
+          id: string
+          image_url: string | null
+          is_required: boolean | null
+          next_step_id: string | null
+          organization_id: string
+          position: number
+          quiz_id: string
+          result_cta_text: string | null
+          result_cta_type: string | null
+          result_cta_url: string | null
+          result_description: string | null
+          result_image_url: string | null
+          result_product_id: string | null
+          result_storefront_id: string | null
+          result_title: string | null
+          result_whatsapp_message: string | null
+          step_type: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          capture_cpf?: boolean | null
+          capture_email?: boolean | null
+          capture_name?: boolean | null
+          capture_whatsapp?: boolean | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_required?: boolean | null
+          next_step_id?: string | null
+          organization_id: string
+          position?: number
+          quiz_id: string
+          result_cta_text?: string | null
+          result_cta_type?: string | null
+          result_cta_url?: string | null
+          result_description?: string | null
+          result_image_url?: string | null
+          result_product_id?: string | null
+          result_storefront_id?: string | null
+          result_title?: string | null
+          result_whatsapp_message?: string | null
+          step_type: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          capture_cpf?: boolean | null
+          capture_email?: boolean | null
+          capture_name?: boolean | null
+          capture_whatsapp?: boolean | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_required?: boolean | null
+          next_step_id?: string | null
+          organization_id?: string
+          position?: number
+          quiz_id?: string
+          result_cta_text?: string | null
+          result_cta_type?: string | null
+          result_cta_url?: string | null
+          result_description?: string | null
+          result_image_url?: string | null
+          result_product_id?: string | null
+          result_storefront_id?: string | null
+          result_title?: string | null
+          result_whatsapp_message?: string | null
+          step_type?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_steps_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_steps_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          auto_start_followup: boolean | null
+          background_color: string | null
+          created_at: string
+          default_funnel_stage_id: string | null
+          default_product_id: string | null
+          default_seller_id: string | null
+          description: string | null
+          facebook_pixel_id: string | null
+          followup_reason_id: string | null
+          google_analytics_id: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          organization_id: string
+          primary_color: string | null
+          requires_lead_capture: boolean | null
+          show_progress_bar: boolean | null
+          slug: string
+          tiktok_pixel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_start_followup?: boolean | null
+          background_color?: string | null
+          created_at?: string
+          default_funnel_stage_id?: string | null
+          default_product_id?: string | null
+          default_seller_id?: string | null
+          description?: string | null
+          facebook_pixel_id?: string | null
+          followup_reason_id?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          organization_id: string
+          primary_color?: string | null
+          requires_lead_capture?: boolean | null
+          show_progress_bar?: boolean | null
+          slug: string
+          tiktok_pixel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_start_followup?: boolean | null
+          background_color?: string | null
+          created_at?: string
+          default_funnel_stage_id?: string | null
+          default_product_id?: string | null
+          default_seller_id?: string | null
+          description?: string | null
+          facebook_pixel_id?: string | null
+          followup_reason_id?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          organization_id?: string
+          primary_color?: string | null
+          requires_lead_capture?: boolean | null
+          show_progress_bar?: boolean | null
+          slug?: string
+          tiktok_pixel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receptive_attendances: {
         Row: {
           call_quality_score: Json | null
