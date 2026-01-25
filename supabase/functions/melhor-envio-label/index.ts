@@ -95,6 +95,12 @@ async function createLabel(
   if (!service_id) throw new Error('Serviço é obrigatório');
 
   // Step 1: Add to cart
+  // Detect if sender document is CPF (11 digits) or CNPJ (14 digits)
+  const senderDoc = config.sender_cpf_cnpj?.replace(/\D/g, '') || '';
+  const isCNPJ = senderDoc.length === 14;
+  const senderCPF = isCNPJ ? '' : senderDoc;
+  const senderCNPJ = isCNPJ ? senderDoc : (config.sender_cnpj?.replace(/\D/g, '') || '');
+
   const cartPayload = {
     service: service_id,
     agency: config.default_agency_id || undefined,
@@ -102,8 +108,8 @@ async function createLabel(
       name: config.sender_name,
       phone: config.sender_phone?.replace(/\D/g, ''),
       email: config.sender_email,
-      document: config.sender_cpf_cnpj?.replace(/\D/g, ''),
-      company_document: config.sender_cnpj?.replace(/\D/g, ''),
+      document: senderCPF || undefined,
+      company_document: senderCNPJ || undefined,
       state_register: config.sender_ie,
       address: config.sender_street,
       complement: config.sender_complement,
