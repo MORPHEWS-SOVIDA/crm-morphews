@@ -73,10 +73,11 @@ export default function EcommerceOrderDetail() {
   const [notifyCustomer, setNotifyCustomer] = useState(true);
 
   // Fetch order data
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, error: queryError } = useQuery({
     queryKey: ['ecommerce-order', orderId],
     enabled: !!orderId,
     queryFn: async () => {
+      console.log('[EcommerceOrderDetail] Fetching order:', orderId);
       const { data, error } = await supabase
         .from('ecommerce_orders')
         .select(`
@@ -89,7 +90,11 @@ export default function EcommerceOrderDetail() {
         .eq('id', orderId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[EcommerceOrderDetail] Error fetching order:', error);
+        throw error;
+      }
+      console.log('[EcommerceOrderDetail] Order fetched:', data?.order_number);
       return data;
     },
   });
@@ -197,11 +202,21 @@ export default function EcommerceOrderDetail() {
   if (!order) {
     return (
       <EcommerceLayout title="Pedido não encontrado" description="">
-        <div className="text-center py-12">
+        <div className="text-center py-12 space-y-4">
+          <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground">O pedido solicitado não foi encontrado.</p>
-          <Button onClick={() => navigate('/ecommerce/vendas')} className="mt-4">
-            Voltar para Vendas
-          </Button>
+          {queryError && (
+            <p className="text-sm text-destructive">Erro: {(queryError as Error).message}</p>
+          )}
+          <p className="text-xs text-muted-foreground">ID: {orderId}</p>
+          <div className="flex gap-2 justify-center">
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Tentar novamente
+            </Button>
+            <Button onClick={() => navigate('/ecommerce/vendas')}>
+              Voltar para Vendas
+            </Button>
+          </div>
         </div>
       </EcommerceLayout>
     );
