@@ -40,14 +40,26 @@ export default function QuizPublic() {
   const currentStep = quiz?.steps?.[currentStepIndex];
   const progress = quiz?.steps ? ((currentStepIndex + 1) / quiz.steps.length) * 100 : 0;
 
-  // Initialize tracking pixels
+  // Capture tracking params from URL
+  const trackingParams = {
+    fbclid: searchParams.get('fbclid') || undefined,
+    gclid: searchParams.get('gclid') || undefined,
+    ttclid: searchParams.get('ttclid') || undefined,
+  };
+
+  // Initialize tracking pixels with session and lead data
   const { 
     trackQuizStart, 
     trackStepView, 
     trackLeadCapture, 
     trackQuizComplete, 
     trackCtaClick 
-  } = useQuizTracking({ quiz });
+  } = useQuizTracking({ 
+    quiz, 
+    sessionId: session?.id,
+    leadData,
+    trackingParams,
+  });
 
   // Initialize session
   useEffect(() => {
