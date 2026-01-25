@@ -33,6 +33,7 @@ import { HelperConversationsTab } from "@/components/super-admin/HelperConversat
 import { SubscriptionKPIs } from "@/components/super-admin/SubscriptionKPIs";
 import { BillingManagementTab } from "@/components/super-admin/BillingManagementTab";
 import { PlatformGatewaysTab } from "@/components/super-admin/PlatformGatewaysTab";
+import { GatewayFinancialDashboard } from "@/components/super-admin/GatewayFinancialDashboard";
 import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFeesTab";
 import { LandingTemplatesTab } from "@/components/super-admin/LandingTemplatesTab";
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
@@ -913,6 +914,7 @@ export default function SuperAdmin() {
             {activeTab === "billing" && <BillingManagementTab />}
             {activeTab === "coupons" && <CouponsTab />}
             {activeTab === "plan-editor" && <PlanEditor />}
+            {activeTab === "gateway-financial" && <GatewayFinancialDashboard />}
             {activeTab === "gateways" && <PlatformGatewaysTab />}
             {activeTab === "tenant-fees" && <TenantPaymentFeesTab />}
             {activeTab === "landing-templates" && <LandingTemplatesTab />}

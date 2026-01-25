@@ -20,6 +20,7 @@ import {
   Store,
   ChevronDown,
   FileText,
+  TrendingUp,
 } from "lucide-react";
 import {
   Collapsible,
@@ -73,6 +74,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     icon: Store,
     color: "text-green-500",
     items: [
+      { id: "gateway-financial", label: "Receitas Gateway", icon: TrendingUp, description: "Custos e lucros" },
       { id: "gateways", label: "Gateways", icon: Wallet, description: "Pagarme, Stripe..." },
       { id: "tenant-fees", label: "Taxas Tenants", icon: Percent, description: "PIX, Cartão, Boleto" },
       { id: "landing-templates", label: "Templates LP", icon: FileText, description: "Landing Pages" },
