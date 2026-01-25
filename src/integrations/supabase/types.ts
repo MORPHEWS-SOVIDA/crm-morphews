@@ -8676,7 +8676,9 @@ export type Database = {
       }
       payment_cost_centers: {
         Row: {
+          cnpj: string | null
           created_at: string
+          default_bank_account_id: string | null
           id: string
           is_active: boolean
           name: string
@@ -8684,7 +8686,9 @@ export type Database = {
           organization_id: string
         }
         Insert: {
+          cnpj?: string | null
           created_at?: string
+          default_bank_account_id?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -8692,7 +8696,9 @@ export type Database = {
           organization_id: string
         }
         Update: {
+          cnpj?: string | null
           created_at?: string
+          default_bank_account_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -8700,6 +8706,13 @@ export type Database = {
           organization_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_cost_centers_default_bank_account_id_fkey"
+            columns: ["default_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_cost_centers_organization_id_fkey"
             columns: ["organization_id"]
@@ -13063,6 +13076,7 @@ export type Database = {
           cnpj: string | null
           complement: string | null
           contact_name: string | null
+          cost_center_id: string | null
           cpf: string | null
           created_at: string
           email: string | null
@@ -13093,6 +13107,7 @@ export type Database = {
           cnpj?: string | null
           complement?: string | null
           contact_name?: string | null
+          cost_center_id?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
@@ -13123,6 +13138,7 @@ export type Database = {
           cnpj?: string | null
           complement?: string | null
           contact_name?: string | null
+          cost_center_id?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
@@ -13144,6 +13160,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "suppliers_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "payment_cost_centers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suppliers_organization_id_fkey"
             columns: ["organization_id"]

@@ -28,6 +28,7 @@ export interface Supplier {
   bank_account_type: string | null;
   pix_key: string | null;
   pix_key_type: string | null;
+  cost_center_id: string | null;
   is_active: boolean;
   notes: string | null;
   created_at: string;

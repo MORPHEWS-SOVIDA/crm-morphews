@@ -25,11 +25,19 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Plus, Search, Edit, Trash2, Building } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { formatCnpj } from '@/lib/format';
+import { useCostCenters } from '@/hooks/usePaymentMethodsEnhanced';
 
 import {
   useSuppliers,
@@ -38,6 +46,8 @@ import {
   useDeleteSupplier,
   type Supplier,
 } from '@/hooks/useSuppliers';
+
+const NONE_VALUE = '__none__';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
@@ -53,6 +63,7 @@ const formSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   pix_key: z.string().optional(),
+  cost_center_id: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -64,6 +75,7 @@ export function SuppliersManager() {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   
   const { data: suppliers, isLoading } = useSuppliers(false);
+  const { data: costCenters } = useCostCenters();
   const createMutation = useCreateSupplier();
   const updateMutation = useUpdateSupplier();
   const deleteMutation = useDeleteSupplier();
@@ -84,6 +96,7 @@ export function SuppliersManager() {
       city: '',
       state: '',
       pix_key: '',
+      cost_center_id: NONE_VALUE,
       notes: '',
     },
   });
@@ -115,6 +128,7 @@ export function SuppliersManager() {
         city: supplier.city || '',
         state: supplier.state || '',
         pix_key: supplier.pix_key || '',
+        cost_center_id: supplier.cost_center_id || NONE_VALUE,
         notes: supplier.notes || '',
       });
     } else {
@@ -133,6 +147,7 @@ export function SuppliersManager() {
         city: '',
         state: '',
         pix_key: '',
+        cost_center_id: NONE_VALUE,
         notes: '',
       });
     }
@@ -140,10 +155,15 @@ export function SuppliersManager() {
   };
   
   const onSubmit = async (data: FormData) => {
+    const cleanedData = {
+      ...data,
+      cost_center_id: data.cost_center_id === NONE_VALUE ? null : data.cost_center_id,
+    };
+    
     if (selectedSupplier) {
-      await updateMutation.mutateAsync({ id: selectedSupplier.id, ...data });
+      await updateMutation.mutateAsync({ id: selectedSupplier.id, ...cleanedData });
     } else {
-      await createMutation.mutateAsync(data);
+      await createMutation.mutateAsync(cleanedData);
     }
     setFormOpen(false);
   };
@@ -394,6 +414,30 @@ export function SuppliersManager() {
                     <FormControl>
                       <Input placeholder="CNPJ, Email, Telefone ou Aleatória" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="cost_center_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de Custo Padrão</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || NONE_VALUE}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
+                        {costCenters?.map(cc => (
+                          <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
