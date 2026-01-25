@@ -106,6 +106,8 @@ export interface CheckoutRequest {
   // Shipping cost must be sent from frontend; backend cannot calculate yet.
   // This is critical so PIX/BOLETO totals match what the user sees.
   shipping_cost_cents?: number;
+  // Total with interest for credit card installment payments
+  total_with_interest_cents?: number;
   shipping?: {
     address: string;
     city: string;

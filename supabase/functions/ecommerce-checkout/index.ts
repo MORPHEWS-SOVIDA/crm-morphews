@@ -153,7 +153,13 @@ serve(async (req) => {
     const subtotalCents = productItems.reduce((acc, item) => acc + (item.price_cents * item.quantity), 0);
     // NOTE: shipping is currently calculated on frontend (ShippingSelector). We must receive it here.
     const shippingCents = Number.isFinite(Number(body.shipping_cost_cents)) ? Number(body.shipping_cost_cents) : 0;
-    const totalCents = subtotalCents + shippingCents;
+    const baseTotalCents = subtotalCents + shippingCents;
+    
+    // Use total with interest if provided (for credit card with installments)
+    const totalWithInterest = Number.isFinite(Number(body.total_with_interest_cents)) 
+      ? Number(body.total_with_interest_cents) 
+      : null;
+    const totalCents = totalWithInterest || baseTotalCents;
 
     // 4. Check affiliate
     let affiliateId: string | null = null;

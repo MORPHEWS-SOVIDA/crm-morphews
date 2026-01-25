@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { CartDetailDialog } from '@/components/ecommerce/CartDetailDialog';
 import { 
   ShoppingCart, 
   Clock, 
@@ -91,6 +92,7 @@ export default function EcommerceCarrinhos() {
   const organizationId = profile?.organization_id;
   const queryClient = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
+  const [selectedCart, setSelectedCart] = useState<Cart | null>(null);
 
   const { data: carts, isLoading: cartsLoading } = useQuery({
     queryKey: ['ecommerce-carts'],
@@ -431,27 +433,39 @@ export default function EcommerceCarrinhos() {
           </TabsList>
 
           <TabsContent value="open" className="mt-4">
-            <CartList carts={openCarts} emptyMessage="Nenhum cliente com carrinho aberto agora" />
+            <CartList carts={openCarts} emptyMessage="Nenhum cliente com carrinho aberto agora" onViewCart={setSelectedCart} />
           </TabsContent>
 
           <TabsContent value="abandoned" className="mt-4">
-            <CartList carts={abandonedCarts} emptyMessage="Nenhum carrinho abandonado no momento 🎉" showRecovery />
+            <CartList carts={abandonedCarts} emptyMessage="Nenhum carrinho abandonado no momento 🎉" showRecovery onViewCart={setSelectedCart} />
           </TabsContent>
 
           <TabsContent value="payment" className="mt-4">
-            <CartList carts={paymentCarts} emptyMessage="Nenhum carrinho aguardando pagamento" />
+            <CartList carts={paymentCarts} emptyMessage="Nenhum carrinho aguardando pagamento" onViewCart={setSelectedCart} />
           </TabsContent>
 
           <TabsContent value="paid" className="mt-4">
-            <CartList carts={paidCarts} emptyMessage="Nenhum carrinho pago ainda" />
+            <CartList carts={paidCarts} emptyMessage="Nenhum carrinho pago ainda" onViewCart={setSelectedCart} />
           </TabsContent>
         </Tabs>
+
+        {/* Cart Detail Dialog */}
+        <CartDetailDialog
+          open={!!selectedCart}
+          onOpenChange={(open) => !open && setSelectedCart(null)}
+          cart={selectedCart}
+        />
       </div>
     </EcommerceLayout>
   );
 }
 
-function CartList({ carts, emptyMessage, showRecovery = false }: { carts: Cart[]; emptyMessage: string; showRecovery?: boolean }) {
+function CartList({ carts, emptyMessage, showRecovery = false, onViewCart }: { 
+  carts: Cart[]; 
+  emptyMessage: string; 
+  showRecovery?: boolean;
+  onViewCart: (cart: Cart) => void;
+}) {
   if (carts.length === 0) {
     return (
       <Card>
@@ -473,7 +487,8 @@ function CartList({ carts, emptyMessage, showRecovery = false }: { carts: Cart[]
             return (
               <div
                 key={cart.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                onClick={() => onViewCart(cart)}
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -506,8 +521,11 @@ function CartList({ carts, emptyMessage, showRecovery = false }: { carts: Cart[]
                       </div>
                     )}
                   </div>
+                  <Button size="sm" variant="ghost" className="gap-1" onClick={(e) => { e.stopPropagation(); onViewCart(cart); }}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   {showRecovery && cart.customer_phone && !cart.recovery_whatsapp_sent_at && (
-                    <Button size="sm" variant="outline" className="gap-1">
+                    <Button size="sm" variant="outline" className="gap-1" onClick={(e) => e.stopPropagation()}>
                       <MessageCircle className="h-4 w-4" />
                       Recuperar
                     </Button>
