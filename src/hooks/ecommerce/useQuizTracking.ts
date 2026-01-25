@@ -1,26 +1,59 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import type { Quiz } from './useQuizzes';
 import '@/types/tracking.d.ts';
 
 interface UseQuizTrackingOptions {
   quiz: Quiz | null | undefined;
+  sessionId?: string;
+  leadData?: {
+    name?: string;
+    email?: string;
+    whatsapp?: string;
+  };
+  trackingParams?: {
+    fbclid?: string;
+    gclid?: string;
+    ttclid?: string;
+  };
 }
 
-export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
-  // Initialize Facebook Pixel
+// Função para obter cookies de tracking do Facebook
+function getFacebookCookies(): { fbc?: string; fbp?: string } {
+  if (typeof document === 'undefined') return {};
+  
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+  
+  return {
+    fbc: cookies['_fbc'],
+    fbp: cookies['_fbp'],
+  };
+}
+
+// Gerar event_id único para deduplicação
+function generateEventId(sessionId: string, eventType: string): string {
+  return `${sessionId}_${eventType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function useQuizTracking({ quiz, sessionId, leadData, trackingParams }: UseQuizTrackingOptions) {
+  const initializedRef = useRef(false);
+
+  // Initialize Facebook Pixel (client-side)
   useEffect(() => {
     if (!quiz?.facebook_pixel_id) return;
     
     const pixelId = quiz.facebook_pixel_id;
     
-    // Check if already loaded
     if (window.fbq) {
       window.fbq('init', pixelId);
       window.fbq('track', 'PageView');
       return;
     }
 
-    // Load Facebook Pixel script
     const script = document.createElement('script');
     script.innerHTML = `
       !function(f,b,e,v,n,t,s)
@@ -41,19 +74,17 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
     };
   }, [quiz?.facebook_pixel_id]);
 
-  // Initialize Google Analytics
+  // Initialize Google Analytics (client-side)
   useEffect(() => {
     if (!quiz?.google_analytics_id) return;
 
     const gaId = quiz.google_analytics_id;
 
-    // Check if already loaded
     if (window.gtag) {
       window.gtag('config', gaId);
       return;
     }
 
-    // Load Google Analytics script
     const script1 = document.createElement('script');
     script1.async = true;
     script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
@@ -74,19 +105,17 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
     };
   }, [quiz?.google_analytics_id]);
 
-  // Initialize TikTok Pixel
+  // Initialize TikTok Pixel (client-side)
   useEffect(() => {
     if (!quiz?.tiktok_pixel_id) return;
 
     const ttId = quiz.tiktok_pixel_id;
 
-    // Check if already loaded
     if (window.ttq) {
       window.ttq.page();
       return;
     }
 
-    // Load TikTok Pixel script
     const script = document.createElement('script');
     script.innerHTML = `
       !function (w, d, t) {
@@ -102,12 +131,68 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
     };
   }, [quiz?.tiktok_pixel_id]);
 
-  // Track Quiz Start
+  // Envia evento para server-side (CAPI/Events API)
+  const sendServerSideEvent = useCallback(async (
+    eventType: 'ViewContent' | 'Lead' | 'CompleteRegistration' | 'InitiateCheckout',
+    extraData?: Record<string, unknown>
+  ) => {
+    if (!quiz || !sessionId) return;
+
+    const { fbc, fbp } = getFacebookCookies();
+    const eventId = generateEventId(sessionId, eventType);
+
+    try {
+      const payload = {
+        quiz_id: quiz.id,
+        session_id: sessionId,
+        organization_id: quiz.organization_id,
+        event_type: eventType,
+        event_id: eventId,
+        // Lead data
+        email: leadData?.email,
+        phone: leadData?.whatsapp,
+        name: leadData?.name,
+        // Tracking IDs
+        fbclid: trackingParams?.fbclid,
+        gclid: trackingParams?.gclid,
+        ttclid: trackingParams?.ttclid,
+        fbc,
+        fbp,
+        // Client info
+        client_user_agent: navigator.userAgent,
+        event_source_url: window.location.href,
+        // Extra
+        quiz_name: quiz.name,
+        ...extraData,
+      };
+
+      // Enviar para edge function
+      const response = await supabase.functions.invoke('quiz-tracking', {
+        body: payload,
+      });
+
+      if (response.error) {
+        console.error('Server-side tracking error:', response.error);
+      } else {
+        console.log('Server-side tracking sent:', eventType, response.data);
+      }
+
+      return eventId;
+    } catch (error) {
+      console.error('Server-side tracking exception:', error);
+    }
+  }, [quiz, sessionId, leadData, trackingParams]);
+
+  // Track Quiz Start (client + server)
   const trackQuizStart = useCallback(() => {
+    const eventId = generateEventId(sessionId || 'unknown', 'ViewContent');
+
+    // Client-side
     if (window.fbq) {
       window.fbq('track', 'ViewContent', {
         content_name: quiz?.name,
         content_category: 'Quiz',
+        eventID: eventId, // Para deduplicação
       });
     }
     if (window.gtag) {
@@ -121,9 +206,12 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
         content_type: 'quiz',
       });
     }
-  }, [quiz?.name]);
 
-  // Track Step View
+    // Server-side
+    sendServerSideEvent('ViewContent');
+  }, [quiz?.name, sessionId, sendServerSideEvent]);
+
+  // Track Step View (client only - menos importante para server)
   const trackStepView = useCallback((stepIndex: number, stepTitle: string) => {
     if (window.gtag) {
       window.gtag('event', 'quiz_step_view', {
@@ -134,18 +222,20 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
     }
   }, [quiz?.name]);
 
-  // Track Lead Capture
-  const trackLeadCapture = useCallback((leadData: { name?: string; email?: string; whatsapp?: string }) => {
+  // Track Lead Capture (client + server - CRÍTICO)
+  const trackLeadCapture = useCallback((capturedData: { name?: string; email?: string; whatsapp?: string }) => {
+    const eventId = generateEventId(sessionId || 'unknown', 'Lead');
+
+    // Client-side
     if (window.fbq) {
       window.fbq('track', 'Lead', {
         content_name: quiz?.name,
-        ...leadData,
+        eventID: eventId,
       });
     }
     if (window.gtag) {
       window.gtag('event', 'generate_lead', {
         quiz_name: quiz?.name,
-        ...leadData,
       });
     }
     if (window.ttq) {
@@ -153,14 +243,25 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
         content_name: quiz?.name,
       });
     }
-  }, [quiz?.name]);
 
-  // Track Quiz Complete
+    // Server-side com dados do lead (MAIS IMPORTANTE)
+    sendServerSideEvent('Lead', {
+      email: capturedData.email,
+      phone: capturedData.whatsapp,
+      name: capturedData.name,
+    });
+  }, [quiz?.name, sessionId, sendServerSideEvent]);
+
+  // Track Quiz Complete (client + server)
   const trackQuizComplete = useCallback((totalScore?: number) => {
+    const eventId = generateEventId(sessionId || 'unknown', 'CompleteRegistration');
+
+    // Client-side
     if (window.fbq) {
       window.fbq('track', 'CompleteRegistration', {
         content_name: quiz?.name,
         value: totalScore,
+        eventID: eventId,
       });
     }
     if (window.gtag) {
@@ -174,14 +275,21 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
         content_name: quiz?.name,
       });
     }
-  }, [quiz?.name]);
 
-  // Track CTA Click
-  const trackCtaClick = useCallback((ctaText?: string, ctaUrl?: string) => {
+    // Server-side
+    sendServerSideEvent('CompleteRegistration', { total_score: totalScore });
+  }, [quiz?.name, sessionId, sendServerSideEvent]);
+
+  // Track CTA Click (client + server)
+  const trackCtaClick = useCallback((ctaText?: string, ctaUrl?: string, valueCents?: number) => {
+    const eventId = generateEventId(sessionId || 'unknown', 'InitiateCheckout');
+
+    // Client-side
     if (window.fbq) {
       window.fbq('track', 'InitiateCheckout', {
         content_name: quiz?.name,
         content_category: ctaText,
+        eventID: eventId,
       });
     }
     if (window.gtag) {
@@ -192,12 +300,18 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
       });
     }
     if (window.ttq) {
-      window.ttq.track('ClickButton', {
+      window.ttq.track('InitiateCheckout', {
         content_name: quiz?.name,
         description: ctaText,
       });
     }
-  }, [quiz?.name]);
+
+    // Server-side
+    sendServerSideEvent('InitiateCheckout', { 
+      step_title: ctaText,
+      value_cents: valueCents,
+    });
+  }, [quiz?.name, sessionId, sendServerSideEvent]);
 
   return {
     trackQuizStart,
@@ -205,5 +319,6 @@ export function useQuizTracking({ quiz }: UseQuizTrackingOptions) {
     trackLeadCapture,
     trackQuizComplete,
     trackCtaClick,
+    sendServerSideEvent,
   };
 }
