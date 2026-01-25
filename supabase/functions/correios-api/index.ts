@@ -264,20 +264,29 @@ function buildObjetoPostalPPNv3(
   declaredValueCents?: number,
   includeDeclaracao: boolean = true
 ): Record<string, unknown> {
-  // CRITICAL: All numeric values must be integers, not strings
-  const peso = Math.max(1, Math.round(Number(dimensions.weight) || 500));
-  const altura = Math.max(2, Math.round(Number(dimensions.height) || 10));
-  const largura = Math.max(11, Math.round(Number(dimensions.width) || 15));
-  const comprimento = Math.max(16, Math.round(Number(dimensions.length) || 20));
+  // CRITICAL: ALL fields must be STRINGS for Correios API compatibility
+  // The Correios API parser is very strict and some contracts only accept strings
+  const pesoNum = Math.max(1, Math.round(Number(dimensions.weight) || 500));
+  const alturaNum = Math.max(2, Math.round(Number(dimensions.height) || 10));
+  const larguraNum = Math.max(11, Math.round(Number(dimensions.width) || 15));
+  const comprimentoNum = Math.max(16, Math.round(Number(dimensions.length) || 20));
   
-  // Valor declarado em reais (decimal)
-  const valorDeclarado = declaredValueCents && declaredValueCents > 0 
+  // Valor declarado em reais (decimal) - minimum R$ 25,00 for PAC/SEDEX with declared value
+  const valorDeclaradoNum = declaredValueCents && declaredValueCents > 0 
     ? Number((declaredValueCents / 100).toFixed(2)) 
     : 100.00; // Default R$ 100 if not specified
 
-  console.log('Building objetoPostal with values:', {
+  // Convert ALL to strings for maximum compatibility
+  const peso = String(pesoNum);
+  const altura = String(alturaNum);
+  const largura = String(larguraNum);
+  const comprimento = String(comprimentoNum);
+  const valorDeclarado = String(valorDeclaradoNum);
+  const codigoFormato = String(formatCode);
+
+  console.log('Building objetoPostal with STRING values:', {
     tipoObjeto: String(tipoObjeto).toUpperCase(),
-    codigoFormatoObjeto: formatCode,
+    codigoFormatoObjeto: codigoFormato,
     peso,
     altura,
     largura,
@@ -288,8 +297,8 @@ function buildObjetoPostalPPNv3(
 
   const obj: Record<string, unknown> = {
     tipoObjeto: String(tipoObjeto).toUpperCase(),
-    codigoFormatoObjeto: formatCode,  // 1=Envelope, 2=Caixa, 3=Cilindro/Rolo
-    peso: peso,  // Em gramas
+    codigoFormatoObjeto: codigoFormato,  // "1"=Envelope, "2"=Caixa, "3"=Cilindro/Rolo
+    peso: peso,  // String em gramas
     objetosProibidos: "N",
     vlrDeclarado: valorDeclarado,
     dimensao: {
@@ -301,14 +310,14 @@ function buildObjetoPostalPPNv3(
 
   // Include declaration content INSIDE the object (PPN v3 requirement)
   // This is REQUIRED when not sending invoice (NFe)
-  // The itensDeclaracaoConteudo must include: conteudo, quantidade, valor, peso
+  // The itensDeclaracaoConteudo MUST include: conteudo, quantidade, valor, peso - ALL AS STRINGS
   if (includeDeclaracao) {
     obj.itensDeclaracaoConteudo = [
       {
         conteudo: "Produtos diversos",
-        quantidade: 1,
-        valor: valorDeclarado,
-        peso: peso, // CRITICAL: peso is required in each item
+        quantidade: "1",           // STRING
+        valor: valorDeclarado,     // STRING
+        peso: peso,                // STRING - CRITICAL: peso is required in each item
       }
     ];
   }
