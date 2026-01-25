@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useCart } from './cart/CartContext';
 import { SavedCardsSelector } from './checkout/SavedCardsSelector';
 import { ShippingSelector } from './checkout/ShippingSelector';
-import { CreditCardForm, type CreditCardData } from './checkout/CreditCardForm';
+import { CreditCardForm, type CreditCardData, type InstallmentConfig } from './checkout/CreditCardForm';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
+import { useQuery } from '@tanstack/react-query';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 
 function formatCurrency(cents: number): string {
@@ -38,6 +39,7 @@ export function StorefrontCheckout() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveCard, setSaveCard] = useState(false);
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
+  const [totalWithInterest, setTotalWithInterest] = useState<number | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<{
     service_code: string;
     service_name: string;
@@ -60,6 +62,34 @@ export function StorefrontCheckout() {
     state: '',
   });
 
+  // Fetch tenant payment fees for installment interest
+  const { data: paymentFees } = useQuery({
+    queryKey: ['tenant-payment-fees', storefront.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenant_payment_fees')
+        .select('installment_fees, installment_fee_passed_to_buyer, max_installments')
+        .eq('organization_id', storefront.organization_id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!storefront.organization_id,
+  });
+
+  // Build installment config for CreditCardForm
+  const installmentConfig: InstallmentConfig = {
+    installment_fees: paymentFees?.installment_fees as Record<string, number> || undefined,
+    installment_fee_passed_to_buyer: paymentFees?.installment_fee_passed_to_buyer ?? true,
+    max_installments: paymentFees?.max_installments || 12,
+  };
+
+  // Handle total with interest change from card form
+  const handleTotalWithInterestChange = useCallback((newTotal: number, installments: number) => {
+    setTotalWithInterest(installments > 1 ? newTotal : null);
+  }, []);
+
   // Cart config for free shipping threshold
   const cartConfig = storefront.cart_config as { 
     freeShippingThreshold?: number;
@@ -71,6 +101,11 @@ export function StorefrontCheckout() {
   // Apply free shipping if subtotal meets threshold
   const shippingCents = hasFreeShipping ? 0 : (selectedShipping?.price_cents || 0);
   const total = subtotal + shippingCents;
+  
+  // Total to charge (with interest if credit card with >1 installment)
+  const totalToCharge = paymentMethod === 'credit_card' && totalWithInterest 
+    ? totalWithInterest 
+    : total;
 
   // Progressive capture - sync customer data on blur
   const handleCustomerFieldBlur = useCallback((field: 'name' | 'email' | 'phone' | 'cpf') => {
@@ -165,6 +200,10 @@ export function StorefrontCheckout() {
         card_token: isOneClickCheckout ? selectedCardId : undefined,
         card_data: paymentMethod === 'credit_card' && !isOneClickCheckout ? cardData : undefined,
         save_card: !isOneClickCheckout && saveCard,
+        // Send total with interest for credit card payments
+        total_with_interest_cents: paymentMethod === 'credit_card' && cardData?.total_with_interest 
+          ? cardData.total_with_interest 
+          : undefined,
         // Attribution data
         utm: utmData,
       };
@@ -503,6 +542,8 @@ export function StorefrontCheckout() {
                 <CreditCardForm
                   onCardDataChange={setCardData}
                   totalCents={total}
+                  installmentConfig={installmentConfig}
+                  onTotalWithInterestChange={handleTotalWithInterestChange}
                 />
               )}
 
@@ -562,9 +603,18 @@ export function StorefrontCheckout() {
                   </div>
                   <span>{shippingCents > 0 ? formatCurrency(shippingCents) : formData.cep.length === 8 ? 'Grátis' : 'Calcular'}</span>
                 </div>
+                {/* Interest for installments */}
+                {paymentMethod === 'credit_card' && totalWithInterest && totalWithInterest > total && (
+                  <div className="flex justify-between text-sm text-orange-600">
+                    <span>Juros ({cardData?.installments}x)</span>
+                    <span>+{formatCurrency(totalWithInterest - total)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg pt-2 border-t">
                   <span>Total</span>
-                  <span style={{ color: storefront.primary_color }}>{formatCurrency(total)}</span>
+                  <span style={{ color: storefront.primary_color }}>
+                    {formatCurrency(paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest : total)}
+                  </span>
                 </div>
               </div>
 
