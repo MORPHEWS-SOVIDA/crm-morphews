@@ -33,7 +33,8 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  FileWarning
+  FileWarning,
+  Truck
 } from 'lucide-react';
 import { 
   useIntegrations, 
@@ -45,6 +46,7 @@ import {
 } from '@/hooks/useIntegrations';
 import { IntegrationDialog } from '@/components/integrations/IntegrationDialog';
 import { IntegrationDetailDialog } from '@/components/integrations/IntegrationDetailDialog';
+import { MelhorEnvioTrackingCard, MelhorEnvioTrackingIntegration } from '@/components/integrations/MelhorEnvioTrackingIntegration';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -124,6 +126,7 @@ export default function Integrations() {
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('list');
+  const [melhorEnvioOpen, setMelhorEnvioOpen] = useState(false);
   
   // Log filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -266,106 +269,108 @@ export default function Integrations() {
                   </Card>
                 ))}
               </div>
-            ) : integrations?.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Plug2 className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Nenhuma integração configurada</h3>
-                  <p className="text-muted-foreground text-center mb-4">
-                    Crie sua primeira integração para conectar sistemas externos
-                  </p>
-                  <Button onClick={() => setCreateDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Integração
-                  </Button>
-                </CardContent>
-              </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {integrations?.map(integration => {
-                  const typeInfo = typeLabels[integration.type] || { label: integration.type, icon: <Plug2 className="h-4 w-4" /> };
-                  const recentLogs = allLogs?.filter(l => l.integration_id === integration.id).slice(0, 5) || [];
-                  const successCount = recentLogs.filter(l => l.status === 'success').length;
-                  const errorCount = recentLogs.filter(l => l.status === 'error').length;
+              <>
+                {/* Section: Native Integrations */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">Integrações Nativas</h3>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <MelhorEnvioTrackingCard onClick={() => setMelhorEnvioOpen(true)} />
+                  </div>
+                </div>
 
-                  return (
-                    <Card 
-                      key={integration.id} 
-                      className="hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => setSelectedIntegration(integration)}
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            {typeInfo.icon}
-                            <CardTitle className="text-lg">{integration.name}</CardTitle>
-                          </div>
-                          <Badge 
-                            variant="secondary"
-                            className={`${statusColors[integration.status]} text-white`}
+                {/* Section: Custom Integrations */}
+                {integrations && integrations.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground">Suas Integrações</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {integrations.map(integration => {
+                        const typeInfo = typeLabels[integration.type] || { label: integration.type, icon: <Plug2 className="h-4 w-4" /> };
+                        const recentLogs = allLogs?.filter(l => l.integration_id === integration.id).slice(0, 5) || [];
+                        const successCount = recentLogs.filter(l => l.status === 'success').length;
+                        const errorCount = recentLogs.filter(l => l.status === 'error').length;
+
+                        return (
+                          <Card 
+                            key={integration.id} 
+                            className="hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => setSelectedIntegration(integration)}
                           >
-                            {integration.status === 'active' ? 'Ativa' : 'Inativa'}
-                          </Badge>
-                        </div>
-                        <CardDescription>{integration.description || typeInfo.label}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {integration.type === 'webhook_inbound' && (
-                          <div className="flex items-center gap-2">
-                            <code className="flex-1 text-xs bg-muted px-2 py-1 rounded truncate">
-                              {getWebhookUrl(integration.auth_token).substring(0, 50)}...
-                            </code>
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopyUrl(integration.auth_token);
-                              }}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                            <CardHeader className="pb-2">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-2">
+                                  {typeInfo.icon}
+                                  <CardTitle className="text-lg">{integration.name}</CardTitle>
+                                </div>
+                                <Badge 
+                                  variant="secondary"
+                                  className={`${statusColors[integration.status]} text-white`}
+                                >
+                                  {integration.status === 'active' ? 'Ativa' : 'Inativa'}
+                                </Badge>
+                              </div>
+                              <CardDescription>{integration.description || typeInfo.label}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              {integration.type === 'webhook_inbound' && (
+                                <div className="flex items-center gap-2">
+                                  <code className="flex-1 text-xs bg-muted px-2 py-1 rounded truncate">
+                                    {getWebhookUrl(integration.auth_token).substring(0, 50)}...
+                                  </code>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopyUrl(integration.auth_token);
+                                    }}
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
 
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-3">
-                            {recentLogs.length > 0 && (
-                              <>
-                                <span className="text-green-600">{successCount} ✓</span>
-                                <span className="text-red-600">{errorCount} ✗</span>
-                              </>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedIntegration(integration);
-                              }}
-                            >
-                              <Settings className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteConfirmId(integration.id);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-3">
+                                  {recentLogs.length > 0 && (
+                                    <>
+                                      <span className="text-green-600">{successCount} ✓</span>
+                                      <span className="text-red-600">{errorCount} ✗</span>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedIntegration(integration);
+                                    }}
+                                  >
+                                    <Settings className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteConfirmId(integration.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 
@@ -615,6 +620,12 @@ export default function Integrations() {
           onOpenChange={(open) => !open && setSelectedIntegration(null)}
         />
       )}
+
+      {/* Melhor Envio Tracking Integration Dialog */}
+      <MelhorEnvioTrackingIntegration 
+        isOpen={melhorEnvioOpen} 
+        onClose={() => setMelhorEnvioOpen(false)} 
+      />
 
       <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
         <AlertDialogContent>
