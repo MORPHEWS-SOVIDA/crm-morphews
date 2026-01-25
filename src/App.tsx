@@ -42,6 +42,7 @@ const PaymentSuccess = lazy(() => import("./pages/ecommerce/PaymentSuccess"));
 const PaymentCanceled = lazy(() => import("./pages/ecommerce/PaymentCanceled"));
 const UniversalCheckout = lazy(() => import("./pages/ecommerce/UniversalCheckout"));
 const PublicCheckoutPage = lazy(() => import("./pages/ecommerce/PublicCheckoutPage"));
+const QuizPublic = lazy(() => import("./pages/QuizPublic"));
 
 const LeadsList = lazy(() => import("./pages/LeadsList"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
@@ -177,6 +178,7 @@ const App = () => (
                 <Route path="/pagamento-cancelado" element={<PaymentCanceled />} />
                 <Route path="/c/:cartId" element={<UniversalCheckout />} />
                 <Route path="/pay/:slug" element={<PublicCheckoutPage />} />
+                <Route path="/quiz/:slug" element={<QuizPublic />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>

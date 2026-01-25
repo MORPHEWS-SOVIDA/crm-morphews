@@ -190,3 +190,42 @@ export {
   type PublicProduct,
   type StorefrontData,
 } from './usePublicStorefront';
+
+// =============================================================================
+// QUIZ BUILDER
+// =============================================================================
+export {
+  // Query hooks
+  useQuizzes,
+  useQuiz,
+  useQuizBySlug,
+  useQuizSessions,
+  useQuizAnalytics,
+  // Mutation hooks
+  useCreateQuiz,
+  useUpdateQuiz,
+  useDeleteQuiz,
+  useCreateQuizStep,
+  useUpdateQuizStep,
+  useDeleteQuizStep,
+  useCreateQuizOption,
+  useUpdateQuizOption,
+  useDeleteQuizOption,
+  useCreateQuizSession,
+  useUpdateQuizSession,
+  useTrackQuizEvent,
+  useSaveQuizAnswer,
+  // Constants
+  STEP_TYPE_LABELS,
+  CTA_TYPE_LABELS,
+  // Types
+  type Quiz,
+  type QuizStep,
+  type QuizStepOption,
+  type QuizSession,
+  type QuizEvent,
+  type QuizAnalytics,
+  type QuizStepType,
+  type QuizCtaType,
+  type QuizEventType,
+} from './useQuizzes';
