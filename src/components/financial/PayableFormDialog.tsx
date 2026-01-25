@@ -446,6 +446,7 @@ export function PayableFormDialog({ open, onClose, payable }: PayableFormDialogP
                         <SelectValue placeholder="Frequência" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Selecione</SelectItem>
                         <SelectItem value="weekly">Semanal</SelectItem>
                         <SelectItem value="monthly">Mensal</SelectItem>
                         <SelectItem value="quarterly">Trimestral</SelectItem>

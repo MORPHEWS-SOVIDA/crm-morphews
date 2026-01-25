@@ -47,6 +47,8 @@ import {
   type BankAccount,
 } from '@/hooks/useBankAccounts';
 
+const NONE_VALUE = '__none__';
+
 const BANKS = [
   { code: '001', name: 'Banco do Brasil' },
   { code: '033', name: 'Santander' },
@@ -304,13 +306,14 @@ export function BankAccountsManager() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Banco</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || NONE_VALUE}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o banco" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
                         {BANKS.map(bank => (
                           <SelectItem key={bank.code} value={bank.code}>
                             {bank.code} - {bank.name}
