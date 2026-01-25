@@ -457,6 +457,127 @@ const HELP_SECTIONS: HelpSection[] = [
         ]
       }
     ]
+  },
+  {
+    id: 'pos-terminals',
+    icon: CreditCard,
+    title: 'Máquinas de Cartão (POS)',
+    description: 'Getnet, Banrisul, Stone e mais',
+    status: 'ready',
+    articles: [
+      {
+        id: 'pos-intro',
+        title: 'Como Funciona a Integração POS',
+        content: [
+          { type: 'text', content: 'O sistema integra com máquinas de cartão físicas para reconciliar automaticamente pagamentos de entregas e vendas presenciais. Quando o motoboy passa o cartão, o sistema recebe a notificação e vincula ao pedido.' },
+          { type: 'steps', content: [
+            'Cadastre suas máquinas em Configurações → Pagamentos → Máquinas POS',
+            'Atribua cada máquina a um motoboy, balcão ou ponto de retirada',
+            'Configure o webhook da adquirente para enviar transações ao sistema',
+            'Quando a venda for paga na maquininha, o sistema vincula automaticamente'
+          ]},
+          { type: 'tip', content: 'O matching automático usa Valor + Motoboy Responsável. Se um motoboy está com uma máquina e faz uma venda de R$50, o sistema encontra a venda de R$50 atribuída a ele.' }
+        ]
+      },
+      {
+        id: 'pos-getnet',
+        title: 'Configurando Getnet',
+        content: [
+          { type: 'text', content: 'A Getnet é uma das maiores adquirentes do Brasil. Veja como encontrar os dados da sua máquina.' },
+          { type: 'steps', content: [
+            'Acesse portal.getnet.com.br com seus dados de acesso',
+            'Vá em "Meus Terminais" ou "Gestão de PDVs"',
+            'Localize o Terminal ID (TID) - é um número de 8-10 dígitos',
+            'O Serial da máquina está na etiqueta no fundo do equipamento',
+            'Anote também o Número do Estabelecimento (EC)',
+            'No sistema, vá em Configurações → Pagamentos → Máquinas POS',
+            'Clique em "Adicionar Máquina" e selecione Getnet',
+            'Preencha o TID, Serial e dê um nome identificador'
+          ]},
+          { type: 'warning', content: 'Para receber webhooks da Getnet, você precisa solicitar a habilitação do Postback via seu gerente comercial ou pelo suporte.' },
+          { type: 'tip', content: 'Dica: Dê nomes claros como "Getnet Motoboy João" para identificar facilmente nos relatórios.' },
+          { type: 'code', content: 'Webhook URL: https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/pos-webhook' }
+        ]
+      },
+      {
+        id: 'pos-banrisul',
+        title: 'Configurando Banrisul/Vero',
+        content: [
+          { type: 'text', content: 'O Banrisul e a Vero são populares no sul do Brasil. A configuração é similar.' },
+          { type: 'steps', content: [
+            'Acesse o portal Vero (vero.com.br) ou Banricompras',
+            'Entre com CNPJ e senha',
+            'Vá em "Terminais" ou "Equipamentos"',
+            'O TID aparece como "Número do Terminal" ou "Código do POS"',
+            'O Serial está na etiqueta física da máquina (SN ou S/N)',
+            'No sistema, adicione a máquina selecionando "Banrisul" ou "Vero"',
+            'Preencha TID e Serial'
+          ]},
+          { type: 'warning', content: 'Para ativar webhooks no Banrisul/Vero, entre em contato com o suporte comercial e solicite a integração API.' },
+          { type: 'tip', content: 'Se tiver máquinas de múltiplas adquirentes, cadastre todas. O sistema diferencia pelo gateway.' }
+        ]
+      },
+      {
+        id: 'pos-stone-pagarme',
+        title: 'Configurando Stone / Pagar.me',
+        content: [
+          { type: 'text', content: 'Stone e Pagar.me fazem parte do mesmo grupo e têm portais similares.' },
+          { type: 'steps', content: [
+            'Acesse portal.stone.com.br ou dashboard.pagar.me',
+            'Vá em "Dispositivos" ou "Terminais"',
+            'Copie o Serial Number (SN) da máquina',
+            'O Stone Code é o identificador do estabelecimento',
+            'No sistema, adicione selecionando "Stone" ou "Pagar.me"',
+            'A Stone já envia webhooks automaticamente se configurado no dashboard'
+          ]},
+          { type: 'tip', content: 'A Stone tem API robusta e o webhook é habilitado automaticamente no dashboard do lojista.' }
+        ]
+      },
+      {
+        id: 'pos-assignment',
+        title: 'Atribuindo Máquinas',
+        content: [
+          { type: 'text', content: 'Cada máquina pode ser atribuída a um tipo de operação para o matching funcionar corretamente.' },
+          { type: 'text', content: 'Tipos de atribuição:' },
+          { type: 'steps', content: [
+            'Usuário/Motoboy: A máquina está com um entregador específico. Ideal para delivery.',
+            'Balcão/Caixa: Máquina fixa no ponto de venda. Usada para vendas presenciais.',
+            'Retirada: Máquina usada quando o cliente retira o pedido na loja.'
+          ]},
+          { type: 'tip', content: 'Se a máquina for para um motoboy, selecione o usuário responsável. Assim o sistema sabe qual entrega vincular.' },
+          { type: 'warning', content: 'Se a máquina não estiver atribuída corretamente, o matching automático pode falhar e a transação ficará órfã.' }
+        ]
+      },
+      {
+        id: 'pos-reports',
+        title: 'Relatório de Transações POS',
+        content: [
+          { type: 'text', content: 'Todas as transações recebidas das maquininhas ficam em Relatórios → Transações POS.' },
+          { type: 'steps', content: [
+            'Vá em Relatórios → Transações POS',
+            'Veja o status de cada transação: Pendente, Vinculada ou Órfã',
+            'Transações órfãs podem ser vinculadas manualmente',
+            'Use a busca por NSU ou código de autorização para localizar'
+          ]},
+          { type: 'tip', content: 'NSU é o número único da transação gerado pela adquirente. Use-o para rastrear qualquer problema.' },
+          { type: 'warning', content: 'Transações órfãs indicam que o sistema não conseguiu vincular automaticamente. Verifique se a máquina está cadastrada e atribuída.' }
+        ]
+      },
+      {
+        id: 'pos-troubleshoot',
+        title: 'Problemas Comuns',
+        content: [
+          { type: 'text', content: 'Veja as soluções para os problemas mais frequentes:' },
+          { type: 'steps', content: [
+            'Transação não aparece: Verifique se o webhook está configurado na adquirente',
+            'Transação órfã: A máquina não está atribuída ou o valor não bate com nenhuma venda',
+            'Matching errado: Duas vendas com mesmo valor - o sistema tenta o Valor+Motoboy primeiro',
+            'Máquina não encontrada: Confira se o TID cadastrado bate com o da adquirente'
+          ]},
+          { type: 'warning', content: 'Se muitas transações ficam órfãs, revise as atribuições de máquinas e verifique se os motoboys estão usando as máquinas corretas.' }
+        ]
+      }
+    ]
   }
 ];
 
