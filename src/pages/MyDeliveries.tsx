@@ -71,6 +71,7 @@ import {
 } from '@/hooks/useMotoboyTracking';
 import { useAuth } from '@/hooks/useAuth';
 import { ProductConference } from '@/components/expedition/ProductConference';
+import { DeliveryPaymentDialog } from '@/components/delivery/DeliveryPaymentDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -842,6 +843,7 @@ export default function MyDeliveries() {
   const organizationId = profile?.organization_id || null;
 
   const [notDeliveredDialogOpen, setNotDeliveredDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
   const [uploadingSaleId, setUploadingSaleId] = useState<string | null>(null);
@@ -1028,13 +1030,14 @@ export default function MyDeliveries() {
   };
 
   const handleMarkDelivered = async (sale: Sale) => {
-    await updateSale.mutateAsync({
-      id: sale.id,
-      data: {
-        status: 'delivered',
-        delivery_status: 'delivered_normal',
-      }
-    });
+    // Open payment dialog instead of direct delivery confirmation
+    setSelectedSale(sale);
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentComplete = () => {
+    refetch();
+    setSelectedSale(null);
   };
 
   const handleMarkNotDelivered = async (
@@ -1186,6 +1189,20 @@ export default function MyDeliveries() {
         sale={selectedSale}
         onConfirm={handleMarkNotDelivered}
       />
+
+      {/* Payment Confirmation Dialog */}
+      {selectedSale && (
+        <DeliveryPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          sale={{
+            id: selectedSale.id,
+            total_cents: selectedSale.total_cents,
+            lead: selectedSale.lead ? { name: selectedSale.lead.name || '' } : null
+          }}
+          onComplete={handlePaymentComplete}
+        />
+      )}
     </SmartLayout>
   );
 }

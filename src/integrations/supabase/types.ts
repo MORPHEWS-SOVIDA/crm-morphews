@@ -8382,6 +8382,7 @@ export type Database = {
       pos_terminals: {
         Row: {
           assignment_type: string | null
+          cost_center_id: string | null
           created_at: string
           extra_config: Json | null
           gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
@@ -8398,6 +8399,7 @@ export type Database = {
         }
         Insert: {
           assignment_type?: string | null
+          cost_center_id?: string | null
           created_at?: string
           extra_config?: Json | null
           gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
@@ -8414,6 +8416,7 @@ export type Database = {
         }
         Update: {
           assignment_type?: string | null
+          cost_center_id?: string | null
           created_at?: string
           extra_config?: Json | null
           gateway_type?: Database["public"]["Enums"]["pos_gateway_type"]
@@ -8429,6 +8432,13 @@ export type Database = {
           webhook_secret?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pos_terminals_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "payment_cost_centers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pos_terminals_organization_id_fkey"
             columns: ["organization_id"]
@@ -10476,7 +10486,12 @@ export type Database = {
           created_at: string
           created_by: string
           delivered_at: string | null
+          delivery_confirmed_at: string | null
+          delivery_confirmed_by: string | null
           delivery_notes: string | null
+          delivery_payment_type:
+            | Database["public"]["Enums"]["delivery_payment_type"]
+            | null
           delivery_position: number | null
           delivery_region_id: string | null
           delivery_status: Database["public"]["Enums"]["delivery_status"] | null
@@ -10566,7 +10581,12 @@ export type Database = {
           created_at?: string
           created_by: string
           delivered_at?: string | null
+          delivery_confirmed_at?: string | null
+          delivery_confirmed_by?: string | null
           delivery_notes?: string | null
+          delivery_payment_type?:
+            | Database["public"]["Enums"]["delivery_payment_type"]
+            | null
           delivery_position?: number | null
           delivery_region_id?: string | null
           delivery_status?:
@@ -10658,7 +10678,12 @@ export type Database = {
           created_at?: string
           created_by?: string
           delivered_at?: string | null
+          delivery_confirmed_at?: string | null
+          delivery_confirmed_by?: string | null
           delivery_notes?: string | null
+          delivery_payment_type?:
+            | Database["public"]["Enums"]["delivery_payment_type"]
+            | null
           delivery_position?: number | null
           delivery_region_id?: string | null
           delivery_status?:
@@ -10737,6 +10762,13 @@ export type Database = {
           was_edited?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_delivery_confirmed_by_fkey"
+            columns: ["delivery_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "sales_delivery_region_id_fkey"
             columns: ["delivery_region_id"]
@@ -14674,6 +14706,22 @@ export type Database = {
           unread_conversations: number
         }[]
       }
+      get_unmatched_pos_transactions_for_user: {
+        Args: { p_organization_id: string; p_user_id: string }
+        Returns: {
+          amount_cents: number
+          authorization_code: string
+          card_brand: string
+          card_last_digits: string
+          created_at: string
+          gateway_timestamp: string
+          gateway_type: Database["public"]["Enums"]["pos_gateway_type"]
+          id: string
+          nsu: string
+          terminal_name: string
+          transaction_type: string
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -14755,6 +14803,10 @@ export type Database = {
       link_conversation_to_contact: {
         Args: { _contact_id: string; _conversation_id: string }
         Returns: undefined
+      }
+      link_pos_transaction_to_sale: {
+        Args: { p_sale_id: string; p_transaction_id: string; p_user_id: string }
+        Returns: boolean
       }
       match_product_embeddings: {
         Args: {
@@ -14879,6 +14931,7 @@ export type Database = {
         | "waiting_pickup"
         | "returning_to_sender"
         | "delivered"
+      delivery_payment_type: "cash" | "prepaid" | "pos_card"
       delivery_shift: "morning" | "afternoon" | "full_day"
       delivery_status:
         | "pending"
@@ -15163,6 +15216,7 @@ export const Constants = {
         "returning_to_sender",
         "delivered",
       ],
+      delivery_payment_type: ["cash", "prepaid", "pos_card"],
       delivery_shift: ["morning", "afternoon", "full_day"],
       delivery_status: [
         "pending",
