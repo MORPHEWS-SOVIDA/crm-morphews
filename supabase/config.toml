@@ -108,6 +108,9 @@ verify_jwt = false
 [functions.correios-n8n-proxy]
 verify_jwt = false
 
+[functions.n8n-setup-correios]
+verify_jwt = false
+
 [functions.asaas-webhook]
 verify_jwt = false
 
