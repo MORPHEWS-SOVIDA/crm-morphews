@@ -29,6 +29,8 @@ import { formatCurrency } from '@/hooks/useSales';
 
 interface DeliveryTypeSelectorProps {
   leadRegionId: string | null;
+  leadCpfCnpj?: string | null;
+  onMissingCpf?: () => void;
   value: {
     type: DeliveryType;
     regionId: string | null;
@@ -42,6 +44,8 @@ interface DeliveryTypeSelectorProps {
 
 export function DeliveryTypeSelector({
   leadRegionId,
+  leadCpfCnpj,
+  onMissingCpf,
   value,
   onChange,
 }: DeliveryTypeSelectorProps) {
@@ -325,6 +329,30 @@ export function DeliveryTypeSelector({
         {/* Carrier Options */}
         {value.type === 'carrier' && (
           <div className="space-y-4 border-t pt-4">
+            {/* CPF Required Warning */}
+            {!leadCpfCnpj && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-400">
+                    CPF/CNPJ obrigatório para Transportadora
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-500">
+                    Para gerar etiquetas de envio pelo Melhor Envio, é necessário informar o CPF ou CNPJ do cliente.
+                  </p>
+                  {onMissingCpf && (
+                    <button
+                      type="button"
+                      onClick={onMissingCpf}
+                      className="text-sm text-red-700 dark:text-red-400 font-medium hover:underline mt-2"
+                    >
+                      → Atualizar CPF do cliente agora
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {carriers.length === 0 ? (
               <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
