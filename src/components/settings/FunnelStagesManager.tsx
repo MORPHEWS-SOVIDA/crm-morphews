@@ -479,8 +479,10 @@ export function FunnelStagesManager() {
   );
 
   const cloudStage = stages.find(s => s.stage_type === 'cloud');
+  // Include all funnel stages regardless of position - positions > 99 are valid funnel stages
+  // Only exclude cloud (position 0) and trash (position 99 AND stage_type = 'trash')
   const funnelStages = stages
-    .filter(s => s.stage_type === 'funnel' && s.position > 0 && s.position < 99)
+    .filter(s => s.stage_type === 'funnel')
     .sort((a, b) => a.position - b.position);
   const trashStage = stages.find(s => s.stage_type === 'trash');
 
