@@ -84,10 +84,14 @@ serve(async (req) => {
       });
     }
 
+    // Cast saleRecord fields with proper types (needed for fee calculation)
+    const saleIdStr = saleRecord.id as string;
+    const saleTotalCents = saleRecord.total_cents as number;
+
     // Status already mapped above (before stableRef)
     console.log(`[PaymentWebhook] Mapped status: ${status} -> ${paymentStatus} (event: ${eventType})`);
 
-    // Update sale
+    // Update sale with payment status and gateway fee
     const updateData: Record<string, unknown> = {
       payment_status: paymentStatus,
     };
@@ -97,7 +101,15 @@ serve(async (req) => {
     }
 
     if (transactionId) {
-      updateData.notes = `${gateway.toUpperCase()} ID: ${transactionId}`;
+      updateData.gateway_transaction_id = transactionId;
+      updateData.payment_notes = `${gateway.toUpperCase()} ID: ${transactionId}`;
+    }
+
+    // Save gateway fee (cost) when payment is confirmed
+    if (eventType === 'paid' && feeCents && feeCents > 0) {
+      updateData.gateway_fee_cents = feeCents;
+      updateData.gateway_net_cents = (amountCents || saleTotalCents) - feeCents;
+      console.log(`[PaymentWebhook] Gateway fee captured: ${feeCents} centavos`);
     }
 
     const { error: updateError } = await supabase
@@ -108,7 +120,7 @@ serve(async (req) => {
     if (updateError) {
       console.error(`[PaymentWebhook] Failed to update sale ${saleRecord.id}:`, updateError);
     } else {
-      console.log(`[PaymentWebhook] Sale ${saleRecord.id} updated successfully: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}`);
+      console.log(`[PaymentWebhook] Sale ${saleRecord.id} updated: status=${newStatus || 'unchanged'}, payment_status=${paymentStatus}, gateway_fee=${feeCents || 0}`);
     }
 
     // Also update ecommerce_orders status when payment status changes
@@ -145,9 +157,7 @@ serve(async (req) => {
         .eq('sale_id', saleRecord.id);
     }
 
-    // Cast saleRecord fields with proper types
-    const saleIdStr = saleRecord.id as string;
-    const saleTotalCents = saleRecord.total_cents as number;
+    // Log payment attempt (saleIdStr and saleTotalCents already declared above)
 
     // Log payment attempt
     await logPaymentAttempt(supabase, {
