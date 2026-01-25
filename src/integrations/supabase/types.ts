@@ -14,6 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts_payable: {
+        Row: {
+          amount_cents: number
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string | null
+          barcode: string | null
+          category_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          discount_cents: number | null
+          document_number: string | null
+          due_date: string
+          fine_cents: number | null
+          id: string
+          installment_number: number | null
+          interest_cents: number | null
+          is_recurring: boolean | null
+          issue_date: string
+          notes: string | null
+          organization_id: string
+          paid_amount_cents: number | null
+          paid_at: string | null
+          parent_payable_id: string | null
+          payment_method: string | null
+          pix_code: string | null
+          purchase_invoice_id: string | null
+          recurrence_end_date: string | null
+          recurrence_type: string | null
+          requires_approval: boolean | null
+          status: string | null
+          supplier_id: string | null
+          total_installments: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          barcode?: string | null
+          category_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          discount_cents?: number | null
+          document_number?: string | null
+          due_date: string
+          fine_cents?: number | null
+          id?: string
+          installment_number?: number | null
+          interest_cents?: number | null
+          is_recurring?: boolean | null
+          issue_date: string
+          notes?: string | null
+          organization_id: string
+          paid_amount_cents?: number | null
+          paid_at?: string | null
+          parent_payable_id?: string | null
+          payment_method?: string | null
+          pix_code?: string | null
+          purchase_invoice_id?: string | null
+          recurrence_end_date?: string | null
+          recurrence_type?: string | null
+          requires_approval?: boolean | null
+          status?: string | null
+          supplier_id?: string | null
+          total_installments?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          barcode?: string | null
+          category_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          discount_cents?: number | null
+          document_number?: string | null
+          due_date?: string
+          fine_cents?: number | null
+          id?: string
+          installment_number?: number | null
+          interest_cents?: number | null
+          is_recurring?: boolean | null
+          issue_date?: string
+          notes?: string | null
+          organization_id?: string
+          paid_amount_cents?: number | null
+          paid_at?: string | null
+          parent_payable_id?: string | null
+          payment_method?: string | null
+          pix_code?: string | null
+          purchase_invoice_id?: string | null
+          recurrence_end_date?: string | null
+          recurrence_type?: string | null
+          requires_approval?: boolean | null
+          status?: string | null
+          supplier_id?: string | null
+          total_installments?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "payment_cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_parent_payable_id_fkey"
+            columns: ["parent_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_attributions: {
         Row: {
           affiliate_id: string | null
@@ -488,6 +649,169 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      bank_accounts: {
+        Row: {
+          account_digit: string | null
+          account_number: string | null
+          account_type: string | null
+          agency: string | null
+          agency_digit: string | null
+          bank_code: string | null
+          bank_name: string | null
+          color: string | null
+          created_at: string
+          current_balance_cents: number | null
+          id: string
+          initial_balance_cents: number | null
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_digit?: string | null
+          account_number?: string | null
+          account_type?: string | null
+          agency?: string | null
+          agency_digit?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          color?: string | null
+          created_at?: string
+          current_balance_cents?: number | null
+          id?: string
+          initial_balance_cents?: number | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_digit?: string | null
+          account_number?: string | null
+          account_type?: string | null
+          agency?: string | null
+          agency_digit?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          color?: string | null
+          created_at?: string
+          current_balance_cents?: number | null
+          id?: string
+          initial_balance_cents?: number | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_transactions: {
+        Row: {
+          account_payable_id: string | null
+          amount_cents: number
+          bank_account_id: string
+          check_number: string | null
+          created_at: string
+          description: string | null
+          fitid: string | null
+          id: string
+          import_batch_id: string | null
+          is_reconciled: boolean | null
+          manual_entry_id: string | null
+          memo: string | null
+          organization_id: string
+          reconciled_at: string | null
+          reconciled_by: string | null
+          ref_number: string | null
+          sale_installment_id: string | null
+          transaction_date: string
+          transaction_type: string | null
+        }
+        Insert: {
+          account_payable_id?: string | null
+          amount_cents: number
+          bank_account_id: string
+          check_number?: string | null
+          created_at?: string
+          description?: string | null
+          fitid?: string | null
+          id?: string
+          import_batch_id?: string | null
+          is_reconciled?: boolean | null
+          manual_entry_id?: string | null
+          memo?: string | null
+          organization_id: string
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          ref_number?: string | null
+          sale_installment_id?: string | null
+          transaction_date: string
+          transaction_type?: string | null
+        }
+        Update: {
+          account_payable_id?: string | null
+          amount_cents?: number
+          bank_account_id?: string
+          check_number?: string | null
+          created_at?: string
+          description?: string | null
+          fitid?: string | null
+          id?: string
+          import_batch_id?: string | null
+          is_reconciled?: boolean | null
+          manual_entry_id?: string | null
+          memo?: string | null
+          organization_id?: string
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          ref_number?: string | null
+          sale_installment_id?: string | null
+          transaction_date?: string
+          transaction_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_sale_installment_id_fkey"
+            columns: ["sale_installment_id"]
+            isOneToOne: false
+            referencedRelation: "sale_installments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bot_team_members: {
         Row: {
@@ -3540,6 +3864,113 @@ export type Database = {
             columns: ["virtual_account_id"]
             isOneToOne: false
             referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_approval_rules: {
+        Row: {
+          approver_user_ids: string[] | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          max_amount_cents: number | null
+          min_amount_cents: number
+          name: string
+          organization_id: string
+          position: number | null
+          require_all_approvers: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          approver_user_ids?: string[] | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_amount_cents?: number | null
+          min_amount_cents: number
+          name: string
+          organization_id: string
+          position?: number | null
+          require_all_approvers?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          approver_user_ids?: string[] | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_amount_cents?: number | null
+          min_amount_cents?: number
+          name?: string
+          organization_id?: string
+          position?: number | null
+          require_all_approvers?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_approval_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_categories: {
+        Row: {
+          created_at: string
+          dre_group: string | null
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+          organization_id: string
+          parent_id: string | null
+          position: number | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dre_group?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+          organization_id: string
+          parent_id?: string | null
+          position?: number | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dre_group?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          organization_id?: string
+          parent_id?: string | null
+          position?: number | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -7014,6 +7445,72 @@ export type Database = {
           },
         ]
       }
+      ofx_imports: {
+        Row: {
+          bank_account_id: string
+          created_at: string
+          duplicate_transactions: number | null
+          end_date: string | null
+          error_message: string | null
+          file_name: string | null
+          id: string
+          import_date: string
+          imported_by: string | null
+          new_transactions: number | null
+          organization_id: string
+          start_date: string | null
+          status: string | null
+          total_transactions: number | null
+        }
+        Insert: {
+          bank_account_id: string
+          created_at?: string
+          duplicate_transactions?: number | null
+          end_date?: string | null
+          error_message?: string | null
+          file_name?: string | null
+          id?: string
+          import_date?: string
+          imported_by?: string | null
+          new_transactions?: number | null
+          organization_id: string
+          start_date?: string | null
+          status?: string | null
+          total_transactions?: number | null
+        }
+        Update: {
+          bank_account_id?: string
+          created_at?: string
+          duplicate_transactions?: number | null
+          end_date?: string | null
+          error_message?: string | null
+          file_name?: string | null
+          id?: string
+          import_date?: string
+          imported_by?: string | null
+          new_transactions?: number | null
+          organization_id?: string
+          start_date?: string | null
+          status?: string | null
+          total_transactions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ofx_imports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ofx_imports_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_data: {
         Row: {
           business_description: string | null
@@ -7505,6 +8002,8 @@ export type Database = {
           default_stage_new_lead: string | null
           default_stage_receptivo: string | null
           default_stage_whatsapp: string | null
+          financial_approval_enabled: boolean | null
+          financial_approval_min_cents: number | null
           id: string
           name: string
           owner_email: string | null
@@ -7549,6 +8048,8 @@ export type Database = {
           default_stage_new_lead?: string | null
           default_stage_receptivo?: string | null
           default_stage_whatsapp?: string | null
+          financial_approval_enabled?: boolean | null
+          financial_approval_min_cents?: number | null
           id?: string
           name: string
           owner_email?: string | null
@@ -7593,6 +8094,8 @@ export type Database = {
           default_stage_new_lead?: string | null
           default_stage_receptivo?: string | null
           default_stage_whatsapp?: string | null
+          financial_approval_enabled?: boolean | null
+          financial_approval_min_cents?: number | null
           id?: string
           name?: string
           owner_email?: string | null
@@ -9628,15 +10131,18 @@ export type Database = {
           created_by: string | null
           entry_date: string | null
           id: string
+          installments_generated: boolean | null
           issue_date: string
           notes: string | null
           number: string
           organization_id: string
+          payment_condition: string | null
           processed_at: string | null
           processed_by: string | null
           series: string | null
           status: string
           supplier_cnpj: string
+          supplier_id: string | null
           supplier_ie: string | null
           supplier_name: string
           total_discount_cents: number
@@ -9654,15 +10160,18 @@ export type Database = {
           created_by?: string | null
           entry_date?: string | null
           id?: string
+          installments_generated?: boolean | null
           issue_date: string
           notes?: string | null
           number: string
           organization_id: string
+          payment_condition?: string | null
           processed_at?: string | null
           processed_by?: string | null
           series?: string | null
           status?: string
           supplier_cnpj: string
+          supplier_id?: string | null
           supplier_ie?: string | null
           supplier_name: string
           total_discount_cents?: number
@@ -9680,15 +10189,18 @@ export type Database = {
           created_by?: string | null
           entry_date?: string | null
           id?: string
+          installments_generated?: boolean | null
           issue_date?: string
           notes?: string | null
           number?: string
           organization_id?: string
+          payment_condition?: string | null
           processed_at?: string | null
           processed_by?: string | null
           series?: string | null
           status?: string
           supplier_cnpj?: string
+          supplier_id?: string | null
           supplier_ie?: string | null
           supplier_name?: string
           total_discount_cents?: number
@@ -9706,6 +10218,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -12267,6 +12786,107 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          bank_account: string | null
+          bank_account_type: string | null
+          bank_agency: string | null
+          bank_name: string | null
+          cep: string | null
+          city: string | null
+          cnpj: string | null
+          complement: string | null
+          contact_name: string | null
+          cpf: string | null
+          created_at: string
+          email: string | null
+          id: string
+          ie: string | null
+          im: string | null
+          is_active: boolean | null
+          name: string
+          neighborhood: string | null
+          notes: string | null
+          number: string | null
+          organization_id: string
+          phone: string | null
+          pix_key: string | null
+          pix_key_type: string | null
+          state: string | null
+          street: string | null
+          trade_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          cep?: string | null
+          city?: string | null
+          cnpj?: string | null
+          complement?: string | null
+          contact_name?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          ie?: string | null
+          im?: string | null
+          is_active?: boolean | null
+          name: string
+          neighborhood?: string | null
+          notes?: string | null
+          number?: string | null
+          organization_id: string
+          phone?: string | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          state?: string | null
+          street?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          cep?: string | null
+          city?: string | null
+          cnpj?: string | null
+          complement?: string | null
+          contact_name?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          ie?: string | null
+          im?: string | null
+          is_active?: boolean | null
+          name?: string
+          neighborhood?: string | null
+          notes?: string | null
+          number?: string | null
+          organization_id?: string
+          phone?: string | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          state?: string | null
+          street?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

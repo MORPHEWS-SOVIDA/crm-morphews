@@ -90,6 +90,13 @@ export interface ParsedXmlInvoice {
     invoice: number;
   };
   items: ParsedXmlItem[];
+  installments: ParsedXmlInstallment[];
+}
+
+export interface ParsedXmlInstallment {
+  number: string;
+  dueDate: string;
+  amountCents: number;
 }
 
 export interface ParsedXmlItem {
@@ -422,6 +429,82 @@ export function useProcessInvoiceStock() {
 }
 
 // ============================================================================
+// HOOKS - GENERATE ACCOUNTS PAYABLE FROM INVOICE
+// ============================================================================
+
+export function useGeneratePayablesFromInvoice() {
+  const queryClient = useQueryClient();
+  const { profile, user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ 
+      invoiceId, 
+      installments,
+      supplierId,
+      categoryId,
+    }: { 
+      invoiceId: string;
+      installments: { number: string; dueDate: string; amountCents: number }[];
+      supplierId?: string;
+      categoryId?: string;
+    }) => {
+      if (!profile?.organization_id) throw new Error('Organização não encontrada');
+
+      // Get invoice details
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('purchase_invoices')
+        .select('number, issue_date, supplier_name')
+        .eq('id', invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Create accounts payable for each installment
+      const payables = installments.map((inst, index) => ({
+        organization_id: profile.organization_id,
+        purchase_invoice_id: invoiceId,
+        supplier_id: supplierId || null,
+        document_number: `NF ${invoice.number} - ${inst.number}`,
+        description: `Duplicata ${inst.number}/${installments.length} - NF ${invoice.number} - ${invoice.supplier_name}`,
+        amount_cents: inst.amountCents,
+        issue_date: invoice.issue_date.split('T')[0],
+        due_date: inst.dueDate,
+        installment_number: index + 1,
+        total_installments: installments.length,
+        payment_method: 'boleto',
+        category_id: categoryId || null,
+        status: 'pending',
+        created_by: user?.id,
+      }));
+
+      const { data, error } = await supabase
+        .from('accounts_payable')
+        .insert(payables)
+        .select();
+
+      if (error) throw error;
+
+      // Mark invoice as having installments generated
+      await supabase
+        .from('purchase_invoices')
+        .update({ installments_generated: true })
+        .eq('id', invoiceId);
+
+      return data;
+    },
+    onSuccess: (data, { invoiceId }) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoice', invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts-payable'] });
+      queryClient.invalidateQueries({ queryKey: ['payable-summary'] });
+      toast.success(`${data.length} conta(s) a pagar gerada(s)!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Erro ao gerar contas a pagar');
+    },
+  });
+}
+
+// ============================================================================
 // HOOKS - FIND PRODUCT MATCHES
 // ============================================================================
 
@@ -535,6 +618,24 @@ export function parseNFeXml(xmlString: string): ParsedXmlInvoice {
     });
   });
 
+  // Parse installments (duplicatas)
+  const dupElements = doc.querySelectorAll('dup');
+  const installments: { number: string; dueDate: string; amountCents: number }[] = [];
+  
+  dupElements.forEach((dup) => {
+    const nDup = getTextContent('nDup', dup);
+    const dVenc = getTextContent('dVenc', dup);
+    const vDup = getNumber('vDup', dup);
+    
+    if (dVenc && vDup > 0) {
+      installments.push({
+        number: nDup || String(installments.length + 1),
+        dueDate: dVenc,
+        amountCents: Math.round(vDup * 100),
+      });
+    }
+  });
+
   // Get access key from chNFe or infNFe Id attribute
   let accessKey = getTextContent('chNFe');
   if (!accessKey && infNFe) {
@@ -562,6 +663,7 @@ export function parseNFeXml(xmlString: string): ParsedXmlInvoice {
       invoice: Math.round(getNumber('vNF', total) * 100),
     },
     items,
+    installments,
   };
 }
 
