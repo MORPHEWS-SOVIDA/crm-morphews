@@ -5,7 +5,7 @@ import { StarsFilter } from '@/components/dashboard/StarsFilter';
 import { KanbanBoard } from '@/components/dashboard/KanbanBoard';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
-import { TeamFilter } from '@/components/dashboard/TeamFilter';
+import { SellerMultiSelect } from '@/components/dashboard/SellerMultiSelect';
 import { InactivityFilter } from '@/components/dashboard/InactivityFilter';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
@@ -30,26 +30,32 @@ export default function DashboardKanban() {
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
   const [selectedInactivityDays, setSelectedInactivityDays] = useState<number | null>(null);
-  const [hasAutoSelectedTeam, setHasAutoSelectedTeam] = useState(false);
+  const [hasAutoSelectedSellers, setHasAutoSelectedSellers] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
-  // Auto-select team for sales managers when they access the page
+  // Auto-select team members for sales managers when they access the page
   useEffect(() => {
-    if (currentMember && !hasAutoSelectedTeam) {
-      // If user is a sales manager and has a team, pre-select their team
+    if (currentMember && teamMembers.length > 0 && !hasAutoSelectedSellers) {
+      // If user is a sales manager and has a team, pre-select their team members
       if (currentMember.is_sales_manager && currentMember.team_id) {
-        setSelectedTeam(currentMember.team_id);
+        const teamMemberIds = teamMembers
+          .filter(m => m.team_id === currentMember.team_id)
+          .map(m => m.user_id);
+        setSelectedSellers(teamMemberIds);
       }
-      // Even if not a manager, if user has a team, pre-select it (optional behavior)
+      // Even if not a manager, if user has a team, pre-select team members (optional behavior)
       else if (currentMember.team_id && !isAdmin) {
-        setSelectedTeam(currentMember.team_id);
+        const teamMemberIds = teamMembers
+          .filter(m => m.team_id === currentMember.team_id)
+          .map(m => m.user_id);
+        setSelectedSellers(teamMemberIds);
       }
-      setHasAutoSelectedTeam(true);
+      setHasAutoSelectedSellers(true);
     }
-  }, [currentMember, hasAutoSelectedTeam, isAdmin]);
+  }, [currentMember, teamMembers, hasAutoSelectedSellers, isAdmin]);
 
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
@@ -63,22 +69,21 @@ export default function DashboardKanban() {
     return uniqueResponsaveis.filter(Boolean);
   }, [leads]);
 
-  // Filter leads by team (using teamMembers to find which seller belongs to which team)
+  // Filter leads by selected sellers
   const filteredLeads = useMemo(() => {
     let result = [...leads];
     
-    // Filter by team
-    // NOTE: historically `assigned_to` has been stored inconsistently (sometimes user_id, sometimes full name).
-    // To keep the filter reliable, we match both formats.
-    if (selectedTeam) {
-      const membersInTeam = teamMembers
-        .filter(m => m.team_id === selectedTeam)
-      const teamUserIds = membersInTeam.map(m => m.user_id);
-      const teamUserNames = membersInTeam.map(m => m.full_name).filter(Boolean);
+    // Filter by selected sellers (supports both user_id and full_name in assigned_to)
+    if (selectedSellers.length > 0) {
+      // Get full names for selected user IDs to support legacy data
+      const selectedSellerNames = teamMembers
+        .filter(m => selectedSellers.includes(m.user_id))
+        .map(m => m.full_name)
+        .filter(Boolean);
 
       result = result.filter((lead) => {
         const assigned = lead.assigned_to || '';
-        return teamUserIds.includes(assigned) || teamUserNames.includes(assigned);
+        return selectedSellers.includes(assigned) || selectedSellerNames.includes(assigned);
       });
     }
     
@@ -93,9 +98,9 @@ export default function DashboardKanban() {
     }
     
     return result;
-  }, [leads, selectedTeam, selectedInactivityDays, teamMembers]);
+  }, [leads, selectedSellers, selectedInactivityDays, teamMembers]);
 
-  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedTeam !== null || selectedInactivityDays !== null;
+  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedInactivityDays !== null;
 
   if (isLoading || loadingStages || permissionsLoading) {
     return (
@@ -210,7 +215,7 @@ export default function DashboardKanban() {
                   setSelectedStars(null);
                   setSelectedStage(null);
                   setSelectedResponsavel(null);
-                  setSelectedTeam(null);
+                  setSelectedSellers([]);
                   setSelectedInactivityDays(null);
                 }}
                 className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
@@ -244,9 +249,9 @@ export default function DashboardKanban() {
                   />
                   {showAdvancedFilters && (
                     <>
-                      <TeamFilter
-                        selectedTeam={selectedTeam}
-                        onSelectTeam={setSelectedTeam}
+                      <SellerMultiSelect
+                        selectedSellers={selectedSellers}
+                        onSelectSellers={setSelectedSellers}
                         compact
                       />
                       <InactivityFilter
@@ -260,11 +265,11 @@ export default function DashboardKanban() {
               )}
             </div>
             {/* Show filter indicators */}
-            {(selectedTeam || selectedInactivityDays) && (
+            {(selectedSellers.length > 0 || selectedInactivityDays) && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {selectedTeam && (
+                {selectedSellers.length > 0 && (
                   <span className="bg-muted px-2 py-1 rounded">
-                    Filtro Time ativo
+                    {selectedSellers.length} vendedor(es) selecionado(s)
                   </span>
                 )}
                 {selectedInactivityDays && (
