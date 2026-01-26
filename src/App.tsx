@@ -133,10 +133,12 @@ const EcommerceCarrinhos = lazy(() => import("./pages/ecommerce/EcommerceCarrinh
 const EcommerceVendas = lazy(() => import("./pages/ecommerce/EcommerceVendas"));
 const EcommerceOrderDetail = lazy(() => import("./pages/ecommerce/EcommerceOrderDetail"));
 const EcommerceEmails = lazy(() => import("./pages/ecommerce/EcommerceEmails"));
-const EcommerceAfiliados = lazy(() => import("./pages/ecommerce/EcommerceAfiliados"));
-const EcommerceIndustrias = lazy(() => import("./pages/ecommerce/EcommerceIndustrias"));
+const EcommerceParceiros = lazy(() => import("./pages/ecommerce/EcommerceParceiros"));
 const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
 const CheckoutsPage = lazy(() => import("./pages/ecommerce/CheckoutsPage"));
+// Partner pages (public and portal)
+const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
+const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
 // Public Storefront
 const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
 const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
@@ -182,6 +184,10 @@ const App = () => (
                 <Route path="/c/:cartId" element={<UniversalCheckout />} />
                 <Route path="/pay/:slug" element={<PublicCheckoutPage />} />
                 <Route path="/quiz/:slug" element={<QuizPublic />} />
+                
+                {/* Partner Routes (Public) */}
+                <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />
+                <Route path="/parceiro" element={<PartnerPortal />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>
@@ -749,18 +755,10 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/ecommerce/afiliados"
+                  path="/ecommerce/parceiros"
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
-                      <EcommerceAfiliados />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/ecommerce/industrias"
-                  element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
-                      <EcommerceIndustrias />
+                      <EcommerceParceiros />
                     </ProtectedRoute>
                   }
                 />

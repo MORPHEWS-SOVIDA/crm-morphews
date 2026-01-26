@@ -23,8 +23,7 @@ const navItems = [
   { path: '/ecommerce/vendas', label: 'Vendas', icon: ShoppingBag },
   { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
   { path: '/ecommerce/emails', label: 'E-mails', icon: Mail },
-  { path: '/ecommerce/afiliados', label: 'Afiliados', icon: Users },
-  { path: '/ecommerce/industrias', label: 'Indústrias', icon: Factory },
+  { path: '/ecommerce/parceiros', label: 'Parceiros', icon: Users },
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
 ];
 
