@@ -59,6 +59,7 @@ export const AVAILABLE_FEATURES = {
   payment_gateways: { label: "Gateways de Pagamento", group: "E-commerce" },
   virtual_wallet: { label: "Carteira Virtual", group: "E-commerce" },
   telesales: { label: "Televendas", group: "E-commerce" },
+  quiz: { label: "Quiz / Formulários", group: "E-commerce" },
   
   // Integrações Google
   google_analytics: { label: "Google Analytics 4", group: "Integrações Google" },
