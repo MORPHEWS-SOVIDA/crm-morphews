@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { 
   MessageCircle, 
@@ -24,15 +23,13 @@ import {
   ShoppingBag,
   X,
 } from 'lucide-react';
-import { LeadSuggestion } from '@/hooks/useLeadIntelligence';
+import { LeadSuggestion, useLeadIntelligence } from '@/hooks/useLeadIntelligence';
 import { toast } from 'sonner';
 
 interface SuggestionDetailModalProps {
   suggestion: LeadSuggestion | null;
   open: boolean;
   onClose: () => void;
-  onFeedback?: (leadId: string, isUseful: boolean) => void;
-  onDismiss?: (leadId: string) => void;
   type: 'followup' | 'products';
 }
 
@@ -40,19 +37,19 @@ export function SuggestionDetailModal({
   suggestion, 
   open, 
   onClose, 
-  onFeedback,
-  onDismiss,
   type,
 }: SuggestionDetailModalProps) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [feedbackGiven, setFeedbackGiven] = useState<'positive' | 'negative' | null>(null);
+  const [feedbackGiven, setFeedbackGiven] = useState<'positive' | 'negative' | null>(
+    suggestion?.feedback || null
+  );
+  const { submitFeedback, dismissSuggestion, markSuggestionUsed } = useLeadIntelligence();
 
   if (!suggestion) return null;
 
   const whatsappNumber = suggestion.lead_whatsapp?.replace(/\D/g, '');
   
-  // Build WhatsApp link with pre-filled message
   const getWhatsAppLink = () => {
     if (!whatsappNumber) return null;
     const message = encodeURIComponent(suggestion.suggested_script || '');
@@ -66,26 +63,39 @@ export function SuggestionDetailModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleFeedback = (isUseful: boolean) => {
+  const handleFeedback = async (isUseful: boolean) => {
     setFeedbackGiven(isUseful ? 'positive' : 'negative');
-    onFeedback?.(suggestion.lead_id, isUseful);
+    
+    if (suggestion.id) {
+      await submitFeedback(suggestion.id, isUseful);
+    }
+    
     toast.success(isUseful ? 'Obrigado pelo feedback positivo!' : 'Feedback registrado. Vamos melhorar!');
   };
 
-  const handleDismiss = () => {
-    onDismiss?.(suggestion.lead_id);
+  const handleDismiss = async () => {
+    if (suggestion.id) {
+      await dismissSuggestion(suggestion.id);
+    }
     onClose();
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsApp = async () => {
     const link = getWhatsAppLink();
     if (link) {
+      // Mark as used when clicking WhatsApp
+      if (suggestion.id) {
+        await markSuggestionUsed(suggestion.id);
+      }
       window.open(link, '_blank');
     }
   };
 
-  const handleAddReceptivo = () => {
-    // Navigate to Add Receptivo with lead pre-selected
+  const handleAddReceptivo = async () => {
+    // Mark as used when starting receptivo
+    if (suggestion.id) {
+      await markSuggestionUsed(suggestion.id);
+    }
     navigate(`/add-receptivo?leadId=${suggestion.lead_id}`);
     onClose();
   };

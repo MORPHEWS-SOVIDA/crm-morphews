@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Plus, Settings, Trash2, Zap, MessageSquare, Clock, Brain, Users, Key } from "lucide-react";
+import { Bot, Plus, Settings, Trash2, Zap, MessageSquare, Clock, Brain, Users, Key, History } from "lucide-react";
 import { useAIBots, useOrganizationEnergy, useDeleteAIBot } from "@/hooks/useAIBots";
 import { AIBotWizard } from "@/components/ai-bots/AIBotWizard";
 import { AIBotDetailDialog } from "@/components/ai-bots/AIBotDetailDialog";
@@ -12,6 +12,7 @@ import { EnergyDashboard } from "@/components/ai-bots/EnergyDashboard";
 import { EnergyUsageChart } from "@/components/ai-bots/EnergyUsageChart";
 import { BotTeamsSection } from "@/components/ai-bots/BotTeamsSection";
 import { KeywordRoutersSection } from "@/components/ai-bots/KeywordRoutersSection";
+import { SuggestionHistorySection } from "@/components/ai-bots/SuggestionHistorySection";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -71,7 +72,7 @@ export default function AIBots() {
 
         {/* Tabs: Bots, Teams & Keyword Routers */}
         <Tabs defaultValue="bots" className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3">
+          <TabsList className="grid w-full max-w-3xl grid-cols-4">
             <TabsTrigger value="bots" className="gap-2">
               <Bot className="h-4 w-4" />
               Robôs
@@ -83,6 +84,10 @@ export default function AIBots() {
             <TabsTrigger value="keywords" className="gap-2">
               <Key className="h-4 w-4" />
               Por Palavra de Entrada
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              Histórico IA
             </TabsTrigger>
           </TabsList>
 
@@ -239,6 +244,10 @@ export default function AIBots() {
 
           <TabsContent value="keywords" className="mt-6">
             <KeywordRoutersSection />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <SuggestionHistorySection />
           </TabsContent>
         </Tabs>
       </div>
