@@ -42,6 +42,7 @@ export interface SellerDashboardData {
     separated: SaleSummary[];
     motoboyDispatched: SaleSummary[];
     carrierDispatched: SaleSummary[];
+    pickupPending: SaleSummary[];
     returned: SaleSummary[];
     cancelled: SaleSummary[];
   };
@@ -68,6 +69,7 @@ export interface SaleSummary {
   status: string;
   motoboy_tracking_status: string | null;
   carrier_tracking_status: string | null;
+  delivery_type: string | null;
   created_at: string;
   delivered_at: string | null;
   payment_status: string | null;
@@ -268,6 +270,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         status: sale.status,
         motoboy_tracking_status: sale.motoboy_tracking_status,
         carrier_tracking_status: sale.carrier_tracking_status,
+        delivery_type: sale.delivery_type,
         created_at: sale.created_at,
         delivered_at: sale.delivered_at,
         payment_status: sale.payment_status,
@@ -286,6 +289,10 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         // Carrier dispatched (not yet delivered)
         carrierDispatched: (salesData || [])
           .filter((s: any) => s.status === 'dispatched' && s.delivery_type === 'carrier')
+          .map(mapSale),
+        // Pickup pending (retirada no balcão - not yet delivered)
+        pickupPending: (salesData || [])
+          .filter((s: any) => s.delivery_type === 'pickup' && s.status !== 'delivered' && s.status !== 'cancelled')
           .map(mapSale),
         returned: allSales.filter(s => s.status === 'returned'),
         cancelled: allSales.filter(s => s.status === 'cancelled'),
