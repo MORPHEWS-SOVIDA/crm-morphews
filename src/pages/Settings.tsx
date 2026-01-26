@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText, Wallet, Send } from 'lucide-react';
+import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText, Wallet, Send, QrCode } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +33,8 @@ import { FiscalInvoicesManager } from '@/components/settings/FiscalInvoicesManag
 import { PosTerminalsManager } from '@/components/settings/PosTerminalsManager';
 import { ShippingServicesConfig } from '@/components/shipping/ShippingServicesConfig';
 import { MelhorEnvioConfigSection } from '@/components/settings/MelhorEnvioConfigSection';
+import { EfiPayConfigManager } from '@/components/settings/EfiPayConfigManager';
+import { EfiPayTransactionsViewer } from '@/components/settings/EfiPayTransactionsViewer';
 import { cn } from '@/lib/utils';
 
 // Define setting categories with their tabs
@@ -471,6 +473,29 @@ export default function Settings() {
                   </div>
                 </div>
                 <PaymentMethodsManagerEnhanced />
+              </div>
+            )}
+
+            {/* EfiPay PIX Integration */}
+            {canAccess('settings_payment_methods') && (
+              <div className="bg-card rounded-xl p-6 shadow-card">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-green-500/10">
+                    <QrCode className="w-6 h-6 text-green-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">EfiPay PIX</h2>
+                    <p className="text-sm text-muted-foreground">Configure recebimentos automáticos de PIX via EfiPay</p>
+                  </div>
+                </div>
+                <EfiPayConfigManager />
+              </div>
+            )}
+
+            {/* EfiPay Transactions Log */}
+            {canAccess('settings_payment_methods') && (
+              <div className="bg-card rounded-xl p-6 shadow-card">
+                <EfiPayTransactionsViewer />
               </div>
             )}
 
