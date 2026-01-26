@@ -148,6 +148,153 @@ function shouldTransferByKeywords(message: string, keywords: string[] | null): b
 }
 
 // ============================================================================
+// BOT TEAM ROUTING - Troca dinâmica de robôs dentro de um Time
+// ============================================================================
+
+interface BotTeamRoute {
+  id: string;
+  team_id: string;
+  target_bot_id: string;
+  condition_type: string;
+  keywords: string[] | null;
+  intent_description: string | null;
+  priority: number;
+  is_active: boolean;
+}
+
+/**
+ * Verifica se o robô atual pertence a um Time e busca as rotas configuradas
+ */
+async function getBotTeamRoutes(botId: string, organizationId: string): Promise<{
+  teamId: string | null;
+  routes: BotTeamRoute[];
+  isInitialBot: boolean;
+}> {
+  // Primeiro, verificar se este bot é o initial_bot de algum time
+  const { data: teamAsInitial } = await supabase
+    .from('bot_teams')
+    .select('id')
+    .eq('initial_bot_id', botId)
+    .eq('organization_id', organizationId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (teamAsInitial) {
+    // Este bot é o maestro/secretária - buscar rotas para especialistas
+    const { data: routes } = await supabase
+      .from('bot_team_routes')
+      .select('id, team_id, target_bot_id, condition_type, keywords, intent_description, priority, is_active')
+      .eq('team_id', teamAsInitial.id)
+      .eq('is_active', true)
+      .order('priority', { ascending: true });
+
+    return {
+      teamId: teamAsInitial.id,
+      routes: (routes || []) as BotTeamRoute[],
+      isInitialBot: true
+    };
+  }
+
+  // Verificar se este bot é membro de algum time (especialista)
+  const { data: membership } = await supabase
+    .from('bot_team_members')
+    .select('team_id')
+    .eq('bot_id', botId)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (membership) {
+    return {
+      teamId: membership.team_id,
+      routes: [], // Especialistas não fazem roteamento
+      isInitialBot: false
+    };
+  }
+
+  return { teamId: null, routes: [], isInitialBot: false };
+}
+
+/**
+ * Verifica se a mensagem do usuário corresponde a alguma rota do time
+ */
+function matchRouteByKeywords(message: string, routes: BotTeamRoute[]): BotTeamRoute | null {
+  const lowerMessage = message.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  for (const route of routes) {
+    if (route.condition_type !== 'keyword' || !route.keywords || route.keywords.length === 0) {
+      continue;
+    }
+    
+    const hasMatch = route.keywords.some(keyword => {
+      const lowerKeyword = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return lowerMessage.includes(lowerKeyword);
+    });
+    
+    if (hasMatch) {
+      return route;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Troca o robô ativo na conversa para um especialista do time
+ */
+async function switchToSpecialistBot(
+  conversationId: string, 
+  newBotId: string, 
+  matchedRoute: BotTeamRoute
+): Promise<boolean> {
+  console.log(`🔄 Switching bot to specialist: ${newBotId} (route: ${matchedRoute.id})`);
+  
+  const { error } = await supabase
+    .from('whatsapp_conversations')
+    .update({
+      handling_bot_id: newBotId,
+      // Resetar contador para o novo bot começar "fresh"
+      bot_messages_count: 0,
+      bot_started_at: new Date().toISOString()
+    })
+    .eq('id', conversationId);
+
+  if (error) {
+    console.error('❌ Error switching bot:', error);
+    return false;
+  }
+
+  console.log('✅ Successfully switched to specialist bot');
+  return true;
+}
+
+/**
+ * Busca os dados completos de um bot pelo ID
+ */
+async function getBotById(botId: string): Promise<AIBot | null> {
+  const { data: bot, error } = await supabase
+    .from('ai_bots')
+    .select('*')
+    .eq('id', botId)
+    .single();
+
+  if (error || !bot) {
+    console.error('❌ Error fetching bot:', error);
+    return null;
+  }
+
+  // Parse initial questions if present
+  if (bot.initial_questions && typeof bot.initial_questions === 'string') {
+    try {
+      bot.initial_questions = JSON.parse(bot.initial_questions);
+    } catch (e) {
+      bot.initial_questions = null;
+    }
+  }
+
+  return bot as AIBot;
+}
+
+// ============================================================================
 // AUDIO TRANSCRIPTION
 // ============================================================================
 
@@ -1522,7 +1669,54 @@ async function processMessage(
     // Continua processando - o robô vai responder normalmente
   }
 
-  // 2. Verificar keywords de transferência
+  // 1.5 VERIFICAR ROTEAMENTO DE TIME DE ROBÔS (antes de outras verificações)
+  // Se este bot é o "maestro" de um time, verificar se deve trocar para especialista
+  const teamRouting = await getBotTeamRoutes(bot.id, context.organizationId);
+  
+  if (teamRouting.teamId && teamRouting.isInitialBot && teamRouting.routes.length > 0) {
+    console.log('🎭 Bot is team maestro, checking routes...', {
+      teamId: teamRouting.teamId,
+      routesCount: teamRouting.routes.length
+    });
+    
+    // Verificar se a mensagem corresponde a alguma rota por keyword
+    const matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    
+    if (matchedRoute) {
+      console.log('🎯 Matched route by keyword!', {
+        routeId: matchedRoute.id,
+        targetBotId: matchedRoute.target_bot_id,
+        keywords: matchedRoute.keywords
+      });
+      
+      // Trocar para o bot especialista
+      const switched = await switchToSpecialistBot(
+        context.conversationId, 
+        matchedRoute.target_bot_id, 
+        matchedRoute
+      );
+      
+      if (switched) {
+        // Buscar o novo bot e reprocessar a mensagem com ele
+        const specialistBot = await getBotById(matchedRoute.target_bot_id);
+        
+        if (specialistBot) {
+          console.log('🤖 Reprocessing message with specialist:', specialistBot.name);
+          
+          // Atualizar contexto para o novo bot
+          const newContext: ConversationContext = {
+            ...context,
+            botMessagesCount: 0, // Reset contador
+          };
+          
+          // Processar recursivamente com o novo bot (sem risco de loop pois especialista não é initial_bot)
+          return processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule);
+        }
+      }
+    }
+  }
+
+  // 2. Verificar keywords de transferência (para HUMANO)
   if (shouldTransferByKeywords(userMessage, bot.transfer_keywords)) {
     console.log('🔑 Transfer keyword detected');
     
