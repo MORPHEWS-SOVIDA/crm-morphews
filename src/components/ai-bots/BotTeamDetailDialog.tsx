@@ -158,7 +158,7 @@ export function BotTeamDetailDialog({ teamId, open, onOpenChange }: BotTeamDetai
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export function BotTeamDetailDialog({ teamId, open, onOpenChange }: BotTeamDetai
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           <div className="space-y-6 pb-4">
             {/* Settings Panel (collapsible) */}
             {showSettings && (
