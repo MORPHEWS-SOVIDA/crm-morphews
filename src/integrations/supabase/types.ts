@@ -17045,6 +17045,14 @@ export type Database = {
             }
             Returns: string
           }
+      get_active_agent_for_instance: {
+        Args: {
+          p_current_day?: number
+          p_current_time?: string
+          p_instance_id: string
+        }
+        Returns: Json
+      }
       get_active_bot_for_instance: {
         Args: {
           p_current_day?: number
@@ -17054,6 +17062,10 @@ export type Database = {
         Returns: string
       }
       get_admin_whatsapp_config: { Args: never; Returns: Json }
+      get_any_agent_for_instance: {
+        Args: { p_instance_id: string }
+        Returns: Json
+      }
       get_any_bot_for_instance: {
         Args: { p_instance_id: string }
         Returns: string
