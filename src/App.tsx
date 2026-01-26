@@ -128,6 +128,7 @@ const Ecommerce = lazy(() => import("./pages/Ecommerce"));
 const LandingPageEditor = lazy(() => import("./pages/ecommerce/LandingPageEditor"));
 const EcommerceLojas = lazy(() => import("./pages/ecommerce/EcommerceLojas"));
 const EcommerceLandings = lazy(() => import("./pages/ecommerce/EcommerceLandings"));
+const EcommerceQuiz = lazy(() => import("./pages/ecommerce/EcommerceQuiz"));
 const EcommerceCarrinhos = lazy(() => import("./pages/ecommerce/EcommerceCarrinhos"));
 const EcommerceVendas = lazy(() => import("./pages/ecommerce/EcommerceVendas"));
 const EcommerceOrderDetail = lazy(() => import("./pages/ecommerce/EcommerceOrderDetail"));
@@ -696,6 +697,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <EcommerceLandings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/quiz"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceQuiz />
                     </ProtectedRoute>
                   }
                 />
