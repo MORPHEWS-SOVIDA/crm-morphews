@@ -182,6 +182,14 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
       setProgress(20);
       setProgressMessage('Gerando copy de alta conversão...');
 
+      // Debug (ajuda a validar que o feedback está sendo enviado)
+      if (isRegeneration) {
+        console.log('[AILandingWizard] Regenerating with feedback:', {
+          length: feedbackText?.length || 0,
+          preview: (feedbackText || '').slice(0, 120),
+        });
+      }
+
       const copyResponse = await supabase.functions.invoke('ai-landing-generator', {
         body: {
           action: isRegeneration ? 'regenerate' : 'generate',
@@ -300,7 +308,14 @@ export function AILandingWizard({ onGenerated, onCancel }: AILandingWizardProps)
     } catch (error) {
       console.error('Generation error:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar landing page');
-      setState(prev => ({ ...prev, step: 'briefing' }));
+      // Se falhar durante uma regeneração, não “volta uma etapa” (briefing).
+      // Mantém o usuário no preview para tentar novamente com o feedback preservado.
+      if (isRegeneration) {
+        setState(prev => ({ ...prev, step: 'preview' }));
+        setShowFeedbackForm(true);
+      } else {
+        setState(prev => ({ ...prev, step: 'briefing' }));
+      }
     } finally {
       setIsGenerating(false);
     }
