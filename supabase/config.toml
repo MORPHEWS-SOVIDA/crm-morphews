@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.admin-impersonate]
 verify_jwt = false
+
+[functions.efipay-webhook]
+verify_jwt = false

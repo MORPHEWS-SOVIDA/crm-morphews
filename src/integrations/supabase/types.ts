@@ -4767,6 +4767,81 @@ export type Database = {
         }
         Relationships: []
       }
+      incoming_transactions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          end_to_end_id: string | null
+          id: string
+          matched_at: string | null
+          matched_by: string | null
+          matched_sale_id: string | null
+          organization_id: string
+          payer_bank: string | null
+          payer_document: string | null
+          payer_name: string | null
+          raw_payload: Json | null
+          source: string
+          source_transaction_id: string | null
+          status: string
+          transaction_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          end_to_end_id?: string | null
+          id?: string
+          matched_at?: string | null
+          matched_by?: string | null
+          matched_sale_id?: string | null
+          organization_id: string
+          payer_bank?: string | null
+          payer_document?: string | null
+          payer_name?: string | null
+          raw_payload?: Json | null
+          source: string
+          source_transaction_id?: string | null
+          status?: string
+          transaction_date?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          end_to_end_id?: string | null
+          id?: string
+          matched_at?: string | null
+          matched_by?: string | null
+          matched_sale_id?: string | null
+          organization_id?: string
+          payer_bank?: string | null
+          payer_document?: string | null
+          payer_name?: string | null
+          raw_payload?: Json | null
+          source?: string
+          source_transaction_id?: string | null
+          status?: string
+          transaction_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incoming_transactions_matched_sale_id_fkey"
+            columns: ["matched_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incoming_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industries: {
         Row: {
           bank_account: string | null
@@ -9270,6 +9345,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "payment_reminder_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_sources: {
+        Row: {
+          created_at: string
+          credentials_encrypted: Json | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          pix_key: string | null
+          source: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          created_at?: string
+          credentials_encrypted?: Json | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          pix_key?: string | null
+          source: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          created_at?: string
+          credentials_encrypted?: Json | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          pix_key?: string | null
+          source?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_sources_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -16930,6 +17052,10 @@ export type Database = {
           product_id: string
           similarity: number
         }[]
+      }
+      match_transaction_to_sale: {
+        Args: { p_sale_id: string; p_transaction_id: string; p_user_id: string }
+        Returns: Json
       }
       normalize_cnpj: { Args: { input: string }; Returns: string }
       normalize_phone_digits: { Args: { p: string }; Returns: string }
