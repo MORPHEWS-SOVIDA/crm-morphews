@@ -1100,18 +1100,7 @@ export default function WhatsAppChat() {
                       instanceLabel={getInstanceLabel(conv.instance_id)}
                       assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
                       currentUserId={user?.id}
-                      onClaim={async (id) => {
-                        if (!user?.id) return;
-                        setClaimingConversationId(id);
-                        try {
-                          await claimConversation.mutateAsync({ conversationId: id, userId: user.id });
-                          setConversations(prev => prev.map(c => 
-                            c.id === id ? { ...c, status: 'assigned', assigned_user_id: user.id } : c
-                          ));
-                        } finally {
-                          setClaimingConversationId(null);
-                        }
-                      }}
+                      onClaim={(id) => handleClaimConversation(id)}
                       onClose={async (id) => {
                         setClosingConversationId(id);
                         try {
