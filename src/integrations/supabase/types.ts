@@ -590,6 +590,87 @@ export type Database = {
           },
         ]
       }
+      ai_lead_suggestions: {
+        Row: {
+          created_at: string
+          energy_consumed: number | null
+          feedback: string | null
+          feedback_at: string | null
+          feedback_note: string | null
+          id: string
+          lead_id: string
+          lead_name: string
+          lead_whatsapp: string | null
+          organization_id: string
+          priority: string | null
+          reason: string
+          recommended_products: string[] | null
+          status: string
+          suggested_action: string | null
+          suggested_script: string | null
+          suggestion_type: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          energy_consumed?: number | null
+          feedback?: string | null
+          feedback_at?: string | null
+          feedback_note?: string | null
+          id?: string
+          lead_id: string
+          lead_name: string
+          lead_whatsapp?: string | null
+          organization_id: string
+          priority?: string | null
+          reason: string
+          recommended_products?: string[] | null
+          status?: string
+          suggested_action?: string | null
+          suggested_script?: string | null
+          suggestion_type: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          energy_consumed?: number | null
+          feedback?: string | null
+          feedback_at?: string | null
+          feedback_note?: string | null
+          id?: string
+          lead_id?: string
+          lead_name?: string
+          lead_whatsapp?: string | null
+          organization_id?: string
+          priority?: string | null
+          reason?: string
+          recommended_products?: string[] | null
+          status?: string
+          suggested_action?: string | null
+          suggested_script?: string | null
+          suggestion_type?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_lead_suggestions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_lead_suggestions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_model_costs: {
         Row: {
           created_at: string | null

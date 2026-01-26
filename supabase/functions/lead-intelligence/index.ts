@@ -13,7 +13,6 @@ interface LeadContext {
   created_at: string;
   stage_name: string | null;
   last_contact_at: string | null;
-  // Aggregated context
   whatsapp_summary: string;
   transcription_summary: string;
   standard_answers: string;
@@ -42,7 +41,7 @@ interface IntelligenceRequest {
   limit?: number;
 }
 
-const ENERGY_COST = 30; // Energy cost per generation
+const ENERGY_COST = 30;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -68,6 +67,19 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get seller's name from profiles table
+    const { data: sellerProfile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    const sellerName = sellerProfile 
+      ? `${sellerProfile.first_name || ''} ${sellerProfile.last_name || ''}`.trim() || 'Consultor'
+      : 'Consultor';
+
+    console.log(`📝 Seller name for suggestions: ${sellerName}`);
 
     // 1. Consume energy first
     const { data: energyResult, error: energyError } = await supabase.rpc('consume_energy', {
@@ -102,7 +114,19 @@ serve(async (req) => {
 
     console.log(`⚡ Energy consumed: ${ENERGY_COST} for ${type} suggestion`);
 
-    // 2. Get candidate leads (prioritize uncontacted, then seller's leads)
+    // 2. Get IDs of pending suggestions already shown to this user
+    const { data: existingSuggestions } = await supabase
+      .from('ai_lead_suggestions')
+      .select('lead_id')
+      .eq('user_id', userId)
+      .eq('organization_id', organizationId)
+      .eq('suggestion_type', type)
+      .eq('status', 'pending');
+    
+    const existingLeadIds = (existingSuggestions || []).map((s: any) => s.lead_id);
+    const allExcludeIds = [...new Set([...excludeLeadIds, ...existingLeadIds])];
+
+    // 3. Get candidate leads
     let leadsQuery = supabase
       .from('leads')
       .select(`
@@ -116,7 +140,7 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(20);
     
-    // Get funnel stages separately to avoid FK issues
+    // Get funnel stages separately
     const { data: funnelStages } = await supabase
       .from('organization_funnel_stages')
       .select('enum_value, name')
@@ -127,9 +151,8 @@ serve(async (req) => {
       if (s.enum_value) stageNameMap.set(s.enum_value, s.name);
     });
 
-    // Filter by responsible
+    // Filter by responsible for followup
     if (type === 'followup') {
-      // Get leads where user is responsible OR leads without responsible in requires_contact stages
       const { data: responsibleLeads } = await supabase
         .from('lead_responsibles')
         .select('lead_id')
@@ -143,8 +166,8 @@ serve(async (req) => {
     }
 
     // Exclude already shown leads
-    if (excludeLeadIds.length > 0) {
-      leadsQuery = leadsQuery.not('id', 'in', `(${excludeLeadIds.join(',')})`);
+    if (allExcludeIds.length > 0) {
+      leadsQuery = leadsQuery.not('id', 'in', `(${allExcludeIds.join(',')})`);
     }
 
     const { data: leads, error: leadsError } = await leadsQuery;
@@ -161,12 +184,11 @@ serve(async (req) => {
       );
     }
 
-    // 3. Aggregate context for top leads
-    const leadsToAnalyze = leads.slice(0, limit * 2); // Get more than needed for filtering
+    // 4. Aggregate context for top leads
+    const leadsToAnalyze = leads.slice(0, limit * 2);
     const leadContexts: LeadContext[] = [];
 
     for (const lead of leadsToAnalyze) {
-      // Add stage name from our map
       const leadWithStageName = {
         ...lead,
         funnel_stage: { name: stageNameMap.get(lead.stage) || lead.stage }
@@ -175,14 +197,16 @@ serve(async (req) => {
       leadContexts.push(context);
     }
 
-    // 4. Generate suggestions with AI
+    // 5. Generate suggestions with AI - include seller name instruction
     const systemPrompt = type === 'followup' 
-      ? `Você é um assistente de vendas especializado em análise de leads. Analise o contexto dos leads e sugira os 3 melhores para follow-up AGORA.
+      ? `Você é um assistente de vendas especializado em análise de leads. Analise o contexto dos leads e sugira os ${limit} melhores para follow-up AGORA.
 
 Para cada lead, forneça:
 - Motivo pelo qual deve ser contatado agora
 - Ação sugerida (ligar, WhatsApp, etc.)
 - Script de abordagem personalizado baseado no contexto
+
+IMPORTANTE: No script, use o nome do vendedor "${sellerName}" para personalizar a mensagem. Por exemplo: "Olá, aqui é ${sellerName}..."
 
 Priorize leads que:
 1. Têm histórico de interesse demonstrado
@@ -199,6 +223,8 @@ Para cada lead, sugira até 3 produtos com base em:
 - Produtos anteriormente comprados ou discutidos
 - Perfil de necessidades identificado
 
+IMPORTANTE: No script de abordagem, use o nome do vendedor "${sellerName}" para personalizar a mensagem.
+
 Retorne APENAS um JSON válido sem markdown:`;
 
     const userPrompt = `Analise estes ${leadContexts.length} leads e retorne exatamente ${limit} sugestões:
@@ -214,7 +240,7 @@ Retorne um JSON com a estrutura:
       "lead_whatsapp": "telefone",
       "reason": "Motivo da recomendação em 1-2 frases",
       "suggested_action": "ligar" | "whatsapp" | "agendar",
-      "suggested_script": "Script personalizado de abordagem (2-3 frases)",
+      "suggested_script": "Script personalizado de abordagem usando o nome do vendedor ${sellerName} (2-3 frases)",
       "recommended_products": ["Produto 1", "Produto 2"],
       "priority": "high" | "medium" | "low"
     }
@@ -259,21 +285,53 @@ Retorne um JSON com a estrutura:
       suggestions = parsed.suggestions || [];
     } catch (parseError) {
       console.error("Error parsing AI response:", parseError, content);
-      // Fallback: return basic suggestions
+      // Fallback: return basic suggestions with seller name
       suggestions = leadContexts.slice(0, limit).map(ctx => ({
         lead_id: ctx.lead_id,
         lead_name: ctx.lead_name,
         lead_whatsapp: ctx.lead_whatsapp,
         reason: "Lead com potencial identificado",
         suggested_action: "whatsapp" as const,
-        suggested_script: `Olá ${ctx.lead_name.split(' ')[0]}! Tudo bem? Estou entrando em contato para saber como posso ajudá-lo(a).`,
+        suggested_script: `Olá ${ctx.lead_name.split(' ')[0]}! Tudo bem? Aqui é ${sellerName}. Estou entrando em contato para saber como posso ajudá-lo(a).`,
         priority: "medium" as const,
       }));
     }
 
+    const finalSuggestions = suggestions.slice(0, limit);
+
+    // 6. Persist suggestions to database
+    if (finalSuggestions.length > 0) {
+      const suggestionsToInsert = finalSuggestions.map(s => ({
+        organization_id: organizationId,
+        user_id: userId,
+        lead_id: s.lead_id,
+        lead_name: s.lead_name,
+        lead_whatsapp: s.lead_whatsapp || null,
+        suggestion_type: type,
+        reason: s.reason,
+        suggested_action: s.suggested_action,
+        suggested_script: s.suggested_script,
+        recommended_products: s.recommended_products || null,
+        priority: s.priority,
+        status: 'pending',
+        energy_consumed: Math.ceil(ENERGY_COST / finalSuggestions.length),
+      }));
+
+      const { error: insertError } = await supabase
+        .from('ai_lead_suggestions')
+        .insert(suggestionsToInsert);
+
+      if (insertError) {
+        console.error('Error saving suggestions:', insertError);
+        // Don't fail the request, just log the error
+      } else {
+        console.log(`💾 Saved ${finalSuggestions.length} suggestions to database`);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
-        suggestions: suggestions.slice(0, limit),
+        suggestions: finalSuggestions,
         energyConsumed: ENERGY_COST,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

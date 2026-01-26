@@ -918,8 +918,6 @@ export function SellerDashboard() {
         suggestion={selectedSuggestion}
         open={!!selectedSuggestion}
         onClose={handleCloseSuggestionModal}
-        onFeedback={handleSuggestionFeedback}
-        onDismiss={handleDismissSuggestion}
         type={suggestionModalType}
       />
     </div>
