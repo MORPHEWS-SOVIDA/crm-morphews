@@ -526,7 +526,9 @@ export default function AddReceptivo() {
 
     const selectedKit = sortedKits.find(k => k.id === currentKitId);
     if (!selectedKit) {
-      return { quantity: 1, unitPrice: 0, commission: 0 };
+      // BUG FIX: When no kit is selected, still use the seller's default commission
+      // Previously returned commission: 0 which caused incorrect commission calculations
+      return { quantity: 1, unitPrice: 0, commission: myCommission?.commissionPercentage || 0 };
     }
 
     // If negotiated price is set, use it

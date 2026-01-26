@@ -204,15 +204,17 @@ export function ProductOfferCard({
   }, [sortedKits, currentRejectedKitIds]);
 
   const getCommissionForType = (kit: ProductPriceKit, type: 'regular' | 'promotional' | 'promotional_2' | 'minimum') => {
+    // BUG FIX: When use_default is false but custom_commission is null, fallback to defaultCommission
+    // Previously returned 0 which caused incorrect commission calculations
     switch (type) {
       case 'regular':
-        return kit.regular_use_default_commission ? defaultCommission : (kit.regular_custom_commission || 0);
+        return kit.regular_use_default_commission ? defaultCommission : (kit.regular_custom_commission ?? defaultCommission);
       case 'promotional':
-        return kit.promotional_use_default_commission ? defaultCommission : (kit.promotional_custom_commission || 0);
+        return kit.promotional_use_default_commission ? defaultCommission : (kit.promotional_custom_commission ?? defaultCommission);
       case 'promotional_2':
-        return kit.promotional_2_use_default_commission ? defaultCommission : (kit.promotional_2_custom_commission || 0);
+        return kit.promotional_2_use_default_commission ? defaultCommission : (kit.promotional_2_custom_commission ?? defaultCommission);
       case 'minimum':
-        return kit.minimum_use_default_commission ? defaultCommission : (kit.minimum_custom_commission || 0);
+        return kit.minimum_use_default_commission ? defaultCommission : (kit.minimum_custom_commission ?? defaultCommission);
     }
   };
 
