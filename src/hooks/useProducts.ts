@@ -63,6 +63,10 @@ export interface Product {
   depth_cm: number | null;
   barcode_ean: string | null;
   gtin_tax: string | null;
+  // Controle de mídia para robô
+  bot_can_send_image: boolean | null;
+  bot_can_send_video: boolean | null;
+  bot_can_send_site_link: boolean | null;
 }
 
 // Computed property for available stock
