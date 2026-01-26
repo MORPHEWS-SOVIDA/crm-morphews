@@ -1757,16 +1757,19 @@ export default function WhatsAppChat() {
                           size="sm"
                           onClick={() => {
                             if (selectedConversation) {
-                              claimConversation.mutate({
-                                conversationId: selectedConversation.id,
-                                userId: user?.id || ''
-                              });
+                              handleClaimConversation(selectedConversation.id);
                             }
                           }}
-                          disabled={claimConversation.isPending}
+                          disabled={
+                            !selectedConversation ||
+                            claimingConversationId === selectedConversation?.id ||
+                            claimConversation.isPending
+                          }
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          {claimConversation.isPending ? 'Assumindo...' : 'Assumir Conversa'}
+                          {claimingConversationId === selectedConversation?.id || claimConversation.isPending
+                            ? 'Assumindo...'
+                            : 'Assumir Conversa'}
                         </Button>
                       </div>
                     </div>
