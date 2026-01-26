@@ -85,7 +85,7 @@ export default function EcommerceOrderDetail() {
           storefront:tenant_storefronts(name),
           landing_page:landing_pages(name),
           lead:leads(name, whatsapp, email),
-          affiliate:affiliates(affiliate_code, virtual_account:virtual_accounts(account_name))
+          affiliate:affiliates(affiliate_code, virtual_account:virtual_accounts(holder_name))
         `)
         .eq('id', orderId)
         .single();
