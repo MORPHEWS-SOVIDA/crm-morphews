@@ -39,6 +39,7 @@ import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { toast } from '@/hooks/use-toast';
 import { SellerSalesList } from './SellerSalesList';
+import { SuggestionDetailModal } from './SuggestionDetailModal';
 import slothRaceImage from '@/assets/sloth-race.png';
 
 function DateBadge({ date }: { date: string }) {
@@ -177,6 +178,10 @@ export function SellerDashboard() {
   const [commissionMonth, setCommissionMonth] = useState(new Date());
   const [claimingLeadId, setClaimingLeadId] = useState<string | null>(null);
   
+  // Modal states for AI suggestions
+  const [selectedSuggestion, setSelectedSuggestion] = useState<LeadSuggestion | null>(null);
+  const [suggestionModalType, setSuggestionModalType] = useState<'followup' | 'products'>('followup');
+  
   // Debounce the treatment days to avoid excessive re-renders
   const debouncedTreatmentDays = useDebounce(parseInt(treatmentDaysInput) || 5, 500);
   
@@ -197,6 +202,28 @@ export function SellerDashboard() {
     dismissFollowupSuggestion,
     dismissProductSuggestion,
   } = useLeadIntelligence();
+
+  const handleOpenSuggestion = (suggestion: LeadSuggestion, type: 'followup' | 'products') => {
+    setSelectedSuggestion(suggestion);
+    setSuggestionModalType(type);
+  };
+
+  const handleCloseSuggestionModal = () => {
+    setSelectedSuggestion(null);
+  };
+
+  const handleSuggestionFeedback = (leadId: string, isUseful: boolean) => {
+    // TODO: Persist feedback to database for ML improvements
+    console.log('Feedback:', { leadId, isUseful });
+  };
+
+  const handleDismissSuggestion = (leadId: string) => {
+    if (suggestionModalType === 'followup') {
+      dismissFollowupSuggestion(leadId);
+    } else {
+      dismissProductSuggestion(leadId);
+    }
+  };
 
   // State for sloth race modal (someone else claimed)
   const [showSlothModal, setShowSlothModal] = useState(false);
@@ -379,8 +406,8 @@ export function SellerDashboard() {
                     {followupSuggestions.slice(0, 3).map((suggestion) => (
                       <div 
                         key={suggestion.lead_id}
-                        className="p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                        onClick={() => navigate(`/leads/${suggestion.lead_id}`)}
+                        className="p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        onClick={() => handleOpenSuggestion(suggestion, 'followup')}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-medium truncate">{suggestion.lead_name}</span>
@@ -462,8 +489,8 @@ export function SellerDashboard() {
                     {productSuggestions.slice(0, 3).map((suggestion) => (
                       <div 
                         key={suggestion.lead_id}
-                        className="p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/30"
-                        onClick={() => navigate(`/leads/${suggestion.lead_id}`)}
+                        className="p-2 bg-white/80 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                        onClick={() => handleOpenSuggestion(suggestion, 'products')}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-medium truncate">{suggestion.lead_name}</span>
@@ -885,6 +912,16 @@ export function SellerDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Suggestion Detail Modal */}
+      <SuggestionDetailModal
+        suggestion={selectedSuggestion}
+        open={!!selectedSuggestion}
+        onClose={handleCloseSuggestionModal}
+        onFeedback={handleSuggestionFeedback}
+        onDismiss={handleDismissSuggestion}
+        type={suggestionModalType}
+      />
     </div>
   );
 }
