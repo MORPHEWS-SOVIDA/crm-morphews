@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { AlertTriangle, Store, Bike, Truck, CalendarDays } from 'lucide-react';
+import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Zap, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -22,14 +22,15 @@ import {
   DELIVERY_TYPES,
   getAvailableDeliveryDates,
   formatShift,
-  DeliveryRegion,
   ShippingCarrier,
 } from '@/hooks/useDeliveryConfig';
 import { formatCurrency } from '@/hooks/useSales';
+import { useShippingQuote, MELHOR_ENVIO_SERVICES } from '@/hooks/useShippingQuote';
 
 interface DeliveryTypeSelectorProps {
   leadRegionId: string | null;
   leadCpfCnpj?: string | null;
+  leadCep?: string | null;
   onMissingCpf?: () => void;
   value: {
     type: DeliveryType;
@@ -45,16 +46,85 @@ interface DeliveryTypeSelectorProps {
 export function DeliveryTypeSelector({
   leadRegionId,
   leadCpfCnpj,
+  leadCep,
   onMissingCpf,
   value,
   onChange,
 }: DeliveryTypeSelectorProps) {
   const { data: regions = [] } = useDeliveryRegions();
   const carriers = useActiveShippingCarriers();
+  const { getQuotes, isLoading: isQuoteLoading } = useShippingQuote();
+
+  const [quoteData, setQuoteData] = useState<{
+    price_cents: number;
+    delivery_days: number;
+    loading: boolean;
+    error?: string;
+  } | null>(null);
 
   const activeRegions = regions.filter(r => r.is_active);
   const selectedRegion = activeRegions.find(r => r.id === (value.regionId || leadRegionId));
   const selectedCarrier = carriers.find(c => c.id === value.carrierId);
+
+  // Check if carrier is integrated (has melhor_envio service linked)
+  const isCarrierIntegrated = (carrier: ShippingCarrier | undefined) => {
+    return !!carrier?.correios_service_code;
+  };
+
+  const getServiceInfo = (code: string | null) => {
+    if (!code) return null;
+    const serviceId = parseInt(code);
+    return MELHOR_ENVIO_SERVICES.find(s => s.id === serviceId);
+  };
+
+  // Fetch quote when integrated carrier is selected and CEP is available
+  useEffect(() => {
+    const carrier = carriers.find(c => c.id === value.carrierId);
+    
+    if (!carrier || !isCarrierIntegrated(carrier) || !leadCep || value.type !== 'carrier') {
+      setQuoteData(null);
+      return;
+    }
+
+    const serviceId = parseInt(carrier.correios_service_code || '0');
+    if (!serviceId) return;
+
+    setQuoteData({ price_cents: 0, delivery_days: 0, loading: true });
+
+    // Fetch real-time quote
+    getQuotes({
+      destination_cep: leadCep.replace(/\D/g, ''),
+      service_codes: [String(serviceId)],
+    })
+      .then((quotes) => {
+        const quote = quotes.find(q => q.service_id === serviceId || q.service_code === String(serviceId));
+        if (quote) {
+          setQuoteData({
+            price_cents: quote.price_cents,
+            delivery_days: quote.delivery_days,
+            loading: false,
+          });
+          // Auto-update shipping cost with quote
+          onChange({ ...value, shippingCost: quote.price_cents });
+        } else {
+          setQuoteData({
+            price_cents: 0,
+            delivery_days: 0,
+            loading: false,
+            error: 'Serviço não disponível para este CEP',
+          });
+        }
+      })
+      .catch((error) => {
+        setQuoteData({
+          price_cents: 0,
+          delivery_days: 0,
+          loading: false,
+          error: error.message || 'Erro ao buscar cotação',
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.carrierId, leadCep, value.type]);
 
   // Get available dates for selected region
   const availableDates = selectedRegion
@@ -131,10 +201,12 @@ export function DeliveryTypeSelector({
 
   const handleCarrierChange = (carrierId: string) => {
     const carrier = carriers.find(c => c.id === carrierId);
+    // For manual carriers, use fixed cost. For integrated, will be updated by useEffect
+    const isIntegrated = isCarrierIntegrated(carrier);
     onChange({
       ...value,
       carrierId,
-      shippingCost: carrier?.cost_cents || 0,
+      shippingCost: isIntegrated ? 0 : (carrier?.cost_cents || 0),
     });
   };
 
@@ -374,29 +446,88 @@ export function DeliveryTypeSelector({
                       <SelectValue placeholder="Selecione a transportadora" />
                     </SelectTrigger>
                     <SelectContent>
-                      {carriers.map((carrier) => (
-                        <SelectItem key={carrier.id} value={carrier.id}>
-                          {carrier.name} - {formatCurrency(carrier.cost_cents)} ({carrier.estimated_days} dia{carrier.estimated_days !== 1 ? 's' : ''})
-                        </SelectItem>
-                      ))}
+                      {carriers.map((carrier) => {
+                        const integrated = isCarrierIntegrated(carrier);
+                        const service = getServiceInfo(carrier.correios_service_code);
+                        return (
+                          <SelectItem key={carrier.id} value={carrier.id}>
+                            <div className="flex items-center gap-2">
+                              {integrated && <Zap className="w-3 h-3 text-green-600" />}
+                              <span>{carrier.name}</span>
+                              {integrated ? (
+                                <span className="text-xs text-green-600">
+                                  ({service?.company} - {service?.name})
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  ({formatCurrency(carrier.cost_cents)} • {carrier.estimated_days}d)
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
 
                 {selectedCarrier && (
                   <div className="p-3 bg-muted/50 rounded-lg mb-4">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Custo sugerido:</span>{' '}
-                        <span className="font-medium">{formatCurrency(selectedCarrier.cost_cents)}</span>
+                    {isCarrierIntegrated(selectedCarrier) ? (
+                      /* Integrated carrier - show real-time quote */
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Zap className="w-4 h-4 text-green-600" />
+                          <span className="font-medium text-green-700">Transportadora Integrada</span>
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                            Etiqueta Automática
+                          </Badge>
+                        </div>
+                        
+                        {!leadCep ? (
+                          <p className="text-sm text-amber-600">
+                            CEP do cliente necessário para calcular frete
+                          </p>
+                        ) : quoteData?.loading ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Calculando frete...
+                          </div>
+                        ) : quoteData?.error ? (
+                          <p className="text-sm text-red-600">{quoteData.error}</p>
+                        ) : quoteData ? (
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Frete API:</span>{' '}
+                              <span className="font-medium text-green-700">
+                                {formatCurrency(quoteData.price_cents)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">Prazo:</span>{' '}
+                              <span className="font-medium">
+                                {quoteData.delivery_days} dia{quoteData.delivery_days !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Prazo:</span>{' '}
-                        <span className="font-medium">
-                          {selectedCarrier.estimated_days} dia{selectedCarrier.estimated_days !== 1 ? 's' : ''}
-                        </span>
+                    ) : (
+                      /* Manual carrier - show fixed values */
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Custo fixo:</span>{' '}
+                          <span className="font-medium">{formatCurrency(selectedCarrier.cost_cents)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Prazo:</span>{' '}
+                          <span className="font-medium">
+                            {selectedCarrier.estimated_days} dia{selectedCarrier.estimated_days !== 1 ? 's' : ''}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
@@ -410,7 +541,9 @@ export function DeliveryTypeSelector({
                     placeholder="0,00"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Valor a ser cobrado do cliente pelo frete
+                    {isCarrierIntegrated(selectedCarrier) 
+                      ? 'Valor preenchido automaticamente da API (editável)'
+                      : 'Valor a ser cobrado do cliente pelo frete'}
                   </p>
                 </div>
               </>
