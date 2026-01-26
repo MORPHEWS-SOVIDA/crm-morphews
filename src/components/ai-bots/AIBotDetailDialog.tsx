@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu, Volume2 } from "lucide-react";
+import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu, Volume2, Pencil, RotateCcw } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts } from "@/hooks/useAIBots";
 import { AvatarGenerator } from "./AvatarGenerator";
 import { BotQualificationConfig } from "./BotQualificationConfig";
@@ -77,6 +77,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [sendProductVideos, setSendProductVideos] = useState(true);
   const [sendProductLinks, setSendProductLinks] = useState(true);
   
+  // System prompt state
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
@@ -111,6 +115,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setSendProductImages((bot as any).send_product_images ?? true);
       setSendProductVideos((bot as any).send_product_videos ?? true);
       setSendProductLinks((bot as any).send_product_links ?? true);
+      // System prompt
+      setSystemPrompt(bot.system_prompt || '');
+      setIsEditingPrompt(false);
     }
   };
   
@@ -159,6 +166,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       send_product_images: sendProductImages,
       send_product_videos: sendProductVideos,
       send_product_links: sendProductLinks,
+      // System prompt (only if edited)
+      ...(isEditingPrompt && { system_prompt: systemPrompt }),
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -328,16 +337,59 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
               </Card>
               
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Prompt do Sistema</CardTitle>
-                  <CardDescription>
-                    Gerado automaticamente baseado nas suas configurações
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div>
+                    <CardTitle className="text-lg">Prompt do Sistema</CardTitle>
+                    <CardDescription>
+                      {isEditingPrompt 
+                        ? 'Edite o prompt manualmente' 
+                        : 'Gerado automaticamente baseado nas suas configurações'}
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    {isEditingPrompt ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSystemPrompt(bot.system_prompt || '');
+                          setIsEditingPrompt(false);
+                        }}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                        Restaurar
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingPrompt(true)}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="p-3 bg-muted rounded-lg text-sm">
-                    {bot.system_prompt}
-                  </div>
+                  {isEditingPrompt ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        placeholder="Defina as instruções para o robô..."
+                        rows={10}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Este prompt será usado como instrução principal para o robô. Alterações manuais serão preservadas.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                      {bot.system_prompt}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
