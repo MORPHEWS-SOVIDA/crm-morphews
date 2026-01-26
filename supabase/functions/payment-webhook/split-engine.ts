@@ -46,6 +46,7 @@ interface ReconciliationData {
 interface SplitResult {
   factory_amount: number;
   industry_amount: number;
+  coproducer_amount: number;
   affiliate_amount: number;
   tenant_amount: number;
   platform_amount: number;
@@ -395,7 +396,7 @@ export async function processSaleSplitsV3(
   
   if (lockResult === 'already_processed') {
     console.log(`[SplitEngine] Event fully processed, skipping`);
-    return { factory_amount: 0, industry_amount: 0, affiliate_amount: 0, tenant_amount: 0, platform_amount: 0, gateway_fee: 0 };
+    return { factory_amount: 0, industry_amount: 0, coproducer_amount: 0, affiliate_amount: 0, tenant_amount: 0, platform_amount: 0, gateway_fee: 0 };
   }
   
   if (lockResult === 'needs_recovery') {
@@ -435,6 +436,7 @@ export async function processSaleSplitsV3(
   const result: SplitResult = {
     factory_amount: 0,
     industry_amount: 0,
+    coproducer_amount: 0,
     affiliate_amount: 0,
     tenant_amount: 0,
     platform_amount: 0,
@@ -579,6 +581,57 @@ export async function processSaleSplitsV3(
     if (created) {
       result.platform_amount = platformFeeCents;
       remaining -= platformFeeCents;
+    }
+  }
+
+  // =====================================================
+  // STEP C.5: COPRODUCERS (liable for refund/chargeback like affiliate)
+  // Based on product-level coproducer assignments
+  // =====================================================
+  if (saleItems && saleItems.length > 0) {
+    for (const item of saleItems) {
+      const { data: coproducerData } = await supabase
+        .from('coproducers')
+        .select('*, virtual_account:virtual_accounts(*)')
+        .eq('product_id', item.product_id)
+        .eq('is_active', true);
+
+      if (coproducerData && coproducerData.length > 0) {
+        for (const coprod of coproducerData) {
+          const commissionPercent = Number(coprod.commission_percentage) || 0;
+          // Calculate coproducer amount based on the item total
+          let coproducerAmount = Math.round(item.total_cents * (commissionPercent / 100));
+          
+          // CAP: Never exceed remaining amount
+          coproducerAmount = Math.min(coproducerAmount, remaining);
+          
+          const virtualAccount = coprod.virtual_account as Record<string, unknown> | null;
+
+          if (coproducerAmount > 0 && virtualAccount?.id) {
+            const created = await insertSplitAndTransaction({
+              supabase,
+              saleId,
+              organizationId: sale.organization_id,
+              virtualAccountId: virtualAccount.id as string,
+              splitType: 'coproducer',
+              amountCents: coproducerAmount,
+              percentage: commissionPercent,
+              priority: 2,
+              liableForRefund: true,
+              liableForChargeback: true,
+              releaseAt: addDays(rules.hold_days_affiliate), // Same hold as affiliate
+              referenceId,
+              description: `Coprodução ${commissionPercent}% - Produto ${item.product_id.slice(0, 8)} - Venda #${saleId.slice(0, 8)}`,
+            });
+
+            if (created) {
+              result.coproducer_amount += coproducerAmount;
+              remaining -= coproducerAmount;
+              console.log(`[SplitEngine] Coproducer split: R$${(coproducerAmount / 100).toFixed(2)} (${commissionPercent}%)`);
+            }
+          }
+        }
+      }
     }
   }
 
