@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package, AlertCircle, DollarSign, TrendingUp } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -156,6 +156,41 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
+  const { totalSales, totalCommission } = useMemo(() => {
+    return sales.reduce((acc, sale) => ({
+      totalSales: acc.totalSales + (sale.total_cents || 0),
+      totalCommission: acc.totalCommission + (sale.commission_cents || 0),
+    }), { totalSales: 0, totalCommission: 0 });
+  }, [sales]);
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      {/* Total das Vendas */}
+      <div className="flex items-center gap-4 p-4 rounded-lg bg-primary/10 border border-primary/20">
+        <div className="p-3 rounded-full bg-primary/20">
+          <DollarSign className="w-6 h-6 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground font-medium">Total em Vendas</p>
+          <p className="text-2xl font-bold text-primary">{formatCurrency(totalSales)}</p>
+        </div>
+      </div>
+      
+      {/* Total de Comissões */}
+      <div className="flex items-center gap-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+        <div className="p-3 rounded-full bg-green-500/20">
+          <TrendingUp className="w-6 h-6 text-green-600" />
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground font-medium">Total em Comissões</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(totalCommission)}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -327,6 +362,9 @@ export function SellerSalesList() {
           </div>
         ) : (
           <>
+            {/* Summary Cards */}
+            <SalesSummary sales={sales} />
+            
             <div className="mb-3 text-sm text-muted-foreground">
               {sales.length} venda{sales.length !== 1 ? 's' : ''}
             </div>
