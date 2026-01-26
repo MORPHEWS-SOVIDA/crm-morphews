@@ -8414,6 +8414,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          ai_energy_balance: number | null
           ai_model_document: string | null
           ai_model_image: string | null
           auto_close_assigned_minutes: number | null
@@ -8460,6 +8461,7 @@ export type Database = {
           whatsapp_transcribe_team_audio: boolean | null
         }
         Insert: {
+          ai_energy_balance?: number | null
           ai_model_document?: string | null
           ai_model_image?: string | null
           auto_close_assigned_minutes?: number | null
@@ -8506,6 +8508,7 @@ export type Database = {
           whatsapp_transcribe_team_audio?: boolean | null
         }
         Update: {
+          ai_energy_balance?: number | null
           ai_model_document?: string | null
           ai_model_image?: string | null
           auto_close_assigned_minutes?: number | null
