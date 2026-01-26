@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-react';
+import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package, AlertCircle } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +15,8 @@ import {
   sellerSaleStatusLabels, 
   getSellerSaleStatusColor 
 } from '@/hooks/useSellerSalesList';
+import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { formatCurrency } from '@/hooks/useSales';
 import { motoboyTrackingLabels } from '@/hooks/useMotoboyTracking';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
@@ -159,11 +162,46 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
 export function SellerSalesList() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('all');
+  const { user } = useAuth();
+  const { tenantId } = useTenant();
   
-  const { data: sales, isLoading } = useSellerSalesList({
+  const { data: sales, isLoading, error } = useSellerSalesList({
     month: selectedMonth,
     statusFilter,
   });
+
+  // Debug logs
+  console.log('[SellerSalesList] State:', {
+    userId: user?.id,
+    tenantId,
+    salesCount: sales?.length,
+    isLoading,
+    error,
+    selectedMonth: format(selectedMonth, 'yyyy-MM'),
+    statusFilter,
+  });
+
+  // Se não tem user ou tenantId, mostrar mensagem apropriada
+  if (!user || !tenantId) {
+    return (
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Package className="w-5 h-5" />
+            Minhas Vendas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-muted-foreground mx-auto mb-3 animate-spin" />
+            <p className="text-muted-foreground">
+              Carregando informações do usuário...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const handlePreviousMonth = () => {
     setSelectedMonth(prev => subMonths(prev, 1));
@@ -239,6 +277,16 @@ export function SellerSalesList() {
             {[...Array(5)].map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <Package className="w-12 h-12 text-destructive mx-auto mb-3 opacity-50" />
+            <p className="text-destructive font-medium mb-2">
+              Erro ao carregar vendas
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {error instanceof Error ? error.message : 'Erro desconhecido'}
+            </p>
           </div>
         ) : !sales || sales.length === 0 ? (
           <div className="text-center py-12">

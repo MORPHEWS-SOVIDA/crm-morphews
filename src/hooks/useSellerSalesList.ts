@@ -54,6 +54,14 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
   const { user } = useAuth();
   const { tenantId } = useTenant();
   
+  // Debug logs
+  console.log('[useSellerSalesList] Debug:', {
+    user_id: user?.id,
+    tenantId,
+    month: format(month, 'yyyy-MM'),
+    statusFilter,
+  });
+  
   const monthKey = format(month, 'yyyy-MM');
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
@@ -62,9 +70,16 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
     queryKey: ['seller-sales-list', tenantId, user?.id, monthKey, statusFilter],
     queryFn: async (): Promise<SellerSaleItem[]> => {
       if (!tenantId || !user?.id) {
-        // Return empty array instead of throwing to avoid breaking the query
+        console.log('[useSellerSalesList] Missing tenantId or user.id:', { tenantId, userId: user?.id });
         return [];
       }
+
+      console.log('[useSellerSalesList] Fetching sales...', {
+        tenantId,
+        userId: user.id,
+        monthStart: monthStart.toISOString(),
+        monthEnd: monthEnd.toISOString(),
+      });
 
       // Build query
       let query = supabase
