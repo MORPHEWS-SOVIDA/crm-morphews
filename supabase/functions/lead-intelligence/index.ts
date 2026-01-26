@@ -110,8 +110,7 @@ serve(async (req) => {
         name,
         whatsapp,
         created_at,
-        stage,
-        last_contact_at
+        stage
       `)
       .eq('organization_id', organizationId)
       .is('deleted_at', null)
@@ -448,7 +447,7 @@ async function aggregateLeadContext(
     lead_whatsapp: lead.whatsapp,
     created_at: lead.created_at,
     stage_name: lead.funnel_stage?.name || null,
-    last_contact_at: lead.last_contact_at,
+    last_contact_at: null,
     whatsapp_summary: whatsappSummary,
     transcription_summary: transcriptionSummary,
     standard_answers: standardAnswersSummary,
