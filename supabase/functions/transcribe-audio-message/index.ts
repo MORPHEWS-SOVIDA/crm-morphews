@@ -83,6 +83,7 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
     // IMPORTANT: a Response body can only be consumed once.
     const contentType = audioResponse.headers.get("content-type") ?? "";
     const audioBuffer = await audioResponse.arrayBuffer();
+    // std/encoding/base64 accepts ArrayBuffer
     const base64Audio = base64Encode(audioBuffer);
 
     // Try to infer the real format (some audios come as webm)
@@ -104,7 +105,7 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
 
     console.log("🎧 Audio content-type:", resolvedContentType || "(unknown)", "format:", audioFormat);
 
-    // Use Lovable AI Gateway for transcription via Gemini
+    // Use Lovable AI Gateway for transcription
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -112,14 +113,16 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
+        temperature: 0,
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Por favor, transcreva o áudio a seguir. Retorne APENAS o texto transcrito, sem comentários ou formatação adicional. Se não conseguir entender alguma parte, use [...] para indicar. Se o áudio estiver vazio ou inaudível, responda 'Áudio inaudível'.",
+                text:
+                  "Tarefa: transcrever fielmente o áudio a seguir em Português.\n\nRegras obrigatórias:\n- Retorne APENAS o texto transcrito (sem comentários, sem formatação, sem explicações).\n- NÃO invente conteúdo. Se não conseguir entender um trecho, use [...].\n- Se o áudio estiver vazio, corrompido, ou inaudível, responda exatamente: Áudio inaudível\n- Não ‘complete’ frases por contexto.\n",
               },
               {
                 type: "input_audio",
