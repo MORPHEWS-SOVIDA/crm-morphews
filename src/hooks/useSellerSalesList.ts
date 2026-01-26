@@ -20,6 +20,8 @@ export interface SellerSaleItem {
   melhor_envio_tracking_status: string | null;
   created_at: string;
   delivered_at: string | null;
+  commission_percentage: number;
+  commission_cents: number;
 }
 
 interface UseSellerSalesListOptions {
@@ -78,8 +80,10 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           carrier_tracking_status,
           created_at,
           delivered_at,
+          seller_commission_cents,
+          seller_commission_percentage,
           lead:leads!sales_lead_id_fkey(name, whatsapp),
-          sale_items(product_name, quantity),
+          sale_items(product_name, quantity, commission_percentage, commission_cents),
           melhor_envio_labels(tracking_status)
         `)
         .eq('organization_id', tenantId)
@@ -118,6 +122,16 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
         const melhorEnvioLabel = s.melhor_envio_labels?.[0];
         const melhorEnvioTrackingStatus = melhorEnvioLabel?.tracking_status || null;
 
+        // Calculate total commission from items or use sale-level commission
+        const itemsCommission = (s.sale_items || []).reduce((sum: number, item: any) => 
+          sum + (Number(item.commission_cents) || 0), 0);
+        const commissionCents = itemsCommission || Number(s.seller_commission_cents) || 0;
+        
+        // Calculate effective commission percentage
+        const commissionPercentage = s.total_cents > 0 
+          ? (commissionCents / s.total_cents) * 100 
+          : Number(s.seller_commission_percentage) || 0;
+
         return {
           id: s.id,
           romaneio_number: s.romaneio_number,
@@ -134,6 +148,8 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           melhor_envio_tracking_status: melhorEnvioTrackingStatus,
           created_at: s.created_at,
           delivered_at: s.delivered_at,
+          commission_percentage: commissionPercentage,
+          commission_cents: commissionCents,
         };
       });
 

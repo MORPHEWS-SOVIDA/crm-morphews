@@ -113,6 +113,16 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
         </span>
       </TableCell>
       
+      {/* Comissão % */}
+      <TableCell>
+        <Badge variant="outline" className="text-xs">
+          {sale.commission_percentage.toFixed(1)}%
+        </Badge>
+        <span className="text-xs text-muted-foreground ml-1">
+          ({formatCurrency(sale.commission_cents)})
+        </span>
+      </TableCell>
+      
       {/* Status */}
       <TableCell>
         <Badge className={getSellerSaleStatusColor(sale.status, sale.payment_status)}>
@@ -250,6 +260,7 @@ export function SellerSalesList() {
                     <TableHead>Cliente</TableHead>
                     <TableHead>Produtos</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead>Comissão</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Entrega</TableHead>
                     <TableHead className="w-[120px]">Contato</TableHead>
