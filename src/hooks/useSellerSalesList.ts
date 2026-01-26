@@ -123,7 +123,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           seller_commission_percentage,
           lead:leads!sales_lead_id_fkey(name, whatsapp),
           sale_items(product_name, quantity, commission_percentage, commission_cents),
-          melhor_envio_labels(tracking_status)
+          melhor_envio_labels(status)
         `)
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
@@ -164,9 +164,9 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           .map((item: any) => `${item.quantity}x ${item.product_name}`)
           .join(', ');
 
-        // Get Melhor Envio tracking status if available
+        // Get Melhor Envio tracking status if available (column is named 'status')
         const melhorEnvioLabel = s.melhor_envio_labels?.[0];
-        const melhorEnvioTrackingStatus = melhorEnvioLabel?.tracking_status || null;
+        const melhorEnvioTrackingStatus = melhorEnvioLabel?.status || null;
 
         // Calculate total commission from items or use sale-level commission
         const itemsCommission = (s.sale_items || []).reduce((sum: number, item: any) => 
