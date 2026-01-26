@@ -638,8 +638,16 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error(`[${requestId}] ❌ Unexpected error:`, error);
     
+    // Better error messages for common connection issues
+    let errorMessage = error?.message || "Erro inesperado";
+    if (error?.code === "ETIMEDOUT" || errorMessage.includes("timed out")) {
+      errorMessage = "Servidor WhatsApp indisponível. Verifique se o Evolution API está online.";
+    } else if (errorMessage.includes("Connection refused")) {
+      errorMessage = "Conexão recusada pelo servidor WhatsApp. Verifique a configuração.";
+    }
+    
     return new Response(
-      JSON.stringify({ success: false, error: error?.message || "Erro inesperado" }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
