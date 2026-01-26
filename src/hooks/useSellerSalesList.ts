@@ -62,7 +62,8 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
     queryKey: ['seller-sales-list', tenantId, user?.id, monthKey, statusFilter],
     queryFn: async (): Promise<SellerSaleItem[]> => {
       if (!tenantId || !user?.id) {
-        throw new Error('Missing tenant or user');
+        // Return empty array instead of throwing to avoid breaking the query
+        return [];
       }
 
       // Build query
