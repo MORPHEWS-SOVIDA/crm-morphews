@@ -442,6 +442,11 @@ export function useCreateSale() {
         throw new Error('Usuário não autenticado');
       }
 
+      // Validate items - cannot create sale without products
+      if (!data.items || data.items.length === 0) {
+        throw new Error('Nenhum produto selecionado. Adicione pelo menos um produto para criar a venda.');
+      }
+
       // Calculate totals
       const subtotal_cents = data.items.reduce((sum, item) => {
         const itemTotal = (item.unit_price_cents * item.quantity) - (item.discount_cents || 0);

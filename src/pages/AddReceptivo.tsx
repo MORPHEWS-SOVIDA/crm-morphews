@@ -1168,6 +1168,26 @@ export default function AddReceptivo() {
     setIsSaving(true);
     
     try {
+      // Upload payment proof if provided
+      let uploadedProofUrl: string | null = null;
+      if (paymentProofFile && paymentStatus === 'paid_now') {
+        const fileExt = paymentProofFile.name.split('.').pop();
+        const fileName = `payment_proof_${Date.now()}.${fileExt}`;
+        const filePath = `temp/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('sales-documents')
+          .upload(filePath, paymentProofFile);
+        
+        if (uploadError) {
+          toast({ title: 'Erro ao fazer upload do comprovante', variant: 'destructive' });
+          setIsSaving(false);
+          return;
+        }
+        
+        uploadedProofUrl = filePath;
+      }
+
       const leadId = await ensureLeadExists();
       if (!leadId) throw new Error('Erro ao criar lead');
 
@@ -1262,7 +1282,7 @@ export default function AddReceptivo() {
         payment_method_id: selectedPaymentMethodId,
         payment_installments: selectedInstallments,
         payment_status: paymentStatus,
-        payment_proof_url: null,
+        payment_proof_url: uploadedProofUrl,
         observation_1: deliveryObservation || null,
       });
 
