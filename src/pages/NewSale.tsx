@@ -640,6 +640,7 @@ export default function NewSale() {
             {selectedItems.length > 0 && (
               <DeliveryTypeSelector
                 leadRegionId={selectedAddress?.delivery_region_id || selectedLead?.delivery_region_id || null}
+                leadCep={selectedAddress?.cep || selectedLead?.cep || null}
                 value={deliveryConfig}
                 onChange={setDeliveryConfig}
               />
