@@ -12,8 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, Loader2, Pencil, Trash2, Building2, Search, UserX, Mail, Phone } from "lucide-react";
+import { Users, Loader2, Pencil, Trash2, Building2, Search, UserX, Mail, Phone, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useImpersonation } from "@/hooks/useImpersonation";
 
 interface FullProfile {
   id: string;
@@ -54,6 +55,7 @@ export function AllUsersTab() {
   const [userToDelete, setUserToDelete] = useState<FullProfile | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const { impersonateUser, isLoading: isImpersonating } = useImpersonation();
 
   const { data: allProfiles, isLoading: profilesLoading } = useQuery({
     queryKey: ["super-admin-all-profiles"],
@@ -416,6 +418,16 @@ export function AllUsersTab() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Espiar usuário"
+                              onClick={() => impersonateUser(profile.user_id)}
+                              disabled={isImpersonating}
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
