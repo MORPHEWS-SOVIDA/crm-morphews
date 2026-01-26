@@ -41,15 +41,23 @@ export function PartnerApplicationsTab() {
   const pendingApplications = applications?.filter(a => a.status === 'pending') || [];
   const processedApplications = applications?.filter(a => a.status !== 'pending') || [];
 
-  const handleApprove = async (applicationId: string) => {
-    approveApplication.mutate(applicationId, {
+  const handleApprove = async (application: typeof pendingApplications[0]) => {
+    approveApplication.mutate(application.id, {
       onSuccess: async (result) => {
         toast.success('Solicitação aprovada!');
         
         // Enviar notificações
         if (result.email || result.whatsapp) {
-          setSendingNotification(applicationId);
+          setSendingNotification(application.id);
           try {
+            // Mapear partner_type para partner_role
+            const partnerRoleMap: Record<string, string> = {
+              affiliate: 'partner_affiliate',
+              coproducer: 'partner_coproducer',
+              industry: 'partner_industry',
+              factory: 'partner_factory',
+            };
+
             await supabase.functions.invoke('partner-notification', {
               body: {
                 type: 'application_approved',
@@ -61,6 +69,8 @@ export function PartnerApplicationsTab() {
                   org_name: result.org_name,
                   affiliate_code: result.affiliate_code,
                   needs_user_creation: result.needs_user_creation,
+                  organization_id: application.organization_id,
+                  partner_role: partnerRoleMap[application.partner_type] || 'partner_affiliate',
                 },
               },
             });
@@ -182,7 +192,7 @@ export function PartnerApplicationsTab() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => handleApprove(app.id)}
+                        onClick={() => handleApprove(app)}
                         disabled={approveApplication.isPending || sendingNotification === app.id}
                         className="gap-1"
                       >
