@@ -52,36 +52,59 @@ function getStatusPriority(sale: SellerSaleItem): number {
 export function useSellerSalesList(options: UseSellerSalesListOptions) {
   const { month, statusFilter } = options;
   const { user } = useAuth();
-  const { tenantId } = useTenant();
-  
-  // Debug logs
-  console.log('[useSellerSalesList] Debug:', {
-    user_id: user?.id,
-    tenantId,
-    month: format(month, 'yyyy-MM'),
-    statusFilter,
-  });
+  const { tenantId, isLoading: isTenantLoading } = useTenant();
   
   const monthKey = format(month, 'yyyy-MM');
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   
+  // Debug logs - sempre executar para diagnóstico
+  console.log('[useSellerSalesList] Hook State:', {
+    user_id: user?.id,
+    user_email: user?.email,
+    tenantId,
+    isTenantLoading,
+    month: monthKey,
+    statusFilter,
+    monthStart: monthStart.toISOString(),
+    monthEnd: monthEnd.toISOString(),
+  });
+  
   return useQuery({
     queryKey: ['seller-sales-list', tenantId, user?.id, monthKey, statusFilter],
     queryFn: async (): Promise<SellerSaleItem[]> => {
+      // Log no início da query
+      console.log('[useSellerSalesList] queryFn executing with:', {
+        tenantId,
+        userId: user?.id,
+      });
+      
       if (!tenantId || !user?.id) {
-        console.log('[useSellerSalesList] Missing tenantId or user.id:', { tenantId, userId: user?.id });
+        console.warn('[useSellerSalesList] SKIP: Missing tenantId or user.id:', { 
+          tenantId, 
+          userId: user?.id,
+          userEmail: user?.email,
+        });
         return [];
       }
 
-      console.log('[useSellerSalesList] Fetching sales...', {
+      console.log('[useSellerSalesList] Fetching sales from Supabase...', {
         tenantId,
         userId: user.id,
+        userEmail: user.email,
         monthStart: monthStart.toISOString(),
         monthEnd: monthEnd.toISOString(),
       });
 
       // Build query
+      console.log('[useSellerSalesList] Building query with params:', {
+        organization_id: tenantId,
+        seller_user_id: user.id,
+        created_at_gte: monthStart.toISOString(),
+        created_at_lte: monthEnd.toISOString(),
+        statusFilter,
+      });
+
       let query = supabase
         .from('sales')
         .select(`
@@ -124,6 +147,13 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
       }
 
       const { data, error } = await query;
+
+      console.log('[useSellerSalesList] Supabase Response:', {
+        success: !error,
+        error: error?.message,
+        dataCount: data?.length ?? 0,
+        firstRecord: data?.[0] ? { id: data[0].id, romaneio: data[0].romaneio_number, status: data[0].status } : null,
+      });
 
       if (error) throw error;
 
@@ -182,6 +212,8 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
     },
     enabled: !!tenantId && !!user?.id,
     staleTime: 1000 * 60 * 2,
+    refetchOnMount: 'always', // Force refetch when component mounts
+    refetchOnWindowFocus: true,
   });
 }
 

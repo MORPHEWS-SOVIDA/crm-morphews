@@ -163,23 +163,49 @@ export function SellerSalesList() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('all');
   const { user } = useAuth();
-  const { tenantId } = useTenant();
+  const { tenantId, isLoading: isTenantLoading } = useTenant();
   
-  const { data: sales, isLoading, error } = useSellerSalesList({
+  const { data: sales, isLoading, error, isFetching, isStale } = useSellerSalesList({
     month: selectedMonth,
     statusFilter,
   });
 
-  // Debug logs
-  console.log('[SellerSalesList] State:', {
+  // Debug logs detalhados
+  console.log('[SellerSalesList] Component State:', {
     userId: user?.id,
+    userEmail: user?.email,
     tenantId,
+    isTenantLoading,
     salesCount: sales?.length,
     isLoading,
-    error,
+    isFetching,
+    isStale,
+    error: error?.message,
     selectedMonth: format(selectedMonth, 'yyyy-MM'),
     statusFilter,
   });
+
+  // Se tenant ainda está carregando, mostrar loading
+  if (isTenantLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Package className="w-5 h-5" />
+            Minhas Vendas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-muted-foreground mx-auto mb-3 animate-spin" />
+            <p className="text-muted-foreground">
+              Carregando organização...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Se não tem user ou tenantId, mostrar mensagem apropriada
   if (!user || !tenantId) {
@@ -293,6 +319,10 @@ export function SellerSalesList() {
             <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
             <p className="text-muted-foreground">
               Nenhuma venda encontrada para este período
+            </p>
+            {/* Debug info - remover depois */}
+            <p className="text-xs text-muted-foreground mt-4 opacity-50">
+              Debug: user={user?.id?.slice(0, 8)}... tenant={tenantId?.slice(0, 8)}...
             </p>
           </div>
         ) : (
