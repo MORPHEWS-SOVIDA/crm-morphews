@@ -56,7 +56,7 @@ import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QuickLeadActions } from '@/components/whatsapp/QuickLeadActions';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileConversationTabs, MobileConversationItem, MobileHeader } from '@/components/whatsapp/mobile';
+import { MobileConversationTabs, MobileConversationItem, MobileHeader, SwipeableConversationItem, MobileLeadDrawer } from '@/components/whatsapp/mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from '@/components/ui/drawer';
 
 type StatusTab = 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed';
@@ -1122,9 +1122,12 @@ export default function WhatsAppChat() {
                     conv.phone_number,
                     conv.instance_id
                   );
+                  const convStatus = conv.status || 'pending';
+                  const canClaimConv = convStatus === 'pending' || convStatus === 'autodistributed' || convStatus === 'with_bot';
+                  const canCloseConv = convStatus !== 'closed';
                   
                   return (
-                    <MobileConversationItem
+                    <SwipeableConversationItem
                       key={conv.id}
                       conversation={conv as any}
                       isSelected={false}
@@ -1136,6 +1139,31 @@ export default function WhatsAppChat() {
                       assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
                       currentUserId={user?.id}
                       otherInstanceConversations={otherInstances}
+                      onClaim={async (id) => {
+                        if (!user?.id) return;
+                        setClaimingConversationId(id);
+                        try {
+                          await claimConversation.mutateAsync({ conversationId: id, userId: user.id });
+                          setConversations(prev => prev.map(c => 
+                            c.id === id ? { ...c, status: 'assigned', assigned_user_id: user.id } : c
+                          ));
+                        } finally {
+                          setClaimingConversationId(null);
+                        }
+                      }}
+                      onClose={async (id) => {
+                        setClosingConversationId(id);
+                        try {
+                          await closeConversation.mutateAsync(id);
+                          setConversations(prev => prev.map(c => 
+                            c.id === id ? { ...c, status: 'closed' } : c
+                          ));
+                        } finally {
+                          setClosingConversationId(null);
+                        }
+                      }}
+                      canClaim={canClaimConv}
+                      canClose={canCloseConv}
                     />
                   );
                 })
@@ -1273,92 +1301,20 @@ export default function WhatsAppChat() {
           </>
         )}
         
-        {/* Mobile Lead Info Drawer */}
-        <Drawer open={showMobileLeadDrawer} onOpenChange={setShowMobileLeadDrawer}>
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Informações do Contato</DrawerTitle>
-              <DrawerDescription>
-                {selectedConversation?.contact_name || selectedConversation?.phone_number}
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="p-4 space-y-4">
-              {lead ? (
-                <>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarFallback className="bg-primary/20 text-primary text-xl">
-                        {lead.name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold text-lg">{lead.name}</p>
-                      <p className="text-sm text-muted-foreground">{lead.whatsapp}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Etapa:</span>
-                      <Badge variant="outline">{getStageDisplayName(lead.stage)}</Badge>
-                    </div>
-                    {lead.instagram && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Instagram:</span>
-                        <a href={`https://instagram.com/${lead.instagram.replace('@', '')}`} target="_blank" className="text-pink-600">
-                          {lead.instagram}
-                        </a>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Estrelas:</span>
-                      <div className="flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            onClick={() => updateLeadStars(star)}
-                            disabled={isUpdatingStars}
-                            className="p-0.5"
-                          >
-                            <Star className={cn(
-                              "h-5 w-5",
-                              star <= (lead?.stars || 0) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-                            )} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    className="w-full" 
-                    onClick={() => {
-                      setShowMobileLeadDrawer(false);
-                      navigate(`/leads/${lead.id}`);
-                    }}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Ver Lead Completo
-                  </Button>
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <User className="h-12 w-12 mx-auto mb-2 text-muted-foreground opacity-30" />
-                  <p className="text-sm text-muted-foreground mb-4">Nenhum lead vinculado</p>
-                  <Button onClick={() => { setShowMobileLeadDrawer(false); setShowLeadDialog(true); }}>
-                    <Link className="h-4 w-4 mr-2" />
-                    Vincular Lead
-                  </Button>
-                </div>
-              )}
-            </div>
-            <DrawerFooter>
-              <DrawerClose asChild>
-                <Button variant="outline">Fechar</Button>
-              </DrawerClose>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
+        {/* Mobile Lead Info Drawer - Improved */}
+        <MobileLeadDrawer
+          open={showMobileLeadDrawer}
+          onOpenChange={setShowMobileLeadDrawer}
+          conversation={selectedConversation as any}
+          lead={lead}
+          assignedUserName={selectedConversation?.assigned_user_id ? userProfiles?.[selectedConversation.assigned_user_id] : null}
+          instanceLabel={selectedConversation ? getInstanceLabel(selectedConversation.instance_id) : null}
+          isUpdatingStars={isUpdatingStars}
+          onUpdateStars={updateLeadStars}
+          onNavigateToLead={() => lead && navigate(`/leads/${lead.id}`)}
+          onLinkLead={() => setShowLeadDialog(true)}
+          getStageDisplayName={getStageDisplayName}
+        />
         
         {/* Dialogs */}
         {selectedConversation && (
