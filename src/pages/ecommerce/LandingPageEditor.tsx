@@ -19,7 +19,10 @@ import {
   Loader2,
   ExternalLink,
   RefreshCw,
+  Code,
+  AlertCircle,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -34,6 +37,10 @@ interface EditorLandingPage {
   urgency_text: string | null;
   guarantee_text: string | null;
   primary_color: string | null;
+  // Full HTML mode
+  full_html: string | null;
+  import_mode: 'structured' | 'full_html' | null;
+  source_url: string | null;
 }
 
 export default function LandingPageEditor() {
@@ -53,7 +60,9 @@ export default function LandingPageEditor() {
   const [guaranteeText, setGuaranteeText] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#10b981');
   const [ctaText, setCtaText] = useState('COMPRAR AGORA');
-
+  
+  // Full HTML mode
+  const [fullHtml, setFullHtml] = useState('');
   useEffect(() => {
     if (id) {
       loadLandingPage();
@@ -64,7 +73,7 @@ export default function LandingPageEditor() {
     try {
       const { data, error } = await supabase
         .from('landing_pages')
-        .select('id, name, slug, headline, subheadline, benefits, urgency_text, guarantee_text, primary_color')
+        .select('id, name, slug, headline, subheadline, benefits, urgency_text, guarantee_text, primary_color, full_html, import_mode, source_url')
         .eq('id', id)
         .single();
 
@@ -96,6 +105,9 @@ export default function LandingPageEditor() {
         urgency_text: data.urgency_text,
         guarantee_text: data.guarantee_text,
         primary_color: data.primary_color,
+        full_html: data.full_html,
+        import_mode: (data.import_mode as 'structured' | 'full_html' | null) || null,
+        source_url: data.source_url,
       };
 
       setLandingPage(lp);
@@ -105,6 +117,7 @@ export default function LandingPageEditor() {
       setUrgencyText(lp.urgency_text || '');
       setGuaranteeText(lp.guarantee_text || '');
       setPrimaryColor(lp.primary_color || '#10b981');
+      setFullHtml(lp.full_html || '');
     } catch (error) {
       console.error('Error loading landing page:', error);
       toast.error('Erro ao carregar landing page');
@@ -119,18 +132,26 @@ export default function LandingPageEditor() {
 
     setIsSaving(true);
     try {
+      const isFullHtmlMode = landingPage.import_mode === 'full_html';
+      
+      const updateData: Record<string, any> = {
+        headline,
+        subheadline,
+        benefits,
+        urgency_text: urgencyText,
+        guarantee_text: guaranteeText,
+        primary_color: primaryColor,
+        updated_at: new Date().toISOString(),
+      };
+      
+      // If full HTML mode, also save the HTML
+      if (isFullHtmlMode) {
+        updateData.full_html = fullHtml;
+      }
+      
       const { error } = await supabase
         .from('landing_pages')
-        .update({
-          headline,
-          subheadline,
-          benefits,
-          urgency_text: urgencyText,
-          guarantee_text: guaranteeText,
-          primary_color: primaryColor,
-          cta_text: ctaText,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', landingPage.id);
 
       if (error) throw error;
@@ -259,6 +280,21 @@ export default function LandingPageEditor() {
               </TabsList>
 
               <TabsContent value="text" className="space-y-4 mt-4">
+                {/* Full HTML Mode Notice */}
+                {landingPage.import_mode === 'full_html' && (
+                  <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                    <Code className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-700 dark:text-green-300">
+                      <strong>Modo Site Completo:</strong> O HTML original foi importado.
+                      {landingPage.source_url && (
+                        <span className="block text-xs mt-1 opacity-75">
+                          Fonte: {landingPage.source_url}
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm">Headline Principal</CardTitle>
@@ -437,16 +473,44 @@ export default function LandingPageEditor() {
               </TabsContent>
 
               <TabsContent value="images" className="space-y-4 mt-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">Imagens</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Em breve você poderá trocar as imagens da página aqui.
-                    </p>
-                  </CardContent>
-                </Card>
+                {landingPage.import_mode === 'full_html' ? (
+                  <>
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Code className="h-4 w-4" />
+                          Código HTML
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <Textarea
+                          value={fullHtml}
+                          onChange={(e) => {
+                            setFullHtml(e.target.value);
+                            setHasChanges(true);
+                          }}
+                          placeholder="HTML do site"
+                          rows={15}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Edite o HTML diretamente. Cuidado para não quebrar a estrutura.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Imagens</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Em breve você poderá trocar as imagens da página aqui.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
             </Tabs>
           </div>
@@ -469,6 +533,15 @@ export default function LandingPageEditor() {
                 </div>
               </CardHeader>
               <ScrollArea className="h-[600px]">
+                {/* Full HTML Mode Preview */}
+                {landingPage.import_mode === 'full_html' && fullHtml ? (
+                  <iframe
+                    srcDoc={fullHtml}
+                    title="Preview"
+                    className="w-full h-[600px] border-0"
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
                 <div className="space-y-0">
                   {/* Hero */}
                   <div 
@@ -554,6 +627,7 @@ export default function LandingPageEditor() {
                     </Button>
                   </div>
                 </div>
+                )}
               </ScrollArea>
             </Card>
           </div>
