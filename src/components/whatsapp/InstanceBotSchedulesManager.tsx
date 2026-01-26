@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bot, Calendar, Clock, Plus, Trash2, ChevronUp, ChevronDown, Power, AlertTriangle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Bot, Calendar, Clock, Plus, Trash2, ChevronUp, ChevronDown, Power, AlertTriangle, Users, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ import {
   type InstanceBotSchedule,
 } from "@/hooks/useInstanceBotSchedules";
 import { useAIBots } from "@/hooks/useAIBots";
+import { useBotTeams } from "@/hooks/useBotTeams";
+import { useKeywordRouters } from "@/hooks/useKeywordRouters";
 
 const DAYS_OF_WEEK = [
   { value: 0, label: "Dom", shortLabel: "D" },
@@ -26,6 +28,15 @@ const DAYS_OF_WEEK = [
   { value: 5, label: "Sex", shortLabel: "S" },
   { value: 6, label: "Sáb", shortLabel: "S" },
 ];
+
+// Unified bot item type for the dropdown
+interface UnifiedBotItem {
+  id: string;
+  name: string;
+  type: 'individual' | 'team' | 'keyword';
+  icon: typeof Bot;
+  isActive: boolean;
+}
 
 interface InstanceBotSchedulesManagerProps {
   instanceId: string;
@@ -40,13 +51,55 @@ export function InstanceBotSchedulesManager({
 }: InstanceBotSchedulesManagerProps) {
   const { data: schedules = [], isLoading } = useInstanceBotSchedules(instanceId);
   const { data: bots = [] } = useAIBots();
+  const { data: teams = [] } = useBotTeams();
+  const { data: keywordRouters = [] } = useKeywordRouters();
   const addSchedule = useAddInstanceBotSchedule();
   const updateSchedule = useUpdateInstanceBotSchedule();
   const removeSchedule = useRemoveInstanceBotSchedule();
 
   const [selectedBotId, setSelectedBotId] = useState<string>("");
 
-  const activeBots = bots.filter((b) => b.is_active);
+  // Combine all bot types into a unified list
+  const allBots = useMemo<UnifiedBotItem[]>(() => {
+    const items: UnifiedBotItem[] = [];
+    
+    // Individual bots
+    bots.forEach(bot => {
+      items.push({
+        id: bot.id,
+        name: bot.name,
+        type: 'individual',
+        icon: Bot,
+        isActive: bot.is_active,
+      });
+    });
+    
+    // Bot teams
+    teams.forEach(team => {
+      items.push({
+        id: team.id,
+        name: team.name,
+        type: 'team',
+        icon: Users,
+        isActive: team.is_active,
+      });
+    });
+    
+    // Keyword routers
+    keywordRouters.forEach(router => {
+      items.push({
+        id: router.id,
+        name: router.name,
+        type: 'keyword',
+        icon: MessageSquare,
+        isActive: router.is_active,
+      });
+    });
+    
+    return items;
+  }, [bots, teams, keywordRouters]);
+
+  const activeBots = allBots.filter((b) => b.isActive);
   const usedBotIds = schedules.map((s) => s.bot_id);
   const availableBots = activeBots.filter((b) => !usedBotIds.includes(b.id));
   
@@ -196,8 +249,16 @@ export function InstanceBotSchedulesManager({
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Bot className="h-4 w-4 text-purple-600" />
-                        <span className="font-medium">{schedule.bot?.name || "Robô"}</span>
+                        {(() => {
+                          const botInfo = allBots.find(b => b.id === schedule.bot_id);
+                          const IconComponent = botInfo?.icon || Bot;
+                          const iconColor = botInfo?.type === 'team' ? 'text-blue-600' : 
+                                           botInfo?.type === 'keyword' ? 'text-green-600' : 'text-purple-600';
+                          return <IconComponent className={`h-4 w-4 ${iconColor}`} />;
+                        })()}
+                        <span className="font-medium">
+                          {allBots.find(b => b.id === schedule.bot_id)?.name || schedule.bot?.name || "Robô"}
+                        </span>
                         {!schedule.is_active && (
                           <Badge variant="secondary" className="text-xs">
                             Inativo
@@ -277,18 +338,58 @@ export function InstanceBotSchedulesManager({
       {availableBots.length > 0 && (
         <div className="flex items-center gap-3 pt-2 border-t">
           <Select value={selectedBotId} onValueChange={setSelectedBotId}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Selecione um robô..." />
             </SelectTrigger>
             <SelectContent>
-              {availableBots.map((bot) => (
-                <SelectItem key={bot.id} value={bot.id}>
-                  <span className="flex items-center gap-2">
-                    <Bot className="h-3.5 w-3.5 text-purple-600" />
-                    {bot.name}
-                  </span>
-                </SelectItem>
-              ))}
+              {/* Group by type for better organization */}
+              {availableBots.filter(b => b.type === 'individual').length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    Robôs Individuais
+                  </div>
+                  {availableBots.filter(b => b.type === 'individual').map((bot) => (
+                    <SelectItem key={bot.id} value={bot.id}>
+                      <span className="flex items-center gap-2">
+                        <Bot className="h-3.5 w-3.5 text-purple-600" />
+                        {bot.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+              
+              {availableBots.filter(b => b.type === 'team').length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-1">
+                    Times de Robôs
+                  </div>
+                  {availableBots.filter(b => b.type === 'team').map((bot) => (
+                    <SelectItem key={bot.id} value={bot.id}>
+                      <span className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 text-blue-600" />
+                        {bot.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+              
+              {availableBots.filter(b => b.type === 'keyword').length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-1">
+                    Roteadores por Palavra-chave
+                  </div>
+                  {availableBots.filter(b => b.type === 'keyword').map((bot) => (
+                    <SelectItem key={bot.id} value={bot.id}>
+                      <span className="flex items-center gap-2">
+                        <MessageSquare className="h-3.5 w-3.5 text-green-600" />
+                        {bot.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
           <Button
@@ -310,7 +411,7 @@ export function InstanceBotSchedulesManager({
 
       {activeBots.length === 0 && (
         <p className="text-xs text-amber-600 pt-2">
-          ⚠️ Nenhum robô ativo encontrado. Crie um robô na página de Robôs IA.
+          ⚠️ Nenhum robô ativo encontrado. Crie robôs na página de Robôs IA.
         </p>
       )}
     </div>
