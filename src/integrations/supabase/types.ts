@@ -4974,9 +4974,11 @@ export type Database = {
           id: string
           instance_id: string
           is_active: boolean
+          keyword_router_id: string | null
           organization_id: string
           priority: number
           start_time: string
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -4987,9 +4989,11 @@ export type Database = {
           id?: string
           instance_id: string
           is_active?: boolean
+          keyword_router_id?: string | null
           organization_id: string
           priority?: number
           start_time?: string
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -5000,9 +5004,11 @@ export type Database = {
           id?: string
           instance_id?: string
           is_active?: boolean
+          keyword_router_id?: string | null
           organization_id?: string
           priority?: number
           start_time?: string
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5028,10 +5034,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "instance_bot_schedules_keyword_router_id_fkey"
+            columns: ["keyword_router_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_bot_routers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "instance_bot_schedules_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instance_bot_schedules_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "bot_teams"
             referencedColumns: ["id"]
           },
         ]
