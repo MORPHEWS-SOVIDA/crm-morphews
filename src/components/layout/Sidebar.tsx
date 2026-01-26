@@ -47,11 +47,14 @@ export function Sidebar() {
   const { user, profile, isAdmin: isGlobalAdmin, signOut } = useAuth();
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
-  const { isAdmin: isTenantAdmin, isOwner } = useTenant();
+  const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const navigate = useNavigate();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // Check if user is a partner (any partner role)
+  const isPartner = role?.startsWith('partner_') ?? false;
   
   // User is admin if they have global admin role OR are org owner/admin
   const isAdmin = isGlobalAdmin || isTenantAdmin || isOwner;
@@ -182,8 +185,8 @@ export function Sidebar() {
     // Instagram (permission controlled)
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
     
-    // Ecommerce (uses ecommerce feature key, not settings)
-    { icon: Store, label: 'E-commerce', path: '/ecommerce', visible: canSeeSettings && hasFeature('ecommerce') },
+    // Ecommerce (partners can access for Carrinhos/Carteira, admins need settings_view)
+    { icon: Store, label: 'E-commerce', path: '/ecommerce', visible: (canSeeSettings || isPartner) && hasFeature('ecommerce') },
     
     // Settings
     { icon: Settings, label: 'Configurações', path: '/settings', visible: canSeeSettings && hasFeature('settings') },
