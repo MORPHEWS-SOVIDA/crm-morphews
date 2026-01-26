@@ -49,12 +49,12 @@ export default function DashboardKanban() {
   const filteredLeads = useMemo(() => {
     let result = [...leads];
     
-    // Filter by team
+    // Filter by team - compare by user_id since assigned_to stores user_id
     if (selectedTeam) {
-      const teamUserNames = teamMembers
+      const teamUserIds = teamMembers
         .filter(m => m.team_id === selectedTeam)
-        .map(m => m.full_name);
-      result = result.filter(lead => teamUserNames.includes(lead.assigned_to || ''));
+        .map(m => m.user_id);
+      result = result.filter(lead => teamUserIds.includes(lead.assigned_to || ''));
     }
     
     // Filter by inactivity (days without update)
