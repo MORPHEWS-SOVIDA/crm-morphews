@@ -16900,10 +16900,9 @@ export type Database = {
       }
     }
     Functions: {
-      accept_partner_invitation: {
-        Args: { p_invite_code: string; p_user_id: string }
-        Returns: Json
-      }
+      accept_partner_invitation:
+        | { Args: { p_invite_code: string; p_user_id: string }; Returns: Json }
+        | { Args: { p_invite_code: string; p_user_id: string }; Returns: Json }
       add_bonus_energy: {
         Args: { amount: number; org_id: string }
         Returns: undefined
@@ -17101,6 +17100,7 @@ export type Database = {
         Returns: Json
       }
       get_partner_public_link: { Args: { p_slug: string }; Returns: Json }
+      get_partner_role: { Args: { p_partner_type: string }; Returns: string }
       get_payment_reminder_logs: {
         Args: never
         Returns: {

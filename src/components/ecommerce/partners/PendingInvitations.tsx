@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { Clock, Copy, X, Mail, Phone } from 'lucide-react';
+import { Clock, Copy, X, Mail, Phone, RotateCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import {
   PartnerInvitation,
   partnerTypeLabels,
@@ -21,6 +24,8 @@ interface PendingInvitationsProps {
 
 export function PendingInvitations({ invitations, isLoading }: PendingInvitationsProps) {
   const cancelInvitation = useCancelPartnerInvitation();
+  const { profile } = useAuth();
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const handleCopyLink = (inviteCode: string) => {
     const url = `${window.location.origin}/parceiro/convite/${inviteCode}`;
@@ -33,6 +38,41 @@ export function PendingInvitations({ invitations, isLoading }: PendingInvitation
       onSuccess: () => toast.success('Convite cancelado'),
       onError: (error: Error) => toast.error(error.message),
     });
+  };
+
+  const handleResend = async (invitation: PartnerInvitation) => {
+    setResendingId(invitation.id);
+    try {
+      // Mapear partner_type para partner_role
+      const partnerRoleMap: Record<string, string> = {
+        affiliate: 'partner_affiliate',
+        coproducer: 'partner_coproducer',
+        industry: 'partner_industry',
+        factory: 'partner_factory',
+      };
+
+      const { error } = await supabase.functions.invoke('partner-notification', {
+        body: {
+          type: 'invitation_created',
+          data: {
+            email: invitation.email,
+            name: invitation.name,
+            whatsapp: invitation.whatsapp,
+            invite_code: invitation.invite_code,
+            org_name: profile?.organization_id ? 'Sua Empresa' : 'Morphews', // TODO: buscar nome real
+            partner_role: partnerRoleMap[invitation.partner_type] || 'partner_affiliate',
+          },
+        },
+      });
+
+      if (error) throw error;
+      toast.success('Convite reenviado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao reenviar convite:', err);
+      toast.error('Erro ao reenviar convite');
+    } finally {
+      setResendingId(null);
+    }
   };
 
   if (isLoading) {
@@ -95,6 +135,15 @@ export function PendingInvitations({ invitations, isLoading }: PendingInvitation
               </div>
 
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleResend(invitation)}
+                  disabled={resendingId === invitation.id}
+                  title="Reenviar convite"
+                >
+                  <RotateCw className={`h-4 w-4 ${resendingId === invitation.id ? 'animate-spin' : ''}`} />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"

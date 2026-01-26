@@ -17,6 +17,8 @@ interface PartnerNotificationRequest {
     invite_code?: string;
     affiliate_code?: string;
     needs_user_creation?: boolean;
+    organization_id?: string;
+    partner_role?: string;
   };
 }
 
@@ -75,6 +77,32 @@ serve(async (req) => {
               full_name: data.name,
               is_partner: true,
             }, { onConflict: 'user_id' });
+
+          // Buscar organization_id da application/invitation
+          if (data.organization_id && data.partner_role) {
+            // Criar organization_member com role de parceiro
+            await supabase
+              .from('organization_members')
+              .upsert({
+                user_id: createdUserId,
+                organization_id: data.organization_id,
+                role: data.partner_role,
+              }, { onConflict: 'user_id,organization_id' });
+
+            // Criar user_permissions básicas
+            await supabase
+              .from('user_permissions')
+              .upsert({
+                user_id: createdUserId,
+                organization_id: data.organization_id,
+                ecommerce_view: true,
+                virtual_wallet_view: true,
+                sales_view: true,
+                sales_view_only_own: true,
+              }, { onConflict: 'user_id,organization_id' });
+
+            console.log("Permissões de parceiro aplicadas:", data.partner_role);
+          }
         }
       }
     }
