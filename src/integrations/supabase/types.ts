@@ -17451,6 +17451,10 @@ export type Database = {
         | "finance"
         | "entregador"
         | "delivery"
+        | "partner_affiliate"
+        | "partner_coproducer"
+        | "partner_industry"
+        | "partner_factory"
       payment_category:
         | "cash"
         | "pix"
@@ -17739,6 +17743,10 @@ export const Constants = {
         "finance",
         "entregador",
         "delivery",
+        "partner_affiliate",
+        "partner_coproducer",
+        "partner_industry",
+        "partner_factory",
       ],
       payment_category: [
         "cash",
