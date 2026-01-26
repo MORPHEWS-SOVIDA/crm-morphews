@@ -139,6 +139,7 @@ const CheckoutsPage = lazy(() => import("./pages/ecommerce/CheckoutsPage"));
 // Partner pages (public and portal)
 const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
 const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
+const PartnerApplicationPage = lazy(() => import("./pages/partner/PartnerApplicationPage"));
 // Public Storefront
 const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
 const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
@@ -188,6 +189,7 @@ const App = () => (
                 {/* Partner Routes (Public) */}
                 <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />
                 <Route path="/parceiro" element={<PartnerPortal />} />
+                <Route path="/convite-parceiros/:slug" element={<PartnerApplicationPage />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>

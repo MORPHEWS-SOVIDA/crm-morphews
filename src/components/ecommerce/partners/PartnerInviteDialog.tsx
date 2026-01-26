@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Send, Copy, Link2 } from 'lucide-react';
+import { Send, Copy, Mail, MessageSquare } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,16 +73,43 @@ export function PartnerInviteDialog({
     }
   }, [open, defaultPartnerType]);
 
-  const handleSubmit = () => {
+  const [sendingNotification, setSendingNotification] = useState(false);
+
+  const handleSubmit = async () => {
     if (!formData.name.trim() || !formData.email.trim()) {
       toast.error('Nome e e-mail são obrigatórios');
       return;
     }
 
     createInvitation.mutate(formData, {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         toast.success('Convite criado com sucesso!');
         setCreatedInviteCode(data.invite_code);
+
+        // Enviar notificações por email e WhatsApp
+        setSendingNotification(true);
+        try {
+          const { error } = await supabase.functions.invoke('partner-notification', {
+            body: {
+              type: 'invitation_created',
+              data: {
+                email: formData.email,
+                name: formData.name,
+                whatsapp: formData.whatsapp,
+                invite_code: data.invite_code,
+                org_name: 'Sua Empresa', // TODO: pegar da org
+              },
+            },
+          });
+          
+          if (!error) {
+            toast.success('Notificações enviadas para o parceiro!');
+          }
+        } catch (err) {
+          console.error('Erro ao enviar notificações:', err);
+        } finally {
+          setSendingNotification(false);
+        }
       },
       onError: (error: Error) => {
         toast.error(error.message);

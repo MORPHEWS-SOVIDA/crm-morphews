@@ -8585,6 +8585,107 @@ export type Database = {
           },
         ]
       }
+      partner_applications: {
+        Row: {
+          accepted_by_user_id: string | null
+          commission_type: string
+          commission_value: number
+          created_at: string
+          document: string | null
+          email: string
+          id: string
+          name: string
+          organization_id: string
+          partner_association_id: string | null
+          partner_type: string
+          public_link_id: string
+          rejection_reason: string | null
+          responsible_for_chargebacks: boolean
+          responsible_for_refunds: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          virtual_account_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          accepted_by_user_id?: string | null
+          commission_type: string
+          commission_value: number
+          created_at?: string
+          document?: string | null
+          email: string
+          id?: string
+          name: string
+          organization_id: string
+          partner_association_id?: string | null
+          partner_type: string
+          public_link_id: string
+          rejection_reason?: string | null
+          responsible_for_chargebacks?: boolean
+          responsible_for_refunds?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          virtual_account_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          accepted_by_user_id?: string | null
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          document?: string | null
+          email?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          partner_association_id?: string | null
+          partner_type?: string
+          public_link_id?: string
+          rejection_reason?: string | null
+          responsible_for_chargebacks?: boolean
+          responsible_for_refunds?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          virtual_account_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_applications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_applications_partner_association_id_fkey"
+            columns: ["partner_association_id"]
+            isOneToOne: false
+            referencedRelation: "partner_associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_applications_public_link_id_fkey"
+            columns: ["public_link_id"]
+            isOneToOne: false
+            referencedRelation: "partner_public_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_applications_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_associations: {
         Row: {
           affiliate_code: string | null
@@ -8692,6 +8793,8 @@ export type Database = {
           linked_landing_id: string | null
           linked_product_id: string | null
           name: string
+          notification_sent_at: string | null
+          notification_type: string | null
           organization_id: string
           partner_type: string
           responsible_for_chargebacks: boolean | null
@@ -8716,6 +8819,8 @@ export type Database = {
           linked_landing_id?: string | null
           linked_product_id?: string | null
           name: string
+          notification_sent_at?: string | null
+          notification_type?: string | null
           organization_id: string
           partner_type: string
           responsible_for_chargebacks?: boolean | null
@@ -8740,6 +8845,8 @@ export type Database = {
           linked_landing_id?: string | null
           linked_product_id?: string | null
           name?: string
+          notification_sent_at?: string | null
+          notification_type?: string | null
           organization_id?: string
           partner_type?: string
           responsible_for_chargebacks?: boolean | null
@@ -8772,6 +8879,101 @@ export type Database = {
           },
           {
             foreignKeyName: "partner_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_public_links: {
+        Row: {
+          commission_type: string
+          commission_value: number
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          linked_checkout_id: string | null
+          linked_landing_id: string | null
+          linked_product_id: string | null
+          max_registrations: number | null
+          name: string
+          organization_id: string
+          partner_type: string
+          registrations_count: number
+          responsible_for_chargebacks: boolean
+          responsible_for_refunds: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          linked_checkout_id?: string | null
+          linked_landing_id?: string | null
+          linked_product_id?: string | null
+          max_registrations?: number | null
+          name: string
+          organization_id: string
+          partner_type?: string
+          registrations_count?: number
+          responsible_for_chargebacks?: boolean
+          responsible_for_refunds?: boolean
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          linked_checkout_id?: string | null
+          linked_landing_id?: string | null
+          linked_product_id?: string | null
+          max_registrations?: number | null
+          name?: string
+          organization_id?: string
+          partner_type?: string
+          registrations_count?: number
+          responsible_for_chargebacks?: boolean
+          responsible_for_refunds?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_public_links_linked_checkout_id_fkey"
+            columns: ["linked_checkout_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_checkouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_public_links_linked_landing_id_fkey"
+            columns: ["linked_landing_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_public_links_linked_product_id_fkey"
+            columns: ["linked_product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_public_links_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -16706,6 +16908,10 @@ export type Database = {
         Args: { amount: number; org_id: string }
         Returns: undefined
       }
+      approve_partner_application: {
+        Args: { p_application_id: string; p_reviewer_id: string }
+        Returns: Json
+      }
       backfill_contacts_from_existing_conversations: {
         Args: { _organization_id: string }
         Returns: number
@@ -16894,6 +17100,7 @@ export type Database = {
         Args: { p_days?: number; p_organization_id: string }
         Returns: Json
       }
+      get_partner_public_link: { Args: { p_slug: string }; Returns: Json }
       get_payment_reminder_logs: {
         Args: never
         Returns: {
