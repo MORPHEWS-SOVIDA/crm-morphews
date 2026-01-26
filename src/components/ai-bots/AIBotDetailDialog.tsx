@@ -80,6 +80,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // System prompt state
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [promptWasEdited, setPromptWasEdited] = useState(false);
   
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
@@ -118,6 +119,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       // System prompt
       setSystemPrompt(bot.system_prompt || '');
       setIsEditingPrompt(false);
+      setPromptWasEdited(false);
     }
   };
   
@@ -166,8 +168,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       send_product_images: sendProductImages,
       send_product_videos: sendProductVideos,
       send_product_links: sendProductLinks,
-      // System prompt (only if edited)
-      ...(isEditingPrompt && { system_prompt: systemPrompt }),
+      // System prompt - sempre salva se foi editado
+      ...(promptWasEdited && { system_prompt: systemPrompt }),
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -354,6 +356,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                         onClick={() => {
                           setSystemPrompt(bot.system_prompt || '');
                           setIsEditingPrompt(false);
+                          setPromptWasEdited(false);
                         }}
                       >
                         <RotateCcw className="h-4 w-4 mr-1" />
@@ -376,7 +379,10 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                     <div className="space-y-2">
                       <Textarea
                         value={systemPrompt}
-                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        onChange={(e) => {
+                          setSystemPrompt(e.target.value);
+                          setPromptWasEdited(true);
+                        }}
                         placeholder="Defina as instruções para o robô..."
                         rows={10}
                         className="font-mono text-sm"
