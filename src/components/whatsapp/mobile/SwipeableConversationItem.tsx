@@ -4,15 +4,6 @@ import { MobileConversationItem } from './MobileConversationItem';
 import { CheckCircle, UserCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface OtherInstanceConversation {
-  id: string;
-  instance_id: string;
-  instance_name: string;
-  instance_display_name: string | null;
-  status: string | null;
-  unread_count: number;
-}
-
 interface Conversation {
   id: string;
   phone_number: string;
@@ -37,7 +28,6 @@ interface SwipeableConversationItemProps {
   instanceLabel?: string | null;
   assignedUserName?: string | null;
   currentUserId?: string;
-  otherInstanceConversations?: OtherInstanceConversation[];
   onClaim?: (conversationId: string) => Promise<void>;
   onClose?: (conversationId: string) => Promise<void>;
   canClaim?: boolean;
@@ -53,7 +43,6 @@ export function SwipeableConversationItem({
   instanceLabel,
   assignedUserName,
   currentUserId,
-  otherInstanceConversations,
   onClaim,
   onClose,
   canClaim = false,
@@ -163,7 +152,6 @@ export function SwipeableConversationItem({
           instanceLabel={instanceLabel}
           assignedUserName={assignedUserName}
           currentUserId={currentUserId}
-          otherInstanceConversations={otherInstanceConversations}
         />
       </motion.div>
     </div>

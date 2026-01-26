@@ -3,18 +3,8 @@ import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { UserCheck, Clock, CheckCircle, Hand, MessageSquareMore, XCircle, Zap, Bot } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle, Hand, XCircle, Zap, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-export interface OtherInstanceConversation {
-  id: string;
-  instance_id: string;
-  instance_name: string;
-  instance_display_name: string | null;
-  status: string | null;
-  unread_count: number;
-}
 
 interface Conversation {
   id: string;
@@ -25,9 +15,9 @@ interface Conversation {
   unread_count: number;
   lead_id: string | null;
   instance_id: string;
-  status?: string; // 'pending' | 'autodistributed' | 'assigned' | 'closed'
+  status?: string;
   assigned_user_id?: string | null;
-  designated_user_id?: string | null; // Para auto-distribuição
+  designated_user_id?: string | null;
 }
 
 interface ConversationItemProps {
@@ -42,7 +32,6 @@ interface ConversationItemProps {
   isClosing?: boolean;
   assignedUserName?: string | null;
   currentUserId?: string;
-  otherInstanceConversations?: OtherInstanceConversation[];
 }
 
 export function ConversationItem({ 
@@ -57,7 +46,6 @@ export function ConversationItem({
   isClosing,
   assignedUserName,
   currentUserId,
-  otherInstanceConversations
 }: ConversationItemProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -80,21 +68,6 @@ export function ConversationItem({
   const status = conversation.status || 'pending';
   const isAssignedToMe = conversation.assigned_user_id === currentUserId;
   const isDesignatedToMe = conversation.designated_user_id === currentUserId;
-  const hasOtherInstances = otherInstanceConversations && otherInstanceConversations.length > 0;
-  
-  // Calcular total de não lidas em outras instâncias
-  const totalUnreadOtherInstances = otherInstanceConversations?.reduce(
-    (sum, conv) => sum + (conv.unread_count || 0), 
-    0
-  ) || 0;
-  
-  // Verificar se alguma outra instância tem mensagens não lidas
-  const hasUnreadInOtherInstances = totalUnreadOtherInstances > 0;
-
-  // Lista das instâncias (outras) que estão com não lidas
-  const unreadOtherInstances = (otherInstanceConversations || []).filter(
-    (c) => (c.unread_count || 0) > 0
-  );
   
   const getStatusIcon = () => {
     switch (status) {
@@ -190,22 +163,6 @@ export function ConversationItem({
         )}>
           {getStatusIcon()}
         </div>
-        
-        {/* Indicador de conversas em outras instâncias */}
-        {hasOtherInstances && (
-          <div className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
-            <MessageSquareMore className="h-2.5 w-2.5 text-white" />
-          </div>
-        )}
-        
-        {/* Badge de não lidas em outras instâncias (posicionado à direita do avatar) */}
-        {hasUnreadInOtherInstances && (
-          <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse">
-            <span className="text-[10px] font-bold text-white">
-              {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Content */}
@@ -216,56 +173,6 @@ export function ConversationItem({
               {conversation.contact_name || conversation.phone_number}
             </span>
             {getStatusBadge()}
-            
-            {/* Badge de outras instâncias com tooltip */}
-            {hasOtherInstances && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge 
-                      variant="outline" 
-                      className="h-4 px-1 text-[9px] bg-blue-50 text-blue-700 border-blue-200 cursor-help"
-                    >
-                      +{otherInstanceConversations.length}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[250px]">
-                    <p className="font-medium text-xs mb-1">Conversas em outras instâncias:</p>
-                    <ul className="text-xs space-y-0.5">
-                      {otherInstanceConversations.map((conv) => (
-                        <li key={conv.id} className="flex items-center gap-1">
-                          {/* Bolinha vermelha se tem mensagens não lidas */}
-                          {conv.unread_count > 0 && (
-                            <span className="w-2 h-2 rounded-full bg-destructive animate-pulse flex-shrink-0" />
-                          )}
-                          <span className="truncate">
-                            {conv.instance_display_name || conv.instance_name}
-                          </span>
-                          {conv.unread_count > 0 && (
-                            <span className="text-[9px] px-1 rounded bg-destructive text-white">
-                              {conv.unread_count}
-                            </span>
-                          )}
-                          {conv.status && conv.unread_count === 0 && (
-                            <span className={cn(
-                              "text-[10px] px-1 rounded",
-                              conv.status === 'pending' && "bg-yellow-100 text-yellow-700",
-                              conv.status === 'autodistributed' && "bg-blue-100 text-blue-700",
-                              conv.status === 'assigned' && "bg-green-100 text-green-700",
-                              conv.status === 'closed' && "bg-gray-100 text-gray-600"
-                            )}>
-                              {conv.status === 'pending' ? 'Pendente' : 
-                               conv.status === 'autodistributed' ? 'Pra você' :
-                               conv.status === 'assigned' ? 'Atribuído' : 'Encerrado'}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
           </div>
           {conversation.last_message_at && (
             <span className={cn(
@@ -298,27 +205,6 @@ export function ConversationItem({
               <span className="text-[10px] text-muted-foreground truncate">
                 Falando com: <span className="font-medium text-foreground/70">{instanceLabel}</span>
               </span>
-            )}
-
-            {/* Não lidas em outras instâncias (texto sempre visível) */}
-            {unreadOtherInstances.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">Não lida em:</span>
-                {unreadOtherInstances.slice(0, 2).map((conv) => (
-                  <Badge
-                    key={conv.id}
-                    variant="destructive"
-                    className="h-4 px-1 text-[9px]"
-                  >
-                    {(conv.instance_display_name || conv.instance_name)} ({conv.unread_count > 99 ? '99+' : conv.unread_count})
-                  </Badge>
-                ))}
-                {unreadOtherInstances.length > 2 && (
-                  <Badge variant="outline" className="h-4 px-1 text-[9px]">
-                    +{unreadOtherInstances.length - 2}
-                  </Badge>
-                )}
-              </div>
             )}
           </div>
           
