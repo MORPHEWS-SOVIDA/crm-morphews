@@ -76,7 +76,7 @@ function SaleCard({ sale, type }: { sale: SaleSummary; type: 'motoboy' | 'carrie
   return (
     <div 
       className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-      onClick={() => navigate(`/vendas/${sale.id}`)}
+      onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -858,11 +858,19 @@ export function SellerDashboard() {
                 />
                 
                 <SalesSection
-                  title="Correio"
+                  title="Transportadora"
                   icon={Package}
                   sales={data.pendingSales.carrierDispatched}
                   type="carrier"
-                  emptyMessage="Sem entregas por correio"
+                  emptyMessage="Sem entregas por transportadora"
+                />
+                
+                <SalesSection
+                  title="Retirada no Balcão"
+                  icon={Package}
+                  sales={data.pendingSales.pickupPending}
+                  type="other"
+                  emptyMessage="Sem retiradas pendentes"
                 />
                 
                 {data.pendingSales.returned.length > 0 && (
