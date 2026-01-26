@@ -512,7 +512,7 @@ export default function EditSale() {
           payment_status: paymentStatus,
           payment_method_id: selectedPaymentMethodId,
           // Seller
-          seller_id: selectedSellerId,
+          seller_user_id: selectedSellerId,
           // Observations
           observation_1: observation1 || null,
           observation_2: observation2 || null,
