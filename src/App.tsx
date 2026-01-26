@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/queryClient";
 import { UtmProvider } from "@/hooks/useUtmTracker";
 import { HelmetProvider } from "react-helmet-async";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -156,6 +157,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ImpersonationBanner />
             <ErrorBoundary title="Ops! Algo deu errado">
               <Suspense fallback={<PageLoader />}>
               <Routes>

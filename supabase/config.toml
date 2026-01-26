@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.pos-webhook]
 verify_jwt = false
+
+[functions.admin-impersonate]
+verify_jwt = false
