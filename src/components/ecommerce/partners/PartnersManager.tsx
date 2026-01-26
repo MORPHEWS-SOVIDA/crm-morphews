@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCheck, Factory, Building2, Mail, Clock } from 'lucide-react';
+import { Users, UserCheck, Factory, Building2, Clock, Link2, UserPlus } from 'lucide-react';
 import { PartnersList } from './PartnersList';
 import { PartnerInviteDialog } from './PartnerInviteDialog';
 import { PendingInvitations } from './PendingInvitations';
+import { PublicLinksTab } from './PublicLinksTab';
+import { PartnerApplicationsTab } from './PartnerApplicationsTab';
 import { PartnerType, usePartnerAssociations, usePartnerInvitations } from '@/hooks/ecommerce/usePartners';
+import { usePartnerApplications } from '@/hooks/ecommerce/usePartnerPublicLinks';
 
 export function PartnersManager() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -13,8 +16,10 @@ export function PartnersManager() {
   
   const { data: associations, isLoading: associationsLoading } = usePartnerAssociations();
   const { data: invitations, isLoading: invitationsLoading } = usePartnerInvitations();
+  const { data: applications } = usePartnerApplications();
 
   const pendingInvitations = invitations?.filter(i => i.status === 'pending') || [];
+  const pendingApplications = applications?.filter(a => a.status === 'pending') || [];
 
   const affiliates = associations?.filter(a => a.partner_type === 'affiliate') || [];
   const coproducers = associations?.filter(a => a.partner_type === 'coproducer') || [];
@@ -29,7 +34,7 @@ export function PartnersManager() {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
@@ -85,7 +90,19 @@ export function PartnersManager() {
             </div>
             <div>
               <p className="text-2xl font-bold">{pendingInvitations.length}</p>
-              <p className="text-xs text-muted-foreground">Convites Pendentes</p>
+              <p className="text-xs text-muted-foreground">Convites</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+              <UserPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{pendingApplications.length}</p>
+              <p className="text-xs text-muted-foreground">Solicitações</p>
             </div>
           </CardContent>
         </Card>
@@ -99,93 +116,125 @@ export function PartnersManager() {
         />
       )}
 
-      {/* Partners Tabs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Parceiros</CardTitle>
-          <CardDescription>
-            Gerencie todos os seus parceiros de negócio
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="affiliates" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="affiliates" className="gap-2">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Afiliados</span>
-                {affiliates.length > 0 && (
-                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-                    {affiliates.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="coproducers" className="gap-2">
-                <UserCheck className="h-4 w-4" />
-                <span className="hidden sm:inline">Co-produtores</span>
-                {coproducers.length > 0 && (
-                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-                    {coproducers.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="industries" className="gap-2">
-                <Factory className="h-4 w-4" />
-                <span className="hidden sm:inline">Indústrias</span>
-                {industries.length > 0 && (
-                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-                    {industries.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="factories" className="gap-2">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Fábricas</span>
-                {factories.length > 0 && (
-                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-                    {factories.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
+      {/* Main Tabs */}
+      <Tabs defaultValue="partners" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="partners" className="gap-2">
+            <Users className="h-4 w-4" />
+            Parceiros
+          </TabsTrigger>
+          <TabsTrigger value="applications" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Solicitações
+            {pendingApplications.length > 0 && (
+              <span className="ml-1 text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                {pendingApplications.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="links" className="gap-2">
+            <Link2 className="h-4 w-4" />
+            Links Públicos
+          </TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="affiliates" className="mt-4">
-              <PartnersList 
-                partners={affiliates} 
-                partnerType="affiliate"
-                isLoading={associationsLoading}
-                onInvite={() => handleInvite('affiliate')}
-              />
-            </TabsContent>
+        <TabsContent value="partners">
+          <Card>
+            <CardHeader>
+              <CardTitle>Parceiros Ativos</CardTitle>
+              <CardDescription>
+                Gerencie todos os seus parceiros de negócio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="affiliates" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="affiliates" className="gap-2">
+                    <Users className="h-4 w-4" />
+                    <span className="hidden sm:inline">Afiliados</span>
+                    {affiliates.length > 0 && (
+                      <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {affiliates.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="coproducers" className="gap-2">
+                    <UserCheck className="h-4 w-4" />
+                    <span className="hidden sm:inline">Co-produtores</span>
+                    {coproducers.length > 0 && (
+                      <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {coproducers.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="industries" className="gap-2">
+                    <Factory className="h-4 w-4" />
+                    <span className="hidden sm:inline">Indústrias</span>
+                    {industries.length > 0 && (
+                      <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {industries.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="factories" className="gap-2">
+                    <Building2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Fábricas</span>
+                    {factories.length > 0 && (
+                      <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {factories.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
 
-            <TabsContent value="coproducers" className="mt-4">
-              <PartnersList 
-                partners={coproducers} 
-                partnerType="coproducer"
-                isLoading={associationsLoading}
-                onInvite={() => handleInvite('coproducer')}
-              />
-            </TabsContent>
+                <TabsContent value="affiliates" className="mt-4">
+                  <PartnersList 
+                    partners={affiliates} 
+                    partnerType="affiliate"
+                    isLoading={associationsLoading}
+                    onInvite={() => handleInvite('affiliate')}
+                  />
+                </TabsContent>
 
-            <TabsContent value="industries" className="mt-4">
-              <PartnersList 
-                partners={industries} 
-                partnerType="industry"
-                isLoading={associationsLoading}
-                onInvite={() => handleInvite('industry')}
-              />
-            </TabsContent>
+                <TabsContent value="coproducers" className="mt-4">
+                  <PartnersList 
+                    partners={coproducers} 
+                    partnerType="coproducer"
+                    isLoading={associationsLoading}
+                    onInvite={() => handleInvite('coproducer')}
+                  />
+                </TabsContent>
 
-            <TabsContent value="factories" className="mt-4">
-              <PartnersList 
-                partners={factories} 
-                partnerType="factory"
-                isLoading={associationsLoading}
-                onInvite={() => handleInvite('factory')}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                <TabsContent value="industries" className="mt-4">
+                  <PartnersList 
+                    partners={industries} 
+                    partnerType="industry"
+                    isLoading={associationsLoading}
+                    onInvite={() => handleInvite('industry')}
+                  />
+                </TabsContent>
+
+                <TabsContent value="factories" className="mt-4">
+                  <PartnersList 
+                    partners={factories} 
+                    partnerType="factory"
+                    isLoading={associationsLoading}
+                    onInvite={() => handleInvite('factory')}
+                  />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="applications">
+          <PartnerApplicationsTab />
+        </TabsContent>
+
+        <TabsContent value="links">
+          <PublicLinksTab />
+        </TabsContent>
+      </Tabs>
 
       {/* Invite Dialog */}
       <PartnerInviteDialog
