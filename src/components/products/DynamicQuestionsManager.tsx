@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Trash2, GripVertical, List, PenLine } from 'lucide-react';
+import { Trash2, GripVertical, List, PenLine, Bot } from 'lucide-react';
 import { useStandardQuestions, CATEGORY_LABELS, type StandardQuestion } from '@/hooks/useStandardQuestions';
+import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +90,10 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
   const [showStandardDialog, setShowStandardDialog] = useState(false);
   const [selectedStandardIds, setSelectedStandardIds] = useState<string[]>([]);
   const { data: standardQuestions = [], isLoading } = useStandardQuestions();
+  const { data: orgFeatures } = useOrgFeatures();
+  
+  // Only show standard questions button if org has the feature enabled
+  const showStandardQuestionsOption = orgFeatures?.standard_questions !== false;
 
   const standardById = useMemo(() => {
     const map = new Map<string, StandardQuestion>();
@@ -165,21 +170,27 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Adicione perguntas que serão respondidas sobre o cliente ao negociar este produto.
-      </p>
+      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+        <Bot className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <p>
+          Perguntas que o <strong>Robô IA</strong> fará ao cliente durante a negociação deste produto. 
+          As respostas serão salvas no cadastro do lead.
+        </p>
+      </div>
 
       {questions.length === 0 ? (
         <div className="border border-dashed rounded-lg p-6 text-center space-y-3">
           <p className="text-muted-foreground">Nenhuma pergunta cadastrada</p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={openStandardDialog}>
-              <List className="w-4 h-4 mr-2" />
-              Selecionar Perguntas Sovida
-            </Button>
+            {showStandardQuestionsOption && (
+              <Button type="button" variant="outline" size="sm" onClick={openStandardDialog}>
+                <List className="w-4 h-4 mr-2" />
+                Selecionar Perguntas Padrão
+              </Button>
+            )}
             <Button type="button" variant="outline" size="sm" onClick={addCustomQuestion}>
               <PenLine className="w-4 h-4 mr-2" />
-              Criar Pergunta Personalizada
+              Criar Pergunta para o Robô
             </Button>
           </div>
         </div>
@@ -210,7 +221,7 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
                     <span className="text-sm font-medium text-muted-foreground">Pergunta {index + 1}</span>
                     {question.is_standard && (
                       <Badge variant="secondary" className="text-xs">
-                        Sovida
+                        Padrão
                       </Badge>
                     )}
                   </div>
@@ -248,13 +259,15 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
 
       {questions.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={openStandardDialog}>
-            <List className="w-4 h-4 mr-2" />
-            Perguntas Sovida
-          </Button>
+          {showStandardQuestionsOption && (
+            <Button type="button" variant="outline" size="sm" onClick={openStandardDialog}>
+              <List className="w-4 h-4 mr-2" />
+              Perguntas Padrão
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={addCustomQuestion}>
             <PenLine className="w-4 h-4 mr-2" />
-            Personalizada
+            Nova Pergunta
           </Button>
         </div>
       )}
@@ -263,14 +276,14 @@ export function DynamicQuestionsManager({ questions, onChange }: DynamicQuestion
       <Dialog open={showStandardDialog} onOpenChange={setShowStandardDialog}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Selecionar Perguntas Sovida</DialogTitle>
+            <DialogTitle>Selecionar Perguntas Padrão</DialogTitle>
           </DialogHeader>
 
           {isLoading ? (
             <p className="text-muted-foreground text-center py-4">Carregando...</p>
           ) : standardQuestions.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">
-              Nenhuma Pergunta Sovida configurada. Acesse Configurações para criar.
+              Nenhuma pergunta padrão configurada. Acesse Configurações para criar.
             </p>
           ) : (
             <div className="space-y-4">
