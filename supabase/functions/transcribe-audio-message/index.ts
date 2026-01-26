@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,9 +80,29 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
       throw new Error(`Failed to download audio: ${audioResponse.status}`);
     }
 
-    const audioBlob = await audioResponse.blob();
+    // IMPORTANT: a Response body can only be consumed once.
+    const contentType = audioResponse.headers.get("content-type") ?? "";
     const audioBuffer = await audioResponse.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    const base64Audio = base64Encode(audioBuffer);
+
+    // Try to infer the real format (some audios come as webm)
+    const ctFromUrl = (() => {
+      try {
+        const url = new URL(mediaUrl);
+        return (url.searchParams.get("ct") ?? "").toLowerCase();
+      } catch {
+        return "";
+      }
+    })();
+
+    const resolvedContentType = (ctFromUrl || contentType || "").toLowerCase();
+    const audioFormat = resolvedContentType.includes("webm")
+      ? "webm"
+      : resolvedContentType.includes("mpeg") || resolvedContentType.includes("mp3")
+        ? "mp3"
+        : "ogg";
+
+    console.log("🎧 Audio content-type:", resolvedContentType || "(unknown)", "format:", audioFormat);
 
     // Use Lovable AI Gateway for transcription via Gemini
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -104,7 +125,7 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
                 type: "input_audio",
                 input_audio: {
                   data: base64Audio,
-                  format: "ogg",
+                  format: audioFormat,
                 },
               },
             ],
