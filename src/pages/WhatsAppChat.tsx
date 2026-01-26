@@ -29,6 +29,9 @@ import {
   UserPlus,
   XCircle,
   Hand,
+  Loader2,
+  MessageSquarePlus,
+  Info,
 } from 'lucide-react';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { toast } from 'sonner';
@@ -52,8 +55,12 @@ import { useConversationDistribution } from '@/hooks/useConversationDistribution
 import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QuickLeadActions } from '@/components/whatsapp/QuickLeadActions';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileConversationTabs, MobileConversationItem, MobileHeader } from '@/components/whatsapp/mobile';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from '@/components/ui/drawer';
 
 type StatusTab = 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed';
+type MobileStatusTab = 'all' | StatusTab;
 
 interface Conversation {
   id: string;
@@ -123,6 +130,7 @@ export default function WhatsAppChat() {
   const { data: funnelStages } = useFunnelStages();
   const { claimConversation, closeConversation } = useConversationDistribution();
   const { data: crossInstanceMap } = useCrossInstanceConversations();
+  const isMobile = useIsMobile();
   
   const [isUpdatingStars, setIsUpdatingStars] = useState(false);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -140,8 +148,13 @@ export default function WhatsAppChat() {
   const [claimingConversationId, setClaimingConversationId] = useState<string | null>(null);
   const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
   
-  // Status tab filter
+  // Status tab filter - mobile supports 'all', desktop does not
   const [statusFilter, setStatusFilter] = useState<StatusTab>('autodistributed');
+  const [mobileStatusFilter, setMobileStatusFilter] = useState<MobileStatusTab>('all');
+  
+  // Mobile-specific states
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showMobileLeadDrawer, setShowMobileLeadDrawer] = useState(false);
   
   // Media state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -813,6 +826,7 @@ export default function WhatsAppChat() {
     const groupConversations = conversations.filter(c => isGroupConversation(c));
     
     return {
+      all: conversations.length, // Total para mobile
       with_bot: nonGroupConversations.filter(c => c.status === 'with_bot').length,
       pending: nonGroupConversations.filter(c => c.status === 'pending' || !c.status).length,
       groups: groupConversations.length,
@@ -882,6 +896,7 @@ export default function WhatsAppChat() {
     }
   };
 
+  // Filtro de conversas para desktop (usa statusFilter)
   const filteredConversations = conversations.filter(c => {
     const isGroup = isGroupConversation(c);
     
@@ -917,6 +932,47 @@ export default function WhatsAppChat() {
     
     return matchesSearch;
   });
+
+  // Filtro de conversas para mobile (usa mobileStatusFilter que inclui 'all')
+  const mobileFilteredConversations = useMemo(() => {
+    return conversations.filter(c => {
+      const isGroup = isGroupConversation(c);
+      
+      // Filtro de busca por texto primeiro
+      const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
+        c.phone_number.includes(searchTerm);
+      if (!matchesSearch) return false;
+      
+      // Se filtro é 'all', retorna tudo (exceto autodistribuídas que não são para o usuário)
+      if (mobileStatusFilter === 'all') {
+        // Excluir autodistribuídas de outros usuários
+        if (c.status === 'autodistributed' && c.designated_user_id !== user?.id) {
+          return false;
+        }
+        return true;
+      }
+      
+      // Aba "groups" mostra apenas grupos
+      if (mobileStatusFilter === 'groups') {
+        return isGroup;
+      }
+      
+      // Demais abas excluem grupos
+      if (isGroup) return false;
+      
+      // Filtro por status
+      const convStatus = c.status || 'pending';
+      if (convStatus !== mobileStatusFilter) return false;
+      
+      // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin
+      if (mobileStatusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
+        const isAdmin = isAdminOfInstance(c.instance_id);
+        if (!isAdmin) return false;
+      }
+      
+      return true;
+    });
+  }, [conversations, mobileStatusFilter, searchTerm, user?.id]);
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
@@ -1001,6 +1057,339 @@ export default function WhatsAppChat() {
     return (convs as any[]).filter((c) => (c.unread_count || 0) > 0);
   }, [crossInstanceMap, selectedConversation?.phone_number]);
 
+  // ===== MOBILE LAYOUT =====
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-background">
+        {/* Mobile: Lista de Conversas */}
+        {!selectedConversation ? (
+          <>
+            {/* Header Mobile */}
+            <MobileHeader 
+              title="Conversas"
+              showSearch
+              onSearchClick={() => setShowMobileSearch(!showMobileSearch)}
+              onMenuClick={() => navigate('/whatsapp')}
+            />
+            
+            {/* Search bar (toggle) */}
+            {showMobileSearch && (
+              <div className="px-3 py-2 border-b bg-background">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar conversa..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Tabs horizontais com scroll */}
+            <MobileConversationTabs
+              activeTab={mobileStatusFilter}
+              onTabChange={setMobileStatusFilter}
+              counts={statusCounts}
+            />
+            
+            {/* Lista de Conversas */}
+            <ScrollArea className="flex-1">
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Carregando conversas...</p>
+                </div>
+              ) : mobileFilteredConversations.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p className="font-medium">
+                    {mobileStatusFilter === 'all' && 'Nenhuma conversa'}
+                    {mobileStatusFilter === 'with_bot' && 'Nenhuma conversa com robô'}
+                    {mobileStatusFilter === 'pending' && 'Nenhuma conversa pendente'}
+                    {mobileStatusFilter === 'autodistributed' && 'Nenhuma conversa pra você'}
+                    {mobileStatusFilter === 'assigned' && 'Nenhuma conversa atribuída'}
+                    {mobileStatusFilter === 'groups' && 'Nenhum grupo'}
+                    {mobileStatusFilter === 'closed' && 'Nenhuma conversa encerrada'}
+                  </p>
+                </div>
+              ) : (
+                mobileFilteredConversations.map(conv => {
+                  const otherInstances = getOtherInstanceConversations(
+                    crossInstanceMap,
+                    conv.phone_number,
+                    conv.instance_id
+                  );
+                  
+                  return (
+                    <MobileConversationItem
+                      key={conv.id}
+                      conversation={conv as any}
+                      isSelected={false}
+                      onClick={() => {
+                        setSelectedConversation(conv);
+                        setActiveInstanceId(conv.instance_id);
+                      }}
+                      instanceLabel={getInstanceLabel(conv.instance_id)}
+                      assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
+                      currentUserId={user?.id}
+                      otherInstanceConversations={otherInstances}
+                    />
+                  );
+                })
+              )}
+            </ScrollArea>
+            
+            {/* FAB para nova conversa */}
+            <Button
+              size="icon"
+              className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-green-500 hover:bg-green-600"
+              onClick={() => setShowNewConversationDialog(true)}
+            >
+              <MessageSquarePlus className="h-6 w-6" />
+            </Button>
+          </>
+        ) : (
+          <>
+            {/* Header do Chat Mobile */}
+            <MobileHeader 
+              conversation={{
+                contact_name: selectedConversation.contact_name,
+                contact_profile_pic: (selectedConversation as any).contact_profile_pic || null,
+                phone_number: selectedConversation.phone_number,
+                is_group: (selectedConversation as any).is_group,
+                display_name: (selectedConversation as any).display_name,
+                group_subject: (selectedConversation as any).group_subject,
+              }}
+              onBack={() => setSelectedConversation(null)}
+              onInfoClick={() => setShowMobileLeadDrawer(true)}
+              instanceLabel={getInstanceLabel(selectedConversation.instance_id)}
+              isConnected={getInstanceIsConnected(selectedConversation.instance_id) ?? true}
+            />
+            
+            {/* Botões de ação (atender/encerrar) */}
+            {(selectedConversation.status === 'pending' || selectedConversation.status === 'autodistributed' || selectedConversation.status === 'with_bot') && (
+              <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  className={cn(
+                    "flex-1 max-w-[200px]",
+                    selectedConversation.status === 'with_bot'
+                      ? "bg-purple-600 hover:bg-purple-700"
+                      : "bg-green-600 hover:bg-green-700"
+                  )}
+                  onClick={() => handleClaimConversation(selectedConversation.id)}
+                  disabled={claimingConversationId === selectedConversation.id}
+                >
+                  <Hand className="h-4 w-4 mr-2" />
+                  {selectedConversation.status === 'with_bot' ? 'ASSUMIR' : 'ATENDER'}
+                </Button>
+              </div>
+            )}
+            
+            {selectedConversation.status === 'assigned' && selectedConversation.assigned_user_id === user?.id && (
+              <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 max-w-[150px] border-orange-300 text-orange-600"
+                  onClick={handleCloseConversation}
+                  disabled={closeConversation.isPending}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Encerrar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 max-w-[150px]"
+                  onClick={() => setShowTransferDialog(true)}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Transferir
+                </Button>
+              </div>
+            )}
+            
+            {/* Área de mensagens */}
+            <ScrollArea className="flex-1 p-3 bg-[#e5ddd5] dark:bg-zinc-900">
+              {messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <p className="text-sm">Carregando mensagens...</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {messages.map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </ScrollArea>
+            
+            {/* Input de mensagem */}
+            <div className="p-2 border-t bg-card safe-area-bottom">
+              <div className="flex items-end gap-2">
+                <EmojiPicker onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
+                <ImageUpload 
+                  onImageSelect={(base64, mime) => { setSelectedImage(base64); setSelectedImageMime(mime); }}
+                  isUploading={isSending}
+                  selectedImage={selectedImage}
+                  onClear={() => { setSelectedImage(null); setSelectedImageMime(null); }}
+                />
+                <Input
+                  ref={inputRef}
+                  placeholder="Digite uma mensagem..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  className="flex-1 rounded-full"
+                  disabled={isSending}
+                />
+                <Button
+                  size="icon"
+                  className={cn(
+                    "rounded-full h-10 w-10",
+                    newMessage.trim() ? "bg-green-500 hover:bg-green-600" : "bg-muted"
+                  )}
+                  onClick={sendMessage}
+                  disabled={isSending || !newMessage.trim()}
+                >
+                  {isSending ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+        
+        {/* Mobile Lead Info Drawer */}
+        <Drawer open={showMobileLeadDrawer} onOpenChange={setShowMobileLeadDrawer}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Informações do Contato</DrawerTitle>
+              <DrawerDescription>
+                {selectedConversation?.contact_name || selectedConversation?.phone_number}
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="p-4 space-y-4">
+              {lead ? (
+                <>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarFallback className="bg-primary/20 text-primary text-xl">
+                        {lead.name[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-lg">{lead.name}</p>
+                      <p className="text-sm text-muted-foreground">{lead.whatsapp}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Etapa:</span>
+                      <Badge variant="outline">{getStageDisplayName(lead.stage)}</Badge>
+                    </div>
+                    {lead.instagram && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Instagram:</span>
+                        <a href={`https://instagram.com/${lead.instagram.replace('@', '')}`} target="_blank" className="text-pink-600">
+                          {lead.instagram}
+                        </a>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Estrelas:</span>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => updateLeadStars(star)}
+                            disabled={isUpdatingStars}
+                            className="p-0.5"
+                          >
+                            <Star className={cn(
+                              "h-5 w-5",
+                              star <= (lead?.stars || 0) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                            )} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    className="w-full" 
+                    onClick={() => {
+                      setShowMobileLeadDrawer(false);
+                      navigate(`/leads/${lead.id}`);
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Ver Lead Completo
+                  </Button>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <User className="h-12 w-12 mx-auto mb-2 text-muted-foreground opacity-30" />
+                  <p className="text-sm text-muted-foreground mb-4">Nenhum lead vinculado</p>
+                  <Button onClick={() => { setShowMobileLeadDrawer(false); setShowLeadDialog(true); }}>
+                    <Link className="h-4 w-4 mr-2" />
+                    Vincular Lead
+                  </Button>
+                </div>
+              )}
+            </div>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button variant="outline">Fechar</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+        
+        {/* Dialogs */}
+        {selectedConversation && (
+          <LeadSearchDialog
+            open={showLeadDialog}
+            onOpenChange={setShowLeadDialog}
+            conversationPhone={selectedConversation.phone_number}
+            contactName={selectedConversation.contact_name}
+            onLeadSelected={handleLeadSelected}
+            onCreateNew={handleCreateLead}
+          />
+        )}
+        <NewConversationDialog
+          open={showNewConversationDialog}
+          onOpenChange={setShowNewConversationDialog}
+        />
+        {selectedConversation && (
+          <ConversationTransferDialog
+            open={showTransferDialog}
+            onOpenChange={setShowTransferDialog}
+            conversationId={selectedConversation.id}
+            instanceId={selectedConversation.instance_id}
+            currentUserId={selectedConversation.assigned_user_id}
+            contactName={selectedConversation.contact_name || selectedConversation.phone_number}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ===== DESKTOP LAYOUT (original - intocado) =====
   return (
     <Layout>
       <div className="flex flex-col">
