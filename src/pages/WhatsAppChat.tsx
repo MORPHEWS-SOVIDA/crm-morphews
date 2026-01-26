@@ -52,7 +52,7 @@ import { WavoipPhoneButton } from '@/components/whatsapp/WavoipPhoneButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
-import { useCrossInstanceConversations, getOtherInstanceConversations } from '@/hooks/useCrossInstanceConversations';
+// Removido: useCrossInstanceConversations - cada conversa agora é um item separado
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QuickLeadActions } from '@/components/whatsapp/QuickLeadActions';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -129,7 +129,7 @@ export default function WhatsAppChat() {
   const queryClient = useQueryClient();
   const { data: funnelStages } = useFunnelStages();
   const { claimConversation, closeConversation } = useConversationDistribution();
-  const { data: crossInstanceMap } = useCrossInstanceConversations();
+  // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
   const isMobile = useIsMobile();
   
   const [isUpdatingStars, setIsUpdatingStars] = useState(false);
@@ -299,35 +299,7 @@ export default function WhatsAppChat() {
     setActiveInstanceId(selectedConversation.instance_id);
   }, [selectedConversation?.id]);
 
-  // Instâncias que já tiveram mensagens para esse contato dentro desta conversa (abas)
-  // IMPORTANTE: hoje o backend pode "unificar" o mesmo lead em 1 conversation_id.
-  // Então, a separação por instância precisa ser feita pelo instance_id da mensagem.
-  const { data: samePhoneConversations = [] } = useQuery({
-    queryKey: ['same-phone-instances', selectedConversation?.id],
-    enabled: !!selectedConversation?.id,
-    queryFn: async (): Promise<string[]> => {
-      if (!selectedConversation?.id) return [];
-
-      const { data, error } = await supabase
-        .from('whatsapp_messages')
-        .select('instance_id, created_at')
-        .eq('conversation_id', selectedConversation.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const unique = new Set<string>();
-      (data || []).forEach((m: any) => {
-        if (m.instance_id) unique.add(m.instance_id);
-      });
-
-      // Garantir que a instância "base" da conversa esteja presente
-      if (selectedConversation.instance_id) unique.add(selectedConversation.instance_id);
-
-      return Array.from(unique);
-    },
-    staleTime: 15000,
-  });
+  // Removido: samePhoneConversations - cada conversa agora é um item separado
 
   // Fetch messages for selected conversation
   type FetchMessagesOptions = {
@@ -1050,12 +1022,7 @@ export default function WhatsAppChat() {
     }
   };
 
-  // Instâncias (daquele telefone) que estão com conversas não lidas (visível no cabeçalho)
-  const unreadInstancesForSelectedPhone = useMemo(() => {
-    if (!selectedConversation?.phone_number) return [] as { instance_id: string; unread_count: number; instance_display_name: string | null; instance_name: string }[];
-    const convs = crossInstanceMap?.[selectedConversation.phone_number] || [];
-    return (convs as any[]).filter((c) => (c.unread_count || 0) > 0);
-  }, [crossInstanceMap, selectedConversation?.phone_number]);
+  // Removido: unreadInstancesForSelectedPhone - cada conversa agora é um item separado
 
   // ===== MOBILE LAYOUT =====
   if (isMobile) {
@@ -1117,11 +1084,6 @@ export default function WhatsAppChat() {
                 </div>
               ) : (
                 mobileFilteredConversations.map(conv => {
-                  const otherInstances = getOtherInstanceConversations(
-                    crossInstanceMap,
-                    conv.phone_number,
-                    conv.instance_id
-                  );
                   const convStatus = conv.status || 'pending';
                   const canClaimConv = convStatus === 'pending' || convStatus === 'autodistributed' || convStatus === 'with_bot';
                   const canCloseConv = convStatus !== 'closed';
@@ -1138,7 +1100,6 @@ export default function WhatsAppChat() {
                       instanceLabel={getInstanceLabel(conv.instance_id)}
                       assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
                       currentUserId={user?.id}
-                      otherInstanceConversations={otherInstances}
                       onClaim={async (id) => {
                         if (!user?.id) return;
                         setClaimingConversationId(id);
@@ -1257,47 +1218,129 @@ export default function WhatsAppChat() {
               )}
             </ScrollArea>
             
-            {/* Input de mensagem */}
-            <div className="p-2 border-t bg-card safe-area-bottom">
-              <div className="flex items-end gap-2">
-                <EmojiPicker onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
-                <ImageUpload 
-                  onImageSelect={(base64, mime) => { setSelectedImage(base64); setSelectedImageMime(mime); }}
-                  isUploading={isSending}
-                  selectedImage={selectedImage}
-                  onClear={() => { setSelectedImage(null); setSelectedImageMime(null); }}
-                />
-                <Input
-                  ref={inputRef}
-                  placeholder="Digite uma mensagem..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                  className="flex-1 rounded-full"
-                  disabled={isSending}
-                />
-                <Button
-                  size="icon"
-                  className={cn(
-                    "rounded-full h-10 w-10",
-                    newMessage.trim() ? "bg-green-500 hover:bg-green-600" : "bg-muted"
+            {/* Media Preview Mobile */}
+            {(selectedImage || pendingAudio || pendingDocument) && (
+              <div className="px-3 py-2 border-t bg-card">
+                <div className="flex items-center gap-2">
+                  {selectedImage && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <img src={selectedImage} alt="Preview" className="h-12 w-12 object-cover rounded" />
+                      <span className="text-xs text-muted-foreground flex-1 truncate">Imagem selecionada</span>
+                      <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setSelectedImage(null); setSelectedImageMime(null); }}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
-                  onClick={sendMessage}
-                  disabled={isSending || !newMessage.trim()}
-                >
-                  {isSending ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
+                  {pendingAudio && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg flex-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-xs">Áudio pronto</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setPendingAudio(null)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
-                </Button>
+                  {pendingDocument && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg flex-1 min-w-0">
+                        <FileText className="h-4 w-4 flex-shrink-0" />
+                        <span className="text-xs truncate">{pendingDocument.fileName}</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setPendingDocument(null)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+            
+            {/* Input de mensagem - verificação se pode responder */}
+            {(() => {
+              const isAssignedToMe = selectedConversation?.status === 'assigned' && selectedConversation?.assigned_user_id === user?.id;
+              const canReply = isAssignedToMe;
+              
+              if (!canReply) {
+                return (
+                  <div className="p-3 border-t bg-amber-50 dark:bg-amber-950/30 safe-area-bottom">
+                    <div className="flex items-center justify-center gap-2 py-1">
+                      <span className="text-xs text-amber-700 dark:text-amber-400 font-medium text-center">
+                        Assuma esta conversa para responder
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="p-2 border-t bg-card safe-area-bottom">
+                  <div className="flex items-end gap-1.5">
+                    {/* Emoji picker */}
+                    <EmojiPicker onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
+                    
+                    {/* Anexos: imagem, documento, áudio */}
+                    <ImageUpload 
+                      onImageSelect={(base64, mime) => { setSelectedImage(base64); setSelectedImageMime(mime); }}
+                      isUploading={isSending}
+                      selectedImage={null}
+                      onClear={() => {}}
+                    />
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 flex-shrink-0"
+                      onClick={() => documentInputRef.current?.click()}
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                    
+                    <AudioRecorder 
+                      onAudioReady={(base64, mimeType) => setPendingAudio({ base64, mimeType })}
+                      isRecording={isRecordingAudio}
+                      setIsRecording={setIsRecordingAudio}
+                    />
+                    
+                    {/* Input */}
+                    <Input
+                      ref={inputRef}
+                      placeholder="Mensagem..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      className="flex-1 rounded-full h-10 text-sm"
+                      disabled={isSending || isRecordingAudio}
+                    />
+                    
+                    {/* Send button */}
+                    <Button
+                      size="icon"
+                      className={cn(
+                        "rounded-full h-10 w-10 flex-shrink-0 transition-colors",
+                        (newMessage.trim() || selectedImage || pendingAudio || pendingDocument) 
+                          ? "bg-green-500 hover:bg-green-600" 
+                          : "bg-muted text-muted-foreground"
+                      )}
+                      onClick={sendMessage}
+                      disabled={isSending || isRecordingAudio || (!newMessage.trim() && !selectedImage && !pendingAudio && !pendingDocument)}
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Send className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
         
@@ -1485,13 +1528,6 @@ export default function WhatsAppChat() {
               </div>
             ) : (
               filteredConversations.map(conv => {
-                // Obter conversas do mesmo contato em outras instâncias
-                const otherInstances = getOtherInstanceConversations(
-                  crossInstanceMap,
-                  conv.phone_number,
-                  conv.instance_id
-                );
-                
                 return (
                   <ConversationItem
                     key={conv.id}
@@ -1509,7 +1545,6 @@ export default function WhatsAppChat() {
                     isClosing={closingConversationId === conv.id}
                     assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
                     currentUserId={user?.id}
-                    otherInstanceConversations={otherInstances}
                   />
                 );
               })
@@ -1622,74 +1657,7 @@ export default function WhatsAppChat() {
                  </div>
                </div>
 
-              {/* Dropdown de instância (quando contato está em múltiplas instâncias) */}
-              {samePhoneConversations.length > 1 && (
-                <div className="border-b border-border bg-muted/30 px-4 py-1.5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
-                      Instância ({samePhoneConversations.length}):
-                    </span>
-                    <Select
-                      value={activeInstanceId ?? selectedConversation.instance_id}
-                      onValueChange={(instId) => setActiveInstanceId(instId)}
-                    >
-                      <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {samePhoneConversations.map((instId) => {
-                          const label = getInstanceTabLabel(instId);
-                          const isConnected = getInstanceIsConnected(instId);
-
-                          // Verificar se tem mensagens não lidas nesta instância
-                          const otherConvs = crossInstanceMap?.[selectedConversation.phone_number] || [];
-                          const thisInstConv = otherConvs.find(c => c.instance_id === instId);
-                          const hasUnread = thisInstConv && thisInstConv.unread_count > 0;
-
-                          return (
-                            <SelectItem key={instId} value={instId} className="text-xs">
-                              <div className="flex items-center gap-2">
-                                {/* Bolinha verde/vermelha conexão OU bolinha vermelha de não lida */}
-                                {hasUnread ? (
-                                  <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                                ) : isConnected !== null ? (
-                                  <div
-                                    className={cn(
-                                      "w-2 h-2 rounded-full",
-                                      isConnected ? "bg-funnel-positive" : "bg-destructive"
-                                    )}
-                                  />
-                                ) : null}
-                                <span>{label}</span>
-                                {hasUnread && thisInstConv && (
-                                  <Badge variant="destructive" className="h-4 px-1 text-[9px] ml-1">
-                                    {thisInstConv.unread_count}
-                                  </Badge>
-                                )}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>\n                    </Select>
-                  </div>
-
-                  {unreadInstancesForSelectedPhone.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap justify-end">
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Não lida em:</span>
-                      {unreadInstancesForSelectedPhone.slice(0, 2).map((c: any) => (
-                        <Badge key={c.instance_id} variant="destructive" className="h-4 px-1 text-[9px]">
-                          {(c.instance_display_name || c.instance_name)} ({c.unread_count > 99 ? '99+' : c.unread_count})
-                        </Badge>
-                      ))}
-                      {unreadInstancesForSelectedPhone.length > 2 && (
-                        <Badge variant="outline" className="h-4 px-1 text-[9px]">
-                          +{unreadInstancesForSelectedPhone.length - 2}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+ 
  
                {/* Messages */}
                <ScrollArea className="flex-1 p-4">

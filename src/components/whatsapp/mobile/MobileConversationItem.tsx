@@ -2,17 +2,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { UserCheck, Clock, CheckCircle, Zap, Bot, Users, MessageSquareMore } from 'lucide-react';
+import { UserCheck, Clock, CheckCircle, Zap, Bot, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface OtherInstanceConversation {
-  id: string;
-  instance_id: string;
-  instance_name: string;
-  instance_display_name: string | null;
-  status: string | null;
-  unread_count: number;
-}
 
 interface Conversation {
   id: string;
@@ -38,7 +29,6 @@ interface MobileConversationItemProps {
   instanceLabel?: string | null;
   assignedUserName?: string | null;
   currentUserId?: string;
-  otherInstanceConversations?: OtherInstanceConversation[];
 }
 
 export function MobileConversationItem({ 
@@ -48,7 +38,6 @@ export function MobileConversationItem({
   instanceLabel,
   assignedUserName,
   currentUserId,
-  otherInstanceConversations
 }: MobileConversationItemProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -71,12 +60,6 @@ export function MobileConversationItem({
   const status = conversation.status || 'pending';
   const isAssignedToMe = conversation.assigned_user_id === currentUserId;
   const isDesignatedToMe = conversation.designated_user_id === currentUserId;
-  const hasOtherInstances = otherInstanceConversations && otherInstanceConversations.length > 0;
-  
-  const totalUnreadOtherInstances = otherInstanceConversations?.reduce(
-    (sum, conv) => sum + (conv.unread_count || 0), 
-    0
-  ) || 0;
 
   const getStatusIndicator = () => {
     switch (status) {
@@ -130,22 +113,6 @@ export function MobileConversationItem({
             statusIndicator.color
           )}>
             <statusIndicator.icon className="h-2.5 w-2.5 text-white" />
-          </div>
-        )}
-        
-        {/* Indicador de outras instâncias */}
-        {hasOtherInstances && (
-          <div className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
-            <MessageSquareMore className="h-2 w-2 text-white" />
-          </div>
-        )}
-        
-        {/* Badge de não lidas em outras instâncias */}
-        {totalUnreadOtherInstances > 0 && (
-          <div className="absolute -top-1.5 left-3 h-4 min-w-[16px] px-0.5 rounded-full bg-amber-500 border border-card flex items-center justify-center animate-pulse">
-            <span className="text-[9px] font-bold text-white">
-              {totalUnreadOtherInstances > 9 ? '9+' : totalUnreadOtherInstances}
-            </span>
           </div>
         )}
       </div>
