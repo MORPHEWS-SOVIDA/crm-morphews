@@ -4967,7 +4967,7 @@ export type Database = {
       }
       instance_bot_schedules: {
         Row: {
-          bot_id: string
+          bot_id: string | null
           created_at: string
           days_of_week: number[]
           end_time: string
@@ -4982,7 +4982,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          bot_id: string
+          bot_id?: string | null
           created_at?: string
           days_of_week?: number[]
           end_time?: string
@@ -4997,7 +4997,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          bot_id?: string
+          bot_id?: string | null
           created_at?: string
           days_of_week?: number[]
           end_time?: string
