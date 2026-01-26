@@ -67,12 +67,19 @@ export default function DashboardKanban() {
   const filteredLeads = useMemo(() => {
     let result = [...leads];
     
-    // Filter by team - compare by user_id since assigned_to stores user_id
+    // Filter by team
+    // NOTE: historically `assigned_to` has been stored inconsistently (sometimes user_id, sometimes full name).
+    // To keep the filter reliable, we match both formats.
     if (selectedTeam) {
-      const teamUserIds = teamMembers
+      const membersInTeam = teamMembers
         .filter(m => m.team_id === selectedTeam)
-        .map(m => m.user_id);
-      result = result.filter(lead => teamUserIds.includes(lead.assigned_to || ''));
+      const teamUserIds = membersInTeam.map(m => m.user_id);
+      const teamUserNames = membersInTeam.map(m => m.full_name).filter(Boolean);
+
+      result = result.filter((lead) => {
+        const assigned = lead.assigned_to || '';
+        return teamUserIds.includes(assigned) || teamUserNames.includes(assigned);
+      });
     }
     
     // Filter by inactivity (days without update)
