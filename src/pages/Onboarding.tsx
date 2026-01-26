@@ -27,71 +27,11 @@ export default function Onboarding() {
     business_description: "",
   });
 
-  // Check if user should see onboarding (must be owner AND onboarding not completed)
+  // ONBOARDING DISABLED: Always redirect to dashboard - no more blocking users
   useEffect(() => {
-    const checkOnboarding = async () => {
-      if (!user?.id) {
-        setIsChecking(false);
-        return;
-      }
-
-      // If user already chose to bypass onboarding (temporary), don't block them here.
-      if (onboardingBypassKey && localStorage.getItem(onboardingBypassKey) === "1") {
-        navigate("/", { replace: true });
-        return;
-      }
-
-      // If no organization_id in profile, skip onboarding entirely
-      if (!profile?.organization_id) {
-        console.log("No organization_id in profile, redirecting to dashboard");
-        navigate("/", { replace: true });
-        return;
-      }
-
-      try {
-        // First check if user is owner - only owners should see onboarding
-        const { data: isOwner, error: ownerError } = await supabase.rpc("is_current_user_org_owner");
-        
-        if (ownerError) {
-          console.error("Error checking owner status:", ownerError);
-          navigate("/", { replace: true });
-          return;
-        }
-
-        // If not owner, redirect to dashboard immediately
-        if (!isOwner) {
-          console.log("User is not owner, skipping onboarding");
-          navigate("/", { replace: true });
-          return;
-        }
-
-        // Use RPC to check if onboarding is completed (bypasses RLS issues)
-        const { data: hasCompleted, error } = await supabase.rpc("has_onboarding_completed");
-
-        if (error) {
-          console.error("Error checking onboarding via RPC:", error);
-          // If RPC fails, redirect to dashboard instead of blocking
-          navigate("/", { replace: true });
-          return;
-        }
-
-        if (hasCompleted) {
-          // Onboarding already done, redirect to dashboard
-          navigate("/", { replace: true });
-          return;
-        }
-      } catch (error) {
-        console.error("Error checking onboarding:", error);
-        // On any error, redirect to dashboard instead of blocking
-        navigate("/", { replace: true });
-        return;
-      }
-      
-      setIsChecking(false);
-    };
-
-    checkOnboarding();
-  }, [user?.id, profile?.organization_id, navigate, onboardingBypassKey]);
+    // Immediately redirect all users to dashboard - onboarding is now optional
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   const bypassOnboardingAndEnter = () => {
     if (onboardingBypassKey) {
