@@ -85,6 +85,16 @@ serve(async (req) => {
       action: 'generate' | 'regenerate';
     };
 
+    const isRegeneration = action === 'regenerate' || !!briefing.isRegeneration;
+    const hasFeedback = !!briefing.previousFeedback?.trim();
+
+    console.log('[ai-landing-generator] request', {
+      action,
+      isRegeneration,
+      hasFeedback,
+      feedbackPreview: briefing.previousFeedback?.slice(0, 140) || null,
+    });
+
     // Build the system prompt for high-conversion landing page copy
     const isWebinar = briefing.pageStyle === 'webinar';
     const isMinimal = briefing.pageStyle === 'minimal';
@@ -92,7 +102,7 @@ serve(async (req) => {
     const testimonialStyle = briefing.testimonialConfig?.style || 'review';
     const guaranteeDays = briefing.guaranteeConfig?.days || 30;
     
-    const systemPrompt = `Você é um copywriter especialista em landing pages de alta conversão.
+    let systemPrompt = `Você é um copywriter especialista em landing pages de alta conversão.
 Seu objetivo é criar copy que VENDE. Você domina:
 - Gatilhos mentais (escassez, urgência, prova social, autoridade)
 - Estrutura AIDA (Atenção, Interesse, Desejo, Ação)
@@ -125,6 +135,14 @@ GARANTIA: ${guaranteeDays} dias
 QUANTIDADE DE DEPOIMENTOS: ${testimonialCount}
 ESTILO DOS DEPOIMENTOS: ${testimonialStyle === 'whatsapp' ? 'Conversa de WhatsApp (gere um array de mensagens simulando uma conversa real)' : 'Review tradicional (nome + texto)'}`;
 
+    if (isRegeneration && hasFeedback) {
+      systemPrompt += `\n\n⚠️ REGENERAÇÃO COM FEEDBACK DO USUÁRIO (OBRIGATÓRIO)\n`;
+      systemPrompt += `O usuário não gostou da versão anterior e escreveu um feedback específico.\n`;
+      systemPrompt += `Você DEVE priorizar esse feedback acima de qualquer outra instrução e realizar mudanças reais.\n`;
+      systemPrompt += `Evite repetir a mesma headline, os mesmos benefícios e a mesma abordagem que poderiam ter causado rejeição.\n`;
+      systemPrompt += `Se o feedback pedir mudança de tom, promessa, diferenciais, estrutura ou nível de especificidade, faça a alteração.\n`;
+    }
+
     // Build testimonial structure based on style
     const testimonialStructure = testimonialStyle === 'whatsapp' 
       ? `{
@@ -142,7 +160,7 @@ ESTILO DOS DEPOIMENTOS: ${testimonialStyle === 'whatsapp' ? 'Conversa de WhatsAp
       }`
       : `{"id": "unique_id", "name": "Nome Sobrenome", "text": "depoimento autêntico e natural", "style": "review"}`;
 
-    const userPrompt = `Crie uma landing page de alta conversão para:
+    const userPrompt = `${isRegeneration && hasFeedback ? `🔴 REGENERAÇÃO SOLICITADA\n\nFEEDBACK DO USUÁRIO (prioridade máxima):\n"""\n${briefing.previousFeedback}\n"""\n\nINSTRUÇÃO: Reescreva headline, subheadline e benefícios para endereçar diretamente o feedback.\nEvite repetir frases/ideias da versão anterior.\n\n` : ''}Crie uma landing page de alta conversão para:
 
 PRODUTO: ${briefing.productName}
 DESCRIÇÃO: ${briefing.productDescription}
@@ -151,11 +169,6 @@ PÚBLICO-ALVO: ${briefing.targetAudience}
 DIFERENCIAIS: ${briefing.differentials}
 ${briefing.ingredients ? `INGREDIENTES/COMPOSIÇÃO: ${briefing.ingredients}` : ''}
 ${briefing.salesScript ? `SCRIPT DE VENDAS (use como referência): ${briefing.salesScript}` : ''}
-${briefing.previousFeedback ? `
-⚠️ FEEDBACK DO USUÁRIO (versão anterior não agradou):
-${briefing.previousFeedback}
-Por favor, ajuste o conteúdo considerando esse feedback.` : ''}
-
 Retorne um JSON com a seguinte estrutura:
 {
   "headline": "string (máx 10 palavras, impactante)",
