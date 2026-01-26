@@ -38,6 +38,7 @@ import { motoboyTrackingLabels } from '@/hooks/useMotoboyTracking';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { toast } from '@/hooks/use-toast';
+import { SellerSalesList } from './SellerSalesList';
 import slothRaceImage from '@/assets/sloth-race.png';
 
 function DateBadge({ date }: { date: string }) {
@@ -864,7 +865,9 @@ export function SellerDashboard() {
         </Card>
       </div>
 
-      {/* Sloth Race Modal - Someone else claimed the lead */}
+      {/* SELLER SALES LIST - Full Table View */}
+      <SellerSalesList />
+
       <Dialog open={showSlothModal} onOpenChange={handleCloseSlothModal}>
         <DialogContent 
           className="max-w-md p-0 overflow-hidden bg-transparent border-none shadow-none"
