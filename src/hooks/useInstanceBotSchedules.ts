@@ -3,10 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
+export type BotScheduleType = 'individual' | 'team' | 'keyword';
+
 export interface InstanceBotSchedule {
   id: string;
   instance_id: string;
-  bot_id: string;
+  bot_id: string | null;
+  team_id: string | null;
+  keyword_router_id: string | null;
   organization_id: string;
   days_of_week: number[];
   start_time: string;
@@ -19,7 +23,27 @@ export interface InstanceBotSchedule {
     id: string;
     name: string;
     avatar_url: string | null;
-  };
+  } | null;
+  team?: {
+    id: string;
+    name: string;
+  } | null;
+  keyword_router?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+// Helper to determine the effective bot ID from a schedule
+export function getScheduleEntityId(schedule: InstanceBotSchedule): string {
+  return schedule.bot_id || schedule.team_id || schedule.keyword_router_id || '';
+}
+
+// Helper to determine the type of bot from a schedule
+export function getScheduleType(schedule: InstanceBotSchedule): BotScheduleType {
+  if (schedule.team_id) return 'team';
+  if (schedule.keyword_router_id) return 'keyword';
+  return 'individual';
 }
 
 export function useInstanceBotSchedules(instanceId: string | null) {
@@ -34,7 +58,9 @@ export function useInstanceBotSchedules(instanceId: string | null) {
         .from("instance_bot_schedules")
         .select(`
           *,
-          bot:ai_bots(id, name, avatar_url)
+          bot:ai_bots(id, name, avatar_url),
+          team:bot_teams(id, name),
+          keyword_router:keyword_bot_routers(id, name)
         `)
         .eq("instance_id", instanceId)
         .order("priority", { ascending: false })
@@ -54,14 +80,16 @@ export function useAddInstanceBotSchedule() {
   return useMutation({
     mutationFn: async ({
       instanceId,
-      botId,
+      entityId,
+      entityType,
       daysOfWeek = [0, 1, 2, 3, 4, 5, 6],
       startTime = "00:00",
       endTime = "23:59",
       priority = 0,
     }: {
       instanceId: string;
-      botId: string;
+      entityId: string;
+      entityType: BotScheduleType;
       daysOfWeek?: number[];
       startTime?: string;
       endTime?: string;
@@ -69,17 +97,27 @@ export function useAddInstanceBotSchedule() {
     }) => {
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
-      // Inserir o agendamento do robô
-      const { error } = await supabase.from("instance_bot_schedules").insert({
+      // Inserir o agendamento baseado no tipo de entidade
+      const insertData: Record<string, unknown> = {
         instance_id: instanceId,
-        bot_id: botId,
         organization_id: profile.organization_id,
         days_of_week: daysOfWeek,
         start_time: startTime,
         end_time: endTime,
         priority,
         is_active: true,
-      });
+      };
+
+      // Definir o campo correto baseado no tipo
+      if (entityType === 'individual') {
+        insertData.bot_id = entityId;
+      } else if (entityType === 'team') {
+        insertData.team_id = entityId;
+      } else if (entityType === 'keyword') {
+        insertData.keyword_router_id = entityId;
+      }
+
+      const { error } = await supabase.from("instance_bot_schedules").insert(insertData as any);
 
       if (error) throw error;
 

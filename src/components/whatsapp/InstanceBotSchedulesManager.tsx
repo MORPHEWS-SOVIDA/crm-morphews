@@ -13,7 +13,9 @@ import {
   useAddInstanceBotSchedule,
   useUpdateInstanceBotSchedule,
   useRemoveInstanceBotSchedule,
+  getScheduleEntityId,
   type InstanceBotSchedule,
+  type BotScheduleType,
 } from "@/hooks/useInstanceBotSchedules";
 import { useAIBots } from "@/hooks/useAIBots";
 import { useBotTeams } from "@/hooks/useBotTeams";
@@ -58,6 +60,7 @@ export function InstanceBotSchedulesManager({
   const removeSchedule = useRemoveInstanceBotSchedule();
 
   const [selectedBotId, setSelectedBotId] = useState<string>("");
+  const [selectedBotType, setSelectedBotType] = useState<BotScheduleType>('individual');
 
   // Combine all bot types into a unified list
   const allBots = useMemo<UnifiedBotItem[]>(() => {
@@ -100,7 +103,7 @@ export function InstanceBotSchedulesManager({
   }, [bots, teams, keywordRouters]);
 
   const activeBots = allBots.filter((b) => b.isActive);
-  const usedBotIds = schedules.map((s) => s.bot_id);
+  const usedBotIds = schedules.map((s) => getScheduleEntityId(s));
   const availableBots = activeBots.filter((b) => !usedBotIds.includes(b.id));
   
   // Detectar inconsistência: tem bots agendados mas modo não é 'bot'
@@ -111,9 +114,19 @@ export function InstanceBotSchedulesManager({
     if (!selectedBotId) return;
     addSchedule.mutate({
       instanceId,
-      botId: selectedBotId,
+      entityId: selectedBotId,
+      entityType: selectedBotType,
     });
     setSelectedBotId("");
+    setSelectedBotType('individual');
+  };
+
+  const handleSelectBot = (value: string) => {
+    const bot = allBots.find(b => b.id === value);
+    if (bot) {
+      setSelectedBotId(value);
+      setSelectedBotType(bot.type);
+    }
   };
 
   const handleDayToggle = (schedule: InstanceBotSchedule, day: number) => {
@@ -250,14 +263,19 @@ export function InstanceBotSchedulesManager({
                     <div>
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const botInfo = allBots.find(b => b.id === schedule.bot_id);
+                          const entityId = getScheduleEntityId(schedule);
+                          const botInfo = allBots.find(b => b.id === entityId);
                           const IconComponent = botInfo?.icon || Bot;
                           const iconColor = botInfo?.type === 'team' ? 'text-blue-600' : 
                                            botInfo?.type === 'keyword' ? 'text-green-600' : 'text-purple-600';
                           return <IconComponent className={`h-4 w-4 ${iconColor}`} />;
                         })()}
                         <span className="font-medium">
-                          {allBots.find(b => b.id === schedule.bot_id)?.name || schedule.bot?.name || "Robô"}
+                          {(() => {
+                            const entityId = getScheduleEntityId(schedule);
+                            const botInfo = allBots.find(b => b.id === entityId);
+                            return botInfo?.name || schedule.bot?.name || schedule.team?.name || schedule.keyword_router?.name || "Robô";
+                          })()}
                         </span>
                         {!schedule.is_active && (
                           <Badge variant="secondary" className="text-xs">
@@ -337,7 +355,7 @@ export function InstanceBotSchedulesManager({
       {/* Adicionar novo robô */}
       {availableBots.length > 0 && (
         <div className="flex items-center gap-3 pt-2 border-t">
-          <Select value={selectedBotId} onValueChange={setSelectedBotId}>
+          <Select value={selectedBotId} onValueChange={handleSelectBot}>
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Selecione um robô..." />
             </SelectTrigger>
