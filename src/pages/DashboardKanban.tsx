@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
@@ -13,6 +13,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useCurrentMember } from '@/hooks/useCurrentMember';
 import { FunnelStage, Lead } from '@/types/lead';
 import { Loader2, Columns3, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,13 +26,30 @@ export default function DashboardKanban() {
   const { data: leads = [], isLoading, error } = useLeads();
   const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
   const { data: teamMembers = [] } = useTeamMembers();
+  const { data: currentMember } = useCurrentMember();
   const [selectedStars, setSelectedStars] = useState<number | null>(null);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [selectedInactivityDays, setSelectedInactivityDays] = useState<number | null>(null);
+  const [hasAutoSelectedTeam, setHasAutoSelectedTeam] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+
+  // Auto-select team for sales managers when they access the page
+  useEffect(() => {
+    if (currentMember && !hasAutoSelectedTeam) {
+      // If user is a sales manager and has a team, pre-select their team
+      if (currentMember.is_sales_manager && currentMember.team_id) {
+        setSelectedTeam(currentMember.team_id);
+      }
+      // Even if not a manager, if user has a team, pre-select it (optional behavior)
+      else if (currentMember.team_id && !isAdmin) {
+        setSelectedTeam(currentMember.team_id);
+      }
+      setHasAutoSelectedTeam(true);
+    }
+  }, [currentMember, hasAutoSelectedTeam, isAdmin]);
 
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canSeeDeliveries = permissions?.deliveries_view_own || permissions?.deliveries_view_all;
