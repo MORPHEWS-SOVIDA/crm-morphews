@@ -64,7 +64,7 @@ export function DonnaHelperButton() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 1, duration: 0.3 }}
-          className="fixed bottom-[88px] right-20 z-30 bg-white dark:bg-zinc-800 rounded-lg shadow-lg px-4 py-2 max-w-[180px] md:bottom-6 md:right-24 md:z-40 md:max-w-[200px] hidden md:block"
+          className="fixed bottom-[88px] right-20 z-30 bg-white dark:bg-zinc-800 rounded-lg shadow-lg px-4 py-2 max-w-[180px] md:bottom-6 md:right-24 md:z-40 md:max-w-[200px] hidden md:block pointer-events-none"
         >
           <p className="text-sm font-medium text-zinc-900 dark:text-white">
             Precisa de ajuda? 🤔
