@@ -1,17 +1,37 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { Globe, Upload, Copy, Star, Loader2, Sparkles, ExternalLink, Check } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { 
+  Globe, 
+  Upload, 
+  Sparkles, 
+  Copy, 
+  Star, 
+  Loader2, 
+  Check,
+  Code,
+  FileText,
+  AlertCircle,
+} from "lucide-react";
+
+const CATEGORIES = [
+  { value: "all", label: "Todos" },
+  { value: "saude", label: "Saúde" },
+  { value: "ecommerce", label: "E-commerce" },
+  { value: "servicos", label: "Serviços" },
+  { value: "educacao", label: "Educação" },
+];
 
 interface LandingTemplate {
   id: string;
@@ -23,14 +43,6 @@ interface LandingTemplate {
   is_featured: boolean;
   clone_count: number;
 }
-
-const CATEGORIES = [
-  { value: "all", label: "Todos" },
-  { value: "saude", label: "Saúde" },
-  { value: "ecommerce", label: "E-commerce" },
-  { value: "servicos", label: "Serviços" },
-  { value: "educacao", label: "Educação" },
-];
 
 interface LandingImporterProps {
   onSuccess?: (landingPageId: string) => void;
@@ -45,6 +57,7 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
   const [activeTab, setActiveTab] = useState<"templates" | "import">("templates");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [importUrl, setImportUrl] = useState("");
+  const [importMode, setImportMode] = useState<"full_html" | "structured">("full_html");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<LandingTemplate | null>(null);
 
@@ -64,7 +77,6 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
     },
   });
 
-  // Clone template mutation
   // Helper to normalize benefits from objects to strings
   const normalizeBenefits = (benefits: unknown): string[] => {
     if (!Array.isArray(benefits)) return [];
@@ -81,11 +93,11 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
     }).filter((b: string) => b && b.trim().length > 0);
   };
 
+  // Clone template mutation
   const cloneMutation = useMutation({
     mutationFn: async (templateId: string) => {
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
-      // Fetch full template (using any since table was just created)
       const { data: templateData, error: templateError } = await supabase
         .from("landing_page_templates" as any)
         .select("*")
@@ -96,7 +108,6 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
       
       const template = templateData as any;
 
-      // Generate unique slug
       const baseSlug = (template.name || "landing")
         .toLowerCase()
         .normalize("NFD")
@@ -105,10 +116,11 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
         .substring(0, 30);
       const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
-      // Normalize benefits from objects to strings
       const normalizedBenefits = normalizeBenefits(template.benefits);
 
-      // Create landing page from template
+      // Determine if template has full_html
+      const hasFullHtml = !!template.full_html;
+
       const insertData = {
         organization_id: profile.organization_id,
         name: `${template.name} (Clone)`,
@@ -125,6 +137,11 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
         primary_color: template.primary_color || "#10b981",
         custom_css: template.custom_css || "",
         is_active: false,
+        // Full HTML mode
+        full_html: template.full_html || null,
+        import_mode: hasFullHtml ? "full_html" : "structured",
+        source_url: template.source_url || null,
+        branding: template.branding || {},
         settings: {
           cloned_from_template: templateId,
           branding: template.branding,
@@ -164,7 +181,7 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
 
   // Import from URL mutation
   const importMutation = useMutation({
-    mutationFn: async (url: string) => {
+    mutationFn: async ({ url, mode }: { url: string; mode: "full_html" | "structured" }) => {
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
       const { data, error } = await supabase.functions.invoke("scrape-landing-page", {
@@ -172,6 +189,7 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
           url, 
           saveAsLandingPage: true,
           organizationId: profile.organization_id,
+          importMode: mode,
         },
       });
       
@@ -180,7 +198,8 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
       return data;
     },
     onSuccess: (data) => {
-      toast({ title: "Sucesso!", description: "Site importado como landing page!" });
+      const modeLabel = data.importMode === "full_html" ? "Site completo importado!" : "Conteúdo extraído!";
+      toast({ title: "Sucesso!", description: modeLabel });
       queryClient.invalidateQueries({ queryKey: ["landing-pages"] });
       setIsDialogOpen(false);
       setImportUrl("");
@@ -342,10 +361,11 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
               <CardHeader>
                 <CardTitle className="text-base">Importar de URL</CardTitle>
                 <CardDescription>
-                  Cole a URL do seu site WordPress, Wix, ou qualquer página para converter em landing page
+                  Cole a URL do seu site para importar como landing page
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* URL Input */}
                 <div className="space-y-2">
                   <Label>URL do Site</Label>
                   <Input
@@ -355,31 +375,96 @@ export function LandingImporter({ onSuccess }: LandingImporterProps) {
                   />
                 </div>
 
-                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                  <h4 className="font-medium text-sm">O que será extraído:</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>✓ Título e subtítulo da página</li>
-                    <li>✓ Lista de benefícios e features</li>
-                    <li>✓ Perguntas frequentes (FAQ)</li>
-                    <li>✓ Cores e logo do site</li>
-                    <li>✓ Textos de garantia e urgência</li>
-                  </ul>
+                {/* Import Mode Selection */}
+                <div className="space-y-3">
+                  <Label className="text-base font-medium">Como você quer importar?</Label>
+                  
+                  <RadioGroup 
+                    value={importMode} 
+                    onValueChange={(v) => setImportMode(v as any)}
+                    className="grid gap-3"
+                  >
+                    {/* Full HTML Mode */}
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value="full_html" id="full_html" className="mt-1" />
+                      <Label htmlFor="full_html" className="flex-1 cursor-pointer">
+                        <Card className={`p-4 transition-all ${importMode === 'full_html' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
+                              <Code className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm">Site Completo (Recomendado)</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Importa o HTML/CSS original do site. Você terá uma cópia fiel para editar.
+                                Ideal para sites já prontos como Lipofree, WordPress, etc.
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="secondary" className="text-xs">Layout original</Badge>
+                                <Badge variant="secondary" className="text-xs">Imagens preservadas</Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      </Label>
+                    </div>
+
+                    {/* Structured Mode */}
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value="structured" id="structured" className="mt-1" />
+                      <Label htmlFor="structured" className="flex-1 cursor-pointer">
+                        <Card className={`p-4 transition-all ${importMode === 'structured' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
+                              <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm">Extrair Conteúdo</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Extrai apenas os textos (título, benefícios, FAQ) e aplica num template simples.
+                                Bom para recriar do zero com novo visual.
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">Textos extraídos</Badge>
+                                <Badge variant="outline" className="text-xs">Template genérico</Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
 
+                {/* Info Box */}
+                {importMode === "full_html" && (
+                  <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-green-800 dark:text-green-200">Site Completo</p>
+                      <p className="text-green-700 dark:text-green-300 mt-1">
+                        O site será importado com todos os estilos e layout original.
+                        Você poderá editar textos e imagens diretamente.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <Button 
-                  onClick={() => importMutation.mutate(importUrl)}
+                  onClick={() => importMutation.mutate({ url: importUrl, mode: importMode })}
                   disabled={!importUrl.trim() || importMutation.isPending}
                   className="w-full"
+                  size="lg"
                 >
                   {importMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Importando site...
+                      Importando site... (pode levar alguns segundos)
                     </>
                   ) : (
                     <>
                       <Globe className="h-4 w-4 mr-2" />
-                      Importar e Criar Landing Page
+                      Importar Site
                     </>
                   )}
                 </Button>

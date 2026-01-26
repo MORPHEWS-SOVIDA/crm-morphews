@@ -5549,15 +5549,18 @@ export type Database = {
       landing_pages: {
         Row: {
           benefits: Json | null
+          branding: Json | null
           checkout_config: Json | null
           created_at: string
           custom_css: string | null
           facebook_pixel_id: string | null
           faq: Json | null
+          full_html: string | null
           google_analytics_id: string | null
           guarantee_text: string | null
           headline: string | null
           id: string
+          import_mode: string | null
           is_active: boolean | null
           logo_url: string | null
           name: string
@@ -5567,6 +5570,7 @@ export type Database = {
           product_id: string | null
           settings: Json | null
           slug: string
+          source_url: string | null
           subheadline: string | null
           template_id: string | null
           testimonials: Json | null
@@ -5577,15 +5581,18 @@ export type Database = {
         }
         Insert: {
           benefits?: Json | null
+          branding?: Json | null
           checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
           faq?: Json | null
+          full_html?: string | null
           google_analytics_id?: string | null
           guarantee_text?: string | null
           headline?: string | null
           id?: string
+          import_mode?: string | null
           is_active?: boolean | null
           logo_url?: string | null
           name: string
@@ -5595,6 +5602,7 @@ export type Database = {
           product_id?: string | null
           settings?: Json | null
           slug: string
+          source_url?: string | null
           subheadline?: string | null
           template_id?: string | null
           testimonials?: Json | null
@@ -5605,15 +5613,18 @@ export type Database = {
         }
         Update: {
           benefits?: Json | null
+          branding?: Json | null
           checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
           faq?: Json | null
+          full_html?: string | null
           google_analytics_id?: string | null
           guarantee_text?: string | null
           headline?: string | null
           id?: string
+          import_mode?: string | null
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
@@ -5623,6 +5634,7 @@ export type Database = {
           product_id?: string | null
           settings?: Json | null
           slug?: string
+          source_url?: string | null
           subheadline?: string | null
           template_id?: string | null
           testimonials?: Json | null

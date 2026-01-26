@@ -13,6 +13,7 @@ interface ScrapeRequest {
   saveAsTemplate?: boolean; // Super Admin only
   saveAsLandingPage?: boolean; // Tenant
   organizationId?: string;
+  importMode?: "full_html" | "structured"; // NEW: How to import
 }
 
 serve(async (req) => {
@@ -21,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, name, category, saveAsTemplate, saveAsLandingPage, organizationId } = await req.json() as ScrapeRequest;
+    const { url, name, category, saveAsTemplate, saveAsLandingPage, organizationId, importMode: requestedImportMode } = await req.json() as ScrapeRequest;
 
     if (!url) {
       throw new Error("URL é obrigatória");
@@ -170,6 +171,9 @@ serve(async (req) => {
           .substring(0, 30);
         const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
+        // Determine import mode from request body
+        const importMode = requestedImportMode || "structured";
+
         // Save as landing page for tenant
         const { data: landingPage, error: lpError } = await supabaseAdmin
           .from("landing_pages")
@@ -188,6 +192,11 @@ serve(async (req) => {
             primary_color: result.primary_color,
             custom_css: "",
             is_active: false, // Start inactive for review
+            // NEW: Full HTML mode support
+            full_html: importMode === "full_html" ? result.full_html : null,
+            import_mode: importMode,
+            source_url: formattedUrl,
+            branding: result.branding,
             settings: {
               imported_from: formattedUrl,
               branding: result.branding,
@@ -203,7 +212,8 @@ serve(async (req) => {
 
         result.landingPageId = landingPage.id;
         result.landingPageSlug = landingPage.slug;
-        console.log("Landing page saved:", landingPage.id);
+        result.importMode = importMode;
+        console.log("Landing page saved:", landingPage.id, "mode:", importMode);
       }
     }
 
