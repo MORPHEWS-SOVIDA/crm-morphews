@@ -184,8 +184,8 @@ export default function EditSale() {
       setPaymentStatus(sale.payment_status || 'not_paid');
       setSelectedPaymentMethodId(sale.payment_method_id || null);
       
-      // Initialize seller
-      setSelectedSellerId((sale as any).seller_id || null);
+      // Initialize seller (field is seller_user_id in database)
+      setSelectedSellerId((sale as any).seller_user_id || null);
       
       // Initialize observations
       setObservation1((sale as any).observation_1 || '');
@@ -384,8 +384,38 @@ export default function EditSale() {
       });
     }
 
+    // Check seller changes
+    const originalSellerId = (sale as any).seller_user_id || null;
+    if (selectedSellerId !== originalSellerId) {
+      const oldSeller = users.find(u => u.user_id === originalSellerId);
+      const newSeller = users.find(u => u.user_id === selectedSellerId);
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'general_edit',
+        field_name: 'seller_user_id',
+        old_value: oldSeller ? `${oldSeller.first_name} ${oldSeller.last_name}` : '(nenhum)',
+        new_value: newSeller ? `${newSeller.first_name} ${newSeller.last_name}` : '(nenhum)',
+        notes: `Vendedor alterado`,
+      });
+    }
+
+    // Check payment method changes
+    const originalPaymentMethodId = sale.payment_method_id || null;
+    if (selectedPaymentMethodId !== originalPaymentMethodId) {
+      const oldMethod = paymentMethods.find(m => m.id === originalPaymentMethodId);
+      const newMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+      changeList.push({
+        sale_id: sale.id,
+        change_type: 'payment_changed',
+        field_name: 'payment_method_id',
+        old_value: oldMethod?.name || '(nenhum)',
+        new_value: newMethod?.name || '(nenhum)',
+        notes: `Forma de pagamento alterada`,
+      });
+    }
+
     return changeList;
-  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses, paymentStatus, observation1, observation2]);
+  }, [sale, items, totalDiscount, deliveryType, scheduledDate, scheduledShift, selectedAddressId, selectedRegionId, leadAddresses, paymentStatus, observation1, observation2, selectedSellerId, selectedPaymentMethodId, users, paymentMethods]);
 
   const hasChanges = changes.length > 0;
 
