@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package, AlertCircle, DollarSign, TrendingUp } from 'lucide-react';
+import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package, AlertCircle, DollarSign, TrendingUp, Clock, Truck, CheckCircle } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -160,34 +160,143 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
 }
 
 function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
-  const { totalSales, totalCommission } = useMemo(() => {
-    return sales.reduce((acc, sale) => ({
-      totalSales: acc.totalSales + (sale.total_cents || 0),
-      totalCommission: acc.totalCommission + (sale.commission_cents || 0),
-    }), { totalSales: 0, totalCommission: 0 });
+  const summaryData = useMemo(() => {
+    let totalSales = 0;
+    let pendingCount = 0; // draft + pending_expedition + payment_confirmed + dispatched
+    let pendingValue = 0;
+    let deliveredCount = 0; // status = delivered (regardless of payment)
+    let deliveredValue = 0;
+    let paidCount = 0; // payment_status = paid_now or paid_in_delivery (regardless of delivery)
+    let paidValue = 0;
+    let completedCount = 0; // status = delivered AND paid
+    let completedValue = 0;
+    let completedCommission = 0; // ONLY commission from completed sales
+
+    for (const sale of sales) {
+      const value = sale.total_cents || 0;
+      const commission = sale.commission_cents || 0;
+      const isPaid = sale.payment_status === 'paid_now' || sale.payment_status === 'paid_in_delivery';
+      const isDelivered = sale.status === 'delivered';
+      const isPending = ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched'].includes(sale.status);
+
+      totalSales += value;
+
+      // Teles Pendentes: draft, pending_expedition, payment_confirmed, dispatched
+      if (isPending) {
+        pendingCount++;
+        pendingValue += value;
+      }
+
+      // Entregue: status = delivered (can be paid or not)
+      if (isDelivered) {
+        deliveredCount++;
+        deliveredValue += value;
+      }
+
+      // Pago: payment_status = paid_now or paid_in_delivery
+      if (isPaid) {
+        paidCount++;
+        paidValue += value;
+      }
+
+      // Entregue + Pago: BOTH delivered AND paid - this is what earns commission
+      if (isDelivered && isPaid) {
+        completedCount++;
+        completedValue += value;
+        completedCommission += commission;
+      }
+    }
+
+    return {
+      totalSales,
+      pendingCount,
+      pendingValue,
+      deliveredCount,
+      deliveredValue,
+      paidCount,
+      paidValue,
+      completedCount,
+      completedValue,
+      completedCommission,
+    };
   }, [sales]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      {/* Total das Vendas */}
-      <div className="flex items-center gap-4 p-4 rounded-lg bg-primary/10 border border-primary/20">
-        <div className="p-3 rounded-full bg-primary/20">
-          <DollarSign className="w-6 h-6 text-primary" />
+    <div className="space-y-4 mb-6">
+      {/* Row 1: Total em Vendas + Total em Comissões (only from completed sales) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Total das Vendas */}
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="p-3 rounded-full bg-primary/20">
+            <DollarSign className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">Total em Vendas</p>
+            <p className="text-2xl font-bold text-primary">{formatCurrency(summaryData.totalSales)}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground font-medium">Total em Vendas</p>
-          <p className="text-2xl font-bold text-primary">{formatCurrency(totalSales)}</p>
+        
+        {/* Total de Comissões - ONLY from completed (delivered + paid) sales */}
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+          <div className="p-3 rounded-full bg-green-500/20">
+            <TrendingUp className="w-6 h-6 text-green-600" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">Total em Comissões</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryData.completedCommission)}</p>
+            <p className="text-xs text-muted-foreground">Vendas entregues e pagas</p>
+          </div>
         </div>
       </div>
-      
-      {/* Total de Comissões */}
-      <div className="flex items-center gap-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-        <div className="p-3 rounded-full bg-green-500/20">
-          <TrendingUp className="w-6 h-6 text-green-600" />
+
+      {/* Row 2: Status breakdown */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Teles Pendentes */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="p-2 rounded-full bg-amber-500/20">
+            <Clock className="w-4 h-4 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Teles Pendentes</p>
+            <p className="text-lg font-bold text-amber-600">{summaryData.pendingCount}</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.pendingValue)}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground font-medium">Total em Comissões</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(totalCommission)}</p>
+
+        {/* Entregue */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="p-2 rounded-full bg-blue-500/20">
+            <Truck className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Entregue</p>
+            <p className="text-lg font-bold text-blue-600">{summaryData.deliveredCount}</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.deliveredValue)}</p>
+          </div>
+        </div>
+
+        {/* Pago */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+          <div className="p-2 rounded-full bg-purple-500/20">
+            <DollarSign className="w-4 h-4 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Pago</p>
+            <p className="text-lg font-bold text-purple-600">{summaryData.paidCount}</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.paidValue)}</p>
+          </div>
+        </div>
+
+        {/* Entregue + Pago (Completed) */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <div className="p-2 rounded-full bg-emerald-500/20">
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Entregue + Pago</p>
+            <p className="text-lg font-bold text-emerald-600">{summaryData.completedCount}</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.completedValue)}</p>
+          </div>
         </div>
       </div>
     </div>
