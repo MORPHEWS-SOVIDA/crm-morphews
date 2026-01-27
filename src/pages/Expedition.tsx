@@ -392,12 +392,8 @@ export default function Expedition() {
   
   // Handle dispatch attempt - validates rules and shows confirmation if needed
   const handleDispatchAttempt = useCallback((sale: Sale) => {
-    // Check if motoboy delivery without motoboy selected - show selection dialog
-    if (sale.delivery_type === 'motoboy' && !sale.assigned_delivery_user_id) {
-      setSelectMotoboyDialog({ open: true, sale });
-      return;
-    }
-    
+    // RULE 1: Sale must be in "Pedido Separado" status before dispatching
+    // This check comes FIRST to prevent skipping steps
     const { allowed, reason } = canDispatchSale(sale);
     
     if (!allowed) {
@@ -405,7 +401,13 @@ export default function Expedition() {
       return;
     }
     
-    // Check if items were conference (all checked)
+    // RULE 2: Motoboy delivery must have a motoboy selected
+    if (sale.delivery_type === 'motoboy' && !sale.assigned_delivery_user_id) {
+      setSelectMotoboyDialog({ open: true, sale });
+      return;
+    }
+    
+    // RULE 3: Check if items were conferenced (all checked)
     const allItemsChecked = conferenceStatus[sale.id] ?? false;
     
     if (!allItemsChecked) {
