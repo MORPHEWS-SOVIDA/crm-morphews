@@ -394,12 +394,22 @@ serve(async (req) => {
       throw new Error('Integração com Melhor Envio está desativada');
     }
 
-    const token = config.token_encrypted || Deno.env.get('MELHOR_ENVIO_TOKEN');
-    if (!token) {
-      throw new Error('Token do Melhor Envio não configurado');
-    }
-
     const baseUrl = config.ambiente === 'sandbox' ? MELHOR_ENVIO_API.SANDBOX : MELHOR_ENVIO_API.PRODUCTION;
+
+    // Token selection by environment (prevents using sandbox token in production and vice-versa)
+    const token =
+      config.token_encrypted ||
+      (config.ambiente === 'sandbox'
+        ? (Deno.env.get('MELHOR_ENVIO_TOKEN_SANDBOX') || Deno.env.get('MELHOR_ENVIO_TOKEN'))
+        : (Deno.env.get('MELHOR_ENVIO_TOKEN_PRODUCTION') || Deno.env.get('MELHOR_ENVIO_TOKEN')));
+
+    if (!token) {
+      throw new Error(
+        config.ambiente === 'sandbox'
+          ? 'Token do Melhor Envio (sandbox) não configurado'
+          : 'Token do Melhor Envio (produção) não configurado'
+      );
+    }
 
     if (action === 'get_services') {
       const services = await getAvailableServices(token, baseUrl);
