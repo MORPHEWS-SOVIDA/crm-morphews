@@ -21,7 +21,9 @@ import {
   RefreshCw,
   Code,
   AlertCircle,
+  Users,
 } from 'lucide-react';
+import { AffiliatesTab } from '@/components/ecommerce/affiliates/AffiliatesTab';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -264,7 +266,7 @@ export default function LandingPageEditor() {
           {/* Editor Panel */}
           <div className="lg:col-span-1 space-y-4">
             <Tabs defaultValue="text">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="text" className="gap-1">
                   <Type className="h-4 w-4" />
                   Textos
@@ -276,6 +278,10 @@ export default function LandingPageEditor() {
                 <TabsTrigger value="images" className="gap-1">
                   <ImageIcon className="h-4 w-4" />
                   Imagens
+                </TabsTrigger>
+                <TabsTrigger value="affiliates" className="gap-1">
+                  <Users className="h-4 w-4" />
+                  Afiliados
                 </TabsTrigger>
               </TabsList>
 
@@ -510,6 +516,17 @@ export default function LandingPageEditor() {
                       </p>
                     </CardContent>
                   </Card>
+                )}
+              </TabsContent>
+
+              {/* Affiliates Tab */}
+              <TabsContent value="affiliates" className="space-y-4 mt-4">
+                {landingPage && (
+                  <AffiliatesTab
+                    assetType="landing"
+                    assetId={landingPage.id}
+                    assetSlug={landingPage.slug}
+                  />
                 )}
               </TabsContent>
             </Tabs>

@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, GripVertical, Trash2, Settings, Eye } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Settings, Eye, Users } from 'lucide-react';
 import { useQuiz, useCreateQuizStep, useDeleteQuizStep, STEP_TYPE_LABELS, type QuizStep, type QuizStepType } from '@/hooks/ecommerce/useQuizzes';
 import { QuizStepEditor } from './QuizStepEditor';
 import { QuizSettingsPanel } from './QuizSettingsPanel';
+import { AffiliatesTab } from '@/components/ecommerce/affiliates/AffiliatesTab';
 import { cn } from '@/lib/utils';
 
 interface QuizBuilderDialogProps {
@@ -16,7 +17,7 @@ interface QuizBuilderDialogProps {
 }
 
 export function QuizBuilderDialog({ open, onOpenChange, quizId }: QuizBuilderDialogProps) {
-  const [activeTab, setActiveTab] = useState<'steps' | 'settings'>('steps');
+  const [activeTab, setActiveTab] = useState<'steps' | 'settings' | 'affiliates'>('steps');
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
 
   const { data: quiz, isLoading } = useQuiz(quizId);
@@ -80,12 +81,16 @@ export function QuizBuilderDialog({ open, onOpenChange, quizId }: QuizBuilderDia
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'steps' | 'settings')} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'steps' | 'settings' | 'affiliates')} className="flex-1 flex flex-col">
             <TabsList className="mx-6 mt-2 w-fit">
               <TabsTrigger value="steps">Etapas</TabsTrigger>
               <TabsTrigger value="settings">
                 <Settings className="h-4 w-4 mr-2" />
                 Configurações
+              </TabsTrigger>
+              <TabsTrigger value="affiliates">
+                <Users className="h-4 w-4 mr-2" />
+                Afiliados
               </TabsTrigger>
             </TabsList>
 
@@ -175,6 +180,16 @@ export function QuizBuilderDialog({ open, onOpenChange, quizId }: QuizBuilderDia
 
             <TabsContent value="settings" className="flex-1 m-0 overflow-auto">
               {quiz && <QuizSettingsPanel quiz={quiz} />}
+            </TabsContent>
+
+            <TabsContent value="affiliates" className="flex-1 m-0 overflow-auto p-6">
+              {quiz && (
+                <AffiliatesTab
+                  assetType="quiz"
+                  assetId={quiz.id}
+                  assetSlug={quiz.slug}
+                />
+              )}
             </TabsContent>
           </Tabs>
         )}
