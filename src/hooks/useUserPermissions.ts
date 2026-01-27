@@ -80,6 +80,8 @@ export interface UserPermissions {
   deliveries_view_own: boolean;
   deliveries_view_all: boolean;
   expedition_view: boolean;
+  cash_verification_view: boolean;
+  cash_verification_confirm: boolean;
   
   // Modules
   receptive_module_access: boolean;
@@ -212,6 +214,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   deliveries_view_all: { label: 'Ver Todas Entregas', description: 'Ver todas as entregas', group: 'Entregas' },
   expedition_view: { label: 'Expedição', description: 'Acessar tela de separação/conferência de pedidos', group: 'Entregas' },
   sales_validate_expedition: { label: 'Validar Expedição', description: 'Marcar pedido como separado', group: 'Entregas' },
+  cash_verification_view: { label: 'Ver Conferência Dinheiro', description: 'Ver painel de conferência de pagamentos em dinheiro', group: 'Entregas' },
+  cash_verification_confirm: { label: 'Confirmar Dinheiro', description: 'Confirmar recebimento de pagamentos em dinheiro', group: 'Entregas' },
   
   // Equipe
   team_view: { label: 'Ver Minha Equipe', description: 'Visualizar página Minha Equipe', group: 'Equipe' },
