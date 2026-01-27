@@ -172,8 +172,11 @@ export default function WhatsAppChat() {
   const [conversationTypeFilter, setConversationTypeFilter] = useState<'all' | 'individual' | 'group'>('all');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const isUserScrollingRef = useRef(false);
+  const lastConversationIdRef = useRef<string | null>(null);
 
   // Fetch instances user has access to (incluindo desconectadas)
   useEffect(() => {
@@ -472,10 +475,37 @@ export default function WhatsAppChat() {
     fetchLead();
   }, [selectedConversation?.id]);
 
-  // Auto scroll to bottom
+  // Auto scroll to bottom - only when conversation changes or user is at bottom
   useEffect(() => {
+    // Se a conversa mudou, resetar o flag de scrolling e rolar para baixo
+    if (selectedConversation?.id !== lastConversationIdRef.current) {
+      lastConversationIdRef.current = selectedConversation?.id ?? null;
+      isUserScrollingRef.current = false;
+      // Usar timeout para garantir que as mensagens foram renderizadas
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 100);
+      return;
+    }
+    
+    // Se o usuário está scrollando para cima, não interferir
+    if (isUserScrollingRef.current) {
+      return;
+    }
+    
+    // Rolar para baixo apenas se estiver próximo do final
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, selectedConversation?.id]);
+
+  // Handler para detectar quando o usuário está scrollando
+  const handleMessagesScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    // Se o usuário está a mais de 150px do final, considerar que está scrollando para cima
+    isUserScrollingRef.current = distanceFromBottom > 150;
+  }, []);
 
   const refreshMessages = async () => {
     setIsRefreshing(true);
@@ -1200,7 +1230,11 @@ export default function WhatsAppChat() {
             )}
             
             {/* Área de mensagens */}
-            <ScrollArea className="flex-1 p-3 bg-[#e5ddd5] dark:bg-zinc-900">
+            <div 
+              className="flex-1 p-3 bg-[#e5ddd5] dark:bg-zinc-900 overflow-y-auto"
+              onScroll={handleMessagesScroll}
+              ref={messagesContainerRef}
+            >
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
                   <p className="text-sm">Carregando mensagens...</p>
@@ -1213,7 +1247,7 @@ export default function WhatsAppChat() {
                   <div ref={messagesEndRef} />
                 </div>
               )}
-            </ScrollArea>
+            </div>
             
             {/* Media Preview Mobile */}
             {(selectedImage || pendingAudio || pendingDocument) && (
@@ -1657,7 +1691,11 @@ export default function WhatsAppChat() {
  
  
                {/* Messages */}
-               <ScrollArea className="flex-1 p-4">
+               <div 
+                 className="flex-1 p-4 overflow-y-auto"
+                 onScroll={handleMessagesScroll}
+                 ref={messagesContainerRef}
+               >
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
@@ -1678,7 +1716,7 @@ export default function WhatsAppChat() {
                     <div ref={messagesEndRef} />
                   </div>
                 )}
-              </ScrollArea>
+              </div>
 
               {/* Media Preview */}
               {(selectedImage || pendingAudio || pendingDocument) && (
