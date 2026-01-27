@@ -76,6 +76,7 @@ const AllDeliveries = lazy(() => import("./pages/AllDeliveries"));
 const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
 const RomaneioBatchPrint = lazy(() => import("./pages/RomaneioBatchPrint"));
 const PickupClosingPrint = lazy(() => import("./pages/PickupClosingPrint"));
+const PickupClosing = lazy(() => import("./pages/PickupClosing"));
 
 // WhatsApp
 const WhatsAppDMs = lazy(() => import("./pages/WhatsAppDMs"));
@@ -544,6 +545,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
                       <CorreiosLabels />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/baixa-balcao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all', 'sales_validate_expedition']}>
+                      <PickupClosing />
                     </ProtectedRoute>
                   }
                 />
