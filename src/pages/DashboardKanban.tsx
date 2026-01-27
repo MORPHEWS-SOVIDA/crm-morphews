@@ -6,6 +6,7 @@ import { KanbanBoard } from '@/components/dashboard/KanbanBoard';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { SellerMultiSelect } from '@/components/dashboard/SellerMultiSelect';
+import { ManagerFilter } from '@/components/dashboard/ManagerFilter';
 import { InactivityFilter } from '@/components/dashboard/InactivityFilter';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
@@ -31,6 +32,7 @@ export default function DashboardKanban() {
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
   const [selectedResponsavel, setSelectedResponsavel] = useState<string | null>(null);
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
+  const [selectedManager, setSelectedManager] = useState<string | null>(null);
   const [selectedInactivityDays, setSelectedInactivityDays] = useState<number | null>(null);
   const [hasAutoSelectedSellers, setHasAutoSelectedSellers] = useState(false);
   const isMobile = useIsMobile();
@@ -100,7 +102,19 @@ export default function DashboardKanban() {
     return result;
   }, [leads, selectedSellers, selectedInactivityDays, teamMembers]);
 
-  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedInactivityDays !== null;
+  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null;
+
+  // Handler para seleção de gerente - atualiza vendedores automaticamente
+  const handleManagerSelect = (managerId: string | null, memberIds: string[]) => {
+    setSelectedManager(managerId);
+    if (managerId) {
+      // Quando seleciona gerente, define os vendedores associados
+      setSelectedSellers(memberIds);
+    } else {
+      // Quando limpa o gerente, limpa também os vendedores
+      setSelectedSellers([]);
+    }
+  };
 
   if (isLoading || loadingStages || permissionsLoading) {
     return (
@@ -216,6 +230,7 @@ export default function DashboardKanban() {
                   setSelectedStage(null);
                   setSelectedResponsavel(null);
                   setSelectedSellers([]);
+                  setSelectedManager(null);
                   setSelectedInactivityDays(null);
                 }}
                 className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
@@ -249,9 +264,20 @@ export default function DashboardKanban() {
                   />
                   {showAdvancedFilters && (
                     <>
+                      <ManagerFilter
+                        selectedManager={selectedManager}
+                        onSelectManager={handleManagerSelect}
+                        compact
+                      />
                       <SellerMultiSelect
                         selectedSellers={selectedSellers}
-                        onSelectSellers={setSelectedSellers}
+                        onSelectSellers={(sellers) => {
+                          setSelectedSellers(sellers);
+                          // Se o usuário mudar vendedores manualmente, limpa o gerente selecionado
+                          if (selectedManager && sellers.length === 0) {
+                            setSelectedManager(null);
+                          }
+                        }}
                         compact
                       />
                       <InactivityFilter
@@ -265,8 +291,13 @@ export default function DashboardKanban() {
               )}
             </div>
             {/* Show filter indicators */}
-            {(selectedSellers.length > 0 || selectedInactivityDays) && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {(selectedManager || selectedSellers.length > 0 || selectedInactivityDays) && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                {selectedManager && (
+                  <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded flex items-center gap-1">
+                    👑 Gerente selecionado
+                  </span>
+                )}
                 {selectedSellers.length > 0 && (
                   <span className="bg-muted px-2 py-1 rounded">
                     {selectedSellers.length} vendedor(es) selecionado(s)
