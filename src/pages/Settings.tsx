@@ -26,6 +26,7 @@ import { useOrgAdmin } from '@/hooks/useOrgAdmin';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { DataBackupManager } from '@/components/settings/DataBackupManager';
+import { PostSaleQuestionsTab } from '@/components/settings/PostSaleQuestionsTab';
 import { RomaneioImporter } from '@/components/settings/RomaneioImporter';
 import { CustomFieldsManager } from '@/components/settings/CustomFieldsManager';
 import { FiscalCompaniesManager } from '@/components/settings/FiscalCompaniesManager';
@@ -585,6 +586,11 @@ export default function Settings() {
                 </div>
                 <ProductBrandsManager />
               </div>
+            )}
+
+            {/* Perguntas Pós-Venda */}
+            {(isAdmin || isOrgAdmin || canAccess('post_sale_manage')) && (
+              <PostSaleQuestionsTab />
             )}
           </TabsContent>
 
