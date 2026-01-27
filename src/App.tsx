@@ -135,6 +135,7 @@ const Cadastro = lazy(() => import("./pages/Cadastro"));
 // Ecommerce
 const Ecommerce = lazy(() => import("./pages/Ecommerce"));
 const LandingPageEditor = lazy(() => import("./pages/ecommerce/LandingPageEditor"));
+const LandingChatBuilder = lazy(() => import("./pages/ecommerce/LandingChatBuilder"));
 const EcommerceLojas = lazy(() => import("./pages/ecommerce/EcommerceLojas"));
 const EcommerceLandings = lazy(() => import("./pages/ecommerce/EcommerceLandings"));
 const EcommerceQuiz = lazy(() => import("./pages/ecommerce/EcommerceQuiz"));
@@ -771,6 +772,22 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <EcommerceLandings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/landing-builder"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <LandingChatBuilder />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/landing-builder/:id"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <LandingChatBuilder />
                     </ProtectedRoute>
                   }
                 />
