@@ -75,6 +75,7 @@ const MyDeliveries = lazy(() => import("./pages/MyDeliveries"));
 const AllDeliveries = lazy(() => import("./pages/AllDeliveries"));
 const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
 const RomaneioBatchPrint = lazy(() => import("./pages/RomaneioBatchPrint"));
+const PickupClosingPrint = lazy(() => import("./pages/PickupClosingPrint"));
 
 // WhatsApp
 const WhatsAppDMs = lazy(() => import("./pages/WhatsAppDMs"));
@@ -544,6 +545,10 @@ const App = () => (
                       <CorreiosLabels />
                     </ProtectedRoute>
                   }
+                />
+                <Route
+                  path="/expedicao/fechamento/:closingId/imprimir"
+                  element={<PickupClosingPrint />}
                 />
                 
                 {/* 2FA - for managers only */}

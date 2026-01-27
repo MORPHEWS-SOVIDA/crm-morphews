@@ -1,0 +1,314 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrentTenantId } from '@/hooks/useTenant';
+import { Sale } from '@/hooks/useSales';
+
+export interface PickupClosing {
+  id: string;
+  organization_id: string;
+  closing_number: number;
+  closing_date: string;
+  total_sales: number;
+  total_amount_cents: number;
+  total_card_cents: number;
+  total_pix_cents: number;
+  total_cash_cents: number;
+  total_other_cents: number;
+  created_by: string | null;
+  created_at: string;
+  confirmed_by_auxiliar: string | null;
+  confirmed_at_auxiliar: string | null;
+  confirmed_by_admin: string | null;
+  confirmed_at_admin: string | null;
+  status: 'pending' | 'confirmed_auxiliar' | 'confirmed_final';
+  notes: string | null;
+  // Joined data
+  creator_profile?: { first_name: string | null; last_name: string | null };
+  auxiliar_profile?: { first_name: string | null; last_name: string | null };
+  admin_profile?: { first_name: string | null; last_name: string | null };
+  sales?: PickupClosingSale[];
+}
+
+export interface PickupClosingSale {
+  id: string;
+  closing_id: string;
+  sale_id: string;
+  sale_number: string | null;
+  lead_name: string | null;
+  total_cents: number | null;
+  payment_method: string | null;
+  delivered_at: string | null;
+}
+
+// Fetch pickup sales that have NOT been included in any closing yet
+export function useAvailablePickupSales() {
+  const { data: tenantId } = useCurrentTenantId();
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['available-pickup-sales', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+
+      // Get all sale_ids that are already in a closing
+      const { data: usedSales, error: usedError } = await supabase
+        .from('pickup_closing_sales')
+        .select('sale_id')
+        .eq('organization_id', tenantId);
+
+      if (usedError) throw usedError;
+
+      const usedSaleIds = (usedSales || []).map(s => s.sale_id);
+
+      // Fetch pickup sales that are delivered and NOT in any closing
+      let query = supabase
+        .from('sales')
+        .select(`
+          id,
+          romaneio_number,
+          status,
+          delivery_type,
+          total_cents,
+          payment_method,
+          delivered_at,
+          scheduled_delivery_date,
+          lead:leads(id, name)
+        `)
+        .eq('organization_id', tenantId)
+        .eq('delivery_type', 'pickup')
+        .eq('status', 'delivered')
+        .not('delivered_at', 'is', null)
+        .order('delivered_at', { ascending: false });
+
+      // Exclude sales already in closings
+      if (usedSaleIds.length > 0) {
+        query = query.not('id', 'in', `(${usedSaleIds.join(',')})`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId && !!user,
+  });
+}
+
+// Fetch all closings
+export function usePickupClosings() {
+  const { data: tenantId } = useCurrentTenantId();
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['pickup-closings', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('pickup_closings')
+        .select('*')
+        .eq('organization_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch profiles for created_by, confirmed_by_auxiliar, confirmed_by_admin
+      const userIds = new Set<string>();
+      (data || []).forEach(c => {
+        if (c.created_by) userIds.add(c.created_by);
+        if (c.confirmed_by_auxiliar) userIds.add(c.confirmed_by_auxiliar);
+        if (c.confirmed_by_admin) userIds.add(c.confirmed_by_admin);
+      });
+
+      let profilesMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+      if (userIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', Array.from(userIds));
+
+        profilesMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+          return acc;
+        }, {} as typeof profilesMap);
+      }
+
+      return (data || []).map(c => ({
+        ...c,
+        status: c.status as PickupClosing['status'],
+        creator_profile: c.created_by ? profilesMap[c.created_by] : undefined,
+        auxiliar_profile: c.confirmed_by_auxiliar ? profilesMap[c.confirmed_by_auxiliar] : undefined,
+        admin_profile: c.confirmed_by_admin ? profilesMap[c.confirmed_by_admin] : undefined,
+      })) as PickupClosing[];
+    },
+    enabled: !!tenantId && !!user,
+  });
+}
+
+// Fetch sales for a specific closing
+export function usePickupClosingSales(closingId: string | undefined) {
+  return useQuery({
+    queryKey: ['pickup-closing-sales', closingId],
+    queryFn: async () => {
+      if (!closingId) return [];
+
+      const { data, error } = await supabase
+        .from('pickup_closing_sales')
+        .select('*')
+        .eq('closing_id', closingId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data as PickupClosingSale[];
+    },
+    enabled: !!closingId,
+  });
+}
+
+interface CreateClosingData {
+  sales: Array<{
+    id: string;
+    romaneio_number?: number | null;
+    lead?: { name: string } | null;
+    total_cents?: number | null;
+    payment_method?: string | null;
+    delivered_at?: string | null;
+  }>;
+  notes?: string;
+}
+
+export function useCreatePickupClosing() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data: tenantId } = useCurrentTenantId();
+
+  return useMutation({
+    mutationFn: async ({ sales, notes }: CreateClosingData) => {
+      if (!tenantId || !user) throw new Error('Not authenticated');
+
+      // Calculate totals
+      let total_amount_cents = 0;
+      let total_card_cents = 0;
+      let total_pix_cents = 0;
+      let total_cash_cents = 0;
+      let total_other_cents = 0;
+
+      sales.forEach(sale => {
+        const amount = sale.total_cents || 0;
+        total_amount_cents += amount;
+
+        const method = (sale.payment_method || '').toLowerCase();
+        if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || method.includes('credito') || method.includes('débito') || method.includes('debito')) {
+          total_card_cents += amount;
+        } else if (method.includes('pix')) {
+          total_pix_cents += amount;
+        } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie')) {
+          total_cash_cents += amount;
+        } else {
+          total_other_cents += amount;
+        }
+      });
+
+      // Create the closing
+      const { data: closing, error: closingError } = await supabase
+        .from('pickup_closings')
+        .insert({
+          organization_id: tenantId,
+          closing_date: new Date().toISOString().split('T')[0],
+          total_sales: sales.length,
+          total_amount_cents,
+          total_card_cents,
+          total_pix_cents,
+          total_cash_cents,
+          total_other_cents,
+          created_by: user.id,
+          notes,
+        })
+        .select()
+        .single();
+
+      if (closingError) throw closingError;
+
+      // Insert all sales into the closing
+      const closingSales = sales.map(sale => ({
+        closing_id: closing.id,
+        sale_id: sale.id,
+        organization_id: tenantId,
+        sale_number: sale.romaneio_number ? String(sale.romaneio_number) : null,
+        lead_name: sale.lead?.name || null,
+        total_cents: sale.total_cents || null,
+        payment_method: sale.payment_method || null,
+        delivered_at: sale.delivered_at || null,
+      }));
+
+      const { error: salesError } = await supabase
+        .from('pickup_closing_sales')
+        .insert(closingSales);
+
+      if (salesError) throw salesError;
+
+      // No need to update sales - they're tracked in pickup_closing_sales
+
+      return closing;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pickup-closings'] });
+      queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+    },
+  });
+}
+
+interface ConfirmClosingData {
+  closingId: string;
+  type: 'auxiliar' | 'admin';
+}
+
+export function useConfirmPickupClosing() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ closingId, type }: ConfirmClosingData) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const updateData = type === 'auxiliar'
+        ? {
+            confirmed_by_auxiliar: user.id,
+            confirmed_at_auxiliar: new Date().toISOString(),
+            status: 'confirmed_auxiliar',
+          }
+        : {
+            confirmed_by_admin: user.id,
+            confirmed_at_admin: new Date().toISOString(),
+            status: 'confirmed_final',
+          };
+
+      const { error } = await supabase
+        .from('pickup_closings')
+        .update(updateData)
+        .eq('id', closingId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pickup-closings'] });
+    },
+  });
+}
+
+// Helper to format payment method for display
+export function formatPaymentMethod(method: string | null): string {
+  if (!method) return 'Não informado';
+  const lower = method.toLowerCase();
+  if (lower.includes('pix')) return 'PIX';
+  if (lower.includes('dinheiro') || lower.includes('cash') || lower.includes('especie')) return 'Dinheiro';
+  if (lower.includes('cartao') || lower.includes('cartão') || lower.includes('card')) {
+    if (lower.includes('credito') || lower.includes('crédito')) return 'Cartão Crédito';
+    if (lower.includes('debito') || lower.includes('débito')) return 'Cartão Débito';
+    return 'Cartão';
+  }
+  if (lower.includes('boleto')) return 'Boleto';
+  return method;
+}
