@@ -14762,6 +14762,7 @@ export type Database = {
           team_change_role: boolean
           team_delete_member: boolean
           team_edit_member: boolean
+          team_panel_view: boolean
           team_toggle_manager: boolean
           team_view: boolean
           updated_at: string
@@ -14836,6 +14837,7 @@ export type Database = {
           team_change_role?: boolean
           team_delete_member?: boolean
           team_edit_member?: boolean
+          team_panel_view?: boolean
           team_toggle_manager?: boolean
           team_view?: boolean
           updated_at?: string
@@ -14910,6 +14912,7 @@ export type Database = {
           team_change_role?: boolean
           team_delete_member?: boolean
           team_edit_member?: boolean
+          team_panel_view?: boolean
           team_toggle_manager?: boolean
           team_view?: boolean
           updated_at?: string

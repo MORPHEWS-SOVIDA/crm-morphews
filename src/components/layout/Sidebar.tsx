@@ -70,6 +70,7 @@ export function Sidebar() {
   const canSeeDashboardFunnel = isAdmin || permissions?.dashboard_funnel_view;
   const canSeeDashboardKanban = isAdmin || permissions?.dashboard_kanban_view;
   const canSeeSellerPanel = isAdmin || permissions?.seller_panel_view;
+  const canSeeTeamPanel = isAdmin || permissions?.team_panel_view;
   const canSeeSalesDashboard = isAdmin || permissions?.sales_dashboard_view;
   const canSeeLeads = isAdmin || permissions?.leads_view;
   const canCreateLeads = (isAdmin || permissions?.leads_create) && !permissions?.leads_hide_new_button;
@@ -112,6 +113,9 @@ export function Sidebar() {
     
     // Seller Panel - personal seller dashboard
     { icon: User, label: 'Meu Painel', path: '/meu-painel', visible: canSeeSellerPanel && canSeeSales && hasFeature('seller_panel') },
+    
+    // Team Manager Panel - team overview dashboard
+    { icon: UsersRound, label: 'Painel da Equipe', path: '/time-painel', visible: canSeeTeamPanel && hasFeature('team_panel') },
     
     // Receptivo (special module) - requires receptive feature in plan
     { icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo', visible: canSeeReceptive && hasFeature('receptive') },
