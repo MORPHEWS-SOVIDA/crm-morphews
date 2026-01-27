@@ -113,8 +113,8 @@ export function PartnersList({ partners, partnerType, isLoading, onInvite }: Par
         >
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium">
-                {partner.virtual_account?.holder_name || 'Parceiro'}
+              <span className={`font-medium ${!partner.virtual_account?.holder_name ? 'text-muted-foreground italic' : ''}`}>
+                {partner.virtual_account?.holder_name || 'Sem nome cadastrado'}
               </span>
               
               {partner.virtual_account?.user_id && (
@@ -129,8 +129,8 @@ export function PartnersList({ partners, partnerType, isLoading, onInvite }: Par
               )}
             </div>
             
-            <div className="text-sm text-muted-foreground">
-              {partner.virtual_account?.holder_email}
+            <div className={`text-sm ${!partner.virtual_account?.holder_email ? 'text-muted-foreground italic' : 'text-muted-foreground'}`}>
+              {partner.virtual_account?.holder_email || 'E-mail não informado'}
             </div>
             
             <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
