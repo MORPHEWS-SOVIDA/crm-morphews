@@ -43,6 +43,46 @@ function isWithinBusinessHours(start: string, end: string): boolean {
   return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
 }
 
+interface AdminConfig {
+  api_url: string;
+  api_key: string;
+  instance_name: string;
+}
+
+// deno-lint-ignore no-explicit-any
+async function getAdminWhatsAppConfig(supabase: any): Promise<AdminConfig | null> {
+  try {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "admin_whatsapp_instance")
+      .single();
+
+    if (error) {
+      console.error("Error fetching admin config:", error);
+      return null;
+    }
+
+    if (data && data.value) {
+      return data.value as AdminConfig;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching admin whatsapp config:", error);
+    return null;
+  }
+}
+
+function normalizeWhatsApp(phone: string): string {
+  let clean = (phone || "").replace(/\D/g, "");
+  if (!clean) return "";
+  if (!clean.startsWith("55")) clean = `55${clean}`;
+  if (clean.length === 12 && clean.startsWith("55")) {
+    clean = clean.slice(0, 4) + "9" + clean.slice(4);
+  }
+  return clean;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -162,9 +202,10 @@ serve(async (req) => {
 
           if (lastMessage < cutoff) {
             // Time to close this conversation
+            const phoneNumber = normalizeWhatsApp(conv.chat_id?.replace("@s.whatsapp.net", "") || "");
             
             // Send closing message if configured
-            if (org.auto_close_send_message && org.auto_close_message_template) {
+            if (org.auto_close_send_message && org.auto_close_message_template && phoneNumber) {
               let messageToSend = org.auto_close_message_template;
               
               // If satisfaction survey enabled, append survey message
@@ -172,32 +213,55 @@ serve(async (req) => {
                 messageToSend += "\n\n" + org.satisfaction_survey_message;
               }
 
-              // Send message via Evolution API
+              // Send message via admin Evolution API config
               try {
-                const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
-                const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+                const adminConfig = await getAdminWhatsAppConfig(supabase);
                 
-                if (evolutionUrl && evolutionKey && instance.name) {
-                  await fetch(`${evolutionUrl}/message/sendText/${instance.name}`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "apikey": evolutionKey,
-                    },
-                    body: JSON.stringify({
-                      number: conv.chat_id?.replace("@s.whatsapp.net", ""),
-                      text: messageToSend,
-                    }),
-                  });
+                if (adminConfig?.api_url && adminConfig?.api_key) {
+                  // Get the evolution instance name from the instance record
+                  const { data: instanceData } = await supabase
+                    .from("whatsapp_instances")
+                    .select("evolution_instance_id")
+                    .eq("id", instance.id)
+                    .single();
+                  
+                  const evolutionInstanceName = (instanceData as any)?.evolution_instance_id || instance.name;
+                  
+                  if (evolutionInstanceName) {
+                    const sendUrl = `${adminConfig.api_url.replace(/\/$/, "")}/message/sendText/${evolutionInstanceName}`;
+                    console.log(`[auto-close] Sending to ${phoneNumber} via ${evolutionInstanceName}`);
+                    
+                    const resp = await fetch(sendUrl, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "apikey": adminConfig.api_key,
+                      },
+                      body: JSON.stringify({
+                        number: phoneNumber,
+                        text: messageToSend,
+                      }),
+                    });
+                    
+                    if (!resp.ok) {
+                      const errorBody = await resp.text();
+                      console.error(`[auto-close] Failed to send: ${resp.status} - ${errorBody}`);
+                    } else {
+                      console.log(`[auto-close] Message sent successfully to ${phoneNumber}`);
+                    }
+                  }
+                } else {
+                  console.warn("[auto-close] No admin WhatsApp config found, cannot send message");
                 }
               } catch (e) {
-                console.error("Error sending close message:", e);
+                console.error("[auto-close] Error sending close message:", e);
               }
             }
 
-            // Update conversation status
+            // Update conversation status - ALWAYS close when survey sent
             const updateData: Record<string, unknown> = {
-              status: org.satisfaction_survey_enabled ? conv.status : "closed",
+              status: "closed", // Always set to closed
+              closed_at: now.toISOString(),
               awaiting_satisfaction_response: org.satisfaction_survey_enabled,
               satisfaction_sent_at: org.satisfaction_survey_enabled ? now.toISOString() : null,
             };
