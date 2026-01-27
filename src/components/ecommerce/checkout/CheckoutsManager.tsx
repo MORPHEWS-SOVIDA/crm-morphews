@@ -193,9 +193,9 @@ export function CheckoutsManager() {
               <CardContent className="space-y-3">
                 {/* Product info */}
                 <div className="flex items-center gap-3">
-                  {checkout.product?.images?.[0] && (
+                  {(checkout.product?.ecommerce_images?.[0] || checkout.product?.image_url) && (
                     <img 
-                      src={checkout.product.images[0]} 
+                      src={checkout.product.ecommerce_images?.[0] || checkout.product.image_url || ''} 
                       alt={checkout.product.name}
                       className="h-12 w-12 rounded object-cover"
                     />

@@ -346,9 +346,9 @@ export default function PublicCheckoutPage() {
                 <CardContent className="space-y-4">
                   {/* Main Product */}
                   <div className="flex gap-3">
-                    {checkout.product?.images?.[0] && (
+                    {(checkout.product?.ecommerce_images?.[0] || checkout.product?.image_url) && (
                       <img 
-                        src={checkout.product.images[0]} 
+                        src={checkout.product.ecommerce_images?.[0] || checkout.product.image_url || ''} 
                         alt={checkout.product.name}
                         className="h-20 w-20 rounded-lg object-cover"
                       />
