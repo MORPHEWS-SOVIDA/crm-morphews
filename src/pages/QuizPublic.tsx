@@ -266,8 +266,9 @@ export default function QuizPublic() {
     if (currentStep.result_cta_type === 'url' && currentStep.result_cta_url) {
       window.location.href = currentStep.result_cta_url;
     } else if (currentStep.result_cta_type === 'whatsapp') {
+      const phone = currentStep.result_whatsapp_number || '';
       const message = encodeURIComponent(currentStep.result_whatsapp_message || '');
-      window.location.href = `https://wa.me/?text=${message}`;
+      window.location.href = `https://wa.me/${phone}?text=${message}`;
     }
   };
 
