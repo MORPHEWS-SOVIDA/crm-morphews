@@ -8787,6 +8787,8 @@ export type Database = {
           linked_checkout_id: string | null
           linked_landing_id: string | null
           linked_product_id: string | null
+          linked_quiz_id: string | null
+          linked_storefront_id: string | null
           organization_id: string
           partner_type: string
           responsible_for_chargebacks: boolean | null
@@ -8804,6 +8806,8 @@ export type Database = {
           linked_checkout_id?: string | null
           linked_landing_id?: string | null
           linked_product_id?: string | null
+          linked_quiz_id?: string | null
+          linked_storefront_id?: string | null
           organization_id: string
           partner_type: string
           responsible_for_chargebacks?: boolean | null
@@ -8821,6 +8825,8 @@ export type Database = {
           linked_checkout_id?: string | null
           linked_landing_id?: string | null
           linked_product_id?: string | null
+          linked_quiz_id?: string | null
+          linked_storefront_id?: string | null
           organization_id?: string
           partner_type?: string
           responsible_for_chargebacks?: boolean | null
@@ -8848,6 +8854,20 @@ export type Database = {
             columns: ["linked_product_id"]
             isOneToOne: false
             referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_associations_linked_quiz_id_fkey"
+            columns: ["linked_quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_associations_linked_storefront_id_fkey"
+            columns: ["linked_storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
             referencedColumns: ["id"]
           },
           {

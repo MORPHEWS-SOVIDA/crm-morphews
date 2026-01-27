@@ -1,19 +1,14 @@
 import { useState } from 'react';
-import { Users, Plus, Trash2, Copy, Link2, Info } from 'lucide-react';
+import { Users, Copy, Link2, Info, Percent, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,18 +24,24 @@ interface AffiliatesTabProps {
   onAttributionModelChange?: (model: string) => void;
 }
 
-interface AffiliateLink {
+interface AffiliateData {
   id: string;
   affiliate_code: string;
   partner_type: string;
   commission_type: string;
   commission_value: number;
   is_active: boolean;
+  virtual_account_id: string;
   virtual_account: {
     id: string;
     holder_name: string;
     holder_email: string;
   } | null;
+}
+
+interface LinkedAffiliate extends AffiliateData {
+  linkId: string;
+  customCommissionValue?: number;
 }
 
 function formatCommission(type: string, value: number) {
@@ -74,7 +75,7 @@ function useAssetAffiliates(assetType: AssetType, assetId: string | null) {
 
   return useQuery({
     queryKey: ['asset-affiliates', assetType, assetId],
-    queryFn: async (): Promise<AffiliateLink[]> => {
+    queryFn: async (): Promise<LinkedAffiliate[]> => {
       if (!assetId || !profile?.organization_id) return [];
 
       let query = supabase
@@ -86,10 +87,10 @@ function useAssetAffiliates(assetType: AssetType, assetId: string | null) {
           commission_type,
           commission_value,
           is_active,
+          virtual_account_id,
           virtual_account:virtual_accounts(id, holder_name, holder_email)
         `)
-        .eq('organization_id', profile.organization_id)
-        .eq('partner_type', 'affiliate');
+        .eq('organization_id', profile.organization_id);
 
       // Apply the correct filter based on asset type
       if (assetType === 'checkout') {
@@ -97,32 +98,35 @@ function useAssetAffiliates(assetType: AssetType, assetId: string | null) {
       } else if (assetType === 'landing') {
         query = query.eq('linked_landing_id', assetId);
       } else if (assetType === 'storefront') {
-        // Storefront linking not yet supported in DB
-        return [];
+        query = query.eq('linked_storefront_id', assetId);
       } else if (assetType === 'quiz') {
-        // Quiz linking not yet supported in DB
-        return [];
+        query = query.eq('linked_quiz_id', assetId);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      return (data || []) as unknown as AffiliateLink[];
+      
+      return (data || []).map((item: any) => ({
+        ...item,
+        linkId: item.id,
+        customCommissionValue: item.commission_value,
+      })) as LinkedAffiliate[];
     },
     enabled: !!assetId && !!profile?.organization_id,
   });
 }
 
-// Hook para buscar todos os afiliados da org (sem vínculo específico)
+// Hook para buscar todos os afiliados da org (sem vínculo específico - gerais)
 function useOrganizationAffiliates() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['organization-affiliates-general', profile?.organization_id],
-    queryFn: async () => {
+    queryKey: ['organization-affiliates-all', profile?.organization_id],
+    queryFn: async (): Promise<AffiliateData[]> => {
       if (!profile?.organization_id) return [];
 
-      // Buscar afiliados que NÃO têm vínculo específico (são "gerais")
+      // Buscar afiliados gerais (sem vínculo específico)
       const { data, error } = await supabase
         .from('partner_associations')
         .select(`
@@ -131,20 +135,20 @@ function useOrganizationAffiliates() {
           partner_type,
           commission_type,
           commission_value,
-          linked_checkout_id,
-          linked_landing_id,
-          linked_product_id,
           is_active,
+          virtual_account_id,
           virtual_account:virtual_accounts(id, holder_name, holder_email)
         `)
         .eq('organization_id', profile.organization_id)
         .eq('partner_type', 'affiliate')
         .eq('is_active', true)
         .is('linked_checkout_id', null)
-        .is('linked_landing_id', null);
+        .is('linked_landing_id', null)
+        .is('linked_storefront_id', null)
+        .is('linked_quiz_id', null);
 
       if (error) throw error;
-      return data as unknown as AffiliateLink[];
+      return (data || []) as unknown as AffiliateData[];
     },
     enabled: !!profile?.organization_id,
   });
@@ -162,72 +166,82 @@ export function AffiliatesTab({
   const columnName = getLinkedColumnName(assetType);
   
   const { data: linkedAffiliates, isLoading } = useAssetAffiliates(assetType, assetId);
-  const { data: allAffiliates } = useOrganizationAffiliates();
+  const { data: allAffiliates, isLoading: isLoadingAll } = useOrganizationAffiliates();
   
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedAffiliateId, setSelectedAffiliateId] = useState<string>('');
+  // Estado para edição de comissão
+  const [editingCommission, setEditingCommission] = useState<string | null>(null);
+  const [commissionValue, setCommissionValue] = useState<string>('');
 
-  // Link affiliate mutation
-  const linkAffiliate = useMutation({
-    mutationFn: async ({ affiliateId }: { affiliateId: string }) => {
+  // Set de IDs de afiliados já vinculados
+  const linkedVirtualAccountIds = new Set(
+    linkedAffiliates?.map(la => la.virtual_account?.id).filter(Boolean) || []
+  );
+
+  // Toggle affiliate mutation
+  const toggleAffiliate = useMutation({
+    mutationFn: async ({ affiliate, isLinked }: { affiliate: AffiliateData; isLinked: boolean }) => {
       if (!profile?.organization_id) throw new Error('No organization');
 
-      // Fetch the affiliate
-      const { data: affiliate, error: fetchError } = await supabase
-        .from('partner_associations')
-        .select('*')
-        .eq('id', affiliateId)
-        .single();
+      if (isLinked) {
+        // Remove - encontrar o link e deletar
+        const link = linkedAffiliates?.find(la => la.virtual_account?.id === affiliate.virtual_account?.id);
+        if (link) {
+          const { error } = await supabase
+            .from('partner_associations')
+            .delete()
+            .eq('id', link.linkId);
+          if (error) throw error;
+        }
+      } else {
+        // Adicionar - criar nova associação
+        const insertData = {
+          virtual_account_id: affiliate.virtual_account_id,
+          organization_id: profile.organization_id,
+          partner_type: 'affiliate' as const,
+          commission_type: affiliate.commission_type,
+          commission_value: affiliate.commission_value,
+          affiliate_code: affiliate.affiliate_code,
+          is_active: true,
+          linked_checkout_id: assetType === 'checkout' ? assetId : null,
+          linked_landing_id: assetType === 'landing' ? assetId : null,
+          linked_storefront_id: assetType === 'storefront' ? assetId : null,
+          linked_quiz_id: assetType === 'quiz' ? assetId : null,
+        };
 
-      if (fetchError) throw fetchError;
+        const { error } = await supabase
+          .from('partner_associations')
+          .insert([insertData]);
 
-      // Create new association linked to this specific asset
-      const insertData = {
-        virtual_account_id: affiliate.virtual_account_id,
-        organization_id: profile.organization_id,
-        partner_type: 'affiliate' as const,
-        commission_type: affiliate.commission_type,
-        commission_value: affiliate.commission_value,
-        affiliate_code: affiliate.affiliate_code,
-        is_active: true,
-        linked_checkout_id: assetType === 'checkout' ? assetId : null,
-        linked_landing_id: assetType === 'landing' ? assetId : null,
-        linked_product_id: null,
-      };
-
-      const { error } = await supabase
-        .from('partner_associations')
-        .insert(insertData);
-
-      if (error) throw error;
+        if (error) throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, { isLinked }) => {
       queryClient.invalidateQueries({ queryKey: ['asset-affiliates', assetType, assetId] });
-      toast.success('Afiliado vinculado!');
-      setShowAddDialog(false);
-      setSelectedAffiliateId('');
+      toast.success(isLinked ? 'Afiliado removido' : 'Afiliado vinculado!');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Erro ao vincular afiliado');
+      console.error('Toggle affiliate error:', error);
+      toast.error(error.message || 'Erro ao atualizar afiliado');
     },
   });
 
-  // Unlink affiliate mutation
-  const unlinkAffiliate = useMutation({
-    mutationFn: async (linkId: string) => {
+  // Update commission mutation
+  const updateCommission = useMutation({
+    mutationFn: async ({ linkId, newValue }: { linkId: string; newValue: number }) => {
       const { error } = await supabase
         .from('partner_associations')
-        .delete()
+        .update({ commission_value: newValue })
         .eq('id', linkId);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['asset-affiliates', assetType, assetId] });
-      toast.success('Afiliado removido');
+      toast.success('Comissão atualizada!');
+      setEditingCommission(null);
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Erro ao remover afiliado');
+      toast.error(error.message || 'Erro ao atualizar comissão');
     },
   });
 
@@ -238,10 +252,14 @@ export function AffiliatesTab({
     toast.success('Link copiado!');
   };
 
-  // Afiliados que ainda não estão vinculados a este asset
-  const availableAffiliates = allAffiliates?.filter(
-    (a) => !linkedAffiliates?.some(la => la.virtual_account?.id === a.virtual_account?.id)
-  ) || [];
+  const handleSaveCommission = (linkId: string) => {
+    const value = parseFloat(commissionValue);
+    if (isNaN(value) || value < 0) {
+      toast.error('Valor de comissão inválido');
+      return;
+    }
+    updateCommission.mutate({ linkId, newValue: value });
+  };
 
   const assetTypeLabel = {
     checkout: 'Checkout',
@@ -249,6 +267,9 @@ export function AffiliatesTab({
     storefront: 'Loja',
     quiz: 'Quiz',
   }[assetType];
+
+  // Combinar afiliados gerais com os já vinculados para mostrar lista completa
+  const allAffiliatesList = allAffiliates || [];
 
   return (
     <div className="space-y-6">
@@ -295,142 +316,206 @@ export function AffiliatesTab({
         </Card>
       )}
 
-      {/* Linked Affiliates */}
+      {/* Lista de Afiliados com Checkboxes */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Afiliados Vinculados
+                Afiliados Disponíveis
               </CardTitle>
               <CardDescription>
-                Afiliados que podem promover este {assetTypeLabel.toLowerCase()}
+                Marque os afiliados que podem promover este {assetTypeLabel.toLowerCase()}
               </CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Adicionar
-            </Button>
+            <Badge variant="outline" className="text-xs">
+              {linkedAffiliates?.length || 0} vinculados
+            </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading || isLoadingAll ? (
             <div className="space-y-3">
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
-          ) : linkedAffiliates?.length === 0 ? (
+          ) : allAffiliatesList.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">
               <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Nenhum afiliado vinculado</p>
-              <p className="text-xs">Adicione afiliados para que possam promover este {assetTypeLabel.toLowerCase()}</p>
+              <p className="text-sm">Nenhum afiliado cadastrado</p>
+              <p className="text-xs">Cadastre afiliados em E-commerce → Parceiros primeiro</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {linkedAffiliates?.map((affiliate) => (
-                <div
-                  key={affiliate.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="space-y-1">
+            <div className="space-y-2">
+              {allAffiliatesList.map((affiliate) => {
+                const isLinked = linkedVirtualAccountIds.has(affiliate.virtual_account?.id);
+                const linkedData = linkedAffiliates?.find(
+                  la => la.virtual_account?.id === affiliate.virtual_account?.id
+                );
+                const isEditing = editingCommission === linkedData?.linkId;
+
+                return (
+                  <div
+                    key={affiliate.id}
+                    className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                      isLinked 
+                        ? 'bg-primary/5 border-primary/30' 
+                        : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={isLinked}
+                        onCheckedChange={() => {
+                          toggleAffiliate.mutate({ affiliate, isLinked });
+                        }}
+                        disabled={toggleAffiliate.isPending}
+                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            {affiliate.virtual_account?.holder_name || 'Afiliado'}
+                          </span>
+                          {isLinked && (
+                            <Check className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {affiliate.virtual_account?.holder_email}
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        {affiliate.virtual_account?.holder_name || 'Afiliado'}
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {formatCommission(affiliate.commission_type, affiliate.commission_value)}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {affiliate.virtual_account?.holder_email}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <Link2 className="h-3 w-3" />
-                      <code className="bg-muted px-1.5 py-0.5 rounded">
-                        ?ref={affiliate.affiliate_code}
-                      </code>
+                      {isLinked && linkedData && (
+                        <>
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={commissionValue}
+                                onChange={(e) => setCommissionValue(e.target.value)}
+                                className="w-20 h-8 text-sm"
+                                placeholder="%"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleSaveCommission(linkedData.linkId)}
+                                disabled={updateCommission.isPending}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingCommission(null)}
+                              >
+                                ✕
+                              </Button>
+                            </div>
+                          ) : (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 gap-1 text-xs"
+                                    onClick={() => {
+                                      setEditingCommission(linkedData.linkId);
+                                      setCommissionValue(String(linkedData.customCommissionValue || linkedData.commission_value));
+                                    }}
+                                  >
+                                    <Percent className="h-3 w-3" />
+                                    {formatCommission(linkedData.commission_type, linkedData.customCommissionValue || linkedData.commission_value)}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Clique para editar comissão
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => handleCopyLink(linkedData.affiliate_code)}
+                                  title="Copiar link"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Copiar link de afiliado
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
+                      )}
+                      
+                      {!isLinked && (
+                        <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">
+                          {formatCommission(affiliate.commission_type, affiliate.commission_value)}
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCopyLink(affiliate.affiliate_code)}
-                      title="Copiar link"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => unlinkAffiliate.mutate(affiliate.id)}
-                      title="Remover"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Add Affiliate Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Afiliado</DialogTitle>
-            <DialogDescription>
-              Selecione um afiliado para vincular a este {assetTypeLabel.toLowerCase()}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {availableAffiliates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Todos os afiliados já estão vinculados ou não há afiliados cadastrados.
-                <br />
-                <span className="text-xs">
-                  Cadastre afiliados em E-commerce → Afiliados antes de vinculá-los aqui.
-                </span>
-              </p>
-            ) : (
-              <Select value={selectedAffiliateId} onValueChange={setSelectedAffiliateId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um afiliado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableAffiliates.map((affiliate) => (
-                    <SelectItem key={affiliate.id} value={affiliate.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{affiliate.virtual_account?.holder_name}</span>
-                        <span className="text-muted-foreground text-xs">
-                          ({formatCommission(affiliate.commission_type, affiliate.commission_value)})
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={() => linkAffiliate.mutate({ affiliateId: selectedAffiliateId })}
-              disabled={!selectedAffiliateId || linkAffiliate.isPending}
-            >
-              {linkAffiliate.isPending ? 'Adicionando...' : 'Adicionar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Afiliados Vinculados - Links Rápidos */}
+      {linkedAffiliates && linkedAffiliates.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              Links de Divulgação
+            </CardTitle>
+            <CardDescription>
+              Links prontos para cada afiliado vinculado
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {linkedAffiliates.map((affiliate) => (
+                <div
+                  key={affiliate.linkId}
+                  className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                >
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium">{affiliate.virtual_account?.holder_name}</span>
+                    <code className="bg-background px-1.5 py-0.5 rounded text-xs border">
+                      ?ref={affiliate.affiliate_code}
+                    </code>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopyLink(affiliate.affiliate_code)}
+                    className="h-7 gap-1"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copiar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
