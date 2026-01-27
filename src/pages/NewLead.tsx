@@ -475,7 +475,7 @@ export default function NewLead() {
                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
                         {leadSources.map((source) => (
-                          <SelectItem key={source.id} value={source.name}>{source.name}</SelectItem>
+                          <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

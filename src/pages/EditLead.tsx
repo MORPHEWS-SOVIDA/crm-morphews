@@ -81,6 +81,17 @@ export default function EditLead() {
   useEffect(() => {
     if (lead) {
       const cep = lead.cep || '';
+      
+      // Resolve lead_source - could be ID or name
+      const resolveLeadSourceId = () => {
+        if (!lead.lead_source) return '';
+        const byId = leadSources.find(s => s.id === lead.lead_source);
+        if (byId) return byId.id;
+        const byName = leadSources.find(s => s.name === lead.lead_source);
+        if (byName) return byName.id;
+        return lead.lead_source;
+      };
+      
       setFormData({
         name: lead.name || '',
         specialty: lead.specialty || '',
@@ -104,7 +115,7 @@ export default function EditLead() {
         linkedin: lead.linkedin || '',
         cpf_cnpj: lead.cpf_cnpj || '',
         site: lead.site || '',
-        lead_source: lead.lead_source || '',
+        lead_source: resolveLeadSourceId(),
         products: lead.products || [],
         // Address fields
         cep: cep.length === 8 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep,
@@ -122,7 +133,7 @@ export default function EditLead() {
         google_maps_link: (lead as any).google_maps_link || '',
       });
     }
-  }, [lead]);
+  }, [lead, leadSources]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -518,7 +529,7 @@ export default function EditLead() {
                 </SelectTrigger>
                 <SelectContent>
                   {leadSources.map((source) => (
-                    <SelectItem key={source.id} value={source.name}>
+                    <SelectItem key={source.id} value={source.id}>
                       {source.name}
                     </SelectItem>
                   ))}

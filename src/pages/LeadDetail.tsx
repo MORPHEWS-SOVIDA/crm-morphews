@@ -104,10 +104,24 @@ export default function LeadDetail() {
     label: `${user.first_name} ${user.last_name}`,
   }));
 
+  // Support both ID and name for backward compatibility
   const sourceOptions = leadSources.map((source) => ({
-    value: source.name,
+    value: source.id,
     label: source.name,
   }));
+  
+  // Resolve lead_source - could be ID or name
+  const resolvedLeadSourceId = (() => {
+    if (!lead?.lead_source) return null;
+    // Check if it's already an ID (exists in sources by ID)
+    const byId = leadSources.find(s => s.id === lead.lead_source);
+    if (byId) return byId.id;
+    // Check if it's a name (exists in sources by name)
+    const byName = leadSources.find(s => s.name === lead.lead_source);
+    if (byName) return byName.id;
+    // Fallback - return as is
+    return lead.lead_source;
+  })();
 
   const productOptions = leadProducts.map((product) => ({
     value: product.name,
@@ -545,7 +559,7 @@ export default function LeadDetail() {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Origem do Lead</p>
                     <InlineSelect
-                      value={lead.lead_source}
+                      value={resolvedLeadSourceId}
                       options={sourceOptions}
                       onSave={(value) => handleUpdate('lead_source', value)}
                       displayClassName="font-medium"
