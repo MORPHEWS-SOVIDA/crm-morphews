@@ -190,6 +190,12 @@ async function createLabel(
       } catch {
         errorMsg = cartText.substring(0, 200);
       }
+      
+      // Provide clearer error messages for common issues
+      if (cartResponse.status === 401 || errorMsg.includes('Unauthenticated')) {
+        throw new Error('Token do Melhor Envio expirou ou é inválido. Acesse o painel do Melhor Envio para gerar um novo token e atualize nas configurações.');
+      }
+      
       throw new Error(errorMsg);
     }
 
