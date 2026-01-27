@@ -23,7 +23,23 @@ serve(async (req) => {
 
     // 1. Determine organization from storefront or landing page
     let organizationId: string | null = null;
-    let productItems: { product_id: string; quantity: number; price_cents: number }[] = items || [];
+    let productItems: { product_id: string; quantity: number; price_cents: number; product_name?: string; product_image_url?: string }[] = items || [];
+
+    // 1a. If cart_id is provided and items are empty, fetch items from cart
+    if (cart_id && productItems.length === 0) {
+      const { data: cart } = await supabase
+        .from('ecommerce_carts')
+        .select('items, organization_id, storefront_id')
+        .eq('id', cart_id)
+        .single();
+      
+      if (cart?.items && Array.isArray(cart.items)) {
+        productItems = cart.items as { product_id: string; quantity: number; price_cents: number }[];
+        if (!organizationId) {
+          organizationId = cart.organization_id;
+        }
+      }
+    }
 
     if (storefront_id) {
       const { data: storefront } = await supabase
@@ -53,6 +69,22 @@ serve(async (req) => {
             quantity: offer.quantity,
             price_cents: offer.price_cents,
           }];
+        }
+      }
+    }
+
+    // 1b. Enrich product items with names and images for order_items
+    const productIds = productItems.map(i => i.product_id).filter(Boolean);
+    const productMap: Record<string, { name: string; image_url?: string }> = {};
+    if (productIds.length > 0) {
+      const { data: products } = await supabase
+        .from('lead_products')
+        .select('id, name, image_url')
+        .in('id', productIds);
+      
+      if (products) {
+        for (const p of products) {
+          productMap[p.id] = { name: p.name, image_url: p.image_url };
         }
       }
     }
@@ -243,7 +275,7 @@ serve(async (req) => {
 
     // 8. Create ecommerce_order record for the Vendas Online panel
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
-    await supabase
+    const { data: orderData } = await supabase
       .from('ecommerce_orders')
       .insert({
         organization_id: organizationId,
@@ -278,7 +310,27 @@ serve(async (req) => {
         ttclid: utm?.ttclid || null,
         affiliate_id: affiliateId || null,
         payment_method: payment_method,
-      });
+      })
+      .select('id')
+      .single();
+
+    // 8b. Create ecommerce_order_items for product visibility
+    if (orderData?.id && productItems.length > 0) {
+      for (const item of productItems) {
+        const productInfo = productMap[item.product_id] || {};
+        await supabase
+          .from('ecommerce_order_items')
+          .insert({
+            order_id: orderData.id,
+            product_id: item.product_id,
+            product_name: productInfo.name || 'Produto',
+            product_image_url: productInfo.image_url || null,
+            quantity: item.quantity,
+            unit_price_cents: item.price_cents,
+            total_cents: item.price_cents * item.quantity,
+          });
+      }
+    }
 
     // 9. Convert cart if exists
     if (cart_id) {
