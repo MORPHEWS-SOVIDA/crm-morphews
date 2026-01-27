@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { 
-  Plus, Copy, Check, X, Trash2, UserCheck, 
-  DollarSign, AlertTriangle, Wallet, Edit 
+  Plus, Check, X, Trash2, UserCheck, 
+  DollarSign, AlertTriangle, Wallet, Eye 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +25,7 @@ import {
   useUpdatePartnerAssociation,
   useDeletePartnerAssociation,
 } from '@/hooks/ecommerce/usePartners';
+import { PartnerDetailSheet } from './PartnerDetailSheet';
 
 interface PartnersListProps {
   partners: PartnerAssociation[];
@@ -43,19 +43,10 @@ function formatCurrency(cents: number) {
 
 export function PartnersList({ partners, partnerType, isLoading, onInvite }: PartnersListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<PartnerAssociation | null>(null);
   
   const updateAssociation = useUpdatePartnerAssociation();
   const deleteAssociation = useDeletePartnerAssociation();
-
-  const handleCopyLink = (code: string | null) => {
-    if (!code) {
-      toast.error('Código de afiliado não disponível');
-      return;
-    }
-    const url = `${window.location.origin}?ref=${code}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Link copiado!');
-  };
 
   const handleToggleActive = (partner: PartnerAssociation) => {
     updateAssociation.mutate(
@@ -115,9 +106,10 @@ export function PartnersList({ partners, partnerType, isLoading, onInvite }: Par
       {partners.map((partner) => (
         <div
           key={partner.id}
-          className={`flex items-center justify-between p-4 border rounded-lg transition-opacity ${
+          className={`flex items-center justify-between p-4 border rounded-lg transition-all cursor-pointer hover:border-primary/50 hover:bg-muted/30 ${
             !partner.is_active ? 'opacity-60 bg-muted/50' : ''
           }`}
+          onClick={() => setSelectedPartner(partner)}
         >
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -171,34 +163,20 @@ export function PartnersList({ partners, partnerType, isLoading, onInvite }: Par
               <span className="flex items-center gap-1">
                 <Wallet className="h-3 w-3" />
                 Saldo: {formatCurrency(partner.virtual_account?.balance_cents || 0)}
-                {(partner.virtual_account?.pending_balance_cents || 0) > 0 && (
-                  <span className="text-amber-600">
-                    (+{formatCurrency(partner.virtual_account?.pending_balance_cents || 0)} pendente)
-                  </span>
-                )}
               </span>
-
-              {/* Linked Product */}
-              {partner.product && (
-                <span>
-                  Produto: <strong>{partner.product.name}</strong>
-                </span>
-              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Copy Link (only for affiliates) */}
-            {partnerType === 'affiliate' && partner.affiliate_code && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleCopyLink(partner.affiliate_code)}
-                title="Copiar link de afiliado"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            )}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {/* View Details */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedPartner(partner)}
+              title="Ver detalhes"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
 
             {/* Toggle Active */}
             <Button
@@ -226,6 +204,13 @@ export function PartnersList({ partners, partnerType, isLoading, onInvite }: Par
           </div>
         </div>
       ))}
+
+      {/* Partner Detail Sheet */}
+      <PartnerDetailSheet
+        partner={selectedPartner}
+        open={!!selectedPartner}
+        onOpenChange={(open) => !open && setSelectedPartner(null)}
+      />
 
       {/* Delete Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
