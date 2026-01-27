@@ -926,6 +926,7 @@ export default function WhatsAppChat() {
 
   const filteredConversations = conversations.filter(c => {
     const isGroup = isGroupConversation(c);
+    const isAdmin = isAdminOfInstance(c.instance_id);
     
     // Aba "groups" mostra apenas grupos
     if (statusFilter === 'groups') {
@@ -943,16 +944,25 @@ export default function WhatsAppChat() {
     const convStatus = c.status || 'pending';
     if (convStatus !== statusFilter) return false;
     
-    // Para aba "autodistributed", mostrar TODAS as conversas da organização
-    // (removido filtro restritivo - agora todos veem as conversas autodistribuídas)
-    
-    // Para aba "assigned":
-    // - Mostrar apenas minhas conversas OU todas se for admin da instância
-    // - Usuários normais só veem suas próprias conversas atribuídas
-    if (statusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
-      // Verificar se é admin da instância para mostrar conversas de outros usuários
-      const isAdmin = isAdminOfInstance(c.instance_id);
-      if (!isAdmin) return false;
+    // ========== REGRA PRINCIPAL DE VISIBILIDADE ==========
+    // Admins de instância veem TODAS as conversas
+    // Usuários comuns só veem conversas ATRIBUÍDAS A ELES
+    if (!isAdmin) {
+      // Para conversas atribuídas: só mostrar se for do próprio usuário
+      if (convStatus === 'assigned' && c.assigned_user_id !== user?.id) {
+        return false;
+      }
+      // Para conversas pendentes/with_bot/autodistributed: só mostrar se designada para o usuário ou sem atribuição
+      // Usuários comuns NÃO veem conversas de outros em NENHUMA aba (exceto assigned próprias)
+      if (convStatus !== 'assigned') {
+        // Só mostra se: não tem designated ou designated é o próprio usuário
+        // E: não tem assigned ou assigned é o próprio usuário
+        const isDesignatedToMe = !c.designated_user_id || c.designated_user_id === user?.id;
+        const isAssignedToMe = !c.assigned_user_id || c.assigned_user_id === user?.id;
+        if (!isDesignatedToMe && !isAssignedToMe) {
+          return false;
+        }
+      }
     }
     
     // Filtro de busca por texto
@@ -966,23 +976,33 @@ export default function WhatsAppChat() {
   const mobileFilteredConversations = useMemo(() => {
     return conversations.filter(c => {
       const isGroup = isGroupConversation(c);
+      const isAdmin = isAdminOfInstance(c.instance_id);
       
       // Filtro de busca por texto primeiro
       const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
         c.phone_number.includes(searchTerm);
       if (!matchesSearch) return false;
       
-      // Se filtro é 'all', retorna tudo (exceto conversas restritas)
-      if (mobileStatusFilter === 'all') {
-        // Excluir autodistribuídas de outros usuários
-        if (c.status === 'autodistributed' && c.designated_user_id !== user?.id) {
+      // ========== REGRA PRINCIPAL DE VISIBILIDADE (Mobile) ==========
+      // Admins de instância veem TODAS as conversas
+      // Usuários comuns só veem conversas ATRIBUÍDAS A ELES
+      if (!isAdmin) {
+        // Para conversas atribuídas: só mostrar se for do próprio usuário
+        if (c.status === 'assigned' && c.assigned_user_id !== user?.id) {
           return false;
         }
-        // Excluir conversas atribuídas de outros usuários (exceto para admins)
-        if (c.status === 'assigned' && c.assigned_user_id !== user?.id) {
-          const isAdmin = isAdminOfInstance(c.instance_id);
-          if (!isAdmin) return false;
+        // Para outras conversas: só mostrar se designada/atribuída ao próprio usuário ou sem atribuição
+        if (c.status !== 'assigned') {
+          const isDesignatedToMe = !c.designated_user_id || c.designated_user_id === user?.id;
+          const isAssignedToMe = !c.assigned_user_id || c.assigned_user_id === user?.id;
+          if (!isDesignatedToMe && !isAssignedToMe) {
+            return false;
+          }
         }
+      }
+      
+      // Se filtro é 'all', retorna tudo (já filtrado por permissão acima)
+      if (mobileStatusFilter === 'all') {
         return true;
       }
       
@@ -998,16 +1018,9 @@ export default function WhatsAppChat() {
       const convStatus = c.status || 'pending';
       if (convStatus !== mobileStatusFilter) return false;
       
-      // Para aba "assigned", mostrar apenas minhas conversas OU todas se for admin da instância
-      // Usuários normais só veem suas próprias conversas atribuídas
-      if (mobileStatusFilter === 'assigned' && c.assigned_user_id !== user?.id) {
-        const isAdmin = isAdminOfInstance(c.instance_id);
-        if (!isAdmin) return false;
-      }
-      
       return true;
     });
-  }, [conversations, mobileStatusFilter, searchTerm, user?.id]);
+  }, [conversations, mobileStatusFilter, searchTerm, user?.id, userInstancePermissions]);
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
