@@ -1,12 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, BarChart3, Edit, Trash2, ExternalLink, Copy, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, BarChart3, Edit, Trash2, ExternalLink, Copy, Eye, EyeOff, Pencil } from 'lucide-react';
 import { useQuizzes, useDeleteQuiz, useUpdateQuiz, type Quiz } from '@/hooks/ecommerce/useQuizzes';
 import { QuizFormDialog } from './QuizFormDialog';
-import { QuizBuilderDialog } from './QuizBuilderDialog';
 import { QuizAnalyticsDialog } from './QuizAnalyticsDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -14,9 +14,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export function QuizManager() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
@@ -41,8 +41,8 @@ export function QuizManager() {
   };
 
   const handleBuild = (quiz: Quiz) => {
-    setSelectedQuiz(quiz);
-    setIsBuilderOpen(true);
+    // Navigate to the full-page editor
+    navigate(`/ecommerce/quiz/edit/${quiz.id}`);
   };
 
   const handleAnalytics = (quiz: Quiz) => {
@@ -219,20 +219,11 @@ export function QuizManager() {
         onSuccess={(quiz) => {
           setIsFormOpen(false);
           if (!selectedQuiz) {
-            setSelectedQuiz(quiz);
-            setIsBuilderOpen(true);
+            // Navigate to editor for new quizzes
+            navigate(`/ecommerce/quiz/edit/${quiz.id}`);
           }
         }}
       />
-
-      {/* Builder Dialog */}
-      {selectedQuiz && (
-        <QuizBuilderDialog
-          open={isBuilderOpen}
-          onOpenChange={setIsBuilderOpen}
-          quizId={selectedQuiz.id}
-        />
-      )}
 
       {/* Analytics Dialog */}
       {selectedQuiz && (
