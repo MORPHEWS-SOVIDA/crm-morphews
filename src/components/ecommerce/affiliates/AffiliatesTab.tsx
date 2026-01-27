@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Copy, Link2, Info, Percent, Check } from 'lucide-react';
+import { Users, Copy, Link2, Info, Percent, Check, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +8,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { PartnerDetailSheet } from '@/components/ecommerce/partners/PartnerDetailSheet';
+import { partnerTypeLabels, partnerTypeColors, PartnerType } from '@/hooks/ecommerce/usePartners';
 
 export type AssetType = 'checkout' | 'landing' | 'storefront' | 'quiz';
 
@@ -117,16 +118,16 @@ function useAssetAffiliates(assetType: AssetType, assetId: string | null) {
   });
 }
 
-// Hook para buscar todos os afiliados da org (sem vínculo específico - gerais)
-function useOrganizationAffiliates() {
+// Hook para buscar todos os parceiros da org (todos os tipos - afiliados, indústrias, co-produtores, fábricas)
+function useOrganizationPartners() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['organization-affiliates-all', profile?.organization_id],
+    queryKey: ['organization-partners-all', profile?.organization_id],
     queryFn: async (): Promise<AffiliateData[]> => {
       if (!profile?.organization_id) return [];
 
-      // Buscar afiliados gerais (sem vínculo específico)
+      // Buscar parceiros gerais (sem vínculo específico) - TODOS OS TIPOS
       const { data, error } = await supabase
         .from('partner_associations')
         .select(`
@@ -140,7 +141,6 @@ function useOrganizationAffiliates() {
           virtual_account:virtual_accounts(id, holder_name, holder_email)
         `)
         .eq('organization_id', profile.organization_id)
-        .eq('partner_type', 'affiliate')
         .eq('is_active', true)
         .is('linked_checkout_id', null)
         .is('linked_landing_id', null)
@@ -166,11 +166,15 @@ export function AffiliatesTab({
   const columnName = getLinkedColumnName(assetType);
   
   const { data: linkedAffiliates, isLoading } = useAssetAffiliates(assetType, assetId);
-  const { data: allAffiliates, isLoading: isLoadingAll } = useOrganizationAffiliates();
+  const { data: allPartners, isLoading: isLoadingAll } = useOrganizationPartners();
   
   // Estado para edição de comissão
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [commissionValue, setCommissionValue] = useState<string>('');
+  
+  // Estado para ver cadastro do parceiro
+  const [selectedPartner, setSelectedPartner] = useState<AffiliateData | null>(null);
+  const [partnerSheetOpen, setPartnerSheetOpen] = useState(false);
 
   // Set de IDs de afiliados já vinculados
   const linkedVirtualAccountIds = new Set(
@@ -197,7 +201,7 @@ export function AffiliatesTab({
         const insertData = {
           virtual_account_id: affiliate.virtual_account_id,
           organization_id: profile.organization_id,
-          partner_type: 'affiliate' as const,
+          partner_type: affiliate.partner_type, // Manter o tipo original do parceiro
           commission_type: affiliate.commission_type,
           commission_value: affiliate.commission_value,
           affiliate_code: affiliate.affiliate_code,
@@ -217,7 +221,7 @@ export function AffiliatesTab({
     },
     onSuccess: (_, { isLinked }) => {
       queryClient.invalidateQueries({ queryKey: ['asset-affiliates', assetType, assetId] });
-      toast.success(isLinked ? 'Afiliado removido' : 'Afiliado vinculado!');
+      toast.success(isLinked ? 'Parceiro removido' : 'Parceiro vinculado!');
     },
     onError: (error: any) => {
       console.error('Toggle affiliate error:', error);
@@ -268,8 +272,8 @@ export function AffiliatesTab({
     quiz: 'Quiz',
   }[assetType];
 
-  // Combinar afiliados gerais com os já vinculados para mostrar lista completa
-  const allAffiliatesList = allAffiliates || [];
+  // Combinar parceiros gerais com os já vinculados para mostrar lista completa
+  const allPartnersList = allPartners || [];
 
   return (
     <div className="space-y-6">
@@ -323,10 +327,10 @@ export function AffiliatesTab({
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Afiliados Disponíveis
+                Parceiros Disponíveis
               </CardTitle>
               <CardDescription>
-                Marque os afiliados que podem promover este {assetTypeLabel.toLowerCase()}
+                Marque os parceiros que podem promover este {assetTypeLabel.toLowerCase()}
               </CardDescription>
             </div>
             <Badge variant="outline" className="text-xs">
@@ -340,24 +344,25 @@ export function AffiliatesTab({
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
-          ) : allAffiliatesList.length === 0 ? (
+          ) : allPartnersList.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">
               <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Nenhum afiliado cadastrado</p>
-              <p className="text-xs">Cadastre afiliados em E-commerce → Parceiros primeiro</p>
+              <p className="text-sm">Nenhum parceiro cadastrado</p>
+              <p className="text-xs">Cadastre parceiros em E-commerce → Parceiros primeiro</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {allAffiliatesList.map((affiliate) => {
-                const isLinked = linkedVirtualAccountIds.has(affiliate.virtual_account?.id);
+              {allPartnersList.map((partner) => {
+                const isLinked = linkedVirtualAccountIds.has(partner.virtual_account?.id);
                 const linkedData = linkedAffiliates?.find(
-                  la => la.virtual_account?.id === affiliate.virtual_account?.id
+                  la => la.virtual_account?.id === partner.virtual_account?.id
                 );
                 const isEditing = editingCommission === linkedData?.linkId;
+                const partnerType = partner.partner_type as PartnerType;
 
                 return (
                   <div
-                    key={affiliate.id}
+                    key={partner.id}
                     className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
                       isLinked 
                         ? 'bg-primary/5 border-primary/30' 
@@ -368,22 +373,25 @@ export function AffiliatesTab({
                       <Checkbox
                         checked={isLinked}
                         onCheckedChange={() => {
-                          toggleAffiliate.mutate({ affiliate, isLinked });
+                          toggleAffiliate.mutate({ affiliate: partner, isLinked });
                         }}
                         disabled={toggleAffiliate.isPending}
                         className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       />
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-foreground">
-                            {affiliate.virtual_account?.holder_name || 'Afiliado'}
+                            {partner.virtual_account?.holder_name || 'Parceiro'}
                           </span>
+                          <Badge className={`text-[10px] px-1.5 py-0 ${partnerTypeColors[partnerType] || ''}`}>
+                            {partnerTypeLabels[partnerType] || partnerType}
+                          </Badge>
                           {isLinked && (
                             <Check className="h-4 w-4 text-primary" />
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {affiliate.virtual_account?.holder_email}
+                          {partner.virtual_account?.holder_email}
                         </div>
                       </div>
                     </div>
@@ -455,7 +463,29 @@ export function AffiliatesTab({
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                Copiar link de afiliado
+                                Copiar link de divulgação
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => {
+                                    setSelectedPartner(partner);
+                                    setPartnerSheetOpen(true);
+                                  }}
+                                  title="Ver cadastro"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Ver cadastro completo
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -463,9 +493,32 @@ export function AffiliatesTab({
                       )}
                       
                       {!isLinked && (
-                        <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">
-                          {formatCommission(affiliate.commission_type, affiliate.commission_value)}
-                        </Badge>
+                        <>
+                          <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">
+                            {formatCommission(partner.commission_type, partner.commission_value)}
+                          </Badge>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => {
+                                    setSelectedPartner(partner);
+                                    setPartnerSheetOpen(true);
+                                  }}
+                                  title="Ver cadastro"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Ver cadastro completo
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
                       )}
                     </div>
                   </div>
@@ -476,7 +529,7 @@ export function AffiliatesTab({
         </CardContent>
       </Card>
 
-      {/* Afiliados Vinculados - Links Rápidos */}
+      {/* Parceiros Vinculados - Links Rápidos */}
       {linkedAffiliates && linkedAffiliates.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -485,36 +538,51 @@ export function AffiliatesTab({
               Links de Divulgação
             </CardTitle>
             <CardDescription>
-              Links prontos para cada afiliado vinculado
+              Links prontos para cada parceiro vinculado
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {linkedAffiliates.map((affiliate) => (
-                <div
-                  key={affiliate.linkId}
-                  className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
-                >
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">{affiliate.virtual_account?.holder_name}</span>
-                    <code className="bg-background px-1.5 py-0.5 rounded text-xs border">
-                      ?ref={affiliate.affiliate_code}
-                    </code>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopyLink(affiliate.affiliate_code)}
-                    className="h-7 gap-1"
+              {linkedAffiliates.map((affiliate) => {
+                const partnerType = affiliate.partner_type as PartnerType;
+                return (
+                  <div
+                    key={affiliate.linkId}
+                    className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
                   >
-                    <Copy className="h-3 w-3" />
-                    Copiar
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium">{affiliate.virtual_account?.holder_name || 'Parceiro'}</span>
+                      <Badge className={`text-[10px] px-1.5 py-0 ${partnerTypeColors[partnerType] || ''}`}>
+                        {partnerTypeLabels[partnerType] || partnerType}
+                      </Badge>
+                      <code className="bg-background px-1.5 py-0.5 rounded text-xs border">
+                        ?ref={affiliate.affiliate_code}
+                      </code>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyLink(affiliate.affiliate_code)}
+                      className="h-7 gap-1"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copiar
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Partner Detail Sheet */}
+      {selectedPartner && (
+        <PartnerDetailSheet
+          partner={selectedPartner as unknown as import('@/hooks/ecommerce/usePartners').PartnerAssociation}
+          open={partnerSheetOpen}
+          onOpenChange={setPartnerSheetOpen}
+        />
       )}
     </div>
   );
