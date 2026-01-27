@@ -44,6 +44,7 @@ import logoMorphews from '@/assets/logo-morphews.png';
 import donnaAvatar from '@/assets/donna-avatar.png';
 import { useState } from 'react';
 import { DonnaHelperPanel } from '@/components/helper/DonnaHelperPanel';
+import { AnimatePresence } from 'framer-motion';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -303,9 +304,11 @@ export function Sidebar() {
       </aside>
 
       {/* Donna Panel */}
-      {isDonnaOpen && (
-        <DonnaHelperPanel onClose={() => setIsDonnaOpen(false)} />
-      )}
+      <AnimatePresence>
+        {isDonnaOpen && (
+          <DonnaHelperPanel onClose={() => setIsDonnaOpen(false)} />
+        )}
+      </AnimatePresence>
     </>
   );
 }
