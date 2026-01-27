@@ -32,13 +32,24 @@ function extractRating(text: string): number | null {
 }
 
 function isWithinBusinessHours(start: string, end: string): boolean {
+  // Get current time in Brazil/Sao_Paulo timezone (UTC-3)
   const now = new Date();
+  const brasiliaOffset = -3; // UTC-3
+  const utcHours = now.getUTCHours();
+  const utcMinutes = now.getUTCMinutes();
+  
+  // Convert to Brasilia time
+  let brasiliaHours = utcHours + brasiliaOffset;
+  if (brasiliaHours < 0) brasiliaHours += 24;
+  
   const [startH, startM] = start.split(':').map(Number);
   const [endH, endM] = end.split(':').map(Number);
   
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = brasiliaHours * 60 + utcMinutes;
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
+  
+  console.log(`[auto-close] Business hours check: current=${brasiliaHours}:${utcMinutes} (Brasilia), range=${start}-${end}`);
   
   return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
 }
@@ -185,19 +196,23 @@ serve(async (req) => {
 
       const botCutoff = new Date(now.getTime() - (org.auto_close_bot_minutes || 60) * 60 * 1000);
       const assignedCutoff = new Date(now.getTime() - (org.auto_close_assigned_minutes || 480) * 60 * 1000);
+      
+      console.log(`[auto-close] Org ${org.id}: botCutoff=${botCutoff.toISOString()}, assignedCutoff=${assignedCutoff.toISOString()}, instances=${instances?.length || 0}`);
 
       for (const instance of instances || []) {
         // Get conversations to close for this instance
+        // Note: status is "with_bot" in DB, not just "bot"
         const { data: conversationsToClose } = await supabase
           .from("whatsapp_conversations")
           .select("id, status, assigned_user_id, lead_id, chat_id, organization_id, last_message_at")
           .or(`instance_id.eq.${instance.id},current_instance_id.eq.${instance.id}`)
-          .in("status", ["pending", "assigned", "bot"])
+          .in("status", ["pending", "assigned", "with_bot"])
           .eq("awaiting_satisfaction_response", false);
-
+        console.log(`[auto-close] Instance ${instance.name}: found ${conversationsToClose?.length || 0} conversations to check`);
+        
         for (const conv of conversationsToClose || []) {
           const lastMessage = new Date(conv.last_message_at || 0);
-          const isBotConversation = conv.status === "bot";
+          const isBotConversation = conv.status === "with_bot";
           const cutoff = isBotConversation ? botCutoff : assignedCutoff;
 
           if (lastMessage < cutoff) {
