@@ -906,24 +906,48 @@ export function useMyDeliveries() {
 
       if (error) throw error;
 
-      // Get lead IDs to fetch primary addresses
-      const leadIds = (data || []).map(s => s.lead?.id).filter(Boolean) as string[];
-      
-      // Fetch primary addresses from lead_addresses table
-      let addressMap: Record<string, { street: string; street_number: string; complement: string | null; neighborhood: string; city: string; state: string; cep: string; delivery_notes: string | null; google_maps_link: string | null }> = {};
-      
+      const isBlank = (v: unknown) => typeof v !== 'string' || v.trim().length === 0;
+
+      // Get lead IDs to fetch addresses (fallback chain: shipping_address_id -> primary -> first)
+      const leadIds = (data || [])
+        .map((s) => (s.lead?.id ?? (s as any).lead_id) as string | null | undefined)
+        .filter(Boolean) as string[];
+
+      type LeadAddressRow = {
+        id: string;
+        lead_id: string;
+        is_primary: boolean | null;
+        street: string | null;
+        street_number: string | null;
+        complement: string | null;
+        neighborhood: string | null;
+        city: string | null;
+        state: string | null;
+        cep: string | null;
+        delivery_notes: string | null;
+        google_maps_link: string | null;
+        created_at: string;
+      };
+
+      let bestAddressByLeadId: Record<string, LeadAddressRow> = {};
+      let addressById: Record<string, LeadAddressRow> = {};
+
       if (leadIds.length > 0) {
         const { data: addresses } = await supabase
           .from('lead_addresses')
-          .select('lead_id, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')
+          .select(
+            'id, lead_id, is_primary, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link, created_at'
+          )
           .in('lead_id', leadIds)
-          .eq('is_primary', true);
-        
-        if (addresses) {
-          addressMap = addresses.reduce((acc, addr) => {
-            acc[addr.lead_id] = addr;
-            return acc;
-          }, {} as typeof addressMap);
+          .order('is_primary', { ascending: false })
+          .order('created_at', { ascending: true });
+
+        const rows = (addresses || []) as unknown as LeadAddressRow[];
+
+        // First row per lead_id after ordering = best candidate (primary first, then oldest)
+        for (const addr of rows) {
+          addressById[addr.id] = addr;
+          if (!bestAddressByLeadId[addr.lead_id]) bestAddressByLeadId[addr.lead_id] = addr;
         }
       }
 
@@ -934,21 +958,33 @@ export function useMyDeliveries() {
           .select('*')
           .eq('sale_id', sale.id);
         
-        // If lead has no direct address, use primary address from lead_addresses
+        // Resolve address:
+        // 1) sale.shipping_address_id (authoritative when present)
+        // 2) lead primary address
+        // 3) first address for the lead
         let lead = sale.lead;
-        if (lead && !lead.street && addressMap[lead.id]) {
-          const primaryAddr = addressMap[lead.id];
+        const leadId = (lead?.id ?? (sale as any).lead_id) as string | undefined;
+        const shippingAddressId = ((sale as any).shipping_address_id as string | null | undefined) || undefined;
+
+        const resolvedAddr =
+          (shippingAddressId ? addressById[shippingAddressId] : undefined) ||
+          (leadId ? bestAddressByLeadId[leadId] : undefined);
+
+        const shouldOverrideFromResolved =
+          !!shippingAddressId || (lead ? isBlank(lead.street) : true);
+
+        if (lead && resolvedAddr && shouldOverrideFromResolved) {
           lead = {
             ...lead,
-            street: primaryAddr.street,
-            street_number: primaryAddr.street_number,
-            complement: primaryAddr.complement,
-            neighborhood: primaryAddr.neighborhood,
-            city: primaryAddr.city,
-            state: primaryAddr.state,
-            cep: primaryAddr.cep,
-            delivery_notes: primaryAddr.delivery_notes || lead.delivery_notes,
-            google_maps_link: primaryAddr.google_maps_link || lead.google_maps_link,
+            street: resolvedAddr.street ?? lead.street,
+            street_number: resolvedAddr.street_number ?? lead.street_number,
+            complement: resolvedAddr.complement ?? lead.complement,
+            neighborhood: resolvedAddr.neighborhood ?? lead.neighborhood,
+            city: resolvedAddr.city ?? lead.city,
+            state: resolvedAddr.state ?? lead.state,
+            cep: resolvedAddr.cep ?? lead.cep,
+            delivery_notes: resolvedAddr.delivery_notes || lead.delivery_notes,
+            google_maps_link: resolvedAddr.google_maps_link || lead.google_maps_link,
           };
         }
         
