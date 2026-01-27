@@ -38,6 +38,8 @@ import {
 } from '@/hooks/ecommerce/useStandaloneCheckouts';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckoutAffiliatesTab } from './CheckoutAffiliatesTab';
+import { CheckoutPartnersTab } from './CheckoutPartnersTab';
+import { Factory } from 'lucide-react';
 
 interface CheckoutBuilderDialogProps {
   open: boolean;
@@ -70,7 +72,19 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
   const [attributionModel, setAttributionModel] = useState<string>(checkout.attribution_model || 'last_click');
   const [activeTab, setActiveTab] = useState('elements');
   const [organizationId, setOrganizationId] = useState<string>('');
-
+  
+  // Partners state
+  const [partnersData, setPartnersData] = useState({
+    industry_id: checkout.industry_id || null,
+    industry_commission_type: (checkout.industry_commission_type || 'percentage') as 'percentage' | 'fixed',
+    industry_commission_value: checkout.industry_commission_value || 0,
+    factory_id: checkout.factory_id || null,
+    factory_commission_type: (checkout.factory_commission_type || 'fixed') as 'percentage' | 'fixed',
+    factory_commission_value: checkout.factory_commission_value || 0,
+    coproducer_id: checkout.coproducer_id || null,
+    coproducer_commission_type: (checkout.coproducer_commission_type || 'percentage') as 'percentage' | 'fixed',
+    coproducer_commission_value: checkout.coproducer_commission_value || 0,
+  });
   // New testimonial form
   const [newTestimonial, setNewTestimonial] = useState({
     author_name: '',
@@ -83,6 +97,17 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
     setElements(checkout.elements);
     setTheme(checkout.theme);
     setAttributionModel(checkout.attribution_model || 'last_click');
+    setPartnersData({
+      industry_id: checkout.industry_id || null,
+      industry_commission_type: (checkout.industry_commission_type || 'percentage') as 'percentage' | 'fixed',
+      industry_commission_value: checkout.industry_commission_value || 0,
+      factory_id: checkout.factory_id || null,
+      factory_commission_type: (checkout.factory_commission_type || 'fixed') as 'percentage' | 'fixed',
+      factory_commission_value: checkout.factory_commission_value || 0,
+      coproducer_id: checkout.coproducer_id || null,
+      coproducer_commission_type: (checkout.coproducer_commission_type || 'percentage') as 'percentage' | 'fixed',
+      coproducer_commission_value: checkout.coproducer_commission_value || 0,
+    });
     
     // Get organization ID
     supabase.from('profiles').select('organization_id').single().then(({ data }) => {
@@ -98,6 +123,7 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
       elements,
       theme,
       attribution_model: attributionModel as 'first_click' | 'last_click',
+      ...partnersData,
     });
   };
 
@@ -131,10 +157,14 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
 
         <div className="flex-1 overflow-y-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="elements">Elementos</TabsTrigger>
               <TabsTrigger value="testimonials">Depoimentos</TabsTrigger>
               <TabsTrigger value="theme">Estilo</TabsTrigger>
+              <TabsTrigger value="partners" className="flex items-center gap-1">
+                <Factory className="h-3 w-3" />
+                Parceiros
+              </TabsTrigger>
               <TabsTrigger value="affiliates" className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
                 Afiliados
@@ -680,6 +710,22 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Partners Tab (Industry, Factory, Coproducer) */}
+            <TabsContent value="partners" className="mt-4">
+              <CheckoutPartnersTab
+                industryId={partnersData.industry_id}
+                industryCommissionType={partnersData.industry_commission_type}
+                industryCommissionValue={partnersData.industry_commission_value}
+                factoryId={partnersData.factory_id}
+                factoryCommissionType={partnersData.factory_commission_type}
+                factoryCommissionValue={partnersData.factory_commission_value}
+                coproducerId={partnersData.coproducer_id}
+                coproducerCommissionType={partnersData.coproducer_commission_type}
+                coproducerCommissionValue={partnersData.coproducer_commission_value}
+                onChange={setPartnersData}
+              />
             </TabsContent>
 
             {/* Affiliates Tab */}

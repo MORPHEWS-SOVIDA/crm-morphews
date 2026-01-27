@@ -67,6 +67,18 @@ export interface StandaloneCheckout {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  
+  // Partner commissions (fixed partners who earn on every sale)
+  industry_id: string | null;
+  industry_commission_type: 'percentage' | 'fixed' | null;
+  industry_commission_value: number | null;
+  factory_id: string | null;
+  factory_commission_type: 'percentage' | 'fixed' | null;
+  factory_commission_value: number | null;
+  coproducer_id: string | null;
+  coproducer_commission_type: 'percentage' | 'fixed' | null;
+  coproducer_commission_value: number | null;
+  
   // Joined data
   product?: {
     id: string;
