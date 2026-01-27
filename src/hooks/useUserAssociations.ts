@@ -185,22 +185,38 @@ export function useManagers() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      // OBS: Não dependemos de FK/relationship automático com `profiles`.
+      const { data: members, error: membersError } = await supabase
         .from('organization_members')
-        .select(`
-          user_id,
-          is_sales_manager,
-          profiles!inner(first_name, last_name)
-        `)
+        .select('user_id')
         .eq('organization_id', tenantId)
         .eq('is_sales_manager', true);
 
-      if (error) throw error;
+      if (membersError) throw membersError;
 
-      return (data || []).map((m: any) => ({
-        user_id: m.user_id,
-        full_name: `${m.profiles?.first_name || ''} ${m.profiles?.last_name || ''}`.trim(),
-      }));
+      const userIds = (members || []).map((m: any) => m.user_id).filter(Boolean);
+      if (userIds.length === 0) return [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileByUserId = new Map(
+        (profiles || []).map((p: any) => [p.user_id, p] as const)
+      );
+
+      return userIds
+        .map((user_id: string) => {
+          const p = profileByUserId.get(user_id);
+          return {
+            user_id,
+            full_name: `${p?.first_name || ''} ${p?.last_name || ''}`.trim(),
+          };
+        })
+        .sort((a, b) => a.full_name.localeCompare(b.full_name, 'pt-BR'));
     },
     enabled: !!tenantId,
   });
@@ -217,24 +233,39 @@ export function useAllOrgMembers() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      // OBS: Não dependemos de FK/relationship automático com `profiles`.
+      const { data: members, error: membersError } = await supabase
         .from('organization_members')
-        .select(`
-          user_id,
-          role,
-          is_sales_manager,
-          profiles!inner(first_name, last_name)
-        `)
+        .select('user_id, role, is_sales_manager')
         .eq('organization_id', tenantId);
 
-      if (error) throw error;
+      if (membersError) throw membersError;
 
-      return (data || []).map((m: any) => ({
-        user_id: m.user_id,
-        role: m.role,
-        is_sales_manager: m.is_sales_manager,
-        full_name: `${m.profiles?.first_name || ''} ${m.profiles?.last_name || ''}`.trim(),
-      }));
+      const userIds = (members || []).map((m: any) => m.user_id).filter(Boolean);
+      if (userIds.length === 0) return [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileByUserId = new Map(
+        (profiles || []).map((p: any) => [p.user_id, p] as const)
+      );
+
+      return (members || [])
+        .map((m: any) => {
+          const p = profileByUserId.get(m.user_id);
+          return {
+            user_id: m.user_id,
+            role: m.role,
+            is_sales_manager: m.is_sales_manager,
+            full_name: `${p?.first_name || ''} ${p?.last_name || ''}`.trim(),
+          };
+        })
+        .sort((a, b) => a.full_name.localeCompare(b.full_name, 'pt-BR'));
     },
     enabled: !!tenantId,
   });
