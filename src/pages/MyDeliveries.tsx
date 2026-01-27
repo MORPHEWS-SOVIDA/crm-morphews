@@ -51,6 +51,7 @@ import {
   Receipt,
   Eye,
   EyeOff,
+  ExternalLink,
 } from 'lucide-react';
 import { format, isToday, isTomorrow, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -528,16 +529,35 @@ function DeliveryCard({
           <h3 className="font-semibold text-base truncate">{sale.lead?.name}</h3>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {getShiftIcon(sale.scheduled_delivery_shift)}
-            <span>{getShiftLabel(sale.scheduled_delivery_shift)}</span>
+            <span>
+              {sale.scheduled_delivery_date 
+                ? format(parseISO(sale.scheduled_delivery_date), 'dd/MM', { locale: ptBR })
+                : ''
+              }
+              {sale.scheduled_delivery_shift && sale.scheduled_delivery_date && ' '}
+              {getShiftLabel(sale.scheduled_delivery_shift)}
+            </span>
             <span className="font-medium text-primary">
               {formatCurrency(sale.total_cents)}
             </span>
           </div>
         </div>
 
-        <Badge variant="outline" className="text-xs">
-          #{sale.romaneio_number?.toString().padStart(5, '0')}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/vendas/${sale.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Ver Venda
+          </a>
+          <Badge variant="outline" className="text-xs">
+            #{sale.romaneio_number?.toString().padStart(5, '0')}
+          </Badge>
+        </div>
       </div>
 
       {/* Address Section - ALWAYS VISIBLE AT TOP */}
