@@ -12,21 +12,21 @@ import { QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Dados considerados frescos por 2 minutos (evita refetches desnecessários)
-      staleTime: 2 * 60 * 1000,
+      // Dados considerados frescos por 5 minutos (evita refetches desnecessários)
+      staleTime: 5 * 60 * 1000,
       
-      // Cache mantido por 10 minutos após query ficar inativa
-      gcTime: 10 * 60 * 1000,
+      // Cache mantido por 15 minutos após query ficar inativa
+      gcTime: 15 * 60 * 1000,
       
-      // Retry com backoff exponencial
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      // Retry com backoff exponencial (reduzido para 2 retries)
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 15000),
       
       // Não refetch automaticamente ao focar janela (economiza requests)
       refetchOnWindowFocus: false,
       
-      // Não refetch ao reconectar (deixa dados stale serem usados)
-      refetchOnReconnect: 'always',
+      // Não refetch ao reconectar imediatamente
+      refetchOnReconnect: false,
       
       // Usar dados em cache enquanto busca novos (melhor UX)
       placeholderData: (previousData: unknown) => previousData,

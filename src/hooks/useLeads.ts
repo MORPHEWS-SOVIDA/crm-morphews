@@ -7,14 +7,21 @@ export type Lead = Tables<'leads'>;
 export type LeadInsert = TablesInsert<'leads'>;
 export type LeadUpdate = TablesUpdate<'leads'>;
 
-export function useLeads() {
+export interface UseLeadsOptions {
+  limit?: number;
+}
+
+export function useLeads(options: UseLeadsOptions = {}) {
+  const { limit = 500 } = options;
+  
   return useQuery({
-    queryKey: ['leads'],
+    queryKey: ['leads', { limit }],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
       if (error) {
         console.error('Error fetching leads:', error);
@@ -23,6 +30,7 @@ export function useLeads() {
 
       return data;
     },
+    staleTime: 3 * 60 * 1000, // 3 minutes - reduce refetches
   });
 }
 
