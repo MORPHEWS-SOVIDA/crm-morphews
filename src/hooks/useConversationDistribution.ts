@@ -196,7 +196,7 @@ export function useConversationDistribution() {
         const sendResult = await supabase.functions.invoke("evolution-send-message", {
           body: {
             instanceId: conv.instance_id,
-            to: conv.phone_number,
+            phone: conv.phone_number, // Corrigido: era 'to', deve ser 'phone'
             message: surveyMessage,
           },
         });
