@@ -307,11 +307,115 @@ export function useConversationDistribution() {
     }
   });
 
+  // Reativar conversa encerrada
+  const reactivateConversation = useMutation({
+    mutationFn: async ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+      // 1. Buscar dados da conversa para obter lead_id e organization_id
+      const { data: conv, error: convError } = await supabase
+        .from("whatsapp_conversations")
+        .select("lead_id, organization_id, assigned_user_id")
+        .eq("id", conversationId)
+        .single();
+
+      if (convError || !conv) {
+        throw new Error('Conversa não encontrada');
+      }
+
+      // 2. Reativar a conversa - mudar status para assigned e atribuir ao usuário
+      const now = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from("whatsapp_conversations")
+        .update({
+          status: 'assigned',
+          assigned_user_id: userId,
+          assigned_at: now,
+          closed_at: null,
+          updated_at: now,
+        })
+        .eq("id", conversationId);
+
+      if (updateError) throw updateError;
+
+      // 3. Se o lead existir, atualizar responsabilidade e registrar histórico
+      if (conv.lead_id) {
+        // Atualizar lead_responsibles
+        await supabase
+          .from('lead_responsibles')
+          .upsert({
+            lead_id: conv.lead_id,
+            user_id: userId,
+            is_primary: true,
+            organization_id: conv.organization_id,
+          }, { onConflict: 'lead_id,user_id' });
+
+        // Atualizar assigned_to do lead
+        await supabase
+          .from('leads')
+          .update({ assigned_to: userId })
+          .eq('id', conv.lead_id);
+
+        // Registrar no histórico de transferências
+        await supabase
+          .from('lead_ownership_transfers')
+          .insert({
+            organization_id: conv.organization_id,
+            lead_id: conv.lead_id,
+            from_user_id: conv.assigned_user_id || null,
+            to_user_id: userId,
+            transferred_by: userId,
+            transfer_reason: 'reativacao_conversa',
+            notes: 'Conversa reativada via WhatsApp Chat',
+          });
+
+        // Verificar se o lead tem etapa de funil, caso não tenha, buscar default
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('funnel_stage_id')
+          .eq('id', conv.lead_id)
+          .single();
+
+        if (!lead?.funnel_stage_id) {
+          // Buscar configuração padrão de etapa do funil
+          const { data: orgConfig } = await supabase
+            .from('organizations')
+            .select('default_stage_whatsapp, default_stage_fallback')
+            .eq('id', conv.organization_id)
+            .single();
+
+          const defaultStage = orgConfig?.default_stage_whatsapp || orgConfig?.default_stage_fallback;
+
+          // Atribuir etapa ao lead se encontrada
+          if (defaultStage) {
+            await supabase
+              .from('leads')
+              .update({ funnel_stage_id: defaultStage })
+              .eq('id', conv.lead_id);
+          }
+        }
+      }
+
+      return { conversationId, leadId: conv.lead_id };
+    },
+    onSuccess: ({ leadId }) => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+      if (leadId) {
+        queryClient.invalidateQueries({ queryKey: ['leads', leadId] });
+        queryClient.invalidateQueries({ queryKey: ['lead-responsibles', leadId] });
+        queryClient.invalidateQueries({ queryKey: ['lead-ownership-history', leadId] });
+      }
+      toast.success('Conversa reativada! Agora você pode responder.');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao reativar conversa');
+    }
+  });
+
   return {
     claimConversation,
     transferConversation,
     closeConversation,
     updateConversationStatus,
+    reactivateConversation,
   };
 }
 

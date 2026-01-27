@@ -11,6 +11,7 @@ interface LeadOwnershipHistoryProps {
 const reasonLabels: Record<string, string> = {
   cadastro: 'Tentativa de cadastro',
   atendimento_whatsapp: 'Atendimento WhatsApp',
+  reativacao_conversa: 'Reativação de conversa',
   manual: 'Transferência manual',
   receptivo: 'Atendimento receptivo',
   first_assignment: 'Primeiro cadastro',
