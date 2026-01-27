@@ -10228,6 +10228,105 @@ export type Database = {
           },
         ]
       }
+      post_sale_questions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_required: boolean
+          organization_id: string
+          position: number
+          question: string
+          question_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          organization_id: string
+          position?: number
+          question: string
+          question_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          organization_id?: string
+          position?: number
+          question?: string
+          question_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_sale_questions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_sale_responses: {
+        Row: {
+          answer_boolean: boolean | null
+          answer_number: number | null
+          answer_text: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          question_id: string
+          survey_id: string
+        }
+        Insert: {
+          answer_boolean?: boolean | null
+          answer_number?: number | null
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          question_id: string
+          survey_id: string
+        }
+        Update: {
+          answer_boolean?: boolean | null
+          answer_number?: number | null
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          question_id?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_sale_responses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_sale_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "post_sale_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_sale_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "post_sale_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_sale_surveys: {
         Row: {
           attempted_at: string | null

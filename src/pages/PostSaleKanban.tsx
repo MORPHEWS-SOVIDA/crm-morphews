@@ -30,7 +30,8 @@ import {
   ChevronRight,
   MessageSquare,
   Filter,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -144,7 +145,7 @@ function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleCl
                 key={sale.id} 
                 sale={sale} 
                 onDragStart={onDragStart}
-                onClick={() => onSaleClick(sale)}
+                onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
               />
             ))
           )}
@@ -313,6 +314,10 @@ export default function PostSaleKanban() {
               Acompanhe o contato com clientes após entrega
             </p>
           </div>
+          <Button onClick={() => navigate('/pos-venda/relatorio')} variant="outline">
+            <FileText className="w-4 h-4 mr-2" />
+            Relatório
+          </Button>
         </div>
 
         {/* Filters */}

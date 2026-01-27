@@ -100,6 +100,7 @@ const TeamPanel = lazy(() => import("./pages/TeamPanel"));
 
 // Post-Sale & SAC
 const PostSaleKanban = lazy(() => import("./pages/PostSaleKanban"));
+const PostSaleReport = lazy(() => import("./pages/PostSaleReport"));
 const SAC = lazy(() => import("./pages/SAC"));
 const ScheduledMessages = lazy(() => import("./pages/ScheduledMessages"));
 
@@ -325,6 +326,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['post_sale_view']}>
                       <PostSaleKanban />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pos-venda/relatorio"
+                  element={
+                    <ProtectedRoute requiredPermissions={['post_sale_view']}>
+                      <PostSaleReport />
                     </ProtectedRoute>
                   }
                 />
