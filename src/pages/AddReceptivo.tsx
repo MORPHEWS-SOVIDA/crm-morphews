@@ -1266,6 +1266,22 @@ export default function AddReceptivo() {
         throw new Error('Nenhum produto selecionado');
       }
 
+      // CRITICAL: Validate address for carrier delivery type
+      if (deliveryConfig.type === 'carrier') {
+        const hasSelectedAddress = selectedAddressId && selectedAddress;
+        const hasLeadAddress = leadData.cep && leadData.street && leadData.city && leadData.state;
+        
+        if (!hasSelectedAddress && !hasLeadAddress) {
+          toast({ 
+            title: 'Endereço obrigatório', 
+            description: 'Para entrega via transportadora, é necessário informar um endereço completo.', 
+            variant: 'destructive' 
+          });
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const sale = await createSale.mutateAsync({
         lead_id: leadId,
         seller_user_id: sellerUserId,

@@ -184,6 +184,14 @@ export function StorefrontCheckout() {
       toast.error('Preencha os dados do cartão de crédito');
       return;
     }
+
+    // Validate shipping address when address collection is required
+    if (checkoutConfig.collectAddress !== false) {
+      if (!formData.cep || !formData.street || !formData.city || !formData.state) {
+        toast.error('Preencha o endereço de entrega completo');
+        return;
+      }
+    }
     
     setIsSubmitting(true);
     
