@@ -41,6 +41,7 @@ import {
   PackageCheck,
   PackageX,
   Loader2,
+  Banknote,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -72,7 +73,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
 import { DispatchConfirmationDialog } from '@/components/expedition/DispatchConfirmationDialog';
+import { CashPaymentVerificationDialog } from '@/components/expedition/CashPaymentVerificationDialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 
 type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'pickup' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
@@ -143,6 +146,10 @@ export default function Expedition() {
     saleId: string | null;
     motoboyId?: string;
   }>({ open: false, saleId: null });
+  
+  // Cash verification dialog state
+  const [cashVerificationOpen, setCashVerificationOpen] = useState(false);
+  const { data: permissions } = useMyPermissions();
 
   // Handle tab change (local only - filtering is client-side)
   const setActiveTab = useCallback((tab: TabFilter) => {
@@ -718,7 +725,17 @@ export default function Expedition() {
               Gerencie todas as vendas para despacho
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {permissions?.cash_verification_view && (
+              <Button 
+                variant="outline" 
+                onClick={() => setCashVerificationOpen(true)}
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <Banknote className="w-4 h-4 mr-2" />
+                Dinheiro
+              </Button>
+            )}
             <Button variant="outline" onClick={() => navigate('/expedicao/etiquetas-correios')}>
               <Package className="w-4 h-4 mr-2" />
               Etiquetas Correios
@@ -1410,6 +1427,12 @@ export default function Expedition() {
             }
             setDispatchConfirmDialog({ open: false, saleId: null });
           }}
+        />
+        
+        {/* Cash Payment Verification Dialog */}
+        <CashPaymentVerificationDialog
+          open={cashVerificationOpen}
+          onOpenChange={setCashVerificationOpen}
         />
       </div>
     </SmartLayout>

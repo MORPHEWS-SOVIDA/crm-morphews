@@ -1153,6 +1153,61 @@ export type Database = {
           },
         ]
       }
+      cash_payment_confirmations: {
+        Row: {
+          amount_cents: number | null
+          confirmation_type: string
+          confirmed_by: string
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          sale_id: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          confirmation_type: string
+          confirmed_by: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          sale_id: string
+        }
+        Update: {
+          amount_cents?: number | null
+          confirmation_type?: string
+          confirmed_by?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_payment_confirmations_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "cash_payment_confirmations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_payment_confirmations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_testimonials: {
         Row: {
           author_location: string | null
@@ -14700,6 +14755,8 @@ export type Database = {
       user_permissions: {
         Row: {
           ai_bots_view: boolean
+          cash_verification_confirm: boolean
+          cash_verification_view: boolean
           created_at: string
           dashboard_funnel_view: boolean
           dashboard_kanban_view: boolean
@@ -14775,6 +14832,8 @@ export type Database = {
         }
         Insert: {
           ai_bots_view?: boolean
+          cash_verification_confirm?: boolean
+          cash_verification_view?: boolean
           created_at?: string
           dashboard_funnel_view?: boolean
           dashboard_kanban_view?: boolean
@@ -14850,6 +14909,8 @@ export type Database = {
         }
         Update: {
           ai_bots_view?: boolean
+          cash_verification_confirm?: boolean
+          cash_verification_view?: boolean
           created_at?: string
           dashboard_funnel_view?: boolean
           dashboard_kanban_view?: boolean
