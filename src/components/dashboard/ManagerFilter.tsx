@@ -44,6 +44,7 @@ export function ManagerFilter({
         map[member.manager_user_id].push(member.user_id);
       }
     });
+    console.log('[ManagerFilter] teamMembers:', teamMembers.length, 'managerMembersMap:', map);
     return map;
   }, [teamMembers]);
 
@@ -53,12 +54,15 @@ export function ManagerFilter({
   };
 
   const handleSelect = (managerId: string | null) => {
+    console.log('[ManagerFilter] handleSelect:', managerId);
     if (managerId === selectedManager) {
       // Deselecionar
+      console.log('[ManagerFilter] Deselecting');
       onSelectManager(null, []);
     } else if (managerId) {
       // Selecionar gerente e passar os IDs dos vendedores associados
       const memberIds = managerMembersMap[managerId] || [];
+      console.log('[ManagerFilter] Selected manager:', managerId, 'memberIds:', memberIds);
       onSelectManager(managerId, memberIds);
     }
     setOpen(false);
