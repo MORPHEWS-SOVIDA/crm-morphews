@@ -13596,11 +13596,20 @@ export type Database = {
         Row: {
           attribution_model: string | null
           checkout_type: string
+          coproducer_commission_type: string | null
+          coproducer_commission_value: number | null
+          coproducer_id: string | null
           created_at: string
           elements: Json
           facebook_pixel_id: string | null
+          factory_commission_type: string | null
+          factory_commission_value: number | null
+          factory_id: string | null
           google_analytics_id: string | null
           id: string
+          industry_commission_type: string | null
+          industry_commission_value: number | null
+          industry_id: string | null
           is_active: boolean | null
           meta_description: string | null
           meta_title: string | null
@@ -13622,11 +13631,20 @@ export type Database = {
         Insert: {
           attribution_model?: string | null
           checkout_type?: string
+          coproducer_commission_type?: string | null
+          coproducer_commission_value?: number | null
+          coproducer_id?: string | null
           created_at?: string
           elements?: Json
           facebook_pixel_id?: string | null
+          factory_commission_type?: string | null
+          factory_commission_value?: number | null
+          factory_id?: string | null
           google_analytics_id?: string | null
           id?: string
+          industry_commission_type?: string | null
+          industry_commission_value?: number | null
+          industry_id?: string | null
           is_active?: boolean | null
           meta_description?: string | null
           meta_title?: string | null
@@ -13648,11 +13666,20 @@ export type Database = {
         Update: {
           attribution_model?: string | null
           checkout_type?: string
+          coproducer_commission_type?: string | null
+          coproducer_commission_value?: number | null
+          coproducer_id?: string | null
           created_at?: string
           elements?: Json
           facebook_pixel_id?: string | null
+          factory_commission_type?: string | null
+          factory_commission_value?: number | null
+          factory_id?: string | null
           google_analytics_id?: string | null
           id?: string
+          industry_commission_type?: string | null
+          industry_commission_value?: number | null
+          industry_id?: string | null
           is_active?: boolean | null
           meta_description?: string | null
           meta_title?: string | null
@@ -13672,6 +13699,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "standalone_checkouts_coproducer_id_fkey"
+            columns: ["coproducer_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standalone_checkouts_factory_id_fkey"
+            columns: ["factory_id"]
+            isOneToOne: false
+            referencedRelation: "industries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standalone_checkouts_industry_id_fkey"
+            columns: ["industry_id"]
+            isOneToOne: false
+            referencedRelation: "industries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "standalone_checkouts_order_bump_product_id_fkey"
             columns: ["order_bump_product_id"]
