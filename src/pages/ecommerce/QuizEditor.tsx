@@ -19,12 +19,15 @@ import {
   Save,
   RefreshCw,
 } from 'lucide-react';
-import { useQuiz, useCreateQuizStep, useDeleteQuizStep, STEP_TYPE_LABELS, type QuizStepType } from '@/hooks/ecommerce/useQuizzes';
+import { useQuiz, useCreateQuizStep, useDeleteQuizStep, useReorderQuizSteps, STEP_TYPE_LABELS, type QuizStepType, type QuizStep } from '@/hooks/ecommerce/useQuizzes';
 import { QuizStepEditor } from '@/components/ecommerce/quiz/QuizStepEditor';
 import { QuizSettingsPanel } from '@/components/ecommerce/quiz/QuizSettingsPanel';
 import { AffiliatesTab } from '@/components/ecommerce/affiliates/AffiliatesTab';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const stepTypeOptions: { type: QuizStepType; label: string; icon: string; description: string }[] = [
   { type: 'single_choice', label: 'Escolha Única', icon: '⭕', description: 'Usuário seleciona 1 opção' },
@@ -37,6 +40,77 @@ const stepTypeOptions: { type: QuizStepType; label: string; icon: string; descri
   { type: 'result', label: 'Resultado', icon: '🎯', description: 'Tela final com CTA' },
 ];
 
+// Sortable Step Item Component
+interface SortableStepItemProps {
+  step: QuizStep;
+  index: number;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}
+
+function SortableStepItem({ step, index, isSelected, onSelect, onDelete }: SortableStepItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: step.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors",
+        isSelected ? "border-primary bg-primary/5" : "hover:bg-muted/50",
+        isDragging && "opacity-50 shadow-lg z-50"
+      )}
+      onClick={onSelect}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+            {index + 1}
+          </span>
+          <span className="text-sm font-medium truncate">
+            {step.title}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {STEP_TYPE_LABELS[step.step_type]}
+        </span>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+      </Button>
+    </div>
+  );
+}
+
 export default function QuizEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -47,6 +121,14 @@ export default function QuizEditor() {
   const { data: quiz, isLoading, refetch } = useQuiz(id || '');
   const createStep = useCreateQuizStep();
   const deleteStep = useDeleteQuizStep();
+  const reorderSteps = useReorderQuizSteps();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Select first step by default
   useEffect(() => {
@@ -54,6 +136,20 @@ export default function QuizEditor() {
       setSelectedStepId(quiz.steps[0].id);
     }
   }, [quiz?.steps, selectedStepId]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !quiz?.steps || !id) return;
+
+    const oldIndex = quiz.steps.findIndex((s) => s.id === active.id);
+    const newIndex = quiz.steps.findIndex((s) => s.id === over.id);
+    const newOrder = arrayMove(quiz.steps, oldIndex, newIndex);
+    
+    reorderSteps.mutate({ 
+      quizId: id, 
+      orderedIds: newOrder.map((s) => s.id) 
+    });
+  };
 
   const handleAddStep = async (type: QuizStepType) => {
     if (!id) return;
@@ -184,44 +280,27 @@ export default function QuizEditor() {
                           <p className="text-xs">Adicione a primeira etapa abaixo</p>
                         </div>
                       ) : (
-                        quiz.steps?.map((step, index) => (
-                          <div
-                            key={step.id}
-                            className={cn(
-                              "group flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors",
-                              selectedStepId === step.id
-                                ? "border-primary bg-primary/5"
-                                : "hover:bg-muted/50"
-                            )}
-                            onClick={() => setSelectedStepId(step.id)}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <SortableContext
+                            items={quiz.steps?.map((s) => s.id) || []}
+                            strategy={verticalListSortingStrategy}
                           >
-                            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                  {index + 1}
-                                </span>
-                                <span className="text-sm font-medium truncate">
-                                  {step.title}
-                                </span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                {STEP_TYPE_LABELS[step.step_type]}
-                              </span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteStep(step.id);
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          </div>
-                        ))
+                            {quiz.steps?.map((step, index) => (
+                              <SortableStepItem
+                                key={step.id}
+                                step={step}
+                                index={index}
+                                isSelected={selectedStepId === step.id}
+                                onSelect={() => setSelectedStepId(step.id)}
+                                onDelete={() => handleDeleteStep(step.id)}
+                              />
+                            ))}
+                          </SortableContext>
+                        </DndContext>
                       )}
                     </div>
                   </ScrollArea>
