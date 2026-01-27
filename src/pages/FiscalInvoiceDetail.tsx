@@ -236,10 +236,23 @@ export default function FiscalInvoiceDetail() {
 
   const selectedCompany = companies.find(c => c.id === invoice.fiscal_company_id);
   const items = Array.isArray(invoice.items) ? invoice.items : [];
+  const isHomologacao = invoice.pdf_url?.includes('homologacao') || selectedCompany?.nfe_environment === 'homologacao';
 
   return (
     <Layout>
       <div className="container mx-auto py-6 space-y-6">
+        {/* Homologação Alert */}
+        {isHomologacao && invoice.status === 'authorized' && (
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800">Ambiente de Homologação (Teste)</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              Esta nota foi emitida em ambiente de <strong>homologação</strong> e não possui valor fiscal.
+              O PDF gerado é apenas um espelho para conferência. Para emitir notas fiscais válidas, 
+              altere o ambiente para <strong>Produção</strong> nas configurações da empresa fiscal.
+            </AlertDescription>
+          </Alert>
+        )}
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
@@ -272,14 +285,18 @@ export default function FiscalInvoiceDetail() {
                 Atualizar Status
               </Button>
             )}
-            {invoice.pdf_url && (
-              <Button variant="outline" asChild>
-                <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer" download>
-                  <Printer className="w-4 h-4 mr-2" />
-                  DANFE
-                </a>
-              </Button>
-            )}
+            {invoice.pdf_url && (() => {
+              // Determine if this is a production or test invoice based on URL
+              const isHomologacao = invoice.pdf_url.includes('homologacao');
+              return (
+                <Button variant="outline" asChild>
+                  <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
+                    <Printer className="w-4 h-4 mr-2" />
+                    {isHomologacao ? 'Espelho NF-e (Teste)' : 'DANFE'}
+                  </a>
+                </Button>
+              );
+            })()}
             {invoice.xml_url && (
               <Button variant="outline" asChild>
                 <a href={invoice.xml_url} target="_blank" rel="noopener noreferrer" download>
