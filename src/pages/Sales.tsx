@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
-import { useTeams } from '@/hooks/useTeams';
+import { useManagers } from '@/hooks/useUserAssociations';
 import { 
   Select,
   SelectContent,
@@ -144,7 +144,7 @@ export default function Sales() {
   const [dispatchedMotoboyFilter, setDispatchedMotoboyFilter] = useState<string>('all');
   const [productFilter, setProductFilter] = useState<string>('all');
   const [leadSourceFilter, setLeadSourceFilter] = useState<string>('all');
-  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [managerFilter, setManagerFilter] = useState<string>('all');
   
   const { data: sales = [], isLoading } = useSales(
     activeTab !== 'all' ? { status: activeTab } : undefined
@@ -152,7 +152,7 @@ export default function Sales() {
   const { data: products = [] } = useProducts();
   const { data: leadSources = [] } = useLeadSources();
   const { data: teamMembers = [] } = useTeamMembers();
-  const { data: teams = [] } = useTeams();
+  const { data: managers = [] } = useManagers();
 
   // Get unique sellers from sales
   const sellers = useMemo(() => {
@@ -200,11 +200,11 @@ export default function Sales() {
         if (!matchesSearch) return false;
       }
       
-      // Team filter - filter by seller's team
-      if (teamFilter !== 'all') {
-        const membersInTeam = teamMembers.filter(m => m.team_id === teamFilter);
-        const teamUserIds = membersInTeam.map(m => m.user_id);
-        if (!sale.seller_user_id || !teamUserIds.includes(sale.seller_user_id)) {
+      // Manager filter - filter by seller's associated manager
+      if (managerFilter !== 'all') {
+        const membersOfManager = teamMembers.filter(m => m.manager_user_id === managerFilter);
+        const managerMemberIds = membersOfManager.map(m => m.user_id);
+        if (!sale.seller_user_id || !managerMemberIds.includes(sale.seller_user_id)) {
           return false;
         }
       }
@@ -276,7 +276,7 @@ export default function Sales() {
     sales, searchTerm, sellerFilter, deliveryTypeFilter, deliveryDateFilter,
     saleDateFilter, noPaymentProofFilter, carrierNoTrackingFilter, 
     carrierTrackingStatusFilter, dispatchedMotoboyFilter, productFilter, leadSourceFilter,
-    teamFilter, teamMembers
+    managerFilter, teamMembers
   ]);
 
   // Calculate total value of filtered sales
@@ -411,24 +411,18 @@ export default function Sales() {
                       Filtros Básicos
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                      {/* Team Filter */}
+                      {/* Manager Filter */}
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Time</label>
-                        <Select value={teamFilter} onValueChange={setTeamFilter}>
+                        <label className="text-sm font-medium">Gerente</label>
+                        <Select value={managerFilter} onValueChange={setManagerFilter}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Todos times" />
+                            <SelectValue placeholder="Todos gerentes" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">Todos times</SelectItem>
-                            {teams.map((team) => (
-                              <SelectItem key={team.id} value={team.id}>
-                                <div className="flex items-center gap-2">
-                                  <div 
-                                    className="w-2 h-2 rounded-full" 
-                                    style={{ backgroundColor: team.color }}
-                                  />
-                                  {team.name}
-                                </div>
+                            <SelectItem value="all">Todos gerentes</SelectItem>
+                            {managers.map((manager) => (
+                              <SelectItem key={manager.user_id} value={manager.user_id}>
+                                {manager.full_name}
                               </SelectItem>
                             ))}
                           </SelectContent>

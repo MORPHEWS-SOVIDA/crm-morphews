@@ -36,10 +36,12 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
 import { UserUXPreferences } from "@/components/team/UserUXPreferences";
+import { UserAssociationsManager } from "@/components/team/UserAssociationsManager";
 import { useApplyRoleDefaults, useMyPermissions } from "@/hooks/useUserPermissions";
 import { AvatarUpload } from "@/components/team/AvatarUpload";
 import { useTeams } from "@/hooks/useTeams";
 import { checkDuplicateUserWhatsApp } from "@/hooks/useCheckDuplicateUserWhatsApp";
+import { Link2 } from "lucide-react";
 
 // All organization roles from org_role enum
 type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
@@ -148,6 +150,7 @@ export default function Team() {
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
+  const [mainTab, setMainTab] = useState<"usuarios" | "associacoes">("usuarios");
   const [newUserData, setNewUserData] = useState({
     firstName: "",
     lastName: "",
@@ -800,6 +803,22 @@ export default function Team() {
             </p>
           </div>
         </div>
+
+        {/* Main Tabs */}
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "usuarios" | "associacoes")}>
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="usuarios" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Usuários
+            </TabsTrigger>
+            <TabsTrigger value="associacoes" className="flex items-center gap-2">
+              <Link2 className="w-4 h-4" />
+              Associações
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab: Usuários */}
+          <TabsContent value="usuarios" className="space-y-6 mt-6">
 
         {/* Plan Info Card */}
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -1490,6 +1509,14 @@ export default function Team() {
             </div>
           </CardContent>
         </Card>
+
+          </TabsContent>
+
+          {/* Tab: Associações */}
+          <TabsContent value="associacoes" className="mt-6">
+            <UserAssociationsManager />
+          </TabsContent>
+        </Tabs>
 
         {/* Edit Member Role Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Check, ChevronsUpDown, Users, X } from 'lucide-react';
+import { Check, ChevronsUpDown, Users, X, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
-import { useTeams } from '@/hooks/useTeams';
+import { useManagers } from '@/hooks/useUserAssociations';
 
 interface SellerMultiSelectProps {
   selectedSellers: string[];
@@ -32,33 +32,38 @@ export function SellerMultiSelect({
 }: SellerMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const { data: teamMembers = [] } = useTeamMembers();
-  const { data: teams = [] } = useTeams();
+  const { data: managers = [] } = useManagers();
 
-  // Group members by team
-  const membersByTeam = useMemo(() => {
+  // Criar mapa de gerente para nome
+  const managerNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    managers.forEach(m => {
+      map[m.user_id] = m.full_name;
+    });
+    return map;
+  }, [managers]);
+
+  // Agrupar membros por gerente associado
+  const membersByManager = useMemo(() => {
     const grouped: Record<string, typeof teamMembers> = {};
-    const noTeam: typeof teamMembers = [];
+    const noManager: typeof teamMembers = [];
     
     teamMembers.forEach(member => {
-      if (member.team_id) {
-        if (!grouped[member.team_id]) {
-          grouped[member.team_id] = [];
+      if (member.manager_user_id) {
+        if (!grouped[member.manager_user_id]) {
+          grouped[member.manager_user_id] = [];
         }
-        grouped[member.team_id].push(member);
+        grouped[member.manager_user_id].push(member);
       } else {
-        noTeam.push(member);
+        noManager.push(member);
       }
     });
 
-    return { grouped, noTeam };
+    return { grouped, noManager };
   }, [teamMembers]);
 
-  const getTeamName = (teamId: string) => {
-    return teams.find(t => t.id === teamId)?.name || 'Time';
-  };
-
-  const getTeamColor = (teamId: string) => {
-    return teams.find(t => t.id === teamId)?.color || '#6366f1';
+  const getManagerName = (managerId: string) => {
+    return managerNameMap[managerId] || 'Gerente';
   };
 
   const toggleSeller = (userId: string) => {
@@ -69,16 +74,16 @@ export function SellerMultiSelect({
     }
   };
 
-  const selectAllFromTeam = (teamId: string) => {
-    const teamMemberIds = membersByTeam.grouped[teamId]?.map(m => m.user_id) || [];
-    const allSelected = teamMemberIds.every(id => selectedSellers.includes(id));
+  const selectAllFromManager = (managerId: string) => {
+    const managerMemberIds = membersByManager.grouped[managerId]?.map(m => m.user_id) || [];
+    const allSelected = managerMemberIds.every(id => selectedSellers.includes(id));
     
     if (allSelected) {
-      // Deselect all from this team
-      onSelectSellers(selectedSellers.filter(s => !teamMemberIds.includes(s)));
+      // Deselecionar todos deste gerente
+      onSelectSellers(selectedSellers.filter(s => !managerMemberIds.includes(s)));
     } else {
-      // Select all from this team
-      const newSelection = [...new Set([...selectedSellers, ...teamMemberIds])];
+      // Selecionar todos deste gerente
+      const newSelection = [...new Set([...selectedSellers, ...managerMemberIds])];
       onSelectSellers(newSelection);
     }
   };
@@ -92,6 +97,84 @@ export function SellerMultiSelect({
       .filter(m => selectedSellers.includes(m.user_id))
       .map(m => m.full_name);
   }, [selectedSellers, teamMembers]);
+
+  const renderContent = () => (
+    <Command>
+      <CommandInput placeholder="Buscar vendedor..." />
+      <CommandList>
+        <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
+        
+        {selectedSellers.length > 0 && (
+          <CommandGroup>
+            <CommandItem onSelect={clearAll} className="text-destructive">
+              <X className="mr-2 h-4 w-4" />
+              Limpar seleção ({selectedSellers.length})
+            </CommandItem>
+          </CommandGroup>
+        )}
+        
+        {/* Agrupado por gerente */}
+        {Object.entries(membersByManager.grouped).map(([managerId, members]) => (
+          <CommandGroup key={managerId} heading={
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                selectAllFromManager(managerId);
+              }}
+              className="flex items-center gap-2 w-full hover:opacity-80"
+            >
+              <Crown className="w-3 h-3 text-purple-500" />
+              <span>{getManagerName(managerId)}</span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                (selecionar todos)
+              </span>
+            </button>
+          }>
+            {members.map((member) => (
+              <CommandItem
+                key={member.user_id}
+                value={member.full_name}
+                onSelect={() => toggleSeller(member.user_id)}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    selectedSellers.includes(member.user_id) 
+                      ? "opacity-100" 
+                      : "opacity-0"
+                  )}
+                />
+                {member.full_name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
+        
+        {/* Sem gerente */}
+        {membersByManager.noManager.length > 0 && (
+          <CommandGroup heading="Sem associação">
+            {membersByManager.noManager.map((member) => (
+              <CommandItem
+                key={member.user_id}
+                value={member.full_name}
+                onSelect={() => toggleSeller(member.user_id)}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    selectedSellers.includes(member.user_id) 
+                      ? "opacity-100" 
+                      : "opacity-0"
+                  )}
+                />
+                {member.full_name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </Command>
+  );
 
   if (compact) {
     return (
@@ -112,88 +195,13 @@ export function SellerMultiSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="end">
-          <Command>
-            <CommandInput placeholder="Buscar vendedor..." />
-            <CommandList>
-              <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
-              
-              {selectedSellers.length > 0 && (
-                <CommandGroup>
-                  <CommandItem onSelect={clearAll} className="text-destructive">
-                    <X className="mr-2 h-4 w-4" />
-                    Limpar seleção ({selectedSellers.length})
-                  </CommandItem>
-                </CommandGroup>
-              )}
-              
-              {Object.entries(membersByTeam.grouped).map(([teamId, members]) => (
-                <CommandGroup key={teamId} heading={
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      selectAllFromTeam(teamId);
-                    }}
-                    className="flex items-center gap-2 w-full hover:opacity-80"
-                  >
-                    <div 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: getTeamColor(teamId) }}
-                    />
-                    <span>{getTeamName(teamId)}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      (selecionar todos)
-                    </span>
-                  </button>
-                }>
-                  {members.map((member) => (
-                    <CommandItem
-                      key={member.user_id}
-                      value={member.full_name}
-                      onSelect={() => toggleSeller(member.user_id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedSellers.includes(member.user_id) 
-                            ? "opacity-100" 
-                            : "opacity-0"
-                        )}
-                      />
-                      {member.full_name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
-              
-              {membersByTeam.noTeam.length > 0 && (
-                <CommandGroup heading="Sem time">
-                  {membersByTeam.noTeam.map((member) => (
-                    <CommandItem
-                      key={member.user_id}
-                      value={member.full_name}
-                      onSelect={() => toggleSeller(member.user_id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedSellers.includes(member.user_id) 
-                            ? "opacity-100" 
-                            : "opacity-0"
-                        )}
-                      />
-                      {member.full_name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
+          {renderContent()}
         </PopoverContent>
       </Popover>
     );
   }
 
-  // Full version (card)
+  // Versão completa (card)
   return (
     <div className="bg-card rounded-xl p-4 shadow-card">
       <div className="flex items-center gap-2 mb-3">
@@ -216,86 +224,11 @@ export function SellerMultiSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0">
-          <Command>
-            <CommandInput placeholder="Buscar vendedor..." />
-            <CommandList>
-              <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
-              
-              {selectedSellers.length > 0 && (
-                <CommandGroup>
-                  <CommandItem onSelect={clearAll} className="text-destructive">
-                    <X className="mr-2 h-4 w-4" />
-                    Limpar seleção ({selectedSellers.length})
-                  </CommandItem>
-                </CommandGroup>
-              )}
-              
-              {Object.entries(membersByTeam.grouped).map(([teamId, members]) => (
-                <CommandGroup key={teamId} heading={
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      selectAllFromTeam(teamId);
-                    }}
-                    className="flex items-center gap-2 w-full hover:opacity-80"
-                  >
-                    <div 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: getTeamColor(teamId) }}
-                    />
-                    <span>{getTeamName(teamId)}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      (selecionar todos)
-                    </span>
-                  </button>
-                }>
-                  {members.map((member) => (
-                    <CommandItem
-                      key={member.user_id}
-                      value={member.full_name}
-                      onSelect={() => toggleSeller(member.user_id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedSellers.includes(member.user_id) 
-                            ? "opacity-100" 
-                            : "opacity-0"
-                        )}
-                      />
-                      {member.full_name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
-              
-              {membersByTeam.noTeam.length > 0 && (
-                <CommandGroup heading="Sem time">
-                  {membersByTeam.noTeam.map((member) => (
-                    <CommandItem
-                      key={member.user_id}
-                      value={member.full_name}
-                      onSelect={() => toggleSeller(member.user_id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedSellers.includes(member.user_id) 
-                            ? "opacity-100" 
-                            : "opacity-0"
-                        )}
-                      />
-                      {member.full_name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
+          {renderContent()}
         </PopoverContent>
       </Popover>
       
-      {/* Selected badges */}
+      {/* Badges selecionados */}
       {selectedNames.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-3">
           {selectedNames.slice(0, 3).map((name, idx) => (
