@@ -160,32 +160,37 @@ export function useToggleSaleCheckpoint() {
 
         // Update legacy fields on sales table for compatibility AND update status
         if (checkpointType === 'printed') {
-          await supabase.from('sales').update({ 
+          const { error } = await supabase.from('sales').update({ 
             printed_at: new Date().toISOString(),
             printed_by: user?.id,
           }).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'pending_expedition') {
-          await supabase.from('sales').update({ 
+          const { error } = await supabase.from('sales').update({ 
             expedition_validated_at: new Date().toISOString(),
             expedition_validated_by: user?.id,
             status: 'pending_expedition'
           }).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'dispatched') {
-          await supabase.from('sales').update({ 
+          const { error } = await supabase.from('sales').update({ 
             dispatched_at: new Date().toISOString(),
             status: 'dispatched'
           }).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'delivered') {
-          await supabase.from('sales').update({ 
+          const { error } = await supabase.from('sales').update({ 
             delivered_at: new Date().toISOString(),
             status: 'delivered'
           }).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'payment_confirmed') {
-          await supabase.from('sales').update({ 
+          const { error } = await supabase.from('sales').update({ 
             payment_confirmed_at: new Date().toISOString(),
             payment_confirmed_by: user?.id,
             status: 'payment_confirmed'
           }).eq('id', saleId);
+          if (error) throw error;
         }
       } else {
         // Uncheck - just clear the completed_at
@@ -215,15 +220,32 @@ export function useToggleSaleCheckpoint() {
 
         // Clear legacy fields too
         if (checkpointType === 'printed') {
-          await supabase.from('sales').update({ printed_at: null, printed_by: null }).eq('id', saleId);
+          const { error } = await supabase
+            .from('sales')
+            .update({ printed_at: null, printed_by: null })
+            .eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'pending_expedition') {
-          await supabase.from('sales').update({ expedition_validated_at: null }).eq('id', saleId);
+          // IMPORTANT: ao desmarcar a validação de expedição, a venda precisa voltar a ser editável
+          // (caso contrário o status fica preso em pending_expedition e bloqueia edição).
+          const { error } = await supabase
+            .from('sales')
+            .update({
+              expedition_validated_at: null,
+              expedition_validated_by: null,
+              status: 'draft',
+            })
+            .eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'dispatched') {
-          await supabase.from('sales').update({ dispatched_at: null }).eq('id', saleId);
+          const { error } = await supabase.from('sales').update({ dispatched_at: null }).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'delivered') {
-          await supabase.from('sales').update({ delivered_at: null }).eq('id', saleId);
+          const { error } = await supabase.from('sales').update({ delivered_at: null }).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'payment_confirmed') {
-          await supabase.from('sales').update({ payment_confirmed_at: null }).eq('id', saleId);
+          const { error } = await supabase.from('sales').update({ payment_confirmed_at: null }).eq('id', saleId);
+          if (error) throw error;
         }
       }
 
