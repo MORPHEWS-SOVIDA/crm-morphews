@@ -71,27 +71,54 @@ export default function DashboardKanban() {
     return uniqueResponsaveis.filter(Boolean);
   }, [leads]);
 
+  const normalizeAssignee = (value: string) => {
+    return (value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   // Filter leads by selected sellers
   const filteredLeads = useMemo(() => {
     let result = [...leads];
     
     console.log('[DashboardKanban] Filtering - selectedSellers:', selectedSellers, 'totalLeads:', leads.length);
     
+    // Se um gerente está selecionado e ele não tem vendedores associados,
+    // o resultado deve ser vazio (senão o filtro parece "não funcionar").
+    if (selectedManager && selectedSellers.length === 0) {
+      return [];
+    }
+
     // Filter by selected sellers (supports both user_id and full_name in assigned_to)
     if (selectedSellers.length > 0) {
+      const selectedSellerIds = new Set(selectedSellers);
+
       // Get full names for selected user IDs to support legacy data
       const selectedSellerNames = teamMembers
-        .filter(m => selectedSellers.includes(m.user_id))
+        .filter(m => selectedSellerIds.has(m.user_id))
         .map(m => m.full_name)
         .filter(Boolean);
+
+      const selectedSellerNamesNormalized = new Set(
+        selectedSellerNames.map(normalizeAssignee)
+      );
 
       console.log('[DashboardKanban] selectedSellerNames:', selectedSellerNames);
 
       result = result.filter((lead) => {
         const assigned = lead.assigned_to || '';
-        return selectedSellers.includes(assigned) || selectedSellerNames.includes(assigned);
+        if (!assigned) return false;
+
+        // assigned_to pode ser UUID (novo fluxo) ou nome (legado)
+        if (selectedSellerIds.has(assigned)) return true;
+
+        const assignedNormalized = normalizeAssignee(assigned);
+        return selectedSellerNamesNormalized.has(assignedNormalized);
       });
-      
+
       console.log('[DashboardKanban] After filtering:', result.length, 'leads');
     }
     
@@ -106,7 +133,7 @@ export default function DashboardKanban() {
     }
     
     return result;
-  }, [leads, selectedSellers, selectedInactivityDays, teamMembers]);
+  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager]);
 
   const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null;
 
