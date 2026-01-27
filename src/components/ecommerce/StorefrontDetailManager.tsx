@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail } from 'lucide-react';
+import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStorefront } from '@/hooks/ecommerce';
@@ -9,6 +9,7 @@ import { StorefrontCategoriesTab } from './tabs/StorefrontCategoriesTab';
 import { StorefrontProductsTab } from './tabs/StorefrontProductsTab';
 import { StorefrontSettingsTab } from './tabs/StorefrontSettingsTab';
 import { StorefrontEmailSequences } from './StorefrontEmailSequences';
+import { AffiliatesTab } from './affiliates/AffiliatesTab';
 interface StorefrontDetailManagerProps {
   storefrontId: string;
   onBack: () => void;
@@ -68,7 +69,7 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="banners" className="gap-2">
             <Image className="h-4 w-4" />
             <span className="hidden sm:inline">Banners</span>
@@ -88,6 +89,10 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           <TabsTrigger value="emails" className="gap-2">
             <Mail className="h-4 w-4" />
             <span className="hidden sm:inline">E-mails</span>
+          </TabsTrigger>
+          <TabsTrigger value="affiliates" className="gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Afiliados</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />
@@ -115,6 +120,14 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           <StorefrontEmailSequences 
             storefrontId={storefrontId} 
             storefrontName={storefront.name}
+          />
+        </TabsContent>
+
+        <TabsContent value="affiliates" className="mt-6">
+          <AffiliatesTab
+            assetType="storefront"
+            assetId={storefrontId}
+            assetSlug={storefront.slug}
           />
         </TabsContent>
 
