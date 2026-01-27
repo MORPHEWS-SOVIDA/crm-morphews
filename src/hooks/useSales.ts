@@ -906,13 +906,53 @@ export function useMyDeliveries() {
 
       if (error) throw error;
 
-      // Fetch items for each sale
+      // Get lead IDs to fetch primary addresses
+      const leadIds = (data || []).map(s => s.lead?.id).filter(Boolean) as string[];
+      
+      // Fetch primary addresses from lead_addresses table
+      let addressMap: Record<string, { street: string; street_number: string; complement: string | null; neighborhood: string; city: string; state: string; cep: string; delivery_notes: string | null; google_maps_link: string | null }> = {};
+      
+      if (leadIds.length > 0) {
+        const { data: addresses } = await supabase
+          .from('lead_addresses')
+          .select('lead_id, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')
+          .in('lead_id', leadIds)
+          .eq('is_primary', true);
+        
+        if (addresses) {
+          addressMap = addresses.reduce((acc, addr) => {
+            acc[addr.lead_id] = addr;
+            return acc;
+          }, {} as typeof addressMap);
+        }
+      }
+
+      // Fetch items for each sale and merge address data
       const salesWithItems = await Promise.all((data || []).map(async (sale) => {
         const { data: items } = await supabase
           .from('sale_items')
           .select('*')
           .eq('sale_id', sale.id);
-        return { ...sale, items: items || [] };
+        
+        // If lead has no direct address, use primary address from lead_addresses
+        let lead = sale.lead;
+        if (lead && !lead.street && addressMap[lead.id]) {
+          const primaryAddr = addressMap[lead.id];
+          lead = {
+            ...lead,
+            street: primaryAddr.street,
+            street_number: primaryAddr.street_number,
+            complement: primaryAddr.complement,
+            neighborhood: primaryAddr.neighborhood,
+            city: primaryAddr.city,
+            state: primaryAddr.state,
+            cep: primaryAddr.cep,
+            delivery_notes: primaryAddr.delivery_notes || lead.delivery_notes,
+            google_maps_link: primaryAddr.google_maps_link || lead.google_maps_link,
+          };
+        }
+        
+        return { ...sale, lead, items: items || [] };
       }));
 
       return salesWithItems as Sale[];
