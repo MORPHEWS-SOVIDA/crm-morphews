@@ -117,6 +117,8 @@ serve(async (req) => {
       .eq("awaiting_satisfaction_response", true)
       .not("satisfaction_sent_at", "is", null);
 
+    console.log(`[auto-close] Found ${pendingConversations?.length || 0} conversations awaiting NPS response`);
+
     for (const conv of pendingConversations || []) {
       // Get latest inbound message after survey was sent
       const { data: recentMessages } = await supabase
@@ -132,18 +134,46 @@ serve(async (req) => {
         const message = recentMessages[0];
         const rating = extractRating(message.content || "");
         
-        // Save rating (or mark for review if no valid rating)
-        await supabase.from("conversation_satisfaction_ratings").insert({
-          organization_id: conv.organization_id,
-          conversation_id: conv.id,
-          instance_id: conv.instance_id,
-          assigned_user_id: conv.assigned_user_id,
-          lead_id: conv.lead_id,
-          rating: rating,
-          raw_response: message.content,
-          is_pending_review: rating !== null && rating <= 6, // Detractors need review
-          responded_at: message.created_at,
-        });
+        console.log(`[auto-close] Processing NPS response for conv ${conv.id}: rating=${rating}, response="${message.content?.substring(0, 50)}"`);
+
+        // Try to UPDATE existing rating record first
+        const { data: existingRating } = await supabase
+          .from("conversation_satisfaction_ratings")
+          .select("id")
+          .eq("conversation_id", conv.id)
+          .is("rating", null)
+          .limit(1)
+          .single();
+
+        if (existingRating) {
+          // Update existing rating record
+          await supabase
+            .from("conversation_satisfaction_ratings")
+            .update({
+              rating: rating,
+              raw_response: message.content,
+              is_pending_review: rating !== null && rating <= 6, // Detractors need review
+              responded_at: message.created_at,
+            })
+            .eq("id", existingRating.id);
+            
+          console.log(`[auto-close] Updated existing rating ${existingRating.id} with rating ${rating}`);
+        } else {
+          // Create new rating record if none exists
+          await supabase.from("conversation_satisfaction_ratings").insert({
+            organization_id: conv.organization_id,
+            conversation_id: conv.id,
+            instance_id: conv.instance_id,
+            assigned_user_id: conv.assigned_user_id,
+            lead_id: conv.lead_id,
+            rating: rating,
+            raw_response: message.content,
+            is_pending_review: rating !== null && rating <= 6, // Detractors need review
+            responded_at: message.created_at,
+          });
+          
+          console.log(`[auto-close] Created new rating record for conv ${conv.id}`);
+        }
 
         // Clear awaiting flag
         await supabase
