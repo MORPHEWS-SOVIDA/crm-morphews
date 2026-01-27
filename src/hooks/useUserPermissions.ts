@@ -17,6 +17,7 @@ export interface UserPermissions {
   dashboard_funnel_view: boolean;
   dashboard_kanban_view: boolean;
   seller_panel_view: boolean;
+  team_panel_view: boolean;
   sales_dashboard_view: boolean;
   
   // Leads
@@ -145,6 +146,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   dashboard_funnel_view: { label: 'Dashboard Funil', description: 'Visualizar dashboard no modo funil', group: 'Dashboard' },
   dashboard_kanban_view: { label: 'Dashboard Kanban', description: 'Visualizar dashboard no modo kanban', group: 'Dashboard' },
   seller_panel_view: { label: 'Meu Painel', description: 'Acessar painel do vendedor', group: 'Dashboard' },
+  team_panel_view: { label: 'Painel da Equipe', description: 'Acessar painel do gerente com métricas da equipe', group: 'Dashboard' },
   sales_dashboard_view: { label: 'Dashboard Vendas', description: 'Acessar ranking de vendas e métricas', group: 'Dashboard' },
   
   // Leads

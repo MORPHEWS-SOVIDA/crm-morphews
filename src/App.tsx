@@ -94,6 +94,7 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 // Dashboards
 const DashboardKanban = lazy(() => import("./pages/DashboardKanban"));
 const SellerPanel = lazy(() => import("./pages/SellerPanel"));
+const TeamPanel = lazy(() => import("./pages/TeamPanel"));
 
 // Post-Sale & SAC
 const PostSaleKanban = lazy(() => import("./pages/PostSaleKanban"));
@@ -447,6 +448,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['seller_panel_view']}>
                       <SellerPanel />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Team Manager Panel - team overview dashboard */}
+                <Route
+                  path="/time-painel"
+                  element={
+                    <ProtectedRoute requiredPermissions={['team_panel_view']}>
+                      <TeamPanel />
                     </ProtectedRoute>
                   }
                 />
