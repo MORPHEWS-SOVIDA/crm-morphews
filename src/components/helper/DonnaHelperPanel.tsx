@@ -180,7 +180,7 @@ Me diz: no que posso te ajudar agora?`,
       className="fixed bottom-24 right-4 z-50 w-[380px] h-[520px] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col"
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-500 to-green-500 p-4 flex items-center gap-3">
+      <div className="bg-gradient-to-r from-emerald-500 to-green-500 p-4 flex items-center gap-3 relative">
         <img 
           src={donnaAvatar} 
           alt="Donna" 
@@ -194,7 +194,7 @@ Me diz: no que posso te ajudar agora?`,
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="text-white hover:bg-white/20"
+          className="text-white hover:bg-white/20 bg-white/10 rounded-full h-9 w-9"
         >
           <X className="w-5 h-5" />
         </Button>
