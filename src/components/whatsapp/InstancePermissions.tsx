@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone } from "lucide-react";
+import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -239,6 +239,32 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   const isLoading = loadingMembers || loadingPermissions;
 
+  // Check if all users have can_view enabled
+  const allHaveCanView = usersWithAccess.length > 0 && usersWithAccess.every(m => {
+    const permission = getUserPermission(m.user_id);
+    return permission?.can_view === true;
+  });
+
+  // Toggle all can_view permissions
+  const toggleAllCanView = async () => {
+    const newValue = !allHaveCanView;
+    
+    for (const member of usersWithAccess) {
+      const permission = getUserPermission(member.user_id);
+      if (permission && permission.can_view !== newValue) {
+        await updatePermissionMutation.mutateAsync({
+          id: permission.id,
+          can_view: newValue,
+        });
+      }
+    }
+    
+    toast({ 
+      title: newValue ? "Todos podem ver" : "Visualização removida de todos",
+      description: `Permissão de visualização ${newValue ? "ativada" : "desativada"} para todos os usuários.`
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -405,9 +431,25 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-[180px]">Usuário</TableHead>
-                    <TableHead className="text-center w-[70px]">
+                    <TableHead className="text-center w-[90px]">
                       <div className="flex flex-col items-center gap-0.5">
-                        <Eye className="h-4 w-4" />
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 p-0 hover:bg-primary/10"
+                            onClick={toggleAllCanView}
+                            title={allHaveCanView ? "Desmarcar todos" : "Selecionar todos"}
+                            disabled={usersWithAccess.length === 0}
+                          >
+                            {allHaveCanView ? (
+                              <ToggleRight className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
                         <span className="text-[10px]">Ver</span>
                       </div>
                     </TableHead>
