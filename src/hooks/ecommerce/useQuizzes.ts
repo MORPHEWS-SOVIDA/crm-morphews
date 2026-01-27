@@ -568,6 +568,32 @@ export function useDeleteQuizStep() {
   });
 }
 
+// Hook para reordenar etapas
+export function useReorderQuizSteps() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ quizId, orderedIds }: { quizId: string; orderedIds: string[] }) => {
+      // Update positions for each step
+      const updates = orderedIds.map((id, index) =>
+        supabase
+          .from('quiz_steps')
+          .update({ position: index })
+          .eq('id', id)
+      );
+
+      await Promise.all(updates);
+      return quizId;
+    },
+    onSuccess: (quizId) => {
+      queryClient.invalidateQueries({ queryKey: ['quiz', quizId] });
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao reordenar etapas');
+    },
+  });
+}
+
 // =============================================================================
 // OPTION MUTATIONS
 // =============================================================================
