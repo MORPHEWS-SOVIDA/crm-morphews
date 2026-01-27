@@ -172,6 +172,7 @@ serve(async (req) => {
         auto_close_send_message,
         auto_close_message_template,
         satisfaction_survey_enabled,
+        satisfaction_survey_on_auto_close,
         satisfaction_survey_message
       `)
       .eq("auto_close_enabled", true);
@@ -219,66 +220,81 @@ serve(async (req) => {
             // Time to close this conversation
             const phoneNumber = normalizeWhatsApp(conv.chat_id?.replace("@s.whatsapp.net", "") || "");
             
-            // Send closing message if configured
-            if (org.auto_close_send_message && org.auto_close_message_template && phoneNumber) {
-              let messageToSend = org.auto_close_message_template;
+            // Check if should send NPS survey
+            const shouldSendNPS = org.satisfaction_survey_enabled && org.satisfaction_survey_on_auto_close;
+            
+            // Send closing message and/or NPS survey if configured
+            if ((org.auto_close_send_message || shouldSendNPS) && phoneNumber) {
+              let messageToSend = "";
               
-              // If satisfaction survey enabled, append survey message
-              if (org.satisfaction_survey_enabled && org.satisfaction_survey_message) {
-                messageToSend += "\n\n" + org.satisfaction_survey_message;
+              // Add close message if configured
+              if (org.auto_close_send_message && org.auto_close_message_template) {
+                messageToSend = org.auto_close_message_template;
+              }
+              
+              // Add NPS survey if enabled for auto-close
+              if (shouldSendNPS && org.satisfaction_survey_message) {
+                if (messageToSend) {
+                  messageToSend += "\n\n" + org.satisfaction_survey_message;
+                } else {
+                  messageToSend = org.satisfaction_survey_message;
+                }
               }
 
-              // Send message via admin Evolution API config
-              try {
-                const adminConfig = await getAdminWhatsAppConfig(supabase);
-                
-                if (adminConfig?.api_url && adminConfig?.api_key) {
-                  // Get the evolution instance name from the instance record
-                  const { data: instanceData } = await supabase
-                    .from("whatsapp_instances")
-                    .select("evolution_instance_id")
-                    .eq("id", instance.id)
-                    .single();
+              if (messageToSend) {
+                // Send message via admin Evolution API config
+                try {
+                  const adminConfig = await getAdminWhatsAppConfig(supabase);
                   
-                  const evolutionInstanceName = (instanceData as any)?.evolution_instance_id || instance.name;
-                  
-                  if (evolutionInstanceName) {
-                    const sendUrl = `${adminConfig.api_url.replace(/\/$/, "")}/message/sendText/${evolutionInstanceName}`;
-                    console.log(`[auto-close] Sending to ${phoneNumber} via ${evolutionInstanceName}`);
+                  if (adminConfig?.api_url && adminConfig?.api_key) {
+                    // Get the evolution instance name from the instance record
+                    const { data: instanceData } = await supabase
+                      .from("whatsapp_instances")
+                      .select("evolution_instance_id")
+                      .eq("id", instance.id)
+                      .single();
                     
-                    const resp = await fetch(sendUrl, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        "apikey": adminConfig.api_key,
-                      },
-                      body: JSON.stringify({
-                        number: phoneNumber,
-                        text: messageToSend,
-                      }),
-                    });
+                    const evolutionInstanceName = (instanceData as any)?.evolution_instance_id || instance.name;
                     
-                    if (!resp.ok) {
-                      const errorBody = await resp.text();
-                      console.error(`[auto-close] Failed to send: ${resp.status} - ${errorBody}`);
-                    } else {
-                      console.log(`[auto-close] Message sent successfully to ${phoneNumber}`);
+                    if (evolutionInstanceName) {
+                      const sendUrl = `${adminConfig.api_url.replace(/\/$/, "")}/message/sendText/${evolutionInstanceName}`;
+                      console.log(`[auto-close] Sending to ${phoneNumber} via ${evolutionInstanceName} (NPS: ${shouldSendNPS})`);
+                      
+                      const resp = await fetch(sendUrl, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "apikey": adminConfig.api_key,
+                        },
+                        body: JSON.stringify({
+                          number: phoneNumber,
+                          text: messageToSend,
+                        }),
+                      });
+                      
+                      if (!resp.ok) {
+                        const errorBody = await resp.text();
+                        console.error(`[auto-close] Failed to send: ${resp.status} - ${errorBody}`);
+                      } else {
+                        console.log(`[auto-close] Message sent successfully to ${phoneNumber}`);
+                        if (shouldSendNPS) surveysSent++;
+                      }
                     }
+                  } else {
+                    console.warn("[auto-close] No admin WhatsApp config found, cannot send message");
                   }
-                } else {
-                  console.warn("[auto-close] No admin WhatsApp config found, cannot send message");
+                } catch (e) {
+                  console.error("[auto-close] Error sending close message:", e);
                 }
-              } catch (e) {
-                console.error("[auto-close] Error sending close message:", e);
               }
             }
 
-            // Update conversation status - ALWAYS close when survey sent
+            // Update conversation status
             const updateData: Record<string, unknown> = {
-              status: "closed", // Always set to closed
+              status: "closed",
               closed_at: now.toISOString(),
-              awaiting_satisfaction_response: org.satisfaction_survey_enabled,
-              satisfaction_sent_at: org.satisfaction_survey_enabled ? now.toISOString() : null,
+              awaiting_satisfaction_response: shouldSendNPS,
+              satisfaction_sent_at: shouldSendNPS ? now.toISOString() : null,
             };
 
             await supabase
@@ -286,20 +302,16 @@ serve(async (req) => {
               .update(updateData)
               .eq("id", conv.id);
 
-            // If no survey, create rating record immediately
-            if (!org.satisfaction_survey_enabled) {
-              await supabase.from("conversation_satisfaction_ratings").insert({
-                organization_id: conv.organization_id,
-                conversation_id: conv.id,
-                instance_id: instance.id,
-                assigned_user_id: conv.assigned_user_id,
-                lead_id: conv.lead_id,
-                rating: null, // No survey, no rating
-                is_pending_review: false,
-              });
-            } else {
-              surveysSent++;
-            }
+            // Create rating record
+            await supabase.from("conversation_satisfaction_ratings").insert({
+              organization_id: conv.organization_id,
+              conversation_id: conv.id,
+              instance_id: instance.id,
+              assigned_user_id: conv.assigned_user_id,
+              lead_id: conv.lead_id,
+              rating: null,
+              is_pending_review: false,
+            });
 
             closedCount++;
           }

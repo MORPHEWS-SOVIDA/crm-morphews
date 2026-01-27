@@ -39,6 +39,7 @@ interface WhatsAppAISettings {
   satisfaction_survey_enabled: boolean;
   satisfaction_survey_message: string;
   satisfaction_survey_on_manual_close: boolean;
+  satisfaction_survey_on_auto_close: boolean;
   // AI Model settings
   ai_model_document: string;
   ai_model_image: string;
@@ -74,6 +75,7 @@ export function WhatsAppAISettingsManager() {
     satisfaction_survey_enabled: false,
     satisfaction_survey_message: DEFAULT_SURVEY_MESSAGE,
     satisfaction_survey_on_manual_close: true,
+    satisfaction_survey_on_auto_close: true,
     ai_model_document: "google/gemini-2.5-flash",
     ai_model_image: "google/gemini-2.5-flash",
   });
@@ -108,6 +110,7 @@ export function WhatsAppAISettingsManager() {
           satisfaction_survey_enabled,
           satisfaction_survey_message,
           satisfaction_survey_on_manual_close,
+          satisfaction_survey_on_auto_close,
           ai_model_document,
           ai_model_image
         `)
@@ -146,6 +149,7 @@ export function WhatsAppAISettingsManager() {
         satisfaction_survey_enabled: org.satisfaction_survey_enabled ?? false,
         satisfaction_survey_message: org.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
         satisfaction_survey_on_manual_close: org.satisfaction_survey_on_manual_close ?? true,
+        satisfaction_survey_on_auto_close: org.satisfaction_survey_on_auto_close ?? true,
         ai_model_document: org.ai_model_document || "google/gemini-2.5-flash",
         ai_model_image: org.ai_model_image || "google/gemini-2.5-flash",
       });
@@ -242,13 +246,13 @@ export function WhatsAppAISettingsManager() {
                     </p>
                   </div>
                   <Switch 
-                    checked={settings.auto_close_enabled && settings.auto_close_send_message}
-                    disabled
+                    checked={settings.satisfaction_survey_on_auto_close}
+                    onCheckedChange={(checked) => setSettings(prev => ({ 
+                      ...prev,
+                      satisfaction_survey_on_auto_close: checked
+                    }))}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Configure nas opções de Encerramento Automático abaixo
-                </p>
 
                 <Separator className="my-2" />
 
