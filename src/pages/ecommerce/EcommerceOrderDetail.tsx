@@ -99,21 +99,47 @@ export default function EcommerceOrderDetail() {
     },
   });
 
-  // Fetch sale items
+  // Fetch sale items (from sale_items or ecommerce_order_items)
   const { data: saleItems } = useQuery({
-    queryKey: ['sale-items', order?.sale_id],
-    enabled: !!order?.sale_id,
+    queryKey: ['sale-items', order?.sale_id, orderId],
+    enabled: !!order,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sale_items')
-        .select(`
-          *,
-          product:lead_products(name, base_price_cents)
-        `)
-        .eq('sale_id', order?.sale_id);
+      // First try sale_items if sale_id exists
+      if (order?.sale_id) {
+        const { data: items, error } = await supabase
+          .from('sale_items')
+          .select(`
+            *,
+            product:lead_products(name, base_price_cents)
+          `)
+          .eq('sale_id', order.sale_id);
 
-      if (error) throw error;
-      return data;
+        if (!error && items && items.length > 0) {
+          return items;
+        }
+      }
+
+      // Fallback to ecommerce_order_items
+      const { data: orderItems, error: orderError } = await supabase
+        .from('ecommerce_order_items')
+        .select('*')
+        .eq('order_id', orderId);
+
+      if (!orderError && orderItems && orderItems.length > 0) {
+        // Map to a compatible format
+        return orderItems.map((item: any) => ({
+          id: item.id,
+          quantity: item.quantity,
+          unit_price_cents: item.unit_price_cents,
+          total_cents: item.total_cents,
+          product: {
+            name: item.product_name,
+          },
+          product_image_url: item.product_image_url,
+        }));
+      }
+
+      return [];
     },
   });
 
