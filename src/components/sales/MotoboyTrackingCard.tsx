@@ -23,6 +23,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { DeliveryDateDialog } from './DeliveryDateDialog';
 
 interface MotoboyTrackingCardProps {
   saleId: string;
@@ -62,6 +63,7 @@ export function MotoboyTrackingCard({
   const [selectedMotoboy, setSelectedMotoboy] = useState<string>(assignedMotoboyId || '');
   const [notes, setNotes] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [showDateDialog, setShowDateDialog] = useState(false);
 
   const canUpdate = permissions?.sales_dispatch || permissions?.sales_view_all || permissions?.deliveries_view_own;
 
@@ -81,7 +83,7 @@ export function MotoboyTrackingCard({
   // Filter active statuses from config
   const activeStatuses = statusConfigs.filter(s => s.is_active);
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (occurredAt?: Date) => {
     if (!selectedStatus) {
       toast.error('Selecione um status');
       return;
@@ -98,12 +100,23 @@ export function MotoboyTrackingCard({
         status: selectedStatus,
         notes: notes || undefined,
         assignedMotoboyId: selectedMotoboy || null,
+        occurredAt: occurredAt?.toISOString(),
       });
       toast.success('Status de entrega atualizado');
       setSelectedStatus('');
       setNotes('');
+      setShowDateDialog(false);
     } catch (error) {
       toast.error('Erro ao atualizar status');
+    }
+  };
+
+  const handleClickUpdate = () => {
+    // If status is delivered or returned, show date dialog
+    if (selectedStatus === 'delivered' || selectedStatus === 'returned') {
+      setShowDateDialog(true);
+    } else {
+      handleUpdate();
     }
   };
 
@@ -253,7 +266,7 @@ export function MotoboyTrackingCard({
                 />
                 <Button
                   size="sm"
-                  onClick={handleUpdate}
+                  onClick={handleClickUpdate}
                   disabled={updateMutation.isPending}
                   className="w-full"
                 >
@@ -263,6 +276,16 @@ export function MotoboyTrackingCard({
             )}
           </div>
         )}
+
+        {/* Date Dialog for delivered/returned statuses */}
+        <DeliveryDateDialog
+          open={showDateDialog}
+          onOpenChange={setShowDateDialog}
+          title={selectedStatus === 'delivered' ? 'Data da Entrega' : 'Data da Devolução'}
+          description="Em qual data realmente aconteceu? (importante para comissões)"
+          onConfirm={(date) => handleUpdate(date)}
+          isLoading={updateMutation.isPending}
+        />
 
         {/* History */}
         {history.length > 0 && (

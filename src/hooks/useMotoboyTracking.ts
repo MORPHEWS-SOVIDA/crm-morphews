@@ -42,6 +42,7 @@ interface UpdateTrackingData {
   status: MotoboyTrackingStatus;
   notes?: string;
   assignedMotoboyId?: string | null;
+  occurredAt?: string; // ISO date string for when the status change actually happened
 }
 
 // Default labels for statuses
@@ -189,7 +190,7 @@ export function useUpdateMotoboyTracking() {
   const { tenantId } = useTenant();
 
   return useMutation({
-    mutationFn: async ({ saleId, status, notes, assignedMotoboyId }: UpdateTrackingData) => {
+    mutationFn: async ({ saleId, status, notes, assignedMotoboyId, occurredAt }: UpdateTrackingData) => {
       // Get sale info including lead data for message variables
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -237,6 +238,9 @@ export function useUpdateMotoboyTracking() {
         }
       }
 
+      // Use provided occurredAt date or default to now
+      const trackingDate = occurredAt || new Date().toISOString();
+
       // Insert tracking history entry
       const { error: insertError } = await supabase
         .from('sale_motoboy_tracking')
@@ -246,6 +250,7 @@ export function useUpdateMotoboyTracking() {
           status,
           changed_by: user?.id,
           notes,
+          created_at: trackingDate, // Use custom date if provided
         });
 
       if (insertError) throw insertError;
