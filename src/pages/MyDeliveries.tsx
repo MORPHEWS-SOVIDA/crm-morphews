@@ -32,12 +32,13 @@ import {
   Clock,
   Navigation,
   User,
-  GripVertical,
   Calendar,
   Sun,
   Sunset,
   XCircle,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   MessageCircle,
   RotateCcw,
   Upload,
@@ -48,6 +49,8 @@ import {
   MapPinned,
   ClipboardCheck,
   Receipt,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { format, isToday, isTomorrow, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -366,7 +369,7 @@ function NotDeliveredDialog({
   );
 }
 
-// Delivery card component with drag support
+// Delivery card component with arrow reordering (mobile-friendly)
 function DeliveryCard({ 
   sale, 
   onMarkDelivered, 
@@ -374,11 +377,14 @@ function DeliveryCard({
   onOpenMaps,
   onOpenWhatsApp,
   onUploadPaymentProof,
-  isDragging,
   isUploadingProof,
   motoboyStatuses,
   onUpdateMotoboyStatus,
-  organizationId
+  organizationId,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
 }: { 
   sale: Sale; 
   onMarkDelivered: () => void;
@@ -386,11 +392,14 @@ function DeliveryCard({
   onOpenMaps: () => void;
   onOpenWhatsApp: () => void;
   onUploadPaymentProof: (file: File) => Promise<void>;
-  isDragging?: boolean;
   isUploadingProof?: boolean;
   motoboyStatuses?: { status_key: string; label: string; is_active: boolean }[];
   onUpdateMotoboyStatus?: (status: MotoboyTrackingStatus) => void;
   organizationId?: string | null;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -448,26 +457,10 @@ function DeliveryCard({
   };
   
   const paymentInfo = getPaymentStatusInfo();
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: sale.id });
 
   const isCompleted = sale.status === 'delivered' || sale.status === 'returned';
   const isDelivered = sale.status === 'delivered';
   const isReturned = sale.status === 'returned';
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : isCompleted ? 0.85 : 1,
-  };
-
-  // Completed items don't need drag
-  const dragHandleProps = isCompleted ? {} : { ...attributes, ...listeners };
 
   const getShiftIcon = (shift: string | null) => {
     switch(shift) {
@@ -488,11 +481,7 @@ function DeliveryCard({
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
       className={`bg-card border rounded-xl shadow-sm transition-all ${
-        isDragging ? 'opacity-50 shadow-lg scale-105' : ''
-      } ${
         isDelivered 
           ? 'border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20' 
           : isReturned 
@@ -500,15 +489,30 @@ function DeliveryCard({
             : ''
       }`}
     >
-      {/* Drag Handle + Header */}
+      {/* Header with reorder arrows */}
       <div className="flex items-center gap-2 p-3 border-b bg-muted/30">
+        {/* Reorder arrows for pending deliveries */}
         {!isCompleted && (
-          <button
-            {...dragHandleProps}
-            className="touch-none p-1 hover:bg-muted rounded cursor-grab active:cursor-grabbing"
-          >
-            <GripVertical className="w-5 h-5 text-muted-foreground" />
-          </button>
+          <div className="flex flex-col gap-0.5">
+            <button
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              className={`p-1 rounded transition-colors ${
+                canMoveUp ? 'hover:bg-primary/20 text-primary' : 'text-muted-foreground/30 cursor-not-allowed'
+              }`}
+            >
+              <ChevronUp className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              className={`p-1 rounded transition-colors ${
+                canMoveDown ? 'hover:bg-primary/20 text-primary' : 'text-muted-foreground/30 cursor-not-allowed'
+              }`}
+            >
+              <ChevronDown className="w-5 h-5" />
+            </button>
+          </div>
         )}
         {isCompleted && (
           <div className="p-1">
@@ -536,35 +540,50 @@ function DeliveryCard({
         </Badge>
       </div>
 
-      {/* Address Section */}
-      <div className="p-3 space-y-3">
-        {sale.lead?.street && (
-          <div className="flex items-start gap-2 text-sm">
-            <MapPin className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
+      {/* Address Section - ALWAYS VISIBLE AT TOP */}
+      <div className="p-3 bg-primary/5 border-b">
+        {sale.lead?.street ? (
+          <div className="flex items-start gap-2">
+            <MapPin className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="font-medium">
+              <p className="font-semibold text-base">
                 {sale.lead.street}, {sale.lead.street_number}
                 {sale.lead.complement && ` - ${sale.lead.complement}`}
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {sale.lead.neighborhood} - {sale.lead.city}/{sale.lead.state}
               </p>
               {sale.lead.cep && (
                 <p className="text-xs text-muted-foreground">CEP: {sale.lead.cep}</p>
               )}
             </div>
+            {/* Quick maps button next to address */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={onOpenMaps}
+              className="flex-shrink-0 h-8 px-2"
+              disabled={!sale.lead?.street && !sale.lead?.google_maps_link}
+            >
+              <Navigation className="w-4 h-4" />
+            </Button>
           </div>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">Endereço não informado</p>
         )}
-
-        {/* Delivery Notes */}
+        
+        {/* Delivery reference notes - visible right under address */}
         {sale.lead?.delivery_notes && (
-          <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-            <p className="text-sm text-amber-800 dark:text-amber-200">
-              <strong>Referência:</strong> {sale.lead.delivery_notes}
+          <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-950/50 rounded-lg border border-amber-300 dark:border-amber-700">
+            <p className="text-sm text-amber-900 dark:text-amber-100">
+              <strong>📍 Referência:</strong> {sale.lead.delivery_notes}
             </p>
           </div>
         )}
+      </div>
 
+      {/* Rest of content */}
+      <div className="p-3 space-y-3">
         {/* Sale Observation for Delivery */}
         {((sale as any).observation_1 || (sale as any).observation_2) && (
           <div className="p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-400 dark:border-yellow-700">
@@ -843,8 +862,51 @@ export default function MyDeliveries() {
   const [notDeliveredDialogOpen, setNotDeliveredDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
+  const [localOrder, setLocalOrder] = useState<string[]>([]);
   const [uploadingSaleId, setUploadingSaleId] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  // Separate pending and completed deliveries
+  const pendingDeliveries = useMemo(() => {
+    const pending = deliveries.filter(d => d.status === 'dispatched');
+    // Apply local ordering if available
+    if (localOrder.length > 0) {
+      return pending.sort((a, b) => {
+        const indexA = localOrder.indexOf(a.id);
+        const indexB = localOrder.indexOf(b.id);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+    }
+    return pending.sort((a, b) => (a.delivery_position || 0) - (b.delivery_position || 0));
+  }, [deliveries, localOrder]);
+
+  const completedDeliveries = useMemo(() => 
+    deliveries.filter(d => d.status === 'delivered' || d.status === 'returned'),
+    [deliveries]
+  );
+
+  // Handle moving items up/down
+  const handleMoveItem = useCallback(async (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= pendingDeliveries.length) return;
+    
+    const newOrder = [...pendingDeliveries.map(s => s.id)];
+    [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
+    setLocalOrder(newOrder);
+    
+    // Save to database
+    try {
+      await Promise.all([
+        supabase.from('sales').update({ delivery_position: newIndex }).eq('id', pendingDeliveries[index].id),
+        supabase.from('sales').update({ delivery_position: index }).eq('id', pendingDeliveries[newIndex].id),
+      ]);
+    } catch (error) {
+      console.error('Erro ao salvar ordem:', error);
+    }
+  }, [pendingDeliveries]);
 
   // Handle motoboy status update
   const handleUpdateMotoboyStatus = useCallback(async (saleId: string, status: MotoboyTrackingStatus) => {
@@ -1112,9 +1174,19 @@ export default function MyDeliveries() {
             <p className="text-sm text-muted-foreground">
               {pendingCount} pendente{pendingCount !== 1 ? 's' : ''} 
               {completedCount > 0 && ` • ${completedCount} concluída${completedCount !== 1 ? 's' : ''}`}
-              {pendingCount > 0 && ' • Arraste para reordenar'}
             </p>
           </div>
+          {completedCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCompleted(!showCompleted)}
+              className="flex items-center gap-1"
+            >
+              {showCompleted ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showCompleted ? 'Ocultar' : 'Ver'} concluídas
+            </Button>
+          )}
         </div>
 
         {/* Empty State - only show when no deliveries at all */}
@@ -1132,52 +1204,57 @@ export default function MyDeliveries() {
           </Card>
         )}
 
-        {/* Grouped Deliveries */}
-        {Object.entries(groupedDeliveries).map(([groupKey, sales]) => {
-          const [date, shift] = groupKey.split('_');
-          
-          return (
-            <div key={groupKey} className="space-y-2">
-              <DateGroupHeader 
-                date={date} 
-                shift={shift} 
-                count={sales.length} 
+        {/* Pending Deliveries */}
+        {pendingDeliveries.length > 0 && (
+          <div className="space-y-3">
+            {pendingDeliveries.map((sale, index) => (
+              <DeliveryCard
+                key={sale.id}
+                sale={sale}
+                onMarkDelivered={() => handleMarkDelivered(sale)}
+                onMarkNotDelivered={() => {
+                  setSelectedSale(sale);
+                  setNotDeliveredDialogOpen(true);
+                }}
+                onOpenMaps={() => openMaps(sale)}
+                onOpenWhatsApp={() => openWhatsApp(sale.lead?.whatsapp || '')}
+                onUploadPaymentProof={(file) => handleUploadPaymentProof(sale.id, file)}
+                isUploadingProof={uploadingSaleId === sale.id}
+                motoboyStatuses={motoboyStatuses}
+                onUpdateMotoboyStatus={(status) => handleUpdateMotoboyStatus(sale.id, status)}
+                organizationId={organizationId}
+                onMoveUp={() => handleMoveItem(index, 'up')}
+                onMoveDown={() => handleMoveItem(index, 'down')}
+                canMoveUp={index > 0}
+                canMoveDown={index < pendingDeliveries.length - 1}
               />
-              
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event) => handleDragEnd(event, groupKey)}
-              >
-                <SortableContext
-                  items={sales.map(s => s.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-3">
-                    {sales.map((sale) => (
-                      <DeliveryCard
-                        key={sale.id}
-                        sale={sale}
-                        onMarkDelivered={() => handleMarkDelivered(sale)}
-                        onMarkNotDelivered={() => {
-                          setSelectedSale(sale);
-                          setNotDeliveredDialogOpen(true);
-                        }}
-                        onOpenMaps={() => openMaps(sale)}
-                        onOpenWhatsApp={() => openWhatsApp(sale.lead?.whatsapp || '')}
-                        onUploadPaymentProof={(file) => handleUploadPaymentProof(sale.id, file)}
-                        isUploadingProof={uploadingSaleId === sale.id}
-                        motoboyStatuses={motoboyStatuses}
-                        onUpdateMotoboyStatus={(status) => handleUpdateMotoboyStatus(sale.id, status)}
-                        organizationId={organizationId}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        )}
+
+        {/* Completed Deliveries - togglable */}
+        {showCompleted && completedDeliveries.length > 0 && (
+          <div className="space-y-3 mt-6">
+            <h2 className="font-semibold text-lg text-muted-foreground flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              Concluídas ({completedDeliveries.length})
+            </h2>
+            {completedDeliveries.map((sale) => (
+              <DeliveryCard
+                key={sale.id}
+                sale={sale}
+                onMarkDelivered={() => {}}
+                onMarkNotDelivered={() => {}}
+                onOpenMaps={() => openMaps(sale)}
+                onOpenWhatsApp={() => openWhatsApp(sale.lead?.whatsapp || '')}
+                onUploadPaymentProof={(file) => handleUploadPaymentProof(sale.id, file)}
+                isUploadingProof={uploadingSaleId === sale.id}
+                motoboyStatuses={motoboyStatuses}
+                organizationId={organizationId}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Not Delivered Dialog */}
