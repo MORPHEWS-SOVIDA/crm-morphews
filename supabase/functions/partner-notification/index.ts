@@ -89,16 +89,18 @@ serve(async (req) => {
                 role: data.partner_role,
               }, { onConflict: 'user_id,organization_id' });
 
-            // Criar user_permissions básicas
+            // Criar user_permissions básicas para parceiros
+            // Partner can see sales (their own) and use whatsapp
             await supabase
               .from('user_permissions')
               .upsert({
                 user_id: createdUserId,
                 organization_id: data.organization_id,
-                ecommerce_view: true,
-                virtual_wallet_view: true,
                 sales_view: true,
                 sales_view_only_own: true,
+                whatsapp_send: true,
+                leads_hide_new_button: true,
+                default_landing_page: '/ecommerce',
               }, { onConflict: 'user_id,organization_id' });
 
             console.log("Permissões de parceiro aplicadas:", data.partner_role);
