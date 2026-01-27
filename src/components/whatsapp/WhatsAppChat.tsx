@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -104,8 +104,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   const [isSendingAudio, setIsSendingAudio] = useState(false);
   const [isSendingImage, setIsSendingImage] = useState(false);
   const [isSendingDocument, setIsSendingDocument] = useState(false);
+  const [isSendingVideo, setIsSendingVideo] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<{ file: File; preview: string } | null>(null);
 
   // Wasender throttle: they enforce "1 message every ~5 seconds".
   const SEND_COOLDOWN_MS = 5000;
@@ -113,6 +115,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -987,6 +990,150 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }
   };
 
+  // Video selection handler
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      toast({ title: "Arquivo inválido", description: "Selecione um vídeo", variant: "destructive" });
+      return;
+    }
+
+    // Limite de 50MB para vídeos
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Máximo 50MB para vídeos", variant: "destructive" });
+      return;
+    }
+
+    // Guardar file e criar preview
+    const preview = URL.createObjectURL(file);
+    setSelectedVideo({ file, preview });
+
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
+    }
+  };
+
+  // Video send handler
+  const handleSendVideo = async () => {
+    if (!activeConversation || !selectedVideo) return;
+    if (!profile?.organization_id) {
+      toast({
+        title: "Erro ao enviar vídeo",
+        description: "Organização não encontrada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSendAt < SEND_COOLDOWN_MS) {
+      toast({
+        title: "Aguarde um pouco",
+        description: "Para evitar bloqueio do WhatsApp, envie no máximo 1 mensagem a cada 5 segundos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLastSendAt(now);
+
+    setIsSendingVideo(true);
+    try {
+      const file = selectedVideo.file;
+      
+      console.log("[WhatsApp] Criando URL de upload para vídeo:", {
+        conversation_id: selectedConversation.id,
+        size_bytes: file.size,
+        mime_type: file.type,
+      });
+
+      // 1. Obter signed upload URL
+      const { data: uploadUrlData, error: uploadUrlError } = await supabase.functions.invoke(
+        "whatsapp-create-upload-url",
+        {
+          body: {
+            organizationId: profile.organization_id,
+            conversationId: activeConversation.id,
+            mimeType: file.type,
+            kind: "video",
+          },
+        }
+      );
+
+      if (uploadUrlError || !uploadUrlData?.success) {
+        throw new Error(uploadUrlData?.error || uploadUrlError?.message || "Falha ao criar URL de upload");
+      }
+
+      console.log("[WhatsApp] Upload URL obtida, fazendo upload direto...");
+
+      // 2. Upload direto para storage
+      const uploadResponse = await fetch(uploadUrlData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Falha no upload: ${uploadResponse.status}`);
+      }
+
+      console.log("[WhatsApp] Upload concluído, enviando mensagem...");
+
+      // 3. Enviar mensagem com path do storage
+      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          organizationId: profile.organization_id,
+          conversationId: activeConversation.id,
+          instanceId: activeConversation.instance_id,
+          chatId: activeConversation.chat_id || null,
+          phone: activeConversation.phone_number,
+          content: messageText || "",
+          messageType: "video",
+          mediaStoragePath: uploadUrlData.path,
+          mediaMimeType: file.type,
+          mediaCaption: messageText || "",
+          senderUserId: profile.user_id,
+        },
+      });
+
+      if (error) {
+        console.error("[WhatsApp] Edge function error:", error);
+        throw new Error(error.message || "Erro na função de envio");
+      }
+      
+      if (data?.error) {
+        console.error("[WhatsApp] API error:", data.error);
+        throw new Error(data.error);
+      }
+      
+      if (!data?.success) {
+        console.error("[WhatsApp] Send failed:", data);
+        throw new Error(data?.error || "Falha ao enviar vídeo para o WhatsApp");
+      }
+
+      console.log("[WhatsApp] Vídeo enviado com sucesso:", data?.providerMessageId);
+      
+      // Limpar preview URL
+      URL.revokeObjectURL(selectedVideo.preview);
+      setSelectedVideo(null);
+      setMessageText("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+      toast({ title: "Vídeo enviado!" });
+    } catch (error: any) {
+      console.error("[WhatsApp] Error sending video:", error);
+      const errorMessage = error.message || "Erro desconhecido ao enviar vídeo";
+      toast({
+        title: "Erro ao enviar vídeo",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingVideo(false);
+    }
+  };
+
   const handleEmojiSelect = (emoji: string) => {
     setMessageText(prev => prev + emoji);
   };
@@ -1760,6 +1907,13 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
                   className="hidden"
                 />
+                <input
+                  type="file"
+                  ref={videoInputRef}
+                  onChange={handleVideoSelect}
+                  accept="video/*,video/mp4,video/webm,video/quicktime"
+                  className="hidden"
+                />
 
                 <div className={cn(
                   "flex items-end gap-2",
@@ -1813,6 +1967,20 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           )}
                         </Button>
                         <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10"
+                          onClick={() => videoInputRef.current?.click()}
+                          disabled={isSendingVideo}
+                          title="Enviar vídeo"
+                        >
+                          {isSendingVideo ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Video className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </Button>
+                        <Button
                           size="icon"
                           variant="ghost"
                           className="h-10 w-10"
@@ -1823,46 +1991,85 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                         </Button>
                       </div>
 
+                      {/* Video Preview */}
+                      {selectedVideo && (
+                        <div className="flex-1 relative rounded-lg overflow-hidden border bg-muted/30">
+                          <video 
+                            src={selectedVideo.preview} 
+                            className="w-full max-h-32 object-contain"
+                            controls={false}
+                          />
+                          <div className="absolute top-1 right-1 flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                URL.revokeObjectURL(selectedVideo.preview);
+                                setSelectedVideo(null);
+                              }}
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                          <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-2 py-0.5 rounded">
+                            🎬 {(selectedVideo.file.size / 1024 / 1024).toFixed(1)}MB
+                          </div>
+                        </div>
+                      )}
+
                       {/* Text Input - Larger on mobile */}
-                      <Textarea
-                        ref={textareaRef}
-                        placeholder="Digite uma mensagem..."
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            if (selectedImage) {
-                              handleSendImage();
-                            } else {
-                              handleSendMessage();
+                      {!selectedVideo && (
+                        <Textarea
+                          ref={textareaRef}
+                          placeholder="Digite uma mensagem..."
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              if (selectedImage) {
+                                handleSendImage();
+                              } else if (selectedVideo) {
+                                handleSendVideo();
+                              } else {
+                                handleSendMessage();
+                              }
                             }
-                          }
-                        }}
-                        className={cn(
-                          "flex-1 resize-none rounded-2xl border-2 focus-visible:ring-1",
-                          isMobile
-                            ? "min-h-[48px] max-h-[120px] py-3 px-4 text-base"
-                            : "min-h-[44px] max-h-[144px] py-2.5 px-3"
-                        )}
-                        disabled={sendMessage.isPending || isSendingImage}
-                        rows={1}
-                      />
+                          }}
+                          className={cn(
+                            "flex-1 resize-none rounded-2xl border-2 focus-visible:ring-1",
+                            isMobile
+                              ? "min-h-[48px] max-h-[120px] py-3 px-4 text-base"
+                              : "min-h-[44px] max-h-[144px] py-2.5 px-3"
+                          )}
+                          disabled={sendMessage.isPending || isSendingImage || isSendingVideo}
+                          rows={1}
+                        />
+                      )}
 
                       {/* Send Button - Always visible on mobile */}
                       <Button
                         size="icon"
                         className={cn(
                           "shrink-0 rounded-full transition-all",
-                          (selectedImage || messageText.trim())
+                          (selectedImage || selectedVideo || messageText.trim())
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-muted text-muted-foreground",
                           isMobile ? "h-12 w-12" : "h-10 w-10"
                         )}
-                        onClick={selectedImage ? handleSendImage : handleSendMessage}
-                        disabled={sendMessage.isPending || isSendingImage || (!selectedImage && !messageText.trim())}
+                        onClick={() => {
+                          if (selectedImage) {
+                            handleSendImage();
+                          } else if (selectedVideo) {
+                            handleSendVideo();
+                          } else {
+                            handleSendMessage();
+                          }
+                        }}
+                        disabled={sendMessage.isPending || isSendingImage || isSendingVideo || (!selectedImage && !selectedVideo && !messageText.trim())}
                       >
-                        {sendMessage.isPending || isSendingImage ? (
+                        {sendMessage.isPending || isSendingImage || isSendingVideo ? (
                           <Loader2 className={cn("animate-spin", isMobile ? "h-6 w-6" : "h-5 w-5")} />
                         ) : (
                           <Send className={cn(isMobile ? "h-6 w-6" : "h-5 w-5")} />
