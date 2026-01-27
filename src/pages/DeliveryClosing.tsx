@@ -11,9 +11,6 @@ import {
   Store, 
   FileText, 
   Loader2,
-  CreditCard,
-  Banknote,
-  Smartphone,
   Receipt,
   History,
   Eye,
@@ -29,6 +26,8 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/hooks/useSales';
 import { useAuth } from '@/hooks/useAuth';
+import { calculateCategoryTotals, getCategoryConfig } from '@/lib/paymentCategories';
+import { PaymentCategoryTotals, PaymentCategoryBadges } from '@/components/expedition/PaymentCategoryTotals';
 import {
   useAvailableClosingSales,
   useDeliveryClosings,
@@ -97,29 +96,7 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   }, [availableSales, selectedSales]);
 
   const totals = useMemo(() => {
-    let total = 0;
-    let card = 0;
-    let pix = 0;
-    let cash = 0;
-    let other = 0;
-
-    selectedSalesData.forEach(sale => {
-      const amount = sale.total_cents || 0;
-      total += amount;
-
-      const method = (sale.payment_method || '').toLowerCase();
-      if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || method.includes('credito') || method.includes('débito') || method.includes('debito')) {
-        card += amount;
-      } else if (method.includes('pix')) {
-        pix += amount;
-      } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie')) {
-        cash += amount;
-      } else {
-        other += amount;
-      }
-    });
-
-    return { total, card, pix, cash, other };
+    return calculateCategoryTotals(selectedSalesData);
   }, [selectedSalesData]);
 
   const handleCreateClosing = async () => {
@@ -293,7 +270,7 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                               <span>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm", { locale: ptBR }) : '-'}</span>
                               <Badge variant="secondary" className="text-xs">
-                                {formatPaymentMethod(sale.payment_method)}
+                                {getCategoryConfig(sale.payment_category).emoji} {getCategoryConfig(sale.payment_category).shortLabel}
                               </Badge>
                             </div>
                           </div>
@@ -310,43 +287,15 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                 {selectedSales.size > 0 && (
                   <div className="space-y-4">
                     <Separator />
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <Card className={`bg-gradient-to-br ${colors.gradient}`}>
-                        <CardContent className="p-4 text-center">
-                          <Receipt className={`w-6 h-6 mx-auto mb-2 ${colors.text}`} />
-                          <p className={`text-xl font-bold ${colors.title}`}>{formatCurrency(totals.total)}</p>
-                          <p className={`text-xs ${colors.text}`}>Total Geral</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-blue-200">
-                        <CardContent className="p-4 text-center">
-                          <CreditCard className="w-5 h-5 mx-auto mb-2 text-blue-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.card)}</p>
-                          <p className="text-xs text-muted-foreground">Cartão</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-green-200">
-                        <CardContent className="p-4 text-center">
-                          <Smartphone className="w-5 h-5 mx-auto mb-2 text-green-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.pix)}</p>
-                          <p className="text-xs text-muted-foreground">PIX</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-yellow-200">
-                        <CardContent className="p-4 text-center">
-                          <Banknote className="w-5 h-5 mx-auto mb-2 text-yellow-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.cash)}</p>
-                          <p className="text-xs text-muted-foreground">Dinheiro</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-gray-200">
-                        <CardContent className="p-4 text-center">
-                          <Receipt className="w-5 h-5 mx-auto mb-2 text-gray-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.other)}</p>
-                          <p className="text-xs text-muted-foreground">Outros</p>
-                        </CardContent>
-                      </Card>
-                    </div>
+                    <PaymentCategoryTotals 
+                      total={totals.total}
+                      byCategory={totals.byCategory}
+                      colorConfig={{
+                        gradient: colors.gradient,
+                        text: colors.text,
+                        title: colors.title,
+                      }}
+                    />
 
                     <Button 
                       className={`w-full ${colors.button}`}

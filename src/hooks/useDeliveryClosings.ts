@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
+import { type PaymentCategory, calculateCategoryTotals } from '@/lib/paymentCategories';
 
 export type ClosingType = 'pickup' | 'motoboy' | 'carrier';
 
@@ -81,10 +82,12 @@ export function useAvailableClosingSales(closingType: ClosingType) {
           delivery_type,
           total_cents,
           payment_method,
+          payment_method_id,
           delivered_at,
           scheduled_delivery_date,
           created_at,
-          lead:leads(id, name)
+          lead:leads(id, name),
+          payment_method_rel:payment_methods(id, name, category)
         `)
         .eq('organization_id', tenantId)
         .eq('delivery_type', deliveryTypeValue as any)
@@ -99,7 +102,12 @@ export function useAvailableClosingSales(closingType: ClosingType) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data || [];
+      
+      // Map the data to include payment_category from the joined table
+      return (data || []).map(sale => ({
+        ...sale,
+        payment_category: sale.payment_method_rel?.category as PaymentCategory | null,
+      }));
     },
     enabled: !!tenantId && !!user,
   });
@@ -186,6 +194,7 @@ interface CreateClosingData {
     lead?: { name: string } | null;
     total_cents?: number | null;
     payment_method?: string | null;
+    payment_category?: string | null;
     delivered_at?: string | null;
   }>;
   notes?: string;
@@ -200,28 +209,18 @@ export function useCreateDeliveryClosing() {
     mutationFn: async ({ closingType, sales, notes }: CreateClosingData) => {
       if (!tenantId || !user) throw new Error('Not authenticated');
 
-      // Calculate totals
-      let total_amount_cents = 0;
-      let total_card_cents = 0;
-      let total_pix_cents = 0;
-      let total_cash_cents = 0;
-      let total_other_cents = 0;
-
-      sales.forEach(sale => {
-        const amount = sale.total_cents || 0;
-        total_amount_cents += amount;
-
-        const method = (sale.payment_method || '').toLowerCase();
-        if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || method.includes('credito') || method.includes('débito') || method.includes('debito')) {
-          total_card_cents += amount;
-        } else if (method.includes('pix')) {
-          total_pix_cents += amount;
-        } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie')) {
-          total_cash_cents += amount;
-        } else {
-          total_other_cents += amount;
-        }
-      });
+      // Calculate totals using real payment categories
+      const { total: total_amount_cents, byCategory } = calculateCategoryTotals(sales);
+      
+      // Map new categories to legacy columns for backward compatibility
+      // card = card_machine + payment_link + ecommerce
+      // pix = pix
+      // cash = cash
+      // other = boleto_prepaid + boleto_postpaid + boleto_installment + gift + other
+      const total_card_cents = byCategory.card_machine + byCategory.payment_link + byCategory.ecommerce;
+      const total_pix_cents = byCategory.pix;
+      const total_cash_cents = byCategory.cash;
+      const total_other_cents = byCategory.boleto_prepaid + byCategory.boleto_postpaid + byCategory.boleto_installment + byCategory.gift + byCategory.other;
 
       // Create the closing
       const { data: closing, error: closingError } = await supabase
