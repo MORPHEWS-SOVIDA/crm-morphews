@@ -431,26 +431,29 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-[180px]">Usuário</TableHead>
-                    <TableHead className="text-center w-[90px]">
+                    <TableHead className="text-center w-[70px]">
                       <div className="flex flex-col items-center gap-0.5">
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4" />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 p-0 hover:bg-primary/10"
-                            onClick={toggleAllCanView}
-                            title={allHaveCanView ? "Desmarcar todos" : "Selecionar todos"}
-                            disabled={usersWithAccess.length === 0}
-                          >
-                            {allHaveCanView ? (
-                              <ToggleRight className="h-3.5 w-3.5 text-primary" />
-                            ) : (
-                              <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                            )}
-                          </Button>
-                        </div>
+                        <Eye className="h-4 w-4" />
                         <span className="text-[10px]">Ver</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center w-[60px]">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 p-0 hover:bg-primary/10 rounded-md"
+                          onClick={toggleAllCanView}
+                          title={allHaveCanView ? "Desmarcar todos" : "Selecionar todos"}
+                          disabled={usersWithAccess.length === 0}
+                        >
+                          {allHaveCanView ? (
+                            <ToggleRight className="h-4 w-4 text-primary" />
+                          ) : (
+                            <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                        <span className="text-[10px]">Todos</span>
                       </div>
                     </TableHead>
                     <TableHead className="text-center w-[70px]">
