@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Phone, 
   Search, 
@@ -53,6 +54,7 @@ import {
   useUpdateReceptiveAttendance,
   CONVERSATION_MODES 
 } from '@/hooks/useReceptiveModule';
+import { useSearchLeadByName } from '@/hooks/useSearchLeadByName';
 import { useLeadSources } from '@/hooks/useConfigOptions';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useProductBrands } from '@/hooks/useProductBrands';
@@ -210,7 +212,11 @@ export default function AddReceptivo() {
 
   const [currentStep, setCurrentStep] = useState<FlowStep>('phone');
   const [phoneInput, setPhoneInput] = useState('55');
+  const [nameSearchInput, setNameSearchInput] = useState('');
   const [leadData, setLeadData] = useState<LeadData>(initialLeadData);
+  
+  // Name search results
+  const { data: nameSearchResults = [], isLoading: isSearchingByName } = useSearchLeadByName(nameSearchInput);
   const [conversationMode, setConversationMode] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState('');
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
@@ -774,6 +780,61 @@ export default function AddReceptivo() {
       setCurrentStep('lead_info');
     } catch (error: unknown) {
       toast({ title: 'Erro na busca', description: getErrorMessage(error), variant: 'destructive' });
+    }
+  };
+
+  // Handle selecting a lead from name search results
+  const handleSelectLeadFromNameSearch = async (leadId: string) => {
+    try {
+      const { data: leadFromDb, error } = await supabase
+        .from('leads')
+        .select(`
+          id, name, whatsapp, email, instagram, specialty, 
+          lead_source, stage, stars, observations,
+          cep, street, street_number, complement, neighborhood, city, state,
+          secondary_phone, cpf_cnpj, created_at,
+          birth_date, gender, favorite_team
+        `)
+        .eq('id', leadId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (leadFromDb) {
+        setLeadData({
+          id: leadFromDb.id,
+          name: leadFromDb.name || '',
+          whatsapp: leadFromDb.whatsapp || '',
+          email: leadFromDb.email || '',
+          instagram: leadFromDb.instagram || '',
+          specialty: leadFromDb.specialty || '',
+          lead_source: leadFromDb.lead_source || '',
+          observations: leadFromDb.observations || '',
+          cep: leadFromDb.cep || '',
+          street: leadFromDb.street || '',
+          street_number: leadFromDb.street_number || '',
+          complement: leadFromDb.complement || '',
+          neighborhood: leadFromDb.neighborhood || '',
+          city: leadFromDb.city || '',
+          state: leadFromDb.state || '',
+          secondary_phone: leadFromDb.secondary_phone || '',
+          cpf_cnpj: leadFromDb.cpf_cnpj || '',
+          existed: true,
+          created_at: leadFromDb.created_at,
+          stage: leadFromDb.stage as FunnelStage,
+          stars: leadFromDb.stars,
+          birth_date: leadFromDb.birth_date || null,
+          gender: leadFromDb.gender || null,
+          favorite_team: leadFromDb.favorite_team || null,
+        });
+        setSelectedSourceId(leadFromDb.lead_source || '');
+        setPhoneInput(leadFromDb.whatsapp || '55');
+        setNameSearchInput('');
+        toast({ title: 'Lead encontrado!', description: leadFromDb.name });
+        setCurrentStep('lead_info');
+      }
+    } catch (error: unknown) {
+      toast({ title: 'Erro ao buscar lead', description: getErrorMessage(error), variant: 'destructive' });
     }
   };
 
@@ -1644,6 +1705,83 @@ export default function AddReceptivo() {
               <p className="text-xs text-muted-foreground">
                 Formato: 55 (DDI) + DDD + Número. Ex: 5551999887766
               </p>
+              
+              <Separator className="my-4" />
+              
+              {/* Name Search */}
+              <div className="space-y-3">
+                <div>
+                  <Label className="flex items-center gap-2 text-sm font-medium mb-2">
+                    <User className="w-4 h-4" />
+                    Ou buscar por nome
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Digite o nome do cliente..."
+                    value={nameSearchInput}
+                    onChange={(e) => setNameSearchInput(e.target.value)}
+                    className="text-base"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Digite pelo menos 2 caracteres para buscar
+                  </p>
+                </div>
+                
+                {/* Name Search Results */}
+                {nameSearchInput.length >= 2 && (
+                  <div className="border rounded-lg overflow-hidden">
+                    {isSearchingByName ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Buscando...</span>
+                      </div>
+                    ) : nameSearchResults.length === 0 ? (
+                      <div className="py-4 text-center text-sm text-muted-foreground">
+                        Nenhum cliente encontrado com esse nome
+                      </div>
+                    ) : (
+                      <ScrollArea className="max-h-60">
+                        <div className="divide-y">
+                          {nameSearchResults.map((lead) => (
+                            <div
+                              key={lead.id}
+                              className="flex items-center gap-3 p-3 hover:bg-accent cursor-pointer transition-colors"
+                              onClick={() => handleSelectLeadFromNameSearch(lead.id)}
+                            >
+                              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="text-primary font-semibold text-sm">
+                                  {lead.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{lead.name}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Phone className="w-3 h-3" />
+                                  <span className="font-mono">{lead.whatsapp}</span>
+                                  {lead.city && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{lead.city}/{lead.state}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    className={`w-3 h-3 ${i < lead.stars ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground/30'}`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
