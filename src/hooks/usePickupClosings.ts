@@ -42,6 +42,7 @@ export interface PickupClosingSale {
 }
 
 // Fetch pickup sales that have NOT been included in any closing yet
+// Shows ALL pickup sales regardless of status (except cancelled), as long as they weren't in a previous closing
 export function useAvailablePickupSales() {
   const { data: tenantId } = useCurrentTenantId();
   const { user } = useAuth();
@@ -61,7 +62,8 @@ export function useAvailablePickupSales() {
 
       const usedSaleIds = (usedSales || []).map(s => s.sale_id);
 
-      // Fetch pickup sales that are delivered and NOT in any closing
+      // Fetch ALL pickup sales that are NOT in any closing (regardless of status)
+      // Only exclude cancelled sales
       let query = supabase
         .from('sales')
         .select(`
@@ -73,13 +75,13 @@ export function useAvailablePickupSales() {
           payment_method,
           delivered_at,
           scheduled_delivery_date,
+          created_at,
           lead:leads(id, name)
         `)
         .eq('organization_id', tenantId)
         .eq('delivery_type', 'pickup')
-        .eq('status', 'delivered')
-        .not('delivered_at', 'is', null)
-        .order('delivered_at', { ascending: false });
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false });
 
       // Exclude sales already in closings
       if (usedSaleIds.length > 0) {
