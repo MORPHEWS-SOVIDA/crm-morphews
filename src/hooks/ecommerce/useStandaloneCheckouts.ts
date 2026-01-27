@@ -119,6 +119,32 @@ export interface CheckoutTestimonial {
   created_at: string;
 }
 
+type ProductLite = {
+  id: string;
+  name: string;
+  base_price_cents: number;
+  price_1_unit: number | null;
+  images?: string[] | null;
+};
+
+async function fetchProductsMapByIds(ids: string[]): Promise<Record<string, ProductLite>> {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+  if (uniqueIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('lead_products')
+    .select('id, name, base_price_cents, price_1_unit, images')
+    .in('id', uniqueIds);
+
+  if (error) throw error;
+
+  const map: Record<string, ProductLite> = {};
+  for (const p of (data || []) as unknown as ProductLite[]) {
+    map[p.id] = p;
+  }
+  return map;
+}
+
 // Fetch all checkouts for organization
 export function useStandaloneCheckouts() {
   return useQuery({
@@ -145,11 +171,7 @@ export function useStandaloneCheckouts() {
 
       const { data, error } = await supabase
         .from('standalone_checkouts')
-        .select(`
-          *,
-          product:lead_products!standalone_checkouts_product_id_fkey(id, name, base_price_cents, price_1_unit, images),
-          order_bump_product:lead_products!standalone_checkouts_order_bump_product_id_fkey(id, name, base_price_cents, price_1_unit)
-        `)
+        .select('*')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
@@ -157,9 +179,19 @@ export function useStandaloneCheckouts() {
         console.error('[useStandaloneCheckouts] Error fetching checkouts:', error);
         throw error;
       }
+
+      const checkoutsRaw = (data || []) as unknown as StandaloneCheckout[];
+      const productIds = checkoutsRaw.flatMap((c) => [c.product_id, c.order_bump_product_id || '']);
+      const productsMap = await fetchProductsMapByIds(productIds);
+
+      const checkouts = checkoutsRaw.map((c) => ({
+        ...c,
+        product: productsMap[c.product_id],
+        order_bump_product: c.order_bump_product_id ? productsMap[c.order_bump_product_id] || null : null,
+      })) as StandaloneCheckout[];
       
-      console.log('[useStandaloneCheckouts] Fetched checkouts:', data?.length || 0);
-      return (data || []) as unknown as StandaloneCheckout[];
+      console.log('[useStandaloneCheckouts] Fetched checkouts:', checkouts?.length || 0);
+      return checkouts;
     },
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: true,
@@ -175,16 +207,25 @@ export function useStandaloneCheckout(id: string | undefined) {
 
       const { data, error } = await supabase
         .from('standalone_checkouts')
-        .select(`
-          *,
-          product:lead_products!standalone_checkouts_product_id_fkey(id, name, base_price_cents, price_1_unit, images),
-          order_bump_product:lead_products!standalone_checkouts_order_bump_product_id_fkey(id, name, base_price_cents, price_1_unit)
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as unknown as StandaloneCheckout;
+
+      const checkout = data as unknown as StandaloneCheckout;
+      const productsMap = await fetchProductsMapByIds([
+        checkout.product_id,
+        checkout.order_bump_product_id || '',
+      ]);
+
+      return {
+        ...checkout,
+        product: productsMap[checkout.product_id],
+        order_bump_product: checkout.order_bump_product_id
+          ? productsMap[checkout.order_bump_product_id] || null
+          : null,
+      } as StandaloneCheckout;
     },
     enabled: !!id,
   });
