@@ -311,7 +311,9 @@ export function useCreatePartnerApplication() {
       responsible_for_refunds: boolean;
       responsible_for_chargebacks: boolean;
     }) => {
-      const { data, error } = await supabase
+      // For public/anonymous submissions, we don't use .select().single()
+      // because anonymous users don't have SELECT permission on this table
+      const { error } = await supabase
         .from('partner_applications')
         .insert({
           public_link_id: input.public_link_id,
@@ -325,12 +327,10 @@ export function useCreatePartnerApplication() {
           commission_value: input.commission_value,
           responsible_for_refunds: input.responsible_for_refunds,
           responsible_for_chargebacks: input.responsible_for_chargebacks,
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
-      return data as PartnerApplication;
+      return { success: true };
     },
   });
 }
