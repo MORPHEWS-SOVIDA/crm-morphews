@@ -25,7 +25,9 @@ export interface CashSaleWithConfirmations {
   romaneio_number: number | null;
   total_cents: number;
   delivered_at: string | null;
+  scheduled_delivery_date: string | null;
   delivery_payment_type: string | null;
+  delivery_type: string | null; // motoboy, pickup, carrier
   payment_status: string | null;
   status: string;
   delivery_confirmed_by: string | null;
@@ -68,7 +70,9 @@ export function useCashPaymentSales(filters?: {
           romaneio_number,
           total_cents,
           delivered_at,
+          scheduled_delivery_date,
           delivery_payment_type,
+          delivery_type,
           payment_status,
           status,
           delivery_confirmed_by,
@@ -138,7 +142,9 @@ export function useCashPaymentSales(filters?: {
           romaneio_number: sale.romaneio_number,
           total_cents: sale.total_cents,
           delivered_at: sale.delivered_at,
+          scheduled_delivery_date: sale.scheduled_delivery_date,
           delivery_payment_type: sale.delivery_payment_type,
+          delivery_type: sale.delivery_type,
           payment_status: sale.payment_status,
           status: sale.status,
           delivery_confirmed_by: sale.delivery_confirmed_by,
