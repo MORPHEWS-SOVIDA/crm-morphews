@@ -626,7 +626,8 @@ export default function AddReceptivo() {
 
   // Add current product to offer items list
   const handleAddProductToOffer = () => {
-    if (!currentProduct || !currentUnitPrice) return;
+    // Allow price 0 for services - only block if no product selected or price is undefined/null
+    if (!currentProduct || currentUnitPrice === undefined || currentUnitPrice === null) return;
     
     // Determine if this is a kit-based product
     const isKitBased = ['produto_pronto', 'print_on_demand', 'dropshipping'].includes(currentProduct.category);
