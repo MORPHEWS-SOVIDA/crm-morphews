@@ -766,7 +766,7 @@ export default function Expedition() {
             {permissions?.cash_verification_view && (
               <Button 
                 variant="outline" 
-                onClick={() => setCashVerificationOpen(true)}
+                onClick={() => navigate('/expedicao/conferencia-dinheiro')}
                 className="border-green-300 text-green-700 hover:bg-green-50"
               >
                 <Banknote className="w-4 h-4 mr-2" />
