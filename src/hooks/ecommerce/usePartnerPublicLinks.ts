@@ -313,23 +313,20 @@ export function useCreatePartnerApplication() {
     }) => {
       // For public/anonymous submissions, we don't use .select().single()
       // because anonymous users don't have SELECT permission on this table
-      const { error } = await supabase
-        .from('partner_applications')
-        .insert({
+      // IMPORTANT: Public submit goes through a backend function to avoid RLS/RETURNING issues
+      // and keep partner_applications unreadable for anonymous users.
+      const { data, error } = await supabase.functions.invoke('partner-apply-public', {
+        body: {
           public_link_id: input.public_link_id,
-          organization_id: input.organization_id,
           name: input.name,
           email: input.email,
           whatsapp: input.whatsapp || null,
           document: input.document || null,
-          partner_type: input.partner_type,
-          commission_type: input.commission_type,
-          commission_value: input.commission_value,
-          responsible_for_refunds: input.responsible_for_refunds,
-          responsible_for_chargebacks: input.responsible_for_chargebacks,
-        });
+        },
+      });
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao enviar solicitação');
       return { success: true };
     },
   });
