@@ -31,6 +31,7 @@ import {
   Columns3,
   Plug2,
   Store,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,9 @@ import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { useTenant } from '@/hooks/useTenant';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import logoMorphews from '@/assets/logo-morphews.png';
+import donnaAvatar from '@/assets/donna-avatar.png';
+import { useState } from 'react';
+import { DonnaHelperPanel } from '@/components/helper/DonnaHelperPanel';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
@@ -50,6 +54,7 @@ export function Sidebar() {
   const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const navigate = useNavigate();
+  const [isDonnaOpen, setIsDonnaOpen] = useState(false);
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   
@@ -251,25 +256,56 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-sidebar-border space-y-2">
+          <div className="p-3 border-t border-sidebar-border space-y-2">
+            {/* Donna Helper Section - only show if org has feature enabled */}
+            {orgFeatures?.donna_helper && permissions?.helper_donna_view !== false && (
+              <div className="mb-2">
+                <p className="text-[10px] text-muted-foreground text-center mb-1">AJUDA? Fale com DONNA</p>
+                <button
+                  onClick={() => setIsDonnaOpen(true)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/30 dark:hover:to-emerald-900/30 transition-colors border border-green-200 dark:border-green-800"
+                >
+                  <img 
+                    src={donnaAvatar} 
+                    alt="Donna" 
+                    className="w-8 h-8 rounded-full ring-2 ring-green-300/50"
+                  />
+                  <div className="flex-1 text-left">
+                    <p className="text-xs font-medium text-green-700 dark:text-green-400">Donna</p>
+                    <p className="text-[10px] text-green-600/70 dark:text-green-500/70">Assistente IA</p>
+                  </div>
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                </button>
+              </div>
+            )}
+
+            {/* Terms link - smaller font */}
             <NavLink
               to="/legal"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent/50 transition-colors"
+              className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-muted-foreground/70 hover:bg-sidebar-accent/50 transition-colors"
             >
-              <Scale className="w-4 h-4" />
+              <Scale className="w-3 h-3" />
               Termos e Privacidade
             </NavLink>
+            
+            {/* Sign out button */}
             <Button
               variant="ghost"
-              className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+              size="sm"
+              className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleSignOut}
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
               Sair
             </Button>
           </div>
         </div>
       </aside>
+
+      {/* Donna Panel */}
+      {isDonnaOpen && (
+        <DonnaHelperPanel onClose={() => setIsDonnaOpen(false)} />
+      )}
     </>
   );
 }

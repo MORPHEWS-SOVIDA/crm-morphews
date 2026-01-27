@@ -43,7 +43,8 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </main>
       <MobileNav />
-      {canSeeHelper && <DonnaHelperButton />}
+      {/* Only show floating Donna on mobile - desktop Donna is in sidebar */}
+      {canSeeHelper && <div className="lg:hidden"><DonnaHelperButton /></div>}
     </div>
   );
 }
