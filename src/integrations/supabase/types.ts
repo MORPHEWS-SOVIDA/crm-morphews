@@ -8306,9 +8306,12 @@ export type Database = {
           can_see_all_leads: boolean
           commission_percentage: number | null
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           earns_team_commission: boolean
           extension: string | null
           id: string
+          is_active: boolean
           is_sales_manager: boolean
           organization_id: string
           role: Database["public"]["Enums"]["org_role"]
@@ -8320,9 +8323,12 @@ export type Database = {
           can_see_all_leads?: boolean
           commission_percentage?: number | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           earns_team_commission?: boolean
           extension?: string | null
           id?: string
+          is_active?: boolean
           is_sales_manager?: boolean
           organization_id: string
           role?: Database["public"]["Enums"]["org_role"]
@@ -8334,9 +8340,12 @@ export type Database = {
           can_see_all_leads?: boolean
           commission_percentage?: number | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           earns_team_commission?: boolean
           extension?: string | null
           id?: string
+          is_active?: boolean
           is_sales_manager?: boolean
           organization_id?: string
           role?: Database["public"]["Enums"]["org_role"]

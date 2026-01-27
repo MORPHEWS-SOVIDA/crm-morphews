@@ -31,7 +31,10 @@ import {
   Phone,
   Eye,
   EyeOff,
-  Shield
+  Shield,
+  UserX,
+  UserCheck,
+  Ban,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
@@ -72,6 +75,9 @@ interface OrgMember {
   team_commission_percentage: number | null;
   team_id: string | null;
   created_at: string;
+  is_active: boolean;
+  deactivated_at: string | null;
+  deactivated_by: string | null;
   profile?: {
     first_name: string;
     last_name: string;
@@ -158,6 +164,7 @@ export default function Team() {
     whatsapp: "",
   });
   const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
+  const [isTogglingActive, setIsTogglingActive] = useState<string | null>(null);
   
   // My Profile state
   const [isEditingMyProfile, setIsEditingMyProfile] = useState(false);
@@ -225,10 +232,10 @@ export default function Team() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      // Get members including can_see_all_leads, commission, extension, team_id and sales manager fields
+      // Get members including can_see_all_leads, commission, extension, team_id, sales manager fields and is_active
       const { data: membersData, error: membersError } = await supabase
         .from("organization_members")
-        .select("id, user_id, role, can_see_all_leads, commission_percentage, extension, is_sales_manager, earns_team_commission, team_commission_percentage, team_id, created_at, organization_id")
+        .select("id, user_id, role, can_see_all_leads, commission_percentage, extension, is_sales_manager, earns_team_commission, team_commission_percentage, team_id, created_at, organization_id, is_active, deactivated_at, deactivated_by")
         .eq("organization_id", profile.organization_id);
 
       if (membersError) throw membersError;
@@ -742,6 +749,46 @@ export default function Team() {
       });
     } finally {
       setIsDeletingUser(null);
+    }
+  };
+
+  // Toggle user active status (deactivate/reactivate)
+  const handleToggleUserActive = async (member: OrgMember) => {
+    if (!user?.id) return;
+    
+    setIsTogglingActive(member.id);
+    
+    try {
+      const newIsActive = !member.is_active;
+      
+      const { error } = await supabase
+        .from("organization_members")
+        .update({
+          is_active: newIsActive,
+          deactivated_at: newIsActive ? null : new Date().toISOString(),
+          deactivated_by: newIsActive ? null : user.id,
+        })
+        .eq("id", member.id);
+
+      if (error) throw error;
+
+      toast({
+        title: newIsActive ? "Usuário reativado" : "Usuário desativado",
+        description: newIsActive 
+          ? "O usuário agora pode acessar o sistema novamente."
+          : "O usuário não poderá mais fazer login até ser reativado.",
+      });
+      
+      refetchMembers();
+    } catch (error: any) {
+      console.error("Error toggling user active status:", error);
+      toast({
+        title: "Erro ao alterar status",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingActive(null);
     }
   };
 
@@ -1469,6 +1516,16 @@ export default function Team() {
                         )}
                       </Badge>
                     )}
+                    {/* Inactive badge */}
+                    {!member.is_active && (
+                      <Badge 
+                        variant="outline" 
+                        className="bg-red-500/10 text-red-600 border-red-500/30"
+                      >
+                        <Ban className="w-3 h-3 mr-1" />
+                        Desativado
+                      </Badge>
+                    )}
                     {/* Edit button for all members except self - requires team_edit_member permission */}
                     {member.user_id !== user?.id && myPermissions?.team_edit_member && (
                       <Button 
@@ -1478,6 +1535,27 @@ export default function Team() {
                         onClick={() => handleEditMember(member)}
                       >
                         <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {/* Toggle active button for non-owners and non-self - requires team_edit_member permission */}
+                    {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={member.is_active 
+                          ? "text-muted-foreground hover:text-amber-600" 
+                          : "text-muted-foreground hover:text-green-600"}
+                        onClick={() => handleToggleUserActive(member)}
+                        disabled={isTogglingActive === member.id}
+                        title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
+                      >
+                        {isTogglingActive === member.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : member.is_active ? (
+                          <UserX className="w-4 h-4" />
+                        ) : (
+                          <UserCheck className="w-4 h-4" />
+                        )}
                       </Button>
                     )}
                     {/* Delete button only for non-owners and non-self - requires team_delete_member permission */}
