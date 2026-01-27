@@ -125,7 +125,10 @@ export function useStandaloneCheckouts() {
     queryKey: ['standalone-checkouts'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) {
+        console.log('[useStandaloneCheckouts] No user found');
+        return [];
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -134,8 +137,11 @@ export function useStandaloneCheckouts() {
         .maybeSingle();
 
       if (!profile?.organization_id) {
+        console.log('[useStandaloneCheckouts] No organization found for user');
         return [];
       }
+
+      console.log('[useStandaloneCheckouts] Fetching checkouts for org:', profile.organization_id);
 
       const { data, error } = await supabase
         .from('standalone_checkouts')
@@ -147,9 +153,16 @@ export function useStandaloneCheckouts() {
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useStandaloneCheckouts] Error fetching checkouts:', error);
+        throw error;
+      }
+      
+      console.log('[useStandaloneCheckouts] Fetched checkouts:', data?.length || 0);
       return (data || []) as unknown as StandaloneCheckout[];
     },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
   });
 }
 
