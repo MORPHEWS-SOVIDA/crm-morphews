@@ -917,11 +917,16 @@ export default function WhatsAppChat() {
         c.phone_number.includes(searchTerm);
       if (!matchesSearch) return false;
       
-      // Se filtro é 'all', retorna tudo (exceto autodistribuídas que não são para o usuário)
+      // Se filtro é 'all', retorna tudo (exceto conversas restritas)
       if (mobileStatusFilter === 'all') {
         // Excluir autodistribuídas de outros usuários
         if (c.status === 'autodistributed' && c.designated_user_id !== user?.id) {
           return false;
+        }
+        // Excluir conversas atribuídas de outros usuários (exceto para admins)
+        if (c.status === 'assigned' && c.assigned_user_id !== user?.id) {
+          const isAdmin = isAdminOfInstance(c.instance_id);
+          if (!isAdmin) return false;
         }
         return true;
       }
