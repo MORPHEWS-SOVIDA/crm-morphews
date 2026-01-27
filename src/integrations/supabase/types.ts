@@ -5702,6 +5702,7 @@ export type Database = {
           benefits: Json | null
           branding: Json | null
           checkout_config: Json | null
+          checkout_selectors: string[] | null
           created_at: string
           custom_css: string | null
           facebook_pixel_id: string | null
@@ -5735,6 +5736,7 @@ export type Database = {
           benefits?: Json | null
           branding?: Json | null
           checkout_config?: Json | null
+          checkout_selectors?: string[] | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null
@@ -5768,6 +5770,7 @@ export type Database = {
           benefits?: Json | null
           branding?: Json | null
           checkout_config?: Json | null
+          checkout_selectors?: string[] | null
           created_at?: string
           custom_css?: string | null
           facebook_pixel_id?: string | null

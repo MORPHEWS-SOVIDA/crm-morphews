@@ -11,6 +11,7 @@ import { CountdownTimer } from '@/components/ecommerce/CountdownTimer';
 import { TrackingPixels } from '@/components/ecommerce/TrackingPixels';
 import { SalesChatbot } from '@/components/ecommerce/SalesChatbot';
 import { LandingPageStructuredData } from '@/components/ecommerce/StructuredData';
+import { FullHtmlLandingRenderer } from '@/components/ecommerce/FullHtmlLandingRenderer';
 
 interface LandingOffer {
   id: string;
@@ -44,6 +45,10 @@ interface PublicLandingPage {
   facebook_pixel_id: string | null;
   google_analytics_id: string | null;
   custom_css: string | null;
+  // Full HTML mode fields
+  import_mode: 'structured' | 'full_html' | null;
+  full_html: string | null;
+  checkout_selectors: string[] | null;
   settings: {
     timer_enabled?: boolean;
     timer_end_date?: string;
@@ -138,6 +143,10 @@ export default function PublicLandingPage() {
         settings: (data.settings as PublicLandingPage['settings']) || {},
         offers: ((data.offers as unknown as LandingOffer[]) || []).sort((a, b) => a.display_order - b.display_order),
         product: data.product as unknown as PublicLandingPage['product'],
+        // Full HTML mode fields
+        import_mode: data.import_mode as PublicLandingPage['import_mode'],
+        full_html: data.full_html as string | null,
+        checkout_selectors: data.checkout_selectors as string[] | null,
       } as PublicLandingPage;
     },
   });
@@ -176,6 +185,39 @@ export default function PublicLandingPage() {
 
   const primaryColor = landing.primary_color || '#000000';
 
+  // FULL HTML MODE: Render the cloned site with injected checkout script
+  if (landing.import_mode === 'full_html' && landing.full_html) {
+    return (
+      <>
+        {/* Tracking Pixels for Full HTML mode */}
+        <TrackingPixels
+          facebookPixelId={landing.facebook_pixel_id}
+          googleAnalyticsId={landing.google_analytics_id}
+          tiktokPixelId={landing.settings?.tiktok_pixel_id}
+          gtmId={landing.settings?.gtm_id}
+        />
+        
+        <FullHtmlLandingRenderer
+          landing={{
+            id: landing.id,
+            organization_id: landing.organization_id,
+            product_id: landing.product_id,
+            name: landing.name,
+            slug: landing.slug,
+            full_html: landing.full_html,
+            checkout_selectors: landing.checkout_selectors || [],
+            offers: landing.offers,
+            product: landing.product,
+            facebook_pixel_id: landing.facebook_pixel_id,
+            google_analytics_id: landing.google_analytics_id,
+            settings: landing.settings,
+          }}
+        />
+      </>
+    );
+  }
+
+  // STRUCTURED MODE: Original template rendering
   return (
     <>
       {/* Tracking Pixels */}

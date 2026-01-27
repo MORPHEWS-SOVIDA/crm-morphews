@@ -22,6 +22,9 @@ import {
   Code,
   AlertCircle,
   Users,
+  MousePointerClick,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import { AffiliatesTab } from '@/components/ecommerce/affiliates/AffiliatesTab';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -43,6 +46,7 @@ interface EditorLandingPage {
   full_html: string | null;
   import_mode: 'structured' | 'full_html' | null;
   source_url: string | null;
+  checkout_selectors: string[] | null;
 }
 
 export default function LandingPageEditor() {
@@ -65,6 +69,8 @@ export default function LandingPageEditor() {
   
   // Full HTML mode
   const [fullHtml, setFullHtml] = useState('');
+  const [checkoutSelectors, setCheckoutSelectors] = useState<string[]>([]);
+  
   useEffect(() => {
     if (id) {
       loadLandingPage();
@@ -75,7 +81,7 @@ export default function LandingPageEditor() {
     try {
       const { data, error } = await supabase
         .from('landing_pages')
-        .select('id, name, slug, headline, subheadline, benefits, urgency_text, guarantee_text, primary_color, full_html, import_mode, source_url')
+        .select('id, name, slug, headline, subheadline, benefits, urgency_text, guarantee_text, primary_color, full_html, import_mode, source_url, checkout_selectors')
         .eq('id', id)
         .single();
 
@@ -110,6 +116,7 @@ export default function LandingPageEditor() {
         full_html: data.full_html,
         import_mode: (data.import_mode as 'structured' | 'full_html' | null) || null,
         source_url: data.source_url,
+        checkout_selectors: (data.checkout_selectors as string[]) || null,
       };
 
       setLandingPage(lp);
@@ -120,6 +127,7 @@ export default function LandingPageEditor() {
       setGuaranteeText(lp.guarantee_text || '');
       setPrimaryColor(lp.primary_color || '#10b981');
       setFullHtml(lp.full_html || '');
+      setCheckoutSelectors(lp.checkout_selectors || []);
     } catch (error) {
       console.error('Error loading landing page:', error);
       toast.error('Erro ao carregar landing page');
@@ -146,9 +154,10 @@ export default function LandingPageEditor() {
         updated_at: new Date().toISOString(),
       };
       
-      // If full HTML mode, also save the HTML
+      // If full HTML mode, also save the HTML and selectors
       if (isFullHtmlMode) {
         updateData.full_html = fullHtml;
+        updateData.checkout_selectors = checkoutSelectors.length > 0 ? checkoutSelectors : null;
       }
       
       const { error } = await supabase
@@ -286,19 +295,84 @@ export default function LandingPageEditor() {
               </TabsList>
 
               <TabsContent value="text" className="space-y-4 mt-4">
-                {/* Full HTML Mode Notice */}
+                {/* Full HTML Mode Notice and Configuration */}
                 {landingPage.import_mode === 'full_html' && (
-                  <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-                    <Code className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-700 dark:text-green-300">
-                      <strong>Modo Site Completo:</strong> O HTML original foi importado.
-                      {landingPage.source_url && (
-                        <span className="block text-xs mt-1 opacity-75">
-                          Fonte: {landingPage.source_url}
-                        </span>
-                      )}
-                    </AlertDescription>
-                  </Alert>
+                  <>
+                    <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                      <Code className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-700 dark:text-green-300">
+                        <strong>Modo Site Completo:</strong> O HTML original foi importado e será renderizado idêntico ao site original.
+                        {landingPage.source_url && (
+                          <span className="block text-xs mt-1 opacity-75">
+                            Fonte: {landingPage.source_url}
+                          </span>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                    
+                    {/* Checkout Selectors Configuration */}
+                    <Card className="border-primary/30">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <MousePointerClick className="h-4 w-4" />
+                          Seletores de Checkout (CSS)
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          Defina quais botões/links devem abrir o checkout. Use seletores CSS válidos.
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {checkoutSelectors.map((selector, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Input
+                              value={selector}
+                              onChange={(e) => {
+                                const newSelectors = [...checkoutSelectors];
+                                newSelectors[index] = e.target.value;
+                                setCheckoutSelectors(newSelectors);
+                                setHasChanges(true);
+                              }}
+                              placeholder="Ex: .elementor-button, a[href*='comprar']"
+                              className="font-mono text-xs"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setCheckoutSelectors(checkoutSelectors.filter((_, i) => i !== index));
+                                setHasChanges(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCheckoutSelectors([...checkoutSelectors, '']);
+                            setHasChanges(true);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Adicionar Seletor
+                        </Button>
+                        
+                        <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg space-y-1">
+                          <p className="font-medium">Exemplos de seletores:</p>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            <li><code className="bg-background px-1 rounded">.elementor-button</code> - Botões do Elementor</li>
+                            <li><code className="bg-background px-1 rounded">a[href*="comprar"]</code> - Links com "comprar"</li>
+                            <li><code className="bg-background px-1 rounded">button</code> - Todos os botões</li>
+                            <li><code className="bg-background px-1 rounded">.checkout-button</code> - Classe específica</li>
+                          </ul>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
                 )}
                 
                 <Card>
