@@ -29,6 +29,7 @@ export interface PaymentCategoryConfig {
   icon: LucideIcon;
   emoji: string;
   colorClass: string;
+  bgClass: string;
   borderClass: string;
 }
 
@@ -40,6 +41,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: Banknote,
     emoji: '💵',
     colorClass: 'text-green-600',
+    bgClass: 'bg-green-50',
     borderClass: 'border-green-200',
   },
   {
@@ -49,6 +51,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: Smartphone,
     emoji: '📱',
     colorClass: 'text-teal-600',
+    bgClass: 'bg-teal-50',
     borderClass: 'border-teal-200',
   },
   {
@@ -58,6 +61,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: CreditCard,
     emoji: '💳',
     colorClass: 'text-blue-600',
+    bgClass: 'bg-blue-50',
     borderClass: 'border-blue-200',
   },
   {
@@ -67,6 +71,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: Link,
     emoji: '🔗',
     colorClass: 'text-purple-600',
+    bgClass: 'bg-purple-50',
     borderClass: 'border-purple-200',
   },
   {
@@ -76,6 +81,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: ShoppingCart,
     emoji: '🛒',
     colorClass: 'text-indigo-600',
+    bgClass: 'bg-indigo-50',
     borderClass: 'border-indigo-200',
   },
   {
@@ -85,6 +91,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: FileText,
     emoji: '📄',
     colorClass: 'text-orange-600',
+    bgClass: 'bg-orange-50',
     borderClass: 'border-orange-200',
   },
   {
@@ -94,6 +101,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: FileText,
     emoji: '📋',
     colorClass: 'text-amber-600',
+    bgClass: 'bg-amber-50',
     borderClass: 'border-amber-200',
   },
   {
@@ -103,6 +111,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: FileText,
     emoji: '📑',
     colorClass: 'text-yellow-600',
+    bgClass: 'bg-yellow-50',
     borderClass: 'border-yellow-200',
   },
   {
@@ -112,6 +121,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: Gift,
     emoji: '🎁',
     colorClass: 'text-pink-600',
+    bgClass: 'bg-pink-50',
     borderClass: 'border-pink-200',
   },
   {
@@ -121,6 +131,7 @@ export const PAYMENT_CATEGORIES: PaymentCategoryConfig[] = [
     icon: Receipt,
     emoji: '📝',
     colorClass: 'text-gray-600',
+    bgClass: 'bg-gray-50',
     borderClass: 'border-gray-200',
   },
 ];

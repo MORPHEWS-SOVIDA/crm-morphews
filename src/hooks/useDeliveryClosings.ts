@@ -86,6 +86,8 @@ export function useAvailableClosingSales(closingType: ClosingType) {
           delivered_at,
           scheduled_delivery_date,
           created_at,
+          assigned_delivery_user_id,
+          seller_user_id,
           lead:leads(id, name),
           payment_method_rel:payment_methods(id, name, category)
         `)
@@ -102,11 +104,33 @@ export function useAvailableClosingSales(closingType: ClosingType) {
       const { data, error } = await query;
 
       if (error) throw error;
+
+      // Fetch profiles for motoboys and sellers
+      const userIds = new Set<string>();
+      (data || []).forEach(sale => {
+        if (sale.assigned_delivery_user_id) userIds.add(sale.assigned_delivery_user_id);
+        if (sale.seller_user_id) userIds.add(sale.seller_user_id);
+      });
+
+      let profilesMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+      if (userIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', Array.from(userIds));
+
+        profilesMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+          return acc;
+        }, {} as typeof profilesMap);
+      }
       
-      // Map the data to include payment_category from the joined table
+      // Map the data to include payment_category and profiles
       return (data || []).map(sale => ({
         ...sale,
         payment_category: sale.payment_method_rel?.category as PaymentCategory | null,
+        motoboy_profile: sale.assigned_delivery_user_id ? profilesMap[sale.assigned_delivery_user_id] : null,
+        seller_profile: sale.seller_user_id ? profilesMap[sale.seller_user_id] : null,
       }));
     },
     enabled: !!tenantId && !!user,

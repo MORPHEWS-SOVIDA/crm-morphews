@@ -2,11 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { SaleSelectionCard } from '@/components/expedition/SaleSelectionCard';
 import { 
   Store, 
   FileText, 
@@ -251,33 +251,13 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                   <CardContent className="p-0">
                     <div className="divide-y">
                       {availableSales.map(sale => (
-                        <div
+                        <SaleSelectionCard
                           key={sale.id}
-                          className={`flex items-center gap-4 p-4 cursor-pointer transition-colors ${
-                            selectedSales.has(sale.id) 
-                              ? colors.selected
-                              : 'hover:bg-muted/50'
-                          }`}
-                          onClick={() => toggleSale(sale.id)}
-                        >
-                          <Checkbox checked={selectedSales.has(sale.id)} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">#{sale.romaneio_number}</span>
-                              <span className="text-muted-foreground">•</span>
-                              <span className="truncate">{sale.lead?.name || 'Cliente'}</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                              <span>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm", { locale: ptBR }) : '-'}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {getCategoryConfig(sale.payment_category).emoji} {getCategoryConfig(sale.payment_category).shortLabel}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="text-right font-semibold text-lg">
-                            {formatCurrency(sale.total_cents || 0)}
-                          </div>
-                        </div>
+                          sale={sale}
+                          isSelected={selectedSales.has(sale.id)}
+                          onToggle={() => toggleSale(sale.id)}
+                          selectedBgClass={colors.selected}
+                        />
                       ))}
                     </div>
                   </CardContent>
