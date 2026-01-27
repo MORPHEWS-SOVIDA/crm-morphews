@@ -585,8 +585,13 @@ export default function SaleDetail() {
   const canCancel = permissions?.sales_cancel;
   const canEditDraft = permissions?.sales_edit_draft;
   
-  // Can only edit if draft or returned status
-  const isEditable = sale && ['draft', 'returned'].includes(sale.status);
+  // Pode editar se:
+  // - draft/returned
+  // - pending_expedition com expedição desmarcada (sem expedition_validated_at)
+  const isEditable = !!sale && (
+    ['draft', 'returned'].includes(sale.status) ||
+    (sale.status === 'pending_expedition' && !sale.expedition_validated_at)
+  );
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);

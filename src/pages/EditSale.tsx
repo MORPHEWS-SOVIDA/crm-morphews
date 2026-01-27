@@ -131,8 +131,13 @@ export default function EditSale() {
   // Permission check - can only edit drafts
   const canEditSale = permissions?.sales_edit_draft;
   
-  // Check if sale can be edited (only draft or returned status)
-  const isEditable = sale && ['draft', 'returned'].includes(sale.status);
+  // Check if sale can be edited
+  // - draft/returned: sempre editável
+  // - pending_expedition: só se a expedição NÃO estiver validada (desmarcada)
+  const isEditable = !!sale && (
+    ['draft', 'returned'].includes(sale.status) ||
+    (sale.status === 'pending_expedition' && !sale.expedition_validated_at)
+  );
 
   // Get active regions
   const activeRegions = regions.filter(r => r.is_active);
