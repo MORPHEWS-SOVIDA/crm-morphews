@@ -124,10 +124,14 @@ export function useStandaloneCheckouts() {
   return useQuery({
     queryKey: ['standalone-checkouts'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (!profile?.organization_id) {
         return [];
@@ -179,10 +183,14 @@ export function useCreateStandaloneCheckout() {
 
   return useMutation({
     mutationFn: async (input: CreateCheckoutInput) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (!profile?.organization_id) {
         throw new Error('Organização não encontrada');
