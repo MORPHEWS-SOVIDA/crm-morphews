@@ -92,6 +92,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setProfile(profileData);
 
+      // Check if user is active in their organization
+      if (profileData?.organization_id) {
+        const { data: memberData } = await supabase
+          .from('organization_members')
+          .select('is_active')
+          .eq('user_id', userId)
+          .eq('organization_id', profileData.organization_id)
+          .maybeSingle();
+
+        // If user is deactivated, sign them out
+        if (memberData && memberData.is_active === false) {
+          console.warn('User is deactivated, signing out');
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setIsAdmin(false);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Fetch global role (master admin)
       const { data: roleData } = await supabase
         .from('user_roles')
