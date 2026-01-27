@@ -365,8 +365,8 @@ export default function Products() {
                 Custos Manipulados
               </Button>
             )}
-            {canManageProducts && products && (
-              <ProductCsvManager products={products} canManage={canManageProducts} />
+            {canManageProducts && (
+              <ProductCsvManager products={products || []} canManage={canManageProducts} />
             )}
             {canManageProducts && (
               <Button onClick={() => setViewMode('create')}>
