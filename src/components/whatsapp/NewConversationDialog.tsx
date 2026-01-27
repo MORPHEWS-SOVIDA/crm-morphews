@@ -207,17 +207,18 @@ export function NewConversationDialog({
 
     setIsSending(true);
     try {
-      // Verificar se já existe conversa com esse número na organização (conversa é única por org + phone)
+      // Verificar se já existe conversa com esse número + instância (1 conversa por org + phone + instance)
       const { data: existingConversation } = await supabase
         .from("whatsapp_conversations")
         .select("id")
         .eq("organization_id", profile?.organization_id)
         .eq("phone_number", cleanPhone)
+        .eq("instance_id", selectedInstanceId)
         .maybeSingle();
 
       let conversationId = existingConversation?.id;
 
-      // Se não existe, criar nova conversa - já atribuída ao usuário que iniciou
+      // Se não existe conversa para essa instância específica, criar nova
       if (!conversationId) {
         const { data: newConversation, error: createError } = await supabase
           .from("whatsapp_conversations")
