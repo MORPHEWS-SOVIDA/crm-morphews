@@ -202,6 +202,7 @@ export function useConfirmCashPayment() {
     }) => {
       if (!user?.id || !tenantId) throw new Error('Not authenticated');
 
+      // Insert the cash confirmation
       const { error } = await supabase
         .from('cash_payment_confirmations')
         .insert({
@@ -214,9 +215,27 @@ export function useConfirmCashPayment() {
         });
 
       if (error) throw error;
+
+      // Add to sale changes log for audit trail
+      const changeTypeLabel = confirmationTypeLabels[confirmationType] || confirmationType;
+      await supabase
+        .from('sale_changes_log')
+        .insert({
+          sale_id: saleId,
+          organization_id: tenantId,
+          changed_by: user.id,
+          change_type: 'payment_changed',
+          field_name: 'cash_confirmation',
+          old_value: null,
+          new_value: changeTypeLabel,
+          notes: notes || `Confirmação de dinheiro: ${changeTypeLabel}`,
+        });
+
+      return { saleId, confirmationType };
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['cash-payment-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-changes-log', variables.saleId] });
       toast.success('Confirmação registrada com sucesso!');
     },
     onError: (error) => {
