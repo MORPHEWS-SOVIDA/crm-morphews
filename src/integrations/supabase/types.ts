@@ -5698,6 +5698,7 @@ export type Database = {
       }
       landing_pages: {
         Row: {
+          attribution_model: string | null
           benefits: Json | null
           branding: Json | null
           checkout_config: Json | null
@@ -5730,6 +5731,7 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          attribution_model?: string | null
           benefits?: Json | null
           branding?: Json | null
           checkout_config?: Json | null
@@ -5762,6 +5764,7 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          attribution_model?: string | null
           benefits?: Json | null
           branding?: Json | null
           checkout_config?: Json | null
@@ -13460,6 +13463,7 @@ export type Database = {
       }
       standalone_checkouts: {
         Row: {
+          attribution_model: string | null
           checkout_type: string
           created_at: string
           elements: Json
@@ -13485,6 +13489,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attribution_model?: string | null
           checkout_type?: string
           created_at?: string
           elements?: Json
@@ -13510,6 +13515,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attribution_model?: string | null
           checkout_type?: string
           created_at?: string
           elements?: Json

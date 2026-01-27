@@ -63,6 +63,7 @@ export interface StandaloneCheckout {
   facebook_pixel_id: string | null;
   google_analytics_id: string | null;
   tiktok_pixel_id: string | null;
+  attribution_model: 'first_click' | 'last_click';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -101,6 +102,7 @@ export interface CreateCheckoutInput {
   facebook_pixel_id?: string;
   google_analytics_id?: string;
   tiktok_pixel_id?: string;
+  attribution_model?: 'first_click' | 'last_click';
 }
 
 export interface CheckoutTestimonial {
