@@ -9717,6 +9717,7 @@ export type Database = {
       pickup_closing_sales: {
         Row: {
           closing_id: string
+          closing_type: string
           created_at: string
           delivered_at: string | null
           id: string
@@ -9729,6 +9730,7 @@ export type Database = {
         }
         Insert: {
           closing_id: string
+          closing_type?: string
           created_at?: string
           delivered_at?: string | null
           id?: string
@@ -9741,6 +9743,7 @@ export type Database = {
         }
         Update: {
           closing_id?: string
+          closing_type?: string
           created_at?: string
           delivered_at?: string | null
           id?: string
@@ -9769,7 +9772,7 @@ export type Database = {
           {
             foreignKeyName: "pickup_closing_sales_sale_id_fkey"
             columns: ["sale_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "sales"
             referencedColumns: ["id"]
           },
@@ -9779,6 +9782,7 @@ export type Database = {
         Row: {
           closing_date: string
           closing_number: number
+          closing_type: string
           confirmed_at_admin: string | null
           confirmed_at_auxiliar: string | null
           confirmed_by_admin: string | null
@@ -9799,6 +9803,7 @@ export type Database = {
         Insert: {
           closing_date?: string
           closing_number?: number
+          closing_type?: string
           confirmed_at_admin?: string | null
           confirmed_at_auxiliar?: string | null
           confirmed_by_admin?: string | null
@@ -9819,6 +9824,7 @@ export type Database = {
         Update: {
           closing_date?: string
           closing_number?: number
+          closing_type?: string
           confirmed_at_admin?: string | null
           confirmed_at_auxiliar?: string | null
           confirmed_by_admin?: string | null

@@ -77,6 +77,8 @@ const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
 const RomaneioBatchPrint = lazy(() => import("./pages/RomaneioBatchPrint"));
 const PickupClosingPrint = lazy(() => import("./pages/PickupClosingPrint"));
 const PickupClosing = lazy(() => import("./pages/PickupClosing"));
+const MotoboyClosingPage = lazy(() => import("./pages/DeliveryClosing").then(m => ({ default: m.MotoboyClosingPage })));
+const CarrierClosingPage = lazy(() => import("./pages/DeliveryClosing").then(m => ({ default: m.CarrierClosingPage })));
 
 // WhatsApp
 const WhatsAppDMs = lazy(() => import("./pages/WhatsAppDMs"));
@@ -562,6 +564,22 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['deliveries_view_all', 'sales_validate_expedition']}>
                       <PickupClosing />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/baixa-motoboy"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all', 'sales_validate_expedition']}>
+                      <MotoboyClosingPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/baixa-transportadora"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all', 'sales_validate_expedition']}>
+                      <CarrierClosingPage />
                     </ProtectedRoute>
                   }
                 />
