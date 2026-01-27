@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Trash2, ExternalLink, Eye, EyeOff, Copy, Settings, Paintbrush, Globe } from 'lucide-react';
+import { Plus, FileText, Trash2, ExternalLink, Eye, EyeOff, Copy, Settings, Paintbrush, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,6 @@ import {
   type LandingPage,
 } from '@/hooks/ecommerce';
 import { LandingPageFormDialog } from './LandingPageFormDialog';
-import { LandingImporter } from './LandingImporter';
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -112,30 +111,24 @@ export function LandingPagesManager() {
             Páginas de vendas focadas em um único produto
           </p>
         </div>
-        <div className="flex gap-2">
-          <LandingImporter />
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nova Landing
-          </Button>
-        </div>
+        <Button onClick={() => navigate('/ecommerce/landing-builder')} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Criar com IA
+        </Button>
       </div>
 
       {landingPages?.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma landing page</h3>
+            <Sparkles className="h-12 w-12 text-primary mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Crie sua primeira landing page</h3>
             <p className="text-muted-foreground mb-4 max-w-md">
-              Crie páginas de venda focadas ou importe de um site existente.
+              Use nossa IA para criar páginas de venda de alta conversão conversando naturalmente.
             </p>
-            <div className="flex gap-2">
-              <LandingImporter />
-              <Button onClick={handleCreate} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Criar Landing Page
-              </Button>
-            </div>
+            <Button onClick={() => navigate('/ecommerce/landing-builder')} className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Criar com IA
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -195,10 +188,10 @@ export function LandingPagesManager() {
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    onClick={() => navigate(`/ecommerce/landpage-editor/${page.id}`)}
+                    onClick={() => navigate(`/ecommerce/landing-builder/${page.id}`)}
                   >
-                    <Paintbrush className="h-4 w-4 mr-1" />
-                    Editor
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    Editar com IA
                   </Button>
                   <Button
                     variant="ghost"
