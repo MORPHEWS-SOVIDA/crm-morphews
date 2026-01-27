@@ -55,7 +55,7 @@ const CHECKOUT_TYPE_LABELS: Record<string, string> = {
 };
 
 export function CheckoutsManager() {
-  const { data: checkouts, isLoading } = useStandaloneCheckouts();
+  const { data: checkouts, isLoading, isError, error } = useStandaloneCheckouts();
   const deleteCheckout = useDeleteStandaloneCheckout();
   const toggleStatus = useToggleCheckoutStatus();
 
@@ -84,6 +84,18 @@ export function CheckoutsManager() {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    console.error('[CheckoutsManager] Error loading checkouts:', error);
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-destructive mb-4">Erro ao carregar checkouts</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Tentar novamente
+        </Button>
       </div>
     );
   }
