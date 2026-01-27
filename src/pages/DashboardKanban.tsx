@@ -75,6 +75,8 @@ export default function DashboardKanban() {
   const filteredLeads = useMemo(() => {
     let result = [...leads];
     
+    console.log('[DashboardKanban] Filtering - selectedSellers:', selectedSellers, 'totalLeads:', leads.length);
+    
     // Filter by selected sellers (supports both user_id and full_name in assigned_to)
     if (selectedSellers.length > 0) {
       // Get full names for selected user IDs to support legacy data
@@ -83,10 +85,14 @@ export default function DashboardKanban() {
         .map(m => m.full_name)
         .filter(Boolean);
 
+      console.log('[DashboardKanban] selectedSellerNames:', selectedSellerNames);
+
       result = result.filter((lead) => {
         const assigned = lead.assigned_to || '';
         return selectedSellers.includes(assigned) || selectedSellerNames.includes(assigned);
       });
+      
+      console.log('[DashboardKanban] After filtering:', result.length, 'leads');
     }
     
     // Filter by inactivity (days without update)
@@ -106,9 +112,11 @@ export default function DashboardKanban() {
 
   // Handler para seleção de gerente - atualiza vendedores automaticamente
   const handleManagerSelect = (managerId: string | null, memberIds: string[]) => {
+    console.log('[DashboardKanban] handleManagerSelect - managerId:', managerId, 'memberIds:', memberIds);
     setSelectedManager(managerId);
     if (managerId) {
       // Quando seleciona gerente, define os vendedores associados
+      console.log('[DashboardKanban] Setting selectedSellers to:', memberIds);
       setSelectedSellers(memberIds);
     } else {
       // Quando limpa o gerente, limpa também os vendedores
@@ -241,8 +249,8 @@ export default function DashboardKanban() {
           </div>
         </div>
 
-        {/* Stats */}
-        <StatsCards leads={leads} />
+        {/* Stats - use filteredLeads to reflect active filters */}
+        <StatsCards leads={filteredLeads} />
 
         {/* Kanban View */}
         <div className="bg-card rounded-xl p-4 shadow-card">
