@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, Trash2, Mail } from 'lucide-react';
+import { Loader2, Plus, Trash2, Mail, Users } from 'lucide-react';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useProducts } from '@/hooks/useProducts';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@/hooks/ecommerce';
 import { AILandingWizard } from './ai-landing';
 import { StorefrontEmailSequences } from './StorefrontEmailSequences';
+import { AffiliatesTab } from './affiliates/AffiliatesTab';
 interface LandingPageFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -227,10 +228,14 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
         ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="basic">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="offers">Ofertas</TabsTrigger>
               <TabsTrigger value="content">Conteúdo</TabsTrigger>
+              <TabsTrigger value="affiliates" className="gap-1">
+                <Users className="h-3 w-3" />
+                Afiliados
+              </TabsTrigger>
               <TabsTrigger value="emails" className="gap-1">
                 <Mail className="h-3 w-3" />
                 E-mails
@@ -513,6 +518,21 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
                   placeholder="5511999999999"
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="affiliates" className="mt-4">
+              {landingPage && (
+                <AffiliatesTab
+                  assetType="landing"
+                  assetId={landingPage.id}
+                  assetSlug={landingPage.slug}
+                />
+              )}
+              {!landingPage && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Salve a landing page primeiro para configurar afiliados.
+                </p>
+              )}
             </TabsContent>
 
             <TabsContent value="emails" className="mt-4">
