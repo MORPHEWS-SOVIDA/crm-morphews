@@ -22,6 +22,7 @@ import {
   partnerTypeColors,
   formatCommission,
 } from '@/hooks/ecommerce/usePartners';
+import { AffiliateOffersSection } from '@/components/partner/AffiliateOffersSection';
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -241,6 +242,11 @@ export default function PartnerPortal() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Affiliate Offers Section - Only for affiliates */}
+        {associations.some(a => a.partner_type === 'affiliate') && (
+          <AffiliateOffersSection />
+        )}
 
         {/* TODO: Add sales history, withdrawal history, etc. */}
       </main>

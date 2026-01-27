@@ -24,6 +24,7 @@ import {
   Star,
   Plus,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -36,6 +37,7 @@ import {
   type CheckoutTheme,
 } from '@/hooks/ecommerce/useStandaloneCheckouts';
 import { supabase } from '@/integrations/supabase/client';
+import { CheckoutAffiliatesTab } from './CheckoutAffiliatesTab';
 
 interface CheckoutBuilderDialogProps {
   open: boolean;
@@ -65,6 +67,7 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
 
   const [elements, setElements] = useState<CheckoutElements>(checkout.elements);
   const [theme, setTheme] = useState<CheckoutTheme>(checkout.theme);
+  const [attributionModel, setAttributionModel] = useState<string>(checkout.attribution_model || 'last_click');
   const [activeTab, setActiveTab] = useState('elements');
   const [organizationId, setOrganizationId] = useState<string>('');
 
@@ -79,6 +82,7 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
   useEffect(() => {
     setElements(checkout.elements);
     setTheme(checkout.theme);
+    setAttributionModel(checkout.attribution_model || 'last_click');
     
     // Get organization ID
     supabase.from('profiles').select('organization_id').single().then(({ data }) => {
@@ -93,6 +97,7 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
       id: checkout.id,
       elements,
       theme,
+      attribution_model: attributionModel as 'first_click' | 'last_click',
     });
   };
 
@@ -126,10 +131,14 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
 
         <div className="flex-1 overflow-y-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="elements">Elementos</TabsTrigger>
               <TabsTrigger value="testimonials">Depoimentos</TabsTrigger>
-              <TabsTrigger value="theme">Cores e Estilo</TabsTrigger>
+              <TabsTrigger value="theme">Estilo</TabsTrigger>
+              <TabsTrigger value="affiliates" className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Afiliados
+              </TabsTrigger>
             </TabsList>
 
             {/* Elements Tab */}
@@ -671,6 +680,16 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Affiliates Tab */}
+            <TabsContent value="affiliates" className="mt-4">
+              <CheckoutAffiliatesTab
+                checkoutId={checkout.id}
+                checkoutSlug={checkout.slug}
+                attributionModel={attributionModel}
+                onAttributionModelChange={setAttributionModel}
+              />
             </TabsContent>
           </Tabs>
         </div>
