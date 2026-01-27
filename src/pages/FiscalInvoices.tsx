@@ -401,7 +401,7 @@ export default function FiscalInvoices() {
                                 <DropdownMenuItem asChild>
                                   <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
                                     <Printer className="w-4 h-4 mr-2" />
-                                    DANFE
+                                    {invoice.pdf_url.includes('homologacao') ? 'Espelho NF-e (Teste)' : 'DANFE'}
                                   </a>
                                 </DropdownMenuItem>
                               )}
