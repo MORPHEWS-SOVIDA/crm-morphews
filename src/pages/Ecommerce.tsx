@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Store, FileText, ShoppingCart, Wallet, Users, Mail, Factory, ClipboardList } from 'lucide-react';
+import { Store, FileText, ShoppingCart, Wallet, Users, Mail, Factory, ClipboardList, Package } from 'lucide-react';
 import { StorefrontsManager } from '@/components/ecommerce/StorefrontsManager';
 import { LandingPagesManager } from '@/components/ecommerce/LandingPagesManager';
 import { CartsManager } from '@/components/ecommerce/CartsManager';
@@ -10,19 +10,20 @@ import { AffiliatesManager } from '@/components/ecommerce/AffiliatesManager';
 import { IndustriesManager } from '@/components/ecommerce/IndustriesManager';
 import { EmailMarketingManager } from '@/pages/ecommerce/EmailMarketingManager';
 import { QuizManager } from '@/components/ecommerce/quiz';
+import { PartnerSalesView } from '@/components/ecommerce/PartnerSalesView';
 import { useTenant } from '@/hooks/useTenant';
 
 export default function Ecommerce() {
   const { role } = useTenant();
   const isPartner = role?.startsWith('partner_') ?? false;
   
-  // Partners default to 'carts' tab, admins to 'storefronts'
-  const [activeTab, setActiveTab] = useState(isPartner ? 'carts' : 'storefronts');
+  // Partners default to 'sales' tab (their own sales), admins to 'storefronts'
+  const [activeTab, setActiveTab] = useState(isPartner ? 'partner-sales' : 'storefronts');
   
   // Update tab when role loads
   useEffect(() => {
     if (isPartner && activeTab === 'storefronts') {
-      setActiveTab('carts');
+      setActiveTab('partner-sales');
     }
   }, [isPartner, activeTab]);
 
@@ -37,7 +38,7 @@ export default function Ecommerce() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className={`grid w-full ${isPartner ? 'grid-cols-2 lg:w-auto lg:inline-grid' : 'grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid'}`}>
+          <TabsList className={`grid w-full ${isPartner ? 'grid-cols-3 lg:w-auto lg:inline-grid' : 'grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid'}`}>
             {!isPartner && (
               <TabsTrigger value="storefronts" className="gap-2">
                 <Store className="h-4 w-4" />
@@ -56,10 +57,19 @@ export default function Ecommerce() {
                 <span className="hidden sm:inline">Quiz</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="carts" className="gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              <span className="hidden sm:inline">Carrinhos</span>
-            </TabsTrigger>
+            {/* Partner-only: Sales tab */}
+            {isPartner && (
+              <TabsTrigger value="partner-sales" className="gap-2">
+                <Package className="h-4 w-4" />
+                <span className="hidden sm:inline">Minhas Vendas</span>
+              </TabsTrigger>
+            )}
+            {!isPartner && (
+              <TabsTrigger value="carts" className="gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                <span className="hidden sm:inline">Carrinhos</span>
+              </TabsTrigger>
+            )}
             {!isPartner && (
               <TabsTrigger value="email" className="gap-2">
                 <Mail className="h-4 w-4" />
@@ -102,9 +112,18 @@ export default function Ecommerce() {
             </TabsContent>
           )}
 
-          <TabsContent value="carts" className="mt-6">
-            <CartsManager />
-          </TabsContent>
+          {/* Partner-only: Their sales */}
+          {isPartner && (
+            <TabsContent value="partner-sales" className="mt-6">
+              <PartnerSalesView />
+            </TabsContent>
+          )}
+
+          {!isPartner && (
+            <TabsContent value="carts" className="mt-6">
+              <CartsManager />
+            </TabsContent>
+          )}
 
           {!isPartner && (
             <TabsContent value="email" className="mt-6">
@@ -123,10 +142,6 @@ export default function Ecommerce() {
               <IndustriesManager />
             </TabsContent>
           )}
-
-          <TabsContent value="wallet" className="mt-6">
-            <VirtualAccountPanel />
-          </TabsContent>
 
           <TabsContent value="wallet" className="mt-6">
             <VirtualAccountPanel />
