@@ -177,6 +177,30 @@ serve(async (req) => {
       .eq("organization_id", orgId);
     backupData.contacts = contacts || [];
 
+    // Partner associations (affiliates, coproducers, industries, factories)
+    const { data: partners } = await supabase
+      .from("partner_associations")
+      .select(`
+        *,
+        virtual_account:virtual_accounts(id, holder_name, holder_email, holder_document, balance_cents, pending_balance_cents)
+      `)
+      .eq("organization_id", orgId);
+    backupData.partners = partners || [];
+
+    // Virtual accounts
+    const { data: virtualAccounts } = await supabase
+      .from("virtual_accounts")
+      .select("*")
+      .eq("organization_id", orgId);
+    backupData.virtual_accounts = virtualAccounts || [];
+
+    // Combos
+    const { data: combos } = await supabase
+      .from("product_combos")
+      .select("*, items:product_combo_items(*)")
+      .eq("organization_id", orgId);
+    backupData.combos = combos || [];
+
     // Summary stats
     backupData.summary = {
       total_leads: backupData.leads.length,
@@ -186,6 +210,8 @@ serve(async (req) => {
       total_conversations: backupData.whatsapp_conversations.length,
       total_messages: backupData.whatsapp_messages.length,
       total_contacts: backupData.contacts.length,
+      total_partners: backupData.partners.length,
+      total_combos: backupData.combos.length,
     };
 
     return new Response(JSON.stringify(backupData, null, 2), {
