@@ -92,7 +92,7 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           </TabsTrigger>
           <TabsTrigger value="affiliates" className="gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Afiliados</span>
+            <span className="hidden sm:inline">Parceiros</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />

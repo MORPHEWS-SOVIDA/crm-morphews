@@ -380,8 +380,8 @@ export function AffiliatesTab({
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            {partner.virtual_account?.holder_name || 'Parceiro'}
+                          <span className={`font-medium ${partner.virtual_account?.holder_name ? 'text-foreground' : 'text-muted-foreground italic'}`}>
+                            {partner.virtual_account?.holder_name || 'Sem nome cadastrado'}
                           </span>
                           <Badge className={`text-[10px] px-1.5 py-0 ${partnerTypeColors[partnerType] || ''}`}>
                             {partnerTypeLabels[partnerType] || partnerType}
@@ -391,8 +391,7 @@ export function AffiliatesTab({
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {partner.virtual_account?.holder_email}
-                        </div>
+                          {partner.virtual_account?.holder_email || 'E-mail não informado'}</div>
                       </div>
                     </div>
                     

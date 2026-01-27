@@ -147,7 +147,7 @@ export function PartnerDetailSheet({ partner, open, onOpenChange }: PartnerDetai
               <User className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <span>{account?.holder_name || 'Parceiro'}</span>
+              <span className={!account?.holder_name ? 'text-muted-foreground italic' : ''}>{account?.holder_name || 'Sem nome cadastrado'}</span>
               <Badge variant="secondary" className="ml-2 text-xs">
                 {partnerTypeLabels[partner.partner_type]}
               </Badge>
@@ -177,11 +177,11 @@ export function PartnerDetailSheet({ partner, open, onOpenChange }: PartnerDetai
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-3">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{account?.holder_name || '-'}</span>
+                    <span className={`text-sm ${!account?.holder_name ? 'text-muted-foreground italic' : ''}`}>{account?.holder_name || 'Não informado'}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{account?.holder_email || '-'}</span>
+                    <span className={`text-sm ${!account?.holder_email ? 'text-muted-foreground italic' : ''}`}>{account?.holder_email || 'Não informado'}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <FileText className="h-4 w-4 text-muted-foreground" />
