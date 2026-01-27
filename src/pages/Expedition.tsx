@@ -43,6 +43,7 @@ import {
   Loader2,
   Banknote,
   Store,
+  Bike,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -745,6 +746,22 @@ export default function Expedition() {
             >
               <Store className="w-4 h-4 mr-2" />
               Baixa Balcão
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/expedicao/baixa-motoboy')}
+              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+            >
+              <Bike className="w-4 h-4 mr-2" />
+              Baixa Motoboy
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/expedicao/baixa-transportadora')}
+              className="border-blue-300 text-blue-700 hover:bg-blue-50"
+            >
+              <Truck className="w-4 h-4 mr-2" />
+              Baixa Transportadora
             </Button>
             {permissions?.cash_verification_view && (
               <Button 

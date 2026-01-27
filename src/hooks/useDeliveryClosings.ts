@@ -1,0 +1,386 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrentTenantId } from '@/hooks/useTenant';
+
+export type ClosingType = 'pickup' | 'motoboy' | 'carrier';
+
+export interface DeliveryClosing {
+  id: string;
+  organization_id: string;
+  closing_number: number;
+  closing_date: string;
+  closing_type: ClosingType;
+  total_sales: number;
+  total_amount_cents: number;
+  total_card_cents: number;
+  total_pix_cents: number;
+  total_cash_cents: number;
+  total_other_cents: number;
+  created_by: string | null;
+  created_at: string;
+  confirmed_by_auxiliar: string | null;
+  confirmed_at_auxiliar: string | null;
+  confirmed_by_admin: string | null;
+  confirmed_at_admin: string | null;
+  status: 'pending' | 'confirmed_auxiliar' | 'confirmed_final';
+  notes: string | null;
+  creator_profile?: { first_name: string | null; last_name: string | null };
+  auxiliar_profile?: { first_name: string | null; last_name: string | null };
+  admin_profile?: { first_name: string | null; last_name: string | null };
+  sales?: DeliveryClosingSale[];
+}
+
+export interface DeliveryClosingSale {
+  id: string;
+  closing_id: string;
+  sale_id: string;
+  sale_number: string | null;
+  lead_name: string | null;
+  total_cents: number | null;
+  payment_method: string | null;
+  delivered_at: string | null;
+}
+
+// Map closing type to delivery type filter
+const deliveryTypeMap: Record<ClosingType, string> = {
+  pickup: 'pickup',
+  motoboy: 'motoboy',
+  carrier: 'carrier',
+};
+
+// Fetch available sales for a specific closing type
+export function useAvailableClosingSales(closingType: ClosingType) {
+  const { data: tenantId } = useCurrentTenantId();
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['available-closing-sales', tenantId, closingType],
+    queryFn: async () => {
+      if (!tenantId) return [];
+
+      // Get all sale_ids that are already in a closing of this type
+      const { data: usedSales, error: usedError } = await supabase
+        .from('pickup_closing_sales')
+        .select('sale_id')
+        .eq('organization_id', tenantId)
+        .eq('closing_type', closingType);
+
+      if (usedError) throw usedError;
+
+      const usedSaleIds = (usedSales || []).map(s => s.sale_id);
+
+      // Fetch ALL sales of this delivery type that are NOT in any closing
+      const deliveryTypeValue = deliveryTypeMap[closingType];
+      let query = supabase
+        .from('sales')
+        .select(`
+          id,
+          romaneio_number,
+          status,
+          delivery_type,
+          total_cents,
+          payment_method,
+          delivered_at,
+          scheduled_delivery_date,
+          created_at,
+          lead:leads(id, name)
+        `)
+        .eq('organization_id', tenantId)
+        .eq('delivery_type', deliveryTypeValue as any)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false });
+
+      // Exclude sales already in closings
+      if (usedSaleIds.length > 0) {
+        query = query.not('id', 'in', `(${usedSaleIds.join(',')})`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId && !!user,
+  });
+}
+
+// Fetch all closings of a specific type
+export function useDeliveryClosings(closingType: ClosingType) {
+  const { data: tenantId } = useCurrentTenantId();
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['delivery-closings', tenantId, closingType],
+    queryFn: async () => {
+      if (!tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('pickup_closings')
+        .select('*')
+        .eq('organization_id', tenantId)
+        .eq('closing_type', closingType)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch profiles
+      const userIds = new Set<string>();
+      (data || []).forEach(c => {
+        if (c.created_by) userIds.add(c.created_by);
+        if (c.confirmed_by_auxiliar) userIds.add(c.confirmed_by_auxiliar);
+        if (c.confirmed_by_admin) userIds.add(c.confirmed_by_admin);
+      });
+
+      let profilesMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+      if (userIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', Array.from(userIds));
+
+        profilesMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+          return acc;
+        }, {} as typeof profilesMap);
+      }
+
+      return (data || []).map(c => ({
+        ...c,
+        closing_type: c.closing_type as ClosingType,
+        status: c.status as DeliveryClosing['status'],
+        creator_profile: c.created_by ? profilesMap[c.created_by] : undefined,
+        auxiliar_profile: c.confirmed_by_auxiliar ? profilesMap[c.confirmed_by_auxiliar] : undefined,
+        admin_profile: c.confirmed_by_admin ? profilesMap[c.confirmed_by_admin] : undefined,
+      })) as DeliveryClosing[];
+    },
+    enabled: !!tenantId && !!user,
+  });
+}
+
+// Fetch sales for a specific closing
+export function useDeliveryClosingSales(closingId: string | undefined) {
+  return useQuery({
+    queryKey: ['delivery-closing-sales', closingId],
+    queryFn: async () => {
+      if (!closingId) return [];
+
+      const { data, error } = await supabase
+        .from('pickup_closing_sales')
+        .select('*')
+        .eq('closing_id', closingId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data as DeliveryClosingSale[];
+    },
+    enabled: !!closingId,
+  });
+}
+
+interface CreateClosingData {
+  closingType: ClosingType;
+  sales: Array<{
+    id: string;
+    romaneio_number?: number | null;
+    lead?: { name: string } | null;
+    total_cents?: number | null;
+    payment_method?: string | null;
+    delivered_at?: string | null;
+  }>;
+  notes?: string;
+}
+
+export function useCreateDeliveryClosing() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data: tenantId } = useCurrentTenantId();
+
+  return useMutation({
+    mutationFn: async ({ closingType, sales, notes }: CreateClosingData) => {
+      if (!tenantId || !user) throw new Error('Not authenticated');
+
+      // Calculate totals
+      let total_amount_cents = 0;
+      let total_card_cents = 0;
+      let total_pix_cents = 0;
+      let total_cash_cents = 0;
+      let total_other_cents = 0;
+
+      sales.forEach(sale => {
+        const amount = sale.total_cents || 0;
+        total_amount_cents += amount;
+
+        const method = (sale.payment_method || '').toLowerCase();
+        if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || method.includes('credito') || method.includes('débito') || method.includes('debito')) {
+          total_card_cents += amount;
+        } else if (method.includes('pix')) {
+          total_pix_cents += amount;
+        } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie')) {
+          total_cash_cents += amount;
+        } else {
+          total_other_cents += amount;
+        }
+      });
+
+      // Create the closing
+      const { data: closing, error: closingError } = await supabase
+        .from('pickup_closings')
+        .insert({
+          organization_id: tenantId,
+          closing_type: closingType,
+          closing_date: new Date().toISOString().split('T')[0],
+          total_sales: sales.length,
+          total_amount_cents,
+          total_card_cents,
+          total_pix_cents,
+          total_cash_cents,
+          total_other_cents,
+          created_by: user.id,
+          notes,
+        })
+        .select()
+        .single();
+
+      if (closingError) throw closingError;
+
+      // Insert all sales into the closing
+      const closingSales = sales.map(sale => ({
+        closing_id: closing.id,
+        sale_id: sale.id,
+        organization_id: tenantId,
+        closing_type: closingType,
+        sale_number: sale.romaneio_number ? String(sale.romaneio_number) : null,
+        lead_name: sale.lead?.name || null,
+        total_cents: sale.total_cents || null,
+        payment_method: sale.payment_method || null,
+        delivered_at: sale.delivered_at || null,
+      }));
+
+      const { error: salesError } = await supabase
+        .from('pickup_closing_sales')
+        .insert(closingSales);
+
+      if (salesError) throw salesError;
+
+      return closing;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['delivery-closings', undefined, variables.closingType] });
+      queryClient.invalidateQueries({ queryKey: ['available-closing-sales', undefined, variables.closingType] });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+    },
+  });
+}
+
+interface ConfirmClosingData {
+  closingId: string;
+  closingType: ClosingType;
+  type: 'auxiliar' | 'admin';
+}
+
+export function useConfirmDeliveryClosing() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ closingId, type }: ConfirmClosingData) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const updateData = type === 'auxiliar'
+        ? {
+            confirmed_by_auxiliar: user.id,
+            confirmed_at_auxiliar: new Date().toISOString(),
+            status: 'confirmed_auxiliar',
+          }
+        : {
+            confirmed_by_admin: user.id,
+            confirmed_at_admin: new Date().toISOString(),
+            status: 'confirmed_final',
+          };
+
+      const { error } = await supabase
+        .from('pickup_closings')
+        .update(updateData)
+        .eq('id', closingId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['delivery-closings', undefined, variables.closingType] });
+    },
+  });
+}
+
+// Configuration for each closing type
+export const closingTypeConfig: Record<ClosingType, {
+  title: string;
+  subtitle: string;
+  icon: string;
+  color: string;
+  emptyMessage: string;
+  printPath: (id: string) => string;
+  // Emails allowed to confirm each stage
+  auxiliarEmails: string[];
+  adminEmails: string[];
+}> = {
+  pickup: {
+    title: 'Fechamento de Caixa Balcão',
+    subtitle: 'Gere relatórios de fechamento para vendas retiradas no balcão',
+    icon: 'Store',
+    color: 'purple',
+    emptyMessage: 'Nenhuma venda balcão disponível',
+    printPath: (id) => `/expedicao/fechamento/${id}/imprimir`,
+    auxiliarEmails: ['auxiliar.sovida@gmail.com'],
+    adminEmails: ['thiago@sonatura.com.br'],
+  },
+  motoboy: {
+    title: 'Fechamento de Entregas Motoboy',
+    subtitle: 'Gere relatórios de fechamento para entregas realizadas por motoboy',
+    icon: 'Bike',
+    color: 'orange',
+    emptyMessage: 'Nenhuma venda motoboy disponível',
+    printPath: (id) => `/expedicao/fechamento/${id}/imprimir?type=motoboy`,
+    auxiliarEmails: ['auxiliar.sovida@gmail.com'],
+    adminEmails: ['thiago@sonatura.com.br'],
+  },
+  carrier: {
+    title: 'Fechamento de Transportadoras',
+    subtitle: 'Gere relatórios de fechamento para entregas via transportadora',
+    icon: 'Truck',
+    color: 'blue',
+    emptyMessage: 'Nenhuma venda transportadora disponível',
+    printPath: (id) => `/expedicao/fechamento/${id}/imprimir?type=carrier`,
+    auxiliarEmails: ['auxiliar.sovida@gmail.com'],
+    adminEmails: ['thiago@sonatura.com.br'],
+  },
+};
+
+// Helper to check if user can confirm
+export function canUserConfirm(
+  userEmail: string | undefined,
+  closingType: ClosingType,
+  confirmationType: 'auxiliar' | 'admin'
+): boolean {
+  if (!userEmail) return false;
+  const config = closingTypeConfig[closingType];
+  const allowedEmails = confirmationType === 'auxiliar' 
+    ? config.auxiliarEmails 
+    : config.adminEmails;
+  return allowedEmails.includes(userEmail.toLowerCase());
+}
+
+// Helper to format payment method for display
+export function formatPaymentMethod(method: string | null): string {
+  if (!method) return 'Não informado';
+  const lower = method.toLowerCase();
+  if (lower.includes('pix')) return 'PIX';
+  if (lower.includes('dinheiro') || lower.includes('cash') || lower.includes('especie')) return 'Dinheiro';
+  if (lower.includes('cartao') || lower.includes('cartão') || lower.includes('card')) {
+    if (lower.includes('credito') || lower.includes('crédito')) return 'Cartão Crédito';
+    if (lower.includes('debito') || lower.includes('débito')) return 'Cartão Débito';
+    return 'Cartão';
+  }
+  if (lower.includes('boleto')) return 'Boleto';
+  return method;
+}
