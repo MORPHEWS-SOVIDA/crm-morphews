@@ -289,7 +289,7 @@ export function useDuplicateLandingPage() {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      // Fetch original
+      // Fetch original - explicitly select columns to avoid relation fields being included
       const { data: original, error: fetchError } = await supabase
         .from('landing_pages')
         .select('*, offers:landing_offers(*)')
@@ -298,17 +298,47 @@ export function useDuplicateLandingPage() {
       
       if (fetchError) throw fetchError;
       
-      // Create copy
-      const { id: _, created_at, updated_at, offers, ...pageData } = original;
+      // Destructure unwanted fields and the relation object
+      const { 
+        id: _, 
+        created_at, 
+        updated_at, 
+        offers, 
+        product, // Exclude the relation object from spread
+        ...pageData 
+      } = original as typeof original & { product?: unknown };
+      
+      // Ensure product_id is explicitly preserved
+      const productId = original.product_id;
+      
       const newSlug = `${pageData.slug}-copy-${Date.now()}`;
       
       const { data: newPage, error: insertError } = await supabase
         .from('landing_pages')
         .insert({
-          ...pageData,
+          organization_id: pageData.organization_id,
+          product_id: productId, // Explicitly set product_id
+          template_id: pageData.template_id,
           name: `${pageData.name} (Cópia)`,
           slug: newSlug,
+          headline: pageData.headline,
+          subheadline: pageData.subheadline,
+          video_url: pageData.video_url,
+          benefits: pageData.benefits,
+          testimonials: pageData.testimonials,
+          faq: pageData.faq,
+          urgency_text: pageData.urgency_text,
+          guarantee_text: pageData.guarantee_text,
+          logo_url: pageData.logo_url,
+          primary_color: pageData.primary_color,
+          whatsapp_number: pageData.whatsapp_number,
+          facebook_pixel_id: pageData.facebook_pixel_id,
+          google_analytics_id: pageData.google_analytics_id,
+          custom_css: pageData.custom_css,
           is_active: false,
+          settings: pageData.settings,
+          import_mode: pageData.import_mode,
+          full_html: pageData.full_html,
         })
         .select()
         .single();
