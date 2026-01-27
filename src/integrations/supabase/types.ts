@@ -11786,6 +11786,7 @@ export type Database = {
           result_storefront_id: string | null
           result_title: string | null
           result_whatsapp_message: string | null
+          result_whatsapp_number: string | null
           step_type: string
           subtitle: string | null
           title: string
@@ -11814,6 +11815,7 @@ export type Database = {
           result_storefront_id?: string | null
           result_title?: string | null
           result_whatsapp_message?: string | null
+          result_whatsapp_number?: string | null
           step_type: string
           subtitle?: string | null
           title: string
@@ -11842,6 +11844,7 @@ export type Database = {
           result_storefront_id?: string | null
           result_title?: string | null
           result_whatsapp_message?: string | null
+          result_whatsapp_number?: string | null
           step_type?: string
           subtitle?: string | null
           title?: string
