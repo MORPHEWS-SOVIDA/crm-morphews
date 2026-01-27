@@ -423,6 +423,17 @@ export async function processSaleSplitsV3(
     .select('product_id, quantity, unit_price_cents, total_cents')
     .eq('sale_id', saleId);
 
+  // 2b) Load ecommerce_order to get storefront_id/landing_page_id for partner processing
+  const { data: ecomOrder } = await supabase
+    .from('ecommerce_orders')
+    .select('storefront_id, landing_page_id, source')
+    .eq('sale_id', saleId)
+    .maybeSingle();
+
+  const storefrontId = ecomOrder?.storefront_id || null;
+  const landingPageId = ecomOrder?.landing_page_id || null;
+  console.log(`[SplitEngine] Source: ${ecomOrder?.source || 'unknown'}, storefront: ${storefrontId}, landing: ${landingPageId}`);
+
   // 3) Load split rules
   const rules = await loadSplitRules(supabase, sale.organization_id);
   
@@ -636,47 +647,166 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP D: AFFILIATE (liable for refund/chargeback)
-  // Source of truth: affiliate_attributions table
+  // STEP C.6: STOREFRONT-LINKED PARTNERS (Industry/Factory/Coproducer)
+  // Partners manually assigned to this specific storefront via AffiliatesTab
+  // =====================================================
+  if (storefrontId) {
+    // Fetch all partners linked to this storefront
+    const { data: storefrontPartners } = await supabase
+      .from('partner_associations')
+      .select('*, virtual_account:virtual_accounts(*)')
+      .eq('linked_storefront_id', storefrontId)
+      .eq('is_active', true);
+
+    if (storefrontPartners && storefrontPartners.length > 0) {
+      const processedVirtualAccountIds = new Set<string>(); // Avoid duplicates
+
+      for (const partner of storefrontPartners) {
+        const virtualAccount = partner.virtual_account as Record<string, unknown> | null;
+        if (!virtualAccount?.id) continue;
+
+        // Skip if already processed (same virtual account)
+        if (processedVirtualAccountIds.has(virtualAccount.id as string)) continue;
+        processedVirtualAccountIds.add(virtualAccount.id as string);
+
+        const commissionType = partner.commission_type || 'percentage';
+        const commissionValue = Number(partner.commission_value) || 0;
+        const partnerType = partner.partner_type || 'affiliate';
+        const liableForRefund = partner.responsible_for_refunds ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
+        const liableForChargeback = partner.responsible_for_chargebacks ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
+
+        // Calculate amount
+        let partnerAmount = 0;
+        if (commissionType === 'percentage') {
+          partnerAmount = Math.round(totalCents * (commissionValue / 100));
+        } else {
+          // Fixed commission per sale
+          partnerAmount = commissionValue;
+        }
+
+        // For industry/factory types with per-unit logic, multiply by total items
+        if ((partnerType === 'industry' || partnerType === 'factory') && commissionType === 'fixed' && saleItems) {
+          const totalUnits = saleItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+          partnerAmount = commissionValue * totalUnits;
+        }
+
+        // CAP: Never exceed remaining
+        partnerAmount = Math.min(partnerAmount, remaining);
+
+        if (partnerAmount > 0) {
+          // Determine split type based on partner type
+          let splitType = 'affiliate';
+          let releaseAt = addDays(rules.hold_days_affiliate);
+
+          if (partnerType === 'factory') {
+            splitType = 'factory';
+            releaseAt = addDays(rules.hold_days_factory);
+          } else if (partnerType === 'industry') {
+            splitType = 'industry';
+            releaseAt = new Date().toISOString(); // Immediate
+          } else if (partnerType === 'coproducer') {
+            splitType = 'coproducer';
+          }
+
+          const commissionLabel = commissionType === 'percentage'
+            ? `${commissionValue}%`
+            : `R$${(commissionValue / 100).toFixed(2)}`;
+
+          const created = await insertSplitAndTransaction({
+            supabase,
+            saleId,
+            organizationId: sale.organization_id,
+            virtualAccountId: virtualAccount.id as string,
+            splitType,
+            amountCents: partnerAmount,
+            percentage: commissionType === 'percentage' ? commissionValue : 0,
+            priority: partnerType === 'factory' ? 1 : 2,
+            liableForRefund,
+            liableForChargeback,
+            releaseAt,
+            referenceId,
+            description: `${partnerType.charAt(0).toUpperCase() + partnerType.slice(1)} (storefront) ${partner.affiliate_code || 'N/A'} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
+          });
+
+          if (created) {
+            // Aggregate into result
+            if (partnerType === 'factory') result.factory_amount += partnerAmount;
+            else if (partnerType === 'industry') result.industry_amount += partnerAmount;
+            else if (partnerType === 'coproducer') result.coproducer_amount += partnerAmount;
+            else result.affiliate_amount += partnerAmount;
+
+            remaining -= partnerAmount;
+            console.log(`[SplitEngine] Storefront partner (${partnerType}): R$${(partnerAmount / 100).toFixed(2)} (${commissionLabel})`);
+          }
+        }
+      }
+    }
+  }
+
+  // NEW: Uses partner_associations via affiliate_attributions.code_or_ref
   // =====================================================
   const { data: attribution } = await supabase
     .from('affiliate_attributions')
-    .select('*, affiliate:affiliates(*, virtual_account:virtual_accounts(*))')
+    .select('code_or_ref, attribution_type')
     .eq('sale_id', saleId)
     .maybeSingle();
 
   let affiliateAmount = 0;
 
-  if (attribution?.affiliate_id) {
-    const affiliate = attribution.affiliate as Record<string, unknown>;
-    const commissionPercent = Number(affiliate?.commission_percentage) || rules.default_affiliate_percent;
-    affiliateAmount = Math.round(remaining * (commissionPercent / 100));
-    
-    // CAP: Never exceed remaining amount
-    affiliateAmount = Math.min(affiliateAmount, remaining);
-    
-    const virtualAccount = affiliate?.virtual_account as Record<string, unknown>;
+  if (attribution?.code_or_ref) {
+    // Find partner by affiliate_code in partner_associations
+    const { data: partner } = await supabase
+      .from('partner_associations')
+      .select('*, virtual_account:virtual_accounts(*)')
+      .eq('organization_id', sale.organization_id)
+      .eq('affiliate_code', attribution.code_or_ref)
+      .eq('is_active', true)
+      .maybeSingle();
 
-    if (affiliateAmount > 0 && virtualAccount?.id) {
-      const created = await insertSplitAndTransaction({
-        supabase,
-        saleId,
-        organizationId: sale.organization_id,
-        virtualAccountId: virtualAccount.id as string,
-        splitType: 'affiliate',
-        amountCents: affiliateAmount,
-        percentage: commissionPercent,
-        priority: 2,
-        liableForRefund: true,
-        liableForChargeback: true,
-        releaseAt: addDays(rules.hold_days_affiliate),
-        referenceId,
-        description: `Comissão afiliado ${affiliate?.affiliate_code || 'N/A'} - Venda #${saleId.slice(0, 8)}`,
-      });
+    if (partner?.virtual_account) {
+      const virtualAccount = partner.virtual_account as Record<string, unknown>;
+      const commissionType = partner.commission_type || 'percentage';
+      const commissionValue = Number(partner.commission_value) || rules.default_affiliate_percent;
+      const liableForRefund = partner.responsible_for_refunds ?? true;
+      const liableForChargeback = partner.responsible_for_chargebacks ?? true;
 
-      if (created) {
-        result.affiliate_amount = affiliateAmount;
-        remaining -= affiliateAmount;
+      // Calculate commission based on type
+      if (commissionType === 'percentage') {
+        affiliateAmount = Math.round(remaining * (commissionValue / 100));
+      } else {
+        // Fixed commission - value is in cents, applied per sale
+        affiliateAmount = commissionValue;
+      }
+      
+      // CAP: Never exceed remaining amount
+      affiliateAmount = Math.min(affiliateAmount, remaining);
+      
+      if (affiliateAmount > 0 && virtualAccount?.id) {
+        const commissionLabel = commissionType === 'percentage' 
+          ? `${commissionValue}%` 
+          : `R$${(commissionValue / 100).toFixed(2)}`;
+          
+        const created = await insertSplitAndTransaction({
+          supabase,
+          saleId,
+          organizationId: sale.organization_id,
+          virtualAccountId: virtualAccount.id as string,
+          splitType: 'affiliate',
+          amountCents: affiliateAmount,
+          percentage: commissionType === 'percentage' ? commissionValue : 0,
+          priority: 2,
+          liableForRefund,
+          liableForChargeback,
+          releaseAt: addDays(rules.hold_days_affiliate),
+          referenceId,
+          description: `Comissão ${partner.partner_type || 'afiliado'} ${partner.affiliate_code || 'N/A'} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
+        });
+
+        if (created) {
+          result.affiliate_amount = affiliateAmount;
+          remaining -= affiliateAmount;
+          console.log(`[SplitEngine] Partner split (${partner.partner_type}): R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
+        }
       }
     }
   }
