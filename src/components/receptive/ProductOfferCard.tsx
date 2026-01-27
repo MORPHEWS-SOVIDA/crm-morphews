@@ -870,7 +870,7 @@ export function ProductOfferCard({
         )}
 
         {/* Summary for current selection - only when questions answered */}
-        {currentUnitPrice > 0 && (productQuestions.length === 0 || questionsCompleted) && (
+        {currentUnitPrice >= 0 && product && (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Separator />
             <div className={`p-4 rounded-lg border ${
@@ -932,7 +932,7 @@ export function ProductOfferCard({
         )}
 
         {/* Add to offer button - only when questions answered */}
-        {currentUnitPrice > 0 && (productQuestions.length === 0 || questionsCompleted) && (
+        {currentUnitPrice >= 0 && product && (productQuestions.length === 0 || questionsCompleted) && (
           <>
             <Button
               className="w-full"

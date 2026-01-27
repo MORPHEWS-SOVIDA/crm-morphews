@@ -2579,7 +2579,7 @@ export default function AddReceptivo() {
             {/* Navigation */}
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setCurrentStep('product')}>Voltar</Button>
-              <Button onClick={handleGoToAddress} disabled={!(currentUnitPrice > 0 || offerItems.length > 0)}>
+              <Button onClick={handleGoToAddress} disabled={!(currentProductId || offerItems.length > 0)}>
                 Continuar para Entrega
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -3036,7 +3036,7 @@ export default function AddReceptivo() {
                   size="lg" 
                   className="w-full bg-green-600 hover:bg-green-700"
                   onClick={handleCreateSale}
-                  disabled={isSaving || (offerItems.length === 0 && !currentUnitPrice)}
+                  disabled={isSaving || (offerItems.length === 0 && !currentProductId)}
                 >
                   {isSaving ? (
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
