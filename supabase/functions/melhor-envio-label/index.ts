@@ -9,7 +9,8 @@ const corsHeaders = {
 // Melhor Envio API URLs
 const MELHOR_ENVIO_API = {
   SANDBOX: 'https://sandbox.melhorenvio.com.br/api/v2',
-  PRODUCTION: 'https://api.melhorenvio.com.br/api/v2',
+  // Use the official domain to avoid intermittent DNS issues seen with api.melhorenvio.com.br
+  PRODUCTION: 'https://melhorenvio.com.br/api/v2',
 };
 
 interface LabelRequest {
