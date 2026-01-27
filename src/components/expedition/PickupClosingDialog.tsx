@@ -210,7 +210,7 @@ export function PickupClosingDialog({ open, onOpenChange }: PickupClosingDialogP
                 </div>
 
                 {/* Sales list */}
-                <ScrollArea className="flex-1 border rounded-lg">
+                <ScrollArea className="flex-1 border rounded-lg max-h-[350px]">
                   <div className="p-2 space-y-2">
                     {availableSales.map(sale => (
                       <div
