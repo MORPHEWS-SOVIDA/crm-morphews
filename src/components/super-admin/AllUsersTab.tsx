@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,7 @@ interface OrganizationMember {
 export function AllUsersTab() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [editingUser, setEditingUser] = useState<FullProfile | null>(null);
   const [editForm, setEditForm] = useState({
     first_name: "",
@@ -257,10 +258,22 @@ export function AllUsersTab() {
         return <Badge className="bg-amber-500">Dono</Badge>;
       case "admin":
         return <Badge className="bg-primary">Admin</Badge>;
+      case "manager":
+        return <Badge className="bg-indigo-500 text-white">Gerente</Badge>;
+      case "seller":
+        return <Badge className="bg-green-500 text-white">Vendedor</Badge>;
       case "member":
         return <Badge variant="secondary">Membro</Badge>;
+      case "partner_affiliate":
+        return <Badge className="bg-blue-500 text-white">Afiliado</Badge>;
+      case "partner_coproducer":
+        return <Badge className="bg-green-600 text-white">Co-Produtor</Badge>;
+      case "partner_industry":
+        return <Badge className="bg-orange-500 text-white">Indústria</Badge>;
+      case "partner_factory":
+        return <Badge className="bg-red-500 text-white">Fábrica</Badge>;
       default:
-        return <Badge variant="outline">-</Badge>;
+        return <Badge variant="outline">{role || "-"}</Badge>;
     }
   };
 
@@ -270,9 +283,55 @@ export function AllUsersTab() {
     const org = getOrgForUser(profile.user_id);
     const orgName = org?.name.toLowerCase() || "";
     const search = searchTerm.toLowerCase();
+    const role = getRoleForUser(profile.user_id);
 
-    return fullName.includes(search) || email.includes(search) || orgName.includes(search);
+    // Text search filter
+    const matchesSearch = fullName.includes(search) || email.includes(search) || orgName.includes(search);
+    
+    // Role filter
+    let matchesRole = true;
+    if (roleFilter !== "all") {
+      if (roleFilter === "partners") {
+        // Any partner type
+        matchesRole = role?.startsWith("partner_") || false;
+      } else {
+        matchesRole = role === roleFilter;
+      }
+    }
+
+    return matchesSearch && matchesRole;
   });
+
+  // Count users by role for badges
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: allProfiles?.length || 0,
+      partners: 0,
+      partner_affiliate: 0,
+      partner_coproducer: 0,
+      partner_industry: 0,
+      partner_factory: 0,
+      owner: 0,
+      admin: 0,
+      manager: 0,
+      seller: 0,
+      member: 0,
+    };
+
+    allProfiles?.forEach(profile => {
+      const role = getRoleForUser(profile.user_id);
+      if (role) {
+        if (counts[role] !== undefined) {
+          counts[role]++;
+        }
+        if (role.startsWith("partner_")) {
+          counts.partners++;
+        }
+      }
+    });
+
+    return counts;
+  }, [allProfiles, members]);
 
   if (profilesLoading) {
     return (
@@ -287,7 +346,7 @@ export function AllUsersTab() {
   return (
     <>
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -302,6 +361,57 @@ export function AllUsersTab() {
                 className="pl-9"
               />
             </div>
+          </div>
+          
+          {/* Role Filters */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={roleFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("all")}
+            >
+              Todos ({roleCounts.all})
+            </Button>
+            <Button
+              variant={roleFilter === "partners" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("partners")}
+              className={roleFilter === "partners" ? "" : "border-purple-300 text-purple-700 hover:bg-purple-50"}
+            >
+              🤝 Parceiros ({roleCounts.partners})
+            </Button>
+            <Button
+              variant={roleFilter === "partner_affiliate" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("partner_affiliate")}
+              className={roleFilter === "partner_affiliate" ? "" : "border-blue-300 text-blue-700 hover:bg-blue-50"}
+            >
+              Afiliados ({roleCounts.partner_affiliate})
+            </Button>
+            <Button
+              variant={roleFilter === "partner_coproducer" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("partner_coproducer")}
+              className={roleFilter === "partner_coproducer" ? "" : "border-green-300 text-green-700 hover:bg-green-50"}
+            >
+              Co-Produtores ({roleCounts.partner_coproducer})
+            </Button>
+            <Button
+              variant={roleFilter === "partner_industry" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("partner_industry")}
+              className={roleFilter === "partner_industry" ? "" : "border-orange-300 text-orange-700 hover:bg-orange-50"}
+            >
+              Indústrias ({roleCounts.partner_industry})
+            </Button>
+            <Button
+              variant={roleFilter === "partner_factory" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("partner_factory")}
+              className={roleFilter === "partner_factory" ? "" : "border-red-300 text-red-700 hover:bg-red-50"}
+            >
+              Fábricas ({roleCounts.partner_factory})
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
