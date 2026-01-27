@@ -397,17 +397,27 @@ serve(async (req) => {
     const baseUrl = config.ambiente === 'sandbox' ? MELHOR_ENVIO_API.SANDBOX : MELHOR_ENVIO_API.PRODUCTION;
 
     // Token selection by environment (prevents using sandbox token in production and vice-versa)
-    const token =
-      config.token_encrypted ||
-      (config.ambiente === 'sandbox'
-        ? (Deno.env.get('MELHOR_ENVIO_TOKEN_SANDBOX') || Deno.env.get('MELHOR_ENVIO_TOKEN'))
-        : (Deno.env.get('MELHOR_ENVIO_TOKEN_PRODUCTION') || Deno.env.get('MELHOR_ENVIO_TOKEN')));
+    // PRIORITY: 1) config.token_encrypted from DB, 2) env var for specific environment, 3) generic env var
+    let token: string | undefined;
+    
+    if (config.token_encrypted) {
+      token = config.token_encrypted;
+      console.log('[Melhor Envio] Using token from database config');
+    } else if (config.ambiente === 'sandbox') {
+      token = Deno.env.get('MELHOR_ENVIO_TOKEN_SANDBOX') || Deno.env.get('MELHOR_ENVIO_TOKEN');
+      console.log('[Melhor Envio] Using SANDBOX token from env:', token ? 'found' : 'NOT FOUND');
+    } else {
+      token = Deno.env.get('MELHOR_ENVIO_TOKEN_PRODUCTION') || Deno.env.get('MELHOR_ENVIO_TOKEN');
+      console.log('[Melhor Envio] Using PRODUCTION token from env:', token ? 'found' : 'NOT FOUND');
+    }
+
+    console.log('[Melhor Envio] Environment:', config.ambiente, '| Base URL:', baseUrl);
 
     if (!token) {
       throw new Error(
         config.ambiente === 'sandbox'
-          ? 'Token do Melhor Envio (sandbox) não configurado'
-          : 'Token do Melhor Envio (produção) não configurado'
+          ? 'Token do Melhor Envio (sandbox) não configurado. Adicione MELHOR_ENVIO_TOKEN_SANDBOX nos secrets.'
+          : 'Token do Melhor Envio (produção) não configurado. Adicione MELHOR_ENVIO_TOKEN_PRODUCTION nos secrets.'
       );
     }
 
