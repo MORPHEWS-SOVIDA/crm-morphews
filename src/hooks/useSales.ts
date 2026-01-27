@@ -793,6 +793,30 @@ export function useUpdateSale() {
             }
           }
         }
+
+        // When sale is marked as returned, move lead to "TELE ENTREGA VOLTOU" funnel stage
+        if (data.status === 'returned' && sale.lead_id && organizationId) {
+          // Find the funnel stage named "TELE ENTREGA VOLTOU"
+          const { data: returnedStage } = await supabase
+            .from('organization_funnel_stages')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .ilike('name', '%TELE ENTREGA VOLTOU%')
+            .maybeSingle();
+          
+          if (returnedStage?.id) {
+            // Update lead to move to the returned stage
+            await supabase
+              .from('leads')
+              .update({ 
+                funnel_stage_id: returnedStage.id,
+                stage: 'no_show' as any // Fallback legacy field 
+              })
+              .eq('id', sale.lead_id);
+              
+            console.log(`Lead ${sale.lead_id} moved to TELE ENTREGA VOLTOU stage`);
+          }
+        }
         
         // When sale is cancelled
         if (data.status === 'cancelled') {
