@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Plus, Trash2, GripVertical } from 'lucide-react';
+import { QuizImageUpload } from './QuizImageUpload';
 import { 
   useUpdateQuizStep, 
   useCreateQuizOption, 
@@ -149,23 +150,24 @@ export function QuizStepEditor({ step, allSteps }: QuizStepEditorProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="image_url">URL da Imagem</Label>
-                <Input
-                  id="image_url"
-                  placeholder="https://..."
-                  {...form.register('image_url')}
-                  onBlur={(e) => handleFieldChange('image_url', e.target.value)}
-                />
-              </div>
+              <QuizImageUpload
+                label="Imagem"
+                currentUrl={step.image_url}
+                stepId={step.id}
+                onUploadComplete={(url) => handleFieldChange('image_url', url)}
+                onClear={() => handleFieldChange('image_url', null)}
+              />
               <div>
                 <Label htmlFor="video_url">URL do Vídeo</Label>
                 <Input
                   id="video_url"
-                  placeholder="https://youtube.com/..."
+                  placeholder="YouTube, Vturb ou Panda Videos"
                   {...form.register('video_url')}
                   onBlur={(e) => handleFieldChange('video_url', e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cole o link do YouTube, Vturb ou Panda Videos
+                </p>
               </div>
             </div>
           </CardContent>
