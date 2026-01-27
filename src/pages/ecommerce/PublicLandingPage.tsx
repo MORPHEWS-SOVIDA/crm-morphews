@@ -62,7 +62,7 @@ interface PublicLandingPage {
     price_1_unit?: number;
     image_url: string | null;
     description: string | null;
-  };
+  } | null;
 }
 
 function formatCurrency(cents: number) {
@@ -302,14 +302,14 @@ export default function PublicLandingPage() {
               <div className="grid gap-8 lg:grid-cols-2 items-start">
                 {/* Product Image */}
                 <div>
-                  {landing.product.image_url && (
+                  {landing.product?.image_url && (
                     <img
                       src={landing.product.image_url}
-                      alt={landing.product.name}
+                      alt={landing.product?.name || landing.name}
                       className="w-full rounded-xl shadow-lg"
                     />
                   )}
-                  {landing.product.description && (
+                  {landing.product?.description && (
                     <p className="mt-4 text-muted-foreground">
                       {landing.product.description}
                     </p>
@@ -523,25 +523,27 @@ export default function PublicLandingPage() {
         </footer>
 
         {/* Structured Data for SEO & ChatGPT Shopping */}
-        <LandingPageStructuredData
-          productName={landing.product.name}
-          productDescription={landing.product.description || landing.subheadline || undefined}
-          productImage={landing.product.image_url || undefined}
-          productPrice={selectedOffer?.price_cents || landing.offers[0]?.price_cents || 0}
-          faqs={landing.faq}
-          organizationName={landing.name}
-          organizationLogo={landing.logo_url || undefined}
-          pageUrl={window.location.href}
-        />
+        {landing.product && (
+          <LandingPageStructuredData
+            productName={landing.product.name}
+            productDescription={landing.product.description || landing.subheadline || undefined}
+            productImage={landing.product.image_url || undefined}
+            productPrice={selectedOffer?.price_cents || landing.offers[0]?.price_cents || 0}
+            faqs={landing.faq}
+            organizationName={landing.name}
+            organizationLogo={landing.logo_url || undefined}
+            pageUrl={window.location.href}
+          />
+        )}
 
         {/* Sales Chatbot */}
         <SalesChatbot
           landingPageId={landing.id}
           productId={landing.product_id}
-          productName={landing.product.name}
+          productName={landing.product?.name || landing.name}
           productPrice={selectedOffer?.price_cents}
           primaryColor={primaryColor}
-          welcomeMessage={`Olá! 👋 Está com dúvidas sobre ${landing.product.name}? Posso ajudar!`}
+          welcomeMessage={`Olá! 👋 Está com dúvidas sobre ${landing.product?.name || 'nossos produtos'}? Posso ajudar!`}
         />
 
         {/* Checkout Modal */}
