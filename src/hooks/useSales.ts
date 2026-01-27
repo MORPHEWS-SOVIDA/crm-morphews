@@ -284,10 +284,11 @@ function useOrganizationId() {
   return profile?.organization_id ?? tenantId ?? null;
 }
 
-export function useSales(filters?: { status?: SaleStatus }) {
+export function useSales(filters?: { status?: SaleStatus; limit?: number }) {
   const organizationId = useOrganizationId();
   const { user } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
+  const limit = filters?.limit ?? 500; // Default limit for better performance
 
   return useQuery({
     queryKey: ['sales', organizationId, filters, user?.id, permissions?.sales_view_all],
@@ -302,7 +303,8 @@ export function useSales(filters?: { status?: SaleStatus }) {
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at)
         `)
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -349,6 +351,7 @@ export function useSales(filters?: { status?: SaleStatus }) {
       return salesWithProfiles as Sale[];
     },
     enabled: !!organizationId && !permissionsLoading,
+    staleTime: 3 * 60 * 1000, // 3 minutes - reduce refetches
   });
 }
 
