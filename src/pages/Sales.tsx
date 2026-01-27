@@ -58,6 +58,8 @@ import {
 } from '@/hooks/useCarrierTracking';
 import { useProducts } from '@/hooks/useProducts';
 import { useLeadSources } from '@/hooks/useConfigOptions';
+import { useActivePaymentMethods } from '@/hooks/usePaymentMethods';
+import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { normalizeText } from '@/lib/utils';
@@ -145,6 +147,9 @@ export default function Sales() {
   const [productFilter, setProductFilter] = useState<string>('all');
   const [leadSourceFilter, setLeadSourceFilter] = useState<string>('all');
   const [managerFilter, setManagerFilter] = useState<string>('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+  const [deliveryRegionFilter, setDeliveryRegionFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<SaleStatus | 'all'>('all');
   
   const { data: sales = [], isLoading } = useSales(
     activeTab !== 'all' ? { status: activeTab } : undefined
@@ -153,6 +158,8 @@ export default function Sales() {
   const { data: leadSources = [] } = useLeadSources();
   const { data: teamMembers = [] } = useTeamMembers();
   const { data: managers = [] } = useManagers();
+  const { data: paymentMethods = [] } = useActivePaymentMethods();
+  const { data: deliveryRegions = [] } = useDeliveryRegions();
 
   // Get unique sellers from sales
   const sellers = useMemo(() => {
@@ -270,13 +277,34 @@ export default function Sales() {
         if (leadSource !== leadSourceFilter) return false;
       }
       
+      // Payment method filter
+      if (paymentMethodFilter !== 'all') {
+        if (sale.payment_method_id !== paymentMethodFilter && sale.payment_method !== paymentMethodFilter) {
+          return false;
+        }
+      }
+      
+      // Delivery region filter
+      if (deliveryRegionFilter !== 'all') {
+        if (sale.delivery_region_id !== deliveryRegionFilter) {
+          return false;
+        }
+      }
+      
+      // Status filter (in addition to tabs)
+      if (statusFilter !== 'all') {
+        if (sale.status !== statusFilter) {
+          return false;
+        }
+      }
+      
       return true;
     });
   }, [
     sales, searchTerm, sellerFilter, deliveryTypeFilter, deliveryDateFilter,
     saleDateFilter, noPaymentProofFilter, carrierNoTrackingFilter, 
     carrierTrackingStatusFilter, dispatchedMotoboyFilter, productFilter, leadSourceFilter,
-    managerFilter, teamMembers
+    managerFilter, teamMembers, paymentMethodFilter, deliveryRegionFilter, statusFilter
   ]);
 
   // Calculate total value of filtered sales
@@ -303,7 +331,11 @@ export default function Sales() {
     carrierTrackingStatusFilter !== 'all' ||
     dispatchedMotoboyFilter !== 'all' ||
     productFilter !== 'all' ||
-    leadSourceFilter !== 'all';
+    leadSourceFilter !== 'all' ||
+    paymentMethodFilter !== 'all' ||
+    deliveryRegionFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    managerFilter !== 'all';
 
   const activeFiltersCount = [
     sellerFilter !== 'all',
@@ -315,7 +347,11 @@ export default function Sales() {
     carrierTrackingStatusFilter !== 'all',
     dispatchedMotoboyFilter !== 'all',
     productFilter !== 'all',
-    leadSourceFilter !== 'all'
+    leadSourceFilter !== 'all',
+    paymentMethodFilter !== 'all',
+    deliveryRegionFilter !== 'all',
+    statusFilter !== 'all',
+    managerFilter !== 'all'
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -329,6 +365,10 @@ export default function Sales() {
     setDispatchedMotoboyFilter('all');
     setProductFilter('all');
     setLeadSourceFilter('all');
+    setPaymentMethodFilter('all');
+    setDeliveryRegionFilter('all');
+    setStatusFilter('all');
+    setManagerFilter('all');
   };
 
   return (
@@ -467,6 +507,27 @@ export default function Sales() {
                         </Select>
                       </div>
 
+                      {/* Delivery Region Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Região de Entrega</label>
+                        <Select value={deliveryRegionFilter} onValueChange={setDeliveryRegionFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas regiões" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas regiões</SelectItem>
+                            {deliveryRegions.filter(r => r.is_active).map((region) => (
+                              <SelectItem key={region.id} value={region.id}>
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-4 h-4" />
+                                  {region.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       {/* Sale Date Filter */}
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Data da Venda</label>
@@ -545,7 +606,25 @@ export default function Sales() {
                       <CreditCard className="w-4 h-4" />
                       Pagamento
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Payment Method Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Forma de Pagamento</label>
+                        <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas formas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas formas</SelectItem>
+                            {paymentMethods.map((method) => (
+                              <SelectItem key={method.id} value={method.id}>
+                                {method.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       {/* No Payment Proof Filter */}
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Comprovante de Pagamento</label>
@@ -561,6 +640,26 @@ export default function Sales() {
                                 Sem comprovante
                               </div>
                             </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Status Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Status da Venda</label>
+                        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SaleStatus | 'all')}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todos status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_TABS.map((tab) => (
+                              <SelectItem key={tab.value} value={tab.value}>
+                                <div className="flex items-center gap-2">
+                                  <tab.icon className="w-4 h-4" />
+                                  {tab.label}
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
