@@ -298,12 +298,15 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
   }, [selectedConversation, hasMultipleInstances, activeInstanceId, samePhoneConversations]);
 
   // Atualizar activeInstanceId quando selecionar uma nova conversa
+  // IMPORTANTE: usar id E instance_id como dependências para garantir atualização
+  // quando clicar em card diferente do mesmo número
   useEffect(() => {
     if (selectedConversation?.instance_id) {
       setActiveInstanceId(selectedConversation.instance_id);
+      // Forçar invalidação das mensagens quando mudar de conversa
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
     }
-  }, [selectedConversation?.id]);
-
+  }, [selectedConversation?.id, selectedConversation?.instance_id, queryClient]);
 
   // Fetch pending scheduled messages count per lead
   const leadIds = conversations?.filter(c => c.lead_id).map(c => c.lead_id as string) || [];
@@ -1225,7 +1228,10 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   "flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors border-b",
                   selectedConversation?.id === conversation.id && "bg-muted"
                 )}
-                onClick={() => setSelectedConversation(conversation)}
+                onClick={() => {
+                  setSelectedConversation(conversation);
+                  setActiveInstanceId(conversation.instance_id);
+                }}
               >
                 {/* Avatar com indicadores de outras instâncias */}
                 <div className="relative flex-shrink-0">
