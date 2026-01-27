@@ -42,6 +42,7 @@ import {
   PackageX,
   Loader2,
   Banknote,
+  Store,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -74,6 +75,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
 import { DispatchConfirmationDialog } from '@/components/expedition/DispatchConfirmationDialog';
 import { CashPaymentVerificationDialog } from '@/components/expedition/CashPaymentVerificationDialog';
+import { PickupClosingDialog } from '@/components/expedition/PickupClosingDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 
@@ -149,6 +151,8 @@ export default function Expedition() {
   
   // Cash verification dialog state
   const [cashVerificationOpen, setCashVerificationOpen] = useState(false);
+  // Pickup closing dialog state
+  const [pickupClosingOpen, setPickupClosingOpen] = useState(false);
   const { data: permissions } = useMyPermissions();
 
   // Handle tab change (local only - filtering is client-side)
@@ -726,6 +730,14 @@ export default function Expedition() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setPickupClosingOpen(true)}
+              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+            >
+              <Store className="w-4 h-4 mr-2" />
+              Baixa Balcão
+            </Button>
             {permissions?.cash_verification_view && (
               <Button 
                 variant="outline" 
@@ -1433,6 +1445,12 @@ export default function Expedition() {
         <CashPaymentVerificationDialog
           open={cashVerificationOpen}
           onOpenChange={setCashVerificationOpen}
+        />
+        
+        {/* Pickup Closing Dialog */}
+        <PickupClosingDialog
+          open={pickupClosingOpen}
+          onOpenChange={setPickupClosingOpen}
         />
       </div>
     </SmartLayout>

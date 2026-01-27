@@ -9679,6 +9679,138 @@ export type Database = {
           },
         ]
       }
+      pickup_closing_sales: {
+        Row: {
+          closing_id: string
+          created_at: string
+          delivered_at: string | null
+          id: string
+          lead_name: string | null
+          organization_id: string
+          payment_method: string | null
+          sale_id: string
+          sale_number: string | null
+          total_cents: number | null
+        }
+        Insert: {
+          closing_id: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          lead_name?: string | null
+          organization_id: string
+          payment_method?: string | null
+          sale_id: string
+          sale_number?: string | null
+          total_cents?: number | null
+        }
+        Update: {
+          closing_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          lead_name?: string | null
+          organization_id?: string
+          payment_method?: string | null
+          sale_id?: string
+          sale_number?: string | null
+          total_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pickup_closing_sales_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "pickup_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pickup_closing_sales_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pickup_closing_sales_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pickup_closings: {
+        Row: {
+          closing_date: string
+          closing_number: number
+          confirmed_at_admin: string | null
+          confirmed_at_auxiliar: string | null
+          confirmed_by_admin: string | null
+          confirmed_by_auxiliar: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          status: string
+          total_amount_cents: number
+          total_card_cents: number
+          total_cash_cents: number
+          total_other_cents: number
+          total_pix_cents: number
+          total_sales: number
+        }
+        Insert: {
+          closing_date?: string
+          closing_number?: number
+          confirmed_at_admin?: string | null
+          confirmed_at_auxiliar?: string | null
+          confirmed_by_admin?: string | null
+          confirmed_by_auxiliar?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          status?: string
+          total_amount_cents?: number
+          total_card_cents?: number
+          total_cash_cents?: number
+          total_other_cents?: number
+          total_pix_cents?: number
+          total_sales?: number
+        }
+        Update: {
+          closing_date?: string
+          closing_number?: number
+          confirmed_at_admin?: string | null
+          confirmed_at_auxiliar?: string | null
+          confirmed_by_admin?: string | null
+          confirmed_by_auxiliar?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          status?: string
+          total_amount_cents?: number
+          total_card_cents?: number
+          total_cash_cents?: number
+          total_other_cents?: number
+          total_pix_cents?: number
+          total_sales?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pickup_closings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_features: {
         Row: {
           created_at: string
