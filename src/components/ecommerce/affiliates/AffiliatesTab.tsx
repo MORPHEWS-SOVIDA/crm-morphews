@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Users, Copy, Link2, Info, Percent, Check, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -119,15 +119,17 @@ function useAssetAffiliates(assetType: AssetType, assetId: string | null) {
 }
 
 // Hook para buscar todos os parceiros da org (todos os tipos - afiliados, indústrias, co-produtores, fábricas)
+// Agora busca TODOS os parceiros gerais (sem link específico) para permitir vinculação a múltiplos assets
 function useOrganizationPartners() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['organization-partners-all', profile?.organization_id],
+    queryKey: ['organization-partners-general', profile?.organization_id],
     queryFn: async (): Promise<AffiliateData[]> => {
       if (!profile?.organization_id) return [];
 
-      // Buscar parceiros gerais (sem vínculo específico) - TODOS OS TIPOS
+      // Buscar parceiros gerais (sem nenhum vínculo específico) - TODOS OS TIPOS
+      // Estes são os parceiros "base" que podem ser vinculados a assets
       const { data, error } = await supabase
         .from('partner_associations')
         .select(`
@@ -272,8 +274,36 @@ export function AffiliatesTab({
     quiz: 'Quiz',
   }[assetType];
 
-  // Combinar parceiros gerais com os já vinculados para mostrar lista completa
-  const allPartnersList = allPartners || [];
+  // Combinar parceiros gerais com os já vinculados a este asset para mostrar lista completa
+  // Isso garante que parceiros já vinculados apareçam na lista mesmo que não sejam "gerais"
+  const allPartnersList = useMemo(() => {
+    const generalPartners = allPartners || [];
+    const linked = linkedAffiliates || [];
+    
+    // Criar um mapa de virtual_account_id para evitar duplicatas
+    const seenVirtualAccountIds = new Set<string>();
+    const combined: AffiliateData[] = [];
+    
+    // Primeiro adicionar os parceiros gerais
+    for (const partner of generalPartners) {
+      const vaId = partner.virtual_account?.id;
+      if (vaId && !seenVirtualAccountIds.has(vaId)) {
+        seenVirtualAccountIds.add(vaId);
+        combined.push(partner);
+      }
+    }
+    
+    // Depois adicionar os vinculados (que podem não estar nos gerais)
+    for (const linked of linkedAffiliates || []) {
+      const vaId = linked.virtual_account?.id;
+      if (vaId && !seenVirtualAccountIds.has(vaId)) {
+        seenVirtualAccountIds.add(vaId);
+        combined.push(linked as unknown as AffiliateData);
+      }
+    }
+    
+    return combined;
+  }, [allPartners, linkedAffiliates]);
 
   return (
     <div className="space-y-6">
