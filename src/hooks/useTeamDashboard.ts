@@ -111,10 +111,10 @@ export function useTeamDashboard(options: TeamDashboardOptions = {}) {
   const monthKey = format(commissionMonth, 'yyyy-MM');
   
   return useQuery({
-    queryKey: ['team-dashboard', tenantId, currentMember?.team_id, treatmentDays, monthKey, selectedMemberIds],
+    queryKey: ['team-dashboard', tenantId, user?.id, treatmentDays, monthKey, selectedMemberIds],
     queryFn: async (): Promise<TeamDashboardData> => {
-      if (!tenantId || !user?.id || !currentMember?.team_id) {
-        throw new Error('Missing tenant, user, or team');
+      if (!tenantId || !user?.id) {
+        throw new Error('Missing tenant or user');
       }
 
       const now = new Date();
@@ -122,7 +122,19 @@ export function useTeamDashboard(options: TeamDashboardOptions = {}) {
       const monthStart = startOfMonth(commissionMonth);
       const monthEnd = endOfMonth(commissionMonth);
 
-      // 1. Get all team members
+      // 1. Get team members associated to this manager (via sales_manager_team_members)
+      const { data: associationsData } = await supabase
+        .from('sales_manager_team_members')
+        .select('team_member_user_id')
+        .eq('organization_id', tenantId)
+        .eq('manager_user_id', user.id);
+
+      const associatedUserIds = (associationsData || []).map(a => a.team_member_user_id);
+      
+      // Include the manager themselves in the team
+      const allTeamUserIds = [...new Set([user.id, ...associatedUserIds])];
+
+      // Get member details
       const { data: teamMembersData } = await supabase
         .from('organization_members')
         .select(`
@@ -131,7 +143,7 @@ export function useTeamDashboard(options: TeamDashboardOptions = {}) {
           profiles!inner(first_name, last_name, avatar_url)
         `)
         .eq('organization_id', tenantId)
-        .eq('team_id', currentMember.team_id);
+        .in('user_id', allTeamUserIds);
 
       const teamMembers = (teamMembersData || []).map((m: any) => ({
         user_id: m.user_id,
@@ -476,7 +488,7 @@ export function useTeamDashboard(options: TeamDashboardOptions = {}) {
         },
       };
     },
-    enabled: !!tenantId && !!user?.id && !!currentMember?.team_id,
+    enabled: !!tenantId && !!user?.id,
     staleTime: 1000 * 60 * 2,
   });
 }
