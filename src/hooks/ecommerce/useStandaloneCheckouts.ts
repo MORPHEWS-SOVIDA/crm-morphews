@@ -73,7 +73,8 @@ export interface StandaloneCheckout {
     name: string;
     base_price_cents: number;
     price_1_unit: number | null;
-    images: string[] | null;
+    image_url: string | null;
+    ecommerce_images: string[] | null;
   };
   order_bump_product?: {
     id: string;
@@ -124,7 +125,8 @@ type ProductLite = {
   name: string;
   base_price_cents: number;
   price_1_unit: number | null;
-  images?: string[] | null;
+  image_url?: string | null;
+  ecommerce_images?: string[] | null;
 };
 
 async function fetchProductsMapByIds(ids: string[]): Promise<Record<string, ProductLite>> {
@@ -133,7 +135,7 @@ async function fetchProductsMapByIds(ids: string[]): Promise<Record<string, Prod
 
   const { data, error } = await supabase
     .from('lead_products')
-    .select('id, name, base_price_cents, price_1_unit, images')
+    .select('id, name, base_price_cents, price_1_unit, image_url, ecommerce_images')
     .in('id', uniqueIds);
 
   if (error) throw error;
@@ -426,10 +428,10 @@ export function usePublicCheckout(slug: string | undefined) {
         .select(`
           *,
           product:lead_products!standalone_checkouts_product_id_fkey(
-            id, name, description, base_price_cents, price_1_unit, images, benefits
+            id, name, description, base_price_cents, price_1_unit, image_url, ecommerce_images, ecommerce_benefits
           ),
           order_bump_product:lead_products!standalone_checkouts_order_bump_product_id_fkey(
-            id, name, base_price_cents, price_1_unit, images
+            id, name, base_price_cents, price_1_unit, image_url, ecommerce_images
           )
         `)
         .eq('slug', slug)
@@ -444,8 +446,9 @@ export function usePublicCheckout(slug: string | undefined) {
           description: string | null;
           base_price_cents: number;
           price_1_unit: number | null;
-          images: string[] | null;
-          benefits: string[] | null;
+          image_url: string | null;
+          ecommerce_images: string[] | null;
+          ecommerce_benefits: string[] | null;
         };
       };
     },
