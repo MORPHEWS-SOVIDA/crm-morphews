@@ -75,6 +75,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ProductConference } from '@/components/expedition/ProductConference';
 import { DispatchConfirmationDialog } from '@/components/expedition/DispatchConfirmationDialog';
 import { CashPaymentVerificationDialog } from '@/components/expedition/CashPaymentVerificationDialog';
+import { SelectMotoboyDialog } from '@/components/expedition/SelectMotoboyDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 
@@ -150,6 +151,13 @@ export default function Expedition() {
   
   // Cash verification dialog state
   const [cashVerificationOpen, setCashVerificationOpen] = useState(false);
+  
+  // Select motoboy dialog state
+  const [selectMotoboyDialog, setSelectMotoboyDialog] = useState<{
+    open: boolean;
+    sale: Sale | null;
+  }>({ open: false, sale: null });
+  
   const { data: permissions } = useMyPermissions();
 
   // Handle tab change (local only - filtering is client-side)
@@ -368,12 +376,7 @@ export default function Expedition() {
   // Check if sale can be dispatched - validates business rules
   const canDispatchSale = useCallback((sale: Sale): { allowed: boolean; reason?: string } => {
     // Rule 1: Motoboy deliveries must have a motoboy selected
-    if (sale.delivery_type === 'motoboy' && !sale.assigned_delivery_user_id) {
-      return { 
-        allowed: false, 
-        reason: 'Selecione um motoboy antes de despachar esta venda.' 
-      };
-    }
+    // This is now handled by showing a dialog, so we don't block here
     
     // Rule 2: Sale must be marked as "separated" (pending_expedition) before dispatching
     // Note: status 'pending_expedition' means it was printed AND separated
@@ -389,6 +392,12 @@ export default function Expedition() {
   
   // Handle dispatch attempt - validates rules and shows confirmation if needed
   const handleDispatchAttempt = useCallback((sale: Sale) => {
+    // Check if motoboy delivery without motoboy selected - show selection dialog
+    if (sale.delivery_type === 'motoboy' && !sale.assigned_delivery_user_id) {
+      setSelectMotoboyDialog({ open: true, sale });
+      return;
+    }
+    
     const { allowed, reason } = canDispatchSale(sale);
     
     if (!allowed) {
@@ -1442,6 +1451,40 @@ export default function Expedition() {
         <CashPaymentVerificationDialog
           open={cashVerificationOpen}
           onOpenChange={setCashVerificationOpen}
+        />
+        
+        {/* Select Motoboy Dialog - shown when dispatching without motoboy selected */}
+        <SelectMotoboyDialog
+          open={selectMotoboyDialog.open}
+          onOpenChange={(open) => setSelectMotoboyDialog(prev => ({ ...prev, open }))}
+          motoboys={members.filter(m => m.profile).map(m => ({
+            id: m.user_id,
+            firstName: m.profile!.first_name || 'Motoboy',
+            lastName: m.profile!.last_name,
+          }))}
+          onSelect={(motoboyId) => {
+            if (selectMotoboyDialog.sale) {
+              const sale = selectMotoboyDialog.sale;
+              // First update the sale with the selected motoboy, then check conference
+              const allItemsChecked = conferenceStatus[sale.id] ?? false;
+              
+              if (!allItemsChecked) {
+                // Close motoboy dialog and open conference confirmation
+                setSelectMotoboyDialog({ open: false, sale: null });
+                setDispatchConfirmDialog({
+                  open: true,
+                  saleId: sale.id,
+                  motoboyId,
+                });
+              } else {
+                // All good - dispatch with selected motoboy
+                handleDispatch(sale.id, motoboyId, false);
+                setSelectMotoboyDialog({ open: false, sale: null });
+              }
+            }
+          }}
+          isLoading={isUpdating === selectMotoboyDialog.sale?.id}
+          saleName={selectMotoboyDialog.sale?.lead?.name}
         />
       </div>
     </SmartLayout>
