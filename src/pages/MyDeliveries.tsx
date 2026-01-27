@@ -632,6 +632,7 @@ function DeliveryCard({
               stage="dispatch"
               showHistory={true}
               compactMode={true}
+              collapseHistory={true}
             />
           </div>
         )}

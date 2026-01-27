@@ -3,7 +3,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useProductConference } from '@/hooks/useProductConference';
-import { Loader2, CheckCircle2, User, Plus } from 'lucide-react';
+import { Loader2, CheckCircle2, User, Plus, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -12,6 +12,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 
 interface ProductItem {
@@ -65,6 +70,8 @@ interface ProductConferenceProps {
   readOnly?: boolean;
   allowAdditionalConference?: boolean;
   compactMode?: boolean;
+  /** When true, collapses history badges into an info icon with popover */
+  collapseHistory?: boolean;
 }
 
 const stageLabels: Record<string, string> = {
@@ -83,6 +90,7 @@ export function ProductConference({
   readOnly = false,
   allowAdditionalConference = false,
   compactMode = false,
+  collapseHistory = false,
 }: ProductConferenceProps) {
   const {
     conferencesWithUsers,
@@ -313,22 +321,51 @@ export function ProductConference({
               </div>
 
               {/* Conference history badges per item */}
-              {(showHistory || allItemConferences.length > 0) && (
-                <div className="ml-2 flex flex-wrap gap-1">
-                  {allItemConferences.map((conf, idx) => (
-                    <Badge 
-                      key={idx} 
-                      variant="outline" 
-                      className="text-xs py-0 gap-1"
-                    >
-                      <CheckCircle2 className="h-3 w-3 text-green-600" />
-                      {stageLabels[conf.stage] || conf.stage}: {conf.user_name}
-                      <span className="text-muted-foreground">
-                        {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
-                      </span>
-                    </Badge>
-                  ))}
-                </div>
+              {(showHistory || allItemConferences.length > 0) && allItemConferences.length > 0 && (
+                collapseHistory ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5 ml-1 text-muted-foreground hover:text-primary"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" side="top">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Conferências:</p>
+                        {allItemConferences.map((conf, idx) => (
+                          <div key={idx} className="flex items-center gap-1 text-xs">
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                            <span>{stageLabels[conf.stage] || conf.stage}:</span>
+                            <span className="font-medium">{conf.user_name}</span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <div className="ml-2 flex flex-wrap gap-1">
+                    {allItemConferences.map((conf, idx) => (
+                      <Badge 
+                        key={idx} 
+                        variant="outline" 
+                        className="text-xs py-0 gap-1"
+                      >
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                        {stageLabels[conf.stage] || conf.stage}: {conf.user_name}
+                        <span className="text-muted-foreground">
+                          {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
+                        </span>
+                      </Badge>
+                    ))}
+                  </div>
+                )
               )}
             </div>
           );
@@ -342,10 +379,36 @@ export function ProductConference({
               <span className="text-xs text-green-700 dark:text-green-400 font-medium">
                 Todos os itens conferidos
               </span>
+              
+              {/* Collapsed summary in popover */}
+              {collapseHistory && Object.keys(conferenceSummary).length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 text-muted-foreground hover:text-primary"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2" side="top">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Responsáveis:</p>
+                      {Object.entries(conferenceSummary).map(([stageName, users]) => (
+                        <div key={stageName} className="flex items-center gap-1 text-xs">
+                          <span>{stageLabels[stageName]}:</span>
+                          <span className="font-medium">{Array.from(users).join(', ')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
             
-            {/* Show who conferenced at each stage */}
-            {Object.keys(conferenceSummary).length > 0 && (
+            {/* Show who conferenced at each stage - only when not collapsed */}
+            {!collapseHistory && Object.keys(conferenceSummary).length > 0 && (
               <div className="flex flex-wrap gap-1 ml-6">
                 {Object.entries(conferenceSummary).map(([stageName, users]) => (
                   <Badge key={stageName} variant="secondary" className="text-xs py-0">
