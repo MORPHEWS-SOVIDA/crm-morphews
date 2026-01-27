@@ -63,6 +63,7 @@ export interface QuizStep {
   result_cta_url: string | null;
   result_cta_text: string;
   result_whatsapp_message: string | null;
+  result_whatsapp_number: string | null;
   result_product_id: string | null;
   result_storefront_id: string | null;
   position: number;
@@ -778,7 +779,7 @@ export const STEP_TYPE_LABELS: Record<QuizStepType, string> = {
 
 export const CTA_TYPE_LABELS: Record<QuizCtaType, string> = {
   url: 'Redirecionar para URL',
-  whatsapp: 'Abrir WhatsApp',
+  whatsapp: 'Enviar WhatsApp',
   storefront: 'Ir para Loja',
   product: 'Ver Produto',
 };

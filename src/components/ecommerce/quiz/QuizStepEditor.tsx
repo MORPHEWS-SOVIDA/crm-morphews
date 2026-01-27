@@ -50,6 +50,7 @@ export function QuizStepEditor({ step, allSteps }: QuizStepEditorProps) {
       result_cta_type: step.result_cta_type || '',
       result_cta_url: step.result_cta_url || '',
       result_cta_text: step.result_cta_text || 'Continuar',
+      result_whatsapp_number: step.result_whatsapp_number || '',
       result_whatsapp_message: step.result_whatsapp_message || '',
       next_step_id: step.next_step_id || '',
       is_required: step.is_required,
@@ -71,6 +72,7 @@ export function QuizStepEditor({ step, allSteps }: QuizStepEditorProps) {
       result_cta_type: step.result_cta_type || '',
       result_cta_url: step.result_cta_url || '',
       result_cta_text: step.result_cta_text || 'Continuar',
+      result_whatsapp_number: step.result_whatsapp_number || '',
       result_whatsapp_message: step.result_whatsapp_message || '',
       next_step_id: step.next_step_id || '',
       is_required: step.is_required,
@@ -305,14 +307,28 @@ export function QuizStepEditor({ step, allSteps }: QuizStepEditorProps) {
               )}
 
               {form.watch('result_cta_type') === 'whatsapp' && (
-                <div>
-                  <Label htmlFor="result_whatsapp_message">Mensagem do WhatsApp</Label>
-                  <Textarea
-                    id="result_whatsapp_message"
-                    placeholder="Olá! Acabei de fazer o quiz e..."
-                    {...form.register('result_whatsapp_message')}
-                    onBlur={(e) => handleFieldChange('result_whatsapp_message', e.target.value)}
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="result_whatsapp_number">Número do WhatsApp</Label>
+                    <Input
+                      id="result_whatsapp_number"
+                      placeholder="5511999999999"
+                      {...form.register('result_whatsapp_number')}
+                      onBlur={(e) => handleFieldChange('result_whatsapp_number', e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Formato: código do país + DDD + número (ex: 5511999999999)
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="result_whatsapp_message">Mensagem do WhatsApp</Label>
+                    <Textarea
+                      id="result_whatsapp_message"
+                      placeholder="Olá! Acabei de fazer o quiz e..."
+                      {...form.register('result_whatsapp_message')}
+                      onBlur={(e) => handleFieldChange('result_whatsapp_message', e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
