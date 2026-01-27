@@ -128,7 +128,7 @@ export default function WhatsAppChat() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: funnelStages } = useFunnelStages();
-  const { claimConversation, closeConversation } = useConversationDistribution();
+  const { claimConversation, closeConversation, reactivateConversation } = useConversationDistribution();
   // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
   const isMobile = useIsMobile();
   
@@ -147,6 +147,7 @@ export default function WhatsAppChat() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [claimingConversationId, setClaimingConversationId] = useState<string | null>(null);
   const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
+  const [reactivatingConversationId, setReactivatingConversationId] = useState<string | null>(null);
   
   // Status tab filter - mobile supports 'all', desktop does not
   const [statusFilter, setStatusFilter] = useState<StatusTab>('autodistributed');
@@ -898,7 +899,31 @@ export default function WhatsAppChat() {
     }
   };
 
-  // Filtro de conversas para desktop (usa statusFilter)
+  // Handler para reativar conversa encerrada
+  const handleReactivateConversation = async () => {
+    if (!selectedConversation || !user?.id) return;
+    setReactivatingConversationId(selectedConversation.id);
+    try {
+      await reactivateConversation.mutateAsync({ conversationId: selectedConversation.id, userId: user.id });
+      // Atualizar conversa local
+      setConversations(prev => prev.map(c => 
+        c.id === selectedConversation.id 
+          ? { ...c, status: 'assigned', assigned_user_id: user.id }
+          : c
+      ));
+      setSelectedConversation(prev => 
+        prev?.id === selectedConversation.id 
+          ? { ...prev, status: 'assigned', assigned_user_id: user.id }
+          : prev
+      );
+      // Mover para aba atribuído
+      setStatusFilter('assigned');
+    } finally {
+      setReactivatingConversationId(null);
+    }
+  };
+
+
   const filteredConversations = conversations.filter(c => {
     const isGroup = isGroupConversation(c);
     
@@ -1229,7 +1254,26 @@ export default function WhatsAppChat() {
               </div>
             )}
             
-            {/* Área de mensagens */}
+            {/* Botão de reativar para conversas encerradas */}
+            {selectedConversation.status === 'closed' && (
+              <div className="px-3 py-2 border-b bg-gray-50 dark:bg-gray-950/30 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 max-w-[220px] bg-green-600 hover:bg-green-700"
+                  onClick={handleReactivateConversation}
+                  disabled={reactivatingConversationId === selectedConversation.id}
+                >
+                  {reactivatingConversationId === selectedConversation.id ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Reativar Conversa
+                </Button>
+              </div>
+            )}
+            
+
             <div 
               className="flex-1 p-3 bg-[#e5ddd5] dark:bg-zinc-900 overflow-y-auto"
               onScroll={handleMessagesScroll}
