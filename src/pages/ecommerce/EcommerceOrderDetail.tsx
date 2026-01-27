@@ -108,7 +108,7 @@ export default function EcommerceOrderDetail() {
         .from('sale_items')
         .select(`
           *,
-          product:lead_products(name, price_cents)
+          product:lead_products(name, base_price_cents)
         `)
         .eq('sale_id', order?.sale_id);
 
