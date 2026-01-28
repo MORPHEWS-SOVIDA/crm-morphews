@@ -14,12 +14,12 @@ export function DonnaHelperButton() {
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full shadow-lg md:bottom-4 md:w-16 md:h-16 md:z-50",
+          "fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full shadow-xl md:bottom-4 md:w-20 md:h-20 md:z-50",
           "bg-gradient-to-br from-green-400 to-emerald-500",
           "hover:from-green-500 hover:to-emerald-600",
           "transition-all duration-300 hover:scale-105",
           "flex items-center justify-center overflow-hidden",
-          "ring-4 ring-green-300/30"
+          "ring-4 ring-green-300/40 ring-offset-2 ring-offset-background"
         )}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
