@@ -50,6 +50,12 @@ export default function PublicCheckoutPage() {
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [totalWithInterest, setTotalWithInterest] = useState<number | null>(null);
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
+  
+  // Capture affiliate code from URL
+  const affiliateCode = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('ref') || null;
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -791,6 +797,15 @@ export default function PublicCheckoutPage() {
                         </>
                       )}
                     </Button>
+                    
+                    {/* Affiliate Attribution Display */}
+                    {affiliateCode && (
+                      <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          Essa compra está associada a: <span className="font-semibold text-primary">{affiliateCode}</span>
+                        </p>
+                      </div>
+                    )}
                   </form>
                 </CardContent>
               </Card>
