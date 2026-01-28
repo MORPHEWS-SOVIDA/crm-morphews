@@ -288,7 +288,7 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
           "text-[10px]",
           isOutbound ? "text-muted-foreground" : "text-muted-foreground"
         )}>
-          <span>{format(new Date(message.created_at), 'HH:mm', { locale: ptBR })}</span>
+          <span>{format(new Date(message.created_at), 'dd/MM HH:mm', { locale: ptBR })}</span>
           {isOutbound && getStatusIcon()}
         </div>
       </div>
