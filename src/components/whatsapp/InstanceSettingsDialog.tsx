@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings, RefreshCw, Hand, Bot, Phone } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { WavoipSettings } from "./WavoipSettings";
@@ -44,7 +46,8 @@ export function InstanceSettingsDialog({
           display_name_for_team, 
           manual_instance_number, 
           redistribution_timeout_minutes, 
-          wavoip_enabled
+          wavoip_enabled,
+          satisfaction_survey_enabled
         `)
         .eq("id", instanceId)
         .single();
@@ -59,6 +62,7 @@ export function InstanceSettingsDialog({
   const [displayName, setDisplayName] = useState<string>("");
   const [instanceNumber, setInstanceNumber] = useState<string>("");
   const [redistributionTimeout, setRedistributionTimeout] = useState<number>(30);
+  const [satisfactionSurveyEnabled, setSatisfactionSurveyEnabled] = useState<boolean>(false);
 
   // Atualizar state quando carregar dados
   useEffect(() => {
@@ -67,6 +71,7 @@ export function InstanceSettingsDialog({
       setDisplayName(settings.display_name_for_team || "");
       setInstanceNumber(settings.manual_instance_number || "");
       setRedistributionTimeout(settings.redistribution_timeout_minutes || 30);
+      setSatisfactionSurveyEnabled(settings.satisfaction_survey_enabled ?? false);
     }
   }, [settings]);
 
@@ -80,6 +85,7 @@ export function InstanceSettingsDialog({
           display_name_for_team: displayName.trim() || null,
           manual_instance_number: instanceNumber.trim() || null,
           redistribution_timeout_minutes: distributionMode === 'auto' ? redistributionTimeout : null,
+          satisfaction_survey_enabled: satisfactionSurveyEnabled,
         } as any)
         .eq("id", instanceId);
 
@@ -224,6 +230,40 @@ export function InstanceSettingsDialog({
                     Se o vendedor não atender neste tempo, a conversa passa para o próximo na fila
                   </p>
                 </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Pesquisa de Satisfação NPS */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-amber-500" />
+                  <Label className="text-sm font-medium">Pesquisa de Satisfação (NPS)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">
+                          Ao encerrar conversas desta instância, o cliente recebe uma pergunta de 0 a 10.
+                          A resposta é registrada automaticamente no NPS.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Switch 
+                  checked={satisfactionSurveyEnabled}
+                  onCheckedChange={setSatisfactionSurveyEnabled}
+                />
+              </div>
+              {satisfactionSurveyEnabled && (
+                <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-2 rounded">
+                  ✅ NPS ativo para esta instância. A mensagem e configurações gerais são definidas em <strong>Configurações Globais</strong>.
+                </p>
               )}
             </div>
 
