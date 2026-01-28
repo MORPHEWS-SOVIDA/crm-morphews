@@ -138,8 +138,8 @@ export function Sidebar() {
     // Sales Dashboard - requires sales + sales_dashboard features + permission
     { icon: Trophy, label: 'Dashboard Vendas', path: '/dashboard-vendas', visible: canSeeSalesDashboard && hasFeature('sales') && hasFeature('sales_dashboard') },
     
-    // Sales
-    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales && hasFeature('sales') },
+    // Sales - hide for partners (they should use /ecommerce/vendas for e-commerce orders)
+    { icon: SalesIcon, label: 'Vendas', path: '/vendas', visible: canSeeSales && hasFeature('sales') && !isPartner },
     
     // Post-Sale
     { icon: ClipboardList, label: 'Pós-Venda', path: '/pos-venda', visible: canSeePostSale && hasFeature('post_sale') },

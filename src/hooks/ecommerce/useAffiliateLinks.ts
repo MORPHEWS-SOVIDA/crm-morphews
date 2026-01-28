@@ -235,26 +235,26 @@ export function useAffiliateAvailableOffers() {
 
       if (!virtualAccount) return [];
 
-      // Buscar associação do afiliado (a "geral", sem vínculo específico)
-      const { data: myAssociation } = await supabase
+      // Buscar TODAS as associações do afiliado para determinar organization_id
+      const { data: allAssociations } = await supabase
         .from('partner_associations')
-        .select('id, affiliate_code, commission_type, commission_value')
-        .eq('virtual_account_id', virtualAccount.id)
-        .eq('partner_type', 'affiliate')
-        .is('linked_checkout_id', null)
-        .is('linked_landing_id', null)
-        .maybeSingle();
-
-      // Buscar vínculos específicos do afiliado
-      const { data: myLinks } = await supabase
-        .from('partner_associations')
-        .select('linked_checkout_id, linked_landing_id, affiliate_code')
+        .select('id, affiliate_code, commission_type, commission_value, organization_id, linked_checkout_id, linked_landing_id')
         .eq('virtual_account_id', virtualAccount.id)
         .eq('partner_type', 'affiliate')
         .eq('is_active', true);
 
-      const linkedCheckoutIds = new Set(myLinks?.map(l => l.linked_checkout_id).filter(Boolean) || []);
-      const linkedLandingIds = new Set(myLinks?.map(l => l.linked_landing_id).filter(Boolean) || []);
+      if (!allAssociations || allAssociations.length === 0) return [];
+
+      // Get organization_id from association (more reliable than virtual_account.organization_id for partners)
+      const organizationId = allAssociations[0].organization_id;
+      if (!organizationId) return [];
+
+      // Buscar associação geral (sem vínculo específico)
+      const myAssociation = allAssociations.find(a => !a.linked_checkout_id && !a.linked_landing_id);
+      
+      // Buscar vínculos específicos do afiliado
+      const linkedCheckoutIds = new Set(allAssociations.map(l => l.linked_checkout_id).filter(Boolean));
+      const linkedLandingIds = new Set(allAssociations.map(l => l.linked_landing_id).filter(Boolean));
 
       // Buscar checkouts disponíveis
       const { data: checkouts } = await supabase
@@ -266,23 +266,24 @@ export function useAffiliateAvailableOffers() {
           attribution_model,
           product:lead_products(name, images)
         `)
-        .eq('organization_id', virtualAccount.organization_id)
+        .eq('organization_id', organizationId)
         .eq('is_active', true);
 
       // Buscar landing pages disponíveis
       const { data: landings } = await supabase
         .from('landing_pages')
         .select('id, name, slug, attribution_model')
-        .eq('organization_id', virtualAccount.organization_id)
+        .eq('organization_id', organizationId)
         .eq('is_active', true);
 
       const offers: AvailableOffer[] = [];
+      const affiliateCode = myAssociation?.affiliate_code || allAssociations[0]?.affiliate_code;
 
       // Adicionar checkouts
       for (const checkout of checkouts || []) {
         const isEnrolled = linkedCheckoutIds.has(checkout.id);
-        const affiliateCode = myAssociation?.affiliate_code || 
-          myLinks?.find(l => l.linked_checkout_id === checkout.id)?.affiliate_code;
+        const specificAssoc = allAssociations.find(l => l.linked_checkout_id === checkout.id);
+        const code = specificAssoc?.affiliate_code || affiliateCode;
         
         offers.push({
           id: checkout.id,
@@ -293,8 +294,8 @@ export function useAffiliateAvailableOffers() {
           product_name: (checkout.product as any)?.name,
           product_image: (checkout.product as any)?.images?.[0],
           is_enrolled: isEnrolled || !!myAssociation, // Se tem associação geral, pode promover qualquer um
-          affiliate_link: affiliateCode 
-            ? `${window.location.origin}/pay/${checkout.slug}?ref=${affiliateCode}`
+          affiliate_link: code 
+            ? `${window.location.origin}/pay/${checkout.slug}?ref=${code}`
             : undefined,
         });
       }
@@ -302,8 +303,8 @@ export function useAffiliateAvailableOffers() {
       // Adicionar landings
       for (const landing of landings || []) {
         const isEnrolled = linkedLandingIds.has(landing.id);
-        const affiliateCode = myAssociation?.affiliate_code || 
-          myLinks?.find(l => l.linked_landing_id === landing.id)?.affiliate_code;
+        const specificAssoc = allAssociations.find(l => l.linked_landing_id === landing.id);
+        const code = specificAssoc?.affiliate_code || affiliateCode;
         
         offers.push({
           id: landing.id,
@@ -312,8 +313,8 @@ export function useAffiliateAvailableOffers() {
           slug: landing.slug,
           attribution_model: landing.attribution_model || 'last_click',
           is_enrolled: isEnrolled || !!myAssociation,
-          affiliate_link: affiliateCode 
-            ? `${window.location.origin}/l/${landing.slug}?ref=${affiliateCode}`
+          affiliate_link: code 
+            ? `${window.location.origin}/l/${landing.slug}?ref=${code}`
             : undefined,
         });
       }

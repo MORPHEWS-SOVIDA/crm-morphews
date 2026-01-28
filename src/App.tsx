@@ -149,6 +149,7 @@ const EcommerceEmails = lazy(() => import("./pages/ecommerce/EcommerceEmails"));
 const EcommerceParceiros = lazy(() => import("./pages/ecommerce/EcommerceParceiros"));
 const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
 const CheckoutsPage = lazy(() => import("./pages/ecommerce/CheckoutsPage"));
+const PartnerLinksPage = lazy(() => import("./pages/ecommerce/PartnerLinksPage"));
 // Partner pages (public and portal)
 const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
 const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
@@ -753,12 +754,12 @@ const App = () => (
                   }
                 />
                 
-                {/* Ecommerce - Main redirect */}
+                {/* Ecommerce - Main redirect (partners go to PartnerLinksPage, admins to EcommerceLojas) */}
                 <Route
                   path="/ecommerce"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
-                      <EcommerceLojas />
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <PartnerLinksPage />
                     </ProtectedRoute>
                   }
                 />
@@ -818,10 +819,11 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Ecommerce Vendas - partners can see their sales */}
                 <Route
                   path="/ecommerce/vendas"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
                       <EcommerceVendas />
                     </ProtectedRoute>
                   }
@@ -829,15 +831,16 @@ const App = () => (
                 <Route
                   path="/ecommerce/vendas/:orderId"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
                       <EcommerceOrderDetail />
                     </ProtectedRoute>
                   }
                 />
+                {/* Ecommerce Carrinhos - partners can see their referred carts */}
                 <Route
                   path="/ecommerce/carrinhos"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
                       <EcommerceCarrinhos />
                     </ProtectedRoute>
                   }
@@ -858,10 +861,11 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Ecommerce Carteira - partners can see their balance */}
                 <Route
                   path="/ecommerce/carteira"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
                       <EcommerceCarteira />
                     </ProtectedRoute>
                   }

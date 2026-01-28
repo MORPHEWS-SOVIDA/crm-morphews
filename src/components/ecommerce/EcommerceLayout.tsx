@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { cn } from '@/lib/utils';
+import { useTenant } from '@/hooks/useTenant';
 import { 
   Store, 
   FileText, 
@@ -12,10 +13,12 @@ import {
   Wallet,
   ShoppingBag,
   ClipboardList,
-  CreditCard
+  CreditCard,
+  Link2
 } from 'lucide-react';
 
-const navItems = [
+// Full menu for admins
+const adminNavItems = [
   { path: '/ecommerce/lojas', label: 'Lojas', icon: Store },
   { path: '/ecommerce/landings', label: 'Landings', icon: FileText },
   { path: '/ecommerce/quiz', label: 'Quiz', icon: ClipboardList },
@@ -27,6 +30,14 @@ const navItems = [
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
 ];
 
+// Limited menu for partners (affiliates, coproducers, etc)
+const partnerNavItems = [
+  { path: '/ecommerce', label: 'Meus Links', icon: Link2 },
+  { path: '/ecommerce/vendas', label: 'Vendas', icon: ShoppingBag },
+  { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
+  { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
+];
+
 interface EcommerceLayoutProps {
   children: ReactNode;
   title: string;
@@ -35,6 +46,13 @@ interface EcommerceLayoutProps {
 
 export function EcommerceLayout({ children, title, description }: EcommerceLayoutProps) {
   const location = useLocation();
+  const { role } = useTenant();
+  
+  // Check if user is a partner (any partner role)
+  const isPartner = role?.startsWith('partner_') ?? false;
+  
+  // Use appropriate nav items based on user type
+  const navItems = isPartner ? partnerNavItems : adminNavItems;
 
   return (
     <Layout>
