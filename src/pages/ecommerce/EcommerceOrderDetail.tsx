@@ -38,7 +38,9 @@ import {
   Ban,
   Copy,
   ExternalLink,
+  DollarSign,
 } from 'lucide-react';
+import { OrderFinancialBreakdown } from '@/components/ecommerce/OrderFinancialBreakdown';
 
 // Status configuration
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
@@ -153,6 +155,22 @@ export default function EcommerceOrderDetail() {
         .select('*')
         .eq('sale_id', order?.sale_id!)
         .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch sale data for fallback transaction info
+  const { data: saleData } = useQuery({
+    queryKey: ['sale-data', order?.sale_id],
+    enabled: !!order?.sale_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('id', order?.sale_id!)
+        .single();
 
       if (error) throw error;
       return data;
@@ -352,6 +370,20 @@ export default function EcommerceOrderDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Financial Breakdown - "Você recebe" */}
+          {order.sale_id && (
+            <OrderFinancialBreakdown
+              orderId={orderId!}
+              saleId={order.sale_id}
+              totalCents={order.total_cents || 0}
+              shippingCents={order.shipping_cents || 0}
+              subtotalCents={order.subtotal_cents || 0}
+              paidAt={order.paid_at}
+              paymentMethod={saleData?.payment_method}
+              paymentInstallments={saleData?.payment_installments}
+            />
+          )}
         </div>
 
         {/* Tabs */}
@@ -363,7 +395,7 @@ export default function EcommerceOrderDetail() {
             </TabsTrigger>
             <TabsTrigger value="transactions" className="gap-2">
               <CreditCard className="h-4 w-4" />
-              Transações ({paymentAttempts?.length || 0})
+              Transações ({paymentAttempts?.length || (saleData?.gateway_transaction_id ? 1 : 0)})
             </TabsTrigger>
             <TabsTrigger value="tracking" className="gap-2">
               <Truck className="h-4 w-4" />
@@ -467,6 +499,102 @@ export default function EcommerceOrderDetail() {
                         )}
                       </div>
                     ))}
+                  </div>
+                ) : saleData?.gateway_transaction_id ? (
+                  // Fallback: show sale data as transaction
+                  <div className="space-y-4">
+                    <div className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Transação:</span>
+                          <span className="font-mono text-sm">
+                            #{saleData.gateway_transaction_id}
+                          </span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6"
+                            onClick={() => copyToClipboard(saleData.gateway_transaction_id!, 'ID da transação')}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <Badge variant={saleData.status === 'payment_confirmed' ? 'default' : 'secondary'} className="bg-green-600">
+                          {saleData.status === 'payment_confirmed' ? 'Aprovado' : 'Pendente'}
+                        </Badge>
+                      </div>
+
+                      {/* Card/Payment Info */}
+                      <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">
+                            {saleData.payment_method === 'credit_card' ? 'Cartão de Crédito' :
+                             saleData.payment_method === 'pix' ? 'PIX' :
+                             saleData.payment_method === 'boleto' ? 'Boleto' :
+                             saleData.payment_method?.replace('_', ' ') || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-lg">{formatCurrency(order.total_cents || 0)}</p>
+                          {(saleData.payment_installments || 1) > 1 && (
+                            <p className="text-xs text-muted-foreground">
+                              {saleData.payment_installments}x {formatCurrency((order.total_cents || 0) / (saleData.payment_installments || 1))}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Gateway</p>
+                          <p className="font-medium capitalize">Pagar.me</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Método</p>
+                          <p className="font-medium capitalize">
+                            {saleData.payment_method === 'credit_card' ? 'Cartão de Crédito' :
+                             saleData.payment_method === 'pix' ? 'PIX' :
+                             saleData.payment_method === 'boleto' ? 'Boleto' :
+                             saleData.payment_method?.replace('_', ' ') || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Data</p>
+                          <p className="font-medium">
+                            {format(new Date(saleData.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Payment Notes */}
+                      {saleData.payment_notes && (
+                        <div className="text-xs text-muted-foreground border-t pt-2">
+                          {saleData.payment_notes}
+                        </div>
+                      )}
+
+                      {/* Approval timestamp */}
+                      {order.paid_at && (
+                        <div className="text-xs text-center text-green-600 border-t pt-2">
+                          Transação aprovada em {format(new Date(order.paid_at), "dd/MM/yyyy '-' HH:mm:ss", { locale: ptBR })}
+                        </div>
+                      )}
+
+                      {canRefund && (
+                        <div className="pt-3 border-t">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => setRefundDialogOpen(true)}
+                            className="gap-2"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Reembolsar transação
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-center text-muted-foreground py-8">
