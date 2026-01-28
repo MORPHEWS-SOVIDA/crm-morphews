@@ -191,31 +191,7 @@ export function OrderFinancialBreakdown({
             <span>{formatCurrency(shippingCents)}</span>
           </div>
 
-          {/* Factory Fee */}
-          {factoryFee > 0 && (
-            <div className="flex justify-between text-sm text-orange-600">
-              <span>Fábrica:</span>
-              <span>-{formatCurrency(factoryFee)}</span>
-            </div>
-          )}
-
-          {/* Industry Fee */}
-          {industryFee > 0 && (
-            <div className="flex justify-between text-sm text-orange-600">
-              <span>Indústria:</span>
-              <span>-{formatCurrency(industryFee)}</span>
-            </div>
-          )}
-
-          {/* Coproducer Fee */}
-          {coproducerFee > 0 && (
-            <div className="flex justify-between text-sm text-purple-600">
-              <span>Co-produtor:</span>
-              <span>-{formatCurrency(coproducerFee)}</span>
-            </div>
-          )}
-
-          {/* Affiliate */}
+          {/* Affiliate - First deduction */}
           {affiliateFee > 0 && (
             <div className="flex justify-between text-sm text-blue-600">
               <span>
@@ -225,7 +201,31 @@ export function OrderFinancialBreakdown({
             </div>
           )}
 
-          {/* Platform Fee */}
+          {/* Coproducer - Below Affiliate */}
+          {coproducerFee > 0 && (
+            <div className="flex justify-between text-sm text-purple-600">
+              <span>Co-produtor:</span>
+              <span>-{formatCurrency(coproducerFee)}</span>
+            </div>
+          )}
+
+          {/* Industry - Below Coproducer */}
+          {industryFee > 0 && (
+            <div className="flex justify-between text-sm text-orange-600">
+              <span>Indústria:</span>
+              <span>-{formatCurrency(industryFee)}</span>
+            </div>
+          )}
+
+          {/* Factory - Below Industry */}
+          {factoryFee > 0 && (
+            <div className="flex justify-between text-sm text-amber-600">
+              <span>Fábrica:</span>
+              <span>-{formatCurrency(factoryFee)}</span>
+            </div>
+          )}
+
+          {/* Platform Fee - Last */}
           {platformFee > 0 && (
             <div className="flex justify-between text-sm text-red-600">
               <span>Taxa Plataforma (4.99% + R$1,00):</span>
