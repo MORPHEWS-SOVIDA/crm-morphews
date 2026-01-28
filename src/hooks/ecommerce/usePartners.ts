@@ -81,9 +81,14 @@ export function usePartnerInvitations() {
 }
 
 export function usePartnerAssociations(partnerType?: PartnerType) {
+  const { profile } = useAuth();
+  
   return useQuery({
-    queryKey: ['partner-associations', partnerType],
+    queryKey: ['partner-associations', partnerType, profile?.organization_id],
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      
+      // Query parceiros globais (sem vínculo a checkout/landing específico)
       let query = supabase
         .from('partner_associations')
         .select(`
@@ -95,6 +100,11 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
           product:lead_products(id, name),
           organization:organizations(id, name)
         `)
+        .eq('organization_id', profile.organization_id)
+        .is('linked_checkout_id', null)
+        .is('linked_landing_id', null)
+        .is('linked_storefront_id', null)
+        .is('linked_quiz_id', null)
         .order('created_at', { ascending: false });
 
       if (partnerType) {
@@ -106,6 +116,7 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
       if (error) throw error;
       return data as unknown as PartnerAssociation[];
     },
+    enabled: !!profile?.organization_id,
   });
 }
 
