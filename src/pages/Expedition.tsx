@@ -430,13 +430,32 @@ export default function Expedition() {
   const handleDispatch = async (saleId: string, motoboyId?: string, skippedConference: boolean = false) => {
     setIsUpdating(saleId);
     try {
+      // IMPORTANT: Check current motoboy status before dispatch to avoid resetting
+      // if motoboy already picked up the delivery
+      const { data: currentSale } = await supabase
+        .from('sales')
+        .select('motoboy_tracking_status, delivery_type')
+        .eq('id', saleId)
+        .maybeSingle();
+      
+      // Status that should NOT be reset (motoboy already has the delivery)
+      const protectedStatuses = ['with_motoboy', 'next_delivery', 'handed_to_motoboy', 'delivered', 'returned'];
+      const shouldPreserveTrackingStatus = currentSale?.motoboy_tracking_status && 
+        protectedStatuses.includes(currentSale.motoboy_tracking_status);
+      
+      // Only update motoboy_tracking_status if it's not in a protected state
+      const updateData: Record<string, unknown> = {
+        status: 'dispatched' as any,
+        assigned_delivery_user_id: motoboyId || null,
+      };
+      
+      if (!shouldPreserveTrackingStatus) {
+        updateData.motoboy_tracking_status = 'expedition_ready' as any;
+      }
+      
       await updateSale.mutateAsync({
         id: saleId,
-        data: {
-          status: 'dispatched' as any,
-          assigned_delivery_user_id: motoboyId || null,
-          motoboy_tracking_status: 'expedition_ready' as any,
-        },
+        data: updateData,
       });
 
       // Ensure checkpoint "Despachado" is checked in SaleDetail
@@ -480,14 +499,8 @@ export default function Expedition() {
         queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
       }
 
-      // Register motoboy tracking only for motoboy deliveries
-      const { data: saleRow } = await supabase
-        .from('sales')
-        .select('delivery_type')
-        .eq('id', saleId)
-        .maybeSingle();
-
-      if (saleRow?.delivery_type === 'motoboy') {
+      // Register motoboy tracking only for motoboy deliveries AND if not already in protected status
+      if (currentSale?.delivery_type === 'motoboy' && !shouldPreserveTrackingStatus) {
         await updateMotoboyTracking.mutateAsync({
           saleId,
           status: 'expedition_ready',
