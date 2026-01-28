@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Factory, Building2, Users2, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useEcommerceOrganizationId } from '@/hooks/ecommerce/useEcommerceOrganizationId';
 
 interface CheckoutPartnersTabProps {
   industryId: string | null;
@@ -58,14 +58,14 @@ export function CheckoutPartnersTab({
   coproducerCommissionValue,
   onChange,
 }: CheckoutPartnersTabProps) {
-  const { profile } = useAuth();
+  const { data: organizationId } = useEcommerceOrganizationId();
   const [industries, setIndustries] = useState<Partner[]>([]);
   const [factories, setFactories] = useState<Partner[]>([]);
   const [coproducers, setCoproducers] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!profile?.organization_id) return;
+    if (!organizationId) return;
 
     const fetchPartners = async () => {
       setLoading(true);
@@ -83,7 +83,7 @@ export function CheckoutPartnersTab({
             holder_email
           )
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .eq('is_active', true);
 
       const allPartners = associations || [];
@@ -116,7 +116,7 @@ export function CheckoutPartnersTab({
     };
 
     fetchPartners();
-  }, [profile?.organization_id]);
+  }, [organizationId]);
 
   const handleChange = (field: string, value: any) => {
     const newData = {
