@@ -1084,8 +1084,19 @@ serve(async (req) => {
       let savedMediaUrl: string | null = null;
       
       if (conversation) {
+        // Log para debug de mídia
+        if (msgData.type !== 'text') {
+          console.log(`📹 Processing media type: ${msgData.type}`, {
+            hasBase64InPayload: !!msgData.mediaUrl,
+            hasEncryptedMedia: msgData.hasEncryptedMedia,
+            messageKeyId: key?.id || 'no-key',
+            mimeType: msgData.mediaMimeType,
+          });
+        }
+        
         // Se já tem base64 no payload, salvar direto
         if (msgData.mediaUrl && msgData.mediaUrl.startsWith("data:")) {
+          console.log(`📹 Saving media from base64 payload (${msgData.type})`);
           savedMediaUrl = await saveMediaToStorage(
             organizationId,
             instance.id,
@@ -1093,10 +1104,11 @@ serve(async (req) => {
             msgData.mediaUrl,
             msgData.mediaMimeType || "application/octet-stream"
           );
+          console.log(`📹 Media saved result: ${savedMediaUrl ? 'SUCCESS' : 'FAILED'}`);
         }
         // Se tem mídia criptografada (mmg.whatsapp.net), buscar via Evolution API
         else if (msgData.hasEncryptedMedia && key?.id) {
-          console.log("📥 Fetching encrypted media via Evolution API...");
+          console.log(`📥 Fetching encrypted media via Evolution API (${msgData.type})...`);
           
           const mediaResult = await downloadMediaFromEvolution(
             instanceName,
@@ -1109,6 +1121,7 @@ serve(async (req) => {
           );
 
           if (mediaResult?.base64) {
+            console.log(`📹 Downloaded from Evolution, saving to storage (${msgData.type})...`);
             savedMediaUrl = await saveMediaToStorage(
               organizationId,
               instance.id,
@@ -1116,7 +1129,12 @@ serve(async (req) => {
               mediaResult.base64,
               mediaResult.mimeType || msgData.mediaMimeType || "application/octet-stream"
             );
+            console.log(`📹 Media saved result: ${savedMediaUrl ? 'SUCCESS' : 'FAILED'}`);
+          } else {
+            console.error(`❌ Failed to download media from Evolution (${msgData.type})`);
           }
+        } else if (msgData.type !== 'text' && !msgData.mediaUrl && !msgData.hasEncryptedMedia) {
+          console.warn(`⚠️ Media message without base64 or encrypted flag (${msgData.type})`);
         }
       }
 

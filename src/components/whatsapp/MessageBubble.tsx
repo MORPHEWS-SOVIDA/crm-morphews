@@ -188,17 +188,33 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
       case 'video':
         return (
           <div className="space-y-1">
-            {message.media_url && (
+            {message.media_url ? (
               <video 
                 controls 
                 className="rounded-lg max-w-full max-h-72"
+                preload="metadata"
+                onError={(e) => {
+                  console.error("Video load error:", message.media_url);
+                }}
               >
-                <source src={message.media_url} />
+                <source src={message.media_url} type="video/mp4" />
+                <source src={message.media_url} type="video/webm" />
+                <source src={message.media_url} type="video/ogg" />
+                Seu navegador não suporta vídeo.
               </video>
+            ) : (
+              <div 
+                className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg"
+              >
+                <span className="text-2xl">🎬</span>
+                <span className="text-sm text-muted-foreground">
+                  Vídeo não disponível
+                </span>
+              </div>
             )}
-            {message.media_caption && (
+            {(message.content || message.media_caption) && (
               <p className="whitespace-pre-wrap break-words text-sm">
-                {message.media_caption}
+                {message.content || message.media_caption}
               </p>
             )}
           </div>
