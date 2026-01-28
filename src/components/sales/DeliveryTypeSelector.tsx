@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
-import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Zap, Clock, RefreshCw, Check, Package, Save } from 'lucide-react';
+import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -27,7 +27,8 @@ import {
   ShippingCarrier,
 } from '@/hooks/useDeliveryConfig';
 import { formatCurrency } from '@/hooks/useSales';
-import { useShippingQuote, MELHOR_ENVIO_SERVICES, ShippingQuote, formatShippingPrice } from '@/hooks/useShippingQuote';
+import { MELHOR_ENVIO_SERVICES, ShippingQuote } from '@/hooks/useShippingQuote';
+import { useCorreiosSimpleQuote, CorreiosQuote } from '@/hooks/useCorreiosSimpleQuote';
 import { toast } from 'sonner';
 
 interface DeliveryTypeSelectorProps {
@@ -60,10 +61,10 @@ export function DeliveryTypeSelector({
   const [inlineCpf, setInlineCpf] = useState('');
   const { data: regions = [] } = useDeliveryRegions();
   const carriers = useActiveShippingCarriers();
-  const { getQuotes, isLoading: isQuoteLoading } = useShippingQuote();
+  const { getQuotes: getCorreiosQuotes, isLoading: isCorreiosLoading } = useCorreiosSimpleQuote();
 
-  // State for all shipping quotes (Melhor Envio)
-  const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
+  // State for all shipping quotes (Correios)
+  const [shippingQuotes, setShippingQuotes] = useState<CorreiosQuote[]>([]);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
   const [selectedQuoteServiceId, setSelectedQuoteServiceId] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export function DeliveryTypeSelector({
     return MELHOR_ENVIO_SERVICES.find(s => s.id === serviceId);
   };
 
-  // Fetch all available shipping quotes
+  // Fetch all available shipping quotes using Correios
   const fetchShippingQuotes = async () => {
     if (!leadCep) {
       toast.error('CEP do endereço não disponível');
@@ -100,12 +101,12 @@ export function DeliveryTypeSelector({
     setQuotesError(null);
 
     try {
-      const quotes = await getQuotes({
+      const quotes = await getCorreiosQuotes({
         destination_cep: cleanCep,
       });
       setShippingQuotes(quotes.filter(q => !q.error));
       
-      if (quotes.length === 0 || quotes.every(q => q.error)) {
+      if (quotes.length === 0) {
         setQuotesError('Nenhum serviço disponível para este CEP');
       }
     } catch (error) {
@@ -117,10 +118,10 @@ export function DeliveryTypeSelector({
   };
 
   // Handle quote selection
-  const handleSelectQuote = (quote: ShippingQuote) => {
+  const handleSelectQuote = (quote: CorreiosQuote) => {
     setSelectedQuoteServiceId(quote.service_code);
     
-    // Find matching carrier or use the first integrated carrier
+    // Find matching carrier by service code
     const matchingCarrier = carriers.find(c => c.correios_service_code === quote.service_code);
     
     onChange({
@@ -453,13 +454,13 @@ export function DeliveryTypeSelector({
               </div>
             )}
 
-            {/* Ver Frete Button - Integrated Options */}
+            {/* Ver Frete Button - Correios Quote */}
             {hasIntegratedOptions && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-600" />
-                    Frete Integrado (Melhor Envio)
+                    <Truck className="w-4 h-4 text-yellow-600" />
+                    Cotação Correios (PAC / SEDEX)
                   </Label>
                   <Button
                     variant="outline"
@@ -493,6 +494,7 @@ export function DeliveryTypeSelector({
                   <div className="grid gap-2">
                     {shippingQuotes.map((quote) => {
                       const isSelected = selectedQuoteServiceId === quote.service_code;
+                      const isPac = quote.service_name.toLowerCase().includes('pac');
                       return (
                         <div
                           key={quote.service_code}
@@ -506,20 +508,14 @@ export function DeliveryTypeSelector({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {isSelected && <Check className="w-4 h-4 text-primary" />}
-                              {quote.company_picture && (
-                                <img 
-                                  src={quote.company_picture} 
-                                  alt={quote.company_name} 
-                                  className="w-6 h-6 object-contain"
-                                />
-                              )}
+                              <Package className={`w-5 h-5 ${isPac ? 'text-blue-600' : 'text-red-600'}`} />
                               <div>
                                 <span className="font-medium text-sm">{quote.service_name}</span>
                               </div>
                             </div>
                             <div className="text-right">
                               <span className="font-bold text-primary">
-                                {formatShippingPrice(quote.price_cents)}
+                                {formatCurrency(quote.price_cents)}
                               </span>
                             </div>
                           </div>
@@ -527,11 +523,14 @@ export function DeliveryTypeSelector({
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               <span>
-                                {quote.delivery_range?.min && quote.delivery_range?.max && quote.delivery_range.min !== quote.delivery_range.max
-                                  ? `${quote.delivery_range.min}-${quote.delivery_range.max} dias úteis`
-                                  : `${quote.delivery_days} dia${quote.delivery_days !== 1 ? 's' : ''} útil`}
+                                {quote.delivery_days} dia{quote.delivery_days !== 1 ? 's' : ''} úteis
                               </span>
                             </div>
+                            {quote.picking_cost_cents > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                (inclui R$ {(quote.picking_cost_cents / 100).toFixed(2)} de manuseio)
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
@@ -544,7 +543,7 @@ export function DeliveryTypeSelector({
                   <div className="p-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                     <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
                       <Check className="w-4 h-4" />
-                      <span>Frete selecionado: <strong>{formatShippingPrice(value.shippingCost)}</strong></span>
+                      <span>Frete selecionado: <strong>{formatCurrency(value.shippingCost)}</strong></span>
                     </div>
                   </div>
                 )}
