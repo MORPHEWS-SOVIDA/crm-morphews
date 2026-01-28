@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { LandingImageUpload } from '@/components/ecommerce/landing/LandingImageUpload';
 
 interface Message {
   id: string;
@@ -468,6 +469,15 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
           {/* Input */}
           <div className="p-4 border-t bg-card">
             <div className="flex gap-2">
+              <div className="flex items-end">
+                <LandingImageUpload 
+                  onImageUploaded={(url) => {
+                    setInput(prev => prev + (prev ? '\n' : '') + `Use esta imagem: ${url}`);
+                    textareaRef.current?.focus();
+                  }}
+                  disabled={isLoading}
+                />
+              </div>
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -490,7 +500,7 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Dica: Passe o link do checkout (ex: /pay/produto) para eu colocar nos botões
+              📷 Clique no ícone para enviar imagens • Passe o link do checkout (ex: /pay/produto) para os botões
             </p>
           </div>
         </div>
