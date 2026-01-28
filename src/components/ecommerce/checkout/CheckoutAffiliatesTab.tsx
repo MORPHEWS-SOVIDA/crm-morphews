@@ -24,6 +24,7 @@ import {
   useUnlinkAffiliateFromCheckoutV2,
   useCreateAffiliate,
   useFindAffiliateByEmail,
+  useUpdateCheckoutAffiliateCommission,
 } from '@/hooks/ecommerce/useOrganizationAffiliatesV2';
 
 interface CheckoutAffiliatesTabProps {
@@ -50,6 +51,7 @@ export function CheckoutAffiliatesTab({
   const unlinkAffiliate = useUnlinkAffiliateFromCheckoutV2();
   const createAffiliate = useCreateAffiliate();
   const findByEmail = useFindAffiliateByEmail();
+  const updateCommission = useUpdateCheckoutAffiliateCommission();
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addMode, setAddMode] = useState<'select' | 'email' | 'new'>('select');
@@ -254,31 +256,66 @@ export function CheckoutAffiliatesTab({
                   key={link.id}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">
+                      <span className="font-medium truncate">
                         {link.affiliate?.name || 'Afiliado'}
                       </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {formatCommission(link.commission_type, link.commission_value)}
-                      </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground truncate">
                       {link.affiliate?.email}
                     </div>
                     <div className="flex items-center gap-1 text-xs">
-                      <Link2 className="h-3 w-3" />
-                      <code className="bg-muted px-1.5 py-0.5 rounded">
+                      <Link2 className="h-3 w-3 flex-shrink-0" />
+                      <code className="bg-muted px-1.5 py-0.5 rounded truncate">
                         ?ref={link.affiliate?.affiliate_code}
                       </code>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  
+                  {/* Edição de comissão inline */}
+                  <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    <Select
+                      value={link.commission_type}
+                      onValueChange={(v) => {
+                        updateCommission.mutate({
+                          linkId: link.id,
+                          checkoutId,
+                          commissionType: v as 'percentage' | 'fixed',
+                          commissionValue: link.commission_value,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-20 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">%</SelectItem>
+                        <SelectItem value="fixed">R$</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min="0"
+                      step={link.commission_type === 'percentage' ? '0.5' : '1'}
+                      className="w-20 h-8 text-xs"
+                      value={link.commission_value}
+                      onChange={(e) => {
+                        updateCommission.mutate({
+                          linkId: link.id,
+                          checkoutId,
+                          commissionType: link.commission_type,
+                          commissionValue: parseFloat(e.target.value) || 0,
+                        });
+                      }}
+                    />
+                    
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => link.affiliate?.affiliate_code && handleCopyLink(link.affiliate.affiliate_code)}
                       title="Copiar link"
+                      className="h-8 w-8"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -287,7 +324,7 @@ export function CheckoutAffiliatesTab({
                       size="icon"
                       onClick={() => handleRemoveAffiliate(link.id)}
                       title="Remover"
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive h-8 w-8"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
