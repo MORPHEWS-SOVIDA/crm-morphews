@@ -1,16 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { CheckCircle, Package, ArrowRight, Loader2 } from 'lucide-react';
+import { CheckCircle, Package, ArrowRight, Loader2, Copy, Clock } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface PixPaymentData {
+  saleId: string;
+  pix_code: string;
+  pix_expiration?: string;
+  total_cents: number;
+}
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const saleId = searchParams.get('sale');
-  const sessionId = searchParams.get('session_id');
+  const paymentMethod = searchParams.get('method');
   const [saleData, setSaleData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pixData, setPixData] = useState<PixPaymentData | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes default
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+
+  // Check if this is a PIX payment pending confirmation
+  const isPixPending = paymentMethod === 'pix' && pixData && !paymentConfirmed;
+
+  useEffect(() => {
+    // Try to load PIX data from localStorage
+    if (paymentMethod === 'pix') {
+      const storedData = localStorage.getItem('pix_payment_data');
+      if (storedData) {
+        try {
+          const parsed = JSON.parse(storedData);
+          setPixData(parsed);
+          
+          // Calculate remaining time from expiration
+          if (parsed.pix_expiration) {
+            const expiresAt = new Date(parsed.pix_expiration).getTime();
+            const now = Date.now();
+            const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+            setTimeLeft(remaining);
+          }
+        } catch (e) {
+          console.error('Error parsing PIX data:', e);
+        }
+      }
+    }
+  }, [paymentMethod]);
 
   useEffect(() => {
     if (saleId) {
@@ -19,6 +58,49 @@ export default function PaymentSuccess() {
       setIsLoading(false);
     }
   }, [saleId]);
+
+  // Countdown timer for PIX
+  useEffect(() => {
+    if (!isPixPending || timeLeft <= 0) return;
+    
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isPixPending, timeLeft]);
+
+  // Poll for payment status
+  useEffect(() => {
+    if (!isPixPending || !saleId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('sales')
+          .select('payment_status')
+          .eq('id', saleId)
+          .single();
+        
+        if (data?.payment_status === 'paid') {
+          setPaymentConfirmed(true);
+          localStorage.removeItem('pix_payment_data');
+          clearInterval(pollInterval);
+          toast.success('Pagamento confirmado!');
+        }
+      } catch (e) {
+        console.error('Error polling payment status:', e);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isPixPending, saleId]);
 
   const fetchSaleData = async () => {
     try {
@@ -40,6 +122,11 @@ export default function PaymentSuccess() {
 
       if (!error && data) {
         setSaleData(data);
+        // If payment is already confirmed, update state
+        if (data.payment_status === 'paid') {
+          setPaymentConfirmed(true);
+          localStorage.removeItem('pix_payment_data');
+        }
       }
     } catch (e) {
       console.error('Error fetching sale:', e);
@@ -55,6 +142,21 @@ export default function PaymentSuccess() {
     }).format(cents / 100);
   };
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCopyPixCode = () => {
+    if (pixData?.pix_code) {
+      navigator.clipboard.writeText(pixData.pix_code);
+      setCopied(true);
+      toast.success('Código PIX copiado!');
+      setTimeout(() => setCopied(false), 3000);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
@@ -63,6 +165,115 @@ export default function PaymentSuccess() {
     );
   }
 
+  // Show PIX QR Code if payment is pending
+  if (isPixPending) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-12">
+        <div className="container mx-auto px-4 max-w-xl">
+          <Card className="border-green-200 dark:border-green-800 shadow-xl">
+            <CardContent className="p-8 text-center space-y-6">
+              {/* Header */}
+              <div>
+                <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-4">
+                  <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h1 className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  Pedido Criado!
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Escaneie o QR Code ou copie o código PIX para pagar
+                </p>
+              </div>
+
+              {/* Total */}
+              <div className="p-4 bg-muted rounded-lg">
+                <span className="text-sm text-muted-foreground">Valor a pagar:</span>
+                <p className="text-3xl font-bold">
+                  {formatCurrency(pixData.total_cents)}
+                </p>
+              </div>
+
+              {/* Timer */}
+              {timeLeft > 0 && (
+                <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
+                  <Clock className="h-5 w-5" />
+                  <span className="font-medium">
+                    Expira em: {formatTime(timeLeft)}
+                  </span>
+                </div>
+              )}
+
+              {/* QR Code */}
+              <div className="flex justify-center p-6 bg-white rounded-xl">
+                <QRCodeSVG
+                  value={pixData.pix_code}
+                  size={220}
+                  level="H"
+                  includeMargin
+                />
+              </div>
+
+              {/* Copy Button */}
+              <div className="space-y-2 text-left">
+                <label className="text-sm font-medium">Código PIX Copia e Cola:</label>
+                <div className="relative">
+                  <textarea
+                    readOnly
+                    value={pixData.pix_code}
+                    className="w-full h-24 p-3 pr-20 text-xs rounded-lg border bg-muted resize-none font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    className="absolute right-2 top-2"
+                    onClick={handleCopyPixCode}
+                    variant={copied ? 'default' : 'secondary'}
+                  >
+                    {copied ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Copiado
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-1" />
+                        Copiar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="space-y-2 text-sm text-muted-foreground text-left">
+                <p className="font-medium text-foreground">Como pagar:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Abra o app do seu banco</li>
+                  <li>Escolha pagar via PIX Copia e Cola</li>
+                  <li>Cole o código copiado</li>
+                  <li>Confirme o pagamento</li>
+                </ol>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Aguardando confirmação do pagamento...</span>
+              </div>
+
+              {/* Order ID */}
+              {saleId && (
+                <p className="text-sm text-muted-foreground">
+                  Pedido #{saleId.slice(0, 8).toUpperCase()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show success message for confirmed payments
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center p-4">
       <Card className="max-w-md w-full shadow-xl border-0">
