@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CheckoutRequest, PaymentMethod, CardData } from "./types.ts";
 import { FallbackEngine } from "./fallback-engine.ts";
+import { validateDocument } from "./document-validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,13 +22,13 @@ serve(async (req) => {
     const body: CheckoutRequest = await req.json();
     const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, standalone_checkout_id, offer_id, cart_id, utm } = body;
 
-    // Validate CPF early for credit card payments (gateway requires a CPF with 11 digits)
-    const cpfDigits = (customer?.document || '').replace(/\D/g, '');
-    if (payment_method === 'credit_card' && cpfDigits.length !== 11) {
+    // Validate CPF/CNPJ early for credit card payments (gateway requires valid document)
+    const docValidation = validateDocument(customer?.document || '');
+    if (payment_method === 'credit_card' && !docValidation.valid) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'CPF inválido. Informe um CPF válido (11 dígitos) para pagar com cartão.',
+          error: docValidation.message || 'CPF/CNPJ inválido para pagar com cartão.',
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
