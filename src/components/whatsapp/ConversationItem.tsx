@@ -18,6 +18,7 @@ interface Conversation {
   status?: string;
   assigned_user_id?: string | null;
   designated_user_id?: string | null;
+  has_nps_rating?: boolean;
 }
 
 interface ConversationItemProps {
@@ -32,6 +33,9 @@ interface ConversationItemProps {
   isClosing?: boolean;
   assignedUserName?: string | null;
   currentUserId?: string;
+  showCloseWithoutNPS?: boolean;
+  onCloseWithoutNPS?: () => void;
+  isClosingWithoutNPS?: boolean;
 }
 
 export function ConversationItem({ 
@@ -46,6 +50,9 @@ export function ConversationItem({
   isClosing,
   assignedUserName,
   currentUserId,
+  showCloseWithoutNPS,
+  onCloseWithoutNPS,
+  isClosingWithoutNPS,
 }: ConversationItemProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -108,6 +115,14 @@ export function ConversationItem({
         </span>
       );
     }
+    // Badge "N" para conversas encerradas com NPS
+    if (status === 'closed' && conversation.has_nps_rating) {
+      return (
+        <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold" title="NPS respondido">
+          N
+        </span>
+      );
+    }
     return null;
   };
 
@@ -119,6 +134,11 @@ export function ConversationItem({
   const handleCloseClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClose?.();
+  };
+
+  const handleCloseWithoutNPSClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCloseWithoutNPS?.();
   };
 
   const isAssignedToCurrentUser = conversation.assigned_user_id === currentUserId;
@@ -231,6 +251,20 @@ export function ConversationItem({
               >
                 <Hand className="h-3 w-3 mr-1" />
                 {isWithBot ? 'ASSUMIR' : 'ATENDER'}
+              </Button>
+            )}
+            
+            {/* Botão ENCERRAR SEM NPS - para Pendentes (spam, gifs, etc) */}
+            {showCloseWithoutNPS && onCloseWithoutNPS && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[10px] border-gray-300 text-gray-600 hover:bg-gray-100"
+                onClick={handleCloseWithoutNPSClick}
+                disabled={isClosingWithoutNPS}
+                title="Encerrar sem pesquisa NPS (spam, gif, etc)"
+              >
+                <XCircle className="h-3 w-3" />
               </Button>
             )}
             

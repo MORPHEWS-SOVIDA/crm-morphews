@@ -40,6 +40,7 @@ interface WhatsAppAISettings {
   satisfaction_survey_message: string;
   satisfaction_survey_on_manual_close: boolean;
   satisfaction_survey_on_auto_close: boolean;
+  satisfaction_thank_you_message: string;
   // AI Model settings
   ai_model_document: string;
   ai_model_image: string;
@@ -47,6 +48,7 @@ interface WhatsAppAISettings {
 
 const DEFAULT_CLOSE_MESSAGE = "Olá! Como não recebemos resposta, estamos encerrando este atendimento. Caso precise, é só nos chamar novamente! 😊";
 const DEFAULT_SURVEY_MESSAGE = "De 0 a 10, como você avalia este atendimento? Sua resposta nos ajuda a melhorar! 🙏";
+const DEFAULT_THANK_YOU_MESSAGE = "Obrigado pela sua avaliação! 💚 Sua opinião é muito importante para nós.";
 
 export function WhatsAppAISettingsManager() {
   const { profile } = useAuth();
@@ -76,6 +78,7 @@ export function WhatsAppAISettingsManager() {
     satisfaction_survey_message: DEFAULT_SURVEY_MESSAGE,
     satisfaction_survey_on_manual_close: true,
     satisfaction_survey_on_auto_close: true,
+    satisfaction_thank_you_message: DEFAULT_THANK_YOU_MESSAGE,
     ai_model_document: "google/gemini-2.5-flash",
     ai_model_image: "google/gemini-2.5-flash",
   });
@@ -150,6 +153,7 @@ export function WhatsAppAISettingsManager() {
         satisfaction_survey_message: org.satisfaction_survey_message || DEFAULT_SURVEY_MESSAGE,
         satisfaction_survey_on_manual_close: org.satisfaction_survey_on_manual_close ?? true,
         satisfaction_survey_on_auto_close: org.satisfaction_survey_on_auto_close ?? true,
+        satisfaction_thank_you_message: org.satisfaction_thank_you_message || DEFAULT_THANK_YOU_MESSAGE,
         ai_model_document: org.ai_model_document || "google/gemini-2.5-flash",
         ai_model_image: org.ai_model_image || "google/gemini-2.5-flash",
       });
@@ -272,6 +276,21 @@ export function WhatsAppAISettingsManager() {
                   />
                 </div>
               </div>
+              
+              {/* Mensagem de agradecimento após resposta NPS */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm font-medium">Mensagem de agradecimento (após cliente responder)</Label>
+                <Textarea
+                  value={settings.satisfaction_thank_you_message}
+                  onChange={(e) => setSettings(prev => ({ ...prev, satisfaction_thank_you_message: e.target.value }))}
+                  placeholder={DEFAULT_THANK_YOU_MESSAGE}
+                  rows={2}
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enviada automaticamente quando o cliente responde a pesquisa.
+                </p>
+              </div>
             </div>
 
             <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
@@ -279,6 +298,7 @@ export function WhatsAppAISettingsManager() {
               <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
                 <li>Cliente recebe pergunta "De 0 a 10, como você avalia?"</li>
                 <li>Resposta é registrada automaticamente no NPS</li>
+                <li>Sistema envia mensagem de agradecimento</li>
                 <li>Notas ≤6 ficam marcadas para revisão gerencial</li>
                 <li>Todas as notas contribuem para métricas da equipe</li>
               </ul>

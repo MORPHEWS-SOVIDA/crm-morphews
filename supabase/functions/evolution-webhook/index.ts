@@ -956,6 +956,55 @@ serve(async (req) => {
             
             console.log("📊 NPS processed - conversation remains closed");
             
+            // Enviar mensagem de agradecimento ao cliente
+            try {
+              // Buscar mensagem de agradecimento da organização
+              const { data: orgConfig } = await supabase
+                .from("organizations")
+                .select("satisfaction_thank_you_message")
+                .eq("id", conversation.organization_id)
+                .single();
+              
+              const thankYouMessage = orgConfig?.satisfaction_thank_you_message || 
+                "Obrigado pela sua avaliação! 💚 Sua opinião é muito importante para nós.";
+              
+              // Buscar token da instância para envio
+              const { data: instanceData } = await supabase
+                .from("whatsapp_instances")
+                .select("evolution_api_token")
+                .eq("id", instance.id)
+                .single();
+              
+              // Buscar apiUrl do admin config
+              const { data: globalSettings } = await supabase
+                .from("system_settings")
+                .select("value")
+                .eq("key", "evolution_config")
+                .maybeSingle();
+              
+              const apiUrl = globalSettings?.value?.apiUrl || EVOLUTION_API_URL;
+              const apiToken = instanceData?.evolution_api_token || EVOLUTION_API_KEY;
+              
+              if (apiUrl && apiToken) {
+                const sendResponse = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "apikey": apiToken,
+                  },
+                  body: JSON.stringify({
+                    number: fromPhone,
+                    text: thankYouMessage,
+                  }),
+                });
+                
+                console.log("📊 NPS Thank you message sent:", await sendResponse.json().catch(() => ({})));
+              }
+            } catch (thankYouError) {
+              console.warn("⚠️ Could not send NPS thank you message:", thankYouError);
+              // Não bloqueia o fluxo
+            }
+            
             // Não reabrir a conversa - apenas atualizar unread_count e timestamp
             updateData.status = 'closed'; // Força manter fechada
             // Não precisa incrementar unread pois está encerrada
