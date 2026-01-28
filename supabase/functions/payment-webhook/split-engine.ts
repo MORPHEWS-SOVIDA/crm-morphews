@@ -778,7 +778,7 @@ export async function processSaleSplitsV3(
     let affiliateProcessed = false;
 
     if (orgAffiliate) {
-      // Check if this affiliate is part of a network
+      // Check if this affiliate is part of a network (for network-specific commission)
       const { data: networkMember } = await supabase
         .from('affiliate_network_members')
         .select('id, network_id, commission_type, commission_value')
@@ -787,7 +787,9 @@ export async function processSaleSplitsV3(
         .limit(1)
         .maybeSingle();
 
-      if (networkMember && orgAffiliate.user_id) {
+      // Process affiliate whether they're in a network OR standalone
+      // Network affiliates use network commission, standalone use default commission
+      if (orgAffiliate.user_id) {
         // Get or create virtual account for this affiliate
         let virtualAccountId: string | null = null;
 
@@ -817,8 +819,9 @@ export async function processSaleSplitsV3(
         }
 
         if (virtualAccountId) {
-          const commissionType = networkMember.commission_type || 'percentage';
-          const commissionValue = Number(networkMember.commission_value) || rules.default_affiliate_percent;
+          // Use network commission if in network, otherwise use default commission from organization_affiliates
+          const commissionType = networkMember?.commission_type || orgAffiliate.default_commission_type || 'percentage';
+          const commissionValue = Number(networkMember?.commission_value || orgAffiliate.default_commission_value) || rules.default_affiliate_percent;
 
           // Calculate commission based on type
           // IMPORTANT: Calculate on (total - platform_fee), not on remaining
@@ -837,6 +840,8 @@ export async function processSaleSplitsV3(
             const commissionLabel = commissionType === 'percentage' 
               ? `${commissionValue}%` 
               : `R$${(commissionValue / 100).toFixed(2)}`;
+            
+            const affiliateTypeLabel = networkMember ? 'rede' : 'afiliado';
               
             const created = await insertSplitAndTransaction({
               supabase,
@@ -847,21 +852,23 @@ export async function processSaleSplitsV3(
               amountCents: affiliateAmount,
               percentage: commissionType === 'percentage' ? commissionValue : 0,
               priority: 2,
-              liableForRefund: true, // Network affiliates are liable
+              liableForRefund: true, // Affiliates are liable
               liableForChargeback: true,
               releaseAt: addDays(rules.hold_days_affiliate),
               referenceId,
-              description: `Comissão afiliado ${affiliateCode} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
+              description: `Comissão ${affiliateTypeLabel} ${affiliateCode} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
             });
 
             if (created) {
               result.affiliate_amount = affiliateAmount;
               remaining -= affiliateAmount;
-              console.log(`[SplitEngine] Network affiliate split: R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
+              console.log(`[SplitEngine] Affiliate split (${networkMember ? 'network' : 'standalone'}): R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
               affiliateProcessed = true;
             }
           }
         }
+      } else {
+        console.log(`[SplitEngine] Affiliate ${affiliateCode} found but has no user_id, cannot create virtual account`);
       }
     }
 
