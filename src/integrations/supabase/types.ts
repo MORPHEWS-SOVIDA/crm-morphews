@@ -17440,9 +17440,10 @@ export type Database = {
       }
     }
     Functions: {
-      accept_partner_invitation:
-        | { Args: { p_invite_code: string; p_user_id: string }; Returns: Json }
-        | { Args: { p_invite_code: string; p_user_id: string }; Returns: Json }
+      accept_partner_invitation: {
+        Args: { p_invite_code: string; p_user_id: string }
+        Returns: Json
+      }
       add_bonus_energy: {
         Args: { amount: number; org_id: string }
         Returns: undefined

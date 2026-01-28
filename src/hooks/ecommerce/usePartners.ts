@@ -259,6 +259,11 @@ export function useInvitationByCode(code: string | null) {
 }
 
 // Accept invitation (after user creates account or logs in)
+/**
+ * Accept a partner invitation.
+ * IMPORTANT: The RPC now expects p_invite_code as UUID (partner_invitations.invite_code is uuid).
+ * We must pass the code exactly as stored; Supabase JS will cast it to uuid automatically.
+ */
 export function useAcceptInvitation() {
   const queryClient = useQueryClient();
 
@@ -267,9 +272,10 @@ export function useAcceptInvitation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      // PostgREST will automatically cast inviteCode to uuid as long as the string is a valid uuid
       const { data, error } = await supabase
         .rpc('accept_partner_invitation', {
-          p_invite_code: inviteCode,
+          p_invite_code: inviteCode, // must be a valid UUID string
           p_user_id: user.id,
         });
 
