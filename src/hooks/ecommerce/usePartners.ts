@@ -89,7 +89,8 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
     queryFn: async () => {
       if (!organizationId) return [];
       
-      // Query parceiros globais (sem vínculo a checkout/landing específico)
+      // Query todos os parceiros da organização (sem filtro de vínculo)
+      // A tela de gestão deve mostrar TODOS os parceiros, independente de onde estão vinculados
       let query = supabase
         .from('partner_associations')
         .select(`
@@ -102,10 +103,7 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
           organization:organizations(id, name)
         `)
         .eq('organization_id', organizationId)
-        .is('linked_checkout_id', null)
-        .is('linked_landing_id', null)
-        .is('linked_storefront_id', null)
-        .is('linked_quiz_id', null)
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (partnerType) {
