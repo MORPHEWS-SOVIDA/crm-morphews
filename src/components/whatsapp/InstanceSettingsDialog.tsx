@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star, Clock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +47,8 @@ export function InstanceSettingsDialog({
           manual_instance_number, 
           redistribution_timeout_minutes, 
           wavoip_enabled,
-          satisfaction_survey_enabled
+          satisfaction_survey_enabled,
+          auto_close_enabled
         `)
         .eq("id", instanceId)
         .single();
@@ -63,6 +64,7 @@ export function InstanceSettingsDialog({
   const [instanceNumber, setInstanceNumber] = useState<string>("");
   const [redistributionTimeout, setRedistributionTimeout] = useState<number>(30);
   const [satisfactionSurveyEnabled, setSatisfactionSurveyEnabled] = useState<boolean>(false);
+  const [autoCloseEnabled, setAutoCloseEnabled] = useState<boolean>(true);
 
   // Atualizar state quando carregar dados
   useEffect(() => {
@@ -72,6 +74,7 @@ export function InstanceSettingsDialog({
       setInstanceNumber(settings.manual_instance_number || "");
       setRedistributionTimeout(settings.redistribution_timeout_minutes || 30);
       setSatisfactionSurveyEnabled(settings.satisfaction_survey_enabled ?? false);
+      setAutoCloseEnabled(settings.auto_close_enabled ?? true);
     }
   }, [settings]);
 
@@ -86,6 +89,7 @@ export function InstanceSettingsDialog({
           manual_instance_number: instanceNumber.trim() || null,
           redistribution_timeout_minutes: distributionMode === 'auto' ? redistributionTimeout : null,
           satisfaction_survey_enabled: satisfactionSurveyEnabled,
+          auto_close_enabled: autoCloseEnabled,
         } as any)
         .eq("id", instanceId);
 
@@ -263,6 +267,43 @@ export function InstanceSettingsDialog({
               {satisfactionSurveyEnabled && (
                 <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-2 rounded">
                   ✅ NPS ativo para esta instância. A mensagem e configurações gerais são definidas em <strong>Configurações Globais</strong>.
+                </p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Encerramento Automático */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-blue-500" />
+                  <Label className="text-sm font-medium">Encerramento Automático</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">
+                          Quando ativado, conversas inativas serão encerradas automaticamente após o tempo configurado nas Configurações Globais.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Switch 
+                  checked={autoCloseEnabled}
+                  onCheckedChange={setAutoCloseEnabled}
+                />
+              </div>
+              {autoCloseEnabled ? (
+                <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-2 rounded">
+                  ✅ O auto-close usará os tempos definidos em <strong>Configurações Globais</strong> (robô: X min, atribuído: Y min).
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground bg-orange-50 dark:bg-orange-950/30 p-2 rounded">
+                  ⚠️ As conversas desta instância não serão encerradas automaticamente.
                 </p>
               )}
             </div>

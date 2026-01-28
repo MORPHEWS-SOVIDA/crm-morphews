@@ -246,10 +246,10 @@ serve(async (req) => {
         }
       }
 
-      // Get active instances for this org
+      // Get active instances for this org - incluindo auto_close_enabled
       const { data: instances } = await supabase
         .from("whatsapp_instances")
-        .select("id, name, organization_id, evolution_instance_id")
+        .select("id, name, organization_id, evolution_instance_id, auto_close_enabled")
         .eq("organization_id", org.id)
         .in("status", ["active", "connected"]);
 
@@ -259,6 +259,14 @@ serve(async (req) => {
       console.log(`[auto-close] Org ${org.id} (${org.name}): botCutoff=${botCutoff.toISOString()}, assignedCutoff=${assignedCutoff.toISOString()}, instances=${instances?.length || 0}`);
 
       for (const instance of instances || []) {
+        // Verificar se a instância tem auto_close habilitado (default true)
+        const instanceAutoCloseEnabled = (instance as any).auto_close_enabled ?? true;
+        
+        if (!instanceAutoCloseEnabled) {
+          console.log(`[auto-close] Instance ${instance.name}: auto_close DISABLED, skipping`);
+          continue;
+        }
+        
         // Get conversations to close for this instance
         const { data: conversationsToClose } = await supabase
           .from("whatsapp_conversations")
