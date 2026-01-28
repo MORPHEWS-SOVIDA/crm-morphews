@@ -4,6 +4,7 @@ import { MobileNav } from './MobileNav';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { DonnaHelperButton } from '@/components/helper';
+import { MelhorEnvioBalanceAlert } from '@/components/alerts/MelhorEnvioBalanceAlert';
 
 interface LayoutProps {
   children: ReactNode;
@@ -38,6 +39,7 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-background">
       <Sidebar />
       <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
+        <MelhorEnvioBalanceAlert />
         <div className="p-4 lg:p-8">
           {children}
         </div>

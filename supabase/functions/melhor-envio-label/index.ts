@@ -14,7 +14,7 @@ const MELHOR_ENVIO_API = {
 };
 
 interface LabelRequest {
-  action: 'create_label' | 'get_services';
+  action: 'create_label' | 'get_services' | 'get_balance';
   organization_id: string;
   sale_id?: string;
   service_id?: number;
@@ -250,6 +250,16 @@ async function createLabel(
     } catch {
       errorMsg = checkoutText.substring(0, 200);
     }
+    
+    // Mensagem amigável para saldo insuficiente
+    if (errorMsg.toLowerCase().includes('insufficient') || 
+        errorMsg.toLowerCase().includes('saldo') || 
+        errorMsg.toLowerCase().includes('balance') ||
+        errorMsg.toLowerCase().includes('crédito') ||
+        errorMsg.toLowerCase().includes('credit')) {
+      throw new Error('💰 Saldo insuficiente no Melhor Envio. Acesse o painel do Melhor Envio → Carteira → Adicionar Saldo para recarregar sua conta.');
+    }
+    
     throw new Error(errorMsg);
   }
 
@@ -433,6 +443,46 @@ serve(async (req) => {
         JSON.stringify({ success: true, services }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (action === 'get_balance') {
+      try {
+        const balanceResponse = await fetch(`${baseUrl}/me/balance`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+          },
+        });
+
+        if (!balanceResponse.ok) {
+          console.warn('[Melhor Envio] Failed to fetch balance:', balanceResponse.status);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Não foi possível consultar o saldo' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const balanceData = await balanceResponse.json();
+        const balanceValue = parseFloat(balanceData.balance || balanceData.value || '0');
+        const balanceCents = Math.round(balanceValue * 100);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            balance_cents: balanceCents,
+            balance_formatted: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balanceValue),
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (error) {
+        console.error('[Melhor Envio] Error fetching balance:', error);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Erro ao consultar saldo' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     if (action === 'create_label') {
