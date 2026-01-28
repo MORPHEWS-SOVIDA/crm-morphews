@@ -438,6 +438,8 @@ serve(async (req) => {
         customer_cpf: customer.document || null,
         shipping_cep: body.shipping?.zip || null,
         shipping_street: body.shipping?.address || null,
+        shipping_number: body.shipping?.number || null,
+        shipping_neighborhood: body.shipping?.neighborhood || null,
         shipping_city: body.shipping?.city || null,
         shipping_state: body.shipping?.state || null,
         shipping_complement: body.shipping?.complement || null,
