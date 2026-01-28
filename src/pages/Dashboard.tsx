@@ -14,6 +14,7 @@ import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { FunnelStage, FUNNEL_STAGES } from '@/types/lead';
 import { Loader2, Filter, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const { isAdmin, profile } = useAuth();
+  const { role } = useTenant();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const { data: leads = [], isLoading, error } = useLeads();
   const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
@@ -37,6 +39,7 @@ export default function Dashboard() {
   const canSeeSales = permissions?.sales_view || permissions?.sales_view_all;
   const canSeeWhatsapp = permissions?.whatsapp_view;
   const canSeeProducts = permissions?.products_view;
+  const isPartner = role?.startsWith('partner_') ?? false;
   
   // User has some useful permissions even if not leads/deliveries
   const hasAnyUsefulPermission = canSeeLeads || canSeeDeliveries || canSeeSales || canSeeWhatsapp || canSeeProducts;
@@ -155,7 +158,7 @@ export default function Dashboard() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {canSeeSales && (
+            {canSeeSales && !isPartner && (
               <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/vendas')}>
                 <CardHeader>
                   <CardTitle className="text-lg">Vendas</CardTitle>
