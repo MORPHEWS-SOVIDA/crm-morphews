@@ -200,7 +200,12 @@ export default function PublicCheckoutPage() {
         });
       }
 
+      // Extract affiliate code from URL if present (e.g., ?ref=AFF8AE0DF)
+      const urlParams = new URLSearchParams(window.location.search);
+      const affiliateCode = urlParams.get('ref') || undefined;
+
       const checkoutRequest = {
+        standalone_checkout_id: checkout.id,
         items,
         customer: {
           name: formData.name,
@@ -218,7 +223,10 @@ export default function PublicCheckoutPage() {
           exp_year: cardData.card_expiration_year,
           cvv: cardData.card_cvv,
         } : undefined,
-        utm: {},
+        affiliate_code: affiliateCode,
+        utm: {
+          ...trackingParams,
+        },
         // Tracking IDs for CAPI
         fbclid: trackingParams.fbclid,
         gclid: trackingParams.gclid,
