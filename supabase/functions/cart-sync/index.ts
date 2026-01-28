@@ -11,6 +11,7 @@ interface CartSyncRequest {
   session_id?: string;
   storefront_id?: string;
   landing_page_id?: string;
+  standalone_checkout_id?: string;
   offer_id?: string;
   items?: Array<{
     product_id: string;
@@ -33,7 +34,8 @@ interface CartSyncRequest {
     state?: string;
   };
   utm?: Record<string, string>;
-  source: 'storefront' | 'landing_page';
+  affiliate_code?: string; // ?ref= parameter for affiliate tracking
+  source: 'storefront' | 'landing_page' | 'standalone_checkout';
 }
 
 serve(async (req) => {
@@ -47,7 +49,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CartSyncRequest = await req.json();
-    const { cart_id, session_id, storefront_id, landing_page_id, offer_id, items, customer, shipping, utm, source } = body;
+    const { cart_id, session_id, storefront_id, landing_page_id, standalone_checkout_id, offer_id, items, customer, shipping, utm, affiliate_code, source } = body;
 
     // Generate session_id if not provided
     const effectiveSessionId = session_id || crypto.randomUUID();
@@ -69,6 +71,13 @@ serve(async (req) => {
         .eq('id', landing_page_id)
         .single();
       organizationId = landing?.organization_id;
+    } else if (standalone_checkout_id) {
+      const { data: checkout } = await supabase
+        .from('standalone_checkouts')
+        .select('organization_id')
+        .eq('id', standalone_checkout_id)
+        .single();
+      organizationId = checkout?.organization_id;
     }
 
     if (!organizationId) {
@@ -84,6 +93,7 @@ serve(async (req) => {
       session_id: effectiveSessionId,
       storefront_id: storefront_id || null,
       landing_page_id: landing_page_id || null,
+      standalone_checkout_id: standalone_checkout_id || null,
       offer_id: offer_id || null,
       status: 'active',
       items: items ? JSON.stringify(items) : null,
@@ -91,7 +101,10 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
-    // Add customer data if provided
+    // Add affiliate code if provided (from ?ref= parameter)
+    if (affiliate_code) {
+      cartData.affiliate_code = affiliate_code;
+    }
     if (customer?.name) cartData.customer_name = customer.name;
     if (customer?.email) cartData.customer_email = customer.email;
     if (customer?.phone) cartData.customer_phone = customer.phone?.replace(/\D/g, '');
