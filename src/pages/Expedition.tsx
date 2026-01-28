@@ -135,6 +135,7 @@ export default function Expedition() {
   const [activeTab, setActiveTabState] = useState<TabFilter>('printed');
   const [sortOrder, setSortOrder] = useState<SortOrder>('delivery');
   const [searchQuery, setSearchQuery] = useState('');
+  const [motoboyFilter, setMotoboyFilter] = useState<string>('all');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -264,6 +265,11 @@ export default function Expedition() {
         break;
     }
 
+    // Motoboy filter
+    if (motoboyFilter !== 'all') {
+      filtered = filtered.filter(s => s.assigned_delivery_user_id === motoboyFilter);
+    }
+
     // Sort
     return filtered.sort((a, b) => {
       if (sortOrder === 'created') {
@@ -283,7 +289,7 @@ export default function Expedition() {
         return aStr.localeCompare(bStr);
       }
     });
-  }, [sales, activeTab, searchQuery, sortOrder, globalSearchResults]);
+  }, [sales, activeTab, searchQuery, sortOrder, globalSearchResults, motoboyFilter]);
 
   // Select/deselect
   const toggleSelect = (id: string) => {
@@ -984,6 +990,23 @@ export default function Expedition() {
                   className="pl-8 h-9"
                 />
               </div>
+
+              {/* Motoboy Filter */}
+              <Select value={motoboyFilter} onValueChange={setMotoboyFilter}>
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Todos os motoboys" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Motoboys</SelectItem>
+                  {members
+                    .filter(m => m.role === 'delivery' || m.role === 'entregador')
+                    .map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.profile?.first_name} {m.profile?.last_name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
 
               {/* Sort */}
               <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as SortOrder)}>
