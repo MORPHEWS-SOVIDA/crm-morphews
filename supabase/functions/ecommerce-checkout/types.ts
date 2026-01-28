@@ -111,6 +111,7 @@ export interface CheckoutRequest {
   total_with_interest_cents?: number;
   shipping?: {
     address: string;
+    number?: string;
     neighborhood?: string;
     city: string;
     state: string;

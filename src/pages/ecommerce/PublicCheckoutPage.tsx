@@ -258,7 +258,8 @@ export default function PublicCheckoutPage() {
           document: formData.cpf || undefined,
         },
         shipping: {
-          address: `${formData.street}, ${formData.number}`,
+          address: formData.street,
+          number: formData.number,
           neighborhood: formData.neighborhood,
           city: formData.city,
           state: formData.state,
