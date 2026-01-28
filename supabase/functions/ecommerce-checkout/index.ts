@@ -21,6 +21,18 @@ serve(async (req) => {
     const body: CheckoutRequest = await req.json();
     const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, standalone_checkout_id, offer_id, cart_id, utm } = body;
 
+    // Validate CPF early for credit card payments (gateway requires a CPF with 11 digits)
+    const cpfDigits = (customer?.document || '').replace(/\D/g, '');
+    if (payment_method === 'credit_card' && cpfDigits.length !== 11) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'CPF inválido. Informe um CPF válido (11 dígitos) para pagar com cartão.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // 1. Determine organization from storefront or landing page
     let organizationId: string | null = null;
     let productItems: { product_id: string; quantity: number; price_cents: number; product_name?: string; product_image_url?: string }[] = items || [];
@@ -512,6 +524,7 @@ serve(async (req) => {
         document: customer.document,
         address: body.shipping ? {
           street: body.shipping.address,
+          number: body.shipping.number,
           neighborhood: body.shipping.neighborhood,
           city: body.shipping.city,
           state: body.shipping.state,

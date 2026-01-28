@@ -136,6 +136,16 @@ async function createPagarmeCardV5(
   request: PaymentRequest
 ): Promise<GatewayResponse> {
   const phone = formatPhoneV5(request.customer.phone);
+
+  // Pagar.me requires a valid CPF (11 digits) for credit card transactions
+  const cpfDigits = request.customer.document?.replace(/\D/g, '') || '';
+  if (cpfDigits.length !== 11) {
+    return {
+      success: false,
+      error_code: 'INVALID_CPF',
+      error_message: 'CPF inválido. Informe um CPF válido (11 dígitos).',
+    };
+  }
   
   // Build card payment object
   let creditCardPayment: Record<string, unknown> = {
@@ -179,7 +189,7 @@ async function createPagarmeCardV5(
       name: request.customer.name,
       email: request.customer.email,
       type: 'individual',
-      document: request.customer.document?.replace(/\D/g, '') || '00000000000',
+      document: cpfDigits,
       phones: {
         mobile_phone: phone,
       },
@@ -243,6 +253,28 @@ async function createPagarmeCardV5(
   const charge = result.charges?.[0];
   const lastTransaction = charge?.last_transaction;
   const isApproved = result.status === 'paid' || charge?.status === 'paid';
+
+  if (!isApproved) {
+    const gatewayError = (lastTransaction as any)?.gateway_response?.errors?.[0]?.message as string | undefined;
+    if (gatewayError) {
+      const lower = gatewayError.toLowerCase();
+      const isCpfError = lower.includes('cpf') || (lower.includes('document') && lower.includes('cpf'));
+      return {
+        success: false,
+        transaction_id: result.id || charge?.id,
+        payment_url: '',
+        status: result.status,
+        card_id: lastTransaction?.card?.id,
+        card_last_digits: lastTransaction?.card?.last_four_digits,
+        card_brand: lastTransaction?.card?.brand,
+        raw_response: result,
+        error_code: isCpfError ? 'INVALID_CPF' : 'GATEWAY_ERROR',
+        error_message: isCpfError
+          ? 'CPF inválido. Informe um CPF válido (11 dígitos).'
+          : gatewayError,
+      };
+    }
+  }
   
   return {
     success: isApproved,
