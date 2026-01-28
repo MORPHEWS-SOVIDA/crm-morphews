@@ -39,6 +39,7 @@ import {
 import { 
   useIntegrations, 
   useIntegrationLogs,
+  useIntegrationLogStats,
   useDeleteIntegration,
   Integration,
   IntegrationLog,
@@ -120,6 +121,7 @@ const logStatusConfig: Record<string, { icon: React.ReactNode; label: string; co
 export default function Integrations() {
   const { data: integrations, isLoading: loadingIntegrations, refetch: refetchIntegrations } = useIntegrations();
   const { data: allLogs, isLoading: loadingLogs, refetch: refetchLogs } = useIntegrationLogs(undefined, 200);
+  const { data: integrationStats } = useIntegrationLogStats();
   const deleteIntegration = useDeleteIntegration();
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -286,9 +288,10 @@ export default function Integrations() {
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {integrations.map(integration => {
                         const typeInfo = typeLabels[integration.type] || { label: integration.type, icon: <Plug2 className="h-4 w-4" /> };
-                        const recentLogs = allLogs?.filter(l => l.integration_id === integration.id).slice(0, 5) || [];
-                        const successCount = recentLogs.filter(l => l.status === 'success').length;
-                        const errorCount = recentLogs.filter(l => l.status === 'error').length;
+                        // Usa estatísticas totais em vez de apenas os últimos 5 logs
+                        const stats = integrationStats?.[integration.id] || { success: 0, error: 0, total: 0 };
+                        const successCount = stats.success;
+                        const errorCount = stats.error;
 
                         return (
                           <Card 
@@ -332,10 +335,10 @@ export default function Integrations() {
 
                               <div className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-3">
-                                  {recentLogs.length > 0 && (
+                                  {stats.total > 0 && (
                                     <>
-                                      <span className="text-green-600">{successCount} ✓</span>
-                                      <span className="text-red-600">{errorCount} ✗</span>
+                                      <span className="text-green-600" title={`${successCount} chamadas com sucesso`}>{successCount}✓</span>
+                                      <span className="text-red-600" title={`${errorCount} chamadas com erro`}>{errorCount}✗</span>
                                     </>
                                   )}
                                 </div>

@@ -245,6 +245,45 @@ export function useIntegrationLogs(integrationId?: string, limit = 50) {
   });
 }
 
+// Hook para buscar estatísticas de logs (total de sucesso/erro por integração)
+export function useIntegrationLogStats() {
+  const { tenantId } = useTenant();
+  
+  return useQuery({
+    queryKey: ['integration-log-stats', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return {};
+      
+      // Busca contagem agrupada por integration_id e status
+      const { data, error } = await supabase
+        .from('integration_logs')
+        .select('integration_id, status')
+        .eq('organization_id', tenantId);
+      
+      if (error) throw error;
+      
+      // Agrupa os resultados por integration_id
+      const stats: Record<string, { success: number; error: number; total: number }> = {};
+      
+      for (const log of data || []) {
+        if (!stats[log.integration_id]) {
+          stats[log.integration_id] = { success: 0, error: 0, total: 0 };
+        }
+        stats[log.integration_id].total++;
+        if (log.status === 'success') {
+          stats[log.integration_id].success++;
+        } else if (log.status === 'error') {
+          stats[log.integration_id].error++;
+        }
+      }
+      
+      return stats;
+    },
+    enabled: !!tenantId,
+    staleTime: 30000, // Cache por 30 segundos
+  });
+}
+
 export function useCreateIntegration() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
