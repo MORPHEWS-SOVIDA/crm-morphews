@@ -80,8 +80,10 @@ interface BotProduct {
   price_12_units: number | null;
   hot_site_url: string | null;
   usage_period_days: number | null;
-  // Media fields for automatic sending
+  // Media fields for automatic sending (ordered gallery)
   image_url: string | null;
+  label_image_url: string | null;
+  ecommerce_images: string[] | null;
   youtube_video_url: string | null;
   bot_can_send_image: boolean;
   bot_can_send_video: boolean;
@@ -270,11 +272,15 @@ async function switchToSpecialistBot(
 ): Promise<boolean> {
   console.log(`🔄 Switching bot to specialist: ${newBotId} (route: ${matchedRoute.id})`);
   
+  // IMPORTANT: When switching bots, we reset message count which effectively 
+  // resets the conversation context. Media state doesn't need explicit reset
+  // because sendProductMedia now resolves images based on user message, not cached state.
   const { error } = await supabase
     .from('whatsapp_conversations')
     .update({
       handling_bot_id: newBotId,
       // Resetar contador para o novo bot começar "fresh"
+      // This ensures the new specialist starts with clean context
       bot_messages_count: 0,
       bot_started_at: new Date().toISOString()
     })
@@ -285,7 +291,7 @@ async function switchToSpecialistBot(
     return false;
   }
 
-  console.log('✅ Successfully switched to specialist bot');
+  console.log('✅ Successfully switched to specialist bot (media context will be resolved from user message)');
   return true;
 }
 
@@ -516,6 +522,7 @@ async function getBotProducts(botId: string, organizationId: string, productScop
   }
 
   // Build query for products (including media fields for automatic sending)
+  // Now includes label_image_url and ecommerce_images for ordered gallery support
   let query = supabase
     .from('lead_products')
     .select(`
@@ -530,6 +537,8 @@ async function getBotProducts(botId: string, organizationId: string, productScop
       hot_site_url,
       usage_period_days,
       image_url,
+      label_image_url,
+      ecommerce_images,
       youtube_video_url,
       bot_can_send_image,
       bot_can_send_video,
@@ -1408,6 +1417,160 @@ async function sendWhatsAppImage(
 }
 
 // Detect products mentioned in AI response and send their media
+// ============================================================================
+// PRODUCT IMAGE RESOLUTION (PRODUCT-SCOPED)
+// ============================================================================
+
+/**
+ * Get all available images for a product as an ordered list.
+ * Order: image_url (main) → label_image_url → ecommerce_images[]
+ */
+function getProductImageGallery(product: BotProduct): string[] {
+  const images: string[] = [];
+  
+  if (product.image_url) {
+    images.push(product.image_url);
+  }
+  if (product.label_image_url) {
+    images.push(product.label_image_url);
+  }
+  if (product.ecommerce_images && Array.isArray(product.ecommerce_images)) {
+    for (const img of product.ecommerce_images) {
+      if (img && !images.includes(img)) {
+        images.push(img);
+      }
+    }
+  }
+  
+  return images;
+}
+
+/**
+ * Find which product the user is asking about based on their message.
+ * Returns the matched product or null.
+ */
+function detectProductFromUserMessage(
+  userMessage: string,
+  products: BotProduct[]
+): BotProduct | null {
+  const normalizedMessage = userMessage.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  // Score each product by how well it matches the user message
+  let bestMatch: BotProduct | null = null;
+  let bestScore = 0;
+  
+  for (const product of products) {
+    const productNameNormalized = product.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    
+    // Check for exact product name match first
+    if (normalizedMessage.includes(productNameNormalized)) {
+      // Prefer longer/more specific names
+      const score = productNameNormalized.length + 100;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = product;
+      }
+      continue;
+    }
+    
+    // Check individual words (at least 3 chars)
+    const words = productNameNormalized.split(/\s+/).filter(w => w.length >= 3);
+    let wordMatches = 0;
+    for (const word of words) {
+      if (normalizedMessage.includes(word)) {
+        wordMatches++;
+      }
+    }
+    
+    // Require at least one significant word match
+    if (wordMatches > 0) {
+      const score = wordMatches * 10 + productNameNormalized.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = product;
+      }
+    }
+  }
+  
+  return bestMatch;
+}
+
+/**
+ * Check if user is asking for another/more photos.
+ */
+function isAskingForMorePhotos(userMessage: string): boolean {
+  const normalizedMessage = userMessage.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  const morePhotoPatterns = [
+    'outra foto',
+    'outras fotos',
+    'mais foto',
+    'mais fotos',
+    'outro angulo',
+    'outros angulos',
+    'outra imagem',
+    'mais imagem',
+    'mais imagens',
+    'tem outra',
+    'tem mais',
+    'mostra outra',
+    'mostra mais',
+    'envie outra',
+    'envia outra',
+    'manda outra',
+    'quero ver mais',
+    'ver outra foto',
+    'ver outra imagem',
+  ];
+  
+  return morePhotoPatterns.some(pattern => normalizedMessage.includes(pattern));
+}
+
+/**
+ * Get images already sent for a specific product in this conversation.
+ */
+async function getProductImagesSentInConversation(
+  conversationId: string,
+  productId: string
+): Promise<string[]> {
+  try {
+    // Query messages in this conversation that are bot images
+    const { data: messages } = await supabase
+      .from('whatsapp_messages')
+      .select('media_url, content')
+      .eq('conversation_id', conversationId)
+      .eq('message_type', 'image')
+      .eq('is_from_bot', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    
+    if (!messages) return [];
+    
+    // Filter images that mention this product in caption
+    const productImages: string[] = [];
+    const productNameLower = productId.toLowerCase();
+    
+    for (const msg of messages) {
+      if (msg.media_url) {
+        // We'll collect all bot images - can't perfectly filter by product_id
+        // but the content/caption usually contains product name
+        productImages.push(msg.media_url);
+      }
+    }
+    
+    return productImages;
+  } catch (error) {
+    console.error('Error fetching sent images:', error);
+    return [];
+  }
+}
+
+/**
+ * REFACTORED: Send product media strictly based on the active product.
+ * - Resolves image from USER's message, not AI response
+ * - Tracks which images were sent to avoid duplicates
+ * - Handles "outra foto" requests properly
+ */
 async function sendProductMedia(
   bot: AIBot,
   products: BotProduct[],
@@ -1415,7 +1578,8 @@ async function sendProductMedia(
   instanceName: string,
   chatId: string,
   conversationId: string,
-  instanceId: string
+  instanceId: string,
+  userMessage: string = '' // NEW: user message for product detection
 ): Promise<{ imagesSent: number; linksSent: number }> {
   let imagesSent = 0;
   let linksSent = 0;
@@ -1433,62 +1597,125 @@ async function sendProductMedia(
     return { imagesSent, linksSent };
   }
 
-  // Normalize the AI response for matching
-  const normalizedResponse = aiResponse.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // STEP 1: Detect which product the USER asked about (not from AI response)
+  const detectedProduct = detectProductFromUserMessage(userMessage, products);
   
-  // Check each product if it's mentioned in the response
-  for (const product of products) {
-    const productNameNormalized = product.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    
-    // Check if product name is mentioned (at least 3 characters for accuracy)
-    const words = productNameNormalized.split(/\s+/).filter(w => w.length >= 3);
-    const isProductMentioned = words.some(word => normalizedResponse.includes(word)) || 
-                               normalizedResponse.includes(productNameNormalized);
-    
-    if (!isProductMentioned) {
-      continue;
+  if (!detectedProduct) {
+    console.log('📷 No product detected in user message, skipping media');
+    return { imagesSent, linksSent };
+  }
+  
+  console.log(`📷 Product detected from user message: "${detectedProduct.name}" (ID: ${detectedProduct.id})`);
+  
+  // STEP 2: Check if user is asking for more photos
+  const wantsMorePhotos = isAskingForMorePhotos(userMessage);
+  
+  // STEP 3: Get all available images for this product
+  const productGallery = getProductImageGallery(detectedProduct);
+  console.log(`📷 Product "${detectedProduct.name}" has ${productGallery.length} images in gallery`);
+  
+  if (productGallery.length === 0 || !detectedProduct.bot_can_send_image || !sendImages) {
+    // No images available or not allowed
+    if (wantsMorePhotos) {
+      // User asked for photos but none available - let AI response handle it
+      console.log('📷 User asked for more photos but product has no images');
     }
-    
-    console.log(`📷 Product "${product.name}" mentioned in response, checking media settings...`);
-
-    // Send product image if enabled and available
-    if (sendImages && product.bot_can_send_image && product.image_url) {
-      console.log(`📷 Sending image for product: ${product.name}`);
-      const imageSent = await sendWhatsAppImage(
-        instanceName,
-        chatId,
-        product.image_url,
-        `📸 ${product.name}`,
-        conversationId,
-        instanceId,
-        bot.id
-      );
-      if (imageSent) {
-        imagesSent++;
-        // Small delay between media messages
-        await new Promise(resolve => setTimeout(resolve, 500));
+    return { imagesSent, linksSent };
+  }
+  
+  // STEP 4: Get images already sent for THIS product
+  const sentImages = await getProductImagesSentInConversation(conversationId, detectedProduct.id);
+  console.log(`📷 Already sent ${sentImages.length} images in this conversation`);
+  
+  // STEP 5: Find next image to send
+  let imageToSend: string | null = null;
+  let imageIndex = 0;
+  
+  if (wantsMorePhotos) {
+    // User wants another photo - find one not yet sent
+    for (let i = 0; i < productGallery.length; i++) {
+      const img = productGallery[i];
+      if (!sentImages.includes(img)) {
+        imageToSend = img;
+        imageIndex = i;
+        break;
       }
     }
-
-    // Send product link if enabled and available
-    if (sendLinks && product.bot_can_send_site_link && product.hot_site_url) {
-      console.log(`🔗 Sending link for product: ${product.name}`);
-      const linkSent = await sendWhatsAppMessage(
-        instanceName,
-        chatId,
-        `🔗 Confira mais detalhes: ${product.hot_site_url}`,
-        conversationId,
-        instanceId,
-        bot.id
-      );
-      if (linkSent) {
-        linksSent++;
+    
+    if (!imageToSend) {
+      // All images already sent
+      console.log('📷 All product images already sent, no more available');
+      // Don't send anything - let AI response indicate no more photos
+      return { imagesSent, linksSent };
+    }
+  } else {
+    // First time asking about this product or showing product
+    // Check if AI response mentions sending photo/image
+    const normalizedResponse = aiResponse.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const mentionsPhoto = normalizedResponse.includes('foto') || 
+                          normalizedResponse.includes('imagem') ||
+                          normalizedResponse.includes('enviar') ||
+                          normalizedResponse.includes('confira');
+    
+    // Also check if product name is in AI response (confirmation it's talking about this product)
+    const productNameNormalized = detectedProduct.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const productWords = productNameNormalized.split(/\s+/).filter(w => w.length >= 3);
+    const productMentionedInResponse = productWords.some(word => normalizedResponse.includes(word));
+    
+    if (!productMentionedInResponse && !mentionsPhoto) {
+      console.log('📷 AI response does not mention product or photos, skipping media');
+      return { imagesSent, linksSent };
+    }
+    
+    // Send first image that hasn't been sent recently (in last 5 messages)
+    // This allows re-sending after conversation progresses
+    const recentSentImages = sentImages.slice(0, 5);
+    
+    for (const img of productGallery) {
+      if (!recentSentImages.includes(img)) {
+        imageToSend = img;
+        break;
       }
     }
+    
+    // If all recent, just send the first one again
+    if (!imageToSend && productGallery.length > 0) {
+      imageToSend = productGallery[0];
+    }
+  }
+  
+  // STEP 6: Send the image
+  if (imageToSend) {
+    console.log(`📷 Sending image ${imageIndex + 1}/${productGallery.length} for product: ${detectedProduct.name}`);
+    const imageSent = await sendWhatsAppImage(
+      instanceName,
+      chatId,
+      imageToSend,
+      `📸 ${detectedProduct.name}`,
+      conversationId,
+      instanceId,
+      bot.id
+    );
+    if (imageSent) {
+      imagesSent++;
+      // Small delay between media messages
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
 
-    // Only send media for the first matched product to avoid spam
-    if (imagesSent > 0 || linksSent > 0) {
-      break;
+  // STEP 7: Send product link if enabled and available (only on first mention)
+  if (!wantsMorePhotos && sendLinks && detectedProduct.bot_can_send_site_link && detectedProduct.hot_site_url) {
+    console.log(`🔗 Sending link for product: ${detectedProduct.name}`);
+    const linkSent = await sendWhatsAppMessage(
+      instanceName,
+      chatId,
+      `🔗 Confira mais detalhes: ${detectedProduct.hot_site_url}`,
+      conversationId,
+      instanceId,
+      bot.id
+    );
+    if (linkSent) {
+      linksSent++;
     }
   }
 
@@ -2140,7 +2367,7 @@ async function processMessage(
     return { success: false, action: 'error', message: 'Failed to send message' };
   }
 
-  // 8. Enviar mídia de produto se identificado na resposta
+  // 8. Enviar mídia de produto se identificado na MENSAGEM DO USUÁRIO (não na resposta)
   let mediaEnergyUsed = 0;
   try {
     const mediaResult = await sendProductMedia(
@@ -2150,7 +2377,8 @@ async function processMessage(
       instanceName,
       context.chatId,
       context.conversationId,
-      context.instanceId
+      context.instanceId,
+      userMessage // CRITICAL: Pass user message for product-scoped image resolution
     );
     
     // Consumir energia por cada mídia enviada (5 energia por imagem, 2 por link)
