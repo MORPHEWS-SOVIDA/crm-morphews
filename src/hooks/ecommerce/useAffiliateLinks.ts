@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 
 export type LinkableAssetType = 'checkout' | 'landing' | 'product';
@@ -35,14 +36,21 @@ export interface AvailableOffer {
   affiliate_link?: string;
 }
 
+function useOrganizationId() {
+  const { profile } = useAuth();
+  const { data: tenantId } = useCurrentTenantId();
+  // IMPORTANT: use the CURRENT tenant first (multi-tenant), fallback to profile for legacy flows.
+  return tenantId ?? profile?.organization_id ?? null;
+}
+
 // Hook para buscar afiliados vinculados a um checkout
 export function useCheckoutAffiliates(checkoutId: string | null) {
-  const { profile } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useQuery({
-    queryKey: ['checkout-affiliates', checkoutId],
+    queryKey: ['checkout-affiliates', organizationId, checkoutId],
     queryFn: async () => {
-      if (!checkoutId || !profile?.organization_id) return [];
+      if (!checkoutId || !organizationId) return [];
 
       // Buscar todos os afiliados da org que estão vinculados a este checkout
       const { data: associations, error } = await supabase
@@ -57,7 +65,7 @@ export function useCheckoutAffiliates(checkoutId: string | null) {
           is_active,
           virtual_account_id
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .eq('partner_type', 'affiliate')
         .eq('linked_checkout_id', checkoutId);
 
@@ -82,19 +90,19 @@ export function useCheckoutAffiliates(checkoutId: string | null) {
 
       return result as unknown as AffiliateLink[];
     },
-    enabled: !!checkoutId && !!profile?.organization_id,
+    enabled: !!checkoutId && !!organizationId,
   });
 }
 
 // Hook para buscar todos os afiliados ÚNICOS da org (para adicionar ao checkout)
 // Agrupa por virtual_account_id para evitar duplicatas e mostra TODOS os afiliados
 export function useOrganizationAffiliates() {
-  const { profile } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useQuery({
-    queryKey: ['organization-affiliates', profile?.organization_id],
+    queryKey: ['organization-affiliates', organizationId],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
+      if (!organizationId) return [];
 
       // Buscar TODAS as associações de afiliados (sem filtrar por linked_checkout_id)
       const { data: associations, error } = await supabase
@@ -111,7 +119,7 @@ export function useOrganizationAffiliates() {
           is_active,
           virtual_account_id
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .eq('partner_type', 'affiliate')
         .eq('is_active', true);
 
@@ -147,14 +155,14 @@ export function useOrganizationAffiliates() {
 
       return result as unknown as AffiliateLink[];
     },
-    enabled: !!profile?.organization_id,
+    enabled: !!organizationId,
   });
 }
 
 // Hook para vincular afiliado a um checkout
 export function useLinkAffiliateToCheckout() {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const organizationId = useOrganizationId();
 
   return useMutation({
     mutationFn: async ({ 
@@ -168,7 +176,7 @@ export function useLinkAffiliateToCheckout() {
       commissionType?: string;
       commissionValue?: number;
     }) => {
-      if (!profile?.organization_id) throw new Error('No organization');
+      if (!organizationId) throw new Error('Organização não encontrada');
 
       // Buscar o afiliado original
       const { data: affiliate, error: fetchError } = await supabase
@@ -184,7 +192,7 @@ export function useLinkAffiliateToCheckout() {
         .from('partner_associations')
         .insert({
           virtual_account_id: affiliate.virtual_account_id,
-          organization_id: profile.organization_id,
+          organization_id: organizationId,
           partner_type: 'affiliate',
           commission_type: commissionType || affiliate.commission_type,
           commission_value: commissionValue || affiliate.commission_value,
@@ -196,7 +204,8 @@ export function useLinkAffiliateToCheckout() {
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['checkout-affiliates', variables.checkoutId] });
+      queryClient.invalidateQueries({ queryKey: ['checkout-affiliates', organizationId, variables.checkoutId] });
+      queryClient.invalidateQueries({ queryKey: ['organization-affiliates', organizationId] });
       toast.success('Afiliado vinculado ao checkout!');
     },
     onError: (error: any) => {
@@ -208,6 +217,7 @@ export function useLinkAffiliateToCheckout() {
 // Hook para desvincular afiliado de um checkout
 export function useUnlinkAffiliateFromCheckout() {
   const queryClient = useQueryClient();
+  const organizationId = useOrganizationId();
 
   return useMutation({
     mutationFn: async ({ linkId, checkoutId }: { linkId: string; checkoutId: string }) => {
@@ -220,7 +230,8 @@ export function useUnlinkAffiliateFromCheckout() {
       return { checkoutId };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['checkout-affiliates', data.checkoutId] });
+      queryClient.invalidateQueries({ queryKey: ['checkout-affiliates', organizationId, data.checkoutId] });
+      queryClient.invalidateQueries({ queryKey: ['organization-affiliates', organizationId] });
       toast.success('Afiliado removido do checkout');
     },
     onError: (error: any) => {
