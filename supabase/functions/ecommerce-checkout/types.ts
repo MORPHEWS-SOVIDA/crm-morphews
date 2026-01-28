@@ -135,7 +135,7 @@ export interface PaymentAttemptRecord {
   payment_method: PaymentMethod;
   amount_cents: number;
   installments?: number;
-  status: 'pending' | 'success' | 'failed' | 'processing';
+  status: 'pending' | 'processing' | 'approved' | 'refused' | 'error' | 'cancelled';
   gateway_transaction_id?: string;
   error_code?: string;
   error_message?: string;
