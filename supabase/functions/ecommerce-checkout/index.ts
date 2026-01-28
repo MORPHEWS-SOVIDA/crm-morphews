@@ -193,58 +193,125 @@ serve(async (req) => {
       : null;
     const totalCents = totalWithInterest || baseTotalCents;
 
-    // 4. Check affiliate via partner_associations (new unified system)
+    // 4. Check affiliate via affiliate_network_members (new) OR partner_associations (legacy)
     let affiliatePartnerId: string | null = null;
     let affiliateVirtualAccountId: string | null = null;
     let affiliateCommissionType: string = 'percentage';
     let affiliateCommissionValue: number = 10;
     let affiliateLiableRefund: boolean = true;
     let affiliateLiableChargeback: boolean = true;
+    let affiliateNetworkMemberId: string | null = null;
     
     if (affiliate_code) {
-      // First try to find a partner linked to this specific storefront/landing
-      const linkedColumn = storefront_id ? 'linked_storefront_id' : (landing_page_id ? 'linked_landing_id' : null);
-      const linkedId = storefront_id || landing_page_id || null;
-      
-      let partnerQuery = supabase
-        .from('partner_associations')
-        .select('id, virtual_account_id, commission_type, commission_value, responsible_for_refunds, responsible_for_chargebacks, partner_type')
+      // NEW: First try to find affiliate via organization_affiliates + affiliate_network_members
+      const { data: orgAffiliate } = await supabase
+        .from('organization_affiliates')
+        .select('id, email, name, user_id, default_commission_type, default_commission_value')
         .eq('organization_id', organizationId)
         .eq('affiliate_code', affiliate_code)
-        .eq('is_active', true);
-      
-      // Prefer partner linked to this asset
-      if (linkedColumn && linkedId) {
-        partnerQuery = partnerQuery.eq(linkedColumn, linkedId);
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (orgAffiliate) {
+        // Check if this affiliate is part of a network that has this checkout
+        const { data: networkMember } = await supabase
+          .from('affiliate_network_members')
+          .select(`
+            id, 
+            network_id, 
+            commission_type, 
+            commission_value,
+            network:affiliate_networks!inner(id, organization_id, is_active)
+          `)
+          .eq('affiliate_id', orgAffiliate.id)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (networkMember) {
+          // Use network member's commission settings
+          affiliateNetworkMemberId = networkMember.id;
+          affiliateCommissionType = networkMember.commission_type || 'percentage';
+          affiliateCommissionValue = Number(networkMember.commission_value) || 10;
+          
+          // Create/get virtual account for this affiliate via user_id
+          if (orgAffiliate.user_id) {
+            const { data: vaByUser } = await supabase
+              .from('virtual_accounts')
+              .select('id')
+              .eq('user_id', orgAffiliate.user_id)
+              .maybeSingle();
+            
+            if (vaByUser) {
+              affiliateVirtualAccountId = vaByUser.id;
+            } else {
+              // Create virtual account for this affiliate user
+              const { data: newVA } = await supabase
+                .from('virtual_accounts')
+                .insert({
+                  organization_id: organizationId,
+                  user_id: orgAffiliate.user_id,
+                  account_type: 'affiliate',
+                  holder_name: orgAffiliate.name || orgAffiliate.email,
+                  holder_email: orgAffiliate.email,
+                })
+                .select('id')
+                .single();
+              
+              affiliateVirtualAccountId = newVA?.id || null;
+            }
+          }
+          
+          console.log(`[Checkout] Found network affiliate ${affiliate_code}: commission=${affiliateCommissionValue}${affiliateCommissionType === 'percentage' ? '%' : 'c'}`);
+        }
       }
-      
-      const { data: linkedPartner } = await partnerQuery.maybeSingle();
-      
-      // If not found linked, try general partner (no links)
-      let partner = linkedPartner;
-      if (!partner && affiliate_code) {
-        const { data: generalPartner } = await supabase
+
+      // LEGACY: Fallback to partner_associations if not found via networks
+      if (!affiliateNetworkMemberId) {
+        // First try to find a partner linked to this specific storefront/landing
+        const linkedColumn = storefront_id ? 'linked_storefront_id' : (landing_page_id ? 'linked_landing_id' : null);
+        const linkedId = storefront_id || landing_page_id || null;
+        
+        let partnerQuery = supabase
           .from('partner_associations')
           .select('id, virtual_account_id, commission_type, commission_value, responsible_for_refunds, responsible_for_chargebacks, partner_type')
           .eq('organization_id', organizationId)
           .eq('affiliate_code', affiliate_code)
-          .eq('is_active', true)
-          .is('linked_checkout_id', null)
-          .is('linked_landing_id', null)
-          .is('linked_storefront_id', null)
-          .is('linked_quiz_id', null)
-          .maybeSingle();
-        partner = generalPartner;
-      }
-      
-      if (partner) {
-        affiliatePartnerId = partner.id;
-        affiliateVirtualAccountId = partner.virtual_account_id;
-        affiliateCommissionType = partner.commission_type || 'percentage';
-        affiliateCommissionValue = Number(partner.commission_value) || 10;
-        affiliateLiableRefund = partner.responsible_for_refunds ?? true;
-        affiliateLiableChargeback = partner.responsible_for_chargebacks ?? true;
-        console.log(`[Checkout] Found partner ${affiliate_code}: type=${partner.partner_type}, commission=${affiliateCommissionValue}${affiliateCommissionType === 'percentage' ? '%' : 'c'}`);
+          .eq('is_active', true);
+        
+        // Prefer partner linked to this asset
+        if (linkedColumn && linkedId) {
+          partnerQuery = partnerQuery.eq(linkedColumn, linkedId);
+        }
+        
+        const { data: linkedPartner } = await partnerQuery.maybeSingle();
+        
+        // If not found linked, try general partner (no links)
+        let partner = linkedPartner;
+        if (!partner && affiliate_code) {
+          const { data: generalPartner } = await supabase
+            .from('partner_associations')
+            .select('id, virtual_account_id, commission_type, commission_value, responsible_for_refunds, responsible_for_chargebacks, partner_type')
+            .eq('organization_id', organizationId)
+            .eq('affiliate_code', affiliate_code)
+            .eq('is_active', true)
+            .is('linked_checkout_id', null)
+            .is('linked_landing_id', null)
+            .is('linked_storefront_id', null)
+            .is('linked_quiz_id', null)
+            .maybeSingle();
+          partner = generalPartner;
+        }
+        
+        if (partner) {
+          affiliatePartnerId = partner.id;
+          affiliateVirtualAccountId = partner.virtual_account_id;
+          affiliateCommissionType = partner.commission_type || 'percentage';
+          affiliateCommissionValue = Number(partner.commission_value) || 10;
+          affiliateLiableRefund = partner.responsible_for_refunds ?? true;
+          affiliateLiableChargeback = partner.responsible_for_chargebacks ?? true;
+          console.log(`[Checkout] Found legacy partner ${affiliate_code}: type=${partner.partner_type}, commission=${affiliateCommissionValue}${affiliateCommissionType === 'percentage' ? '%' : 'c'}`);
+        }
       }
     }
 
@@ -291,27 +358,24 @@ serve(async (req) => {
         });
     }
 
-    // 7. Store partner attribution if exists (splits are created by payment-webhook on payment confirmation)
-    // We now store: partner_association_id, virtual_account_id, commission details
-    if (affiliatePartnerId && affiliate_code) {
+    // 7. Store affiliate attribution if exists (splits are created by payment-webhook on payment confirmation)
+    // Store code_or_ref for the split engine to find the affiliate
+    if ((affiliatePartnerId || affiliateNetworkMemberId) && affiliate_code) {
       const { error: attrError } = await supabase
         .from('affiliate_attributions')
         .insert({
           sale_id: sale.id,
           organization_id: organizationId,
-          affiliate_id: null, // Deprecated - using partner_association_id instead
-          attribution_type: 'ref',
+          affiliate_id: null, // Deprecated
+          attribution_type: affiliateNetworkMemberId ? 'network' : 'ref',
           code_or_ref: affiliate_code,
-          // Store partner data for split engine
         });
       
       if (attrError) {
         console.error('Failed to create affiliate attribution:', attrError);
-        // Non-blocking - continue with checkout even if attribution fails
       }
 
-      // Also store partner data directly in ecommerce_orders for easier split processing
-      console.log(`[Checkout] Attribution created for partner ${affiliate_code}`);
+      console.log(`[Checkout] Attribution created for ${affiliateNetworkMemberId ? 'network affiliate' : 'partner'} ${affiliate_code}`);
     }
 
     // 8. Create ecommerce_order record for the Vendas Online panel

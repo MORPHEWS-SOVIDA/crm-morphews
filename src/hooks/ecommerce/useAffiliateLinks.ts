@@ -234,6 +234,7 @@ export function useUnlinkAffiliateFromCheckout() {
 }
 
 // Hook para buscar ofertas disponíveis para o afiliado (usado no portal)
+// Agora prioriza checkouts permitidos via redes de afiliados (affiliate_networks)
 export function useAffiliateAvailableOffers() {
   const { profile } = useAuth();
 
@@ -242,6 +243,98 @@ export function useAffiliateAvailableOffers() {
     queryFn: async () => {
       if (!profile?.user_id) return [];
 
+      // 1. Buscar membros de redes do usuário
+      const { data: networkMemberships } = await supabase
+        .from('affiliate_network_members')
+        .select(`
+          id,
+          network_id,
+          organization_id,
+          commission_type,
+          commission_value,
+          affiliate:organization_affiliates(id, affiliate_code, email, name)
+        `)
+        .eq('user_id', profile.user_id)
+        .eq('is_active', true);
+
+      // Se o usuário está em redes, buscar checkouts vinculados a essas redes
+      if (networkMemberships && networkMemberships.length > 0) {
+        const offers: AvailableOffer[] = [];
+
+        for (const membership of networkMemberships) {
+          const affiliate = membership.affiliate as { id: string; affiliate_code: string; email: string; name: string } | null;
+          if (!affiliate?.affiliate_code) continue;
+
+          // Buscar checkouts vinculados a esta rede
+          const { data: networkCheckouts } = await supabase
+            .from('affiliate_network_checkouts')
+            .select(`
+              checkout:standalone_checkouts(
+                id,
+                name,
+                slug,
+                attribution_model,
+                is_active,
+                product_id
+              )
+            `)
+            .eq('network_id', membership.network_id);
+
+          // Buscar produtos separadamente para evitar problemas de múltiplas FKs
+          const productIds = (networkCheckouts || [])
+            .map(nc => (nc.checkout as { product_id: string } | null)?.product_id)
+            .filter(Boolean) as string[];
+
+          const { data: products } = productIds.length > 0
+            ? await supabase
+                .from('lead_products')
+                .select('id, name, images')
+                .in('id', productIds)
+            : { data: [] as { id: string; name: string; images: string[] | null }[] };
+
+          type ProductInfo = { id: string; name: string; images: string[] | null };
+          const productMap = new Map<string, ProductInfo>();
+          for (const p of (products || []) as ProductInfo[]) {
+            productMap.set(p.id, p);
+          }
+
+          for (const nc of networkCheckouts || []) {
+            const checkout = nc.checkout as {
+              id: string;
+              name: string;
+              slug: string;
+              attribution_model: string;
+              is_active: boolean;
+              product_id: string | null;
+            } | null;
+
+            if (!checkout || !checkout.is_active) continue;
+
+            // Verificar se já adicionamos este checkout
+            if (offers.some(o => o.id === checkout.id)) continue;
+
+            const product = checkout.product_id ? productMap.get(checkout.product_id) : null;
+            offers.push({
+              id: checkout.id,
+              type: 'checkout',
+              name: checkout.name,
+              slug: checkout.slug,
+              attribution_model: checkout.attribution_model || 'last_click',
+              product_name: product?.name,
+              product_image: product?.images?.[0],
+              is_enrolled: true,
+              affiliate_link: `${window.location.origin}/pay/${checkout.slug}?ref=${affiliate.affiliate_code}`,
+            });
+          }
+        }
+
+        // Se encontrou ofertas via redes, retornar apenas essas
+        if (offers.length > 0) {
+          return offers;
+        }
+      }
+
+      // 2. Fallback: Sistema antigo via partner_associations
       // Buscar a conta virtual do usuário
       const { data: virtualAccount } = await supabase
         .from('virtual_accounts')
@@ -275,15 +368,27 @@ export function useAffiliateAvailableOffers() {
       // Buscar checkouts disponíveis
       const { data: checkouts } = await supabase
         .from('standalone_checkouts')
-        .select(`
-          id, 
-          name, 
-          slug, 
-          attribution_model,
-          product:lead_products(name, images)
-        `)
+        .select('id, name, slug, attribution_model, product_id')
         .eq('organization_id', organizationId)
         .eq('is_active', true);
+
+      // Buscar produtos separadamente para evitar problemas de FK
+      const checkoutProductIds = (checkouts || [])
+        .map(c => c.product_id)
+        .filter(Boolean) as string[];
+      
+      const { data: checkoutProducts } = checkoutProductIds.length > 0
+        ? await supabase
+            .from('lead_products')
+            .select('id, name, images')
+            .in('id', checkoutProductIds)
+        : { data: [] as { id: string; name: string; images: string[] | null }[] };
+
+      type ProductInfo2 = { id: string; name: string; images: string[] | null };
+      const checkoutProductMap = new Map<string, ProductInfo2>();
+      for (const p of (checkoutProducts || []) as ProductInfo2[]) {
+        checkoutProductMap.set(p.id, p);
+      }
 
       // Buscar landing pages disponíveis
       const { data: landings } = await supabase
@@ -300,6 +405,7 @@ export function useAffiliateAvailableOffers() {
         const isEnrolled = linkedCheckoutIds.has(checkout.id);
         const specificAssoc = allAssociations.find(l => l.linked_checkout_id === checkout.id);
         const code = specificAssoc?.affiliate_code || affiliateCode;
+        const product = checkout.product_id ? checkoutProductMap.get(checkout.product_id) : null;
         
         offers.push({
           id: checkout.id,
@@ -307,8 +413,8 @@ export function useAffiliateAvailableOffers() {
           name: checkout.name,
           slug: checkout.slug,
           attribution_model: checkout.attribution_model || 'last_click',
-          product_name: (checkout.product as any)?.name,
-          product_image: (checkout.product as any)?.images?.[0],
+          product_name: product?.name,
+          product_image: product?.images?.[0],
           is_enrolled: isEnrolled || !!myAssociation, // Se tem associação geral, pode promover qualquer um
           affiliate_link: code 
             ? `${window.location.origin}/pay/${checkout.slug}?ref=${code}`

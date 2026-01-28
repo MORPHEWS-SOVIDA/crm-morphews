@@ -32,16 +32,26 @@ Redes de afiliados permitem organizar afiliados em grupos com checkouts específ
 - **NetworkCreateDialog**: Modal para criar nova rede
 - **NetworkDetailSheet**: Sheet lateral para gerenciar rede (checkouts, membros)
 - **NetworkInviteAccept**: Página pública `/rede/:inviteCode` para aceitar convite
+- **PartnerLinksPage**: Exibe automaticamente todos os checkouts das redes do afiliado com links já com código embutido
 
 ### Fluxo de Convite
 1. Admin cria rede e vincula checkouts
 2. Admin copia link de convite
 3. Afiliado acessa link → se não logado, redireciona para login/registro
 4. Após login, chama RPC para entrar na rede
-5. Afiliado pode ver apenas checkouts da rede
+5. Afiliado pode ver apenas checkouts da rede em "Meus Links"
+
+### Fluxo de Venda com Split Automático
+1. Cliente acessa link com `?ref=CODIGO_AFILIADO`
+2. Checkout busca comissão em `affiliate_network_members` (novo) ou `partner_associations` (legado)
+3. Atribuição é salva em `affiliate_attributions` com `attribution_type: 'network'`
+4. Webhook de pagamento dispara `processSaleSplitsV3`
+5. Split Engine identifica afiliado pelo código, busca comissão da rede
+6. Cria/obtém `virtual_accounts` para o afiliado e credita automaticamente
 
 ### Regras de Negócio
 - Não é possível adicionar afiliados manualmente - apenas via link
 - Gerentes podem ser promovidos/rebaixados pelo admin
 - Comissão individual pode ser alterada por membro
 - Rede pode ser desativada (is_active = false)
+- Split de pagamento é 100% automático no momento da confirmação do pagamento
