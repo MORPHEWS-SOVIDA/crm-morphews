@@ -99,32 +99,45 @@ serve(async (req) => {
       if (evolutionInstanceId) {
         targetInstanceName = evolutionInstanceId;
       } else if (instanceId) {
-        const { data: instance } = await supabase
+        console.log('[evolution-send-message] Buscando instância por ID:', instanceId);
+        
+        const { data: instance, error: instanceError } = await supabase
           .from("whatsapp_instances")
-          .select("evolution_instance_id, evolution_api_url, evolution_api_key")
+          .select("evolution_instance_id, evolution_api_token")
           .eq("id", instanceId)
           .single();
 
+        console.log('[evolution-send-message] Resultado query:', { instance, error: instanceError });
+
+        if (instanceError) {
+          console.error('[evolution-send-message] Erro ao buscar instância:', instanceError);
+          throw new Error(`Erro ao buscar instância: ${instanceError.message}`);
+        }
+
         if (!instance?.evolution_instance_id) {
-          throw new Error("Instância não encontrada");
+          throw new Error("Instância não encontrada ou sem evolution_instance_id");
         }
         
         targetInstanceName = instance.evolution_instance_id;
         
-        // Se a instância tem API própria configurada, usa ela
-        if (instance.evolution_api_url && instance.evolution_api_key) {
-          apiUrl = instance.evolution_api_url.replace(/\/$/, "");
-          apiKey = instance.evolution_api_key;
+        // Se a instância tem token próprio, usar ele (mas URL vem da config admin)
+        if (instance.evolution_api_token) {
+          apiKey = instance.evolution_api_token;
         }
       }
 
-      // Se não definiu apiUrl/apiKey, busca da instância admin como fallback
-      if (!apiUrl! || !apiKey!) {
-        const adminConfig = await getAdminWhatsAppConfig();
-        if (!adminConfig?.api_url || !adminConfig?.api_key) {
-          throw new Error("Configuração de API Evolution não encontrada");
+      // Sempre buscar a URL da config admin (é a mesma para todas as instâncias)
+      const adminConfig = await getAdminWhatsAppConfig();
+      if (!adminConfig?.api_url) {
+        throw new Error("URL da API Evolution não configurada. Configure em Super Admin > WhatsApp Admin.");
+      }
+      apiUrl = adminConfig.api_url.replace(/\/$/, "");
+      
+      // Se não tem apiKey ainda (instância não tem token próprio), usar o admin
+      if (!apiKey) {
+        if (!adminConfig?.api_key) {
+          throw new Error("API Key da Evolution não configurada");
         }
-        apiUrl = adminConfig.api_url.replace(/\/$/, "");
         apiKey = adminConfig.api_key;
       }
     }
