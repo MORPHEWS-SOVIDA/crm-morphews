@@ -17890,6 +17890,7 @@ export type Database = {
           transaction_type: string
         }[]
       }
+      get_user_org_ids: { Args: never; Returns: string[] }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -17905,6 +17906,7 @@ export type Database = {
           user_role: string
         }[]
       }
+      get_user_virtual_account_ids: { Args: never; Returns: string[] }
       grant_user_instance_access: {
         Args: {
           _can_send?: boolean
