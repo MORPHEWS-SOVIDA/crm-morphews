@@ -23,38 +23,38 @@ interface TranscribeRequest {
 
 async function consumeEnergy(organizationId: string, amount: number, description: string): Promise<boolean> {
   try {
-    // Get current energy balance
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .select("ai_energy_balance")
-      .eq("id", organizationId)
-      .single();
+    // Use the new consume_energy RPC that handles organization_energy table
+    const { data, error } = await supabase.rpc('consume_energy', {
+      p_organization_id: organizationId,
+      p_amount: amount,
+      p_action_type: 'audio_transcription',
+      p_description: description
+    });
 
-    if (orgError || !org) {
-      console.error("Failed to get org energy:", orgError);
+    if (error) {
+      console.error("❌ consume_energy RPC error:", error);
       return false;
     }
 
-    const currentBalance = org.ai_energy_balance ?? 0;
+    // Check the result
+    if (data && typeof data === 'object') {
+      const result = data as { success?: boolean; error?: string; remaining?: number };
+      if (result.success === false || result.error) {
+        console.log("❌ Insufficient energy for transcription");
+        return false;
+      }
+      console.log("⚡ Energy consumed:", amount, "remaining:", result.remaining);
+      return true;
+    }
+
+    // Fallback: if RPC returns true/false directly
+    if (data === true) {
+      console.log("⚡ Energy consumed:", amount);
+      return true;
+    }
     
-    if (currentBalance < amount) {
-      console.log("❌ Insufficient energy:", currentBalance, "needed:", amount);
-      return false;
-    }
-
-    // Deduct energy
-    const { error: updateError } = await supabase
-      .from("organizations")
-      .update({ ai_energy_balance: currentBalance - amount })
-      .eq("id", organizationId);
-
-    if (updateError) {
-      console.error("Failed to update energy:", updateError);
-      return false;
-    }
-
-    console.log("⚡ Energy consumed:", amount, "new balance:", currentBalance - amount);
-    return true;
+    console.log("❌ Energy consumption failed");
+    return false;
   } catch (error) {
     console.error("Error consuming energy:", error);
     return false;
