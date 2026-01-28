@@ -82,12 +82,17 @@ export function usePartnerInvitations() {
 }
 
 export function usePartnerAssociations(partnerType?: PartnerType) {
-  const { data: organizationId } = useEcommerceOrganizationId();
+  const { data: organizationId, isLoading: isOrgIdLoading } = useEcommerceOrganizationId();
   
   return useQuery({
     queryKey: ['partner-associations', partnerType, organizationId],
     queryFn: async () => {
-      if (!organizationId) return [];
+      if (!organizationId) {
+        console.warn('[usePartnerAssociations] organizationId is null');
+        return [];
+      }
+      
+      console.log('[usePartnerAssociations] Fetching for org:', organizationId, 'type:', partnerType);
       
       // Query todos os parceiros da organização (sem filtro de vínculo)
       // A tela de gestão deve mostrar TODOS os parceiros, independente de onde estão vinculados
@@ -111,11 +116,18 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
       }
 
       const { data, error } = await query;
+      
+      console.log('[usePartnerAssociations] Result:', { 
+        count: data?.length, 
+        error: error?.message,
+        firstItem: data?.[0] 
+      });
 
       if (error) throw error;
       return data as unknown as PartnerAssociation[];
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && !isOrgIdLoading,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
