@@ -86,7 +86,8 @@ export function useCheckoutAffiliates(checkoutId: string | null) {
   });
 }
 
-// Hook para buscar todos os afiliados da org (para adicionar ao checkout)
+// Hook para buscar todos os afiliados ÚNICOS da org (para adicionar ao checkout)
+// Agrupa por virtual_account_id para evitar duplicatas e mostra TODOS os afiliados
 export function useOrganizationAffiliates() {
   const { profile } = useAuth();
 
@@ -95,7 +96,7 @@ export function useOrganizationAffiliates() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      // Buscar associações de afiliados
+      // Buscar TODAS as associações de afiliados (sem filtrar por linked_checkout_id)
       const { data: associations, error } = await supabase
         .from('partner_associations')
         .select(`
@@ -118,7 +119,7 @@ export function useOrganizationAffiliates() {
       if (!associations || associations.length === 0) return [];
 
       // Buscar virtual_accounts separadamente (contorna problemas de RLS no join)
-      const virtualAccountIds = associations.map(a => a.virtual_account_id).filter(Boolean);
+      const virtualAccountIds = [...new Set(associations.map(a => a.virtual_account_id).filter(Boolean))];
       
       const { data: virtualAccounts } = await supabase
         .from('virtual_accounts')
@@ -128,7 +129,18 @@ export function useOrganizationAffiliates() {
       // Mapear virtual_accounts para as associações
       const vaMap = new Map(virtualAccounts?.map(va => [va.id, va]) || []);
       
-      const result = associations.map(a => ({
+      // Agrupar por virtual_account_id para pegar apenas um registro por afiliado único
+      // Preferir o registro SEM linked_checkout_id (é a associação "base" do afiliado)
+      const uniqueByVA = new Map<string, typeof associations[0]>();
+      for (const a of associations) {
+        const existing = uniqueByVA.get(a.virtual_account_id);
+        // Se não existe, ou se o existente tem linked_checkout_id e este não, substituir
+        if (!existing || (existing.linked_checkout_id && !a.linked_checkout_id)) {
+          uniqueByVA.set(a.virtual_account_id, a);
+        }
+      }
+      
+      const result = Array.from(uniqueByVA.values()).map(a => ({
         ...a,
         virtual_account: vaMap.get(a.virtual_account_id) || null,
       }));
