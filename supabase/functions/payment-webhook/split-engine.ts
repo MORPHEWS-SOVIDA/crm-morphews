@@ -595,6 +595,11 @@ export async function processSaleSplitsV3(
     }
   }
 
+  // Calculate base for affiliate commission = totalCents - platformFeeCents
+  // This ensures affiliate gets commission on (sale value - platform fee) only
+  // NOT affected by factory/industry deductions
+  const baseForAffiliateCommission = totalCents - result.platform_amount;
+
   // =====================================================
   // STEP C.5: COPRODUCERS (liable for refund/chargeback like affiliate)
   // Based on product-level coproducer assignments
@@ -676,9 +681,14 @@ export async function processSaleSplitsV3(
         const liableForChargeback = partner.responsible_for_chargebacks ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
 
         // Calculate amount
+        // For affiliates/coproducers: use baseForAffiliateCommission (total - platform_fee)
+        // For factory/industry: use totalCents (they get their cut before platform fee)
         let partnerAmount = 0;
+        const useAffiliateBase = partnerType === 'affiliate' || partnerType === 'coproducer';
+        const baseAmount = useAffiliateBase ? baseForAffiliateCommission : totalCents;
+        
         if (commissionType === 'percentage') {
-          partnerAmount = Math.round(totalCents * (commissionValue / 100));
+          partnerAmount = Math.round(baseAmount * (commissionValue / 100));
         } else {
           // Fixed commission per sale
           partnerAmount = commissionValue;
@@ -811,8 +821,10 @@ export async function processSaleSplitsV3(
           const commissionValue = Number(networkMember.commission_value) || rules.default_affiliate_percent;
 
           // Calculate commission based on type
+          // IMPORTANT: Calculate on (total - platform_fee), not on remaining
+          // This ensures affiliate gets their % on net sale value
           if (commissionType === 'percentage') {
-            affiliateAmount = Math.round(remaining * (commissionValue / 100));
+            affiliateAmount = Math.round(baseForAffiliateCommission * (commissionValue / 100));
           } else {
             // Fixed commission - value is in cents, applied per sale
             affiliateAmount = commissionValue;
@@ -871,8 +883,9 @@ export async function processSaleSplitsV3(
         const liableForChargeback = partner.responsible_for_chargebacks ?? true;
 
         // Calculate commission based on type
+        // IMPORTANT: Calculate on (total - platform_fee), not on remaining
         if (commissionType === 'percentage') {
-          affiliateAmount = Math.round(remaining * (commissionValue / 100));
+          affiliateAmount = Math.round(baseForAffiliateCommission * (commissionValue / 100));
         } else {
           // Fixed commission - value is in cents, applied per sale
           affiliateAmount = commissionValue;
