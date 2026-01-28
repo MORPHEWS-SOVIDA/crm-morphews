@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { CheckCircle, Package, ArrowRight, Loader2, Copy, Clock } from 'lucide-react';
+import { CheckCircle, Package, ArrowRight, Loader2, Copy, Clock, RefreshCw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ interface PixPaymentData {
   pix_code: string;
   pix_expiration?: string;
   total_cents: number;
+  storefront_slug?: string;
 }
 
 export default function PaymentSuccess() {
@@ -24,9 +25,62 @@ export default function PaymentSuccess() {
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes default
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   // Check if this is a PIX payment pending confirmation
   const isPixPending = paymentMethod === 'pix' && pixData && !paymentConfirmed;
+
+  // Function to check payment status via public edge function
+  const checkPaymentStatus = useCallback(async () => {
+    if (!saleId) return false;
+    
+    try {
+      setIsCheckingPayment(true);
+      
+      // Use the public edge function that doesn't require auth
+      const params = new URLSearchParams({
+        sale_id: saleId,
+        storefront_slug: pixData?.storefront_slug || '_standalone',
+      });
+      
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ecommerce-sale-status?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+      
+      const json = await resp.json();
+      
+      if (json?.success && json?.sale?.payment_status) {
+        const status = json.sale.payment_status.toLowerCase();
+        if (status === 'paid') {
+          setPaymentConfirmed(true);
+          localStorage.removeItem('pix_payment_data');
+          toast.success('Pagamento confirmado!');
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      console.error('Error checking payment status:', e);
+      return false;
+    } finally {
+      setIsCheckingPayment(false);
+    }
+  }, [saleId, pixData?.storefront_slug]);
+
+  // Manual check button handler
+  const handleManualCheck = async () => {
+    const confirmed = await checkPaymentStatus();
+    if (!confirmed) {
+      toast.info('Pagamento ainda não confirmado. Aguarde alguns instantes.');
+    }
+  };
 
   useEffect(() => {
     // Try to load PIX data from localStorage
@@ -76,31 +130,20 @@ export default function PaymentSuccess() {
     return () => clearInterval(timer);
   }, [isPixPending, timeLeft]);
 
-  // Poll for payment status
+  // Poll for payment status using public edge function
   useEffect(() => {
     if (!isPixPending || !saleId) return;
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from('sales')
-          .select('payment_status')
-          .eq('id', saleId)
-          .single();
-        
-        if (data?.payment_status === 'paid') {
-          setPaymentConfirmed(true);
-          localStorage.removeItem('pix_payment_data');
-          clearInterval(pollInterval);
-          toast.success('Pagamento confirmado!');
-        }
-      } catch (e) {
-        console.error('Error polling payment status:', e);
-      }
-    }, 5000); // Poll every 5 seconds
+    // Initial check
+    checkPaymentStatus();
+
+    // Poll every 8 seconds
+    const pollInterval = setInterval(() => {
+      checkPaymentStatus();
+    }, 8000);
 
     return () => clearInterval(pollInterval);
-  }, [isPixPending, saleId]);
+  }, [isPixPending, saleId, checkPaymentStatus]);
 
   const fetchSaleData = async () => {
     try {
@@ -254,18 +297,32 @@ export default function PaymentSuccess() {
                 </ol>
               </div>
 
-              {/* Status */}
-              <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Aguardando confirmação do pagamento...</span>
+              {/* Status + Manual Check Button */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Aguardando confirmação do pagamento...</span>
+                </div>
+                
+                <Button
+                  onClick={handleManualCheck}
+                  disabled={isCheckingPayment}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isCheckingPayment ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Já paguei — verificar agora
+                    </>
+                  )}
+                </Button>
               </div>
-
-              {/* Order ID */}
-              {saleId && (
-                <p className="text-sm text-muted-foreground">
-                  Pedido #{saleId.slice(0, 8).toUpperCase()}
-                </p>
-              )}
             </CardContent>
           </Card>
         </div>
