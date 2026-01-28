@@ -19,7 +19,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  useTenantVirtualAccount,
+  useSmartVirtualAccount,
   useVirtualTransactions,
   useMyWithdrawals,
   useUpdateBankData,
@@ -27,6 +27,7 @@ import {
   usePlatformSettings,
   type WithdrawalStatus,
 } from '@/hooks/ecommerce';
+import { useTenant } from '@/hooks/useTenant';
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -53,7 +54,10 @@ function getWithdrawalStatusConfig(status: WithdrawalStatus) {
 }
 
 export function VirtualAccountPanel() {
-  const { data: account, isLoading: accountLoading } = useTenantVirtualAccount();
+  const { role } = useTenant();
+  const isPartner = role?.startsWith('partner_') ?? false;
+  
+  const { data: account, isLoading: accountLoading } = useSmartVirtualAccount(isPartner);
   const { data: transactions } = useVirtualTransactions(account?.id);
   const { data: withdrawals } = useMyWithdrawals();
   const { data: settings } = usePlatformSettings();

@@ -77,7 +77,7 @@ export interface WithdrawalRequest {
   virtual_account?: VirtualAccount;
 }
 
-// Fetch my virtual account
+// Fetch my virtual account (direct user_id link)
 export function useMyVirtualAccount() {
   return useQuery({
     queryKey: ['my-virtual-account'],
@@ -124,6 +124,56 @@ export function useTenantVirtualAccount() {
       return data as VirtualAccount | null;
     },
   });
+}
+
+// Fetch partner's individual virtual account (via profile.partner_virtual_account_id)
+export function usePartnerVirtualAccount() {
+  return useQuery({
+    queryKey: ['partner-virtual-account'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      // First check profile.partner_virtual_account_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('partner_virtual_account_id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (profile?.partner_virtual_account_id) {
+        const { data, error } = await supabase
+          .from('virtual_accounts')
+          .select('*, bank_data:virtual_account_bank_data(*)')
+          .eq('id', profile.partner_virtual_account_id)
+          .single();
+        
+        if (error) throw error;
+        return data as VirtualAccount | null;
+      }
+      
+      // Fallback: check virtual_accounts directly linked to user
+      const { data, error } = await supabase
+        .from('virtual_accounts')
+        .select('*, bank_data:virtual_account_bank_data(*)')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as VirtualAccount | null;
+    },
+  });
+}
+
+// Smart hook: returns tenant wallet for admins, individual wallet for partners
+export function useSmartVirtualAccount(isPartner: boolean) {
+  const tenantAccount = useTenantVirtualAccount();
+  const partnerAccount = usePartnerVirtualAccount();
+  
+  if (isPartner) {
+    return partnerAccount;
+  }
+  return tenantAccount;
 }
 
 // Fetch transactions for an account
