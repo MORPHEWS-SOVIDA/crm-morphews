@@ -15,17 +15,44 @@ const TEXT_TO_NUMBER: Record<string, number> = {
 function extractRating(text: string): number | null {
   const cleaned = text.toLowerCase().trim();
   
-  // Direct number match
+  // Only accept short responses (up to ~50 chars) that look like ratings
+  // Long messages are likely regular conversation, not NPS responses
+  if (cleaned.length > 50) {
+    // For longer messages, only accept if it's clearly a rating phrase
+    const ratingPhrases = [
+      /(?:minha\s+)?nota\s*(?:é|:)?\s*(10|[0-9])/i,
+      /(?:dou|daria)\s*(?:nota\s*)?(10|[0-9])/i,
+      /^(10|[0-9])\s*(?:pontos?)?$/i,
+      /aval(?:io|iação)\s*(?:com)?\s*(10|[0-9])/i,
+    ];
+    
+    for (const pattern of ratingPhrases) {
+      const match = cleaned.match(pattern);
+      if (match) return parseInt(match[1]);
+    }
+    
+    // Long message without clear rating phrase - ignore
+    return null;
+  }
+  
+  // Direct number match (just "10" or "8")
   const directMatch = cleaned.match(/^(10|[0-9])$/);
   if (directMatch) return parseInt(directMatch[1]);
   
-  // Number in context
-  const contextMatch = cleaned.match(/\b(10|[0-9])\b/);
-  if (contextMatch) return parseInt(contextMatch[1]);
+  // Number with simple context like "nota 10", "10 pontos", etc.
+  const simpleContextMatch = cleaned.match(/^(?:nota\s*)?(10|[0-9])(?:\s*(?:pontos?|!|\.)?)?$/i);
+  if (simpleContextMatch) return parseInt(simpleContextMatch[1]);
   
-  // Text to number
+  // Phrases like "dou nota 8", "minha nota é 10"
+  const phraseMatch = cleaned.match(/(?:minha\s+)?nota\s*(?:é|:)?\s*(10|[0-9])|(?:dou|daria)\s*(?:nota\s*)?(10|[0-9])/i);
+  if (phraseMatch) return parseInt(phraseMatch[1] || phraseMatch[2]);
+  
+  // Text to number (only for short responses)
   for (const [word, num] of Object.entries(TEXT_TO_NUMBER)) {
-    if (cleaned.includes(word)) return num;
+    // Only accept if the word is the main content
+    if (cleaned === word || cleaned.match(new RegExp(`^${word}[!.]*$`))) {
+      return num;
+    }
   }
   
   return null;
@@ -193,6 +220,7 @@ serve(async (req) => {
       .from("organizations")
       .select(`
         id,
+        name,
         auto_close_enabled,
         auto_close_bot_minutes,
         auto_close_assigned_minutes,
@@ -221,24 +249,24 @@ serve(async (req) => {
       // Get active instances for this org
       const { data: instances } = await supabase
         .from("whatsapp_instances")
-        .select("id, name, organization_id")
+        .select("id, name, organization_id, evolution_instance_id")
         .eq("organization_id", org.id)
         .in("status", ["active", "connected"]);
 
       const botCutoff = new Date(now.getTime() - (org.auto_close_bot_minutes || 60) * 60 * 1000);
       const assignedCutoff = new Date(now.getTime() - (org.auto_close_assigned_minutes || 480) * 60 * 1000);
       
-      console.log(`[auto-close] Org ${org.id}: botCutoff=${botCutoff.toISOString()}, assignedCutoff=${assignedCutoff.toISOString()}, instances=${instances?.length || 0}`);
+      console.log(`[auto-close] Org ${org.id} (${org.name}): botCutoff=${botCutoff.toISOString()}, assignedCutoff=${assignedCutoff.toISOString()}, instances=${instances?.length || 0}`);
 
       for (const instance of instances || []) {
         // Get conversations to close for this instance
-        // Note: status is "with_bot" in DB, not just "bot"
         const { data: conversationsToClose } = await supabase
           .from("whatsapp_conversations")
           .select("id, status, assigned_user_id, lead_id, chat_id, organization_id, last_message_at")
           .or(`instance_id.eq.${instance.id},current_instance_id.eq.${instance.id}`)
           .in("status", ["pending", "assigned", "with_bot"])
           .eq("awaiting_satisfaction_response", false);
+
         console.log(`[auto-close] Instance ${instance.name}: found ${conversationsToClose?.length || 0} conversations to check`);
         
         for (const conv of conversationsToClose || []) {
@@ -272,23 +300,16 @@ serve(async (req) => {
               }
 
               if (messageToSend) {
-                // Send message via admin Evolution API config
+                // Send message via the conversation's WhatsApp instance
                 try {
                   const adminConfig = await getAdminWhatsAppConfig(supabase);
                   
                   if (adminConfig?.api_url && adminConfig?.api_key) {
-                    // Get the evolution instance name from the instance record
-                    const { data: instanceData } = await supabase
-                      .from("whatsapp_instances")
-                      .select("evolution_instance_id")
-                      .eq("id", instance.id)
-                      .single();
-                    
-                    const evolutionInstanceName = (instanceData as any)?.evolution_instance_id || instance.name;
+                    const evolutionInstanceName = (instance as any)?.evolution_instance_id;
                     
                     if (evolutionInstanceName) {
                       const sendUrl = `${adminConfig.api_url.replace(/\/$/, "")}/message/sendText/${evolutionInstanceName}`;
-                      console.log(`[auto-close] Sending to ${phoneNumber} via ${evolutionInstanceName} (NPS: ${shouldSendNPS})`);
+                      console.log(`[auto-close] Sending NPS to ${phoneNumber} via ${evolutionInstanceName} (conv: ${conv.id})`);
                       
                       const resp = await fetch(sendUrl, {
                         method: "POST",
@@ -304,17 +325,19 @@ serve(async (req) => {
                       
                       if (!resp.ok) {
                         const errorBody = await resp.text();
-                        console.error(`[auto-close] Failed to send: ${resp.status} - ${errorBody}`);
+                        console.error(`[auto-close] Failed to send NPS to ${phoneNumber}: ${resp.status} - ${errorBody.substring(0, 300)}`);
                       } else {
-                        console.log(`[auto-close] Message sent successfully to ${phoneNumber}`);
+                        console.log(`[auto-close] NPS sent to ${phoneNumber} via ${evolutionInstanceName}`);
                         if (shouldSendNPS) surveysSent++;
                       }
+                    } else {
+                      console.warn(`[auto-close] No evolution_instance_id for instance ${instance.id} (${instance.name}), skipping NPS send`);
                     }
                   } else {
-                    console.warn("[auto-close] No admin WhatsApp config found, cannot send message");
+                    console.warn("[auto-close] No admin WhatsApp config (missing api_url or api_key)");
                   }
                 } catch (e) {
-                  console.error("[auto-close] Error sending close message:", e);
+                  console.error("[auto-close] Error sending NPS message:", e);
                 }
               }
             }
