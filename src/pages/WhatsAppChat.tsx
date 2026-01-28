@@ -500,7 +500,7 @@ export default function WhatsAppChat() {
     };
 
     fetchLead();
-  }, [selectedConversation?.id]);
+  }, [selectedConversation?.id, selectedConversation?.lead_id]);
 
   // Auto scroll to bottom - only when conversation changes or user is at bottom
   useEffect(() => {
