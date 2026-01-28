@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
+import { useEcommerceOrganizationId } from '@/hooks/ecommerce/useEcommerceOrganizationId';
 
 export type LinkableAssetType = 'checkout' | 'landing' | 'product';
 
@@ -36,16 +36,9 @@ export interface AvailableOffer {
   affiliate_link?: string;
 }
 
-function useOrganizationId() {
-  const { profile } = useAuth();
-  const { data: tenantId } = useCurrentTenantId();
-  // IMPORTANT: use the CURRENT tenant first (multi-tenant), fallback to profile for legacy flows.
-  return tenantId ?? profile?.organization_id ?? null;
-}
-
 // Hook para buscar afiliados vinculados a um checkout
 export function useCheckoutAffiliates(checkoutId: string | null) {
-  const organizationId = useOrganizationId();
+  const { data: organizationId } = useEcommerceOrganizationId();
 
   return useQuery({
     queryKey: ['checkout-affiliates', organizationId, checkoutId],
@@ -97,7 +90,7 @@ export function useCheckoutAffiliates(checkoutId: string | null) {
 // Hook para buscar todos os afiliados ÚNICOS da org (para adicionar ao checkout)
 // Agrupa por virtual_account_id para evitar duplicatas e mostra TODOS os afiliados
 export function useOrganizationAffiliates() {
-  const organizationId = useOrganizationId();
+  const { data: organizationId } = useEcommerceOrganizationId();
 
   return useQuery({
     queryKey: ['organization-affiliates', organizationId],
@@ -162,7 +155,7 @@ export function useOrganizationAffiliates() {
 // Hook para vincular afiliado a um checkout
 export function useLinkAffiliateToCheckout() {
   const queryClient = useQueryClient();
-  const organizationId = useOrganizationId();
+  const { data: organizationId } = useEcommerceOrganizationId();
 
   return useMutation({
     mutationFn: async ({ 
@@ -217,7 +210,7 @@ export function useLinkAffiliateToCheckout() {
 // Hook para desvincular afiliado de um checkout
 export function useUnlinkAffiliateFromCheckout() {
   const queryClient = useQueryClient();
-  const organizationId = useOrganizationId();
+  const { data: organizationId } = useEcommerceOrganizationId();
 
   return useMutation({
     mutationFn: async ({ linkId, checkoutId }: { linkId: string; checkoutId: string }) => {
