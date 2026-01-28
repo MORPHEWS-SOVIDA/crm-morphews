@@ -327,31 +327,63 @@ serve(async (req) => {
       }
     }
 
-    // 5. Create sale in payment_pending status with UTM attribution
+    // 5. Create lead address if shipping data exists
+    let shippingAddressId: string | null = null;
+    if (body.shipping?.address && body.shipping?.city) {
+      const { data: leadAddress } = await supabase
+        .from('lead_addresses')
+        .insert({
+          lead_id: lead.id,
+          organization_id: organizationId,
+          label: 'Entrega',
+          is_primary: true,
+          street: body.shipping.address,
+          neighborhood: body.shipping.neighborhood || null,
+          city: body.shipping.city,
+          state: body.shipping.state,
+          cep: body.shipping.zip,
+          complement: body.shipping.complement || null,
+        })
+        .select('id')
+        .single();
+      
+      if (leadAddress) {
+        shippingAddressId = leadAddress.id;
+        console.log(`[Checkout] Created lead_address ${shippingAddressId} for lead ${lead.id}`);
+      }
+    }
+
+    // 6. Create sale in payment_pending status with UTM attribution
+    const salePayload: Record<string, unknown> = {
+      organization_id: organizationId,
+      lead_id: lead.id,
+      created_by: defaultUserId,
+      status: 'payment_pending',
+      payment_status: 'pending',
+      subtotal_cents: subtotalCents,
+      shipping_cost_cents: shippingCents,
+      total_cents: totalCents,
+      payment_method: payment_method,
+      payment_notes: `Checkout via ${storefront_id ? 'loja' : landing_page_id ? 'landing page' : 'standalone checkout'}`,
+      src: utm?.src || null,
+      utm_source: utm?.utm_source || null,
+      utm_medium: utm?.utm_medium || null,
+      utm_campaign: utm?.utm_campaign || null,
+      utm_term: utm?.utm_term || null,
+      utm_content: utm?.utm_content || null,
+      fbclid: utm?.fbclid || null,
+      gclid: utm?.gclid || null,
+      ttclid: utm?.ttclid || null,
+    };
+
+    // Add shipping address reference if we created one
+    if (shippingAddressId) {
+      salePayload.shipping_address_id = shippingAddressId;
+    }
+
     const { data: sale, error: saleError } = await supabase
       .from('sales')
-      .insert({
-        organization_id: organizationId,
-        lead_id: lead.id,
-        created_by: defaultUserId, // Required field
-        status: 'payment_pending', // Valid sale_status enum value
-        payment_status: 'pending',
-        subtotal_cents: subtotalCents,
-        shipping_cost_cents: shippingCents,
-        total_cents: totalCents,
-        payment_method: payment_method,
-        payment_notes: `Checkout via ${storefront_id ? 'loja' : 'landing page'}`,
-        // Attribution UTM data on sale
-        src: utm?.src || null,
-        utm_source: utm?.utm_source || null,
-        utm_medium: utm?.utm_medium || null,
-        utm_campaign: utm?.utm_campaign || null,
-        utm_term: utm?.utm_term || null,
-        utm_content: utm?.utm_content || null,
-        fbclid: utm?.fbclid || null,
-        gclid: utm?.gclid || null,
-        ttclid: utm?.ttclid || null,
-      })
+      .insert(salePayload)
       .select('id')
       .single();
 
@@ -478,6 +510,7 @@ serve(async (req) => {
         document: customer.document,
         address: body.shipping ? {
           street: body.shipping.address,
+          neighborhood: body.shipping.neighborhood,
           city: body.shipping.city,
           state: body.shipping.state,
           zip_code: body.shipping.zip,

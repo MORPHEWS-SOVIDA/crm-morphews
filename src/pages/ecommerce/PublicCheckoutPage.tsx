@@ -54,7 +54,16 @@ export default function PublicCheckoutPage() {
     email: '',
     phone: '',
     cpf: '',
+    // Shipping address
+    cep: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
   });
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
 
   // Universal tracking for server-side CAPI
   const trackingConfig = useMemo(() => ({
@@ -152,6 +161,35 @@ export default function PublicCheckoutPage() {
     setTotalWithInterest(installments > 1 ? newTotal : null);
   };
 
+  // CEP lookup via ViaCEP API
+  const handleCepBlur = async () => {
+    const cleanCep = formData.cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+    
+    setIsLoadingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+      
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          street: data.logradouro || '',
+          neighborhood: data.bairro || '',
+          city: data.localidade || '',
+          state: data.uf || '',
+        }));
+      } else {
+        toast.error('CEP não encontrado');
+      }
+    } catch (error) {
+      console.error('CEP lookup error:', error);
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setIsLoadingCep(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -160,6 +198,12 @@ export default function PublicCheckoutPage() {
     // Validate required fields
     if (!formData.name || !formData.email || !formData.phone) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Validate shipping address
+    if (!formData.cep || !formData.street || !formData.number || !formData.city || !formData.state) {
+      toast.error('Preencha o endereço de entrega completo');
       return;
     }
 
@@ -212,6 +256,14 @@ export default function PublicCheckoutPage() {
           email: formData.email,
           phone: formData.phone,
           document: formData.cpf || undefined,
+        },
+        shipping: {
+          address: `${formData.street}, ${formData.number}`,
+          neighborhood: formData.neighborhood,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.cep,
+          complement: formData.complement || undefined,
         },
         payment_method: paymentMethod,
         installments: cardData?.installments || 1,
@@ -529,6 +581,94 @@ export default function PublicCheckoutPage() {
                             value={formData.cpf}
                             onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
                             placeholder="000.000.000-00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Shipping Address */}
+                    <div className="space-y-4">
+                      <h3 className="font-medium">Endereço de Entrega</h3>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="cep">CEP *</Label>
+                          <div className="relative">
+                            <Input
+                              id="cep"
+                              maxLength={9}
+                              placeholder="00000-000"
+                              value={formData.cep}
+                              onChange={(e) => setFormData(prev => ({ ...prev, cep: e.target.value.replace(/\D/g, '') }))}
+                              onBlur={handleCepBlur}
+                              required
+                            />
+                            {isLoadingCep && (
+                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="sm:col-span-2 space-y-2">
+                          <Label htmlFor="street">Rua *</Label>
+                          <Input
+                            id="street"
+                            value={formData.street}
+                            onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="number">Número *</Label>
+                          <Input
+                            id="number"
+                            value={formData.number}
+                            onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="complement">Complemento</Label>
+                          <Input
+                            id="complement"
+                            placeholder="Apto, Bloco, etc."
+                            value={formData.complement}
+                            onChange={(e) => setFormData(prev => ({ ...prev, complement: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="neighborhood">Bairro *</Label>
+                          <Input
+                            id="neighborhood"
+                            value={formData.neighborhood}
+                            onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="city">Cidade *</Label>
+                          <Input
+                            id="city"
+                            value={formData.city}
+                            onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="state">Estado *</Label>
+                          <Input
+                            id="state"
+                            maxLength={2}
+                            placeholder="UF"
+                            value={formData.state}
+                            onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                            required
                           />
                         </div>
                       </div>
