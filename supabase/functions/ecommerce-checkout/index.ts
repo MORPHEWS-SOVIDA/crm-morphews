@@ -419,20 +419,22 @@ serve(async (req) => {
     // The Split Engine will resolve the affiliate on payment confirmation
     // This allows tracking even if the affiliate isn't yet linked to this specific checkout
     if (affiliate_code) {
+      // Valid attribution_type values: 'link', 'coupon', 'manual', 'utm'
+      // 'link' is used for ?ref= URL parameter (affiliate link)
       const { error: attrError } = await supabase
         .from('affiliate_attributions')
         .insert({
           sale_id: sale.id,
           organization_id: organizationId,
           affiliate_id: null, // Deprecated - Split Engine resolves via code_or_ref
-          attribution_type: affiliateNetworkMemberId ? 'network' : 'ref',
+          attribution_type: 'link', // ?ref= parameter = affiliate link
           code_or_ref: affiliate_code,
         });
       
       if (attrError) {
         console.error('Failed to create affiliate attribution:', attrError);
       } else {
-        console.log(`[Checkout] Attribution created for affiliate code ${affiliate_code} (${affiliateNetworkMemberId ? 'network' : affiliatePartnerId ? 'partner' : 'unlinked'})`);
+        console.log(`[Checkout] Attribution created for affiliate code ${affiliate_code} (${affiliatePartnerId ? 'partner' : 'unlinked'})`);
       }
     }
 
