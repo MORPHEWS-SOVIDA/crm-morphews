@@ -3206,6 +3206,7 @@ export type Database = {
       ecommerce_carts: {
         Row: {
           abandoned_at: string | null
+          affiliate_id: string | null
           converted_sale_id: string | null
           coupon_code: string | null
           created_at: string
@@ -3247,6 +3248,7 @@ export type Database = {
         }
         Insert: {
           abandoned_at?: string | null
+          affiliate_id?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
           created_at?: string
@@ -3288,6 +3290,7 @@ export type Database = {
         }
         Update: {
           abandoned_at?: string | null
+          affiliate_id?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
           created_at?: string
@@ -3328,6 +3331,13 @@ export type Database = {
           utm_term?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecommerce_carts_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "organization_affiliates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecommerce_carts_converted_sale_id_fkey"
             columns: ["converted_sale_id"]
