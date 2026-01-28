@@ -73,11 +73,12 @@ export function useShippingQuote() {
 
     setIsLoading(true);
     try {
-      // Use Melhor Envio quote function
-      const { data, error } = await supabase.functions.invoke('melhor-envio-quote', {
+      // Use Correios simple quote function (table-based, R$7 picking + 2 days)
+      const { data, error } = await supabase.functions.invoke('correios-simple-quote', {
         body: {
           organization_id: tenantId,
-          ...request,
+          destination_cep: request.destination_cep,
+          weight_grams: request.weight_grams,
         },
       });
 
@@ -89,16 +90,13 @@ export function useShippingQuote() {
         throw new Error(data.error || 'Falha na consulta de frete');
       }
 
-      // Map Melhor Envio response to ShippingQuote format
+      // Map Correios response to ShippingQuote format
+      // Prepend "Correios" to service name for clarity
       return (data.quotes || []).map((q: any) => ({
-        service_code: String(q.service_id),
-        service_id: q.service_id,
-        service_name: `${q.company_name} - ${q.service_name}`,
-        company_name: q.company_name,
-        company_picture: q.company_picture,
+        service_code: q.service_code,
+        service_name: `Correios ${q.service_name}`,
         price_cents: q.price_cents,
         delivery_days: q.delivery_days,
-        delivery_range: q.delivery_range,
         error: q.error,
       }));
     } finally {

@@ -45,8 +45,8 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor }
     setError(null);
 
     try {
-      // Use Melhor Envio quote function
-      const { data, error: fnError } = await supabase.functions.invoke('melhor-envio-quote', {
+      // Use Correios simple quote function (table-based, R$7 picking + 2 days)
+      const { data, error: fnError } = await supabase.functions.invoke('correios-simple-quote', {
         body: {
           organization_id: organizationId,
           destination_cep: cep,
@@ -55,9 +55,13 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor }
 
       if (fnError) throw fnError;
 
-      const validOptions = (data?.quotes || []).filter(
-        (q: ShippingOption) => q.price_cents > 0 && !q.error
-      );
+      // Map response and prepend "Correios" to service names
+      const validOptions = (data?.quotes || [])
+        .filter((q: ShippingOption) => q.price_cents > 0 && !q.error)
+        .map((q: any) => ({
+          ...q,
+          service_name: `Correios ${q.service_name}`,
+        }));
 
       setOptions(validOptions);
 
