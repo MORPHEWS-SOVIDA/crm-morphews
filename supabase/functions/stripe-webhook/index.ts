@@ -428,6 +428,132 @@ serve(async (req) => {
           console.error("Error creating subscription:", subError);
         }
 
+        // ============= IMPLEMENTER COMMISSION PROCESSING =============
+        const isImplementerSale = session.metadata?.is_implementer_sale === "true";
+        const implementerId = session.metadata?.implementer_id;
+        const checkoutLinkId = session.metadata?.checkout_link_id;
+        const implementationFeeCents = parseInt(session.metadata?.implementation_fee_cents || "0", 10);
+
+        if (isImplementerSale && implementerId && organizationId) {
+          console.log("Processing implementer sale:", { implementerId, implementationFeeCents });
+
+          try {
+            // Get the subscription record we just created
+            const { data: subscription } = await supabaseAdmin
+              .from("subscriptions")
+              .select("id")
+              .eq("organization_id", organizationId)
+              .single();
+
+            // Get plan price for commission calculation
+            const { data: planData } = await supabaseAdmin
+              .from("subscription_plans")
+              .select("price_cents")
+              .eq("id", planId)
+              .single();
+
+            const planPriceCents = planData?.price_cents || 0;
+
+            // Create implementer_sale record
+            const { data: implementerSale, error: saleError } = await supabaseAdmin
+              .from("implementer_sales")
+              .insert({
+                implementer_id: implementerId,
+                client_organization_id: organizationId,
+                client_subscription_id: subscription?.id || null,
+                plan_id: planId,
+                implementation_fee_cents: implementationFeeCents,
+                first_payment_cents: planPriceCents + implementationFeeCents,
+                status: "active",
+              })
+              .select()
+              .single();
+
+            if (saleError) {
+              console.error("Error creating implementer sale:", saleError);
+            } else {
+              console.log("Implementer sale created:", implementerSale.id);
+
+              // Process implementation fee commission (88% to implementer, 12% platform)
+              if (implementationFeeCents > 0) {
+                const platformFee = Math.round(implementationFeeCents * 0.12);
+                const implementerNet = implementationFeeCents - platformFee;
+
+                await supabaseAdmin.from("implementer_commissions").insert({
+                  implementer_id: implementerId,
+                  implementer_sale_id: implementerSale.id,
+                  commission_type: "implementation_fee",
+                  gross_amount_cents: implementationFeeCents,
+                  platform_fee_cents: platformFee,
+                  net_amount_cents: implementerNet,
+                  period_month: 1,
+                  status: "pending",
+                });
+
+                console.log("Implementation fee commission created:", implementerNet);
+              }
+
+              // Process first month commission (40% to implementer)
+              if (planPriceCents > 0) {
+                const firstMonthCommission = Math.round(planPriceCents * 0.40);
+
+                await supabaseAdmin.from("implementer_commissions").insert({
+                  implementer_id: implementerId,
+                  implementer_sale_id: implementerSale.id,
+                  commission_type: "first_month",
+                  gross_amount_cents: firstMonthCommission,
+                  platform_fee_cents: 0,
+                  net_amount_cents: firstMonthCommission,
+                  period_month: 1,
+                  status: "pending",
+                });
+
+                console.log("First month commission created:", firstMonthCommission);
+              }
+
+              // Update implementer stats
+              const totalCommission = 
+                (implementationFeeCents > 0 ? implementationFeeCents - Math.round(implementationFeeCents * 0.12) : 0) +
+                Math.round(planPriceCents * 0.40);
+
+              await supabaseAdmin
+                .from("implementers")
+                .update({
+                  total_clients: supabaseAdmin.rpc("increment_counter", { row_id: implementerId, increment_by: 1 }),
+                  total_earnings_cents: supabaseAdmin.rpc("increment_counter", { row_id: implementerId, increment_by: totalCommission }),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", implementerId);
+
+              // Simpler update without rpc
+              const { data: currentImplementer } = await supabaseAdmin
+                .from("implementers")
+                .select("total_clients, total_earnings_cents")
+                .eq("id", implementerId)
+                .single();
+
+              if (currentImplementer) {
+                await supabaseAdmin
+                  .from("implementers")
+                  .update({
+                    total_clients: (currentImplementer.total_clients || 0) + 1,
+                    total_earnings_cents: (currentImplementer.total_earnings_cents || 0) + totalCommission,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", implementerId);
+              }
+
+              // Increment checkout link uses
+              if (checkoutLinkId) {
+                await supabaseAdmin.rpc("increment_checkout_link_uses", { link_id: checkoutLinkId });
+              }
+            }
+          } catch (implError) {
+            console.error("Error processing implementer commissions:", implError);
+          }
+        }
+        // ============= END IMPLEMENTER PROCESSING =============
+
         await supabaseAdmin
           .from("interested_leads")
           .update({ status: "converted", converted_at: new Date().toISOString() })
@@ -522,6 +648,118 @@ serve(async (req) => {
           .eq("stripe_customer_id", customerId);
 
         console.log("Subscription canceled");
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const subscriptionId = invoice.subscription as string;
+        
+        // Skip first invoice (handled in checkout.session.completed)
+        if (invoice.billing_reason === "subscription_create") {
+          console.log("Skipping first invoice, already processed in checkout");
+          break;
+        }
+
+        console.log("Processing recurring invoice:", { customerId, subscriptionId, billingReason: invoice.billing_reason });
+
+        // Find subscription and check for implementer sale
+        const { data: internalSub } = await supabaseAdmin
+          .from("subscriptions")
+          .select("id, organization_id, plan_id")
+          .eq("stripe_subscription_id", subscriptionId)
+          .single();
+
+        if (!internalSub) {
+          console.log("No internal subscription found for:", subscriptionId);
+          break;
+        }
+
+        // Check if this client has an implementer
+        const { data: implementerSale } = await supabaseAdmin
+          .from("implementer_sales")
+          .select("*, implementer:implementers!implementer_id(*)")
+          .eq("client_organization_id", internalSub.organization_id)
+          .eq("status", "active")
+          .single();
+
+        if (implementerSale) {
+          console.log("Found implementer sale:", implementerSale.id);
+
+          // Check if implementer has active subscription
+          const { data: implementerSub } = await supabaseAdmin
+            .from("subscriptions")
+            .select("status")
+            .eq("organization_id", implementerSale.implementer.organization_id)
+            .eq("status", "active")
+            .single();
+
+          if (!implementerSub) {
+            console.log("Implementer subscription not active, skipping commission");
+            break;
+          }
+
+          // Get plan price
+          const { data: plan } = await supabaseAdmin
+            .from("subscription_plans")
+            .select("price_cents")
+            .eq("id", internalSub.plan_id)
+            .single();
+
+          const planPriceCents = plan?.price_cents || 0;
+
+          if (planPriceCents > 0) {
+            // Calculate 10% recurring commission
+            const recurringCommission = Math.round(planPriceCents * 0.10);
+
+            // Get the next period month
+            const { data: lastCommission } = await supabaseAdmin
+              .from("implementer_commissions")
+              .select("period_month")
+              .eq("implementer_sale_id", implementerSale.id)
+              .in("commission_type", ["first_month", "recurring"])
+              .order("period_month", { ascending: false })
+              .limit(1)
+              .single();
+
+            const nextPeriodMonth = (lastCommission?.period_month || 1) + 1;
+
+            // Create recurring commission
+            await supabaseAdmin.from("implementer_commissions").insert({
+              implementer_id: implementerSale.implementer_id,
+              implementer_sale_id: implementerSale.id,
+              commission_type: "recurring",
+              gross_amount_cents: recurringCommission,
+              platform_fee_cents: 0,
+              net_amount_cents: recurringCommission,
+              period_month: nextPeriodMonth,
+              status: "pending",
+            });
+
+            // Update implementer totals
+            const { data: currentImplementer } = await supabaseAdmin
+              .from("implementers")
+              .select("total_earnings_cents")
+              .eq("id", implementerSale.implementer_id)
+              .single();
+
+            if (currentImplementer) {
+              await supabaseAdmin
+                .from("implementers")
+                .update({
+                  total_earnings_cents: (currentImplementer.total_earnings_cents || 0) + recurringCommission,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", implementerSale.implementer_id);
+            }
+
+            console.log("Recurring commission created:", { 
+              amount: recurringCommission, 
+              month: nextPeriodMonth 
+            });
+          }
+        }
         break;
       }
 

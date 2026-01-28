@@ -44,6 +44,9 @@ export default function Planos() {
   // Get plan ID from URL for direct checkout links
   const urlPlanId = searchParams.get("plan");
   
+  // Get implementer referral code from URL
+  const implementerRef = searchParams.get("ref");
+  
   // Fetch specific plan by ID (for hidden plans accessed via direct link)
   const { data: urlPlan, isLoading: urlPlanLoading } = useSubscriptionPlanById(urlPlanId);
 
@@ -135,6 +138,7 @@ export default function Planos() {
           customerWhatsapp: leadForm.whatsapp.trim(),
           successUrl: `${window.location.origin}/?subscription=success`,
           cancelUrl: `${window.location.origin}/planos`,
+          implementerRef: implementerRef || undefined, // Pass implementer referral code
         },
       });
 
