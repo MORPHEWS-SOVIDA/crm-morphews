@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Bot, Check, CheckCheck, Clock, Download, ImageIcon, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { Bot, Check, CheckCheck, Clock, Download, ImageIcon, AlertTriangle, FileText, Loader2, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { useTranscribeAudioMessage } from '@/hooks/useTranscribeAudioMessage';
 
 interface Message {
   id: string;
@@ -24,10 +26,22 @@ interface Message {
 
 interface MessageBubbleProps {
   message: Message;
+  organizationId?: string; // Para transcrição manual
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
+  const transcribeMutation = useTranscribeAudioMessage();
+
+  const handleTranscribe = () => {
+    if (!organizationId || !message.media_url) return;
+    
+    transcribeMutation.mutate({
+      messageId: message.id,
+      organizationId,
+      mediaUrl: message.media_url,
+    });
+  };
 
   const getStatusIcon = () => {
     switch (message.status) {
@@ -127,7 +141,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             )}
             
             {/* Transcription display */}
-            {message.transcription_status === 'processing' && (
+            {(message.transcription_status === 'processing' || transcribeMutation.isPending) && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-lg">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Transcrevendo...</span>
@@ -144,6 +158,23 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   {message.transcription}
                 </p>
               </div>
+            )}
+            
+            {/* Manual Transcribe Button - show if no transcription yet and not processing */}
+            {!message.transcription && 
+             message.transcription_status !== 'processing' && 
+             !transcribeMutation.isPending &&
+             message.media_url &&
+             organizationId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-primary"
+                onClick={handleTranscribe}
+              >
+                <Mic className="h-3 w-3 mr-1" />
+                Transcrever
+              </Button>
             )}
             
             {message.content && message.content.includes("Transcrição do áudio") && !message.transcription && (

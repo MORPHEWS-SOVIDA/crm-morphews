@@ -1402,7 +1402,7 @@ export default function WhatsAppChat() {
               ) : (
                 <div className="space-y-1">
                   {messages.map((msg) => (
-                    <MessageBubble key={msg.id} message={msg} />
+                    <MessageBubble key={msg.id} message={msg} organizationId={profile?.organization_id} />
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
@@ -1905,7 +1905,7 @@ export default function WhatsAppChat() {
                 ) : (
                   <div className="space-y-2 max-w-3xl mx-auto">
                     {messages.map(msg => (
-                      <MessageBubble key={msg.id} message={msg} />
+                      <MessageBubble key={msg.id} message={msg} organizationId={profile?.organization_id} />
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
