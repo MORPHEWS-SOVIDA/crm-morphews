@@ -202,10 +202,21 @@ export function CheckoutsManager() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {checkout.product?.name || 'Produto não encontrado'}
+                      {checkout.custom_product_name || checkout.product?.name || 'Produto não encontrado'}
+                      {(checkout.quantity ?? 1) > 1 && (
+                        <span className="text-muted-foreground ml-1">x{checkout.quantity}</span>
+                      )}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {formatCurrency(checkout.product?.price_1_unit || checkout.product?.base_price_cents || 0)}
+                      {formatCurrency(
+                        checkout.custom_price_cents ?? 
+                        checkout.product?.price_1_unit ?? 
+                        checkout.product?.base_price_cents ?? 
+                        0
+                      )}
+                      {checkout.custom_price_cents && (
+                        <span className="ml-1 text-xs text-green-600">✓ customizado</span>
+                      )}
                     </p>
                   </div>
                 </div>
