@@ -129,6 +129,12 @@ export interface Sale {
     id: string;
     name: string;
   };
+  melhor_envio_labels?: Array<{
+    id: string;
+    label_pdf_url: string | null;
+    tracking_code: string | null;
+    status: string | null;
+  }>;
 }
 
 export interface SaleItem {
