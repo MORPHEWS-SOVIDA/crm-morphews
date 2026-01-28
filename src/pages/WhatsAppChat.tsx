@@ -76,6 +76,7 @@ interface Conversation {
   status?: string; // 'pending' | 'autodistributed' | 'assigned' | 'closed'
   assigned_user_id?: string | null;
   designated_user_id?: string | null; // Para auto-distribuição
+  has_nps_rating?: boolean;
 }
 
 interface Message {
@@ -152,6 +153,7 @@ export default function WhatsAppChat() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [claimingConversationId, setClaimingConversationId] = useState<string | null>(null);
   const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
+  const [closingWithoutNPSId, setClosingWithoutNPSId] = useState<string | null>(null);
   const [reactivatingConversationId, setReactivatingConversationId] = useState<string | null>(null);
   
   // Status tab filter - mobile supports 'all', desktop does not
@@ -258,21 +260,36 @@ export default function WhatsAppChat() {
       if (!selectedInstance || !profile?.organization_id) return;
       
       // Busca por organization_id ao invés de instance_id para ver conversas de todas as instâncias
+      // Incluindo NPS ratings para mostrar badge nas encerradas
       const { data, error } = await supabase
         .from('whatsapp_conversations')
-        .select('*')
+        .select(`
+          *,
+          conversation_satisfaction_ratings!left(rating, auto_classified)
+        `)
         .eq('organization_id', profile.organization_id)
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (!error && data) {
+        // Processar dados para adicionar has_nps_rating
+        const processedData = data.map((conv: any) => {
+          const ratings = conv.conversation_satisfaction_ratings || [];
+          const hasRating = ratings.some((r: any) => r.rating !== null && r.auto_classified === true);
+          return {
+            ...conv,
+            has_nps_rating: hasRating,
+            conversation_satisfaction_ratings: undefined, // Limpar o nested object
+          };
+        });
+        
         // "all" = todas as conversas da organização
         if (selectedInstance === 'all') {
-          setConversations(data);
+          setConversations(processedData);
           return;
         }
 
         // Filtrar pela instância selecionada ou mostrar as que estão com current_instance_id nela
-        const filtered = data.filter((c: any) =>
+        const filtered = processedData.filter((c: any) =>
           c.instance_id === selectedInstance || c.current_instance_id === selectedInstance
         );
         setConversations(filtered);
@@ -922,6 +939,25 @@ export default function WhatsAppChat() {
       setStatusFilter('closed');
     } finally {
       setClosingConversationId(null);
+    }
+  };
+
+  // Handler para encerrar sem NPS (spam, gif, etc)
+  const handleCloseWithoutNPS = async (conversationId: string) => {
+    setClosingWithoutNPSId(conversationId);
+    try {
+      await closeConversationWithoutNPS.mutateAsync({ conversationId });
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId 
+          ? { ...c, status: 'closed' }
+          : c
+      ));
+      // Se era a conversa selecionada, deselecionar
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+      }
+    } finally {
+      setClosingWithoutNPSId(null);
     }
   };
 
@@ -1678,6 +1714,9 @@ export default function WhatsAppChat() {
                     isClosing={closingConversationId === conv.id}
                     assignedUserName={conv.assigned_user_id ? userProfiles?.[conv.assigned_user_id] : null}
                     currentUserId={user?.id}
+                    showCloseWithoutNPS={statusFilter === 'pending'}
+                    onCloseWithoutNPS={() => handleCloseWithoutNPS(conv.id)}
+                    isClosingWithoutNPS={closingWithoutNPSId === conv.id}
                   />
                 );
               })

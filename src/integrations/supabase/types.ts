@@ -8640,6 +8640,7 @@ export type Database = {
           satisfaction_survey_message: string | null
           satisfaction_survey_on_auto_close: boolean | null
           satisfaction_survey_on_manual_close: boolean | null
+          satisfaction_thank_you_message: string | null
           slug: string
           stock_allow_negative: boolean | null
           stock_use_average_cost: boolean | null
@@ -8688,6 +8689,7 @@ export type Database = {
           satisfaction_survey_message?: string | null
           satisfaction_survey_on_auto_close?: boolean | null
           satisfaction_survey_on_manual_close?: boolean | null
+          satisfaction_thank_you_message?: string | null
           slug: string
           stock_allow_negative?: boolean | null
           stock_use_average_cost?: boolean | null
@@ -8736,6 +8738,7 @@ export type Database = {
           satisfaction_survey_message?: string | null
           satisfaction_survey_on_auto_close?: boolean | null
           satisfaction_survey_on_manual_close?: boolean | null
+          satisfaction_thank_you_message?: string | null
           slug?: string
           stock_allow_negative?: boolean | null
           stock_use_average_cost?: boolean | null
