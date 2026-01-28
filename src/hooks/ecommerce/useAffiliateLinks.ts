@@ -15,6 +15,7 @@ export interface AffiliateLink {
   linked_landing_id: string | null;
   linked_product_id: string | null;
   is_active: boolean;
+  virtual_account_id: string;
   virtual_account: {
     id: string;
     holder_name: string;
@@ -44,7 +45,7 @@ export function useCheckoutAffiliates(checkoutId: string | null) {
       if (!checkoutId || !profile?.organization_id) return [];
 
       // Buscar todos os afiliados da org que estão vinculados a este checkout
-      const { data, error } = await supabase
+      const { data: associations, error } = await supabase
         .from('partner_associations')
         .select(`
           id,
@@ -54,14 +55,32 @@ export function useCheckoutAffiliates(checkoutId: string | null) {
           commission_value,
           linked_checkout_id,
           is_active,
-          virtual_account:virtual_accounts(id, holder_name, holder_email)
+          virtual_account_id
         `)
         .eq('organization_id', profile.organization_id)
         .eq('partner_type', 'affiliate')
         .eq('linked_checkout_id', checkoutId);
 
       if (error) throw error;
-      return data as unknown as AffiliateLink[];
+      if (!associations || associations.length === 0) return [];
+
+      // Buscar virtual_accounts separadamente (contorna problemas de RLS no join)
+      const virtualAccountIds = associations.map(a => a.virtual_account_id).filter(Boolean);
+      
+      const { data: virtualAccounts } = await supabase
+        .from('virtual_accounts')
+        .select('id, holder_name, holder_email')
+        .in('id', virtualAccountIds);
+
+      // Mapear virtual_accounts para as associações
+      const vaMap = new Map(virtualAccounts?.map(va => [va.id, va]) || []);
+      
+      const result = associations.map(a => ({
+        ...a,
+        virtual_account: vaMap.get(a.virtual_account_id) || null,
+      }));
+
+      return result as unknown as AffiliateLink[];
     },
     enabled: !!checkoutId && !!profile?.organization_id,
   });
@@ -76,7 +95,8 @@ export function useOrganizationAffiliates() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      const { data, error } = await supabase
+      // Buscar associações de afiliados
+      const { data: associations, error } = await supabase
         .from('partner_associations')
         .select(`
           id,
@@ -88,14 +108,32 @@ export function useOrganizationAffiliates() {
           linked_landing_id,
           linked_product_id,
           is_active,
-          virtual_account:virtual_accounts(id, holder_name, holder_email)
+          virtual_account_id
         `)
         .eq('organization_id', profile.organization_id)
         .eq('partner_type', 'affiliate')
         .eq('is_active', true);
 
       if (error) throw error;
-      return data as unknown as AffiliateLink[];
+      if (!associations || associations.length === 0) return [];
+
+      // Buscar virtual_accounts separadamente (contorna problemas de RLS no join)
+      const virtualAccountIds = associations.map(a => a.virtual_account_id).filter(Boolean);
+      
+      const { data: virtualAccounts } = await supabase
+        .from('virtual_accounts')
+        .select('id, holder_name, holder_email')
+        .in('id', virtualAccountIds);
+
+      // Mapear virtual_accounts para as associações
+      const vaMap = new Map(virtualAccounts?.map(va => [va.id, va]) || []);
+      
+      const result = associations.map(a => ({
+        ...a,
+        virtual_account: vaMap.get(a.virtual_account_id) || null,
+      }));
+
+      return result as unknown as AffiliateLink[];
     },
     enabled: !!profile?.organization_id,
   });
