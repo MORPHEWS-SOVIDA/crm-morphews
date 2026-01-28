@@ -13711,6 +13711,8 @@ export type Database = {
           coproducer_commission_value: number | null
           coproducer_id: string | null
           created_at: string
+          custom_price_cents: number | null
+          custom_product_name: string | null
           elements: Json
           facebook_pixel_id: string | null
           factory_commission_type: string | null
@@ -13734,6 +13736,7 @@ export type Database = {
           payment_methods: string[]
           pix_discount_percent: number | null
           product_id: string
+          quantity: number | null
           slug: string
           theme: Json
           tiktok_pixel_id: string | null
@@ -13746,6 +13749,8 @@ export type Database = {
           coproducer_commission_value?: number | null
           coproducer_id?: string | null
           created_at?: string
+          custom_price_cents?: number | null
+          custom_product_name?: string | null
           elements?: Json
           facebook_pixel_id?: string | null
           factory_commission_type?: string | null
@@ -13769,6 +13774,7 @@ export type Database = {
           payment_methods?: string[]
           pix_discount_percent?: number | null
           product_id: string
+          quantity?: number | null
           slug: string
           theme?: Json
           tiktok_pixel_id?: string | null
@@ -13781,6 +13787,8 @@ export type Database = {
           coproducer_commission_value?: number | null
           coproducer_id?: string | null
           created_at?: string
+          custom_price_cents?: number | null
+          custom_product_name?: string | null
           elements?: Json
           facebook_pixel_id?: string | null
           factory_commission_type?: string | null
@@ -13804,6 +13812,7 @@ export type Database = {
           payment_methods?: string[]
           pix_discount_percent?: number | null
           product_id?: string
+          quantity?: number | null
           slug?: string
           theme?: Json
           tiktok_pixel_id?: string | null

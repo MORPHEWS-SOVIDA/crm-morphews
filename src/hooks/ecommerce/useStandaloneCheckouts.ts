@@ -68,6 +68,11 @@ export interface StandaloneCheckout {
   created_at: string;
   updated_at: string;
   
+  // Custom pricing for this checkout (overrides product price)
+  custom_price_cents: number | null;
+  quantity: number;
+  custom_product_name: string | null;
+  
   // Partner commissions (fixed partners who earn on every sale)
   industry_id: string | null;
   industry_commission_type: 'percentage' | 'fixed' | null;
@@ -116,6 +121,10 @@ export interface CreateCheckoutInput {
   google_analytics_id?: string;
   tiktok_pixel_id?: string;
   attribution_model?: 'first_click' | 'last_click';
+  // Custom pricing
+  custom_price_cents?: number | null;
+  quantity?: number;
+  custom_product_name?: string;
 }
 
 export interface CheckoutTestimonial {

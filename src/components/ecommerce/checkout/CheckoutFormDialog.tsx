@@ -80,6 +80,10 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
     facebook_pixel_id: '',
     google_analytics_id: '',
     tiktok_pixel_id: '',
+    // Custom pricing
+    custom_price_cents: null,
+    quantity: 1,
+    custom_product_name: '',
   });
 
   useEffect(() => {
@@ -101,6 +105,10 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
         facebook_pixel_id: checkout.facebook_pixel_id || '',
         google_analytics_id: checkout.google_analytics_id || '',
         tiktok_pixel_id: checkout.tiktok_pixel_id || '',
+        // Custom pricing
+        custom_price_cents: checkout.custom_price_cents,
+        quantity: checkout.quantity || 1,
+        custom_product_name: checkout.custom_product_name || '',
       });
     } else {
       setFormData({
@@ -120,6 +128,10 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
         facebook_pixel_id: '',
         google_analytics_id: '',
         tiktok_pixel_id: '',
+        // Custom pricing
+        custom_price_cents: null,
+        quantity: 1,
+        custom_product_name: '',
       });
     }
   }, [checkout, open]);
@@ -240,6 +252,73 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
                   </Select>
                 )}
               </div>
+
+              {/* Custom Pricing Section */}
+              {formData.product_id && (
+                <div className="space-y-4 pt-4 border-t border-border/50">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Preço Personalizado</Label>
+                    <span className="text-xs text-muted-foreground">
+                      (deixe vazio para usar o preço do produto)
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="custom_price">Preço (R$)</Label>
+                      <Input
+                        id="custom_price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.custom_price_cents ? (formData.custom_price_cents / 100).toFixed(2) : ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData(prev => ({
+                            ...prev,
+                            custom_price_cents: value ? Math.round(parseFloat(value) * 100) : null,
+                          }));
+                        }}
+                        placeholder="Ex: 197,00"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="quantity">Quantidade</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.quantity || 1}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          quantity: parseInt(e.target.value) || 1 
+                        }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="custom_name">Nome no Checkout</Label>
+                      <Input
+                        id="custom_name"
+                        value={formData.custom_product_name || ''}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          custom_product_name: e.target.value 
+                        }))}
+                        placeholder="Ex: Kit 3 Potes"
+                      />
+                    </div>
+                  </div>
+                  
+                  {formData.custom_price_cents && (
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      ✓ Este checkout usará o preço de R$ {(formData.custom_price_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Tipo de Checkout</Label>

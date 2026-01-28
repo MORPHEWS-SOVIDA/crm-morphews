@@ -111,8 +111,10 @@ export default function PublicCheckoutPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Calculate prices
-  const productPrice = checkout?.product?.price_1_unit || checkout?.product?.base_price_cents || 0;
+  // Calculate prices - use custom price if set, otherwise fallback to product price
+  const productPrice = checkout?.custom_price_cents ?? checkout?.product?.price_1_unit ?? checkout?.product?.base_price_cents ?? 0;
+  const productQuantity = checkout?.quantity ?? 1;
+  const displayProductName = checkout?.custom_product_name || checkout?.product?.name || 'Produto';
   const pixDiscount = checkout?.pix_discount_percent || 0;
   
   const orderBumpPrice = useMemo(() => {
@@ -354,7 +356,12 @@ export default function PublicCheckoutPage() {
                       />
                     )}
                     <div className="flex-1">
-                      <h3 className="font-medium">{checkout.product?.name}</h3>
+                      <h3 className="font-medium">
+                        {displayProductName}
+                        {productQuantity > 1 && (
+                          <span className="text-muted-foreground ml-1">x{productQuantity}</span>
+                        )}
+                      </h3>
                       <p className="text-lg font-semibold" style={{ color: theme.primary_color }}>
                         {formatCurrency(productPrice)}
                       </p>
