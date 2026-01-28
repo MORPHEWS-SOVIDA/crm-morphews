@@ -533,11 +533,14 @@ export default function SalesLanding() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="mb-12"
+              className="mb-8"
             >
-              <h2 className="text-2xl md:text-3xl font-bold mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold mb-6">
                 Tudo em um único lugar
               </h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+                Você já pode ter visto sistemas que têm alguma dessas funções, a <span className="font-bold text-primary">MORPHEWS</span> tem tudo <span className="font-bold text-primary">INTEGRADO</span> em um só login e senha
+              </p>
             </motion.div>
           </div>
         </div>
