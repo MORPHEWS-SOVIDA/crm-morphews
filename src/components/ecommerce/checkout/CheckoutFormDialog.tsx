@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Loader2, Truck, Package, Ban } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import {
   useCreateStandaloneCheckout,
@@ -84,6 +85,8 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
     custom_price_cents: null,
     quantity: 1,
     custom_product_name: '',
+    // Shipping
+    shipping_mode: 'none',
   });
 
   useEffect(() => {
@@ -109,6 +112,8 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
         custom_price_cents: checkout.custom_price_cents,
         quantity: checkout.quantity || 1,
         custom_product_name: checkout.custom_product_name || '',
+        // Shipping
+        shipping_mode: checkout.shipping_mode || 'none',
       });
     } else {
       setFormData({
@@ -132,6 +137,8 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
         custom_price_cents: null,
         quantity: 1,
         custom_product_name: '',
+        // Shipping
+        shipping_mode: 'none',
       });
     }
   }, [checkout, open]);
@@ -346,7 +353,7 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
             </TabsContent>
 
             {/* Payment Tab */}
-            <TabsContent value="payment" className="space-y-4 mt-4">
+            <TabsContent value="payment" className="space-y-6 mt-4">
               <div className="space-y-3">
                 <Label>Métodos de Pagamento</Label>
                 <div className="space-y-2">
@@ -382,6 +389,67 @@ export function CheckoutFormDialog({ open, onOpenChange, checkout }: CheckoutFor
                 <p className="text-xs text-muted-foreground">
                   Incentive pagamentos à vista com desconto no PIX
                 </p>
+              </div>
+
+              {/* Shipping Configuration */}
+              <div className="space-y-3 pt-4 border-t border-border/50">
+                <Label className="text-base font-medium">Configuração de Frete</Label>
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Parceiros (Indústria, Fábrica, Co-produtor, Afiliado) <strong>não recebem comissão</strong> sobre o valor do frete.
+                </p>
+                
+                <RadioGroup
+                  value={formData.shipping_mode || 'none'}
+                  onValueChange={(value: 'none' | 'free' | 'calculated') => 
+                    setFormData(prev => ({ ...prev, shipping_mode: value }))
+                  }
+                  className="space-y-3"
+                >
+                  <div className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <RadioGroupItem value="none" id="shipping_none" className="mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Ban className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor="shipping_none" className="font-medium cursor-pointer">
+                          Sem Frete
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Produto digital ou retirada no local
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <RadioGroupItem value="free" id="shipping_free" className="mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-green-600" />
+                        <Label htmlFor="shipping_free" className="font-medium cursor-pointer">
+                          Frete Grátis
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Você assume o custo do frete
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <RadioGroupItem value="calculated" id="shipping_calculated" className="mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-primary" />
+                        <Label htmlFor="shipping_calculated" className="font-medium cursor-pointer">
+                          Calcular Frete (Correios)
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        PAC e SEDEX calculados automaticamente (+R$ 7,00 picking e +2 dias postagem)
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
               </div>
             </TabsContent>
 

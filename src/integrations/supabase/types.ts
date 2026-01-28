@@ -13901,6 +13901,7 @@ export type Database = {
           pix_discount_percent: number | null
           product_id: string
           quantity: number | null
+          shipping_mode: string
           slug: string
           theme: Json
           tiktok_pixel_id: string | null
@@ -13939,6 +13940,7 @@ export type Database = {
           pix_discount_percent?: number | null
           product_id: string
           quantity?: number | null
+          shipping_mode?: string
           slug: string
           theme?: Json
           tiktok_pixel_id?: string | null
@@ -13977,6 +13979,7 @@ export type Database = {
           pix_discount_percent?: number | null
           product_id?: string
           quantity?: number | null
+          shipping_mode?: string
           slug?: string
           theme?: Json
           tiktok_pixel_id?: string | null
