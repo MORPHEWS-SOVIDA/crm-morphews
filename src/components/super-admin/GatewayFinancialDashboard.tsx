@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -20,11 +21,21 @@ import {
   UserCheck,
   Share2,
   ChevronRight,
-  Eye
+  Eye,
+  Store,
+  FileText,
+  ShoppingCart,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  History,
+  RefreshCw,
+  Percent,
+  Loader2
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -52,23 +63,46 @@ interface SplitData {
 interface EcommerceOrder {
   id: string;
   order_number: string;
+  sale_id: string | null;
   total_cents: number;
   payment_method: string;
   status: string;
+  source: string | null;
   created_at: string;
+  storefront_id: string | null;
+  landing_page_id: string | null;
   storefront: { name: string } | null;
   organization: { name: string } | null;
 }
 
-interface SaleWithGateway {
+interface PaymentAttempt {
+  id: string;
+  sale_id: string;
+  gateway: string; // Column is 'gateway' not 'gateway_type'
+  payment_method: string;
+  amount_cents: number;
+  status: string;
+  gateway_transaction_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  is_fallback: boolean;
+  fallback_from_gateway: string | null;
+  attempt_number: number;
+  gateway_response: Record<string, unknown> | null; // Column is 'gateway_response' not 'response_data'
+  created_at: string;
+}
+
+interface SaleDetail {
   id: string;
   total_cents: number;
   payment_method: string;
-  gateway_fee_cents: number | null;
-  gateway_net_cents: number | null;
-  payment_installments: number | null;
+  payment_installments: number;
+  payment_status: string;
+  status: string;
+  gateway_transaction_id: string | null;
   created_at: string;
-  payment_confirmed_at: string | null;
+  lead: { name: string | null; email: string | null } | null; // Column is 'name' not 'full_name'
+  organization: { name: string } | null;
 }
 
 interface SplitsByType {
@@ -143,6 +177,34 @@ const getSplitTypeColor = (type: string): string => {
   return colors[type] || 'bg-gray-100 text-gray-800';
 };
 
+const getSourceLabel = (order: EcommerceOrder): { label: string; icon: React.ReactNode; color: string } => {
+  if (order.storefront_id) {
+    return { label: 'Loja', icon: <Store className="h-3 w-3" />, color: 'bg-blue-100 text-blue-700' };
+  }
+  if (order.landing_page_id) {
+    return { label: 'Landing', icon: <FileText className="h-3 w-3" />, color: 'bg-green-100 text-green-700' };
+  }
+  if (order.source === 'landing_page') {
+    return { label: 'Landing', icon: <FileText className="h-3 w-3" />, color: 'bg-green-100 text-green-700' };
+  }
+  // Standalone checkout (no storefront and no landing)
+  return { label: 'Checkout', icon: <ShoppingCart className="h-3 w-3" />, color: 'bg-purple-100 text-purple-700' };
+};
+
+const getAttemptStatusIcon = (status: string) => {
+  switch (status) {
+    case 'success':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'failed':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    case 'pending':
+    case 'processing':
+      return <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />;
+    default:
+      return <AlertCircle className="h-4 w-4 text-gray-400" />;
+  }
+};
+
 export function GatewayFinancialDashboard() {
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   
@@ -176,14 +238,17 @@ export function GatewayFinancialDashboard() {
         .select(`
           id,
           order_number,
+          sale_id,
           total_cents,
           payment_method,
           status,
+          source,
+          storefront_id,
+          landing_page_id,
           created_at,
           storefront:tenant_storefronts(name),
           organization:organizations(name)
         `)
-        .in('status', ['paid', 'approved', 'payment_confirmed', 'delivered', 'dispatched'])
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
@@ -192,8 +257,26 @@ export function GatewayFinancialDashboard() {
     },
   });
 
+  // Fetch ALL payment attempts from last 30 days
+  const { data: paymentAttempts, isLoading: attemptsLoading, refetch: refetchAttempts } = useQuery({
+    queryKey: ['payment-attempts-30d'],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data, error } = await supabase
+        .from('payment_attempts')
+        .select('*')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as PaymentAttempt[];
+    },
+  });
+
   // Fetch splits for selected sale
-  const { data: saleSplits } = useQuery({
+  const { data: saleSplits, isLoading: saleSplitsLoading } = useQuery({
     queryKey: ['sale-splits', selectedSaleId],
     queryFn: async () => {
       if (!selectedSaleId) return [];
@@ -213,8 +296,77 @@ export function GatewayFinancialDashboard() {
     enabled: !!selectedSaleId,
   });
 
+  // Fetch sale detail for selected sale
+  const { data: saleDetail, isLoading: saleDetailLoading } = useQuery({
+    queryKey: ['sale-detail', selectedSaleId],
+    queryFn: async () => {
+      if (!selectedSaleId) return null;
+      
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`
+          id,
+          total_cents,
+          payment_method,
+          payment_installments,
+          payment_status,
+          status,
+          gateway_transaction_id,
+          created_at,
+          lead:leads(name, email),
+          organization:organizations(name)
+        `)
+        .eq('id', selectedSaleId)
+        .single();
+
+      if (error) throw error;
+      return data as SaleDetail;
+    },
+    enabled: !!selectedSaleId,
+  });
+
+  // Fetch ecommerce order for selected sale
+  const { data: saleOrder } = useQuery({
+    queryKey: ['sale-order', selectedSaleId],
+    queryFn: async () => {
+      if (!selectedSaleId) return null;
+      
+      const { data, error } = await supabase
+        .from('ecommerce_orders')
+        .select('*')
+        .eq('sale_id', selectedSaleId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedSaleId,
+  });
+
+  // Fetch payment attempts for selected sale
+  const { data: saleAttempts } = useQuery({
+    queryKey: ['sale-attempts', selectedSaleId],
+    queryFn: async () => {
+      if (!selectedSaleId) return [];
+      
+      const { data, error } = await supabase
+        .from('payment_attempts')
+        .select('*')
+        .eq('sale_id', selectedSaleId)
+        .order('attempt_number', { ascending: true });
+
+      if (error) throw error;
+      return data as PaymentAttempt[];
+    },
+    enabled: !!selectedSaleId,
+  });
+
   // Calculate totals from e-commerce orders
   const totalGMV = ecommerceOrders?.reduce((acc, order) => acc + order.total_cents, 0) || 0;
+  
+  // Calculate paid orders GMV
+  const paidOrders = ecommerceOrders?.filter(o => ['paid', 'approved', 'payment_confirmed', 'delivered', 'dispatched'].includes(o.status)) || [];
+  const paidGMV = paidOrders.reduce((acc, order) => acc + order.total_cents, 0);
   
   // Calculate splits by type
   const splitsByType: SplitsByType = allSplits?.reduce((acc, split) => {
@@ -243,18 +395,51 @@ export function GatewayFinancialDashboard() {
 
   const totalPlatformFee = splitsByType.platform_fee;
   const totalGatewayFee = splitsByType.gateway_fee;
-  const netProfit = totalPlatformFee; // Platform already net of fees
+
+  // Attempt stats
+  const attemptStats = useMemo(() => {
+    if (!paymentAttempts) return { total: 0, success: 0, failed: 0, fallbacks: 0 };
+    return {
+      total: paymentAttempts.length,
+      success: paymentAttempts.filter(a => a.status === 'success').length,
+      failed: paymentAttempts.filter(a => a.status === 'failed').length,
+      fallbacks: paymentAttempts.filter(a => a.is_fallback).length,
+    };
+  }, [paymentAttempts]);
 
   // Group orders by payment method
   const byPaymentMethod = ecommerceOrders?.reduce((acc, order) => {
     const method = order.payment_method || 'unknown';
     if (!acc[method]) {
-      acc[method] = { count: 0, totalCents: 0 };
+      acc[method] = { count: 0, totalCents: 0, paid: 0, paidCents: 0 };
     }
     acc[method].count++;
     acc[method].totalCents += order.total_cents;
+    if (['paid', 'approved', 'payment_confirmed', 'delivered', 'dispatched'].includes(order.status)) {
+      acc[method].paid++;
+      acc[method].paidCents += order.total_cents;
+    }
     return acc;
-  }, {} as Record<string, { count: number; totalCents: number }>);
+  }, {} as Record<string, { count: number; totalCents: number; paid: number; paidCents: number }>);
+
+  // Group orders by source
+  const bySource = useMemo(() => {
+    if (!ecommerceOrders) return {};
+    return ecommerceOrders.reduce((acc, order) => {
+      const src = getSourceLabel(order);
+      const key = src.label;
+      if (!acc[key]) {
+        acc[key] = { count: 0, totalCents: 0, paid: 0, paidCents: 0 };
+      }
+      acc[key].count++;
+      acc[key].totalCents += order.total_cents;
+      if (['paid', 'approved', 'payment_confirmed', 'delivered', 'dispatched'].includes(order.status)) {
+        acc[key].paid++;
+        acc[key].paidCents += order.total_cents;
+      }
+      return acc;
+    }, {} as Record<string, { count: number; totalCents: number; paid: number; paidCents: number }>);
+  }, [ecommerceOrders]);
 
   // Get unique sales with splits
   const uniqueSalesWithSplits = allSplits 
@@ -290,19 +475,19 @@ export function GatewayFinancialDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Summary Cards - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-blue-500" />
-              GMV E-commerce (30 dias)
+              GMV Total (30 dias)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalGMV)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {ecommerceOrders?.length || 0} pedidos via gateway
+              {ecommerceOrders?.length || 0} pedidos • {paidOrders.length} pagos
             </p>
           </CardContent>
         </Card>
@@ -317,7 +502,7 @@ export function GatewayFinancialDashboard() {
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{formatCurrency(totalPlatformFee)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {totalGMV > 0 ? ((totalPlatformFee / totalGMV) * 100).toFixed(2) : 0}% do GMV
+              {paidGMV > 0 ? ((totalPlatformFee / paidGMV) * 100).toFixed(2) : 0}% do GMV pago
             </p>
           </CardContent>
         </Card>
@@ -332,7 +517,7 @@ export function GatewayFinancialDashboard() {
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{formatCurrency(splitsByType.tenant)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {totalGMV > 0 ? ((splitsByType.tenant / totalGMV) * 100).toFixed(2) : 0}% do GMV
+              {paidGMV > 0 ? ((splitsByType.tenant / paidGMV) * 100).toFixed(2) : 0}% do GMV
             </p>
           </CardContent>
         </Card>
@@ -347,19 +532,19 @@ export function GatewayFinancialDashboard() {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{formatCurrency(splitsByType.affiliate)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {totalGMV > 0 ? ((splitsByType.affiliate / totalGMV) * 100).toFixed(2) : 0}% do GMV
+              {paidGMV > 0 ? ((splitsByType.affiliate / paidGMV) * 100).toFixed(2) : 0}% do GMV
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Additional Participants */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Summary Cards - Row 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Factory className="h-4 w-4 text-orange-500" />
-              Repasse Indústrias
+              Indústrias
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -371,7 +556,7 @@ export function GatewayFinancialDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Factory className="h-4 w-4 text-amber-600" />
-              Repasse Fábricas
+              Fábricas
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -383,7 +568,7 @@ export function GatewayFinancialDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Share2 className="h-4 w-4 text-cyan-500" />
-              Repasse Co-produtores
+              Co-produtores
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -402,14 +587,235 @@ export function GatewayFinancialDashboard() {
             <div className="text-xl font-bold text-red-600">{formatCurrency(totalGatewayFee)}</div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <History className="h-4 w-4 text-gray-500" />
+              Tentativas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">{attemptStats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {attemptStats.success} ✓ • {attemptStats.failed} ✗ • {attemptStats.fallbacks} fallback
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Tabs defaultValue="splits" className="w-full">
-        <TabsList>
+      <Tabs defaultValue="orders" className="w-full">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="orders">Pedidos</TabsTrigger>
+          <TabsTrigger value="attempts">Tentativas</TabsTrigger>
           <TabsTrigger value="splits">Árvore de Splits</TabsTrigger>
-          <TabsTrigger value="orders">Pedidos E-commerce</TabsTrigger>
           <TabsTrigger value="methods">Por Método</TabsTrigger>
+          <TabsTrigger value="sources">Por Origem</TabsTrigger>
         </TabsList>
+
+        {/* E-commerce Orders Tab */}
+        <TabsContent value="orders">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Pedidos E-commerce (Gateway)
+              </CardTitle>
+              <CardDescription>
+                Todas as vendas processadas através do gateway — clique para ver detalhes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[500px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pedido</TableHead>
+                      <TableHead>Origem</TableHead>
+                      <TableHead>Tenant</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ecommerceOrders?.map((order) => {
+                      const src = getSourceLabel(order);
+                      return (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-mono text-sm font-medium">
+                            {order.order_number}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`flex items-center gap-1 w-fit ${src.color}`}>
+                              {src.icon}
+                              {src.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {order.organization?.name || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {getPaymentMethodLabel(order.payment_method || 'unknown')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {formatCurrency(order.total_cents)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={['approved', 'paid', 'payment_confirmed', 'delivered', 'dispatched'].includes(order.status) ? 'default' : 'secondary'}
+                              className={['approved', 'paid', 'payment_confirmed', 'delivered', 'dispatched'].includes(order.status) ? 'bg-green-500' : ''}
+                            >
+                              {order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(order.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell>
+                            {order.sale_id && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setSelectedSaleId(order.sale_id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {(!ecommerceOrders || ecommerceOrders.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          Nenhum pedido e-commerce nos últimos 30 dias
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Payment Attempts Tab */}
+        <TabsContent value="attempts">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Histórico de Tentativas de Pagamento
+                  </CardTitle>
+                  <CardDescription>
+                    Todas as requisições enviadas aos gateways (sucessos, falhas, fallbacks)
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetchAttempts()}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Atualizar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {attemptsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Venda ID</TableHead>
+                        <TableHead>Gateway</TableHead>
+                        <TableHead>Método</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead>Tentativa</TableHead>
+                        <TableHead>Erro</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paymentAttempts && paymentAttempts.length > 0 ? (
+                        paymentAttempts.map((attempt) => (
+                          <TableRow key={attempt.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getAttemptStatusIcon(attempt.status)}
+                                <span className="capitalize text-sm">{attempt.status}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {attempt.sale_id.substring(0, 8)}...
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="uppercase text-xs">
+                                {attempt.gateway}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {getPaymentMethodLabel(attempt.payment_method)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(attempt.amount_cents)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-sm">#{attempt.attempt_number}</span>
+                                {attempt.is_fallback && (
+                                  <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">
+                                    Fallback
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              {attempt.error_code && (
+                                <div className="text-xs text-red-600 truncate" title={attempt.error_message || ''}>
+                                  {attempt.error_code}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {format(new Date(attempt.created_at), 'dd/MM HH:mm:ss', { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setSelectedSaleId(attempt.sale_id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                            Nenhuma tentativa de pagamento registrada nos últimos 30 dias
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Split Tree Tab */}
         <TabsContent value="splits" className="space-y-4">
@@ -426,60 +832,60 @@ export function GatewayFinancialDashboard() {
             <CardContent>
               {/* Visual Split Distribution */}
               <div className="space-y-4 mb-6">
-                {totalGMV > 0 && (
+                {paidGMV > 0 && (
                   <div className="relative h-8 rounded-lg overflow-hidden flex">
                     {splitsByType.platform_fee > 0 && (
                       <div 
                         className="bg-purple-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(splitsByType.platform_fee / totalGMV) * 100}%` }}
+                        style={{ width: `${(splitsByType.platform_fee / paidGMV) * 100}%` }}
                         title={`Plataforma: ${formatCurrency(splitsByType.platform_fee)}`}
                       >
-                        {((splitsByType.platform_fee / totalGMV) * 100).toFixed(1)}%
+                        {((splitsByType.platform_fee / paidGMV) * 100).toFixed(1)}%
                       </div>
                     )}
                     {splitsByType.industry > 0 && (
                       <div 
                         className="bg-orange-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(splitsByType.industry / totalGMV) * 100}%` }}
+                        style={{ width: `${(splitsByType.industry / paidGMV) * 100}%` }}
                         title={`Indústria: ${formatCurrency(splitsByType.industry)}`}
                       >
-                        {((splitsByType.industry / totalGMV) * 100).toFixed(1)}%
+                        {((splitsByType.industry / paidGMV) * 100).toFixed(1)}%
                       </div>
                     )}
                     {splitsByType.factory > 0 && (
                       <div 
                         className="bg-amber-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(splitsByType.factory / totalGMV) * 100}%` }}
+                        style={{ width: `${(splitsByType.factory / paidGMV) * 100}%` }}
                         title={`Fábrica: ${formatCurrency(splitsByType.factory)}`}
                       >
-                        {((splitsByType.factory / totalGMV) * 100).toFixed(1)}%
+                        {((splitsByType.factory / paidGMV) * 100).toFixed(1)}%
                       </div>
                     )}
                     {splitsByType.coproducer > 0 && (
                       <div 
                         className="bg-cyan-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(splitsByType.coproducer / totalGMV) * 100}%` }}
+                        style={{ width: `${(splitsByType.coproducer / paidGMV) * 100}%` }}
                         title={`Co-produtor: ${formatCurrency(splitsByType.coproducer)}`}
                       >
-                        {((splitsByType.coproducer / totalGMV) * 100).toFixed(1)}%
+                        {((splitsByType.coproducer / paidGMV) * 100).toFixed(1)}%
                       </div>
                     )}
                     {splitsByType.affiliate > 0 && (
                       <div 
                         className="bg-green-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(splitsByType.affiliate / totalGMV) * 100}%` }}
+                        style={{ width: `${(splitsByType.affiliate / paidGMV) * 100}%` }}
                         title={`Afiliado: ${formatCurrency(splitsByType.affiliate)}`}
                       >
-                        {((splitsByType.affiliate / totalGMV) * 100).toFixed(1)}%
+                        {((splitsByType.affiliate / paidGMV) * 100).toFixed(1)}%
                       </div>
                     )}
                     {splitsByType.tenant > 0 && (
                       <div 
                         className="bg-blue-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(splitsByType.tenant / totalGMV) * 100}%` }}
+                        style={{ width: `${(splitsByType.tenant / paidGMV) * 100}%` }}
                         title={`Tenant: ${formatCurrency(splitsByType.tenant)}`}
                       >
-                        {((splitsByType.tenant / totalGMV) * 100).toFixed(1)}%
+                        {((splitsByType.tenant / paidGMV) * 100).toFixed(1)}%
                       </div>
                     )}
                   </div>
@@ -557,7 +963,7 @@ export function GatewayFinancialDashboard() {
                           {formatCurrency(amount)}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          {totalGMV > 0 ? ((amount / totalGMV) * 100).toFixed(2) : 0}%
+                          {paidGMV > 0 ? ((amount / paidGMV) * 100).toFixed(2) : 0}%
                         </TableCell>
                       </TableRow>
                     ))}
@@ -639,77 +1045,6 @@ export function GatewayFinancialDashboard() {
           </Card>
         </TabsContent>
 
-        {/* E-commerce Orders Tab */}
-        <TabsContent value="orders">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Pedidos E-commerce (Gateway)
-              </CardTitle>
-              <CardDescription>
-                Vendas processadas através do gateway de pagamento
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pedido</TableHead>
-                    <TableHead>Loja</TableHead>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Método</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ecommerceOrders?.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-sm font-medium">
-                        {order.order_number}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {order.storefront?.name || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {order.organization?.name || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {getPaymentMethodLabel(order.payment_method || 'unknown')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        {formatCurrency(order.total_cents)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={order.status === 'approved' || order.status === 'paid' ? 'default' : 'secondary'}
-                          className={order.status === 'approved' || order.status === 'paid' ? 'bg-green-500' : ''}
-                        >
-                          {order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(order.created_at), 'dd/MM HH:mm', { locale: ptBR })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(!ecommerceOrders || ecommerceOrders.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        Nenhum pedido e-commerce nos últimos 30 dias
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Payment Methods Tab */}
         <TabsContent value="methods">
           <Card>
@@ -718,15 +1053,20 @@ export function GatewayFinancialDashboard() {
                 <CreditCard className="h-5 w-5" />
                 Detalhamento por Método de Pagamento
               </CardTitle>
+              <CardDescription>
+                Volume e conversão por forma de pagamento
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Método</TableHead>
-                    <TableHead className="text-right">Transações</TableHead>
-                    <TableHead className="text-right">Volume</TableHead>
-                    <TableHead className="text-right">% do Total</TableHead>
+                    <TableHead className="text-right">Pedidos</TableHead>
+                    <TableHead className="text-right">Pagos</TableHead>
+                    <TableHead className="text-right">Volume Total</TableHead>
+                    <TableHead className="text-right">Volume Pago</TableHead>
+                    <TableHead className="text-right">Taxa Conversão</TableHead>
                     <TableHead className="text-right">Liquidação</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -736,10 +1076,14 @@ export function GatewayFinancialDashboard() {
                       <TableCell>
                         <Badge variant="outline">{getPaymentMethodLabel(method)}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">{data.count}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(data.totalCents)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {totalGMV > 0 ? ((data.totalCents / totalGMV) * 100).toFixed(1) : 0}%
+                      <TableCell className="text-right">{data.count}</TableCell>
+                      <TableCell className="text-right font-medium text-green-600">{data.paid}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(data.totalCents)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatCurrency(data.paidCents)}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={data.count > 0 && (data.paid / data.count) >= 0.7 ? 'default' : 'secondary'}>
+                          {data.count > 0 ? ((data.paid / data.count) * 100).toFixed(1) : 0}%
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary">D+{getSettlementDays(method)}</Badge>
@@ -748,7 +1092,70 @@ export function GatewayFinancialDashboard() {
                   ))}
                   {(!byPaymentMethod || Object.keys(byPaymentMethod).length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        Nenhuma venda processada nos últimos 30 dias
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Sources Tab */}
+        <TabsContent value="sources">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Store className="h-5 w-5" />
+                Detalhamento por Origem
+              </CardTitle>
+              <CardDescription>
+                Loja (E-commerce), Landing Page ou Checkout Standalone
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Origem</TableHead>
+                    <TableHead className="text-right">Pedidos</TableHead>
+                    <TableHead className="text-right">Pagos</TableHead>
+                    <TableHead className="text-right">Volume Total</TableHead>
+                    <TableHead className="text-right">Volume Pago</TableHead>
+                    <TableHead className="text-right">Taxa Conversão</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(bySource).map(([source, data]) => (
+                    <TableRow key={source}>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          source === 'Loja' ? 'bg-blue-100 text-blue-700' :
+                          source === 'Landing' ? 'bg-green-100 text-green-700' :
+                          'bg-purple-100 text-purple-700'
+                        }>
+                          {source === 'Loja' && <Store className="h-3 w-3 mr-1" />}
+                          {source === 'Landing' && <FileText className="h-3 w-3 mr-1" />}
+                          {source === 'Checkout' && <ShoppingCart className="h-3 w-3 mr-1" />}
+                          {source}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{data.count}</TableCell>
+                      <TableCell className="text-right font-medium text-green-600">{data.paid}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(data.totalCents)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatCurrency(data.paidCents)}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={data.count > 0 && (data.paid / data.count) >= 0.7 ? 'default' : 'secondary'}>
+                          {data.count > 0 ? ((data.paid / data.count) * 100).toFixed(1) : 0}%
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {Object.keys(bySource).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         Nenhuma venda processada nos últimos 30 dias
                       </TableCell>
                     </TableRow>
@@ -760,67 +1167,169 @@ export function GatewayFinancialDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Sale Split Detail Dialog */}
+      {/* Sale Detail Dialog */}
       <Dialog open={!!selectedSaleId} onOpenChange={() => setSelectedSaleId(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Share2 className="h-5 w-5" />
-              Árvore de Splits da Venda
+              Detalhes da Venda
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground font-mono">
-              ID: {selectedSaleId}
+          <div className="space-y-6">
+            {/* Sale Info */}
+            <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">ID da Venda:</span>
+                <span className="font-mono text-sm">{selectedSaleId}</span>
+              </div>
+              {saleDetailLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : saleDetail && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Cliente:</span>
+                    <span className="font-medium">{saleDetail.lead?.name || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Tenant:</span>
+                    <span>{saleDetail.organization?.name || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Valor Total:</span>
+                    <span className="text-lg font-bold">{formatCurrency(saleDetail.total_cents)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Método:</span>
+                    <Badge variant="outline">
+                      {getPaymentMethodLabel(saleDetail.payment_method)}
+                      {saleDetail.payment_installments > 1 && ` (${saleDetail.payment_installments}x)`}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Status:</span>
+                    <Badge variant={saleDetail.payment_status === 'paid' ? 'default' : 'secondary'} 
+                           className={saleDetail.payment_status === 'paid' ? 'bg-green-500' : ''}>
+                      {saleDetail.payment_status}
+                    </Badge>
+                  </div>
+                  {saleDetail.gateway_transaction_id && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Gateway ID:</span>
+                      <span className="font-mono text-xs">{saleDetail.gateway_transaction_id}</span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            
-            {saleSplits && saleSplits.length > 0 ? (
-              <div className="space-y-2">
-                {saleSplits.map((split: any, index: number) => (
-                  <div 
-                    key={split.id}
-                    className="flex items-center gap-2 p-3 rounded-lg bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2 flex-1">
-                      {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                      {getSplitTypeIcon(split.split_type)}
-                      <div>
-                        <p className="font-medium">{getSplitTypeLabel(split.split_type)}</p>
+
+            {/* Attempts */}
+            {saleAttempts && saleAttempts.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Tentativas de Pagamento ({saleAttempts.length})
+                </h4>
+                <div className="space-y-2">
+                  {saleAttempts.map((attempt) => (
+                    <div 
+                      key={attempt.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border ${
+                        attempt.status === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' :
+                        attempt.status === 'failed' ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800' :
+                        'bg-muted/50'
+                      }`}
+                    >
+                      {getAttemptStatusIcon(attempt.status)}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">#{attempt.attempt_number}</span>
+                          <Badge variant="outline" className="uppercase text-xs">{attempt.gateway}</Badge>
+                          <Badge variant="secondary">{getPaymentMethodLabel(attempt.payment_method)}</Badge>
+                          {attempt.is_fallback && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">
+                              Fallback de {attempt.fallback_from_gateway}
+                            </Badge>
+                          )}
+                        </div>
+                        {attempt.error_message && (
+                          <p className="text-xs text-red-600 mt-1">{attempt.error_code}: {attempt.error_message}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{formatCurrency(attempt.amount_cents)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {split.virtual_account?.holder_name || 'Conta não identificada'}
+                          {format(new Date(attempt.created_at), 'HH:mm:ss', { locale: ptBR })}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">{formatCurrency(split.net_amount_cents)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {split.percentage > 0 ? `${split.percentage}%` : 'Fixo'}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      {split.liable_for_refund && (
-                        <Badge variant="outline" className="text-xs">Refund</Badge>
-                      )}
-                      {split.liable_for_chargeback && (
-                        <Badge variant="outline" className="text-xs">Chargeback</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <span className="font-medium">Total Distribuído</span>
-                  <span className="text-xl font-bold">
-                    {formatCurrency(saleSplits.reduce((acc: number, s: any) => acc + s.net_amount_cents, 0))}
-                  </span>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-4">
-                Carregando splits...
-              </p>
             )}
+
+            {/* Splits */}
+            <div>
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <Share2 className="h-4 w-4" />
+                Árvore de Splits
+              </h4>
+              
+              {saleSplitsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Carregando splits...</span>
+                </div>
+              ) : saleSplits && saleSplits.length > 0 ? (
+                <div className="space-y-2">
+                  {saleSplits.map((split: any, index: number) => (
+                    <div 
+                      key={split.id}
+                      className="flex items-center gap-2 p-3 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        {getSplitTypeIcon(split.split_type)}
+                        <div>
+                          <p className="font-medium">{getSplitTypeLabel(split.split_type)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {split.virtual_account?.holder_name || 'Conta não identificada'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{formatCurrency(split.net_amount_cents)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {split.percentage > 0 ? `${split.percentage}%` : 'Fixo'}
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        {split.liable_for_refund && (
+                          <Badge variant="outline" className="text-xs">Refund</Badge>
+                        )}
+                        {split.liable_for_chargeback && (
+                          <Badge variant="outline" className="text-xs">Chargeback</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <span className="font-medium">Total Distribuído</span>
+                    <span className="text-xl font-bold">
+                      {formatCurrency(saleSplits.reduce((acc: number, s: any) => acc + s.net_amount_cents, 0))}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground border rounded-lg">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
+                  <p>Nenhum split registrado para esta venda.</p>
+                  <p className="text-xs mt-1">Os splits são criados após a confirmação do pagamento.</p>
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
