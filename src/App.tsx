@@ -155,6 +155,9 @@ const PartnerLinksPage = lazy(() => import("./pages/ecommerce/PartnerLinksPage")
 const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
 const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
 const PartnerApplicationPage = lazy(() => import("./pages/partner/PartnerApplicationPage"));
+// Implementer pages
+const ImplementerDashboard = lazy(() => import("./pages/implementer/ImplementerDashboard"));
+const ImplementerCheckoutPage = lazy(() => import("./pages/implementer/ImplementerCheckoutPage"));
 // Public Storefront
 const StorefrontPublic = lazy(() => import("./pages/StorefrontPublic"));
 const StorefrontHome = lazy(() => import("./components/storefront/StorefrontHome").then(m => ({ default: m.StorefrontHome })));
@@ -209,6 +212,10 @@ const App = () => (
                 <Route path="/parceiro" element={<PartnerPortal />} />
                 <Route path="/convite-parceiros/:slug" element={<PartnerApplicationPage />} />
                 <Route path="/rede/:inviteCode" element={<NetworkInviteAccept />} />
+                
+                {/* Implementer Routes */}
+                <Route path="/implementador" element={<ImplementerDashboard />} />
+                <Route path="/implementador/:slug" element={<ImplementerCheckoutPage />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>

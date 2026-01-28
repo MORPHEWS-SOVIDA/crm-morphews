@@ -110,9 +110,43 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { planId, successUrl, cancelUrl, customerEmail, customerName, customerWhatsapp } = await req.json();
+    const { planId, successUrl, cancelUrl, customerEmail, customerName, customerWhatsapp, implementerRef } = await req.json();
 
-    console.log("Create checkout request:", { planId, customerEmail, customerName });
+    console.log("Create checkout request:", { planId, customerEmail, customerName, implementerRef });
+
+    // Look up implementer if referral code provided
+    let implementerId: string | null = null;
+    if (implementerRef) {
+      const { data: implementer } = await supabaseAdmin
+        .from("implementers")
+        .select("id, is_active")
+        .eq("referral_code", implementerRef)
+        .eq("is_active", true)
+        .maybeSingle();
+      
+      if (implementer) {
+        // Check if implementer has active subscription
+        const { data: implSub } = await supabaseAdmin
+          .from("subscriptions")
+          .select("status")
+          .eq("organization_id", (await supabaseAdmin
+            .from("implementers")
+            .select("organization_id")
+            .eq("id", implementer.id)
+            .single()).data?.organization_id)
+          .eq("status", "active")
+          .maybeSingle();
+        
+        if (implSub) {
+          implementerId = implementer.id;
+          console.log("Valid implementer found:", implementerId);
+        } else {
+          console.log("Implementer subscription not active, ignoring referral");
+        }
+      } else {
+        console.log("Implementer not found or inactive:", implementerRef);
+      }
+    }
 
     // Get plan details (use admin client to bypass RLS since this is public checkout)
     const { data: plan, error: planError } = await supabaseAdmin
@@ -384,6 +418,12 @@ serve(async (req) => {
         customer_email: email,
         customer_name: customerName || "",
         customer_whatsapp: customerWhatsapp || "",
+        // Implementer referral tracking
+        ...(implementerId && {
+          is_implementer_sale: "true",
+          implementer_id: implementerId,
+          implementation_fee_cents: "0", // Referral = no implementation fee
+        }),
       },
     });
 
