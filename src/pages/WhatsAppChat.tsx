@@ -981,11 +981,10 @@ export default function WhatsAppChat() {
       // Para conversas pendentes/with_bot/autodistributed: só mostrar se designada para o usuário ou sem atribuição
       // Usuários comuns NÃO veem conversas de outros em NENHUMA aba (exceto assigned próprias)
       if (convStatus !== 'assigned') {
-        // Só mostra se: não tem designated ou designated é o próprio usuário
-        // E: não tem assigned ou assigned é o próprio usuário
-        const isDesignatedToMe = !c.designated_user_id || c.designated_user_id === user?.id;
-        const isAssignedToMe = !c.assigned_user_id || c.assigned_user_id === user?.id;
-        if (!isDesignatedToMe && !isAssignedToMe) {
+        // Oculta se: está atribuída OU designada a OUTRA pessoa
+        const isDesignatedToOther = c.designated_user_id && c.designated_user_id !== user?.id;
+        const isAssignedToOther = c.assigned_user_id && c.assigned_user_id !== user?.id;
+        if (isDesignatedToOther || isAssignedToOther) {
           return false;
         }
       }
@@ -1019,9 +1018,10 @@ export default function WhatsAppChat() {
         }
         // Para outras conversas: só mostrar se designada/atribuída ao próprio usuário ou sem atribuição
         if (c.status !== 'assigned') {
-          const isDesignatedToMe = !c.designated_user_id || c.designated_user_id === user?.id;
-          const isAssignedToMe = !c.assigned_user_id || c.assigned_user_id === user?.id;
-          if (!isDesignatedToMe && !isAssignedToMe) {
+          // Oculta se: está atribuída OU designada a OUTRA pessoa
+          const isDesignatedToOther = c.designated_user_id && c.designated_user_id !== user?.id;
+          const isAssignedToOther = c.assigned_user_id && c.assigned_user_id !== user?.id;
+          if (isDesignatedToOther || isAssignedToOther) {
             return false;
           }
         }
