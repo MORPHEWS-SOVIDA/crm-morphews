@@ -81,6 +81,7 @@ export class FallbackEngine {
         gateway_type: gatewayType,
         payment_method: request.payment_method,
         amount_cents: request.amount_cents,
+        installments: request.installments || 1,
         status: 'pending',
         is_fallback: isFallback,
         fallback_from_gateway: isFallback ? previousGateway : undefined,
@@ -225,22 +226,29 @@ export class FallbackEngine {
     try {
       const insertData: Record<string, unknown> = {
         sale_id: attempt.sale_id,
-        gateway_type: attempt.gateway_type,
+        gateway: attempt.gateway_type, // Column is 'gateway', not 'gateway_type'
         payment_method: attempt.payment_method,
         amount_cents: attempt.amount_cents,
         status: attempt.status,
         gateway_transaction_id: attempt.gateway_transaction_id,
+        gateway_response: attempt.response_data, // Column is 'gateway_response', not 'response_data'
         error_code: attempt.error_code,
         error_message: attempt.error_message,
         is_fallback: attempt.is_fallback,
         fallback_from_gateway: attempt.fallback_from_gateway,
         attempt_number: attempt.attempt_number,
-        response_data: attempt.response_data,
+        installments: attempt.installments || 1,
       };
 
-      await this.supabase
+      const { error } = await this.supabase
         .from('payment_attempts')
         .insert(insertData);
+      
+      if (error) {
+        console.error('[FallbackEngine] Failed to save attempt:', error);
+      } else {
+        console.log(`[FallbackEngine] Saved attempt #${attempt.attempt_number} for sale ${attempt.sale_id}: ${attempt.status}`);
+      }
     } catch (error) {
       console.error('[FallbackEngine] Failed to save attempt:', error);
     }
