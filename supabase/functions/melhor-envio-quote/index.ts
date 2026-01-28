@@ -70,7 +70,14 @@ serve(async (req) => {
       throw new Error('Integração com Melhor Envio está desativada');
     }
 
-    const token = config.token_encrypted ? config.token_encrypted : Deno.env.get('MELHOR_ENVIO_TOKEN');
+    // Get token based on environment - try environment-specific first, then generic, then db
+    let token: string | undefined;
+    if (config.ambiente === 'production') {
+      token = Deno.env.get('MELHOR_ENVIO_TOKEN_PRODUCTION') || Deno.env.get('MELHOR_ENVIO_TOKEN') || config.token_encrypted;
+    } else {
+      token = Deno.env.get('MELHOR_ENVIO_TOKEN_SANDBOX') || Deno.env.get('MELHOR_ENVIO_TOKEN') || config.token_encrypted;
+    }
+    
     if (!token) {
       throw new Error('Token do Melhor Envio não configurado');
     }
@@ -107,8 +114,23 @@ serve(async (req) => {
     };
 
     console.log('[Melhor Envio] Quote request:', JSON.stringify(quotePayload, null, 2));
+    console.log('[Melhor Envio] Using ambiente:', config.ambiente, 'baseUrl:', baseUrl);
 
-    const response = await fetch(`${baseUrl}/me/shipment/calculate`, {
+    // Fetch with retry for DNS issues
+    const fetchWithRetry = async (url: string, options: RequestInit, retries = 3): Promise<Response> => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await fetch(url, options);
+        } catch (error) {
+          console.log(`[Melhor Envio] Attempt ${i + 1} failed:`, error);
+          if (i === retries - 1) throw error;
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+      }
+      throw new Error('Falha ao conectar à API do Melhor Envio');
+    };
+
+    const response = await fetchWithRetry(`${baseUrl}/me/shipment/calculate`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
