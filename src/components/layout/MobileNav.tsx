@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
@@ -64,6 +65,7 @@ export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const { user, profile, isAdmin, signOut } = useAuth();
+  const { role } = useTenant();
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
@@ -71,6 +73,7 @@ export function MobileNav() {
   const location = useLocation();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  const isPartner = role?.startsWith('partner_') ?? false;
 
   const hasFeature = (key: string) => {
     if (isMasterAdmin) return true;
@@ -144,7 +147,7 @@ export function MobileNav() {
     if (canSeeReceptive && hasFeature('receptive')) {
       salesItems.push({ icon: Headphones, label: 'Add Receptivo', path: '/add-receptivo' });
     }
-    if (canSeeSales && hasFeature('sales')) {
+    if (canSeeSales && hasFeature('sales') && !isPartner) {
       salesItems.push({ icon: SalesIcon, label: 'Vendas', path: '/vendas' });
     }
     if (salesItems.length > 0) {
@@ -271,7 +274,9 @@ export function MobileNav() {
     const items: NavItem[] = [];
     
     // Priority order: most used modules
-    const priorityPaths = ['/', '/leads', '/vendas', '/whatsapp/chat', '/add-receptivo', '/minhas-entregas', '/expedicao'];
+    const priorityPaths = isPartner
+      ? ['/', '/ecommerce', '/ecommerce/vendas', '/ecommerce/carrinhos', '/whatsapp/chat']
+      : ['/', '/leads', '/vendas', '/whatsapp/chat', '/add-receptivo', '/minhas-entregas', '/expedicao'];
     
     for (const path of priorityPaths) {
       if (items.length >= 4) break;
