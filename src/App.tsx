@@ -36,6 +36,7 @@ const DirectCheckout = lazy(() => import("./pages/DirectCheckout"));
 const SignupSuccess = lazy(() => import("./pages/SignupSuccess"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Power = lazy(() => import("./pages/Power"));
+const SecretariaWhatsapp = lazy(() => import("./pages/SecretariaWhatsapp"));
 const NichePage = lazy(() => import("./pages/niches"));
 const PublicLandingPage = lazy(() => import("./pages/ecommerce/PublicLandingPage"));
 const PublicHelper = lazy(() => import("./pages/PublicHelper"));
@@ -183,7 +184,7 @@ const App = () => (
                 <Route path="/force-password-change" element={<ForcePasswordChange />} />
                 <Route path="/setup" element={<Login />} />
                 <Route path="/planos" element={<Planos />} />
-                <Route path="/2026" element={<Power />} />
+                <Route path="/secretaria-whatsapp" element={<SecretariaWhatsapp />} />
                 <Route path="/para/:niche" element={<NichePage />} />
                 <Route path="/checkout" element={<DirectCheckout />} />
                 <Route path="/signup-success" element={<SignupSuccess />} />
