@@ -1,4 +1,9 @@
 # Memory: infrastructure/routing-homepage-restructure
 Updated: 2026-01-28
 
-A estrutura de rotas da aplicação foi reorganizada: o conteúdo que estava em /2026 (Power page) agora é a raiz (/), o conteúdo original da raiz foi movido para /secretaria-whatsapp, e uma nova landing de vendas foi criada em /sales. Para usuários autenticados, todas essas rotas exibem o Dashboard; para visitantes, mostram as respectivas landing pages.
+A estrutura de rotas foi reorganizada novamente:
+- **/** (raiz): SalesLanding (para visitantes) ou Dashboard (para logados)
+- **/2026**: Power page (landing anterior que estava na raiz)
+- **/secretaria-whatsapp**: Landing "Secretaria WhatsApp" (antigo conteúdo original da raiz)
+
+Isso reflete o novo posicionamento onde a landing principal de vendas (SalesLanding) é a página inicial do site.

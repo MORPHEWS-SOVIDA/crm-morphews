@@ -187,7 +187,7 @@ const App = () => (
                 <Route path="/setup" element={<Login />} />
                 <Route path="/planos" element={<Planos />} />
                 <Route path="/secretaria-whatsapp" element={<SecretariaWhatsapp />} />
-                <Route path="/sales" element={<SalesLanding />} />
+                <Route path="/2026" element={<Power />} />
                 <Route path="/para/:niche" element={<NichePage />} />
                 <Route path="/checkout" element={<DirectCheckout />} />
                 <Route path="/signup-success" element={<SignupSuccess />} />
