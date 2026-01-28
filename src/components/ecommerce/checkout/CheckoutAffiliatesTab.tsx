@@ -55,10 +55,10 @@ export function CheckoutAffiliatesTab({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedAffiliateId, setSelectedAffiliateId] = useState<string>('');
 
-  // Afiliados que ainda não estão vinculados a este checkout
-  // Usamos virtual_account_id diretamente pois virtual_account pode vir null por RLS
+  // Afiliados que ainda NÃO estão vinculados a ESTE checkout específico
+  // Mostramos TODOS os afiliados únicos, exceto os que já estão vinculados a este checkout
   const availableAffiliates = allAffiliates?.filter(
-    (a) => !a.linked_checkout_id && !linkedAffiliates?.some(la => la.virtual_account_id === a.virtual_account_id)
+    (a) => !linkedAffiliates?.some(la => la.virtual_account_id === a.virtual_account_id)
   ) || [];
 
   const handleAddAffiliate = () => {
