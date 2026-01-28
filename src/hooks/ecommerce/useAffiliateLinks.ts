@@ -334,6 +334,86 @@ export function useAffiliateAvailableOffers() {
         }
       }
 
+      // 2. NOVO: Buscar vínculos via checkout_affiliate_links (sistema V2 - organization_affiliates)
+      // Primeiro verificar se o usuário tem um registro em organization_affiliates
+      const { data: orgAffiliate } = await supabase
+        .from('organization_affiliates')
+        .select('id, affiliate_code, organization_id')
+        .eq('user_id', profile.user_id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (orgAffiliate) {
+        // Buscar checkouts vinculados via checkout_affiliate_links
+        const { data: affiliateLinks } = await supabase
+          .from('checkout_affiliate_links')
+          .select(`
+            checkout_id,
+            commission_type,
+            commission_value,
+            checkout:standalone_checkouts(
+              id,
+              name,
+              slug,
+              attribution_model,
+              is_active,
+              product_id
+            )
+          `)
+          .eq('affiliate_id', orgAffiliate.id);
+
+        if (affiliateLinks && affiliateLinks.length > 0) {
+          // Buscar produtos para os checkouts
+          const productIds = affiliateLinks
+            .map(al => (al.checkout as { product_id: string } | null)?.product_id)
+            .filter(Boolean) as string[];
+
+          const { data: products } = productIds.length > 0
+            ? await supabase
+                .from('lead_products')
+                .select('id, name, images')
+                .in('id', productIds)
+            : { data: [] as { id: string; name: string; images: string[] | null }[] };
+
+          type ProductInfo = { id: string; name: string; images: string[] | null };
+          const productMap = new Map<string, ProductInfo>();
+          for (const p of (products || []) as ProductInfo[]) {
+            productMap.set(p.id, p);
+          }
+
+          const offers: AvailableOffer[] = [];
+          for (const link of affiliateLinks) {
+            const checkout = link.checkout as {
+              id: string;
+              name: string;
+              slug: string;
+              attribution_model: string;
+              is_active: boolean;
+              product_id: string | null;
+            } | null;
+
+            if (!checkout || !checkout.is_active) continue;
+
+            const product = checkout.product_id ? productMap.get(checkout.product_id) : null;
+            offers.push({
+              id: checkout.id,
+              type: 'checkout',
+              name: checkout.name,
+              slug: checkout.slug,
+              attribution_model: checkout.attribution_model || 'last_click',
+              product_name: product?.name,
+              product_image: product?.images?.[0],
+              is_enrolled: true,
+              affiliate_link: `${window.location.origin}/pay/${checkout.slug}?ref=${orgAffiliate.affiliate_code}`,
+            });
+          }
+
+          if (offers.length > 0) {
+            return offers;
+          }
+        }
+      }
+
       // 2. Fallback: Sistema antigo via partner_associations
       // Buscar a conta virtual do usuário
       const { data: virtualAccount } = await supabase
