@@ -13,7 +13,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Zap, Clock, RefreshCw, Check, Package } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Zap, Clock, RefreshCw, Check, Package, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -34,6 +35,7 @@ interface DeliveryTypeSelectorProps {
   leadCpfCnpj?: string | null;
   leadCep?: string | null;
   onMissingCpf?: () => void;
+  onUpdateCpf?: (cpf: string) => void;
   value: {
     type: DeliveryType;
     regionId: string | null;
@@ -50,9 +52,12 @@ export function DeliveryTypeSelector({
   leadCpfCnpj,
   leadCep,
   onMissingCpf,
+  onUpdateCpf,
   value,
   onChange,
 }: DeliveryTypeSelectorProps) {
+  // Local state for inline CPF input
+  const [inlineCpf, setInlineCpf] = useState('');
   const { data: regions = [] } = useDeliveryRegions();
   const carriers = useActiveShippingCarriers();
   const { getQuotes, isLoading: isQuoteLoading } = useShippingQuote();
@@ -397,18 +402,45 @@ export function DeliveryTypeSelector({
         {/* Carrier Options */}
         {value.type === 'carrier' && (
           <div className="space-y-4 border-t pt-4">
-            {/* CPF Required Warning */}
+            {/* CPF Required Warning with Inline Input */}
             {!leadCpfCnpj && (
               <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
                 <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1 space-y-2">
                   <p className="text-sm font-medium text-red-800 dark:text-red-400">
                     CPF/CNPJ obrigatório para Transportadora
                   </p>
                   <p className="text-xs text-red-700 dark:text-red-500">
                     Para gerar etiquetas de envio pelo Melhor Envio, é necessário informar o CPF ou CNPJ do cliente.
                   </p>
-                  {onMissingCpf && (
+                  
+                  {/* Inline CPF Input */}
+                  {onUpdateCpf ? (
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        value={inlineCpf}
+                        onChange={(e) => setInlineCpf(e.target.value)}
+                        placeholder="Digite o CPF/CNPJ"
+                        className="h-8 text-sm bg-white dark:bg-gray-900"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        onClick={() => {
+                          if (inlineCpf.trim()) {
+                            onUpdateCpf(inlineCpf.trim());
+                            setInlineCpf('');
+                          }
+                        }}
+                        disabled={!inlineCpf.trim()}
+                        className="h-8"
+                      >
+                        <Save className="w-3.5 h-3.5 mr-1" />
+                        Salvar
+                      </Button>
+                    </div>
+                  ) : onMissingCpf && (
                     <button
                       type="button"
                       onClick={onMissingCpf}

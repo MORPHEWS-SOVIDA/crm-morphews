@@ -2633,7 +2633,7 @@ export default function AddReceptivo() {
                 leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
                 leadCpfCnpj={leadData.cpf_cnpj}
                 leadCep={selectedAddress?.cep || leadData.cep || null}
-                onMissingCpf={() => setCurrentStep('lead_info')}
+                onUpdateCpf={(cpf) => setLeadData(prev => ({ ...prev, cpf_cnpj: cpf }))}
               />
 
               {/* Delivery Observation Field */}
