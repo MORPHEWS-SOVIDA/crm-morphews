@@ -44,6 +44,53 @@ function getBrazilPhoneVariations(phone: string): string[] {
 }
 
 // ============================================================================
+// FETCH PROFILE PICTURE FROM EVOLUTION API
+// ============================================================================
+
+async function fetchProfilePictureFromEvolution(
+  instanceName: string,
+  phoneNumber: string
+): Promise<string | null> {
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+    console.log("⚠️ Evolution API not configured for profile picture fetch");
+    return null;
+  }
+
+  try {
+    const url = `${EVOLUTION_API_URL}/chat/fetchProfilePictureUrl/${instanceName}`;
+    console.log("📸 Fetching profile picture for", phoneNumber, "from", url);
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({ number: phoneNumber }),
+    });
+
+    if (!response.ok) {
+      console.log("📸 Profile picture fetch failed:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const profilePicUrl = data?.profilePictureUrl || data?.profilePicUrl || null;
+    
+    if (profilePicUrl) {
+      console.log("📸 Profile picture found:", profilePicUrl.substring(0, 60) + "...");
+    } else {
+      console.log("📸 No profile picture available for this contact");
+    }
+    
+    return profilePicUrl;
+  } catch (error) {
+    console.error("📸 Error fetching profile picture:", error);
+    return null;
+  }
+}
+
+// ============================================================================
 // HMAC TOKEN GENERATION (for secure media proxy URLs)
 // ============================================================================
 
@@ -692,6 +739,12 @@ serve(async (req) => {
         const displayName = isGroup 
           ? (groupSubject || `Grupo ${remoteJid.split("@")[0]}`)
           : (pushName || `+${fromPhone}`);
+        
+        // Se não temos foto do webhook, buscar via API Evolution (apenas para não-grupos)
+        let profilePicToSave = contactProfilePic;
+        if (!profilePicToSave && !isGroup) {
+          profilePicToSave = await fetchProfilePictureFromEvolution(instanceName, fromPhone);
+        }
           
         const { data: newConvo, error: convoError } = await supabase
           .from("whatsapp_conversations")
@@ -704,7 +757,7 @@ serve(async (req) => {
             customer_phone_e164: isGroup ? null : fromPhone,
             contact_name: displayName,
             display_name: displayName,
-            contact_profile_pic: isGroup ? null : contactProfilePic,
+            contact_profile_pic: isGroup ? null : profilePicToSave,
             chat_id: remoteJid,
             is_group: isGroup,
             group_subject: groupSubject,
@@ -720,7 +773,7 @@ serve(async (req) => {
           console.error("Error creating conversation:", convoError);
         } else {
           conversation = newConvo as any;
-          console.log("Created new conversation:", { id: conversation?.id, isGroup, groupSubject, status: 'pending' });
+          console.log("Created new conversation:", { id: conversation?.id, isGroup, groupSubject, status: 'pending', hasProfilePic: !!profilePicToSave });
           
           // Verificar modo de distribuição da instância
           const { data: instConfig } = await supabase
@@ -769,8 +822,14 @@ serve(async (req) => {
         };
         
         // Update contact profile picture if available and not a group
-        if (contactProfilePic && !isGroup) {
-          updateData.contact_profile_pic = contactProfilePic;
+        // Se não temos foto do webhook E a conversa também não tem foto, buscar via API
+        let profilePicToUpdate = contactProfilePic;
+        if (!profilePicToUpdate && !isGroup && !(conversation as any).contact_profile_pic) {
+          profilePicToUpdate = await fetchProfilePictureFromEvolution(instanceName, fromPhone);
+        }
+        
+        if (profilePicToUpdate && !isGroup) {
+          updateData.contact_profile_pic = profilePicToUpdate;
           console.log("📸 Updating contact profile picture");
         }
         
