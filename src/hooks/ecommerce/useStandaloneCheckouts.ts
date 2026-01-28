@@ -73,7 +73,12 @@ export interface StandaloneCheckout {
   quantity: number;
   custom_product_name: string | null;
   
+  // Shipping configuration
+  // 'none' = no shipping, 'free' = free shipping, 'calculated' = Correios PAC/SEDEX + R$7 picking + 2 days
+  shipping_mode: 'none' | 'free' | 'calculated';
+  
   // Partner commissions (fixed partners who earn on every sale)
+  // IMPORTANT: Partners do NOT earn commission on shipping costs
   industry_id: string | null;
   industry_commission_type: 'percentage' | 'fixed' | null;
   industry_commission_value: number | null;
@@ -125,6 +130,8 @@ export interface CreateCheckoutInput {
   custom_price_cents?: number | null;
   quantity?: number;
   custom_product_name?: string;
+  // Shipping configuration
+  shipping_mode?: 'none' | 'free' | 'calculated';
 }
 
 export interface CheckoutTestimonial {

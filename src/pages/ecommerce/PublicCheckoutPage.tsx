@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,8 @@ import {
   CheckCircle,
   AlertCircle,
   Headphones,
+  Truck,
+  Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePublicCheckout, useCheckoutTestimonials, type CheckoutElements, type CheckoutTheme } from '@/hooks/ecommerce/useStandaloneCheckouts';
@@ -37,6 +39,14 @@ function formatCurrency(cents: number): string {
 
 import { validateCpfCnpj, formatCpfCnpjInput } from '@/lib/validation/brazilian-documents';
 
+// Shipping option type from Correios quote
+interface ShippingOption {
+  service_code: string;
+  service_name: string;
+  price_cents: number;
+  delivery_days: number;
+}
+
 type PaymentMethod = 'pix' | 'credit_card' | 'boleto';
 
 export default function PublicCheckoutPage() {
@@ -50,6 +60,11 @@ export default function PublicCheckoutPage() {
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [totalWithInterest, setTotalWithInterest] = useState<number | null>(null);
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
+  
+  // Shipping state
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   
   // Capture affiliate code from URL
   const affiliateCode = useMemo(() => {
@@ -133,6 +148,7 @@ export default function PublicCheckoutPage() {
   const productQuantity = checkout?.quantity ?? 1;
   const displayProductName = checkout?.custom_product_name || checkout?.product?.name || 'Produto';
   const pixDiscount = checkout?.pix_discount_percent || 0;
+  const shippingMode = checkout?.shipping_mode || 'none';
   
   const orderBumpPrice = useMemo(() => {
     if (!checkout?.order_bump_enabled || !checkout?.order_bump_product) return 0;
@@ -141,11 +157,16 @@ export default function PublicCheckoutPage() {
     return Math.round(originalPrice * (1 - discount / 100));
   }, [checkout]);
 
+  // Shipping cost - only added when calculated, partners don't earn commission on this
+  const shippingCost = shippingMode === 'calculated' && selectedShipping ? selectedShipping.price_cents : 0;
+
   const subtotal = productPrice + (addOrderBump ? orderBumpPrice : 0);
-  const pixTotal = Math.round(subtotal * (1 - pixDiscount / 100));
+  const pixSubtotal = Math.round(subtotal * (1 - pixDiscount / 100));
   
-  const total = paymentMethod === 'pix' ? pixTotal : subtotal;
-  const totalToCharge = paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest : total;
+  // Total includes shipping (shipping is NOT subject to PIX discount)
+  const productTotal = paymentMethod === 'pix' ? pixSubtotal : subtotal;
+  const total = productTotal + shippingCost;
+  const totalToCharge = paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest + shippingCost : total;
 
   // Theme styles
   const theme: CheckoutTheme = checkout?.theme || {
@@ -169,6 +190,49 @@ export default function PublicCheckoutPage() {
     setTotalWithInterest(installments > 1 ? newTotal : null);
   };
 
+  // Fetch shipping quotes when CEP is complete and mode is calculated
+  const fetchShippingQuotes = useCallback(async (cep: string) => {
+    if (!checkout?.organization_id || shippingMode !== 'calculated') return;
+    
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setShippingOptions([]);
+      setSelectedShipping(null);
+      return;
+    }
+
+    setIsLoadingShipping(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('correios-simple-quote', {
+        body: {
+          organization_id: checkout.organization_id,
+          destination_cep: cleanCep,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      const validOptions = (data?.quotes || []).filter(
+        (q: ShippingOption) => q.price_cents > 0
+      );
+
+      setShippingOptions(validOptions);
+
+      // Auto-select cheapest option
+      if (validOptions.length > 0) {
+        const cheapest = validOptions.reduce((min: ShippingOption, curr: ShippingOption) =>
+          curr.price_cents < min.price_cents ? curr : min
+        );
+        setSelectedShipping(cheapest);
+      }
+    } catch (e) {
+      console.error('Shipping fetch error:', e);
+      toast.error('Erro ao calcular frete');
+    } finally {
+      setIsLoadingShipping(false);
+    }
+  }, [checkout?.organization_id, shippingMode]);
+
   // CEP lookup via ViaCEP API
   const handleCepBlur = async () => {
     const cleanCep = formData.cep.replace(/\D/g, '');
@@ -187,6 +251,11 @@ export default function PublicCheckoutPage() {
           city: data.localidade || '',
           state: data.uf || '',
         }));
+        
+        // Fetch shipping quotes after address is loaded
+        if (shippingMode === 'calculated') {
+          fetchShippingQuotes(cleanCep);
+        }
       } else {
         toast.error('CEP não encontrado');
       }
@@ -224,6 +293,12 @@ export default function PublicCheckoutPage() {
 
     if (paymentMethod === 'credit_card' && !cardData) {
       toast.error('Preencha os dados do cartão');
+      return;
+    }
+
+    // Validate shipping selection when mode is calculated
+    if (shippingMode === 'calculated' && !selectedShipping) {
+      toast.error('Selecione uma opção de frete');
       return;
     }
 
@@ -280,10 +355,16 @@ export default function PublicCheckoutPage() {
           state: formData.state,
           zip: formData.cep,
           complement: formData.complement || undefined,
+          // Shipping cost data - partners don't earn commission on this
+          shipping_cost_cents: shippingCost,
+          shipping_service_code: selectedShipping?.service_code,
+          shipping_service_name: selectedShipping?.service_name,
+          shipping_delivery_days: selectedShipping?.delivery_days,
+          shipping_mode: shippingMode,
         },
         payment_method: paymentMethod,
         installments: cardData?.installments || 1,
-        total_with_interest_cents: paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest : undefined,
+        total_with_interest_cents: paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest + shippingCost : undefined,
         card_data: paymentMethod === 'credit_card' && cardData ? {
           number: cardData.card_number,
           holder_name: cardData.card_holder_name,
@@ -493,7 +574,26 @@ export default function PublicCheckoutPage() {
                     {paymentMethod === 'pix' && pixDiscount > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Desconto PIX ({pixDiscount}%)</span>
-                        <span>-{formatCurrency(subtotal - pixTotal)}</span>
+                        <span>-{formatCurrency(subtotal - pixSubtotal)}</span>
+                      </div>
+                    )}
+                    {/* Shipping cost display */}
+                    {shippingMode === 'calculated' && selectedShipping && (
+                      <div className="flex justify-between text-sm">
+                        <span className="flex items-center gap-1">
+                          <Truck className="h-3 w-3" />
+                          Frete ({selectedShipping.service_name})
+                        </span>
+                        <span>{formatCurrency(selectedShipping.price_cents)}</span>
+                      </div>
+                    )}
+                    {shippingMode === 'free' && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span className="flex items-center gap-1">
+                          <Package className="h-3 w-3" />
+                          Frete Grátis
+                        </span>
+                        <span>R$ 0,00</span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-lg pt-2 border-t">
@@ -693,6 +793,85 @@ export default function PublicCheckoutPage() {
                       </div>
                     </div>
 
+                    {/* Shipping Options - Only show when mode is calculated */}
+                    {shippingMode === 'calculated' && (
+                      <>
+                        <Separator />
+                        <div className="space-y-4">
+                          <h3 className="font-medium flex items-center gap-2">
+                            <Truck className="h-5 w-5" />
+                            Frete
+                          </h3>
+                          
+                          {formData.cep.replace(/\D/g, '').length !== 8 ? (
+                            <p className="text-sm text-muted-foreground">
+                              Preencha o CEP para calcular o frete
+                            </p>
+                          ) : isLoadingShipping ? (
+                            <div className="flex items-center gap-2 py-4 text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Calculando frete...
+                            </div>
+                          ) : shippingOptions.length === 0 ? (
+                            <p className="text-sm text-destructive">
+                              Nenhuma opção de frete disponível para este CEP
+                            </p>
+                          ) : (
+                            <RadioGroup
+                              value={selectedShipping?.service_code || ''}
+                              onValueChange={(code) => {
+                                const option = shippingOptions.find(o => o.service_code === code);
+                                setSelectedShipping(option || null);
+                              }}
+                              className="space-y-2"
+                            >
+                              {shippingOptions.map((option) => (
+                                <div
+                                  key={option.service_code}
+                                  className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${
+                                    selectedShipping?.service_code === option.service_code
+                                      ? 'border-2 bg-primary/5'
+                                      : 'hover:border-primary/30'
+                                  }`}
+                                  style={
+                                    selectedShipping?.service_code === option.service_code
+                                      ? { borderColor: theme.primary_color }
+                                      : undefined
+                                  }
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <RadioGroupItem value={option.service_code} id={`shipping_${option.service_code}`} />
+                                    <div>
+                                      <Label htmlFor={`shipping_${option.service_code}`} className="font-medium cursor-pointer">
+                                        {option.service_name}
+                                      </Label>
+                                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {option.delivery_days === 1
+                                          ? '1 dia útil'
+                                          : `${option.delivery_days} dias úteis`}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="font-bold" style={{ color: theme.primary_color }}>
+                                    {formatCurrency(option.price_cents)}
+                                  </span>
+                                </div>
+                              ))}
+                            </RadioGroup>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Free Shipping Banner */}
+                    {shippingMode === 'free' && (
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700">
+                        <Package className="h-5 w-5" />
+                        <span className="font-medium">Frete Grátis!</span>
+                      </div>
+                    )}
+
                     <Separator />
 
                     {/* Payment Method */}
@@ -714,7 +893,7 @@ export default function PublicCheckoutPage() {
                               </div>
                             </Label>
                             <span className="text-sm font-medium" style={{ color: theme.primary_color }}>
-                              {formatCurrency(pixTotal)}
+                              {formatCurrency(pixSubtotal + shippingCost)}
                             </span>
                           </div>
                         )}
