@@ -129,7 +129,7 @@ export default function WhatsAppChat() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: funnelStages } = useFunnelStages();
-  const { claimConversation, closeConversation, reactivateConversation } = useConversationDistribution();
+  const { claimConversation, closeConversation, closeConversationWithoutNPS, reactivateConversation } = useConversationDistribution();
   // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
   const isMobile = useIsMobile();
   const { playNotificationSound } = useNotificationSound();
@@ -1276,10 +1276,29 @@ export default function WhatsAppChat() {
                   variant="outline"
                   className="flex-1 max-w-[150px] border-orange-300 text-orange-600"
                   onClick={handleCloseConversation}
-                  disabled={closeConversation.isPending}
+                  disabled={closeConversation.isPending || closeConversationWithoutNPS.isPending}
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Encerrar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 max-w-[150px] border-gray-300 text-gray-600"
+                  onClick={() => {
+                    if (selectedConversation) {
+                      closeConversationWithoutNPS.mutateAsync({ conversationId: selectedConversation.id });
+                      setConversations(prev => prev.map(c => 
+                        c.id === selectedConversation.id ? { ...c, status: 'closed' } : c
+                      ));
+                      setSelectedConversation(null);
+                    }
+                  }}
+                  disabled={closeConversation.isPending || closeConversationWithoutNPS.isPending}
+                  title="Encerra sem enviar pesquisa de satisfação"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Sem NPS
                 </Button>
                 <Button
                   size="sm"

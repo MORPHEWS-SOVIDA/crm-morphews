@@ -410,10 +410,57 @@ export function useConversationDistribution() {
     }
   });
 
+  // Encerrar conversa SEM enviar pesquisa NPS (com auditoria)
+  const closeConversationWithoutNPS = useMutation({
+    mutationFn: async ({ 
+      conversationId, 
+      reason 
+    }: { 
+      conversationId: string; 
+      reason?: string 
+    }) => {
+      // Buscar dados da conversa
+      const { data: conv, error: convError } = await supabase
+        .from("whatsapp_conversations")
+        .select("organization_id")
+        .eq("id", conversationId)
+        .single();
+
+      if (convError || !conv) {
+        throw new Error('Conversa não encontrada');
+      }
+
+      // Encerrar conversa marcando que NPS foi pulado
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("whatsapp_conversations")
+        .update({
+          status: "closed",
+          closed_at: now,
+          skip_nps_at: now,
+          skip_nps_by: profile?.user_id,
+          skip_nps_reason: reason || null,
+          awaiting_satisfaction_response: false,
+        })
+        .eq("id", conversationId);
+
+      if (error) throw error;
+      return { success: true, skippedNPS: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+      toast.success('Atendimento encerrado (sem pesquisa NPS)');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao encerrar conversa');
+    }
+  });
+
   return {
     claimConversation,
     transferConversation,
     closeConversation,
+    closeConversationWithoutNPS,
     updateConversationStatus,
     reactivateConversation,
   };

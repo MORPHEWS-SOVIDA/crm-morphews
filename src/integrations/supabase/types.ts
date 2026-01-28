@@ -1453,6 +1453,7 @@ export type Database = {
       conversation_satisfaction_ratings: {
         Row: {
           assigned_user_id: string | null
+          auto_classified: boolean | null
           closed_at: string
           conversation_id: string
           created_at: string
@@ -1470,6 +1471,7 @@ export type Database = {
         }
         Insert: {
           assigned_user_id?: string | null
+          auto_classified?: boolean | null
           closed_at?: string
           conversation_id: string
           created_at?: string
@@ -1487,6 +1489,7 @@ export type Database = {
         }
         Update: {
           assigned_user_id?: string | null
+          auto_classified?: boolean | null
           closed_at?: string
           conversation_id?: string
           created_at?: string
@@ -15991,6 +15994,9 @@ export type Database = {
           phone_number: string
           satisfaction_sent_at: string | null
           sendable_phone: string | null
+          skip_nps_at: string | null
+          skip_nps_by: string | null
+          skip_nps_reason: string | null
           status: string
           unread_count: number
           updated_at: string
@@ -16029,6 +16035,9 @@ export type Database = {
           phone_number: string
           satisfaction_sent_at?: string | null
           sendable_phone?: string | null
+          skip_nps_at?: string | null
+          skip_nps_by?: string | null
+          skip_nps_reason?: string | null
           status?: string
           unread_count?: number
           updated_at?: string
@@ -16067,6 +16076,9 @@ export type Database = {
           phone_number?: string
           satisfaction_sent_at?: string | null
           sendable_phone?: string | null
+          skip_nps_at?: string | null
+          skip_nps_by?: string | null
+          skip_nps_reason?: string | null
           status?: string
           unread_count?: number
           updated_at?: string
@@ -16134,6 +16146,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_skip_nps_by_fkey"
+            columns: ["skip_nps_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
