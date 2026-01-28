@@ -44,6 +44,7 @@ import {
   Banknote,
   Store,
   Bike,
+  Download,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1083,6 +1084,10 @@ export default function Expedition() {
                           <Badge variant="outline" className="font-mono text-xs">
                             #{sale.romaneio_number?.toString().padStart(5, '0')}
                           </Badge>
+                          {/* Creation date */}
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            📅 {format(parseISO(sale.created_at), 'dd/MM', { locale: ptBR })}
+                          </Badge>
                           {/* Show status when searching globally */}
                           {searchQuery.trim() && (
                             <Badge variant="secondary" className="text-xs">
@@ -1314,6 +1319,28 @@ export default function Expedition() {
                                   </Button>
                                 </>
                               )}
+                              
+                              {/* Download label button - Melhor Envio or imported */}
+                              {(() => {
+                                const labelUrl = sale.melhor_envio_labels?.[0]?.label_pdf_url;
+                                if (labelUrl) {
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs text-green-600 border-green-300 hover:bg-green-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(labelUrl, '_blank');
+                                      }}
+                                    >
+                                      <Download className="w-3 h-3 mr-1" />
+                                      Etiqueta
+                                    </Button>
+                                  );
+                                }
+                                return null;
+                              })()}
                               
                               {/* Carrier sub-status selector (logistics tracking) */}
                               <Select
