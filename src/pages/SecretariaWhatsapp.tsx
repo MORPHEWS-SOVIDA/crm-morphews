@@ -1,9 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import Dashboard from "./Dashboard";
-import Power from "./Power";
+import Planos from "./Planos";
 
-export default function Home() {
+export default function SecretariaWhatsapp() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -14,11 +14,11 @@ export default function Home() {
     );
   }
 
-  // If user is logged in, show dashboard directly - NO onboarding redirect
+  // If user is logged in, show dashboard directly
   if (user) {
     return <Dashboard />;
   }
 
-  // If not logged in, show Power landing page (previously /2026)
-  return <Power />;
+  // If not logged in, show old Planos landing page
+  return <Planos />;
 }
