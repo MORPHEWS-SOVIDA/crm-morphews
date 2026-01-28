@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone, ToggleLeft, ToggleRight } from "lucide-react";
+import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -239,29 +239,47 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   const isLoading = loadingMembers || loadingPermissions;
 
-  // Check if all users have can_view enabled
+  // Check if all users have permissions enabled
   const allHaveCanView = usersWithAccess.length > 0 && usersWithAccess.every(m => {
     const permission = getUserPermission(m.user_id);
     return permission?.can_view === true;
   });
 
-  // Toggle all can_view permissions
-  const toggleAllCanView = async () => {
-    const newValue = !allHaveCanView;
+  const allHaveCanSend = usersWithAccess.length > 0 && usersWithAccess.every(m => {
+    const permission = getUserPermission(m.user_id);
+    return permission?.can_send === true;
+  });
+
+  const allAreAdmin = usersWithAccess.length > 0 && usersWithAccess.every(m => {
+    const permission = getUserPermission(m.user_id);
+    return permission?.is_instance_admin === true;
+  });
+
+  // Toggle all permissions helper
+  const toggleAllPermission = async (
+    field: 'can_view' | 'can_send' | 'is_instance_admin',
+    currentAllValue: boolean
+  ) => {
+    const newValue = !currentAllValue;
     
     for (const member of usersWithAccess) {
       const permission = getUserPermission(member.user_id);
-      if (permission && permission.can_view !== newValue) {
+      if (permission && (permission as any)[field] !== newValue) {
         await updatePermissionMutation.mutateAsync({
           id: permission.id,
-          can_view: newValue,
+          [field]: newValue,
         });
       }
     }
     
+    const labels = {
+      can_view: { on: "Todos podem ver", off: "Visualização removida de todos" },
+      can_send: { on: "Todos podem enviar", off: "Envio removido de todos" },
+      is_instance_admin: { on: "Todos são admin", off: "Admin removido de todos" },
+    };
+    
     toast({ 
-      title: newValue ? "Todos podem ver" : "Visualização removida de todos",
-      description: `Permissão de visualização ${newValue ? "ativada" : "desativada"} para todos os usuários.`
+      title: newValue ? labels[field].on : labels[field].off,
     });
   };
 
@@ -437,25 +455,6 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                         <span className="text-[10px]">Ver</span>
                       </div>
                     </TableHead>
-                    <TableHead className="text-center w-[60px]">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 hover:bg-primary/10 rounded-md"
-                          onClick={toggleAllCanView}
-                          title={allHaveCanView ? "Desmarcar todos" : "Selecionar todos"}
-                          disabled={usersWithAccess.length === 0}
-                        >
-                          {allHaveCanView ? (
-                            <ToggleRight className="h-4 w-4 text-primary" />
-                          ) : (
-                            <ToggleLeft className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                        <span className="text-[10px]">Todos</span>
-                      </div>
-                    </TableHead>
                     <TableHead className="text-center w-[70px]">
                       <div className="flex flex-col items-center gap-0.5">
                         <Send className="h-4 w-4" />
@@ -468,14 +467,6 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                         <span className="text-[10px]">Admin</span>
                       </div>
                     </TableHead>
-                    {hasWavoipFeature && (
-                      <TableHead className="text-center w-[70px]">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <Phone className="h-4 w-4" />
-                          <span className="text-[10px]">Telefone</span>
-                        </div>
-                      </TableHead>
-                    )}
                     {distributionMode === "auto" && (
                       <>
                         <TableHead className="text-center w-[90px]">
@@ -496,9 +487,53 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* Linha TODOS - Toggle em massa */}
+                  {usersWithAccess.length > 0 && (
+                    <TableRow className="bg-primary/5 border-b-2 border-primary/20">
+                      <TableCell className="font-semibold text-primary">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          TODOS
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={allHaveCanView}
+                          onCheckedChange={() => toggleAllPermission('can_view', allHaveCanView)}
+                          disabled={usersWithAccess.length === 0}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={allHaveCanSend}
+                          onCheckedChange={() => toggleAllPermission('can_send', allHaveCanSend)}
+                          disabled={usersWithAccess.length === 0}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={allAreAdmin}
+                          onCheckedChange={() => toggleAllPermission('is_instance_admin', allAreAdmin)}
+                          disabled={usersWithAccess.length === 0}
+                        />
+                      </TableCell>
+                      {distributionMode === "auto" && (
+                        <>
+                          <TableCell className="text-center">
+                            <span className="text-xs text-muted-foreground">-</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="text-xs text-muted-foreground">-</span>
+                          </TableCell>
+                        </>
+                      )}
+                      <TableCell></TableCell>
+                    </TableRow>
+                  )}
+                  
                   {usersWithAccess.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={distributionMode === "auto" ? 7 : 5} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={distributionMode === "auto" ? 6 : 4} className="text-center py-8 text-muted-foreground">
                         Nenhum usuário adicionado
                       </TableCell>
                     </TableRow>
@@ -567,20 +602,6 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                             />
                           </TableCell>
 
-                          {/* Telefone - only show if Wavoip feature is enabled */}
-                          {hasWavoipFeature && (
-                            <TableCell className="text-center">
-                              <Switch
-                                checked={permission.can_use_phone}
-                                onCheckedChange={(checked) =>
-                                  updatePermissionMutation.mutate({
-                                    id: permission.id,
-                                    can_use_phone: checked,
-                                  })
-                                }
-                              />
-                            </TableCell>
-                          )}
 
                           {distributionMode === "auto" && (
                             <>
