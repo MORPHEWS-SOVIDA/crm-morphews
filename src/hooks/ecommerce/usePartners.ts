@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEcommerceOrganizationId } from '@/hooks/ecommerce/useEcommerceOrganizationId';
 
 export type PartnerType = 'affiliate' | 'coproducer' | 'industry' | 'factory';
 export type CommissionType = 'percentage' | 'fixed';
@@ -81,12 +82,12 @@ export function usePartnerInvitations() {
 }
 
 export function usePartnerAssociations(partnerType?: PartnerType) {
-  const { profile } = useAuth();
+  const { data: organizationId } = useEcommerceOrganizationId();
   
   return useQuery({
-    queryKey: ['partner-associations', partnerType, profile?.organization_id],
+    queryKey: ['partner-associations', partnerType, organizationId],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
+      if (!organizationId) return [];
       
       // Query parceiros globais (sem vínculo a checkout/landing específico)
       let query = supabase
@@ -100,7 +101,7 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
           product:lead_products(id, name),
           organization:organizations(id, name)
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .is('linked_checkout_id', null)
         .is('linked_landing_id', null)
         .is('linked_storefront_id', null)
@@ -116,7 +117,7 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
       if (error) throw error;
       return data as unknown as PartnerAssociation[];
     },
-    enabled: !!profile?.organization_id,
+    enabled: !!organizationId,
   });
 }
 
