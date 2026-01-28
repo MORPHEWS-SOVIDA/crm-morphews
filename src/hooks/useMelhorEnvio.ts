@@ -437,3 +437,32 @@ export function formatShippingPrice(cents: number): string {
     currency: 'BRL',
   }).format(cents / 100);
 }
+
+// Hook para verificar saldo do Melhor Envio
+export function useMelhorEnvioBalance() {
+  const { tenantId } = useTenant();
+
+  return useQuery({
+    queryKey: ['melhor-envio-balance', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+
+      const { data, error } = await supabase.functions.invoke('melhor-envio-label', {
+        body: {
+          action: 'get_balance',
+          organization_id: tenantId,
+        },
+      });
+
+      if (error) {
+        console.warn('[MelhorEnvio] Erro ao buscar saldo:', error);
+        return null;
+      }
+
+      return data as { balance_cents: number; balance_formatted: string } | null;
+    },
+    enabled: !!tenantId,
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    refetchInterval: 10 * 60 * 1000, // Atualiza a cada 10 minutos
+  });
+}
