@@ -32,6 +32,8 @@ import {
   Loader2,
   MessageSquarePlus,
   Info,
+  Mail,
+  Copy,
 } from 'lucide-react';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { toast } from 'sonner';
@@ -2083,6 +2085,40 @@ export default function WhatsAppChat() {
                           >
                             {lead.instagram}
                           </a>
+                          {/* Botão copiar email ao lado do Instagram */}
+                          {lead.email && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 ml-1"
+                              onClick={() => {
+                                navigator.clipboard.writeText(lead.email!);
+                                toast.success("Email copiado!");
+                              }}
+                              title={`Copiar email: ${lead.email}`}
+                            >
+                              <Mail className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {/* Email row if no Instagram but has email */}
+                      {!lead.instagram && lead.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">{lead.email}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              navigator.clipboard.writeText(lead.email!);
+                              toast.success("Email copiado!");
+                            }}
+                            title="Copiar email"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
                         </div>
                       )}
                     </div>
