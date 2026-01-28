@@ -18095,6 +18095,14 @@ export type Database = {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
+      user_is_affiliate_for_cart: {
+        Args: { _cart_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_is_affiliate_for_order: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_is_affiliate_for_sale: {
         Args: { _sale_id: string; _user_id: string }
         Returns: boolean
