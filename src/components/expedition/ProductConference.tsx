@@ -318,54 +318,51 @@ export function ProductConference({
                     </Tooltip>
                   )}
                 </div>
-              </div>
-
-              {/* Conference history badges per item */}
-              {(showHistory || allItemConferences.length > 0) && allItemConferences.length > 0 && (
-                collapseHistory ? (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-5 w-5 ml-1 text-muted-foreground hover:text-primary"
-                      >
-                        <Info className="h-3.5 w-3.5" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2" side="top">
+                
+                {/* Inline conference indicator - compact, same line */}
+                {fullyChecked && allItemConferences.length > 0 && collapseHistory && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-[10px] text-muted-foreground ml-1 cursor-help">
+                        ✓ {allItemConferences[allItemConferences.length - 1]?.user_name?.split(' ')[0] || 'Conferido'}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
                       <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Conferências:</p>
+                        <p className="text-xs font-medium">Conferências realizadas:</p>
                         {allItemConferences.map((conf, idx) => (
                           <div key={idx} className="flex items-center gap-1 text-xs">
                             <CheckCircle2 className="h-3 w-3 text-green-600" />
                             <span>{stageLabels[conf.stage] || conf.stage}:</span>
                             <span className="font-medium">{conf.user_name}</span>
                             <span className="text-muted-foreground">
-                              {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
+                              {format(new Date(conf.conferenced_at), "dd/MM HH:mm", { locale: ptBR })}
                             </span>
                           </div>
                         ))}
                       </div>
-                    </PopoverContent>
-                  </Popover>
-                ) : (
-                  <div className="ml-2 flex flex-wrap gap-1">
-                    {allItemConferences.map((conf, idx) => (
-                      <Badge 
-                        key={idx} 
-                        variant="outline" 
-                        className="text-xs py-0 gap-1"
-                      >
-                        <CheckCircle2 className="h-3 w-3 text-green-600" />
-                        {stageLabels[conf.stage] || conf.stage}: {conf.user_name}
-                        <span className="text-muted-foreground">
-                          {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
-                        </span>
-                      </Badge>
-                    ))}
-                  </div>
-                )
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+
+              {/* Conference history badges per item - only when NOT collapsed */}
+              {(showHistory || allItemConferences.length > 0) && allItemConferences.length > 0 && !collapseHistory && (
+                <div className="ml-2 flex flex-wrap gap-1">
+                  {allItemConferences.map((conf, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant="outline" 
+                      className="text-xs py-0 gap-1"
+                    >
+                      <CheckCircle2 className="h-3 w-3 text-green-600" />
+                      {stageLabels[conf.stage] || conf.stage}: {conf.user_name}
+                      <span className="text-muted-foreground">
+                        {format(new Date(conf.conferenced_at), "dd/MM", { locale: ptBR })}
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
               )}
             </div>
           );

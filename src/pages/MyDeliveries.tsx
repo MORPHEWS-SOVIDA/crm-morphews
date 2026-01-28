@@ -525,38 +525,51 @@ function DeliveryCard({
           </div>
         )}
         
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base truncate">{sale.lead?.name}</h3>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {getShiftIcon(sale.scheduled_delivery_shift)}
-            <span>
-              {sale.scheduled_delivery_date 
-                ? format(parseISO(sale.scheduled_delivery_date), 'dd/MM', { locale: ptBR })
-                : ''
-              }
-              {sale.scheduled_delivery_shift && sale.scheduled_delivery_date && ' '}
-              {getShiftLabel(sale.scheduled_delivery_shift)}
-            </span>
-            <span className="font-medium text-primary">
-              {formatCurrency(sale.total_cents)}
-            </span>
-          </div>
+        {/* Row 1: Nome do Cliente + Romaneio */}
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold text-base truncate flex-1">{sale.lead?.name}</h3>
+          <Badge variant="outline" className="text-xs flex-shrink-0">
+            #{sale.romaneio_number?.toString().padStart(5, '0')}
+          </Badge>
         </div>
-
-        <div className="flex items-center gap-2">
+        
+        {/* Row 2: Data + Turno + Valor + Ver Venda */}
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          {getShiftIcon(sale.scheduled_delivery_shift)}
+          <span className="text-muted-foreground">
+            {sale.scheduled_delivery_date 
+              ? format(parseISO(sale.scheduled_delivery_date), 'dd/MM', { locale: ptBR })
+              : ''
+            }
+            {sale.scheduled_delivery_shift && sale.scheduled_delivery_date && ' '}
+            {getShiftLabel(sale.scheduled_delivery_shift)}
+          </span>
+          <span className="font-semibold text-primary">
+            {formatCurrency(sale.total_cents)}
+          </span>
           <a
             href={`/vendas/${sale.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+            className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 ml-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Ver Venda
           </a>
-          <Badge variant="outline" className="text-xs">
-            #{sale.romaneio_number?.toString().padStart(5, '0')}
+        </div>
+        
+        {/* Row 3: Status Pago/Não Pago + Vendedor */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className={`text-xs ${paymentInfo.className}`}>
+            <paymentInfo.icon className="w-3 h-3 mr-1" />
+            {paymentInfo.label}
           </Badge>
+          {sale.seller_profile && (
+            <span className="text-xs text-muted-foreground">
+              👤 {sale.seller_profile.first_name} {sale.seller_profile.last_name}
+            </span>
+          )}
         </div>
       </div>
 
@@ -653,14 +666,6 @@ function DeliveryCard({
             </ul>
           </div>
         )}
-        
-        {/* Payment status */}
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className={`text-xs ${paymentInfo.className}`}>
-            <paymentInfo.icon className="w-3 h-3 mr-1" />
-            {paymentInfo.label}
-          </Badge>
-        </div>
         
         {/* View payment proof button if exists */}
         {sale.payment_proof_url && (
@@ -764,48 +769,50 @@ function DeliveryCard({
 
       {/* Action Buttons - Only show for pending deliveries */}
       {!isCompleted && (
-        <div className="p-3 pt-0 grid grid-cols-2 gap-2">
-          {/* Top row: Maps and WhatsApp */}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onOpenMaps}
-            className="flex-1"
-            disabled={!sale.lead?.street && !sale.lead?.google_maps_link}
-          >
-            <Navigation className="w-4 h-4 mr-1.5" />
-            Mapa
-          </Button>
+        <div className="p-3 pt-0 space-y-2">
+          {/* Quick status update: Próxima Entrega */}
+          {sale.delivery_type === 'motoboy' && onUpdateMotoboyStatus && (
+            <Button
+              size="sm"
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              onClick={() => onUpdateMotoboyStatus('next_delivery' as MotoboyTrackingStatus)}
+            >
+              <Navigation className="w-4 h-4 mr-1.5" />
+              Próxima Entrega
+            </Button>
+          )}
           
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onOpenWhatsApp}
-            className="flex-1"
-          >
-            <MessageCircle className="w-4 h-4 mr-1.5" />
-            WhatsApp
-          </Button>
+          {/* Row: WhatsApp + Delivery actions */}
+          <div className="grid grid-cols-3 gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={onOpenWhatsApp}
+              className="flex-1"
+            >
+              <MessageCircle className="w-4 h-4 mr-1.5" />
+              WhatsApp
+            </Button>
 
-          {/* Bottom row: Delivery actions */}
-          <Button 
-            variant="destructive"
-            size="sm"
-            onClick={onMarkNotDelivered}
-            className="flex-1"
-          >
-            <XCircle className="w-4 h-4 mr-1.5" />
-            Não Entregue
-          </Button>
+            <Button 
+              variant="destructive"
+              size="sm"
+              onClick={onMarkNotDelivered}
+              className="flex-1"
+            >
+              <XCircle className="w-4 h-4 mr-1.5" />
+              Voltou
+            </Button>
 
-          <Button 
-            size="sm"
-            onClick={onMarkDelivered}
-            className="flex-1 bg-green-600 hover:bg-green-700"
-          >
-            <CheckCircle className="w-4 h-4 mr-1.5" />
-            Entregue
-          </Button>
+            <Button 
+              size="sm"
+              onClick={onMarkDelivered}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="w-4 h-4 mr-1.5" />
+              Entregue
+            </Button>
+          </div>
         </div>
       )}
 
