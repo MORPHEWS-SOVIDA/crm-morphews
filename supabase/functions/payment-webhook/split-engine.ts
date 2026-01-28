@@ -418,7 +418,8 @@ export async function processSaleSplitsV3(
     throw new Error('Sale not found');
   }
 
-  const { data: saleItems } = await supabase
+  // 2a) Load sale_items (traditional sales)
+  let { data: saleItems } = await supabase
     .from('sale_items')
     .select('product_id, quantity, unit_price_cents, total_cents')
     .eq('sale_id', saleId);
@@ -426,13 +427,26 @@ export async function processSaleSplitsV3(
   // 2b) Load ecommerce_order to get storefront_id/landing_page_id for partner processing
   const { data: ecomOrder } = await supabase
     .from('ecommerce_orders')
-    .select('storefront_id, landing_page_id, source')
+    .select('id, storefront_id, landing_page_id, source')
     .eq('sale_id', saleId)
     .maybeSingle();
 
+  // 2c) CRITICAL: If no sale_items, fallback to ecommerce_order_items (Landing Pages/Checkouts)
+  if ((!saleItems || saleItems.length === 0) && ecomOrder?.id) {
+    const { data: ecomItems } = await supabase
+      .from('ecommerce_order_items')
+      .select('product_id, quantity, unit_price_cents, total_cents')
+      .eq('order_id', ecomOrder.id);
+    
+    if (ecomItems && ecomItems.length > 0) {
+      saleItems = ecomItems;
+      console.log(`[SplitEngine] Loaded ${ecomItems.length} items from ecommerce_order_items`);
+    }
+  }
+
   const storefrontId = ecomOrder?.storefront_id || null;
   const landingPageId = ecomOrder?.landing_page_id || null;
-  console.log(`[SplitEngine] Source: ${ecomOrder?.source || 'unknown'}, storefront: ${storefrontId}, landing: ${landingPageId}`);
+  console.log(`[SplitEngine] Source: ${ecomOrder?.source || 'unknown'}, storefront: ${storefrontId}, landing: ${landingPageId}, items: ${saleItems?.length || 0}`);
 
   // 3) Load split rules
   const rules = await loadSplitRules(supabase, sale.organization_id);
