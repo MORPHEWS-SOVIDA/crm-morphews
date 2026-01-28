@@ -37,15 +37,11 @@ interface CheckoutPartnersTabProps {
   }) => void;
 }
 
-interface Industry {
+interface Partner {
   id: string;
   name: string;
-}
-
-interface VirtualAccount {
-  id: string;
-  holder_name: string;
-  holder_email: string;
+  email: string;
+  virtual_account_id: string;
 }
 
 const NONE_VALUE = '__none__';
@@ -63,9 +59,9 @@ export function CheckoutPartnersTab({
   onChange,
 }: CheckoutPartnersTabProps) {
   const { profile } = useAuth();
-  const [industries, setIndustries] = useState<Industry[]>([]);
-  const [factories, setFactories] = useState<Industry[]>([]);
-  const [coproducers, setCoproducers] = useState<VirtualAccount[]>([]);
+  const [industries, setIndustries] = useState<Partner[]>([]);
+  const [factories, setFactories] = useState<Partner[]>([]);
+  const [coproducers, setCoproducers] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,27 +70,48 @@ export function CheckoutPartnersTab({
     const fetchPartners = async () => {
       setLoading(true);
 
-      // Fetch all industries - they can be used for both industry and factory roles
-      const { data: industriesData } = await supabase
-        .from('industries')
-        .select('id, name')
+      // Fetch all partner associations with virtual account info
+      const { data: associations } = await supabase
+        .from('partner_associations')
+        .select(`
+          id,
+          partner_type,
+          virtual_account_id,
+          virtual_accounts (
+            id,
+            holder_name,
+            holder_email
+          )
+        `)
         .eq('organization_id', profile.organization_id)
-        .eq('is_active', true)
-        .order('name');
+        .eq('is_active', true);
 
-      // All industries can be used as both industry or factory
-      const allIndustries = industriesData || [];
-      setIndustries(allIndustries);
-      setFactories(allIndustries);
+      const allPartners = associations || [];
+      
+      // Transform and filter by partner type
+      const transformPartner = (p: any): Partner => ({
+        id: p.virtual_account_id, // Use virtual_account_id as the reference
+        name: p.virtual_accounts?.holder_name || 'Sem nome',
+        email: p.virtual_accounts?.holder_email || '',
+        virtual_account_id: p.virtual_account_id,
+      });
 
-      // Fetch virtual accounts for coproducers
-      const { data: accountsData } = await supabase
-        .from('virtual_accounts')
-        .select('id, holder_name, holder_email')
-        .eq('organization_id', profile.organization_id)
-        .order('holder_name');
+      // Get unique partners by virtual_account_id for each type
+      const getUniquePartners = (type: string) => {
+        const filtered = allPartners.filter(p => p.partner_type === type);
+        const unique = new Map<string, Partner>();
+        filtered.forEach(p => {
+          if (!unique.has(p.virtual_account_id)) {
+            unique.set(p.virtual_account_id, transformPartner(p));
+          }
+        });
+        return Array.from(unique.values()).sort((a, b) => a.name.localeCompare(b.name));
+      };
 
-      setCoproducers(accountsData || []);
+      setIndustries(getUniquePartners('industry'));
+      setFactories(getUniquePartners('factory'));
+      setCoproducers(getUniquePartners('coproducer'));
+      
       setLoading(false);
     };
 
@@ -288,7 +305,7 @@ export function CheckoutPartnersTab({
                   <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
                   {coproducers.map((cop) => (
                     <SelectItem key={cop.id} value={cop.id}>
-                      {cop.holder_name} ({cop.holder_email})
+                      {cop.name} ({cop.email})
                     </SelectItem>
                   ))}
                 </SelectContent>
