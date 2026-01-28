@@ -35,6 +35,14 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
+function formatCpfInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
 type PaymentMethod = 'pix' | 'credit_card' | 'boleto';
 
 export default function PublicCheckoutPage() {
@@ -204,6 +212,13 @@ export default function PublicCheckoutPage() {
     // Validate shipping address
     if (!formData.cep || !formData.street || !formData.number || !formData.city || !formData.state) {
       toast.error('Preencha o endereço de entrega completo');
+      return;
+    }
+
+    // Credit card requires a valid CPF (11 digits) for gateway validation
+    const cpfDigits = formData.cpf.replace(/\D/g, '');
+    if (paymentMethod === 'credit_card' && cpfDigits.length !== 11) {
+      toast.error('Informe um CPF válido (11 dígitos) para pagar com cartão');
       return;
     }
 
@@ -576,12 +591,15 @@ export default function PublicCheckoutPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="cpf">CPF</Label>
+                          <Label htmlFor="cpf">CPF{paymentMethod === 'credit_card' ? ' *' : ''}</Label>
                           <Input
                             id="cpf"
                             value={formData.cpf}
-                            onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
+                            onChange={(e) => setFormData(prev => ({ ...prev, cpf: formatCpfInput(e.target.value) }))}
                             placeholder="000.000.000-00"
+                            inputMode="numeric"
+                            maxLength={14}
+                            required={paymentMethod === 'credit_card'}
                           />
                         </div>
                       </div>
