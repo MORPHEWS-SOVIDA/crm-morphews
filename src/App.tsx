@@ -37,6 +37,7 @@ const SignupSuccess = lazy(() => import("./pages/SignupSuccess"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Power = lazy(() => import("./pages/Power"));
 const SecretariaWhatsapp = lazy(() => import("./pages/SecretariaWhatsapp"));
+const SalesLanding = lazy(() => import("./pages/SalesLanding"));
 const NichePage = lazy(() => import("./pages/niches"));
 const PublicLandingPage = lazy(() => import("./pages/ecommerce/PublicLandingPage"));
 const PublicHelper = lazy(() => import("./pages/PublicHelper"));
@@ -185,6 +186,7 @@ const App = () => (
                 <Route path="/setup" element={<Login />} />
                 <Route path="/planos" element={<Planos />} />
                 <Route path="/secretaria-whatsapp" element={<SecretariaWhatsapp />} />
+                <Route path="/sales" element={<SalesLanding />} />
                 <Route path="/para/:niche" element={<NichePage />} />
                 <Route path="/checkout" element={<DirectCheckout />} />
                 <Route path="/signup-success" element={<SignupSuccess />} />
