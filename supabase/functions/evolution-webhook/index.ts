@@ -652,32 +652,34 @@ serve(async (req) => {
         console.log("🤖 No bot configured for this instance");
       }
 
-      // Buscar conversa existente - PRIMEIRO por chat_id (mais confiável)
-      // Depois tentar por phone_number com variações brasileiras (com/sem 9)
+      // Buscar conversa existente - INCLUI instance_id para garantir cards separados por instância
+      // PRIMEIRO por chat_id + instance_id (mais confiável para multi-instância)
       let { data: conversation } = await supabase
         .from("whatsapp_conversations")
         .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
         .eq("organization_id", organizationId)
+        .eq("instance_id", instance.id)
         .eq("chat_id", remoteJid)
         .maybeSingle();
 
-      // Se não encontrou por chat_id, tentar por phone_number (para conversas criadas pelo frontend)
+      // Se não encontrou por chat_id+instance, tentar por phone_number+instance (para conversas criadas pelo frontend)
       // Usa variações do número brasileiro (com e sem o dígito 9)
       if (!conversation && !isGroup) {
         const phoneVariations = getBrazilPhoneVariations(fromPhone);
-        console.log("Searching conversation by phone variations:", phoneVariations);
+        console.log("Searching conversation by phone+instance variations:", phoneVariations, "instance:", instance.id);
         
         for (const phoneVar of phoneVariations) {
           const { data: convByPhone } = await supabase
             .from("whatsapp_conversations")
             .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
             .eq("organization_id", organizationId)
+            .eq("instance_id", instance.id)
             .eq("phone_number", phoneVar)
             .maybeSingle();
           
           if (convByPhone) {
             conversation = convByPhone;
-            console.log("Found conversation by phone variation:", phoneVar, "original:", fromPhone);
+            console.log("Found conversation by phone+instance variation:", phoneVar, "instance:", instance.id);
             break;
           }
         }
