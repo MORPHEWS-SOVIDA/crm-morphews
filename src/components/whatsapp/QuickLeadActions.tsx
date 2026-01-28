@@ -42,6 +42,7 @@ interface QuickLeadActionsProps {
   leadId: string | null;
   leadName?: string;
   leadStage?: string;
+  funnelStageId?: string | null;
   instanceId?: string;
   onStageChange?: () => void;
 }
@@ -50,6 +51,7 @@ export function QuickLeadActions({
   leadId,
   leadName,
   leadStage,
+  funnelStageId,
   instanceId,
   onStageChange,
 }: QuickLeadActionsProps) {
@@ -139,20 +141,42 @@ export function QuickLeadActions({
     },
   });
 
-  // Encontrar nome da etapa atual
+  // Encontrar nome da etapa atual - prioriza funnel_stage_id sobre o enum legado
   const getCurrentStageName = () => {
-    if (!leadStage || !funnelStages) return leadStage;
+    if (!funnelStages) return leadStage || '';
     
-    // Map de enum_value para a etapa customizada
-    const stage = funnelStages.find(s => s.enum_value === leadStage);
-    return stage?.name || leadStage;
+    // Primeiro tenta pelo funnel_stage_id (mais preciso)
+    if (funnelStageId) {
+      const stage = funnelStages.find(s => s.id === funnelStageId);
+      if (stage) return stage.name;
+    }
+    
+    // Fallback: Map de enum_value para a etapa customizada
+    if (leadStage) {
+      const stage = funnelStages.find(s => s.enum_value === leadStage);
+      if (stage) return stage.name;
+    }
+    
+    return leadStage || '';
   };
 
-  // Cor da etapa
+  // Cor da etapa - prioriza funnel_stage_id
   const getStageColor = () => {
-    if (!leadStage || !funnelStages) return undefined;
-    const stage = funnelStages.find(s => s.enum_value === leadStage);
-    return stage?.color;
+    if (!funnelStages) return undefined;
+    
+    // Primeiro tenta pelo funnel_stage_id (mais preciso)
+    if (funnelStageId) {
+      const stage = funnelStages.find(s => s.id === funnelStageId);
+      if (stage) return stage.color;
+    }
+    
+    // Fallback: Map de enum_value
+    if (leadStage) {
+      const stage = funnelStages.find(s => s.enum_value === leadStage);
+      return stage?.color;
+    }
+    
+    return undefined;
   };
 
   if (!leadId) return null;
