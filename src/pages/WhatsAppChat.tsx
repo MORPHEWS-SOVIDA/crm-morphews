@@ -36,6 +36,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
+import { useUsers } from '@/hooks/useUsers';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -181,6 +182,10 @@ export default function WhatsAppChat() {
   
   // Filter state
   const [conversationTypeFilter, setConversationTypeFilter] = useState<'all' | 'individual' | 'group'>('all');
+  const [assignedUserFilter, setAssignedUserFilter] = useState<string | null>(null);
+  
+  // Fetch users for filter dropdown
+  const { data: allUsers = [] } = useUsers();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1035,7 +1040,14 @@ export default function WhatsAppChat() {
     const matchesSearch = normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
       c.phone_number.includes(searchTerm);
     
-    return matchesSearch;
+    if (!matchesSearch) return false;
+    
+    // Filtro por usuário atribuído (apenas para admins)
+    if (assignedUserFilter && c.assigned_user_id !== assignedUserFilter) {
+      return false;
+    }
+    
+    return true;
   });
 
   // Filtro de conversas para mobile (usa mobileStatusFilter que inclui 'all')
@@ -1085,9 +1097,14 @@ export default function WhatsAppChat() {
       const convStatus = c.status || 'pending';
       if (convStatus !== mobileStatusFilter) return false;
       
+      // Filtro por usuário atribuído
+      if (assignedUserFilter && c.assigned_user_id !== assignedUserFilter) {
+        return false;
+      }
+      
       return true;
     });
-  }, [conversations, mobileStatusFilter, searchTerm, user?.id, userInstancePermissions]);
+  }, [conversations, mobileStatusFilter, searchTerm, user?.id, userInstancePermissions, assignedUserFilter]);
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
@@ -1660,6 +1677,37 @@ export default function WhatsAppChat() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Filtro por Usuário Atribuído (apenas para admins) */}
+            {isAdmin && (
+              <div className="mb-2">
+                <Select 
+                  value={assignedUserFilter || 'all'} 
+                  onValueChange={(v) => setAssignedUserFilter(v === 'all' ? null : v)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <User className="h-3 w-3 mr-1.5" />
+                    <SelectValue placeholder="Filtrar por atendente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os atendentes</SelectItem>
+                    {allUsers.map((u) => (
+                      <SelectItem key={u.user_id} value={u.user_id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-4 w-4">
+                            <AvatarImage src={u.avatar_url || undefined} />
+                            <AvatarFallback className="text-[8px]">
+                              {(u.first_name?.[0] || '') + (u.last_name?.[0] || '')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{`${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Sem nome'}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             
             {/* Search */}
             <div className="relative">
