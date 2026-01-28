@@ -398,13 +398,18 @@ export function useAffiliateAvailableOffers() {
         .eq('is_active', true);
 
       const offers: AvailableOffer[] = [];
-      const affiliateCode = myAssociation?.affiliate_code || allAssociations[0]?.affiliate_code;
+      // Use first available affiliate code for building links
+      const affiliateCode = allAssociations[0]?.affiliate_code;
 
-      // Adicionar checkouts
+      // CORRIGIDO: Afiliados individuais só veem ofertas EXPLICITAMENTE vinculadas
+      // Não mostrar tudo automaticamente só porque tem associação geral
+      
+      // Adicionar checkouts - APENAS os que têm vínculo específico
       for (const checkout of checkouts || []) {
-        const isEnrolled = linkedCheckoutIds.has(checkout.id);
         const specificAssoc = allAssociations.find(l => l.linked_checkout_id === checkout.id);
-        const code = specificAssoc?.affiliate_code || affiliateCode;
+        if (!specificAssoc) continue; // Pular se não tem vínculo específico
+        
+        const code = specificAssoc.affiliate_code || affiliateCode;
         const product = checkout.product_id ? checkoutProductMap.get(checkout.product_id) : null;
         
         offers.push({
@@ -415,18 +420,19 @@ export function useAffiliateAvailableOffers() {
           attribution_model: checkout.attribution_model || 'last_click',
           product_name: product?.name,
           product_image: product?.images?.[0],
-          is_enrolled: isEnrolled || !!myAssociation, // Se tem associação geral, pode promover qualquer um
+          is_enrolled: true,
           affiliate_link: code 
             ? `${window.location.origin}/pay/${checkout.slug}?ref=${code}`
             : undefined,
         });
       }
 
-      // Adicionar landings
+      // Adicionar landings - APENAS as que têm vínculo específico
       for (const landing of landings || []) {
-        const isEnrolled = linkedLandingIds.has(landing.id);
         const specificAssoc = allAssociations.find(l => l.linked_landing_id === landing.id);
-        const code = specificAssoc?.affiliate_code || affiliateCode;
+        if (!specificAssoc) continue; // Pular se não tem vínculo específico
+        
+        const code = specificAssoc.affiliate_code || affiliateCode;
         
         offers.push({
           id: landing.id,
@@ -434,7 +440,7 @@ export function useAffiliateAvailableOffers() {
           name: landing.name,
           slug: landing.slug,
           attribution_model: landing.attribution_model || 'last_click',
-          is_enrolled: isEnrolled || !!myAssociation,
+          is_enrolled: true,
           affiliate_link: code 
             ? `${window.location.origin}/l/${landing.slug}?ref=${code}`
             : undefined,
