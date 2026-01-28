@@ -14,6 +14,56 @@ const WHATSAPP_MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET") 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// ============================================================================
+// NPS RATING EXTRACTION
+// ============================================================================
+
+const TEXT_TO_NUMBER: Record<string, number> = {
+  zero: 0, um: 1, dois: 2, três: 3, tres: 3, quatro: 4,
+  cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10,
+};
+
+function extractNPSRating(text: string): number | null {
+  const cleaned = text.toLowerCase().trim();
+  
+  // Only accept short responses (up to ~50 chars) that look like ratings
+  if (cleaned.length > 50) {
+    const ratingPhrases = [
+      /(?:minha\s+)?nota\s*(?:é|:)?\s*(10|[0-9])/i,
+      /(?:dou|daria)\s*(?:nota\s*)?(10|[0-9])/i,
+      /^(10|[0-9])\s*(?:pontos?)?$/i,
+      /aval(?:io|iação)\s*(?:com)?\s*(10|[0-9])/i,
+    ];
+    
+    for (const pattern of ratingPhrases) {
+      const match = cleaned.match(pattern);
+      if (match) return parseInt(match[1]);
+    }
+    return null;
+  }
+  
+  // Direct number match (just "10" or "8")
+  const directMatch = cleaned.match(/^(10|[0-9])$/);
+  if (directMatch) return parseInt(directMatch[1]);
+  
+  // Number with simple context like "nota 10", "10 pontos", etc.
+  const simpleContextMatch = cleaned.match(/^(?:nota\s*)?(10|[0-9])(?:\s*(?:pontos?|!|\.)?)?$/i);
+  if (simpleContextMatch) return parseInt(simpleContextMatch[1]);
+  
+  // Phrases like "dou nota 8", "minha nota é 10"
+  const phraseMatch = cleaned.match(/(?:minha\s+)?nota\s*(?:é|:)?\s*(10|[0-9])|(?:dou|daria)\s*(?:nota\s*)?(10|[0-9])/i);
+  if (phraseMatch) return parseInt(phraseMatch[1] || phraseMatch[2]);
+  
+  // Text to number (only for short responses)
+  for (const [word, num] of Object.entries(TEXT_TO_NUMBER)) {
+    if (cleaned === word || cleaned.match(new RegExp(`^${word}[!.]*$`))) {
+      return num;
+    }
+  }
+  
+  return null;
+}
+
 // Normaliza telefone brasileiro para SEMPRE ter 55 + DD + 9 + 8 dígitos (para celular)
 function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
@@ -701,9 +751,10 @@ serve(async (req) => {
 
       // Buscar conversa existente - INCLUI instance_id para garantir cards separados por instância
       // PRIMEIRO por chat_id + instance_id (mais confiável para multi-instância)
+      // Incluir awaiting_satisfaction_response e satisfaction_sent_at para detectar respostas NPS
       let { data: conversation } = await supabase
         .from("whatsapp_conversations")
-        .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
+        .select("id, unread_count, instance_id, phone_number, status, assigned_user_id, awaiting_satisfaction_response, satisfaction_sent_at, lead_id, organization_id")
         .eq("organization_id", organizationId)
         .eq("instance_id", instance.id)
         .eq("chat_id", remoteJid)
@@ -718,7 +769,7 @@ serve(async (req) => {
         for (const phoneVar of phoneVariations) {
           const { data: convByPhone } = await supabase
             .from("whatsapp_conversations")
-            .select("id, unread_count, instance_id, phone_number, status, assigned_user_id")
+            .select("id, unread_count, instance_id, phone_number, status, assigned_user_id, awaiting_satisfaction_response, satisfaction_sent_at, lead_id, organization_id")
             .eq("organization_id", organizationId)
             .eq("instance_id", instance.id)
             .eq("phone_number", phoneVar)
@@ -839,9 +890,81 @@ serve(async (req) => {
           updateData.display_name = pushName;
         }
         
-        // REABERTURA: Se conversa está fechada, reabrir para distribuição
+        // REABERTURA: Se conversa está fechada, verificar se é resposta NPS antes de reabrir
         wasClosed = conversation.status === 'closed';
-        if (wasClosed) {
+        
+        // ===== PROCESSAMENTO AUTOMÁTICO DE NPS =====
+        // Se a conversa estava aguardando resposta de satisfação, processar a nota automaticamente
+        let isNPSResponse = false;
+        if (wasClosed && conversation.awaiting_satisfaction_response && conversation.satisfaction_sent_at) {
+          const messageContent = msgData.content || "";
+          const extractedRating = extractNPSRating(messageContent);
+          
+          console.log("📊 NPS Response detected! Rating:", extractedRating, "Response:", messageContent.substring(0, 50));
+          
+          if (extractedRating !== null || messageContent.length < 100) {
+            // É uma resposta NPS válida - processar automaticamente
+            isNPSResponse = true;
+            
+            // Buscar e atualizar o registro de satisfação existente
+            const { data: existingRating } = await supabase
+              .from("conversation_satisfaction_ratings")
+              .select("id")
+              .eq("conversation_id", conversation.id)
+              .is("rating", null)
+              .limit(1)
+              .single();
+            
+            if (existingRating) {
+              await supabase
+                .from("conversation_satisfaction_ratings")
+                .update({
+                  rating: extractedRating,
+                  raw_response: messageContent,
+                  is_pending_review: extractedRating !== null && extractedRating <= 6, // Detratores precisam revisão
+                  responded_at: new Date().toISOString(),
+                  auto_classified: true, // Marca como classificado automaticamente
+                })
+                .eq("id", existingRating.id);
+              
+              console.log("📊 Updated NPS rating record:", existingRating.id, "with rating:", extractedRating);
+            } else {
+              // Criar novo registro se não existir
+              await supabase.from("conversation_satisfaction_ratings").insert({
+                organization_id: conversation.organization_id,
+                conversation_id: conversation.id,
+                instance_id: instance.id,
+                assigned_user_id: conversation.assigned_user_id,
+                lead_id: conversation.lead_id,
+                rating: extractedRating,
+                raw_response: messageContent,
+                is_pending_review: extractedRating !== null && extractedRating <= 6,
+                responded_at: new Date().toISOString(),
+                auto_classified: true,
+              });
+              console.log("📊 Created new NPS rating record with rating:", extractedRating);
+            }
+            
+            // Limpar flag de aguardando resposta, MAS MANTER CONVERSA ENCERRADA
+            await supabase
+              .from("whatsapp_conversations")
+              .update({
+                awaiting_satisfaction_response: false,
+                // NÃO mudar status - mantém 'closed'
+              })
+              .eq("id", conversation.id);
+            
+            console.log("📊 NPS processed - conversation remains closed");
+            
+            // Não reabrir a conversa - apenas atualizar unread_count e timestamp
+            updateData.status = 'closed'; // Força manter fechada
+            // Não precisa incrementar unread pois está encerrada
+            delete updateData.unread_count;
+          }
+        }
+        
+        // Se NÃO foi resposta NPS e conversa estava fechada, aí sim reabrir normalmente
+        if (wasClosed && !isNPSResponse) {
           console.log("📬 Conversation was closed, reopening...");
           
           // Verificar modo de distribuição da instância
