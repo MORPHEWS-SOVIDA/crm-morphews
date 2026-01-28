@@ -17964,6 +17964,10 @@ export type Database = {
       }
       is_current_user_org_admin: { Args: never; Returns: boolean }
       is_current_user_org_owner: { Args: never; Returns: boolean }
+      is_full_org_member: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_helper_master_admin: { Args: never; Returns: boolean }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
