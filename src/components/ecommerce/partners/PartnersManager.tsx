@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCheck, Factory, Building2, Clock, Link2, UserPlus } from 'lucide-react';
+import { Users, UserCheck, Factory, Building2, Clock, Link2, UserPlus, Network } from 'lucide-react';
 import { PartnersList } from './PartnersList';
 import { PartnerInviteDialog } from './PartnerInviteDialog';
 import { PendingInvitations } from './PendingInvitations';
 import { PublicLinksTab } from './PublicLinksTab';
 import { PartnerApplicationsTab } from './PartnerApplicationsTab';
+import { AffiliateNetworksTab } from '@/components/ecommerce/networks';
 import { PartnerType, usePartnerAssociations, usePartnerInvitations } from '@/hooks/ecommerce/usePartners';
 import { usePartnerApplications } from '@/hooks/ecommerce/usePartnerPublicLinks';
+import { useAffiliateNetworks } from '@/hooks/ecommerce/useAffiliateNetworks';
 
 export function PartnersManager() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -17,9 +19,11 @@ export function PartnersManager() {
   const { data: associations, isLoading: associationsLoading } = usePartnerAssociations();
   const { data: invitations, isLoading: invitationsLoading } = usePartnerInvitations();
   const { data: applications } = usePartnerApplications();
+  const { data: networks } = useAffiliateNetworks();
 
   const pendingInvitations = invitations?.filter(i => i.status === 'pending') || [];
   const pendingApplications = applications?.filter(a => a.status === 'pending') || [];
+  const networkCount = networks?.length || 0;
 
   const affiliates = associations?.filter(a => a.partner_type === 'affiliate') || [];
   const coproducers = associations?.filter(a => a.partner_type === 'coproducer') || [];
@@ -117,8 +121,17 @@ export function PartnersManager() {
       )}
 
       {/* Main Tabs */}
-      <Tabs defaultValue="partners" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+      <Tabs defaultValue="networks" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsTrigger value="networks" className="gap-2">
+            <Network className="h-4 w-4" />
+            Redes
+            {networkCount > 0 && (
+              <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
+                {networkCount}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="partners" className="gap-2">
             <Users className="h-4 w-4" />
             Parceiros
@@ -137,6 +150,10 @@ export function PartnersManager() {
             Links Públicos
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="networks">
+          <AffiliateNetworksTab />
+        </TabsContent>
 
         <TabsContent value="partners">
           <Card>

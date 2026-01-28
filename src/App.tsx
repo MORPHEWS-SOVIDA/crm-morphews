@@ -48,6 +48,7 @@ const PublicCheckoutPage = lazy(() => import("./pages/ecommerce/PublicCheckoutPa
 const LandingPixPayment = lazy(() => import("./pages/ecommerce/LandingPixPayment"));
 const LandingPaymentConfirmed = lazy(() => import("./pages/ecommerce/LandingPaymentConfirmed"));
 const QuizPublic = lazy(() => import("./pages/QuizPublic"));
+const NetworkInviteAccept = lazy(() => import("./pages/public/NetworkInviteAccept"));
 
 const LeadsList = lazy(() => import("./pages/LeadsList"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
@@ -207,6 +208,7 @@ const App = () => (
                 <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />
                 <Route path="/parceiro" element={<PartnerPortal />} />
                 <Route path="/convite-parceiros/:slug" element={<PartnerApplicationPage />} />
+                <Route path="/rede/:inviteCode" element={<NetworkInviteAccept />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>
