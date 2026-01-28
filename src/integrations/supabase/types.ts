@@ -227,6 +227,70 @@ export type Database = {
           },
         ]
       }
+      affiliate_network_members: {
+        Row: {
+          affiliate_id: string | null
+          commission_type: string
+          commission_value: number
+          id: string
+          invited_by: string | null
+          is_active: boolean
+          joined_at: string
+          network_id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          affiliate_id?: string | null
+          commission_type?: string
+          commission_value?: number
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          joined_at?: string
+          network_id: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          affiliate_id?: string | null
+          commission_type?: string
+          commission_value?: number
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          joined_at?: string
+          network_id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_network_members_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "organization_affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_members_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_networks: {
         Row: {
           created_at: string
