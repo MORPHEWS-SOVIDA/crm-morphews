@@ -227,6 +227,50 @@ export type Database = {
           },
         ]
       }
+      affiliate_networks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          invite_code: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          photo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          photo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          photo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_networks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliates: {
         Row: {
           affiliate_code: string
