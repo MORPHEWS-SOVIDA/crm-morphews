@@ -370,7 +370,6 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
     // Determinar qual provider usar
     const isEvolution = instance.provider === "evolution" && instance.evolution_instance_id;
     const isWasender = instance.wasender_api_key;
@@ -381,6 +380,61 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // ==================== VERIFICAÇÃO DE PERMISSÃO DE ENVIO ====================
+    // Impede que múltiplos atendentes enviem mensagens na mesma conversa
+    if (senderUserId) {
+      // Buscar estado da conversa e permissões do usuário
+      const { data: conversationState } = await supabaseAdmin
+        .from("whatsapp_conversations")
+        .select("status, assigned_user_id, designated_user_id")
+        .eq("id", conversationId)
+        .single();
+
+      // Verificar se usuário é admin da instância
+      const { data: instanceUser } = await supabaseAdmin
+        .from("whatsapp_instance_users")
+        .select("is_instance_admin")
+        .eq("instance_id", instanceId)
+        .eq("user_id", senderUserId)
+        .single();
+
+      const isInstanceAdmin = instanceUser?.is_instance_admin === true;
+
+      // Se a conversa está atribuída a OUTRO usuário, bloquear envio (exceto admins)
+      if (conversationState && !isInstanceAdmin) {
+        const isAssignedToOther = conversationState.assigned_user_id && 
+                                   conversationState.assigned_user_id !== senderUserId;
+        const isDesignatedToOther = conversationState.designated_user_id && 
+                                     conversationState.designated_user_id !== senderUserId;
+
+        // Conversa está "assigned" e não é do usuário atual
+        if (conversationState.status === 'assigned' && isAssignedToOther) {
+          console.log(`[${requestId}] ❌ Blocked send: conversation assigned to ${conversationState.assigned_user_id}, sender is ${senderUserId}`);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Esta conversa está sendo atendida por outro vendedor. Você não pode enviar mensagens." 
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Conversa está "autodistributed" para outro usuário
+        if (conversationState.status === 'autodistributed' && isDesignatedToOther) {
+          console.log(`[${requestId}] ❌ Blocked send: conversation designated to ${conversationState.designated_user_id}, sender is ${senderUserId}`);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Esta conversa foi designada para outro vendedor. Você não pode enviar mensagens." 
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+      console.log(`[${requestId}] ✅ Send permission verified for user ${senderUserId}`);
+    }
+    // ==================== FIM VERIFICAÇÃO DE PERMISSÃO ====================
 
     // Destination
     const toRaw = (chatId || phone || "").toString().trim();
