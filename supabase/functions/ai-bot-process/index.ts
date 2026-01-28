@@ -63,6 +63,10 @@ interface AIBot {
   voice_name: string | null;
   audio_response_probability: number | null;
   voice_style: string | null;
+  // Product media settings
+  send_product_images: boolean | null;
+  send_product_videos: boolean | null;
+  send_product_links: boolean | null;
 }
 
 interface BotProduct {
@@ -76,6 +80,12 @@ interface BotProduct {
   price_12_units: number | null;
   hot_site_url: string | null;
   usage_period_days: number | null;
+  // Media fields for automatic sending
+  image_url: string | null;
+  youtube_video_url: string | null;
+  bot_can_send_image: boolean;
+  bot_can_send_video: boolean;
+  bot_can_send_site_link: boolean;
   // Enhanced with FAQs, ingredients, and kit sales hacks
   faqs?: Array<{question: string, answer: string}>;
   ingredients?: Array<{name: string, description: string | null}>;
@@ -493,7 +503,7 @@ async function getBotProducts(botId: string, organizationId: string, productScop
     productIds = botProducts.map((bp: any) => bp.product_id);
   }
 
-  // Build query for products
+  // Build query for products (including media fields for automatic sending)
   let query = supabase
     .from('lead_products')
     .select(`
@@ -506,7 +516,12 @@ async function getBotProducts(botId: string, organizationId: string, productScop
       price_6_units,
       price_12_units,
       hot_site_url,
-      usage_period_days
+      usage_period_days,
+      image_url,
+      youtube_video_url,
+      bot_can_send_image,
+      bot_can_send_video,
+      bot_can_send_site_link
     `)
     .eq('organization_id', organizationId)
     .eq('is_active', true);
@@ -1319,6 +1334,156 @@ async function sendWhatsAppAudio(
   }
 }
 
+// Send image message via Evolution API
+async function sendWhatsAppImage(
+  instanceName: string,
+  chatId: string,
+  imageUrl: string,
+  caption: string | null,
+  conversationId: string,
+  instanceId: string,
+  botId: string
+): Promise<boolean> {
+  try {
+    const endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
+    
+    console.log('📷 Sending image message:', { instanceName, chatId, imageUrl: imageUrl.substring(0, 50) + '...', hasCaption: !!caption });
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({
+        number: chatId,
+        mediatype: 'image',
+        media: imageUrl,
+        caption: caption || '',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Evolution image send failed:', response.status, errorText);
+      return false;
+    }
+
+    const result = await response.json();
+    const providerMessageId = result?.key?.id || null;
+
+    // Salvar mensagem no banco
+    await supabase.from('whatsapp_messages').insert({
+      id: crypto.randomUUID(),
+      instance_id: instanceId,
+      conversation_id: conversationId,
+      message_type: 'image',
+      media_url: imageUrl,
+      content: caption || '',
+      direction: 'outbound',
+      status: 'sent',
+      is_from_bot: true,
+      provider: 'evolution',
+      provider_message_id: providerMessageId,
+    });
+
+    console.log('✅ Bot image message sent and saved');
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending image:', error);
+    return false;
+  }
+}
+
+// Detect products mentioned in AI response and send their media
+async function sendProductMedia(
+  bot: AIBot,
+  products: BotProduct[],
+  aiResponse: string,
+  instanceName: string,
+  chatId: string,
+  conversationId: string,
+  instanceId: string
+): Promise<{ imagesSent: number; linksSent: number }> {
+  let imagesSent = 0;
+  let linksSent = 0;
+
+  // Skip if no products or bot has media sending disabled
+  if (products.length === 0) {
+    return { imagesSent, linksSent };
+  }
+
+  const sendImages = bot.send_product_images ?? true;
+  const sendLinks = bot.send_product_links ?? true;
+  
+  if (!sendImages && !sendLinks) {
+    console.log('📷 Product media sending disabled for bot');
+    return { imagesSent, linksSent };
+  }
+
+  // Normalize the AI response for matching
+  const normalizedResponse = aiResponse.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  // Check each product if it's mentioned in the response
+  for (const product of products) {
+    const productNameNormalized = product.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    
+    // Check if product name is mentioned (at least 3 characters for accuracy)
+    const words = productNameNormalized.split(/\s+/).filter(w => w.length >= 3);
+    const isProductMentioned = words.some(word => normalizedResponse.includes(word)) || 
+                               normalizedResponse.includes(productNameNormalized);
+    
+    if (!isProductMentioned) {
+      continue;
+    }
+    
+    console.log(`📷 Product "${product.name}" mentioned in response, checking media settings...`);
+
+    // Send product image if enabled and available
+    if (sendImages && product.bot_can_send_image && product.image_url) {
+      console.log(`📷 Sending image for product: ${product.name}`);
+      const imageSent = await sendWhatsAppImage(
+        instanceName,
+        chatId,
+        product.image_url,
+        `📸 ${product.name}`,
+        conversationId,
+        instanceId,
+        bot.id
+      );
+      if (imageSent) {
+        imagesSent++;
+        // Small delay between media messages
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Send product link if enabled and available
+    if (sendLinks && product.bot_can_send_site_link && product.hot_site_url) {
+      console.log(`🔗 Sending link for product: ${product.name}`);
+      const linkSent = await sendWhatsAppMessage(
+        instanceName,
+        chatId,
+        `🔗 Confira mais detalhes: ${product.hot_site_url}`,
+        conversationId,
+        instanceId,
+        bot.id
+      );
+      if (linkSent) {
+        linksSent++;
+      }
+    }
+
+    // Only send media for the first matched product to avoid spam
+    if (imagesSent > 0 || linksSent > 0) {
+      break;
+    }
+  }
+
+  console.log(`📷 Product media sent: ${imagesSent} images, ${linksSent} links`);
+  return { imagesSent, linksSent };
+}
+
 // ============================================================================
 // ENERGY MANAGEMENT
 // ============================================================================
@@ -1957,8 +2122,40 @@ async function processMessage(
     return { success: false, action: 'error', message: 'Failed to send message' };
   }
 
-  // 8. Atualizar contadores da conversa
-  const totalEnergy = energyResult.energyConsumed + voiceEnergyConsumed;
+  // 8. Enviar mídia de produto se identificado na resposta
+  let mediaEnergyUsed = 0;
+  try {
+    const mediaResult = await sendProductMedia(
+      bot,
+      products,
+      aiResponse,
+      instanceName,
+      context.chatId,
+      context.conversationId,
+      context.instanceId
+    );
+    
+    // Consumir energia por cada mídia enviada (5 energia por imagem, 2 por link)
+    if (mediaResult.imagesSent > 0 || mediaResult.linksSent > 0) {
+      const mediaEnergy = (mediaResult.imagesSent * 5) + (mediaResult.linksSent * 2);
+      const mediaEnergyResult = await checkAndConsumeEnergy(
+        context.organizationId,
+        bot.id,
+        context.conversationId,
+        mediaEnergy * 100, // tokens equivalentes
+        'product_media',
+        'media_sending'
+      );
+      if (mediaEnergyResult.success) {
+        mediaEnergyUsed = mediaEnergyResult.energyConsumed;
+      }
+    }
+  } catch (mediaError) {
+    console.error('⚠️ Error sending product media (non-fatal):', mediaError);
+  }
+
+  // 9. Atualizar contadores da conversa
+  const totalEnergy = energyResult.energyConsumed + voiceEnergyConsumed + mediaEnergyUsed;
   await supabase
     .from('whatsapp_conversations')
     .update({
