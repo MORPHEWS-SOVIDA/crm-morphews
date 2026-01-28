@@ -13114,6 +13114,7 @@ export type Database = {
       sale_splits: {
         Row: {
           created_at: string
+          factory_id: string | null
           fee_cents: number | null
           gross_amount_cents: number
           id: string
@@ -13130,6 +13131,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          factory_id?: string | null
           fee_cents?: number | null
           gross_amount_cents: number
           id?: string
@@ -13146,6 +13148,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          factory_id?: string | null
           fee_cents?: number | null
           gross_amount_cents?: number
           id?: string
@@ -13161,6 +13164,13 @@ export type Database = {
           virtual_account_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_splits_factory_id_fkey"
+            columns: ["factory_id"]
+            isOneToOne: false
+            referencedRelation: "factories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_splits_industry_id_fkey"
             columns: ["industry_id"]
