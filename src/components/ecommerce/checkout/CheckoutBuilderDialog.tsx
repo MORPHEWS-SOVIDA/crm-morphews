@@ -73,18 +73,6 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
   const [activeTab, setActiveTab] = useState('elements');
   const [organizationId, setOrganizationId] = useState<string>('');
   
-  // Partners state
-  const [partnersData, setPartnersData] = useState({
-    industry_id: checkout.industry_id || null,
-    industry_commission_type: (checkout.industry_commission_type || 'percentage') as 'percentage' | 'fixed',
-    industry_commission_value: checkout.industry_commission_value || 0,
-    factory_id: checkout.factory_id || null,
-    factory_commission_type: (checkout.factory_commission_type || 'fixed') as 'percentage' | 'fixed',
-    factory_commission_value: checkout.factory_commission_value || 0,
-    coproducer_id: checkout.coproducer_id || null,
-    coproducer_commission_type: (checkout.coproducer_commission_type || 'percentage') as 'percentage' | 'fixed',
-    coproducer_commission_value: checkout.coproducer_commission_value || 0,
-  });
   // New testimonial form
   const [newTestimonial, setNewTestimonial] = useState({
     author_name: '',
@@ -97,17 +85,6 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
     setElements(checkout.elements);
     setTheme(checkout.theme);
     setAttributionModel(checkout.attribution_model || 'last_click');
-    setPartnersData({
-      industry_id: checkout.industry_id || null,
-      industry_commission_type: (checkout.industry_commission_type || 'percentage') as 'percentage' | 'fixed',
-      industry_commission_value: checkout.industry_commission_value || 0,
-      factory_id: checkout.factory_id || null,
-      factory_commission_type: (checkout.factory_commission_type || 'fixed') as 'percentage' | 'fixed',
-      factory_commission_value: checkout.factory_commission_value || 0,
-      coproducer_id: checkout.coproducer_id || null,
-      coproducer_commission_type: (checkout.coproducer_commission_type || 'percentage') as 'percentage' | 'fixed',
-      coproducer_commission_value: checkout.coproducer_commission_value || 0,
-    });
     
     // Get organization ID
     supabase.from('profiles').select('organization_id').single().then(({ data }) => {
@@ -118,12 +95,12 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
   }, [checkout]);
 
   const handleSave = async () => {
+    // Partners are now saved directly via hooks in CheckoutPartnersTab
     await updateCheckout.mutateAsync({
       id: checkout.id,
       elements,
       theme,
       attribution_model: attributionModel as 'first_click' | 'last_click',
-      ...partnersData,
     });
   };
 
@@ -714,18 +691,7 @@ export function CheckoutBuilderDialog({ open, onOpenChange, checkout }: Checkout
 
             {/* Partners Tab (Industry, Factory, Coproducer) */}
             <TabsContent value="partners" className="mt-4">
-              <CheckoutPartnersTab
-                industryId={partnersData.industry_id}
-                industryCommissionType={partnersData.industry_commission_type}
-                industryCommissionValue={partnersData.industry_commission_value}
-                factoryId={partnersData.factory_id}
-                factoryCommissionType={partnersData.factory_commission_type}
-                factoryCommissionValue={partnersData.factory_commission_value}
-                coproducerId={partnersData.coproducer_id}
-                coproducerCommissionType={partnersData.coproducer_commission_type}
-                coproducerCommissionValue={partnersData.coproducer_commission_value}
-                onChange={setPartnersData}
-              />
+              <CheckoutPartnersTab checkoutId={checkout.id} />
             </TabsContent>
 
             {/* Affiliates Tab */}
