@@ -5041,6 +5041,240 @@ export type Database = {
         }
         Relationships: []
       }
+      implementer_checkout_links: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          implementation_fee_cents: number | null
+          implementer_id: string
+          is_active: boolean | null
+          plan_id: string
+          slug: string
+          uses_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          implementation_fee_cents?: number | null
+          implementer_id: string
+          is_active?: boolean | null
+          plan_id: string
+          slug: string
+          uses_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          implementation_fee_cents?: number | null
+          implementer_id?: string
+          is_active?: boolean | null
+          plan_id?: string
+          slug?: string
+          uses_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implementer_checkout_links_implementer_id_fkey"
+            columns: ["implementer_id"]
+            isOneToOne: false
+            referencedRelation: "implementers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_checkout_links_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_checkout_links_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      implementer_commissions: {
+        Row: {
+          commission_type: string
+          created_at: string | null
+          gross_amount_cents: number
+          id: string
+          implementer_id: string
+          implementer_sale_id: string
+          net_amount_cents: number
+          paid_at: string | null
+          period_month: number | null
+          platform_fee_cents: number
+          status: string | null
+        }
+        Insert: {
+          commission_type: string
+          created_at?: string | null
+          gross_amount_cents: number
+          id?: string
+          implementer_id: string
+          implementer_sale_id: string
+          net_amount_cents: number
+          paid_at?: string | null
+          period_month?: number | null
+          platform_fee_cents: number
+          status?: string | null
+        }
+        Update: {
+          commission_type?: string
+          created_at?: string | null
+          gross_amount_cents?: number
+          id?: string
+          implementer_id?: string
+          implementer_sale_id?: string
+          net_amount_cents?: number
+          paid_at?: string | null
+          period_month?: number | null
+          platform_fee_cents?: number
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implementer_commissions_implementer_id_fkey"
+            columns: ["implementer_id"]
+            isOneToOne: false
+            referencedRelation: "implementers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_commissions_implementer_sale_id_fkey"
+            columns: ["implementer_sale_id"]
+            isOneToOne: false
+            referencedRelation: "implementer_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      implementer_sales: {
+        Row: {
+          cancelled_at: string | null
+          client_organization_id: string
+          client_subscription_id: string | null
+          created_at: string | null
+          first_payment_cents: number
+          id: string
+          implementation_fee_cents: number | null
+          implementer_id: string
+          plan_id: string
+          status: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          client_organization_id: string
+          client_subscription_id?: string | null
+          created_at?: string | null
+          first_payment_cents: number
+          id?: string
+          implementation_fee_cents?: number | null
+          implementer_id: string
+          plan_id: string
+          status?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          client_organization_id?: string
+          client_subscription_id?: string | null
+          created_at?: string | null
+          first_payment_cents?: number
+          id?: string
+          implementation_fee_cents?: number | null
+          implementer_id?: string
+          plan_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implementer_sales_client_organization_id_fkey"
+            columns: ["client_organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_sales_client_subscription_id_fkey"
+            columns: ["client_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_sales_implementer_id_fkey"
+            columns: ["implementer_id"]
+            isOneToOne: false
+            referencedRelation: "implementers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_sales_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementer_sales_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      implementers: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          referral_code: string
+          total_clients: number | null
+          total_earnings_cents: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          referral_code: string
+          total_clients?: number | null
+          total_earnings_cents?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          referral_code?: string
+          total_clients?: number | null
+          total_earnings_cents?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implementers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incoming_transactions: {
         Row: {
           amount_cents: number
@@ -17752,6 +17986,7 @@ export type Database = {
             }
             Returns: string
           }
+      generate_implementer_code: { Args: never; Returns: string }
       get_active_agent_for_instance: {
         Args: {
           p_current_day?: number
@@ -17938,6 +18173,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      implementer_has_active_subscription: {
+        Args: { p_implementer_id: string }
+        Returns: boolean
+      }
       increment_coupon_usage: {
         Args: { coupon_id: string }
         Returns: undefined
@@ -17969,6 +18208,7 @@ export type Database = {
         Returns: boolean
       }
       is_helper_master_admin: { Args: never; Returns: boolean }
+      is_implementer: { Args: { p_user_id: string }; Returns: boolean }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }
@@ -18029,6 +18269,14 @@ export type Database = {
       org_has_feature: {
         Args: { _feature_key: string; _org_id: string }
         Returns: boolean
+      }
+      process_implementer_commission: {
+        Args: {
+          p_is_first_payment: boolean
+          p_payment_amount_cents: number
+          p_subscription_id: string
+        }
+        Returns: undefined
       }
       process_purchase_invoice_stock: {
         Args: { p_invoice_id: string; p_user_id: string }
