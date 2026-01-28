@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions, PermissionKey } from '@/hooks/useUserPermissions';
+import { useTenant } from '@/hooks/useTenant';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -19,6 +20,10 @@ interface ProtectedRouteProps {
    * Route to redirect to if permissions are denied. Defaults to '/'.
    */
   redirectTo?: string;
+  /**
+   * If true, allow users with partner roles (partner_affiliate, partner_coproducer, etc.) to access.
+   */
+  allowPartners?: boolean;
 }
 
 export function ProtectedRoute({ 
@@ -26,11 +31,16 @@ export function ProtectedRoute({
   requireAdmin = false,
   requiredPermissions,
   requireAll = false,
-  redirectTo = '/'
+  redirectTo = '/',
+  allowPartners = false
 }: ProtectedRouteProps) {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
+  const { role } = useTenant();
   const location = useLocation();
+
+  // Check if user is a partner (any partner role)
+  const isPartner = role?.startsWith('partner_') ?? false;
 
   // Show loading while auth or permissions are loading
   if (authLoading || (user && permissionsLoading)) {
@@ -46,8 +56,18 @@ export function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
+  // Partners with allowPartners flag bypass normal permission checks
+  if (isPartner && allowPartners) {
+    return <>{children}</>;
+  }
+
   // Handle initial redirect based on user's default_landing_page
   // Only do this for the root path to avoid loops
+  // Partners should go to their portal
+  if (location.pathname === '/' && isPartner) {
+    return <Navigate to="/ecommerce" replace />;
+  }
+  
   if (location.pathname === '/' && permissions?.default_landing_page && permissions.default_landing_page !== '/' && permissions.default_landing_page !== '/dashboard') {
     return <Navigate to={permissions.default_landing_page} replace />;
   }
