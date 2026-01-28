@@ -272,3 +272,42 @@ export function useFindAffiliateByEmail() {
     },
   });
 }
+
+/**
+ * Atualizar comissão de um afiliado vinculado ao checkout
+ */
+export function useUpdateCheckoutAffiliateCommission() {
+  const queryClient = useQueryClient();
+  const { data: organizationId } = useEcommerceOrganizationId();
+
+  return useMutation({
+    mutationFn: async ({
+      linkId,
+      checkoutId,
+      commissionType,
+      commissionValue,
+    }: {
+      linkId: string;
+      checkoutId: string;
+      commissionType: 'percentage' | 'fixed';
+      commissionValue: number;
+    }) => {
+      const { error } = await supabase
+        .from('checkout_affiliate_links')
+        .update({
+          commission_type: commissionType,
+          commission_value: commissionValue,
+        })
+        .eq('id', linkId);
+
+      if (error) throw error;
+      return { checkoutId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['checkout-affiliates-v2', organizationId, data.checkoutId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Erro ao atualizar comissão');
+    },
+  });
+}
