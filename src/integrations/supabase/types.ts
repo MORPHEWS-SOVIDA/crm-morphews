@@ -227,6 +227,52 @@ export type Database = {
           },
         ]
       }
+      affiliate_network_checkouts: {
+        Row: {
+          checkout_id: string
+          created_at: string
+          id: string
+          network_id: string
+          organization_id: string
+        }
+        Insert: {
+          checkout_id: string
+          created_at?: string
+          id?: string
+          network_id: string
+          organization_id: string
+        }
+        Update: {
+          checkout_id?: string
+          created_at?: string
+          id?: string
+          network_id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_network_checkouts_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_checkouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_checkouts_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_checkouts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_network_members: {
         Row: {
           affiliate_id: string | null
@@ -17911,6 +17957,10 @@ export type Database = {
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
+      }
+      join_affiliate_network: {
+        Args: { p_email: string; p_invite_code: string; p_name: string }
+        Returns: Json
       }
       link_conversation_to_contact: {
         Args: { _contact_id: string; _conversation_id: string }
