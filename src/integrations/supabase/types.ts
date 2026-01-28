@@ -17628,11 +17628,14 @@ export type Database = {
       get_linked_lead_for_conversation: {
         Args: { p_conversation_id: string }
         Returns: {
+          lead_email: string
+          lead_funnel_stage_id: string
           lead_id: string
           lead_instagram: string
           lead_name: string
           lead_stage: string
           lead_stars: number
+          lead_whatsapp: string
         }[]
       }
       get_manipulated_costs_summary: {

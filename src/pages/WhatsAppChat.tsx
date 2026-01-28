@@ -109,6 +109,7 @@ interface Lead {
   email: string | null;
   stage: string;
   stars: number;
+  funnel_stage_id?: string | null;
 }
 
 interface Instance {
@@ -503,15 +504,17 @@ export default function WhatsAppChat() {
           setLead(fullLead);
         } else {
           // Fallback para dados básicos da RPC se RLS bloquear a query completa
+          // Use type assertion since we only have partial data from the RPC
           setLead({
             id: leadData.lead_id,
             name: leadData.lead_name || 'Lead Vinculado',
             instagram: leadData.lead_instagram || '',
-            whatsapp: selectedConversation.phone_number,
-            email: null,
-            stage: leadData.lead_stage || 'prospect',
+            whatsapp: leadData.lead_whatsapp || selectedConversation.phone_number || '',
+            email: leadData.lead_email || null,
+            stage: (leadData.lead_stage || 'prospect') as Lead['stage'],
             stars: leadData.lead_stars || 0,
-          });
+            funnel_stage_id: leadData.lead_funnel_stage_id || null,
+          } as Lead);
         }
       } else {
         setLead(null);
@@ -2133,6 +2136,7 @@ export default function WhatsAppChat() {
                           leadId={lead.id}
                           leadName={lead.name}
                           leadStage={lead.stage}
+                          funnelStageId={lead.funnel_stage_id}
                           instanceId={activeInstanceId ?? selectedConversation.instance_id}
                           onStageChange={() => {
                             // Refetch lead data when stage changes
