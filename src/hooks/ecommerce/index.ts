@@ -100,6 +100,8 @@ export {
   // User hooks
   useMyVirtualAccount,
   useTenantVirtualAccount,
+  usePartnerVirtualAccount,
+  useSmartVirtualAccount,
   useVirtualTransactions,
   useMyWithdrawals,
   useUpdateBankData,
