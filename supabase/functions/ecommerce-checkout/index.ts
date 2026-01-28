@@ -19,7 +19,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CheckoutRequest = await req.json();
-    const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, offer_id, cart_id, utm } = body;
+    const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, standalone_checkout_id, offer_id, cart_id, utm } = body;
 
     // 1. Determine organization from storefront or landing page
     let organizationId: string | null = null;
@@ -70,6 +70,18 @@ serve(async (req) => {
             price_cents: offer.price_cents,
           }];
         }
+      }
+    } else if (standalone_checkout_id) {
+      // Handle standalone checkouts (/pay/:slug)
+      const { data: standaloneCheckout } = await supabase
+        .from('standalone_checkouts')
+        .select('organization_id, product_id')
+        .eq('id', standalone_checkout_id)
+        .single();
+      
+      if (standaloneCheckout) {
+        organizationId = standaloneCheckout.organization_id;
+        console.log(`[Checkout] Standalone checkout ${standalone_checkout_id}: org=${organizationId}`);
       }
     }
 

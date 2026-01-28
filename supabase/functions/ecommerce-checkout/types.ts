@@ -95,6 +95,7 @@ export interface CheckoutRequest {
   cart_id?: string;
   storefront_id?: string;
   landing_page_id?: string;
+  standalone_checkout_id?: string;
   offer_id?: string;
   items?: { product_id: string; quantity: number; price_cents: number }[];
   customer: {
