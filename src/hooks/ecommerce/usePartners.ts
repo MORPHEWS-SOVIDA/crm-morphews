@@ -117,14 +117,30 @@ export function usePartnerAssociations(partnerType?: PartnerType) {
 
       const { data, error } = await query;
       
-      console.log('[usePartnerAssociations] Result:', { 
+      console.log('[usePartnerAssociations] Raw result:', { 
         count: data?.length, 
         error: error?.message,
         firstItem: data?.[0] 
       });
 
       if (error) throw error;
-      return data as unknown as PartnerAssociation[];
+      
+      // Deduplicar por virtual_account_id + partner_type para evitar mostrar múltiplas associações
+      // do mesmo parceiro (ex: quando vinculado a múltiplos checkouts)
+      const uniqueMap = new Map<string, (typeof data)[0]>();
+      for (const item of data || []) {
+        const key = `${item.virtual_account_id}_${item.partner_type}`;
+        // Preferir o registro sem vínculo específico (associação "base" do parceiro)
+        const existing = uniqueMap.get(key);
+        if (!existing || (existing.linked_checkout_id && !item.linked_checkout_id)) {
+          uniqueMap.set(key, item);
+        }
+      }
+      
+      const uniquePartners = Array.from(uniqueMap.values());
+      console.log('[usePartnerAssociations] After dedup:', uniquePartners.length);
+      
+      return uniquePartners as unknown as PartnerAssociation[];
     },
     enabled: !!organizationId && !isOrgIdLoading,
     staleTime: 2 * 60 * 1000, // 2 minutes
