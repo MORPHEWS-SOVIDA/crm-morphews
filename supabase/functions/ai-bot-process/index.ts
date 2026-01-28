@@ -214,10 +214,22 @@ async function getBotTeamRoutes(botId: string, organizationId: string): Promise<
     .maybeSingle();
 
   if (membership) {
+    // Especialistas TAMBÉM podem rotear para outros colegas do time
+    // Buscar as rotas do time, EXCLUINDO a rota para si mesmo
+    const { data: routes } = await supabase
+      .from('bot_team_routes')
+      .select('id, team_id, target_bot_id, condition_type, keywords, intent_description, priority, is_active')
+      .eq('team_id', membership.team_id)
+      .neq('target_bot_id', botId) // Não rotear para si mesmo
+      .eq('is_active', true)
+      .order('priority', { ascending: true });
+
+    console.log(`🔄 Specialist bot ${botId} can route to ${routes?.length || 0} colleagues`);
+
     return {
       teamId: membership.team_id,
-      routes: [], // Especialistas não fazem roteamento
-      isInitialBot: false
+      routes: (routes || []) as BotTeamRoute[],
+      isInitialBot: false // Ainda marca como especialista
     };
   }
 
@@ -1786,10 +1798,11 @@ async function processMessage(
   context: ConversationContext,
   userMessage: string,
   instanceName: string,
-  isWithinSchedule: boolean = true // Novo parâmetro - vem do webhook
+  isWithinSchedule: boolean = true, // Novo parâmetro - vem do webhook
+  routingDepth: number = 0 // Protege contra loop infinito de roteamento entre especialistas
 ): Promise<ProcessResult> {
   
-  console.log('🤖 Processing message for bot:', bot.name);
+  console.log('🤖 Processing message for bot:', bot.name, `(routing depth: ${routingDepth})`);
   
   // 0. Processar qualificação inicial (se habilitada)
   const qualificationResult = await processQualification(bot, context, userMessage, instanceName);
@@ -1835,11 +1848,14 @@ async function processMessage(
   }
 
   // 1.5 VERIFICAR ROTEAMENTO DE TIME DE ROBÔS (antes de outras verificações)
-  // Se este bot é o "maestro" de um time, verificar se deve trocar para especialista
+  // Maestros e Especialistas podem rotear para outros membros do time
   const teamRouting = await getBotTeamRoutes(bot.id, context.organizationId);
   
-  if (teamRouting.teamId && teamRouting.isInitialBot && teamRouting.routes.length > 0) {
-    console.log('🎭 Bot is team maestro, checking routes...', {
+  // Permitir roteamento tanto do maestro quanto de especialistas para outros colegas
+  // MAS proteger contra loop infinito (máximo 2 níveis de roteamento)
+  if (teamRouting.teamId && teamRouting.routes.length > 0 && routingDepth < 2) {
+    const botRole = teamRouting.isInitialBot ? 'maestro' : 'specialist';
+    console.log(`🎭 Bot is team ${botRole}, checking ${teamRouting.routes.length} routes...`, {
       teamId: teamRouting.teamId,
       routesCount: teamRouting.routes.length
     });
@@ -1854,7 +1870,7 @@ async function processMessage(
         keywords: matchedRoute.keywords
       });
       
-      // Trocar para o bot especialista
+      // Trocar para o bot especialista/colega
       const switched = await switchToSpecialistBot(
         context.conversationId, 
         matchedRoute.target_bot_id, 
@@ -1866,7 +1882,7 @@ async function processMessage(
         const specialistBot = await getBotById(matchedRoute.target_bot_id);
         
         if (specialistBot) {
-          console.log('🤖 Reprocessing message with specialist:', specialistBot.name);
+          console.log('🤖 Reprocessing message with colleague:', specialistBot.name);
           
           // Atualizar contexto para o novo bot
           const newContext: ConversationContext = {
@@ -1874,11 +1890,13 @@ async function processMessage(
             botMessagesCount: 0, // Reset contador
           };
           
-          // Processar recursivamente com o novo bot (sem risco de loop pois especialista não é initial_bot)
-          return processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule);
+          // Processar recursivamente com o novo bot (incrementar depth para evitar loop)
+          return processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule, routingDepth + 1);
         }
       }
     }
+  } else if (routingDepth >= 2) {
+    console.log('⚠️ Max routing depth reached, continuing with current bot');
   }
 
   // 2. Verificar keywords de transferência (para HUMANO)
