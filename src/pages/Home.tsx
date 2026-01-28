@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import Dashboard from "./Dashboard";
-import Power from "./Power";
+import SalesLanding from "./SalesLanding";
 
 export default function Home() {
   const { user, isLoading } = useAuth();
@@ -19,6 +19,6 @@ export default function Home() {
     return <Dashboard />;
   }
 
-  // If not logged in, show Power landing page (previously /2026)
-  return <Power />;
+  // If not logged in, show Sales landing page (main landing)
+  return <SalesLanding />;
 }
