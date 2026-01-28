@@ -212,9 +212,13 @@ export default function PublicCheckoutPage() {
 
       if (fnError) throw fnError;
 
-      const validOptions = (data?.quotes || []).filter(
-        (q: ShippingOption) => q.price_cents > 0
-      );
+      // Map response and prepend "Correios" to service names
+      const validOptions = (data?.quotes || [])
+        .filter((q: ShippingOption) => q.price_cents > 0)
+        .map((q: any) => ({
+          ...q,
+          service_name: `Correios ${q.service_name}`,
+        }));
 
       setShippingOptions(validOptions);
 
