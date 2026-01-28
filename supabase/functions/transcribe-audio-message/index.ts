@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +8,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -62,21 +61,25 @@ async function consumeEnergy(organizationId: string, amount: number, description
   }
 }
 
-function getMimeTypeFromFormat(format: string): string {
-  switch (format) {
-    case "webm": return "audio/webm";
-    case "mp3": return "audio/mpeg";
-    case "wav": return "audio/wav";
-    case "ogg": 
-    default: return "audio/ogg";
-  }
+function getExtensionFromMimeType(mimeType: string): string {
+  if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
+  if (mimeType.includes("mp3") || mimeType.includes("mpeg")) return "mp3";
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("webm")) return "webm";
+  if (mimeType.includes("ogg")) return "ogg";
+  return "ogg";
 }
 
-async function transcribeAudio(mediaUrl: string): Promise<string | null> {
-  console.log("🎤 Transcribing audio from:", mediaUrl);
+async function transcribeAudioWithGroq(mediaUrl: string): Promise<string | null> {
+  if (!GROQ_API_KEY) {
+    console.error("❌ GROQ_API_KEY not configured");
+    throw new Error("GROQ_API_KEY não configurada. Configure nas configurações de secrets.");
+  }
+
+  console.log("🎤 Transcribing audio with Groq Whisper from:", mediaUrl);
 
   try {
-    // Download audio from storage
+    // Download audio from storage/URL
     console.log("📥 Downloading audio...");
     const audioResponse = await fetch(mediaUrl);
     
@@ -85,13 +88,12 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
       throw new Error(`Failed to download audio: ${audioResponse.status} ${audioResponse.statusText}`);
     }
 
-    // IMPORTANT: a Response body can only be consumed once.
-    const contentType = audioResponse.headers.get("content-type") ?? "";
+    const contentType = audioResponse.headers.get("content-type") ?? "audio/ogg";
     const audioBuffer = await audioResponse.arrayBuffer();
     
     // Check if buffer has data
     const bufferSize = audioBuffer.byteLength;
-    console.log("📊 Audio buffer size:", bufferSize, "bytes");
+    console.log("📊 Audio buffer size:", bufferSize, "bytes, content-type:", contentType);
     
     if (bufferSize === 0) {
       console.error("❌ Audio buffer is empty!");
@@ -103,11 +105,7 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
       throw new Error("Audio file too small, possibly corrupted");
     }
 
-    // std/encoding/base64 accepts ArrayBuffer
-    const base64Audio = base64Encode(audioBuffer);
-    console.log("📝 Base64 audio length:", base64Audio.length, "characters");
-
-    // Try to infer the real format (some audios come as webm)
+    // Determine file extension from content type or URL
     const ctFromUrl = (() => {
       try {
         const url = new URL(mediaUrl);
@@ -116,92 +114,54 @@ async function transcribeAudio(mediaUrl: string): Promise<string | null> {
         return "";
       }
     })();
+    const resolvedContentType = (ctFromUrl || contentType || "audio/ogg").toLowerCase();
+    const ext = getExtensionFromMimeType(resolvedContentType);
+    
+    console.log("🎧 Resolved content-type:", resolvedContentType, "extension:", ext);
 
-    const resolvedContentType = (ctFromUrl || contentType || "").toLowerCase();
-    const audioFormat = resolvedContentType.includes("webm")
-      ? "webm"
-      : resolvedContentType.includes("mpeg") || resolvedContentType.includes("mp3")
-        ? "mp3"
-        : resolvedContentType.includes("wav")
-          ? "wav"
-          : "ogg";
+    // Create blob and FormData for Groq Whisper API
+    const blob = new Blob([audioBuffer], { type: resolvedContentType });
+    const formData = new FormData();
+    formData.append("file", blob, `audio.${ext}`);
+    formData.append("model", "whisper-large-v3-turbo");
+    formData.append("language", "pt");
+    formData.append("response_format", "text");
 
-    const mimeType = getMimeTypeFromFormat(audioFormat);
-    console.log("🎧 Audio content-type:", resolvedContentType || "(unknown)", "format:", audioFormat, "mime:", mimeType);
-
-    // Use Lovable AI Gateway for transcription with image_url format (works for audio too)
-    // This format is more universally supported by the gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("🚀 Sending to Groq Whisper API...");
+    const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        temperature: 0,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Tarefa: transcrever fielmente o áudio a seguir em Português Brasileiro.
-
-Regras obrigatórias:
-- Retorne APENAS o texto transcrito (sem comentários, sem formatação, sem explicações).
-- NÃO invente conteúdo. Se não conseguir entender um trecho, use [...].
-- Se o áudio estiver vazio, corrompido, ou inaudível, responda exatamente: Áudio inaudível
-- Não 'complete' frases por contexto.
-- Preserve gírias e expressões coloquiais.`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Audio}`,
-                },
-              },
-            ],
-          },
-        ],
-      }),
+      body: formData,
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Transcription API error:", response.status, errorText);
-      throw new Error(`Transcription error: ${response.status} - ${errorText}`);
+      const errText = await response.text();
+      console.error("❌ Groq Whisper transcription failed:", response.status, errText);
+      
+      if (response.status === 429) {
+        throw new Error("Rate limit exceeded. Tente novamente em alguns minutos.");
+      }
+      if (response.status === 401) {
+        throw new Error("GROQ_API_KEY inválida. Verifique nas configurações.");
+      }
+      
+      throw new Error(`Groq transcription error: ${response.status} - ${errText}`);
     }
 
-    const result = await response.json();
-    const transcription = result.choices?.[0]?.message?.content?.trim() || null;
-
-    // Check for hallucination patterns
-    const hallucination_patterns = [
-      "forneça o arquivo",
-      "forneça o áudio", 
-      "não foi enviado",
-      "não consigo processar",
-      "envie o áudio",
-      "provide the audio",
-      "file was not",
-    ];
+    const transcription = await response.text();
     
-    const isHallucination = hallucination_patterns.some(pattern => 
-      transcription?.toLowerCase().includes(pattern.toLowerCase())
-    );
-    
-    if (isHallucination) {
-      console.error("❌ Detected hallucination response:", transcription?.substring(0, 100));
-      console.log("📊 Debug info - Buffer size:", bufferSize, "Base64 length:", base64Audio.length);
-      throw new Error("AI returned hallucination - audio may not have been received correctly");
+    if (!transcription || transcription.trim().length === 0) {
+      console.log("⚠️ Empty transcription returned (audio may be silent or inaudible)");
+      return "Áudio inaudível";
     }
-
-    console.log("✅ Audio transcribed successfully:", transcription?.substring(0, 100) + (transcription && transcription.length > 100 ? "..." : ""));
-    return transcription;
+    
+    console.log("✅ Audio transcribed with Groq Whisper:", transcription.substring(0, 100) + (transcription.length > 100 ? "..." : ""));
+    return transcription.trim();
   } catch (error) {
     console.error("❌ Transcription failed:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -249,8 +209,23 @@ serve(async (req) => {
       );
     }
 
-    // Transcribe
-    const transcription = await transcribeAudio(mediaUrl);
+    // Transcribe with Groq Whisper
+    let transcription: string | null = null;
+    try {
+      transcription = await transcribeAudioWithGroq(mediaUrl);
+    } catch (error) {
+      console.error("❌ Transcription error:", error);
+      
+      await supabase
+        .from("whatsapp_messages")
+        .update({ transcription_status: "failed" })
+        .eq("id", messageId);
+
+      return new Response(
+        JSON.stringify({ error: error instanceof Error ? error.message : "Transcription failed" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!transcription) {
       console.log("❌ Transcription returned null");
