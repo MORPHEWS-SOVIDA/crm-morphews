@@ -62,14 +62,18 @@ async function createPagarmePixV5(
 ): Promise<GatewayResponse> {
   const phone = formatPhoneV5(request.customer.phone);
   
+  // Determine document type based on length
+  const docDigits = request.customer.document?.replace(/\D/g, '') || '00000000000';
+  const docType = docDigits.length === 14 ? 'company' : 'individual';
+
   // V5 PIX uses /orders endpoint with pix payment
   const payload = {
     code: request.sale_id,
     customer: {
       name: request.customer.name,
       email: request.customer.email,
-      type: 'individual',
-      document: request.customer.document?.replace(/\D/g, '') || '00000000000',
+      type: docType,
+      document: docDigits,
       phones: {
         mobile_phone: phone,
       },
@@ -137,15 +141,16 @@ async function createPagarmeCardV5(
 ): Promise<GatewayResponse> {
   const phone = formatPhoneV5(request.customer.phone);
 
-  // Pagar.me requires a valid CPF (11 digits) for credit card transactions
-  const cpfDigits = request.customer.document?.replace(/\D/g, '') || '';
-  if (cpfDigits.length !== 11) {
+  // Pagar.me requires a valid CPF (11) or CNPJ (14) for credit card transactions
+  const docDigits = request.customer.document?.replace(/\D/g, '') || '';
+  if (docDigits.length !== 11 && docDigits.length !== 14) {
     return {
       success: false,
-      error_code: 'INVALID_CPF',
-      error_message: 'CPF inválido. Informe um CPF válido (11 dígitos).',
+      error_code: 'INVALID_DOCUMENT',
+      error_message: 'CPF/CNPJ inválido. Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).',
     };
   }
+  const docType = docDigits.length === 14 ? 'company' : 'individual';
   
   // Build card payment object
   let creditCardPayment: Record<string, unknown> = {
@@ -188,8 +193,8 @@ async function createPagarmeCardV5(
     customer: {
       name: request.customer.name,
       email: request.customer.email,
-      type: 'individual',
-      document: cpfDigits,
+      type: docType,
+      document: docDigits,
       phones: {
         mobile_phone: phone,
       },

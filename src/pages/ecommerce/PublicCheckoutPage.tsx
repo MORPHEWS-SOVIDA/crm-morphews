@@ -35,13 +35,7 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-function formatCpfInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
+import { validateCpfCnpj, formatCpfCnpjInput } from '@/lib/validation/brazilian-documents';
 
 type PaymentMethod = 'pix' | 'credit_card' | 'boleto';
 
@@ -215,10 +209,10 @@ export default function PublicCheckoutPage() {
       return;
     }
 
-    // Credit card requires a valid CPF (11 digits) for gateway validation
-    const cpfDigits = formData.cpf.replace(/\D/g, '');
-    if (paymentMethod === 'credit_card' && cpfDigits.length !== 11) {
-      toast.error('Informe um CPF válido (11 dígitos) para pagar com cartão');
+    // Credit card requires a valid CPF or CNPJ for gateway validation
+    const documentValidation = validateCpfCnpj(formData.cpf);
+    if (paymentMethod === 'credit_card' && !documentValidation.valid) {
+      toast.error(documentValidation.message || 'CPF/CNPJ inválido');
       return;
     }
 
@@ -591,14 +585,14 @@ export default function PublicCheckoutPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="cpf">CPF{paymentMethod === 'credit_card' ? ' *' : ''}</Label>
+                          <Label htmlFor="cpf">CPF/CNPJ{paymentMethod === 'credit_card' ? ' *' : ''}</Label>
                           <Input
                             id="cpf"
                             value={formData.cpf}
-                            onChange={(e) => setFormData(prev => ({ ...prev, cpf: formatCpfInput(e.target.value) }))}
-                            placeholder="000.000.000-00"
+                            onChange={(e) => setFormData(prev => ({ ...prev, cpf: formatCpfCnpjInput(e.target.value) }))}
+                            placeholder="CPF ou CNPJ"
                             inputMode="numeric"
-                            maxLength={14}
+                            maxLength={18}
                             required={paymentMethod === 'credit_card'}
                           />
                         </div>
