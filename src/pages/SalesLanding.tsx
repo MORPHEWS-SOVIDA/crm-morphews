@@ -605,20 +605,6 @@ export default function SalesLanding() {
               que trabalha 24 horas por dia para você vender mais e gastar menos tempo com tarefas repetitivas.
             </p>
             
-            {/* Video placeholder - awaiting real video */}
-            <Card className="overflow-hidden bg-gradient-to-br from-primary/5 to-purple-500/5 border-2 border-dashed border-primary/30">
-              <CardContent className="p-12 md:p-20">
-                <div className="flex flex-col items-center justify-center gap-4">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Play className="h-10 w-10 text-primary" />
-                  </div>
-                  <p className="text-lg font-medium">Vídeo em breve</p>
-                  <p className="text-sm text-muted-foreground">
-                    Estamos preparando um vídeo especial para explicar tudo sobre o Morphews
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </section>
