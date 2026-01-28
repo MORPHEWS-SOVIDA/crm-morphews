@@ -1208,6 +1208,58 @@ export type Database = {
           },
         ]
       }
+      checkout_affiliate_links: {
+        Row: {
+          affiliate_id: string
+          checkout_id: string
+          commission_type: string
+          commission_value: number
+          created_at: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          affiliate_id: string
+          checkout_id: string
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          affiliate_id?: string
+          checkout_id?: string
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_affiliate_links_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "organization_affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkout_affiliate_links_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_checkouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkout_affiliate_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_testimonials: {
         Row: {
           author_location: string | null
@@ -8161,6 +8213,59 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      organization_affiliates: {
+        Row: {
+          affiliate_code: string
+          created_at: string
+          default_commission_type: string
+          default_commission_value: number
+          email: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          phone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          affiliate_code: string
+          created_at?: string
+          default_commission_type?: string
+          default_commission_value?: number
+          email: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          affiliate_code?: string
+          created_at?: string
+          default_commission_type?: string
+          default_commission_value?: number
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_affiliates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organization_energy: {
         Row: {

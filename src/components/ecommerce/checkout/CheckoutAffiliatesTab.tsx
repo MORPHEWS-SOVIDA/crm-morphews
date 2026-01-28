@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Users, Plus, Trash2, Copy, Link2, Info } from 'lucide-react';
+import { Users, Plus, Trash2, Copy, Link2, Info, Mail, Search, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -15,16 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import {
-  useCheckoutAffiliates,
-  useOrganizationAffiliates,
-  useLinkAffiliateToCheckout,
-  useUnlinkAffiliateFromCheckout,
-} from '@/hooks/ecommerce/useAffiliateLinks';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+  useCheckoutAffiliatesV2,
+  useOrganizationAffiliatesV2,
+  useLinkAffiliateToCheckoutV2,
+  useUnlinkAffiliateFromCheckoutV2,
+  useCreateAffiliate,
+  useFindAffiliateByEmail,
+} from '@/hooks/ecommerce/useOrganizationAffiliatesV2';
 
 interface CheckoutAffiliatesTabProps {
   checkoutId: string;
@@ -44,24 +44,89 @@ export function CheckoutAffiliatesTab({
   attributionModel,
   onAttributionModelChange,
 }: CheckoutAffiliatesTabProps) {
-  const { profile } = useAuth();
-  const queryClient = useQueryClient();
-  
-  const { data: linkedAffiliates, isLoading } = useCheckoutAffiliates(checkoutId);
-  const { data: allAffiliates } = useOrganizationAffiliates();
-  const linkAffiliate = useLinkAffiliateToCheckout();
-  const unlinkAffiliate = useUnlinkAffiliateFromCheckout();
-  
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedAffiliateId, setSelectedAffiliateId] = useState<string>('');
+  const { data: linkedAffiliates, isLoading } = useCheckoutAffiliatesV2(checkoutId);
+  const { data: allAffiliates } = useOrganizationAffiliatesV2();
+  const linkAffiliate = useLinkAffiliateToCheckoutV2();
+  const unlinkAffiliate = useUnlinkAffiliateFromCheckoutV2();
+  const createAffiliate = useCreateAffiliate();
+  const findByEmail = useFindAffiliateByEmail();
 
-  // Afiliados que ainda NÃO estão vinculados a ESTE checkout específico
-  // Mostramos TODOS os afiliados únicos, exceto os que já estão vinculados a este checkout
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addMode, setAddMode] = useState<'select' | 'email' | 'new'>('select');
+  
+  // Select mode
+  const [selectedAffiliateId, setSelectedAffiliateId] = useState<string>('');
+  
+  // Email search mode
+  const [searchEmail, setSearchEmail] = useState('');
+  const [foundAffiliate, setFoundAffiliate] = useState<any>(null);
+  const [searchError, setSearchError] = useState('');
+  
+  // New affiliate mode
+  const [newAffiliateEmail, setNewAffiliateEmail] = useState('');
+  const [newAffiliateName, setNewAffiliateName] = useState('');
+  const [newAffiliatePhone, setNewAffiliatePhone] = useState('');
+
+  // Afiliados que ainda NÃO estão vinculados a este checkout
   const availableAffiliates = allAffiliates?.filter(
-    (a) => !linkedAffiliates?.some(la => la.virtual_account_id === a.virtual_account_id)
+    (a) => !linkedAffiliates?.some(la => la.affiliate_id === a.id)
   ) || [];
 
-  const handleAddAffiliate = () => {
+  const resetDialog = () => {
+    setSelectedAffiliateId('');
+    setSearchEmail('');
+    setFoundAffiliate(null);
+    setSearchError('');
+    setNewAffiliateEmail('');
+    setNewAffiliateName('');
+    setNewAffiliatePhone('');
+    setAddMode('select');
+  };
+
+  const handleOpenDialog = () => {
+    resetDialog();
+    setShowAddDialog(true);
+  };
+
+  const handleSearchByEmail = async () => {
+    if (!searchEmail.trim()) return;
+    
+    setSearchError('');
+    setFoundAffiliate(null);
+    
+    try {
+      const result = await findByEmail.mutateAsync(searchEmail);
+      if (result) {
+        // Verificar se já está vinculado
+        const alreadyLinked = linkedAffiliates?.some(la => la.affiliate_id === result.id);
+        if (alreadyLinked) {
+          setSearchError('Este afiliado já está vinculado a este checkout');
+        } else {
+          setFoundAffiliate(result);
+        }
+      } else {
+        setSearchError('Nenhum afiliado encontrado com este e-mail. Você pode cadastrar um novo.');
+      }
+    } catch (error) {
+      setSearchError('Erro ao buscar afiliado');
+    }
+  };
+
+  const handleLinkFoundAffiliate = () => {
+    if (!foundAffiliate) return;
+    
+    linkAffiliate.mutate({
+      affiliateId: foundAffiliate.id,
+      checkoutId,
+    }, {
+      onSuccess: () => {
+        setShowAddDialog(false);
+        resetDialog();
+      }
+    });
+  };
+
+  const handleLinkSelected = () => {
     if (!selectedAffiliateId) return;
     
     linkAffiliate.mutate({
@@ -70,9 +135,35 @@ export function CheckoutAffiliatesTab({
     }, {
       onSuccess: () => {
         setShowAddDialog(false);
-        setSelectedAffiliateId('');
+        resetDialog();
       }
     });
+  };
+
+  const handleCreateAndLink = async () => {
+    if (!newAffiliateEmail.trim() || !newAffiliateName.trim()) {
+      toast.error('Preencha e-mail e nome do afiliado');
+      return;
+    }
+
+    try {
+      const newAffiliate = await createAffiliate.mutateAsync({
+        email: newAffiliateEmail,
+        name: newAffiliateName,
+        phone: newAffiliatePhone || undefined,
+      });
+
+      // Vincular ao checkout
+      await linkAffiliate.mutateAsync({
+        affiliateId: newAffiliate.id,
+        checkoutId,
+      });
+
+      setShowAddDialog(false);
+      resetDialog();
+    } catch (error) {
+      // Erro já tratado pelo hook
+    }
   };
 
   const handleRemoveAffiliate = (linkId: string) => {
@@ -141,7 +232,7 @@ export function CheckoutAffiliatesTab({
                 Afiliados que podem promover este checkout
               </CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShowAddDialog(true)}>
+            <Button size="sm" onClick={handleOpenDialog}>
               <Plus className="h-4 w-4 mr-1" />
               Adicionar
             </Button>
@@ -158,27 +249,27 @@ export function CheckoutAffiliatesTab({
             </div>
           ) : (
             <div className="space-y-3">
-              {linkedAffiliates?.map((affiliate) => (
+              {linkedAffiliates?.map((link) => (
                 <div
-                  key={affiliate.id}
+                  key={link.id}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">
-                        {affiliate.virtual_account?.holder_name || 'Afiliado'}
+                        {link.affiliate?.name || 'Afiliado'}
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        {formatCommission(affiliate.commission_type, affiliate.commission_value)}
+                        {formatCommission(link.commission_type, link.commission_value)}
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {affiliate.virtual_account?.holder_email}
+                      {link.affiliate?.email}
                     </div>
                     <div className="flex items-center gap-1 text-xs">
                       <Link2 className="h-3 w-3" />
                       <code className="bg-muted px-1.5 py-0.5 rounded">
-                        ?ref={affiliate.affiliate_code}
+                        ?ref={link.affiliate?.affiliate_code}
                       </code>
                     </div>
                   </div>
@@ -186,7 +277,7 @@ export function CheckoutAffiliatesTab({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleCopyLink(affiliate.affiliate_code)}
+                      onClick={() => link.affiliate?.affiliate_code && handleCopyLink(link.affiliate.affiliate_code)}
                       title="Copiar link"
                     >
                       <Copy className="h-4 w-4" />
@@ -194,7 +285,7 @@ export function CheckoutAffiliatesTab({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleRemoveAffiliate(affiliate.id)}
+                      onClick={() => handleRemoveAffiliate(link.id)}
                       title="Remover"
                       className="text-destructive hover:text-destructive"
                     >
@@ -210,51 +301,157 @@ export function CheckoutAffiliatesTab({
 
       {/* Add Affiliate Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Adicionar Afiliado</DialogTitle>
             <DialogDescription>
-              Selecione um afiliado para vincular a este checkout
+              Vincule um afiliado existente ou cadastre um novo
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {availableAffiliates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Todos os afiliados já estão vinculados ou não há afiliados cadastrados.
-              </p>
-            ) : (
-              <Select value={selectedAffiliateId} onValueChange={setSelectedAffiliateId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um afiliado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableAffiliates.map((affiliate) => (
-                    <SelectItem key={affiliate.id} value={affiliate.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{affiliate.virtual_account?.holder_name}</span>
-                        <span className="text-muted-foreground text-xs">
-                          ({formatCommission(affiliate.commission_type, affiliate.commission_value)})
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          <Tabs value={addMode} onValueChange={(v) => setAddMode(v as any)} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="select">Selecionar</TabsTrigger>
+              <TabsTrigger value="email">Buscar por E-mail</TabsTrigger>
+              <TabsTrigger value="new">Novo Afiliado</TabsTrigger>
+            </TabsList>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleAddAffiliate} 
-              disabled={!selectedAffiliateId || linkAffiliate.isPending}
-            >
-              {linkAffiliate.isPending ? 'Adicionando...' : 'Adicionar'}
-            </Button>
-          </DialogFooter>
+            {/* Select from existing */}
+            <TabsContent value="select" className="space-y-4 mt-4">
+              {availableAffiliates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum afiliado disponível. Cadastre um novo ou busque por e-mail.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Selecione um afiliado</Label>
+                  <Select value={selectedAffiliateId} onValueChange={setSelectedAffiliateId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um afiliado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableAffiliates.map((affiliate) => (
+                        <SelectItem key={affiliate.id} value={affiliate.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{affiliate.name}</span>
+                            <span className="text-muted-foreground text-xs">
+                              ({formatCommission(affiliate.default_commission_type, affiliate.default_commission_value)})
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleLinkSelected} 
+                  disabled={!selectedAffiliateId || linkAffiliate.isPending}
+                >
+                  {linkAffiliate.isPending ? 'Adicionando...' : 'Adicionar'}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            {/* Search by email */}
+            <TabsContent value="email" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>E-mail do afiliado</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="afiliado@exemplo.com"
+                    value={searchEmail}
+                    onChange={(e) => setSearchEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchByEmail()}
+                  />
+                  <Button 
+                    variant="secondary" 
+                    onClick={handleSearchByEmail}
+                    disabled={findByEmail.isPending}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {searchError && (
+                <p className="text-sm text-amber-600">{searchError}</p>
+              )}
+
+              {foundAffiliate && (
+                <div className="p-3 border rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">{foundAffiliate.name}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {foundAffiliate.email} • {formatCommission(foundAffiliate.default_commission_type, foundAffiliate.default_commission_value)}
+                  </p>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleLinkFoundAffiliate} 
+                  disabled={!foundAffiliate || linkAffiliate.isPending}
+                >
+                  {linkAffiliate.isPending ? 'Adicionando...' : 'Adicionar'}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            {/* Create new */}
+            <TabsContent value="new" className="space-y-4 mt-4">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label>E-mail *</Label>
+                  <Input
+                    type="email"
+                    placeholder="afiliado@exemplo.com"
+                    value={newAffiliateEmail}
+                    onChange={(e) => setNewAffiliateEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Nome *</Label>
+                  <Input
+                    placeholder="Nome do afiliado"
+                    value={newAffiliateName}
+                    onChange={(e) => setNewAffiliateName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Telefone (opcional)</Label>
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={newAffiliatePhone}
+                    onChange={(e) => setNewAffiliatePhone(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleCreateAndLink} 
+                  disabled={!newAffiliateEmail || !newAffiliateName || createAffiliate.isPending || linkAffiliate.isPending}
+                >
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  {createAffiliate.isPending ? 'Cadastrando...' : 'Cadastrar e Vincular'}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
