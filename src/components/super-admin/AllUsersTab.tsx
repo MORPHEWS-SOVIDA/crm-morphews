@@ -294,6 +294,9 @@ export function AllUsersTab() {
       if (roleFilter === "partners") {
         // Any partner type
         matchesRole = role?.startsWith("partner_") || false;
+      } else if (roleFilter === "clients") {
+        // Only regular clients (non-partner roles)
+        matchesRole = role !== null && !role.startsWith("partner_");
       } else {
         matchesRole = role === roleFilter;
       }
@@ -306,6 +309,7 @@ export function AllUsersTab() {
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {
       all: allProfiles?.length || 0,
+      clients: 0,
       partners: 0,
       partner_affiliate: 0,
       partner_coproducer: 0,
@@ -326,6 +330,8 @@ export function AllUsersTab() {
         }
         if (role.startsWith("partner_")) {
           counts.partners++;
+        } else {
+          counts.clients++;
         }
       }
     });
@@ -371,6 +377,14 @@ export function AllUsersTab() {
               onClick={() => setRoleFilter("all")}
             >
               Todos ({roleCounts.all})
+            </Button>
+            <Button
+              variant={roleFilter === "clients" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoleFilter("clients")}
+              className={roleFilter === "clients" ? "" : "border-amber-300 text-amber-700 hover:bg-amber-50"}
+            >
+              👤 Clientes ({roleCounts.clients})
             </Button>
             <Button
               variant={roleFilter === "partners" ? "default" : "outline"}
