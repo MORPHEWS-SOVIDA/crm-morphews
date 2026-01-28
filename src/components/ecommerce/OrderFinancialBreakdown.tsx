@@ -110,7 +110,7 @@ export function OrderFinancialBreakdown({
     );
   }
 
-  // Calculate breakdown
+  // Calculate breakdown - use subtotal as base (no interest)
   const platformSplit = splits?.find(s => s.split_type === 'platform_fee');
   const affiliateSplit = splits?.find(s => s.split_type === 'affiliate');
   const tenantSplit = splits?.find(s => s.split_type === 'tenant');
@@ -120,10 +120,16 @@ export function OrderFinancialBreakdown({
 
   const platformFee = platformSplit?.gross_amount_cents || 0;
   const affiliateFee = affiliateSplit?.gross_amount_cents || 0;
-  const tenantNet = tenantSplit?.net_amount_cents || (totalCents - platformFee - affiliateFee);
   const factoryFee = factorySplit?.gross_amount_cents || 0;
   const industryFee = industrySplit?.gross_amount_cents || 0;
   const coproducerFee = coproducerSplit?.gross_amount_cents || 0;
+  
+  // Tenant receives what's left after all splits (calculated from subtotal, not total with interest)
+  const tenantNet = tenantSplit?.net_amount_cents || 
+    (subtotalCents - platformFee - affiliateFee - factoryFee - industryFee - coproducerFee);
+  
+  // Interest (total - subtotal) goes to platform, not shown in splits
+  const interestCents = totalCents - subtotalCents;
 
   // Estimate availability date (D+2 for credit card)
   const availabilityDate = paidAt ? addDays(new Date(paidAt), 2) : null;
@@ -173,23 +179,33 @@ export function OrderFinancialBreakdown({
         )}
 
         <div className="border-t pt-3 space-y-2">
-          {/* Sale Value */}
+          {/* Sale Value (what customer paid) */}
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Valor da venda:</span>
+            <span className="text-muted-foreground">Valor cobrado:</span>
             <span className="font-medium">{formatCurrency(totalCents)}</span>
           </div>
 
-          {/* Product Value */}
+          {/* Interest (if any) */}
+          {interestCents > 0 && (
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span className="italic">↳ Juros parcelamento:</span>
+              <span className="italic">{formatCurrency(interestCents)}</span>
+            </div>
+          )}
+
+          {/* Product Value (base for splits) */}
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Valor do(s) produto(s):</span>
+            <span className="text-muted-foreground">Base de cálculo:</span>
             <span>{formatCurrency(subtotalCents)}</span>
           </div>
 
           {/* Shipping */}
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Frete:</span>
-            <span>{formatCurrency(shippingCents)}</span>
-          </div>
+          {shippingCents > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Frete:</span>
+              <span>{formatCurrency(shippingCents)}</span>
+            </div>
+          )}
 
           {/* Affiliate - First deduction */}
           {affiliateFee > 0 && (
