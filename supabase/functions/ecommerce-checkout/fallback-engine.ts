@@ -91,7 +91,8 @@ export class FallbackEngine {
       try {
         const response = await this.processPayment(gatewayType, config, request);
 
-        attemptRecord.status = response.success ? 'success' : 'failed';
+        // Valid status values: pending, processing, approved, refused, error, cancelled
+        attemptRecord.status = response.success ? 'approved' : 'refused';
         attemptRecord.gateway_transaction_id = response.transaction_id;
         attemptRecord.error_code = response.error_code;
         attemptRecord.error_message = response.error_message;
@@ -129,7 +130,7 @@ export class FallbackEngine {
       } catch (error) {
         console.error(`[FallbackEngine] Gateway ${gatewayType} threw exception:`, error);
         
-        attemptRecord.status = 'failed';
+        attemptRecord.status = 'error';
         attemptRecord.error_code = 'EXCEPTION';
         attemptRecord.error_message = error instanceof Error ? error.message : 'Unknown error';
         

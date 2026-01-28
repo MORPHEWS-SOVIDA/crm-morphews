@@ -467,7 +467,8 @@ async function logPaymentAttempt(supabase: SupabaseClient, params: LogParams): P
         gateway_type: gateway,
         payment_method: paymentMethod,
         amount_cents: amountCents,
-        status: paymentStatus === 'paid' ? 'success' : paymentStatus === 'pending' ? 'pending' : 'failed',
+        // Valid status values: pending, processing, approved, refused, error, cancelled
+        status: paymentStatus === 'paid' ? 'approved' : paymentStatus === 'pending' ? 'pending' : 'refused',
         gateway_transaction_id: transactionId,
         attempt_number: 1,
         is_fallback: false,
