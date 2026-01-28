@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, LogIn, UserPlus, Loader2, AlertTriangle } from 'lucide-react';
@@ -37,6 +37,38 @@ export default function PartnerInvitePage() {
     password: '', 
     confirmPassword: '' 
   });
+
+  const hasAutoAcceptedRef = useRef(false);
+
+  const normalizeEmail = (email?: string | null) => (email || '').trim().toLowerCase();
+
+  const acceptNow = async () => {
+    if (!code) return;
+    if (!invitation) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Segurança: só permite aceitar se o email logado for o mesmo do convite
+    if (normalizeEmail(user.email) !== normalizeEmail(invitation.email)) {
+      toast.error('Você está logado com um e-mail diferente do convite.');
+      return;
+    }
+
+    acceptInvitation.mutate(code, {
+      onSuccess: () => {
+        toast.success('Convite aceito com sucesso!');
+        setTimeout(() => {
+          navigate('/parceiro');
+        }, 500);
+      },
+      onError: (error: Error) => {
+        // Permite tentar novamente manualmente
+        hasAutoAcceptedRef.current = false;
+        toast.error(error.message);
+      },
+    });
+  };
 
   // Check if user is already logged in
   useEffect(() => {
@@ -77,6 +109,17 @@ export default function PartnerInvitePage() {
     }
   }, [invitation]);
 
+  // Auto-accept after the user becomes logged in (avoids getting stuck with "cadastro já existe")
+  useEffect(() => {
+    if (!isLoggedIn || !invitation || !code) return;
+    if (acceptInvitation.isPending) return;
+    if (hasAutoAcceptedRef.current) return;
+
+    hasAutoAcceptedRef.current = true;
+    void acceptNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, invitation, code]);
+
   const handleLogin = async () => {
     if (!loginForm.email || !loginForm.password) {
       toast.error('Preencha e-mail e senha');
@@ -92,6 +135,9 @@ export default function PartnerInvitePage() {
 
       if (error) throw error;
       toast.success('Login realizado!');
+
+      // Tentar aceitar imediatamente (caso o usuário seja redirecionado e perca o contexto)
+      void acceptNow();
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -130,28 +176,27 @@ export default function PartnerInvitePage() {
 
       if (error) throw error;
       toast.success('Conta criada! Verifique seu e-mail se necessário.');
+
+      // Se a sessão já foi criada (auto-confirm), tenta aceitar agora
+      void acceptNow();
     } catch (error) {
-      toast.error((error as Error).message);
+      const msg = (error as Error).message || '';
+      const normalized = msg.toLowerCase();
+      if (normalized.includes('already registered') || normalized.includes('já está cadastrado')) {
+        setAuthTab('login');
+        toast.error('Este e-mail já tem conta. Faça login na aba “Já tenho conta” para aceitar o convite.');
+        return;
+      }
+      toast.error(msg);
     } finally {
       setIsAuthLoading(false);
     }
   };
 
   const handleAcceptInvitation = async () => {
-    if (!code) return;
-
-    acceptInvitation.mutate(code, {
-      onSuccess: (result) => {
-        toast.success('Convite aceito com sucesso!');
-        // Redirect to partner portal
-        setTimeout(() => {
-          navigate('/parceiro');
-        }, 1500);
-      },
-      onError: (error: Error) => {
-        toast.error(error.message);
-      },
-    });
+    // Reset para permitir tentativa manual
+    hasAutoAcceptedRef.current = true;
+    await acceptNow();
   };
 
   // Loading state
