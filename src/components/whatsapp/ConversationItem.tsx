@@ -133,15 +133,21 @@ export function ConversationItem({
   
   const isWithBot = status === 'with_bot';
 
+  // Determina se a conversa precisa de resposta urgente
+  // (atribuída ao usuário atual e tem mensagens não lidas)
+  const needsReply = isAssignedToMe && conversation.unread_count > 0;
+
   return (
     <div
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 p-3 cursor-pointer transition-colors border-b border-border/50",
+        "flex items-center gap-3 p-3 cursor-pointer transition-all border-b border-border/50",
         isSelected 
           ? "bg-accent" 
           : "hover:bg-accent/50",
-        status === 'closed' && "opacity-60"
+        status === 'closed' && "opacity-60",
+        // Destaque visual para conversas que precisam de resposta
+        needsReply && !isSelected && "bg-orange-50 dark:bg-orange-950/30 border-l-4 border-l-orange-500 animate-pulse"
       )}
     >
       {/* Avatar with status indicator */}

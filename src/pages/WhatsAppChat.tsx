@@ -49,6 +49,7 @@ import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
 import { WavoipCallButton } from '@/components/whatsapp/WavoipCallButton';
 import { WavoipPhoneButton } from '@/components/whatsapp/WavoipPhoneButton';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversationDistribution } from '@/hooks/useConversationDistribution';
@@ -131,6 +132,10 @@ export default function WhatsAppChat() {
   const { claimConversation, closeConversation, reactivateConversation } = useConversationDistribution();
   // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
   const isMobile = useIsMobile();
+  const { playNotificationSound } = useNotificationSound();
+  
+  // Ref para rastrear conversas que já foram notificadas
+  const notifiedConversationsRef = useRef<Map<string, number>>(new Map());
   
   const [isUpdatingStars, setIsUpdatingStars] = useState(false);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -285,6 +290,27 @@ export default function WhatsAppChat() {
         table: 'whatsapp_conversations',
       }, (payload) => {
         console.log('[Realtime] Conversation update:', payload);
+        
+        // Verifica se é uma conversa atribuída ao usuário atual com novas mensagens
+        const newRecord = payload.new as any;
+        if (newRecord && user?.id) {
+          const isMyConversation = newRecord.assigned_user_id === user.id;
+          const hasUnread = newRecord.unread_count > 0;
+          const conversationId = newRecord.id;
+          const currentUnread = newRecord.unread_count || 0;
+          
+          // Verifica se o unread_count aumentou (nova mensagem recebida)
+          const previousUnread = notifiedConversationsRef.current.get(conversationId) || 0;
+          
+          if (isMyConversation && hasUnread && currentUnread > previousUnread) {
+            console.log('[Realtime] 🔔 Nova mensagem em conversa atribuída! Tocando som...');
+            playNotificationSound();
+          }
+          
+          // Atualiza o registro de unread_count
+          notifiedConversationsRef.current.set(conversationId, currentUnread);
+        }
+        
         // Refetch ao receber qualquer mudança
         fetchConversations();
       })
@@ -295,7 +321,7 @@ export default function WhatsAppChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-   }, [selectedInstance, profile?.organization_id]);
+   }, [selectedInstance, profile?.organization_id, user?.id, playNotificationSound]);
 
   // Mantém controle de qual instância está ativa dentro do chat (sub-abas)
   useEffect(() => {
