@@ -257,6 +257,33 @@ export function GatewayFinancialDashboard() {
     },
   });
 
+  // Fetch sales with interest (subtotal vs total difference)
+  const { data: salesWithInterest, isLoading: interestLoading } = useQuery({
+    queryKey: ['sales-interest-30d'],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data, error } = await supabase
+        .from('sales')
+        .select('id, total_cents, subtotal_cents, status')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .eq('status', 'payment_confirmed');
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Calculate total interest revenue (total - subtotal for all paid sales)
+  const totalInterestRevenue = useMemo(() => {
+    if (!salesWithInterest) return 0;
+    return salesWithInterest.reduce((acc, sale) => {
+      const interest = (sale.total_cents || 0) - (sale.subtotal_cents || 0);
+      return acc + (interest > 0 ? interest : 0);
+    }, 0);
+  }, [salesWithInterest]);
+
   // Fetch ALL payment attempts from last 30 days
   const { data: paymentAttempts, isLoading: attemptsLoading, refetch: refetchAttempts } = useQuery({
     queryKey: ['payment-attempts-30d'],
@@ -539,7 +566,7 @@ export function GatewayFinancialDashboard() {
       </div>
 
       {/* Summary Cards - Row 2 */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -573,6 +600,21 @@ export function GatewayFinancialDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold text-cyan-600">{formatCurrency(splitsByType.coproducer)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Percent className="h-4 w-4 text-emerald-500" />
+              Receita Juros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-emerald-600">{formatCurrency(totalInterestRevenue)}</div>
+            <p className="text-xs text-muted-foreground">
+              Parcelamento cartão
+            </p>
           </CardContent>
         </Card>
 

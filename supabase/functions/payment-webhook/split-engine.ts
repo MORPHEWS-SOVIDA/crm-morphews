@@ -407,9 +407,11 @@ export async function processSaleSplitsV3(
   // 'acquired' or 'needs_recovery' - proceed with processing
 
   // 2) Load sale with items
+  // CRITICAL: We need subtotal_cents for calculating splits (base value without interest)
+  // total_cents includes installment interest which NOBODY gets commission on
   const { data: sale, error: saleError } = await supabase
     .from('sales')
-    .select('id, organization_id, total_cents')
+    .select('id, organization_id, total_cents, subtotal_cents')
     .eq('id', saleId)
     .single();
 
@@ -454,9 +456,15 @@ export async function processSaleSplitsV3(
   // 4) Get tenant account (platform account already fetched above for lock)
   const tenantAccount = await getOrCreateTenantAccount(supabase, sale.organization_id);
 
-  const totalCents = sale.total_cents;
+  // CRITICAL FIX: Use subtotal_cents as base for ALL calculations
+  // total_cents includes installment interest - NOBODY gets commission on that!
+  // Interest revenue = total_cents - subtotal_cents (tracked separately)
+  const baseCents = sale.subtotal_cents || sale.total_cents; // Fallback for old sales without subtotal
+  const interestCents = sale.total_cents - baseCents;
   const gatewayFeeCents = reconciliation?.feeCents || 0;
-  let remaining = totalCents;
+  let remaining = baseCents; // Start with base, not total!
+  
+  console.log(`[SplitEngine] Base: R$${(baseCents / 100).toFixed(2)}, Interest: R$${(interestCents / 100).toFixed(2)}, Total: R$${(sale.total_cents / 100).toFixed(2)}`);
 
   const result: SplitResult = {
     factory_amount: 0,
@@ -580,8 +588,9 @@ export async function processSaleSplitsV3(
 
   // =====================================================
   // STEP C: PLATFORM FEE (never liable)
+  // CRITICAL: Calculated on baseCents (without interest), not total!
   // =====================================================
-  let platformFeeCents = Math.round(totalCents * (rules.platform_fee_percent / 100)) + (rules.platform_fee_fixed_cents || 0);
+  let platformFeeCents = Math.round(baseCents * (rules.platform_fee_percent / 100)) + (rules.platform_fee_fixed_cents || 0);
   
   // CAP: Never exceed remaining amount
   platformFeeCents = Math.min(platformFeeCents, remaining);
@@ -609,10 +618,10 @@ export async function processSaleSplitsV3(
     }
   }
 
-  // Calculate base for affiliate commission = totalCents - platformFeeCents
+  // Calculate base for affiliate commission = baseCents - platformFeeCents
   // This ensures affiliate gets commission on (sale value - platform fee) only
-  // NOT affected by factory/industry deductions
-  const baseForAffiliateCommission = totalCents - result.platform_amount;
+  // NOT affected by factory/industry deductions, NOT including interest
+  const baseForAffiliateCommission = baseCents - result.platform_amount;
 
   // =====================================================
   // STEP C.5: COPRODUCERS (liable for refund/chargeback like affiliate)
@@ -695,11 +704,12 @@ export async function processSaleSplitsV3(
         const liableForChargeback = partner.responsible_for_chargebacks ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
 
         // Calculate amount
-        // For affiliates/coproducers: use baseForAffiliateCommission (total - platform_fee)
-        // For factory/industry: use totalCents (they get their cut before platform fee)
+        // For affiliates/coproducers: use baseForAffiliateCommission (base - platform_fee)
+        // For factory/industry: use baseCents (they get their cut before platform fee)
+        // NEVER use total_cents which includes interest!
         let partnerAmount = 0;
         const useAffiliateBase = partnerType === 'affiliate' || partnerType === 'coproducer';
-        const baseAmount = useAffiliateBase ? baseForAffiliateCommission : totalCents;
+        const baseAmount = useAffiliateBase ? baseForAffiliateCommission : baseCents;
         
         if (commissionType === 'percentage') {
           partnerAmount = Math.round(baseAmount * (commissionValue / 100));
@@ -988,7 +998,7 @@ export async function processSaleSplitsV3(
         gross_amount_cents: gatewayFeeCents,
         fee_cents: 0,
         net_amount_cents: gatewayFeeCents,
-        percentage: (gatewayFeeCents / totalCents) * 100,
+        percentage: (gatewayFeeCents / baseCents) * 100,
         priority: 2,
         liable_for_refund: false,
         liable_for_chargeback: false,
