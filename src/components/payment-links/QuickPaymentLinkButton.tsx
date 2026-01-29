@@ -30,6 +30,12 @@ interface QuickPaymentLinkButtonProps {
   variant?: 'default' | 'outline' | 'ghost' | 'secondary';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  /** When true, auto-opens dialog with amount pre-filled */
+  autoOpenWithAmount?: boolean;
+  /** Custom label for the button */
+  label?: string;
+  /** Hide the button text, show only icon */
+  iconOnly?: boolean;
 }
 
 export function QuickPaymentLinkButton({
@@ -42,6 +48,9 @@ export function QuickPaymentLinkButton({
   variant = 'outline',
   size = 'sm',
   className,
+  autoOpenWithAmount = false,
+  label = 'Cobrar via Link',
+  iconOnly = false,
 }: QuickPaymentLinkButtonProps) {
   const { isAdmin } = useAuth();
   const { data: permissions } = useMyPermissions();
@@ -135,8 +144,8 @@ export function QuickPaymentLinkButton({
         onClick={handleOpen}
         className={className}
       >
-        <Link2 className="h-4 w-4 mr-2" />
-        Cobrar via Link
+        <Link2 className={iconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
+        {!iconOnly && label}
       </Button>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>

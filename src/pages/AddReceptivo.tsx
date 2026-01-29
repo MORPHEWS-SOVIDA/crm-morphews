@@ -98,6 +98,7 @@ import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { useUpdateLead } from '@/hooks/useLeads';
 import { FollowupDateTimeEditor } from '@/components/leads/FollowupDateTimeEditor';
 import { QuickFollowupDialog } from '@/components/receptive/QuickFollowupDialog';
+import { PaymentActionsBar } from '@/components/payment-links/PaymentActionsBar';
 
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
@@ -2828,6 +2829,26 @@ export default function AddReceptivo() {
                   </p>
                 )}
               </div>
+
+              {/* Payment Actions - Generate Link or Telesales */}
+              {total > 0 && (
+                <PaymentActionsBar
+                  amountCents={total}
+                  customerName={leadData.name || 'Cliente'}
+                  customerDocument={leadData.cpf_cnpj}
+                  customerPhone={leadData.whatsapp}
+                  customerEmail={leadData.email}
+                  leadId={leadData.id}
+                  productName={currentProduct?.name || offerItems[0]?.productName}
+                  onPaymentSuccess={(transactionId) => {
+                    toast({ 
+                      title: 'Pagamento aprovado!', 
+                      description: `Transação ${transactionId} confirmada` 
+                    });
+                    setPaymentStatus('paid_now');
+                  }}
+                />
+              )}
 
               <Separator />
               {renderNavButtons(() => setCurrentStep('address'), handleGoToSaleOrReason)}
