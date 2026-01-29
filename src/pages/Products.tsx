@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Search, Package, Loader2, FlaskConical, FileInput } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Plus, Search, Package, Loader2, FlaskConical, FileInput, LayoutGrid, List, FolderOpen, ChevronRight } from 'lucide-react';
 import { ProductCsvManager } from '@/components/products/ProductCsvManager';
 import { ProductCard } from '@/components/products/ProductCard';
+import { ProductListItem } from '@/components/products/ProductListItem';
 import { ProductForm } from '@/components/products/ProductForm';
 import { ProductDetailDialog } from '@/components/products/ProductDetailDialog';
 import {
@@ -27,6 +36,7 @@ import {
   type Product,
   type ProductFormData,
 } from '@/hooks/useProducts';
+import { useProductBrands } from '@/hooks/useProductBrands';
 import { 
   useProductPriceKits, 
   useBulkSaveProductPriceKits,
@@ -47,6 +57,7 @@ import type { ProductFaq } from '@/components/products/ProductFaqManager';
 import type { ProductIngredient } from '@/components/products/ProductIngredientsManager';
 
 type ViewMode = 'list' | 'create' | 'edit';
+type DisplayMode = 'cards' | 'list' | 'brands';
 
 // Categorias que usam kits dinâmicos
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
@@ -54,6 +65,9 @@ const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping
 export default function Products() {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('cards');
+  const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
+  const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
@@ -65,6 +79,7 @@ export default function Products() {
   const [initialVisibleUserIds, setInitialVisibleUserIds] = useState<string[]>([]);
 
   const { data: products, isLoading } = useProducts();
+  const { data: brands = [] } = useProductBrands();
   const { data: isOwner } = useIsOwner();
   const { data: myPermissions } = useMyPermissions();
   const { data: hasManipulatedCostsFeature = false } = useOrgHasFeature("manipulated_costs");
@@ -79,6 +94,13 @@ export default function Products() {
   
   // User can manage products if they are owner OR have products_manage permission
   const canManageProducts = isOwner || myPermissions?.products_manage || false;
+
+  // Create brand lookup map
+  const brandMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    brands.forEach(b => { map[b.id] = b.name; });
+    return map;
+  }, [brands]);
 
   // Load kits and other data when editing a product
   const { data: productKits } = useProductPriceKits(selectedProduct?.id);
@@ -158,10 +180,64 @@ export default function Products() {
     }
   }, [productVisibility]);
 
-  const filteredProducts = products?.filter((p) =>
-    normalizeText(p.name).includes(normalizeText(searchTerm)) ||
-    normalizeText(p.description || '').includes(normalizeText(searchTerm))
-  );
+  // Filter products by search and brand
+  const filteredProducts = useMemo(() => {
+    let result = products || [];
+    
+    // Filter by search term
+    if (searchTerm) {
+      result = result.filter((p) =>
+        normalizeText(p.name).includes(normalizeText(searchTerm)) ||
+        normalizeText(p.description || '').includes(normalizeText(searchTerm)) ||
+        normalizeText(p.sku || '').includes(normalizeText(searchTerm))
+      );
+    }
+    
+    // Filter by brand
+    if (selectedBrandId !== 'all') {
+      if (selectedBrandId === 'no-brand') {
+        result = result.filter(p => !p.brand_id);
+      } else {
+        result = result.filter(p => p.brand_id === selectedBrandId);
+      }
+    }
+    
+    // Sort alphabetically
+    return result.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [products, searchTerm, selectedBrandId]);
+
+  // Group products by brand for folder view
+  const productsByBrand = useMemo(() => {
+    const grouped: Record<string, Product[]> = { 'no-brand': [] };
+    brands.forEach(b => { grouped[b.id] = []; });
+    
+    (products || []).forEach(p => {
+      if (p.brand_id && grouped[p.brand_id]) {
+        grouped[p.brand_id].push(p);
+      } else {
+        grouped['no-brand'].push(p);
+      }
+    });
+    
+    // Sort products within each group
+    Object.keys(grouped).forEach(key => {
+      grouped[key].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    });
+    
+    return grouped;
+  }, [products, brands]);
+
+  const toggleBrandExpanded = (brandId: string) => {
+    setExpandedBrands(prev => {
+      const next = new Set(prev);
+      if (next.has(brandId)) {
+        next.delete(brandId);
+      } else {
+        next.add(brandId);
+      }
+      return next;
+    });
+  };
 
   const handleCreate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[], selectedUserIds?: string[]) => {
     const product = await createProduct.mutateAsync(data);
@@ -377,21 +453,130 @@ export default function Products() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar produtos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Filters and View Toggle */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Search */}
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            {/* Brand Filter */}
+            {brands.length > 0 && displayMode !== 'brands' && (
+              <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Todas as marcas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as marcas</SelectItem>
+                  <SelectItem value="no-brand">Sem marca</SelectItem>
+                  {brands.map(brand => (
+                    <SelectItem key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* View Mode Toggle */}
+          <ToggleGroup type="single" value={displayMode} onValueChange={(v) => v && setDisplayMode(v as DisplayMode)}>
+            <ToggleGroupItem value="cards" aria-label="Cards">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="Lista">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            {brands.length > 0 && (
+              <ToggleGroupItem value="brands" aria-label="Por Marca">
+                <FolderOpen className="h-4 w-4" />
+              </ToggleGroupItem>
+            )}
+          </ToggleGroup>
         </div>
 
         {/* Content */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : displayMode === 'brands' ? (
+          /* Folder/Brand View */
+          <div className="space-y-2">
+            {brands.map(brand => {
+              const brandProducts = productsByBrand[brand.id] || [];
+              if (brandProducts.length === 0) return null;
+              const isExpanded = expandedBrands.has(brand.id);
+              
+              return (
+                <div key={brand.id} className="border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleBrandExpanded(brand.id)}
+                    className="w-full flex items-center gap-3 p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    <FolderOpen className="h-5 w-5 text-primary" />
+                    <span className="font-medium flex-1">{brand.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {brandProducts.length} {brandProducts.length === 1 ? 'produto' : 'produtos'}
+                    </span>
+                  </button>
+                  {isExpanded && (
+                    <div className="divide-y">
+                      {brandProducts.map(product => (
+                        <ProductListItem
+                          key={product.id}
+                          product={product}
+                          brandName={brand.name}
+                          onView={setViewProduct}
+                          onEdit={handleEdit}
+                          onDelete={setProductToDelete}
+                          canManage={canManageProducts}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            
+            {/* Products without brand */}
+            {productsByBrand['no-brand']?.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleBrandExpanded('no-brand')}
+                  className="w-full flex items-center gap-3 p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <ChevronRight className={`h-4 w-4 transition-transform ${expandedBrands.has('no-brand') ? 'rotate-90' : ''}`} />
+                  <FolderOpen className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium flex-1 text-muted-foreground">Sem marca</span>
+                  <span className="text-sm text-muted-foreground">
+                    {productsByBrand['no-brand'].length} {productsByBrand['no-brand'].length === 1 ? 'produto' : 'produtos'}
+                  </span>
+                </button>
+                {expandedBrands.has('no-brand') && (
+                  <div className="divide-y">
+                    {productsByBrand['no-brand'].map(product => (
+                      <ProductListItem
+                        key={product.id}
+                        product={product}
+                        onView={setViewProduct}
+                        onEdit={handleEdit}
+                        onDelete={setProductToDelete}
+                        canManage={canManageProducts}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : filteredProducts?.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -409,7 +594,23 @@ export default function Products() {
               </Button>
             )}
           </div>
+        ) : displayMode === 'list' ? (
+          /* List View */
+          <div className="space-y-2">
+            {filteredProducts?.map((product) => (
+              <ProductListItem
+                key={product.id}
+                product={product}
+                brandName={product.brand_id ? brandMap[product.brand_id] : undefined}
+                onView={setViewProduct}
+                onEdit={handleEdit}
+                onDelete={setProductToDelete}
+                canManage={canManageProducts}
+              />
+            ))}
+          </div>
         ) : (
+          /* Cards View */
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredProducts?.map((product) => (
               <ProductCard
