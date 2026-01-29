@@ -175,6 +175,30 @@ export function usePublicProduct(storefrontSlug: string | undefined, productId: 
   });
 }
 
+// Fetch product price kits for dynamic pricing
+export function usePublicProductKits(productId: string | undefined, organizationId: string | undefined) {
+  return useQuery({
+    queryKey: ['public-product-kits', productId, organizationId],
+    enabled: !!productId && !!organizationId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_price_kits')
+        .select('quantity, regular_price_cents, promotional_price_cents, position')
+        .eq('product_id', productId)
+        .eq('organization_id', organizationId)
+        .order('position');
+      
+      if (error) {
+        console.error('Error fetching product kits:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+  });
+}
+
 // Fetch products by category
 export function usePublicCategoryProducts(storefrontSlug: string | undefined, categorySlug: string | undefined) {
   return useQuery({
