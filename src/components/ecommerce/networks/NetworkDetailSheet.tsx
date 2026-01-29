@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   Copy, Users, ShoppingCart, Plus, X, Crown, Percent,
-  DollarSign, UserMinus, Loader2, Check, Edit2, Save, XCircle
+  DollarSign, Loader2, Check, Edit2, XCircle, FileText, Store
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sheet,
@@ -41,12 +40,21 @@ import {
   useAvailableCheckouts,
   useAddCheckoutToNetwork,
   useRemoveCheckoutFromNetwork,
+  useNetworkLandings,
+  useAvailableLandings,
+  useAddLandingToNetwork,
+  useRemoveLandingFromNetwork,
+  useNetworkStorefronts,
+  useAvailableStorefronts,
+  useAddStorefrontToNetwork,
+  useRemoveStorefrontFromNetwork,
   useUpdateMemberCommission,
   useUpdateMemberRole,
   useRemoveMemberFromNetwork,
   type AffiliateNetwork,
   type NetworkMember,
 } from '@/hooks/ecommerce/useAffiliateNetworks';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface NetworkDetailSheetProps {
   network: AffiliateNetwork | null;
@@ -58,14 +66,24 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
   const { data: members, isLoading: membersLoading } = useNetworkMembers(network?.id || null);
   const { data: checkouts, isLoading: checkoutsLoading } = useNetworkCheckouts(network?.id || null);
   const { data: availableCheckouts } = useAvailableCheckouts(network?.id || null);
+  const { data: landings, isLoading: landingsLoading } = useNetworkLandings(network?.id || null);
+  const { data: availableLandings } = useAvailableLandings(network?.id || null);
+  const { data: storefronts, isLoading: storefrontsLoading } = useNetworkStorefronts(network?.id || null);
+  const { data: availableStorefronts } = useAvailableStorefronts(network?.id || null);
   
   const addCheckout = useAddCheckoutToNetwork();
   const removeCheckout = useRemoveCheckoutFromNetwork();
+  const addLanding = useAddLandingToNetwork();
+  const removeLanding = useRemoveLandingFromNetwork();
+  const addStorefront = useAddStorefrontToNetwork();
+  const removeStorefront = useRemoveStorefrontFromNetwork();
   const updateCommission = useUpdateMemberCommission();
   const updateRole = useUpdateMemberRole();
   const removeMember = useRemoveMemberFromNetwork();
 
   const [selectedCheckout, setSelectedCheckout] = useState<string>('');
+  const [selectedLanding, setSelectedLanding] = useState<string>('');
+  const [selectedStorefront, setSelectedStorefront] = useState<string>('');
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editCommissionType, setEditCommissionType] = useState<'percentage' | 'fixed'>('percentage');
   const [editCommissionValue, setEditCommissionValue] = useState<string>('');
@@ -81,7 +99,6 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
 
   const handleAddCheckout = () => {
     if (!selectedCheckout) return;
-    
     addCheckout.mutate(
       { network_id: network.id, checkout_id: selectedCheckout },
       {
@@ -104,6 +121,54 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
     );
   };
 
+  const handleAddLanding = () => {
+    if (!selectedLanding) return;
+    addLanding.mutate(
+      { network_id: network.id, landing_page_id: selectedLanding },
+      {
+        onSuccess: () => {
+          toast.success('Landing Page vinculada!');
+          setSelectedLanding('');
+        },
+        onError: (error: Error) => toast.error(error.message),
+      }
+    );
+  };
+
+  const handleRemoveLanding = (landingPageId: string) => {
+    removeLanding.mutate(
+      { network_id: network.id, landing_page_id: landingPageId },
+      {
+        onSuccess: () => toast.success('Landing Page removida'),
+        onError: (error: Error) => toast.error(error.message),
+      }
+    );
+  };
+
+  const handleAddStorefront = () => {
+    if (!selectedStorefront) return;
+    addStorefront.mutate(
+      { network_id: network.id, storefront_id: selectedStorefront },
+      {
+        onSuccess: () => {
+          toast.success('Loja vinculada!');
+          setSelectedStorefront('');
+        },
+        onError: (error: Error) => toast.error(error.message),
+      }
+    );
+  };
+
+  const handleRemoveStorefront = (storefrontId: string) => {
+    removeStorefront.mutate(
+      { network_id: network.id, storefront_id: storefrontId },
+      {
+        onSuccess: () => toast.success('Loja removida'),
+        onError: (error: Error) => toast.error(error.message),
+      }
+    );
+  };
+
   const handleStartEditCommission = (member: NetworkMember) => {
     setEditingMember(member.id);
     setEditCommissionType(member.commission_type);
@@ -116,7 +181,6 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
       toast.error('Valor inválido');
       return;
     }
-
     updateCommission.mutate(
       { member_id: memberId, commission_type: editCommissionType, commission_value: value },
       {
@@ -157,7 +221,7 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-lg overflow-hidden flex flex-col">
           <SheetHeader>
             <div className="flex items-center gap-3">
               <Avatar className="h-12 w-12">
@@ -173,176 +237,278 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
             </div>
           </SheetHeader>
 
-          <div className="mt-6">
-            {/* Invite Link */}
-            <div className="bg-muted/50 rounded-lg p-4 mb-6">
-              <Label className="text-sm text-muted-foreground">Link de Convite</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="flex-1 text-sm bg-background px-3 py-2 rounded border truncate">
-                  {window.location.origin}/rede/{network.invite_code}
-                </code>
-                <Button variant="outline" size="icon" onClick={handleCopyInviteLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Afiliados entram na rede apenas através deste link
-              </p>
-            </div>
-
-            <Tabs defaultValue="checkouts">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="checkouts" className="gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  Checkouts ({checkouts?.length || 0})
-                </TabsTrigger>
-                <TabsTrigger value="members" className="gap-2">
-                  <Users className="h-4 w-4" />
-                  Membros ({members?.length || 0})
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Checkouts Tab */}
-              <TabsContent value="checkouts" className="mt-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Select value={selectedCheckout} onValueChange={setSelectedCheckout}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecionar checkout..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCheckouts?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    onClick={handleAddCheckout}
-                    disabled={!selectedCheckout || addCheckout.isPending}
-                  >
-                    {addCheckout.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
+          <ScrollArea className="flex-1 mt-4">
+            <div className="pr-4">
+              {/* Invite Link */}
+              <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                <Label className="text-sm text-muted-foreground">Link de Convite</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="flex-1 text-sm bg-background px-3 py-2 rounded border truncate">
+                    {window.location.origin}/rede/{network.invite_code}
+                  </code>
+                  <Button variant="outline" size="icon" onClick={handleCopyInviteLink}>
+                    <Copy className="h-4 w-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Afiliados entram na rede apenas através deste link
+                </p>
+              </div>
 
-                {checkoutsLoading ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Carregando...
+              <Tabs defaultValue="checkouts">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="checkouts" className="gap-1 text-xs px-2">
+                    <ShoppingCart className="h-3 w-3" />
+                    <span className="hidden sm:inline">Checkouts</span>
+                    <span className="sm:hidden">Chk</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="landings" className="gap-1 text-xs px-2">
+                    <FileText className="h-3 w-3" />
+                    <span className="hidden sm:inline">Landings</span>
+                    <span className="sm:hidden">Lnd</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="storefronts" className="gap-1 text-xs px-2">
+                    <Store className="h-3 w-3" />
+                    <span className="hidden sm:inline">Lojas</span>
+                    <span className="sm:hidden">Loj</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="members" className="gap-1 text-xs px-2">
+                    <Users className="h-3 w-3" />
+                    <span className="hidden sm:inline">Membros</span>
+                    <span className="sm:hidden">Memb</span>
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Checkouts Tab */}
+                <TabsContent value="checkouts" className="mt-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedCheckout} onValueChange={setSelectedCheckout}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Selecionar checkout..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCheckouts?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleAddCheckout}
+                      disabled={!selectedCheckout || addCheckout.isPending}
+                    >
+                      {addCheckout.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
-                ) : checkouts?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Nenhum checkout vinculado</p>
-                    <p className="text-xs">Adicione checkouts que os afiliados poderão vender</p>
+
+                  {checkoutsLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+                  ) : checkouts?.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Nenhum checkout vinculado</p>
+                      <p className="text-xs">Adicione checkouts que os afiliados poderão vender</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {checkouts?.map((link) => (
+                        <div key={link.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <p className="font-medium">{link.checkout?.name}</p>
+                            <p className="text-xs text-muted-foreground">/pay/{link.checkout?.slug}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveCheckout(link.checkout_id)}>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Landings Tab */}
+                <TabsContent value="landings" className="mt-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedLanding} onValueChange={setSelectedLanding}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Selecionar landing page..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableLandings?.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleAddLanding}
+                      disabled={!selectedLanding || addLanding.isPending}
+                    >
+                      {addLanding.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {checkouts?.map((link) => (
-                      <div
-                        key={link.id}
-                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                      >
+
+                  {landingsLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+                  ) : landings?.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Nenhuma landing page vinculada</p>
+                      <p className="text-xs">Adicione landing pages que os afiliados poderão divulgar</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {landings?.map((link) => (
+                        <div key={link.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <p className="font-medium">{link.landing_page?.name}</p>
+                            <p className="text-xs text-muted-foreground">/lp/{link.landing_page?.slug}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveLanding(link.landing_page_id)}>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Storefronts Tab */}
+                <TabsContent value="storefronts" className="mt-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedStorefront} onValueChange={setSelectedStorefront}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Selecionar loja..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableStorefronts?.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleAddStorefront}
+                      disabled={!selectedStorefront || addStorefront.isPending}
+                    >
+                      {addStorefront.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {storefrontsLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+                  ) : storefronts?.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Store className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Nenhuma loja vinculada</p>
+                      <p className="text-xs">Adicione lojas que os afiliados poderão divulgar</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {storefronts?.map((link) => (
+                        <div key={link.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <p className="font-medium">{link.storefront?.name}</p>
+                            <p className="text-xs text-muted-foreground">/loja/{link.storefront?.slug}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveStorefront(link.storefront_id)}>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Members Tab */}
+                <TabsContent value="members" className="mt-4 space-y-4">
+                  {membersLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+                  ) : members?.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Nenhum membro ainda</p>
+                      <p className="text-xs">Compartilhe o link de convite para adicionar afiliados</p>
+                    </div>
+                  ) : (
+                    <>
+                      {managers.length > 0 && (
                         <div>
-                          <p className="font-medium">{link.checkout?.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            /pay/{link.checkout?.slug}
-                          </p>
+                          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <Crown className="h-4 w-4 text-amber-500" />
+                            Gerentes ({managers.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {managers.map((member) => (
+                              <MemberCard
+                                key={member.id}
+                                member={member}
+                                isEditing={editingMember === member.id}
+                                editCommissionType={editCommissionType}
+                                editCommissionValue={editCommissionValue}
+                                onEditCommissionType={setEditCommissionType}
+                                onEditCommissionValue={setEditCommissionValue}
+                                onStartEdit={() => handleStartEditCommission(member)}
+                                onSaveEdit={() => handleSaveCommission(member.id)}
+                                onCancelEdit={() => setEditingMember(null)}
+                                onToggleRole={() => handleToggleRole(member)}
+                                onRemove={() => setRemoveMemberId(member.id)}
+                              />
+                            ))}
+                          </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveCheckout(link.checkout_id)}
-                        >
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
+                      )}
 
-              {/* Members Tab */}
-              <TabsContent value="members" className="mt-4 space-y-4">
-                {membersLoading ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Carregando...
-                  </div>
-                ) : members?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Nenhum membro ainda</p>
-                    <p className="text-xs">Compartilhe o link de convite para adicionar afiliados</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Managers */}
-                    {managers.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                          <Crown className="h-4 w-4 text-amber-500" />
-                          Gerentes ({managers.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {managers.map((member) => (
-                            <MemberCard
-                              key={member.id}
-                              member={member}
-                              isEditing={editingMember === member.id}
-                              editCommissionType={editCommissionType}
-                              editCommissionValue={editCommissionValue}
-                              onEditCommissionType={setEditCommissionType}
-                              onEditCommissionValue={setEditCommissionValue}
-                              onStartEdit={() => handleStartEditCommission(member)}
-                              onSaveEdit={() => handleSaveCommission(member.id)}
-                              onCancelEdit={() => setEditingMember(null)}
-                              onToggleRole={() => handleToggleRole(member)}
-                              onRemove={() => setRemoveMemberId(member.id)}
-                            />
-                          ))}
+                      {affiliates.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            Afiliados ({affiliates.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {affiliates.map((member) => (
+                              <MemberCard
+                                key={member.id}
+                                member={member}
+                                isEditing={editingMember === member.id}
+                                editCommissionType={editCommissionType}
+                                editCommissionValue={editCommissionValue}
+                                onEditCommissionType={setEditCommissionType}
+                                onEditCommissionValue={setEditCommissionValue}
+                                onStartEdit={() => handleStartEditCommission(member)}
+                                onSaveEdit={() => handleSaveCommission(member.id)}
+                                onCancelEdit={() => setEditingMember(null)}
+                                onToggleRole={() => handleToggleRole(member)}
+                                onRemove={() => setRemoveMemberId(member.id)}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Affiliates */}
-                    {affiliates.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          Afiliados ({affiliates.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {affiliates.map((member) => (
-                            <MemberCard
-                              key={member.id}
-                              member={member}
-                              isEditing={editingMember === member.id}
-                              editCommissionType={editCommissionType}
-                              editCommissionValue={editCommissionValue}
-                              onEditCommissionType={setEditCommissionType}
-                              onEditCommissionValue={setEditCommissionValue}
-                              onStartEdit={() => handleStartEditCommission(member)}
-                              onSaveEdit={() => handleSaveCommission(member.id)}
-                              onCancelEdit={() => setEditingMember(null)}
-                              onToggleRole={() => handleToggleRole(member)}
-                              onRemove={() => setRemoveMemberId(member.id)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
+                      )}
+                    </>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </ScrollArea>
         </SheetContent>
       </Sheet>
 
-      {/* Remove Member Confirmation */}
       <AlertDialog open={!!removeMemberId} onOpenChange={() => setRemoveMemberId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -411,7 +577,6 @@ function MemberCard({
           </div>
           <p className="text-xs text-muted-foreground truncate">{email}</p>
           
-          {/* Commission */}
           {isEditing ? (
             <div className="flex items-center gap-2 mt-2">
               <Select
@@ -451,7 +616,7 @@ function MemberCard({
                 ) : (
                   <>
                     <DollarSign className="h-3 w-3" />
-                    R$ {member.commission_value.toFixed(2)}
+                    R$ {(member.commission_value / 100).toFixed(2)}
                   </>
                 )}
               </Badge>
@@ -462,7 +627,7 @@ function MemberCard({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-col gap-1">
           <Button
             size="icon"
             variant="ghost"
@@ -477,8 +642,9 @@ function MemberCard({
             variant="ghost"
             className="h-8 w-8"
             onClick={onRemove}
+            title="Remover membro"
           >
-            <UserMinus className="h-4 w-4 text-destructive" />
+            <X className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       </div>

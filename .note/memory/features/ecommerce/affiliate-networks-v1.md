@@ -1,10 +1,10 @@
-# Memory: features/ecommerce/affiliate-networks-v1
+# Memory: features/ecommerce/affiliate-networks-v2
 Updated: just now
 
 ## Sistema de Redes de Afiliados
 
 ### Conceito
-Redes de afiliados permitem organizar afiliados em grupos com checkouts específicos vinculados. Afiliados só podem entrar via link de convite da rede, não por convite manual.
+Redes de afiliados permitem organizar afiliados em grupos com **Checkouts, Landing Pages e Lojas** específicos vinculados. Afiliados só podem entrar via link de convite da rede, não por convite manual.
 
 ### Estrutura de Banco de Dados
 
@@ -20,6 +20,14 @@ Redes de afiliados permitem organizar afiliados em grupos com checkouts específ
 - Vínculos rede ↔ checkout: network_id, checkout_id
 - Afiliados só podem vender checkouts vinculados à sua rede
 
+**`affiliate_network_landings`** (NOVO)
+- Vínculos rede ↔ landing page: network_id, landing_page_id
+- Afiliados podem divulgar landing pages vinculadas à sua rede
+
+**`affiliate_network_storefronts`** (NOVO)
+- Vínculos rede ↔ loja: network_id, storefront_id (ref: tenant_storefronts)
+- Afiliados podem divulgar lojas vinculadas à sua rede
+
 ### Função RPC
 `join_affiliate_network(p_invite_code, p_email, p_name)`:
 - Usuário autenticado entra na rede pelo código
@@ -30,16 +38,20 @@ Redes de afiliados permitem organizar afiliados em grupos com checkouts específ
 ### UI
 - **AffiliateNetworksTab**: Lista redes com cards visuais
 - **NetworkCreateDialog**: Modal para criar nova rede
-- **NetworkDetailSheet**: Sheet lateral para gerenciar rede (checkouts, membros)
+- **NetworkDetailSheet**: Sheet lateral para gerenciar rede com 4 abas:
+  - Checkouts: Vincular/desvincular checkouts
+  - Landings: Vincular/desvincular landing pages
+  - Lojas: Vincular/desvincular storefronts
+  - Membros: Gerenciar afiliados e gerentes
 - **NetworkInviteAccept**: Página pública `/rede/:inviteCode` para aceitar convite
 - **PartnerLinksPage**: Exibe automaticamente todos os checkouts das redes do afiliado com links já com código embutido
 
 ### Fluxo de Convite
-1. Admin cria rede e vincula checkouts
+1. Admin cria rede e vincula checkouts/landings/lojas
 2. Admin copia link de convite
 3. Afiliado acessa link → se não logado, redireciona para login/registro
 4. Após login, chama RPC para entrar na rede
-5. Afiliado pode ver apenas checkouts da rede em "Meus Links"
+5. Afiliado pode ver apenas ativos da rede em "Meus Links"
 
 ### Fluxo de Venda com Split Automático
 1. Cliente acessa link com `?ref=CODIGO_AFILIADO`
