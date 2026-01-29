@@ -41,9 +41,11 @@ import {
   FileX,
   MapPin,
   Box,
-  CircleAlert
+  CircleAlert,
+  Link2
 } from 'lucide-react';
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
+import { QuickPaymentLinkButton } from '@/components/payment-links/QuickPaymentLinkButton';
 import { 
   useSales, 
   SaleStatus, 
@@ -380,12 +382,15 @@ export default function Sales() {
             <h1 className="text-2xl font-bold">Vendas</h1>
             <p className="text-muted-foreground">Gerencie suas vendas e romaneios</p>
           </div>
-          {!hideNewSaleButton && (
-            <Button onClick={() => navigate('/vendas/nova')}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Venda
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <QuickPaymentLinkButton />
+            {!hideNewSaleButton && (
+              <Button onClick={() => navigate('/vendas/nova')}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Venda
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Summary Card - Total value of filtered sales */}
