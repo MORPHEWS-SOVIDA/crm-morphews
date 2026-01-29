@@ -532,3 +532,70 @@ export function useAffiliateAvailableOffers() {
     enabled: !!profile?.user_id,
   });
 }
+
+/**
+ * Hook para buscar o código de afiliado V2 (organization_affiliates) do usuário logado.
+ * Retorna o código AFF... mais recente, priorizando o sistema V2 sobre o legado.
+ */
+export function useMyAffiliateCode() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['my-affiliate-code-v2', profile?.user_id],
+    queryFn: async () => {
+      if (!profile?.user_id) return null;
+
+      // 1. Tentar buscar do sistema V2 (organization_affiliates)
+      const { data: orgAffiliate } = await supabase
+        .from('organization_affiliates')
+        .select('affiliate_code, email, name')
+        .eq('user_id', profile.user_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (orgAffiliate?.affiliate_code) {
+        return {
+          code: orgAffiliate.affiliate_code,
+          source: 'v2' as const,
+          email: orgAffiliate.email,
+          name: orgAffiliate.name,
+        };
+      }
+
+      // 2. Fallback: buscar do sistema legado (partner_associations via virtual_accounts)
+      const { data: virtualAccount } = await supabase
+        .from('virtual_accounts')
+        .select('id')
+        .eq('user_id', profile.user_id)
+        .maybeSingle();
+
+      if (!virtualAccount) return null;
+
+      const { data: legacyAssoc } = await supabase
+        .from('partner_associations')
+        .select('affiliate_code')
+        .eq('virtual_account_id', virtualAccount.id)
+        .eq('partner_type', 'affiliate')
+        .eq('is_active', true)
+        .not('affiliate_code', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (legacyAssoc?.affiliate_code) {
+        return {
+          code: legacyAssoc.affiliate_code,
+          source: 'legacy' as const,
+          email: null,
+          name: null,
+        };
+      }
+
+      return null;
+    },
+    enabled: !!profile?.user_id,
+    staleTime: 5 * 60 * 1000,
+  });
+}
