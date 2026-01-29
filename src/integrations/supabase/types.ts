@@ -16179,6 +16179,142 @@ export type Database = {
           },
         ]
       }
+      traczap_link_clicks: {
+        Row: {
+          clicked_at: string | null
+          id: string
+          ip_address: string | null
+          lead_id: string | null
+          link_id: string
+          organization_id: string
+          referrer: string | null
+          sale_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          link_id: string
+          organization_id: string
+          referrer?: string | null
+          sale_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          link_id?: string
+          organization_id?: string
+          referrer?: string | null
+          sale_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traczap_link_clicks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "traczap_link_clicks_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "traczap_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "traczap_link_clicks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "traczap_link_clicks_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      traczap_links: {
+        Row: {
+          clicks_count: number | null
+          created_at: string | null
+          created_by: string | null
+          default_message: string | null
+          id: string
+          is_active: boolean | null
+          leads_count: number | null
+          name: string
+          organization_id: string
+          sales_count: number | null
+          slug: string
+          updated_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string
+          utm_term: string | null
+          whatsapp_number: string
+        }
+        Insert: {
+          clicks_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          default_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          leads_count?: number | null
+          name: string
+          organization_id: string
+          sales_count?: number | null
+          slug: string
+          updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string
+          utm_term?: string | null
+          whatsapp_number: string
+        }
+        Update: {
+          clicks_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          default_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          leads_count?: number | null
+          name?: string
+          organization_id?: string
+          sales_count?: number | null
+          slug?: string
+          updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string
+          utm_term?: string | null
+          whatsapp_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traczap_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_onboarding_progress: {
         Row: {
           created_at: string
