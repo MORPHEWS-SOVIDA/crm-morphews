@@ -83,6 +83,7 @@ export function useAvailableClosingSales(closingType: ClosingType) {
           total_cents,
           payment_method,
           payment_method_id,
+          payment_proof_url,
           delivered_at,
           scheduled_delivery_date,
           created_at,
@@ -128,7 +129,8 @@ export function useAvailableClosingSales(closingType: ClosingType) {
       // Map the data to include payment_category and profiles
       return (data || []).map(sale => ({
         ...sale,
-        payment_category: sale.payment_method_rel?.category as PaymentCategory | null,
+        // Use category from payment_method_rel
+        payment_category: (sale.payment_method_rel?.category || null) as PaymentCategory | null,
         motoboy_profile: sale.assigned_delivery_user_id ? profilesMap[sale.assigned_delivery_user_id] : null,
         seller_profile: sale.seller_user_id ? profilesMap[sale.seller_user_id] : null,
       }));
