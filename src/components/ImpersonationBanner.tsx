@@ -15,6 +15,7 @@ interface ImpersonationData {
     email: string;
   };
   adminToken: string;
+  adminRefreshToken?: string;
 }
 
 export function ImpersonationBanner() {
@@ -39,10 +40,10 @@ export function ImpersonationBanner() {
     setIsExiting(true);
     
     try {
-      // Restore admin session
+      // Restore admin session using both access and refresh tokens
       const { error } = await supabase.auth.setSession({
         access_token: impersonationData.adminToken,
-        refresh_token: '', // Will force a refresh
+        refresh_token: impersonationData.adminRefreshToken || '',
       });
 
       if (error) {
@@ -57,7 +58,7 @@ export function ImpersonationBanner() {
       toast.success('Sessão de admin restaurada');
       
       // Redirect to super-admin
-      window.location.href = '/super-admin?tab=all-users';
+      window.location.href = '/super-admin';
       
     } catch (error) {
       console.error('Error exiting impersonation:', error);
