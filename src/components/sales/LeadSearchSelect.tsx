@@ -23,6 +23,7 @@ interface Lead {
   name: string;
   whatsapp: string;
   email: string | null;
+  cpf_cnpj: string | null;
   city: string | null;
   state: string | null;
   street: string | null;

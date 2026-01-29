@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
   usePaymentLinks, 
   useCreatePaymentLink, 
@@ -25,12 +26,16 @@ import {
   CreditCard,
   DollarSign,
   Calendar,
-  Users
+  Users,
+  UserPlus,
+  Repeat,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { QRCodeSVG } from 'qrcode.react';
+import { CreateClientPaymentLinkDialog } from './CreateClientPaymentLinkDialog';
 
 export function PaymentLinksTab() {
   const { data: links, isLoading } = usePaymentLinks();
@@ -38,7 +43,8 @@ export function PaymentLinksTab() {
   const toggleMutation = useTogglePaymentLink();
   const deleteMutation = useDeletePaymentLink();
   
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showMultiUseDialog, setShowMultiUseDialog] = useState(false);
+  const [showClientDialog, setShowClientDialog] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [selectedLink, setSelectedLink] = useState<PaymentLink | null>(null);
   
@@ -80,7 +86,7 @@ export function PaymentLinksTab() {
       max_installments: maxInstallments,
     });
 
-    setShowCreateDialog(false);
+    setShowMultiUseDialog(false);
     resetForm();
   };
 
@@ -120,10 +126,31 @@ export function PaymentLinksTab() {
             {links?.length || 0} links criados
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Link
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Link
+              <ChevronDown className="h-4 w-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={() => setShowMultiUseDialog(true)}>
+              <Repeat className="h-4 w-4 mr-2" />
+              <div>
+                <p className="font-medium">Link Multi-Uso</p>
+                <p className="text-xs text-muted-foreground">Vários clientes podem usar</p>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowClientDialog(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              <div>
+                <p className="font-medium">Link para Cliente</p>
+                <p className="text-xs text-muted-foreground">Dados já preenchidos, uso único</p>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {!links || links.length === 0 ? (
@@ -134,10 +161,16 @@ export function PaymentLinksTab() {
             <p className="text-muted-foreground text-center mb-4">
               Crie seu primeiro link de pagamento para começar a receber
             </p>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Link
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowMultiUseDialog(true)}>
+                <Repeat className="h-4 w-4 mr-2" />
+                Link Multi-Uso
+              </Button>
+              <Button onClick={() => setShowClientDialog(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Link para Cliente
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -163,6 +196,26 @@ export function PaymentLinksTab() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Link type badge */}
+                <div className="flex items-center gap-2">
+                  {link.lead_id || link.customer_name ? (
+                    <Badge variant="default" className="flex items-center gap-1">
+                      <UserPlus className="h-3 w-3" />
+                      Cliente
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <Repeat className="h-3 w-3" />
+                      Multi-Uso
+                    </Badge>
+                  )}
+                  {link.customer_name && (
+                    <span className="text-sm text-muted-foreground truncate">
+                      {link.customer_name}
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-2 flex-wrap">
                   {link.amount_cents ? (
                     <Badge variant="secondary" className="flex items-center gap-1">
@@ -232,13 +285,21 @@ export function PaymentLinksTab() {
         </div>
       )}
 
-      {/* Create Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      {/* Multi-Use Link Dialog */}
+      <Dialog open={showMultiUseDialog} onOpenChange={setShowMultiUseDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Novo Link de Pagamento</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Repeat className="h-5 w-5" />
+              Link Multi-Uso
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+              Este link pode ser usado por <strong>múltiplos clientes</strong>. 
+              Ideal para produtos, serviços ou doações recorrentes.
+            </div>
+
             <div>
               <Label>Título *</Label>
               <Input
@@ -299,7 +360,7 @@ export function PaymentLinksTab() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" onClick={() => setShowMultiUseDialog(false)}>
               Cancelar
             </Button>
             <Button onClick={handleCreate} disabled={createMutation.isPending}>
@@ -308,6 +369,12 @@ export function PaymentLinksTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Client-Specific Link Dialog */}
+      <CreateClientPaymentLinkDialog 
+        open={showClientDialog} 
+        onOpenChange={setShowClientDialog} 
+      />
 
       {/* QR Code Dialog */}
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
