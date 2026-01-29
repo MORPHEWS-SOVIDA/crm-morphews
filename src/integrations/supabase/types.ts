@@ -5267,6 +5267,7 @@ export type Database = {
           implementer_id: string
           plan_id: string
           status: string | null
+          white_label_config_id: string | null
         }
         Insert: {
           cancelled_at?: string | null
@@ -5279,6 +5280,7 @@ export type Database = {
           implementer_id: string
           plan_id: string
           status?: string | null
+          white_label_config_id?: string | null
         }
         Update: {
           cancelled_at?: string | null
@@ -5291,6 +5293,7 @@ export type Database = {
           implementer_id?: string
           plan_id?: string
           status?: string | null
+          white_label_config_id?: string | null
         }
         Relationships: [
           {
@@ -5328,6 +5331,13 @@ export type Database = {
             referencedRelation: "subscription_plans_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "implementer_sales_white_label_config_id_fkey"
+            columns: ["white_label_config_id"]
+            isOneToOne: false
+            referencedRelation: "white_label_configs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       implementers: {
@@ -5335,34 +5345,40 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_white_label: boolean | null
           organization_id: string
           referral_code: string
           total_clients: number | null
           total_earnings_cents: number | null
           updated_at: string | null
           user_id: string
+          white_label_config_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_white_label?: boolean | null
           organization_id: string
           referral_code: string
           total_clients?: number | null
           total_earnings_cents?: number | null
           updated_at?: string | null
           user_id: string
+          white_label_config_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_white_label?: boolean | null
           organization_id?: string
           referral_code?: string
           total_clients?: number | null
           total_earnings_cents?: number | null
           updated_at?: string | null
           user_id?: string
+          white_label_config_id?: string | null
         }
         Relationships: [
           {
@@ -5370,6 +5386,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "implementers_white_label_config_id_fkey"
+            columns: ["white_label_config_id"]
+            isOneToOne: false
+            referencedRelation: "white_label_configs"
             referencedColumns: ["id"]
           },
         ]
@@ -15411,6 +15434,7 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          allows_white_label: boolean | null
           annual_price_cents: number | null
           atomicpay_annual_url: string | null
           atomicpay_monthly_url: string | null
@@ -15435,6 +15459,7 @@ export type Database = {
           stripe_price_id: string | null
         }
         Insert: {
+          allows_white_label?: boolean | null
           annual_price_cents?: number | null
           atomicpay_annual_url?: string | null
           atomicpay_monthly_url?: string | null
@@ -15459,6 +15484,7 @@ export type Database = {
           stripe_price_id?: string | null
         }
         Update: {
+          allows_white_label?: boolean | null
           annual_price_cents?: number | null
           atomicpay_annual_url?: string | null
           atomicpay_monthly_url?: string | null
@@ -18182,6 +18208,71 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      white_label_configs: {
+        Row: {
+          brand_name: string
+          created_at: string | null
+          custom_domain: string | null
+          email_from_name: string | null
+          email_logo_url: string | null
+          favicon_url: string | null
+          id: string
+          implementer_id: string
+          is_active: boolean | null
+          logo_url: string | null
+          primary_color: string | null
+          sales_page_slug: string | null
+          secondary_color: string | null
+          support_email: string | null
+          support_whatsapp: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string | null
+          custom_domain?: string | null
+          email_from_name?: string | null
+          email_logo_url?: string | null
+          favicon_url?: string | null
+          id?: string
+          implementer_id: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          primary_color?: string | null
+          sales_page_slug?: string | null
+          secondary_color?: string | null
+          support_email?: string | null
+          support_whatsapp?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string | null
+          custom_domain?: string | null
+          email_from_name?: string | null
+          email_logo_url?: string | null
+          favicon_url?: string | null
+          id?: string
+          implementer_id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          primary_color?: string | null
+          sales_page_slug?: string | null
+          secondary_color?: string | null
+          support_email?: string | null
+          support_whatsapp?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "white_label_configs_implementer_id_fkey"
+            columns: ["implementer_id"]
+            isOneToOne: true
+            referencedRelation: "implementers"
             referencedColumns: ["id"]
           },
         ]
