@@ -32,6 +32,7 @@ import {
   Plug2,
   Store,
   HelpCircle,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -102,6 +103,7 @@ export function Sidebar() {
   const canSeeDemands = isAdmin || permissions?.demands_view;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
   const canSeeIntegrations = isAdmin || permissions?.integrations_view;
+  const canSeePaymentLinks = isAdmin || permissions?.payment_links_view_transactions || permissions?.payment_links_create;
 
   const handleSignOut = async () => {
     await signOut();
@@ -152,6 +154,9 @@ export function Sidebar() {
     
     // Financial
     { icon: DollarSign, label: 'Financeiro', path: '/financeiro', visible: canSeeFinanceiro && hasFeature('financial') },
+    
+    // Payment Links / Cobrar
+    { icon: Link2, label: 'Cobrar', path: '/cobrar', visible: canSeePaymentLinks && hasFeature('payment_links') },
     
     // Fiscal Invoices (admin only)
     { icon: FileText, label: 'Notas Fiscais', path: '/notas-fiscais', visible: canSeeSettings && hasFeature('fiscal_invoices') },

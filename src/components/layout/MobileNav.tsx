@@ -30,6 +30,7 @@ import {
   Kanban,
   User,
   BarChart3,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -108,6 +109,7 @@ export function MobileNav() {
   const canSeeDashboardKanban = isAdmin || permissions?.dashboard_kanban_view;
   const canSeeSellerPanel = isAdmin || permissions?.seller_panel_view;
   const canSeeSalesDashboard = isAdmin || permissions?.sales_dashboard_view;
+  const canSeePaymentLinks = isAdmin || permissions?.payment_links_view_transactions || permissions?.payment_links_create;
 
   const handleSignOut = async () => {
     await signOut();
@@ -225,6 +227,9 @@ export function MobileNav() {
     const finItems: NavItem[] = [];
     if (canSeeFinanceiro && hasFeature('financial')) {
       finItems.push({ icon: DollarSign, label: 'Financeiro', path: '/financeiro' });
+    }
+    if (canSeePaymentLinks && hasFeature('payment_links')) {
+      finItems.push({ icon: Link2, label: 'Cobrar', path: '/cobrar' });
     }
     if (canSeeSalesReport && hasFeature('sales_report')) {
       finItems.push({ icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas' });
