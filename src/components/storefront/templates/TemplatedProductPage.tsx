@@ -52,6 +52,23 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
+// Format currency with cents in different style
+function formatCurrencyParts(cents: number): { main: string; decimals: string } {
+  const value = cents / 100;
+  const formatted = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+  }).format(value);
+  
+  // Split at the comma (Brazilian format uses comma for decimals)
+  const parts = formatted.split(',');
+  return {
+    main: parts[0], // "R$ 30"
+    decimals: parts[1] ? `,${parts[1]}` : '' // ",72"
+  };
+}
+
 export function TemplatedProductPage({
   product,
   storefrontSlug,
@@ -359,14 +376,24 @@ export function TemplatedProductPage({
                           
                           {/* Installment value - HIGHLIGHT */}
                           <div className="text-right">
-                            <div className="flex items-baseline justify-end gap-1">
-                              <span className="text-xs text-muted-foreground">{maxInstallments}x</span>
-                              <span 
-                                className="text-2xl font-bold"
-                                style={{ color: primaryColor }}
-                              >
-                                {formatCurrency(installmentInfo.installmentValue)}
-                              </span>
+                            <div className="flex items-baseline justify-end gap-0.5">
+                              <span className="text-sm text-muted-foreground">{maxInstallments}x</span>
+                              {(() => {
+                                const parts = formatCurrencyParts(installmentInfo.installmentValue);
+                                return (
+                                  <>
+                                    <span 
+                                      className="text-2xl font-bold"
+                                      style={{ color: primaryColor }}
+                                    >
+                                      {parts.main}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {parts.decimals}
+                                    </span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
