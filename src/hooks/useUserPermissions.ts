@@ -40,6 +40,7 @@ export interface UserPermissions {
   sales_mark_printed: boolean;
   sales_cancel: boolean;
   sales_hide_new_button: boolean;
+  sales_uncheck_checkpoint: boolean;
   
   // WhatsApp
   whatsapp_view: boolean;
@@ -176,6 +177,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   sales_mark_delivered: { label: 'Marcar Entregue', description: 'Confirmar entrega ao cliente', group: 'Vendas' },
   sales_cancel: { label: 'Cancelar Vendas', description: 'Cancelar vendas', group: 'Vendas' },
   sales_hide_new_button: { label: 'Ocultar Botão Nova Venda', description: 'Força o vendedor a cadastrar vendas pelo Add Receptivo', group: 'Vendas' },
+  sales_uncheck_checkpoint: { label: 'Desmarcar Etapas Expedição', description: 'Desmarcar Impresso/Separado/Despachado/Entregue', group: 'Vendas' },
   
   // Financeiro
   reports_view: { label: 'Ver Financeiro', description: 'Acessar módulo financeiro e relatórios', group: 'Financeiro' },
@@ -472,6 +474,7 @@ export function useApplyRoleDefaults() {
           sales_mark_printed: permsObj.sales_mark_printed ?? false,
           sales_cancel: permsObj.sales_cancel ?? false,
           sales_hide_new_button: permsObj.sales_hide_new_button ?? false,
+          sales_uncheck_checkpoint: permsObj.sales_uncheck_checkpoint ?? false,
           // WhatsApp
           whatsapp_view: permsObj.whatsapp_view ?? true,
           whatsapp_send: permsObj.whatsapp_send ?? false,

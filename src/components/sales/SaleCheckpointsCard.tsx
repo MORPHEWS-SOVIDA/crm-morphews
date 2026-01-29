@@ -119,24 +119,34 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
       return;
     }
 
-    // Check permissions
-    if (type === 'printed' && !permissions?.sales_mark_printed) {
+    // If trying to UNCHECK a checkpoint, check uncheck permission
+    // This applies to: printed, pending_expedition, dispatched, delivered
+    const expeditionCheckpoints: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered'];
+    if (isCompleted && expeditionCheckpoints.includes(type)) {
+      if (!permissions?.sales_uncheck_checkpoint) {
+        toast.error('Sem permissão para desmarcar etapas de expedição');
+        return;
+      }
+    }
+
+    // Check permissions for MARKING checkpoints
+    if (type === 'printed' && !isCompleted && !permissions?.sales_mark_printed) {
       toast.error('Sem permissão para marcar como impresso');
       return;
     }
-    if (type === 'pending_expedition' && !permissions?.sales_validate_expedition) {
+    if (type === 'pending_expedition' && !isCompleted && !permissions?.sales_validate_expedition) {
       toast.error('Sem permissão para validar expedição');
       return;
     }
-    if (type === 'dispatched' && !permissions?.sales_dispatch) {
+    if (type === 'dispatched' && !isCompleted && !permissions?.sales_dispatch) {
       toast.error('Sem permissão para despachar vendas');
       return;
     }
-    if (type === 'delivered' && !permissions?.sales_mark_delivered) {
+    if (type === 'delivered' && !isCompleted && !permissions?.sales_mark_delivered) {
       toast.error('Sem permissão para marcar como entregue');
       return;
     }
-    if (type === 'payment_confirmed' && !permissions?.sales_confirm_payment) {
+    if (type === 'payment_confirmed' && !isCompleted && !permissions?.sales_confirm_payment) {
       toast.error('Sem permissão para confirmar pagamento');
       return;
     }
