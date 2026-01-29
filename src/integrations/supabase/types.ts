@@ -8904,6 +8904,7 @@ export type Database = {
           enum_value: Database["public"]["Enums"]["funnel_stage"] | null
           id: string
           is_default: boolean
+          is_receptivo_destination: boolean | null
           name: string
           organization_id: string
           position: number
@@ -8921,6 +8922,7 @@ export type Database = {
           enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
+          is_receptivo_destination?: boolean | null
           name: string
           organization_id: string
           position: number
@@ -8938,6 +8940,7 @@ export type Database = {
           enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
+          is_receptivo_destination?: boolean | null
           name?: string
           organization_id?: string
           position?: number

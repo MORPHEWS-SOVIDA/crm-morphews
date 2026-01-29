@@ -21,6 +21,8 @@ export interface FunnelStageCustom {
   // TracZAP - CAPI integration
   capi_event_name: CapiEventName; // Standard Meta event to fire when lead enters this stage
   capi_custom_event: string | null; // Custom event name if using non-standard events
+  // Add Receptivo automation
+  is_receptivo_destination: boolean; // When true, leads are moved here after Add Receptivo sales
   created_at: string;
   updated_at: string;
 }

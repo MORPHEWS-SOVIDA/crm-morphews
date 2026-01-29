@@ -24,7 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -140,6 +140,8 @@ function StageEditForm({
   const [capiEventName, setCapiEventName] = useState<CapiEventName | 'none'>(
     stage?.capi_event_name || 'none'
   );
+  // Add Receptivo destination
+  const [isReceptivoDestination, setIsReceptivoDestination] = useState(stage?.is_receptivo_destination || false);
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
@@ -167,6 +169,8 @@ function StageEditForm({
       default_followup_reason_id: defaultFollowupReasonId,
       // TracZAP - CAPI event
       capi_event_name: capiEventName === 'none' ? null : capiEventName,
+      // Add Receptivo destination
+      is_receptivo_destination: isReceptivoDestination,
     };
 
     if (isNew) {
@@ -314,6 +318,24 @@ function StageEditForm({
         </div>
       </div>
 
+      {/* Add Receptivo Destination Checkbox */}
+      <div className="flex items-center space-x-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+        <Checkbox
+          id="receptivo-destination"
+          checked={isReceptivoDestination}
+          onCheckedChange={(checked) => setIsReceptivoDestination(checked === true)}
+        />
+        <div className="flex-1">
+          <Label htmlFor="receptivo-destination" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+            <ShoppingCart className="w-4 h-4 text-green-600" />
+            Vendas do Add Receptivo vão para cá
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Quando uma venda é finalizada no Add Receptivo, o lead será automaticamente movido para esta etapa
+          </p>
+        </div>
+      </div>
+
       {/* Default Follow-up Selector */}
       <div className="space-y-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
         <div className="flex items-center gap-2">
@@ -357,6 +379,7 @@ function StageEditForm({
         </Select>
         <p className="text-xs text-muted-foreground">
           Este follow-up será sugerido ao mover um lead para esta etapa
+          {isReceptivoDestination && <strong> (será acionado automaticamente após vendas do Add Receptivo)</strong>}
         </p>
       </div>
 
@@ -628,6 +651,16 @@ export function FunnelStagesManager() {
         <div className="flex items-center justify-between">
           <span className={stage.text_color}>{stage.name}</span>
           <div className="flex items-center gap-2">
+            {stage.is_receptivo_destination && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <ShoppingCart className="w-3 h-3 text-green-600" />
+                  </TooltipTrigger>
+                  <TooltipContent>Vendas do Add Receptivo vão para cá</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {stage.requires_contact && (
               <TooltipProvider>
                 <Tooltip>
