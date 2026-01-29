@@ -139,6 +139,9 @@ interface DeliveryConfig {
   scheduledShift: 'morning' | 'afternoon' | 'full_day' | null;
   carrierId: string | null;
   shippingCost: number;
+  freeShipping?: boolean; // Seller offered free shipping to client
+  shippingCostReal?: number; // Real cost when free shipping is enabled
+  selectedQuoteServiceId?: string | null; // Correios service code when using integrated quote
 }
 
 interface OfferItem {
@@ -271,6 +274,9 @@ export default function AddReceptivo() {
     scheduledShift: null,
     carrierId: null,
     shippingCost: 0,
+    freeShipping: false,
+    shippingCostReal: 0,
+    selectedQuoteServiceId: null,
   });
 
   // Payment config
@@ -1015,8 +1021,9 @@ export default function AddReceptivo() {
       toast({ title: 'Selecione uma data de entrega', variant: 'destructive' });
       return;
     }
-    if (deliveryConfig.type === 'carrier' && !deliveryConfig.carrierId) {
-      toast({ title: 'Selecione uma transportadora', variant: 'destructive' });
+    // Accept either a carrier selected OR an integrated quote selected
+    if (deliveryConfig.type === 'carrier' && !deliveryConfig.carrierId && !deliveryConfig.selectedQuoteServiceId) {
+      toast({ title: 'Selecione uma transportadora ou cotação de frete', variant: 'destructive' });
       return;
     }
     setCurrentStep('payment');
