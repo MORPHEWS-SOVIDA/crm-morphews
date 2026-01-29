@@ -37,6 +37,7 @@ interface NavCategory {
   label: string;
   icon: React.ElementType;
   color: string;
+  gradient: string;
   items: NavItem[];
 }
 
@@ -53,6 +54,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     label: "Clientes",
     icon: Building2,
     color: "text-blue-500",
+    gradient: "from-blue-500 to-blue-600",
     items: [
       { id: "organizations", label: "Organizações", icon: Building2, description: "Gerenciar tenants" },
       { id: "interested", label: "Quiz / Leads", icon: Users, description: "Interessados" },
@@ -64,6 +66,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     label: "Billing",
     icon: CreditCard,
     color: "text-amber-500",
+    gradient: "from-amber-500 to-orange-500",
     items: [
       { id: "billing", label: "Inadimplência", icon: AlertTriangle, description: "D+3, D+7, D+14" },
       { id: "coupons", label: "Cupons", icon: Tag, description: "Desconto" },
@@ -76,6 +79,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     label: "E-commerce",
     icon: Store,
     color: "text-green-500",
+    gradient: "from-green-500 to-emerald-500",
     items: [
       { id: "gateway-financial", label: "Receitas Gateway", icon: TrendingUp, description: "Custos e lucros" },
       { id: "gateways", label: "Gateways", icon: Wallet, description: "Pagarme, Stripe..." },
@@ -88,6 +92,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     label: "WhatsApp",
     icon: MessageSquare,
     color: "text-emerald-500",
+    gradient: "from-emerald-500 to-teal-500",
     items: [
       { id: "whatsapp", label: "Créditos", icon: MessageSquare, description: "Instâncias grátis" },
       { id: "providers", label: "Provedores", icon: Globe, description: "WaSender API" },
@@ -99,6 +104,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     label: "IA",
     icon: Cpu,
     color: "text-purple-500",
+    gradient: "from-purple-500 to-violet-500",
     items: [
       { id: "energy", label: "Energia IA", icon: Zap, description: "Consumo por org" },
       { id: "ai-costs", label: "Custos Modelos", icon: Cpu, description: "Preços por token" },
@@ -111,6 +117,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     label: "Sistema",
     icon: Settings,
     color: "text-gray-500",
+    gradient: "from-gray-500 to-gray-600",
     items: [
       { id: "communication-logs", label: "Comunicações", icon: History, description: "WhatsApp e Emails" },
       { id: "org-overrides", label: "Overrides", icon: Settings, description: "Features por org" },
@@ -137,69 +144,93 @@ export function SuperAdminNavigation({ activeTab, onTabChange }: SuperAdminNavig
   };
 
   return (
-    <div className="w-64 border-r bg-card/50 p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-200px)]">
-      {SUPER_ADMIN_CATEGORIES.map((category) => (
-        <Collapsible
-          key={category.id}
-          open={expandedCategories.includes(category.id)}
-          onOpenChange={() => toggleCategory(category.id)}
-        >
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-between px-3 py-2 h-auto"
-            >
-              <div className="flex items-center gap-2">
-                <category.icon className={cn("h-4 w-4", category.color)} />
-                <span className="font-medium text-sm">{category.label}</span>
-              </div>
-              <ChevronDown
+    <div className="w-72 shrink-0">
+      <div className="sticky top-24 bg-card/50 backdrop-blur-sm border rounded-2xl p-4 space-y-2 max-h-[calc(100vh-150px)] overflow-y-auto shadow-lg">
+        {/* Navigation Title */}
+        <div className="px-3 py-2 mb-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Navegação
+          </h3>
+        </div>
+
+        {SUPER_ADMIN_CATEGORIES.map((category) => (
+          <Collapsible
+            key={category.id}
+            open={expandedCategories.includes(category.id)}
+            onOpenChange={() => toggleCategory(category.id)}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
                 className={cn(
-                  "h-4 w-4 transition-transform",
-                  expandedCategories.includes(category.id) && "rotate-180"
-                )}
-              />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pl-6 space-y-1 mt-1">
-            {category.items.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onTabChange(item.id)}
-                className={cn(
-                  "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2",
-                  activeTab === item.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  "w-full justify-between px-3 py-2.5 h-auto rounded-xl transition-all duration-200",
+                  expandedCategories.includes(category.id) && "bg-muted/50"
                 )}
               >
-                <item.icon className="h-3.5 w-3.5" />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-1.5 rounded-lg bg-gradient-to-br shadow-sm",
+                    category.gradient
+                  )}>
+                    <category.icon className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="font-medium text-sm">{category.label}</span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                    expandedCategories.includes(category.id) && "rotate-180"
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 space-y-0.5 mt-1">
+              {category.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onTabChange(item.id)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-xl text-sm transition-all duration-200 flex items-center gap-2.5 group",
+                    activeTab === item.id
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-md shadow-primary/20"
+                      : "hover:bg-muted/70 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn(
+                    "h-3.5 w-3.5 transition-transform group-hover:scale-110",
+                    activeTab === item.id ? "text-primary-foreground" : ""
+                  )} />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
 
-      {/* Quick Links */}
-      <div className="border-t pt-4 mt-4 space-y-2">
-        <p className="text-xs font-medium text-muted-foreground px-3 uppercase">
-          Páginas Dedicadas
-        </p>
-        <Link
-          to="/super-admin/feature-overrides"
-          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
-        >
-          <Settings className="h-3.5 w-3.5" />
-          Override de Features
-        </Link>
-        <Link
-          to="/super-admin/plan-editor"
-          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
-        >
-          <Package className="h-3.5 w-3.5" />
-          Editor de Planos
-        </Link>
+        {/* Quick Links */}
+        <div className="border-t pt-4 mt-4 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground px-3 uppercase tracking-wider">
+            Páginas Dedicadas
+          </p>
+          <Link
+            to="/super-admin/feature-overrides"
+            className="flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/70 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground group"
+          >
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-gray-500 to-gray-600">
+              <Settings className="h-3 w-3 text-white" />
+            </div>
+            <span>Override de Features</span>
+          </Link>
+          <Link
+            to="/super-admin/plan-editor"
+            className="flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/70 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground group"
+          >
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500">
+              <Package className="h-3 w-3 text-white" />
+            </div>
+            <span>Editor de Planos</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

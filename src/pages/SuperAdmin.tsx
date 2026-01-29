@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Layout } from "@/components/layout/Layout";
+import { LayoutSuperAdmin } from "@/components/layout/LayoutSuperAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -567,11 +567,11 @@ export default function SuperAdmin() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <LayoutSuperAdmin>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      </Layout>
+      </LayoutSuperAdmin>
     );
   }
 
@@ -579,15 +579,23 @@ export default function SuperAdmin() {
   const usersWithoutOrg = profiles?.filter((p) => !p.organization_id);
 
   return (
-    <Layout>
+    <LayoutSuperAdmin>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Crown className="h-8 w-8 text-amber-500" />
+        {/* Page Header - Fullscreen style */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl blur-xl opacity-30" />
+              <div className="relative p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg shadow-amber-500/20">
+                <Crown className="h-8 w-8 text-white" />
+              </div>
+            </div>
             <div>
-              <h1 className="text-2xl font-bold">Super Admin</h1>
-              <p className="text-muted-foreground">
-                Visão geral de todas as organizações e assinaturas
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                Central de Controle
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                Gerencie organizações, assinaturas e configurações da plataforma
               </p>
             </div>
           </div>
@@ -718,11 +726,11 @@ export default function SuperAdmin() {
         />
 
         <div className="flex gap-6">
-          {/* Sidebar Navigation */}
+          {/* Sidebar Navigation - Now with glass effect */}
           <SuperAdminNavigation activeTab={activeTab} onTabChange={setActiveTab} />
           
-          {/* Content Area */}
-          <div className="flex-1 min-w-0">
+          {/* Content Area - Full width */}
+          <div className="flex-1 min-w-0 space-y-4">
             {activeTab === "organizations" && (
               <Card>
                 <CardHeader>
@@ -935,6 +943,6 @@ export default function SuperAdmin() {
           </div>
         </div>
       </div>
-    </Layout>
+    </LayoutSuperAdmin>
   );
 }
