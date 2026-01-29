@@ -12,9 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, Loader2, Pencil, Trash2, Building2, Search, UserX, Mail, Phone, Eye } from "lucide-react";
+import { Users, Loader2, Pencil, Trash2, Building2, Search, UserX, Mail, Phone, Eye, KeyRound } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useImpersonation } from "@/hooks/useImpersonation";
+
+interface AuthEmailInfo {
+  email: string;
+  phone: string | null;
+  last_sign_in: string | null;
+}
 
 interface FullProfile {
   id: string;
@@ -68,6 +74,21 @@ export function AllUsersTab() {
 
       if (error) throw error;
       return data as FullProfile[];
+    },
+  });
+
+  // Fetch auth emails (real login emails from auth.users)
+  const { data: authEmails } = useQuery({
+    queryKey: ["super-admin-auth-emails"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke<{
+        success: boolean;
+        authEmails: Record<string, AuthEmailInfo>;
+      }>("get-auth-emails");
+
+      if (error) throw error;
+      if (!data?.success) throw new Error("Failed to fetch auth emails");
+      return data.authEmails;
     },
   });
 
@@ -440,11 +461,17 @@ export function AllUsersTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Usuário</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <KeyRound className="h-3 w-3" />
+                        Login
+                      </div>
+                    </TableHead>
+                    <TableHead>Email Perfil</TableHead>
                     <TableHead>WhatsApp</TableHead>
                     <TableHead>Organização</TableHead>
                     <TableHead>Cargo</TableHead>
-                    <TableHead>Criado em</TableHead>
+                    <TableHead>Último Acesso</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -452,6 +479,7 @@ export function AllUsersTab() {
                   {filteredProfiles?.map((profile) => {
                     const org = getOrgForUser(profile.user_id);
                     const role = getRoleForUser(profile.user_id);
+                    const authInfo = authEmails?.[profile.user_id];
 
                     return (
                       <TableRow key={profile.id}>
@@ -476,6 +504,23 @@ export function AllUsersTab() {
                             </div>
                           </div>
                         </TableCell>
+                        {/* Login Email (from auth.users) */}
+                        <TableCell>
+                          {authInfo?.email ? (
+                            <div className="flex flex-col gap-0.5">
+                              <a href={`mailto:${authInfo.email}`} className="text-amber-600 hover:underline flex items-center gap-1 font-medium">
+                                <KeyRound className="h-3 w-3" />
+                                {authInfo.email}
+                              </a>
+                              {authInfo.phone && (
+                                <span className="text-xs text-muted-foreground">{authInfo.phone}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
+                        {/* Profile Email */}
                         <TableCell>
                           {profile.email ? (
                             <a href={`mailto:${profile.email}`} className="text-primary hover:underline flex items-center gap-1">
@@ -538,7 +583,16 @@ export function AllUsersTab() {
                         </TableCell>
                         <TableCell>{getRoleBadge(role)}</TableCell>
                         <TableCell>
-                          {format(new Date(profile.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                          {authInfo?.last_sign_in ? (
+                            <div className="flex flex-col">
+                              <span>{format(new Date(authInfo.last_sign_in), "dd/MM/yyyy", { locale: ptBR })}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(authInfo.last_sign_in), "HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Nunca</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
