@@ -7,6 +7,14 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/hooks/useSales';
 import { formatPaymentMethod } from '@/hooks/usePickupClosings';
 import { Loader2 } from 'lucide-react';
+import { getCategoryConfig, PAYMENT_CATEGORIES, type PaymentCategory } from '@/lib/paymentCategories';
+
+// Map closing_type to display title
+const closingTypeLabels: Record<string, { title: string; emoji: string }> = {
+  balcao: { title: 'FECHAMENTO DE CAIXA BALCÃO', emoji: '🏪' },
+  motoboy: { title: 'FECHAMENTO MOTOBOY', emoji: '🏍️' },
+  transportadora: { title: 'FECHAMENTO TRANSPORTADORA', emoji: '🚚' },
+};
 
 export default function PickupClosingPrint() {
   const { closingId } = useParams<{ closingId: string }>();
@@ -61,23 +69,45 @@ export default function PickupClosingPrint() {
     enabled: !!closingId,
   });
 
-  // Group sales by payment method
-  const groupedSales = React.useMemo(() => {
-    const groups: Record<string, typeof sales> = {
-      card: [],
-      pix: [],
+  // Group sales by payment category (inferred from payment_method text)
+  const groupedByCategory = React.useMemo(() => {
+    const groups: Record<PaymentCategory, typeof sales> = {
       cash: [],
+      pix: [],
+      card_machine: [],
+      payment_link: [],
+      ecommerce: [],
+      boleto_prepaid: [],
+      boleto_postpaid: [],
+      boleto_installment: [],
+      gift: [],
       other: [],
     };
 
     sales.forEach(sale => {
       const method = (sale.payment_method || '').toLowerCase();
-      if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || method.includes('credito') || method.includes('débito') || method.includes('debito')) {
-        groups.card.push(sale);
+      
+      // Match to categories based on keywords
+      if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || 
+          method.includes('credito') || method.includes('crédito') || method.includes('débito') || 
+          method.includes('debito') || method.includes('maquininha')) {
+        groups.card_machine.push(sale);
       } else if (method.includes('pix')) {
         groups.pix.push(sale);
-      } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie')) {
+      } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie') || method.includes('espécie')) {
         groups.cash.push(sale);
+      } else if (method.includes('link') && method.includes('pagamento')) {
+        groups.payment_link.push(sale);
+      } else if (method.includes('ecommerce') || method.includes('e-commerce') || method.includes('loja virtual')) {
+        groups.ecommerce.push(sale);
+      } else if (method.includes('boleto') && (method.includes('pré') || method.includes('pre'))) {
+        groups.boleto_prepaid.push(sale);
+      } else if (method.includes('boleto') && (method.includes('pós') || method.includes('pos'))) {
+        groups.boleto_postpaid.push(sale);
+      } else if (method.includes('boleto') && method.includes('parcel')) {
+        groups.boleto_installment.push(sale);
+      } else if (method.includes('vale') || method.includes('presente') || method.includes('gift')) {
+        groups.gift.push(sale);
       } else {
         groups.other.push(sale);
       }
@@ -85,6 +115,33 @@ export default function PickupClosingPrint() {
 
     return groups;
   }, [sales]);
+
+  // Calculate totals by category
+  const categoryTotals = React.useMemo(() => {
+    const totals: Record<PaymentCategory, number> = {
+      cash: 0,
+      pix: 0,
+      card_machine: 0,
+      payment_link: 0,
+      ecommerce: 0,
+      boleto_prepaid: 0,
+      boleto_postpaid: 0,
+      boleto_installment: 0,
+      gift: 0,
+      other: 0,
+    };
+
+    Object.entries(groupedByCategory).forEach(([cat, salesList]) => {
+      totals[cat as PaymentCategory] = salesList.reduce((sum, s) => sum + (s.total_cents || 0), 0);
+    });
+
+    return totals;
+  }, [groupedByCategory]);
+
+  // Get closing type info
+  const closingTypeInfo = closing?.closing_type 
+    ? closingTypeLabels[closing.closing_type] || closingTypeLabels.balcao
+    : closingTypeLabels.balcao;
 
   // Auto-print on load
   useEffect(() => {
@@ -111,6 +168,71 @@ export default function PickupClosingPrint() {
       </div>
     );
   }
+
+  // Render a sales block for a category
+  const renderCategoryBlock = (category: PaymentCategory, salesList: typeof sales) => {
+    if (salesList.length === 0) return null;
+    
+    const config = getCategoryConfig(category);
+    const total = categoryTotals[category];
+
+    return (
+      <div key={category} style={{ marginBottom: '20px', pageBreakInside: 'avoid' }}>
+        <div className="category-title" style={{ 
+          fontSize: '13px', 
+          fontWeight: 600, 
+          marginBottom: '8px',
+          padding: '6px 10px',
+          backgroundColor: '#f5f5f5',
+          borderRadius: '4px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{config.emoji} {config.label.toUpperCase()}</span>
+          <span style={{ color: '#2e7d32' }}>{salesList.length} vendas • {formatCurrency(total)}</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Cliente</th>
+              <th>Entrega</th>
+              <th className="text-right">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {salesList.map(sale => (
+              <tr key={sale.id}>
+                <td className="font-bold">#{sale.sale_number}</td>
+                <td>{sale.lead_name || 'Cliente'}</td>
+                <td>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm") : '-'}</td>
+                <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
+              </tr>
+            ))}
+            <tr className="total-row">
+              <td colSpan={3} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
+              <td className="text-right font-bold">{formatCurrency(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // Order for rendering: card_machine, pix, cash, then others
+  const renderOrder: PaymentCategory[] = [
+    'card_machine',
+    'pix',
+    'cash',
+    'payment_link',
+    'ecommerce',
+    'boleto_prepaid',
+    'boleto_postpaid',
+    'boleto_installment',
+    'gift',
+    'other',
+  ];
 
   return (
     <>
@@ -144,12 +266,16 @@ export default function PickupClosingPrint() {
         }
         th, td {
           border: 1px solid #ddd;
-          padding: 6px 8px;
+          padding: 5px 8px;
           text-align: left;
         }
         th {
           background-color: #f5f5f5;
           font-weight: 600;
+          font-size: 11px;
+        }
+        td {
+          font-size: 11px;
         }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
@@ -221,7 +347,7 @@ export default function PickupClosingPrint() {
       <div className="print-container">
         {/* Header */}
         <div className="header">
-          <h1>📋 FECHAMENTO DE CAIXA BALCÃO</h1>
+          <h1>{closingTypeInfo.emoji} {closingTypeInfo.title}</h1>
           <h2>Redução Z - Nº {closing.closing_number}</h2>
           <div style={{ fontSize: '12px' }}>
             <strong>Data:</strong> {format(parseISO(closing.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
@@ -257,28 +383,18 @@ export default function PickupClosingPrint() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>💳 Cartão (Crédito/Débito)</td>
-              <td className="text-center">{groupedSales.card.length}</td>
-              <td className="text-right font-bold">{formatCurrency(closing.total_card_cents)}</td>
-            </tr>
-            <tr>
-              <td>📱 PIX</td>
-              <td className="text-center">{groupedSales.pix.length}</td>
-              <td className="text-right font-bold">{formatCurrency(closing.total_pix_cents)}</td>
-            </tr>
-            <tr>
-              <td>💵 Dinheiro</td>
-              <td className="text-center">{groupedSales.cash.length}</td>
-              <td className="text-right font-bold">{formatCurrency(closing.total_cash_cents)}</td>
-            </tr>
-            {closing.total_other_cents > 0 && (
-              <tr>
-                <td>📄 Outros</td>
-                <td className="text-center">{groupedSales.other.length}</td>
-                <td className="text-right font-bold">{formatCurrency(closing.total_other_cents)}</td>
-              </tr>
-            )}
+            {PAYMENT_CATEGORIES.map(cat => {
+              const count = groupedByCategory[cat.key]?.length || 0;
+              const total = categoryTotals[cat.key] || 0;
+              if (count === 0) return null;
+              return (
+                <tr key={cat.key}>
+                  <td>{cat.emoji} {cat.label}</td>
+                  <td className="text-center">{count}</td>
+                  <td className="text-right font-bold">{formatCurrency(total)}</td>
+                </tr>
+              );
+            })}
             <tr className="total-row">
               <td className="font-bold">TOTAL</td>
               <td className="text-center font-bold">{closing.total_sales}</td>
@@ -287,61 +403,9 @@ export default function PickupClosingPrint() {
           </tbody>
         </table>
 
-        {/* Cash Sales Detail (individual listing for audit) */}
-        {groupedSales.cash.length > 0 && (
-          <>
-            <div className="section-title">💵 DETALHAMENTO - VENDAS EM DINHEIRO</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Nº Venda</th>
-                  <th>Cliente</th>
-                  <th>Entrega</th>
-                  <th className="text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupedSales.cash.map(sale => (
-                  <tr key={sale.id}>
-                    <td className="font-bold">#{sale.sale_number}</td>
-                    <td>{sale.lead_name || 'Cliente'}</td>
-                    <td>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm") : '-'}</td>
-                    <td className="text-right font-bold">{formatCurrency(sale.total_cents || 0)}</td>
-                  </tr>
-                ))}
-                <tr className="total-row">
-                  <td colSpan={3} className="font-bold">SUBTOTAL DINHEIRO</td>
-                  <td className="text-right font-bold">{formatCurrency(closing.total_cash_cents)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </>
-        )}
-
-        {/* All Sales List */}
-        <div className="section-title">📋 LISTA COMPLETA DE VENDAS</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Nº</th>
-              <th>Cliente</th>
-              <th>Pagamento</th>
-              <th>Entrega</th>
-              <th className="text-right">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sales.map((sale, index) => (
-              <tr key={sale.id}>
-                <td className="font-bold">#{sale.sale_number}</td>
-                <td>{sale.lead_name || 'Cliente'}</td>
-                <td>{formatPaymentMethod(sale.payment_method)}</td>
-                <td>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm") : '-'}</td>
-                <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Grouped Sales by Payment Category */}
+        <div className="section-title">📋 VENDAS AGRUPADAS POR FORMA DE PAGAMENTO</div>
+        {renderOrder.map(cat => renderCategoryBlock(cat, groupedByCategory[cat]))}
 
         {/* Signature Area */}
         <div className="signature-area">
