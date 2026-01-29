@@ -3632,7 +3632,7 @@ export type Database = {
             foreignKeyName: "ecommerce_orders_affiliate_id_fkey"
             columns: ["affiliate_id"]
             isOneToOne: false
-            referencedRelation: "affiliates"
+            referencedRelation: "organization_affiliates"
             referencedColumns: ["id"]
           },
           {
