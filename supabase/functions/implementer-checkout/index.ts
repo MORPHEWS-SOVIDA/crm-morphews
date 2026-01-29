@@ -1,29 +1,29 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { 
-  createPagarmeSubscription,
-  getOrCreatePagarmePlan,
-  SubscriptionRequest 
-} from "../_shared/pagarme-subscription.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface CardData {
+  card_number: string;
+  card_holder_name: string;
+  card_expiration_month: string;
+  card_expiration_year: string;
+  card_cvv: string;
+  installments: number;
+  total_with_interest?: number;
+}
+
 interface CheckoutPayload {
   checkoutLinkId: string;
   customerName: string;
   customerEmail: string;
-  customerWhatsapp: string;
+  customerWhatsapp?: string;
   customerDocument: string;
-  cardData?: {
-    number: string;
-    holder_name: string;
-    exp_month: string;
-    exp_year: string;
-    cvv: string;
-  };
+  paymentMethod: 'credit_card' | 'pix' | 'boleto';
+  cardData?: CardData;
 }
 
 function generateTempPassword(): string {
@@ -45,6 +45,137 @@ function generateSlug(name: string): string {
   return `${base}-${random}`;
 }
 
+async function createPagarmeOrder(
+  apiKey: string,
+  amount: number,
+  customer: {
+    name: string;
+    email: string;
+    document: string;
+    phone?: string;
+  },
+  paymentMethod: 'credit_card' | 'pix' | 'boleto',
+  cardData?: CardData,
+  metadata?: Record<string, string>
+) {
+  const cleanDocument = customer.document.replace(/\D/g, '');
+  const documentType = cleanDocument.length > 11 ? 'CNPJ' : 'CPF';
+  
+  // Build payment object based on method
+  let payment: any;
+  
+  if (paymentMethod === 'credit_card' && cardData) {
+    payment = {
+      payment_method: 'credit_card',
+      credit_card: {
+        installments: cardData.installments || 1,
+        statement_descriptor: 'MORPHEWS CRM',
+        card: {
+          number: cardData.card_number.replace(/\D/g, ''),
+          holder_name: cardData.card_holder_name,
+          exp_month: parseInt(cardData.card_expiration_month),
+          exp_year: parseInt(cardData.card_expiration_year),
+          cvv: cardData.card_cvv,
+          billing_address: {
+            line_1: 'N/A, 0, N/A',
+            zip_code: '01310100',
+            city: 'Sao Paulo',
+            state: 'SP',
+            country: 'BR',
+          },
+        },
+      },
+    };
+  } else if (paymentMethod === 'pix') {
+    payment = {
+      payment_method: 'pix',
+      pix: {
+        expires_in: 3600, // 1 hour
+      },
+    };
+  } else if (paymentMethod === 'boleto') {
+    payment = {
+      payment_method: 'boleto',
+      boleto: {
+        instructions: 'Pagar até o vencimento',
+        due_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+      },
+    };
+  }
+
+  const orderPayload = {
+    customer: {
+      name: customer.name,
+      email: customer.email,
+      document: cleanDocument,
+      type: documentType === 'CPF' ? 'individual' : 'company',
+      document_type: documentType,
+      phones: customer.phone ? {
+        mobile_phone: {
+          country_code: '55',
+          area_code: customer.phone.replace(/\D/g, '').substring(0, 2),
+          number: customer.phone.replace(/\D/g, '').substring(2),
+        },
+      } : undefined,
+    },
+    items: [
+      {
+        amount,
+        description: 'Assinatura Morphews CRM + Implementação',
+        quantity: 1,
+        code: 'implementer-checkout',
+      },
+    ],
+    payments: [payment],
+    metadata,
+    closed: true,
+  };
+
+  console.log('[PagarmeOrder] Creating order:', JSON.stringify(orderPayload, null, 2));
+
+  const response = await fetch('https://api.pagar.me/core/v5/orders', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${btoa(apiKey + ':')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(orderPayload),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    console.error('[PagarmeOrder] Error:', result);
+    return {
+      success: false,
+      error: result.message || result.errors?.[0]?.message || 'Erro no gateway de pagamento',
+    };
+  }
+
+  console.log('[PagarmeOrder] Success:', result.id, result.status);
+
+  // Extract payment-specific data
+  const charge = result.charges?.[0];
+  const lastTransaction = charge?.last_transaction;
+
+  return {
+    success: true,
+    order_id: result.id,
+    status: result.status,
+    charge_id: charge?.id,
+    pix: paymentMethod === 'pix' && lastTransaction ? {
+      qr_code: lastTransaction.qr_code,
+      qr_code_url: lastTransaction.qr_code_url,
+      expires_at: lastTransaction.expires_at,
+    } : undefined,
+    boleto: paymentMethod === 'boleto' && lastTransaction ? {
+      url: lastTransaction.url,
+      barcode: lastTransaction.barcode,
+      due_at: lastTransaction.due_at,
+    } : undefined,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,16 +188,25 @@ serve(async (req) => {
     );
 
     const payload: CheckoutPayload = await req.json();
-    const { checkoutLinkId, customerName, customerEmail, customerWhatsapp, customerDocument, cardData } = payload;
+    const { 
+      checkoutLinkId, 
+      customerName, 
+      customerEmail, 
+      customerWhatsapp, 
+      customerDocument, 
+      paymentMethod,
+      cardData 
+    } = payload;
 
-    console.log("[ImplementerCheckout] Request:", { checkoutLinkId, customerEmail });
+    console.log("[ImplementerCheckout] Request:", { checkoutLinkId, customerEmail, paymentMethod });
 
     // Validate required fields
-    if (!customerDocument || customerDocument.replace(/\D/g, '').length < 11) {
+    const cleanDocument = customerDocument?.replace(/\D/g, '') || '';
+    if (cleanDocument.length < 11) {
       throw new Error("CPF/CNPJ é obrigatório");
     }
 
-    if (!cardData?.number) {
+    if (paymentMethod === 'credit_card' && !cardData?.card_number) {
       throw new Error("Dados do cartão são obrigatórios");
     }
 
@@ -90,8 +230,9 @@ serve(async (req) => {
     const plan = checkoutLink.plan;
     const implementer = checkoutLink.implementer;
     const implementationFeeCents = checkoutLink.implementation_fee_cents || 0;
+    const totalAmount = plan.price_cents + implementationFeeCents;
 
-    console.log("[ImplementerCheckout] Plan:", plan.name, "Implementation fee:", implementationFeeCents);
+    console.log("[ImplementerCheckout] Plan:", plan.name, "Total:", totalAmount);
 
     // Check if implementer has active subscription
     const { data: implementerSub } = await supabaseAdmin
@@ -128,69 +269,74 @@ serve(async (req) => {
 
     const pagarmeSecretKey = gatewayConfig.api_key_encrypted;
 
-    // Get or create Pagar.me plan
-    let pagarmePlanId = plan.pagarme_plan_id;
-
-    if (!pagarmePlanId) {
-      console.log("[ImplementerCheckout] Creating Pagar.me plan for:", plan.name);
-
-      const { planId, error: planError } = await getOrCreatePagarmePlan(
-        pagarmeSecretKey,
-        `Morphews CRM - ${plan.name}`,
-        plan.price_cents,
-        'month'
-      );
-
-      if (!planId) {
-        console.error("[ImplementerCheckout] Failed to create plan:", planError);
-        throw new Error(planError || "Erro ao criar plano no gateway");
-      }
-
-      pagarmePlanId = planId;
-
-      // Save plan ID for future use
-      await supabaseAdmin
-        .from("subscription_plans")
-        .update({ pagarme_plan_id: pagarmePlanId })
-        .eq("id", plan.id);
-
-      console.log("[ImplementerCheckout] Created plan:", pagarmePlanId);
+    // Calculate final amount (with interest if applicable)
+    let finalAmount = totalAmount;
+    if (paymentMethod === 'credit_card' && cardData?.total_with_interest) {
+      finalAmount = cardData.total_with_interest;
     }
 
-    // Create subscription with Pagar.me
-    const subscriptionRequest: SubscriptionRequest = {
-      plan_id: pagarmePlanId,
-      customer: {
+    // Create order with Pagar.me
+    const orderResult = await createPagarmeOrder(
+      pagarmeSecretKey,
+      finalAmount,
+      {
         name: customerName,
         email: customerEmail,
+        document: cleanDocument,
         phone: customerWhatsapp,
-        document: customerDocument,
       },
-      payment_method: 'credit_card',
-      card_data: cardData,
-      setup_fee_cents: implementationFeeCents,
-      metadata: {
+      paymentMethod,
+      cardData,
+      {
         implementer_id: implementer.id,
         implementer_code: implementer.referral_code,
         checkout_link_id: checkoutLinkId,
         plan_id: plan.id,
         is_implementer_sale: 'true',
-      },
-    };
-
-    console.log("[ImplementerCheckout] Creating subscription...");
-
-    const subscriptionResult = await createPagarmeSubscription(
-      pagarmeSecretKey,
-      subscriptionRequest
+        implementation_fee_cents: String(implementationFeeCents),
+        plan_price_cents: String(plan.price_cents),
+      }
     );
 
-    if (!subscriptionResult.success) {
-      console.error("[ImplementerCheckout] Subscription failed:", subscriptionResult);
-      throw new Error(subscriptionResult.error_message || "Erro ao processar pagamento");
+    if (!orderResult.success) {
+      throw new Error(orderResult.error || "Erro ao processar pagamento");
     }
 
-    console.log("[ImplementerCheckout] Subscription created:", subscriptionResult.subscription_id);
+    console.log("[ImplementerCheckout] Order created:", orderResult.order_id, orderResult.status);
+
+    // For PIX and Boleto, store pending order and return payment info
+    if (paymentMethod === 'pix' || paymentMethod === 'boleto') {
+      // Store pending checkout for webhook processing
+      await supabaseAdmin
+        .from("implementer_pending_checkouts")
+        .upsert({
+          id: orderResult.order_id,
+          checkout_link_id: checkoutLinkId,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_whatsapp: customerWhatsapp || null,
+          customer_document: cleanDocument,
+          payment_method: paymentMethod,
+          total_amount_cents: finalAmount,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        });
+
+      return new Response(JSON.stringify({
+        success: false, // Not complete yet
+        order_id: orderResult.order_id,
+        pix: orderResult.pix,
+        boleto: orderResult.boleto,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // For credit card, check if payment was approved
+    if (orderResult.status !== 'paid') {
+      throw new Error("Pagamento não aprovado. Verifique os dados do cartão.");
+    }
 
     // =========================================================
     // PAYMENT SUCCESS - Create user, organization, subscription
@@ -251,6 +397,9 @@ serve(async (req) => {
       });
 
     // 4. Create subscription record
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+
     const { data: newSubscription, error: subError } = await supabaseAdmin
       .from("subscriptions")
       .insert({
@@ -258,9 +407,9 @@ serve(async (req) => {
         plan_id: plan.id,
         status: 'active',
         payment_provider: 'pagarme',
-        payment_provider_subscription_id: subscriptionResult.subscription_id,
-        payment_provider_customer_id: subscriptionResult.customer_id,
-        current_period_end: subscriptionResult.current_period_end,
+        payment_provider_subscription_id: orderResult.order_id,
+        payment_provider_customer_id: orderResult.order_id,
+        current_period_end: currentPeriodEnd.toISOString(),
       })
       .select()
       .single();
@@ -276,12 +425,10 @@ serve(async (req) => {
         implementer_id: implementer.id,
         client_organization_id: newOrg.id,
         plan_id: plan.id,
-        subscription_id: newSubscription?.id,
-        checkout_link_id: checkoutLinkId,
+        client_subscription_id: newSubscription?.id,
         implementation_fee_cents: implementationFeeCents,
-        monthly_value_cents: plan.price_cents,
+        first_payment_cents: finalAmount,
         status: 'active',
-        gateway_subscription_id: subscriptionResult.subscription_id,
       });
 
     if (saleError) {
@@ -297,11 +444,11 @@ serve(async (req) => {
         .from("implementer_commissions")
         .insert({
           implementer_id: implementer.id,
-          sale_id: null, // Not a regular sale
-          commission_type: 'implementation',
+          implementer_sale_id: null,
+          commission_type: 'implementation_fee',
           gross_amount_cents: implementationFeeCents,
           net_amount_cents: implementerImplShare,
-          platform_share_cents: implementationFeeCents - implementerImplShare,
+          platform_fee_cents: implementationFeeCents - implementerImplShare,
           status: 'pending',
         });
     }
@@ -312,11 +459,11 @@ serve(async (req) => {
       .from("implementer_commissions")
       .insert({
         implementer_id: implementer.id,
-        sale_id: null,
+        implementer_sale_id: null,
         commission_type: 'first_month',
         gross_amount_cents: plan.price_cents,
         net_amount_cents: firstMonthCommission,
-        platform_share_cents: plan.price_cents - firstMonthCommission,
+        platform_fee_cents: plan.price_cents - firstMonthCommission,
         status: 'pending',
       });
 
@@ -359,7 +506,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true,
-      subscription_id: subscriptionResult.subscription_id,
+      order_id: orderResult.order_id,
       organization_id: newOrg.id,
       redirect_url: '/login?subscription=success&implementer=true',
     }), {
