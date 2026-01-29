@@ -18,6 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   useSaleCheckpoints,
   useToggleSaleCheckpoint,
+  useSyncSaleLegacyFromCheckpoints,
   useSaleCheckpointHistory,
   checkpointLabels,
   checkpointOrder,
@@ -79,6 +80,7 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
   const toggleMutation = useToggleSaleCheckpoint();
+  const syncLegacyMutation = useSyncSaleLegacyFromCheckpoints();
   const updateSale = useUpdateSale();
   const { data: permissions } = useMyPermissions();
   const [expandedNotes, setExpandedNotes] = useState<Record<CheckpointType, boolean>>({} as any);
@@ -364,6 +366,12 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
 
   const isReturned = saleStatus === 'returned';
 
+  // Detect inconsistent legacy status (old sales): checkpoints show nothing completed but legacy status is progressed.
+  const anyCompleted = checkpointOrder.some(t => getCheckpointStatus(checkpoints, t).isCompleted);
+  const statusSuggestsProgress = ['pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'].includes(saleStatus || '');
+  const canSync = !!permissions?.sales_uncheck_checkpoint;
+  const showSyncBanner = canSync && statusSuggestsProgress && !anyCompleted;
+
   return (
     <>
       <Card>
@@ -374,6 +382,30 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {showSyncBanner && (
+            <div className="rounded-lg border p-3 bg-muted/30 space-y-2">
+              <div className="text-sm font-medium">Etapas desmarcadas, mas status ainda travado</div>
+              <div className="text-xs text-muted-foreground">
+                Essa venda parece ser antiga/inconsistente. Clique para sincronizar o status com as etapas atuais e liberar a edição.
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                disabled={syncLegacyMutation.isPending}
+                onClick={async () => {
+                  try {
+                    await syncLegacyMutation.mutateAsync(saleId);
+                    toast.success('Status sincronizado com as etapas');
+                  } catch {
+                    toast.error('Erro ao sincronizar status');
+                  }
+                }}
+              >
+                Sincronizar etapas
+              </Button>
+            </div>
+          )}
           {/* Rascunho - Always shown as first step */}
           <div
             className={`p-3 rounded-lg border transition-colors ${

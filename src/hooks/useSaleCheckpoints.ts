@@ -99,7 +99,7 @@ export function useToggleSaleCheckpoint() {
       // Get organization_id from sale
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .select('organization_id')
+        .select('organization_id, status, expedition_validated_at, dispatched_at, delivered_at')
         .eq('id', saleId)
         .single();
 
@@ -238,13 +238,36 @@ export function useToggleSaleCheckpoint() {
             .eq('id', saleId);
           if (error) throw error;
         } else if (checkpointType === 'dispatched') {
-          const { error } = await supabase.from('sales').update({ dispatched_at: null }).eq('id', saleId);
+          const nextStatus = sale.expedition_validated_at ? 'pending_expedition' : 'draft';
+          const { error } = await supabase
+            .from('sales')
+            .update({ dispatched_at: null, status: nextStatus })
+            .eq('id', saleId);
           if (error) throw error;
         } else if (checkpointType === 'delivered') {
-          const { error } = await supabase.from('sales').update({ delivered_at: null }).eq('id', saleId);
+          const nextStatus = sale.dispatched_at
+            ? 'dispatched'
+            : sale.expedition_validated_at
+              ? 'pending_expedition'
+              : 'draft';
+          const { error } = await supabase
+            .from('sales')
+            .update({ delivered_at: null, status: nextStatus })
+            .eq('id', saleId);
           if (error) throw error;
         } else if (checkpointType === 'payment_confirmed') {
-          const { error } = await supabase.from('sales').update({ payment_confirmed_at: null }).eq('id', saleId);
+          const nextStatus = sale.delivered_at
+            ? 'delivered'
+            : sale.dispatched_at
+              ? 'dispatched'
+              : sale.expedition_validated_at
+                ? 'pending_expedition'
+                : 'draft';
+
+          const { error } = await supabase
+            .from('sales')
+            .update({ payment_confirmed_at: null, payment_confirmed_by: null, status: nextStatus })
+            .eq('id', saleId);
           if (error) throw error;
         }
       }
@@ -255,6 +278,89 @@ export function useToggleSaleCheckpoint() {
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoint-history', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale', data.saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
+    },
+  });
+}
+
+function deriveStatusFromCompletedCheckpoints(completed: Set<CheckpointType>, currentStatus?: string | null) {
+  if (currentStatus === 'cancelled' || currentStatus === 'returned') return currentStatus;
+  if (completed.has('delivered')) return 'delivered';
+  if (completed.has('dispatched')) return 'dispatched';
+  if (completed.has('pending_expedition')) return 'pending_expedition';
+  // printed alone doesn't define a special status
+  return 'draft';
+}
+
+/**
+ * Reconcile legacy columns in `sales` (status + timestamps) based on `sale_checkpoints`.
+ * This fixes old/inconsistent sales where the UI shows checkpoints unchecked but `sales.status`
+ * is still stuck (e.g. delivered).
+ */
+export function useSyncSaleLegacyFromCheckpoints() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (saleId: string) => {
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .select('id, status')
+        .eq('id', saleId)
+        .single();
+
+      if (saleError) throw saleError;
+
+      const { data: checkpoints, error: checkpointsError } = await supabase
+        .from('sale_checkpoints')
+        .select('checkpoint_type, completed_at, completed_by')
+        .eq('sale_id', saleId);
+
+      if (checkpointsError) throw checkpointsError;
+
+      const completedSet = new Set<CheckpointType>();
+      const map = new Map<CheckpointType, { completed_at: string | null; completed_by: string | null }>();
+
+      (checkpoints || []).forEach((c: any) => {
+        const type = c.checkpoint_type as CheckpointType;
+        map.set(type, { completed_at: c.completed_at, completed_by: c.completed_by });
+        if (c.completed_at) completedSet.add(type);
+      });
+
+      const completedAt = (type: CheckpointType) => map.get(type)?.completed_at ?? null;
+      const completedBy = (type: CheckpointType) => (map.get(type)?.completed_at ? (map.get(type)?.completed_by ?? null) : null);
+
+      const nextStatus = deriveStatusFromCompletedCheckpoints(completedSet, sale.status);
+
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({
+          // Legacy compatibility fields
+          printed_at: completedAt('printed'),
+          printed_by: completedBy('printed'),
+          expedition_validated_at: completedAt('pending_expedition'),
+          expedition_validated_by: completedBy('pending_expedition'),
+          dispatched_at: completedAt('dispatched'),
+          delivered_at: completedAt('delivered'),
+          payment_confirmed_at: completedAt('payment_confirmed'),
+          payment_confirmed_by: completedBy('payment_confirmed'),
+
+          // Status derived from checkpoints
+          status: nextStatus,
+        })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      return saleId;
+    },
+    onSuccess: (saleId) => {
+      queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sale-checkpoint-history', saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
     },
