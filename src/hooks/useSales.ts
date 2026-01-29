@@ -184,6 +184,7 @@ export interface CreateSaleData {
   scheduled_delivery_shift?: 'morning' | 'afternoon' | 'full_day' | null;
   shipping_carrier_id?: string | null;
   shipping_cost_cents?: number;
+  shipping_cost_real_cents?: number; // Real cost when free shipping is offered
   shipping_address_id?: string | null;
   // Payment fields
   payment_method_id?: string | null;
@@ -516,6 +517,7 @@ export function useCreateSale() {
           scheduled_delivery_shift: data.scheduled_delivery_shift || null,
           shipping_carrier_id: data.shipping_carrier_id || null,
           shipping_cost_cents: shippingCost,
+          shipping_cost_real_cents: data.shipping_cost_real_cents || shippingCost, // Real cost for internal tracking
           shipping_address_id: data.shipping_address_id || null,
           assigned_delivery_user_id: assignedDeliveryUserId,
           payment_method_id: data.payment_method_id || null,
