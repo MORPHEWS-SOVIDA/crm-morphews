@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { processRefundSplits } from "../_shared/refund-processor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,9 @@ const corsHeaders = {
  * Process Refund Edge Function
  * 
  * Handles refund requests from the order detail page.
- * Updates the sale status and creates a refund transaction.
+ * - Calls Pagar.me gateway for refund
+ * - Uses shared refund processor to reverse ALL partner splits
+ * - Updates sale/order status
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,7 +66,7 @@ serve(async (req) => {
 
     if (gatewayConfig && sale.gateway_transaction_id) {
       try {
-        const apiKey = gatewayConfig.api_key_encrypted; // Should be decrypted in production
+        const apiKey = gatewayConfig.api_key_encrypted;
         
         // Pagar.me V5 refund endpoint
         const refundResponse = await fetch(
@@ -99,20 +102,20 @@ serve(async (req) => {
       }
     }
 
-    // 4. Update sale status
+    // 4. CRITICAL: Process refund splits - debits ALL liable partner accounts
+    const refundReferenceId = `manual-refund:${sale_id}:${Date.now()}`;
+    
+    console.log(`[ProcessRefund] Processing split reversals...`);
+    const splitResult = await processRefundSplits(supabase, sale_id, refundReferenceId, 'refund');
+    console.log(`[ProcessRefund] Split reversals completed - debited ${splitResult.debited} accounts`);
+
+    if (splitResult.errors.length > 0) {
+      console.warn(`[ProcessRefund] Split errors:`, splitResult.errors);
+    }
+
+    // 5. Update ecommerce_order status (sale status already updated by split processor)
     const newStatus = refund_type === 'total' ? 'refunded' : 'partial_refund';
-    const newPaymentStatus = refund_type === 'total' ? 'refunded' : 'partially_refunded';
-
-    await supabase
-      .from('sales')
-      .update({
-        status: 'cancelled',
-        payment_status: newPaymentStatus,
-        notes: `Reembolso ${refund_type}: ${reason || 'Sem motivo informado'}`,
-      })
-      .eq('id', sale_id);
-
-    // 5. Update ecommerce_order status
+    
     if (order_id) {
       await supabase
         .from('ecommerce_orders')
@@ -124,7 +127,7 @@ serve(async (req) => {
         .eq('id', order_id);
     }
 
-    // 6. Create refund record in payment_attempts
+    // 6. Create refund record in payment_attempts for audit trail
     await supabase
       .from('payment_attempts')
       .insert({
@@ -132,7 +135,7 @@ serve(async (req) => {
         gateway_type: gatewayConfig?.gateway_type || 'manual',
         payment_method: 'refund',
         amount_cents,
-        status: gatewayRefundSuccess ? 'success' : 'pending',
+        status: gatewayRefundSuccess ? 'approved' : 'error',
         gateway_transaction_id: gatewayRefundId,
         is_fallback: false,
         attempt_number: 1,
@@ -141,37 +144,12 @@ serve(async (req) => {
           reason,
           notify_customer,
           gateway_success: gatewayRefundSuccess,
+          splits_debited: splitResult.debited,
+          split_errors: splitResult.errors,
         },
       });
 
-    // 7. Get tenant virtual account and create refund debit
-    const { data: tenantAccount } = await supabase
-      .from('virtual_accounts')
-      .select('id')
-      .eq('organization_id', sale.organization_id)
-      .eq('account_type', 'tenant')
-      .single();
-
-    if (tenantAccount) {
-      const referenceId = `refund:${sale_id}:${Date.now()}`;
-      
-      await supabase
-        .from('virtual_transactions')
-        .insert({
-          virtual_account_id: tenantAccount.id,
-          sale_id,
-          transaction_type: 'debit',
-          amount_cents,
-          net_amount_cents: amount_cents,
-          description: `Reembolso - ${reason || 'Solicitação do cliente'}`,
-          status: 'completed',
-          reference_id: referenceId,
-        });
-      
-      console.log(`[ProcessRefund] Debit transaction created for tenant account`);
-    }
-
-    // 8. TODO: Send notification email if notify_customer is true
+    // 7. TODO: Send notification email if notify_customer is true
     if (notify_customer) {
       console.log(`[ProcessRefund] Customer notification requested but not implemented yet`);
     }
@@ -183,6 +161,7 @@ serve(async (req) => {
         gateway_processed: gatewayRefundSuccess,
         amount_cents,
         refund_type,
+        splits_reversed: splitResult.debited,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
