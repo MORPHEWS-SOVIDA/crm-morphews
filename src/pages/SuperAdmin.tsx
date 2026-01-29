@@ -736,6 +736,7 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
           {/* Content Area - Full width */}
           <div className="flex-1 min-w-0 space-y-4">
             {activeTab === "organizations" && (
+              <>
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -864,6 +865,96 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
                   )}
                 </CardContent>
               </Card>
+
+              {/* Edit Organization Dialog */}
+              <Dialog open={!!editingOrg} onOpenChange={(open) => !open && setEditingOrg(null)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Editar Organização</DialogTitle>
+                    <DialogDescription>
+                      Atualize os dados da organização
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Nome da Organização *</Label>
+                      <Input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nome do Dono</Label>
+                      <Input
+                        value={editForm.owner_name}
+                        onChange={(e) => setEditForm({ ...editForm, owner_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email do Dono</Label>
+                      <Input
+                        type="email"
+                        value={editForm.owner_email}
+                        onChange={(e) => setEditForm({ ...editForm, owner_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Telefone/WhatsApp</Label>
+                      <Input
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                        placeholder="Ex: 5511999999999"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Plano</Label>
+                      <Select
+                        value={editForm.planId}
+                        onValueChange={(value) => setEditForm({ ...editForm, planId: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um plano" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {plans?.map((plan) => (
+                            <SelectItem key={plan.id} value={plan.id}>
+                              <span className="flex items-center gap-2">
+                                {plan.name}
+                                <span className="text-muted-foreground">
+                                  ({formatPrice(plan.price_cents)}/mês)
+                                </span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Usuários Extras</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={editForm.extraUsers}
+                        onChange={(e) => setEditForm({ ...editForm, extraUsers: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setEditingOrg(null)} className="flex-1">
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSaveEdit}
+                      disabled={!editForm.name || isSavingEdit}
+                      className="flex-1"
+                    >
+                      {isSavingEdit && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              </>
             )}
 
             {activeTab === "interested" && (
