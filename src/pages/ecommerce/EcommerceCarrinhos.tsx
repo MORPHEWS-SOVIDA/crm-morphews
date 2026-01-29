@@ -108,10 +108,29 @@ export default function EcommerceCarrinhos() {
   const { data: users = [] } = useUsers();
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
 
-  const { data: carts, isLoading: cartsLoading } = useQuery({
-    queryKey: ['ecommerce-carts'],
+  // Get current user's affiliate ID if they are a partner
+  const { data: myAffiliateId } = useQuery({
+    queryKey: ['my-affiliate-id', profile?.user_id],
+    enabled: !!profile?.user_id && isPartner,
     queryFn: async () => {
       const { data, error } = await supabase
+        .from('organization_affiliates')
+        .select('id')
+        .eq('user_id', profile!.user_id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data?.id as string | null;
+    },
+  });
+
+  const { data: carts, isLoading: cartsLoading } = useQuery({
+    queryKey: ['ecommerce-carts', isPartner, myAffiliateId],
+    // For partners, only query when we have their affiliate ID
+    enabled: !isPartner || !!myAffiliateId,
+    queryFn: async () => {
+      let query = supabase
         .from('ecommerce_carts')
         .select(`
           *,
@@ -122,6 +141,12 @@ export default function EcommerceCarrinhos() {
         .order('created_at', { ascending: false })
         .limit(100);
       
+      // If user is a partner/affiliate, filter by their affiliate_id
+      if (isPartner && myAffiliateId) {
+        query = query.eq('affiliate_id', myAffiliateId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as unknown as Cart[];
     },
