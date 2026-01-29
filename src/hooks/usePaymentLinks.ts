@@ -56,6 +56,8 @@ export interface PaymentLinkTransaction {
   created_by: string | null;
   card_brand: string | null;
   card_last_digits: string | null;
+  sale_id: string | null;
+  lead_id: string | null;
 }
 
 // Fetch payment links

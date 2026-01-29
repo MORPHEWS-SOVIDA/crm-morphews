@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePaymentLinkTransactions, usePaymentLinkStats } from '@/hooks/usePaymentLinks';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePaymentLinkTransactions, usePaymentLinkStats, PaymentLinkTransaction } from '@/hooks/usePaymentLinks';
+import { LinkTransactionToSaleDialog } from './LinkTransactionToSaleDialog';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -15,7 +17,9 @@ import {
   FileText,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Link2,
+  ShoppingBag
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,6 +41,8 @@ const paymentMethodIcons: Record<string, React.ElementType> = {
 export function TransactionsTab() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [methodFilter, setMethodFilter] = useState<string>('');
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<PaymentLinkTransaction | null>(null);
   
   const { data: transactions, isLoading } = usePaymentLinkTransactions({
     status: statusFilter || undefined,
@@ -46,6 +52,11 @@ export function TransactionsTab() {
 
   const formatCurrency = (cents: number) => {
     return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const handleOpenLinkDialog = (tx: PaymentLinkTransaction) => {
+    setSelectedTransaction(tx);
+    setLinkDialogOpen(true);
   };
 
   if (isLoading) {
@@ -183,6 +194,7 @@ export function TransactionsTab() {
                   <TableHead>Taxa</TableHead>
                   <TableHead>Liberação</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -190,6 +202,7 @@ export function TransactionsTab() {
                   const status = statusConfig[tx.status] || statusConfig.pending;
                   const StatusIcon = status.icon;
                   const MethodIcon = paymentMethodIcons[tx.payment_method] || CreditCard;
+                  const canLink = tx.status === 'paid' && !tx.sale_id;
 
                   return (
                     <TableRow key={tx.id}>
@@ -224,10 +237,45 @@ export function TransactionsTab() {
                         }
                       </TableCell>
                       <TableCell>
-                        <Badge className={status.color}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {status.label}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge className={status.color}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {status.label}
+                          </Badge>
+                          {tx.sale_id && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <ShoppingBag className="h-3.5 w-3.5 text-green-600" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Vinculado a uma venda</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {canLink && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenLinkDialog(tx)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Link2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Vincular a uma venda</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -237,6 +285,19 @@ export function TransactionsTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Link to Sale Dialog */}
+      {selectedTransaction && (
+        <LinkTransactionToSaleDialog
+          open={linkDialogOpen}
+          onOpenChange={setLinkDialogOpen}
+          transaction={{
+            id: selectedTransaction.id,
+            amount_cents: selectedTransaction.amount_cents,
+            customer_name: selectedTransaction.customer_name,
+          }}
+        />
+      )}
     </div>
   );
 }
