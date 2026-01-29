@@ -57,6 +57,7 @@ export const AVAILABLE_FEATURES = {
   email_marketing: { label: "Email Marketing", group: "E-commerce" },
   affiliates: { label: "Afiliados", group: "E-commerce" },
   payment_gateways: { label: "Gateways de Pagamento", group: "E-commerce" },
+  payment_links: { label: "Links de Pagamento", group: "E-commerce" },
   virtual_wallet: { label: "Carteira Virtual", group: "E-commerce" },
   telesales: { label: "Televendas", group: "E-commerce" },
   quiz: { label: "Quiz / Formulários", group: "E-commerce" },

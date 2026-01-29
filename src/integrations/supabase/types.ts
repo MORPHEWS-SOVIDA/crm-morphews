@@ -10020,6 +10020,358 @@ export type Database = {
           },
         ]
       }
+      payment_link_attempts: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          customer_document: string | null
+          error_code: string | null
+          error_message: string | null
+          gateway_response: Json | null
+          id: string
+          ip_address: string | null
+          organization_id: string
+          payment_link_id: string | null
+          payment_method: string
+          status: string
+          transaction_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          customer_document?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          gateway_response?: Json | null
+          id?: string
+          ip_address?: string | null
+          organization_id: string
+          payment_link_id?: string | null
+          payment_method: string
+          status: string
+          transaction_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          customer_document?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          gateway_response?: Json | null
+          id?: string
+          ip_address?: string | null
+          organization_id?: string
+          payment_link_id?: string | null
+          payment_method?: string
+          status?: string
+          transaction_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_link_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_link_attempts_payment_link_id_fkey"
+            columns: ["payment_link_id"]
+            isOneToOne: false
+            referencedRelation: "payment_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_link_attempts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_link_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_link_transactions: {
+        Row: {
+          amount_cents: number
+          boleto_barcode: string | null
+          boleto_expires_at: string | null
+          boleto_url: string | null
+          cancelled_at: string | null
+          card_brand: string | null
+          card_last_digits: string | null
+          created_at: string
+          created_by: string | null
+          customer_document: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          error_message: string | null
+          fee_cents: number | null
+          gateway_charge_id: string | null
+          gateway_order_id: string | null
+          gateway_response: Json | null
+          gateway_transaction_id: string | null
+          gateway_type: string | null
+          id: string
+          installment_fee_cents: number | null
+          installments: number | null
+          ip_address: string | null
+          lead_id: string | null
+          metadata: Json | null
+          net_amount_cents: number | null
+          organization_id: string
+          origin_type: string
+          paid_at: string | null
+          payment_link_id: string | null
+          payment_method: string
+          pix_expires_at: string | null
+          pix_qr_code: string | null
+          pix_qr_code_url: string | null
+          refunded_at: string | null
+          release_date: string | null
+          released_at: string | null
+          sale_id: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+          virtual_account_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          boleto_barcode?: string | null
+          boleto_expires_at?: string | null
+          boleto_url?: string | null
+          cancelled_at?: string | null
+          card_brand?: string | null
+          card_last_digits?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          error_message?: string | null
+          fee_cents?: number | null
+          gateway_charge_id?: string | null
+          gateway_order_id?: string | null
+          gateway_response?: Json | null
+          gateway_transaction_id?: string | null
+          gateway_type?: string | null
+          id?: string
+          installment_fee_cents?: number | null
+          installments?: number | null
+          ip_address?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          net_amount_cents?: number | null
+          organization_id: string
+          origin_type?: string
+          paid_at?: string | null
+          payment_link_id?: string | null
+          payment_method: string
+          pix_expires_at?: string | null
+          pix_qr_code?: string | null
+          pix_qr_code_url?: string | null
+          refunded_at?: string | null
+          release_date?: string | null
+          released_at?: string | null
+          sale_id?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          virtual_account_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          boleto_barcode?: string | null
+          boleto_expires_at?: string | null
+          boleto_url?: string | null
+          cancelled_at?: string | null
+          card_brand?: string | null
+          card_last_digits?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          error_message?: string | null
+          fee_cents?: number | null
+          gateway_charge_id?: string | null
+          gateway_order_id?: string | null
+          gateway_response?: Json | null
+          gateway_transaction_id?: string | null
+          gateway_type?: string | null
+          id?: string
+          installment_fee_cents?: number | null
+          installments?: number | null
+          ip_address?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          net_amount_cents?: number | null
+          organization_id?: string
+          origin_type?: string
+          paid_at?: string | null
+          payment_link_id?: string | null
+          payment_method?: string
+          pix_expires_at?: string | null
+          pix_qr_code?: string | null
+          pix_qr_code_url?: string | null
+          refunded_at?: string | null
+          release_date?: string | null
+          released_at?: string | null
+          sale_id?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          virtual_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_link_transactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_link_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_link_transactions_payment_link_id_fkey"
+            columns: ["payment_link_id"]
+            isOneToOne: false
+            referencedRelation: "payment_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_link_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_link_transactions_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_links: {
+        Row: {
+          allow_custom_amount: boolean | null
+          amount_cents: number | null
+          boleto_enabled: boolean | null
+          card_enabled: boolean | null
+          created_at: string
+          created_by: string | null
+          customer_document: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          description: string | null
+          expires_at: string | null
+          external_reference: string | null
+          id: string
+          is_active: boolean | null
+          lead_id: string | null
+          max_amount_cents: number | null
+          max_installments: number | null
+          max_uses: number | null
+          min_amount_cents: number | null
+          notes: string | null
+          organization_id: string
+          pix_enabled: boolean | null
+          slug: string
+          title: string
+          updated_at: string
+          use_count: number | null
+        }
+        Insert: {
+          allow_custom_amount?: boolean | null
+          amount_cents?: number | null
+          boleto_enabled?: boolean | null
+          card_enabled?: boolean | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          description?: string | null
+          expires_at?: string | null
+          external_reference?: string | null
+          id?: string
+          is_active?: boolean | null
+          lead_id?: string | null
+          max_amount_cents?: number | null
+          max_installments?: number | null
+          max_uses?: number | null
+          min_amount_cents?: number | null
+          notes?: string | null
+          organization_id: string
+          pix_enabled?: boolean | null
+          slug: string
+          title: string
+          updated_at?: string
+          use_count?: number | null
+        }
+        Update: {
+          allow_custom_amount?: boolean | null
+          amount_cents?: number | null
+          boleto_enabled?: boolean | null
+          card_enabled?: boolean | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          description?: string | null
+          expires_at?: string | null
+          external_reference?: string | null
+          id?: string
+          is_active?: boolean | null
+          lead_id?: string | null
+          max_amount_cents?: number | null
+          max_installments?: number | null
+          max_uses?: number | null
+          min_amount_cents?: number | null
+          notes?: string | null
+          organization_id?: string
+          pix_enabled?: boolean | null
+          slug?: string
+          title?: string
+          updated_at?: string
+          use_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_links_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_method_transaction_fees: {
         Row: {
           created_at: string
@@ -15378,16 +15730,20 @@ export type Database = {
           card_fee_percentage: number | null
           card_release_days: number | null
           created_at: string | null
+          daily_transaction_limit_cents: number | null
           id: string
           installment_fee_passed_to_buyer: boolean | null
           installment_fees: Json | null
           max_installments: number | null
+          max_transaction_cents: number | null
           notes: string | null
           organization_id: string
+          payment_link_enabled: boolean | null
           pix_enabled: boolean | null
           pix_fee_fixed_cents: number | null
           pix_fee_percentage: number | null
           pix_release_days: number | null
+          telesales_enabled: boolean | null
           updated_at: string | null
         }
         Insert: {
@@ -15402,16 +15758,20 @@ export type Database = {
           card_fee_percentage?: number | null
           card_release_days?: number | null
           created_at?: string | null
+          daily_transaction_limit_cents?: number | null
           id?: string
           installment_fee_passed_to_buyer?: boolean | null
           installment_fees?: Json | null
           max_installments?: number | null
+          max_transaction_cents?: number | null
           notes?: string | null
           organization_id: string
+          payment_link_enabled?: boolean | null
           pix_enabled?: boolean | null
           pix_fee_fixed_cents?: number | null
           pix_fee_percentage?: number | null
           pix_release_days?: number | null
+          telesales_enabled?: boolean | null
           updated_at?: string | null
         }
         Update: {
@@ -15426,16 +15786,20 @@ export type Database = {
           card_fee_percentage?: number | null
           card_release_days?: number | null
           created_at?: string | null
+          daily_transaction_limit_cents?: number | null
           id?: string
           installment_fee_passed_to_buyer?: boolean | null
           installment_fees?: Json | null
           max_installments?: number | null
+          max_transaction_cents?: number | null
           notes?: string | null
           organization_id?: string
+          payment_link_enabled?: boolean | null
           pix_enabled?: boolean | null
           pix_fee_fixed_cents?: number | null
           pix_fee_percentage?: number | null
           pix_release_days?: number | null
+          telesales_enabled?: boolean | null
           updated_at?: string | null
         }
         Relationships: [
@@ -15671,6 +16035,7 @@ export type Database = {
       user_permissions: {
         Row: {
           ai_bots_view: boolean
+          bank_account_manage: boolean | null
           cash_verification_confirm: boolean
           cash_verification_view: boolean
           created_at: string
@@ -15694,6 +16059,8 @@ export type Database = {
           leads_view: boolean
           leads_view_only_own: boolean
           organization_id: string
+          payment_links_create: boolean | null
+          payment_links_view_transactions: boolean | null
           post_sale_manage: boolean
           post_sale_view: boolean
           products_manage: boolean
@@ -15738,6 +16105,7 @@ export type Database = {
           team_panel_view: boolean
           team_toggle_manager: boolean
           team_view: boolean
+          telesales_charge_card: boolean | null
           updated_at: string
           user_id: string
           whatsapp_ai_settings_view: boolean | null
@@ -15745,9 +16113,11 @@ export type Database = {
           whatsapp_send: boolean
           whatsapp_v2_view: boolean | null
           whatsapp_view: boolean
+          withdrawal_request: boolean | null
         }
         Insert: {
           ai_bots_view?: boolean
+          bank_account_manage?: boolean | null
           cash_verification_confirm?: boolean
           cash_verification_view?: boolean
           created_at?: string
@@ -15771,6 +16141,8 @@ export type Database = {
           leads_view?: boolean
           leads_view_only_own?: boolean
           organization_id: string
+          payment_links_create?: boolean | null
+          payment_links_view_transactions?: boolean | null
           post_sale_manage?: boolean
           post_sale_view?: boolean
           products_manage?: boolean
@@ -15815,6 +16187,7 @@ export type Database = {
           team_panel_view?: boolean
           team_toggle_manager?: boolean
           team_view?: boolean
+          telesales_charge_card?: boolean | null
           updated_at?: string
           user_id: string
           whatsapp_ai_settings_view?: boolean | null
@@ -15822,9 +16195,11 @@ export type Database = {
           whatsapp_send?: boolean
           whatsapp_v2_view?: boolean | null
           whatsapp_view?: boolean
+          withdrawal_request?: boolean | null
         }
         Update: {
           ai_bots_view?: boolean
+          bank_account_manage?: boolean | null
           cash_verification_confirm?: boolean
           cash_verification_view?: boolean
           created_at?: string
@@ -15848,6 +16223,8 @@ export type Database = {
           leads_view?: boolean
           leads_view_only_own?: boolean
           organization_id?: string
+          payment_links_create?: boolean | null
+          payment_links_view_transactions?: boolean | null
           post_sale_manage?: boolean
           post_sale_view?: boolean
           products_manage?: boolean
@@ -15892,6 +16269,7 @@ export type Database = {
           team_panel_view?: boolean
           team_toggle_manager?: boolean
           team_view?: boolean
+          telesales_charge_card?: boolean | null
           updated_at?: string
           user_id?: string
           whatsapp_ai_settings_view?: boolean | null
@@ -15899,6 +16277,7 @@ export type Database = {
           whatsapp_send?: boolean
           whatsapp_v2_view?: boolean | null
           whatsapp_view?: boolean
+          withdrawal_request?: boolean | null
         }
         Relationships: [
           {
@@ -18043,6 +18422,7 @@ export type Database = {
             Returns: string
           }
       generate_implementer_code: { Args: never; Returns: string }
+      generate_payment_link_slug: { Args: never; Returns: string }
       get_active_agent_for_instance: {
         Args: {
           p_current_day?: number

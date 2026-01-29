@@ -64,6 +64,7 @@ const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
 const SalesReport = lazy(() => import("./pages/SalesReport"));
 const Attribution = lazy(() => import("./pages/Attribution"));
 const PosTransactionsReport = lazy(() => import("./pages/PosTransactionsReport"));
+const Cobrar = lazy(() => import("./pages/Cobrar"));
 
 // Products & Stock
 const Products = lazy(() => import("./pages/Products"));
@@ -663,6 +664,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['reports_view']}>
                       <Financial />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Cobranças / Payment Links */}
+                <Route
+                  path="/cobrar"
+                  element={
+                    <ProtectedRoute>
+                      <Cobrar />
                     </ProtectedRoute>
                   }
                 />
