@@ -646,16 +646,19 @@ export async function processSaleSplitsV3(
       description: `Taxa plataforma - Venda #${saleId.slice(0, 8)}`,
     });
 
-    if (created) {
-      result.platform_amount = platformFeeCents;
-      remaining -= platformFeeCents;
-    }
+    // IMPORTANT: Even if this was a duplicate insert (recovery / parallel webhook),
+    // we must still consider the platform fee in the calculation base.
+    // Otherwise partners will be calculated on the full subtotal and overpay.
+    result.platform_amount = platformFeeCents;
+    remaining = Math.max(0, remaining - platformFeeCents);
   }
 
   // Calculate base for affiliate commission = baseCents - platformFeeCents
   // This ensures affiliate gets commission on (sale value - platform fee) only
   // NOT affected by factory/industry deductions, NOT including interest
-  const baseForAffiliateCommission = baseCents - result.platform_amount;
+  // Use the computed platform fee cents directly (not the created/inserted result),
+  // so recovery/duplicate runs still calculate on the correct net base.
+  const baseForAffiliateCommission = Math.max(0, baseCents - platformFeeCents);
 
   // =====================================================
   // STEP C.5: COPRODUCERS (liable for refund/chargeback like affiliate)
@@ -672,8 +675,11 @@ export async function processSaleSplitsV3(
       if (coproducerData && coproducerData.length > 0) {
         for (const coprod of coproducerData) {
           const commissionPercent = Number(coprod.commission_percentage) || 0;
-          // Calculate coproducer amount based on the item total
-          let coproducerAmount = Math.round(item.total_cents * (commissionPercent / 100));
+          // Calculate coproducer amount on NET base (subtotal - platform fee), not on gross subtotal.
+          // When multiple items exist, allocate net base proportionally by item weight.
+          const itemShare = baseCents > 0 ? (item.total_cents / baseCents) : 0;
+          const itemNetBase = Math.round(baseForAffiliateCommission * itemShare);
+          let coproducerAmount = Math.round(itemNetBase * (commissionPercent / 100));
           
           // CAP: Never exceed remaining amount
           coproducerAmount = Math.min(coproducerAmount, remaining);
@@ -735,7 +741,9 @@ export async function processSaleSplitsV3(
 
   // =====================================================
   // STEP C.6: STOREFRONT-LINKED PARTNERS (Industry/Factory/Coproducer)
-  // Partners manually assigned to this specific storefront via AffiliatesTab
+  // Partners manually assigned to this specific storefront.
+  // IMPORTANT: Affiliates are NOT paid from storefront links here.
+  // Affiliate commission must ONLY be paid when there is an attribution (?ref=) recorded.
   // =====================================================
   if (storefrontId) {
     // Fetch all partners linked to this storefront
@@ -759,6 +767,13 @@ export async function processSaleSplitsV3(
         const commissionType = partner.commission_type || 'percentage';
         const commissionValue = Number(partner.commission_value) || 0;
         const partnerType = partner.partner_type || 'affiliate';
+
+        // CRITICAL BUSINESS RULE:
+        // Affiliate only earns if the customer bought through that affiliate's link (?ref=).
+        // Storefront partner assignments must NOT pay affiliates automatically.
+        if (partnerType === 'affiliate') {
+          continue;
+        }
         const liableForRefund = partner.responsible_for_refunds ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
         const liableForChargeback = partner.responsible_for_chargebacks ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
 
