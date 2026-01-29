@@ -310,7 +310,7 @@ export function useMyPermissions() {
         throw error;
       }
       
-      return data as UserPermissions;
+      return data as unknown as UserPermissions;
     },
     enabled: !!user?.id && !!tenantId,
   });
@@ -331,7 +331,7 @@ export function useOrgUserPermissions() {
         .eq('organization_id', tenantId);
       
       if (error) throw error;
-      return data as UserPermissions[];
+      return data as unknown as UserPermissions[];
     },
     enabled: !!tenantId,
   });
@@ -358,7 +358,7 @@ export function useUserPermissions(userId: string | undefined) {
         throw error;
       }
       
-      return data as UserPermissions;
+      return data as unknown as UserPermissions;
     },
     enabled: !!tenantId && !!userId,
   });
