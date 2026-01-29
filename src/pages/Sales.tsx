@@ -202,9 +202,11 @@ export default function Sales() {
       // Search filter
       if (searchTerm) {
         const search = normalizeText(searchTerm);
+        const romaneioStr = String(sale.romaneio_number || '');
         const matchesSearch = (
           normalizeText(sale.lead?.name || '').includes(search) ||
-          sale.lead?.whatsapp?.includes(searchTerm)
+          sale.lead?.whatsapp?.includes(searchTerm) ||
+          romaneioStr.includes(searchTerm)
         );
         if (!matchesSearch) return false;
       }
@@ -422,7 +424,7 @@ export default function Sales() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente..."
+                placeholder="Buscar por cliente ou nº da venda..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
