@@ -1375,6 +1375,7 @@ export default function AddReceptivo() {
         scheduled_delivery_shift: deliveryConfig.scheduledShift,
         shipping_carrier_id: deliveryConfig.carrierId,
         shipping_cost_cents: deliveryConfig.shippingCost,
+        shipping_cost_real_cents: deliveryConfig.shippingCostReal || deliveryConfig.shippingCost, // Real cost for free shipping tracking
         shipping_address_id: selectedAddressId, // Include selected address
         payment_method_id: selectedPaymentMethodId,
         payment_installments: selectedInstallments,

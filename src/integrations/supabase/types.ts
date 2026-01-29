@@ -14090,6 +14090,7 @@ export type Database = {
           shipping_address_id: string | null
           shipping_carrier_id: string | null
           shipping_cost_cents: number | null
+          shipping_cost_real_cents: number | null
           src: string | null
           status: Database["public"]["Enums"]["sale_status"]
           subtotal_cents: number
@@ -14187,6 +14188,7 @@ export type Database = {
           shipping_address_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
+          shipping_cost_real_cents?: number | null
           src?: string | null
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal_cents?: number
@@ -14284,6 +14286,7 @@ export type Database = {
           shipping_address_id?: string | null
           shipping_carrier_id?: string | null
           shipping_cost_cents?: number | null
+          shipping_cost_real_cents?: number | null
           src?: string | null
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal_cents?: number
