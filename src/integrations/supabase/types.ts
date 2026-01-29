@@ -14930,6 +14930,7 @@ export type Database = {
           max_users: number
           monthly_energy: number | null
           name: string
+          pagarme_plan_id: string | null
           payment_provider: string | null
           price_cents: number
           stripe_extra_energy_price_id: string | null
@@ -14953,6 +14954,7 @@ export type Database = {
           max_users: number
           monthly_energy?: number | null
           name: string
+          pagarme_plan_id?: string | null
           payment_provider?: string | null
           price_cents: number
           stripe_extra_energy_price_id?: string | null
@@ -14976,6 +14978,7 @@ export type Database = {
           max_users?: number
           monthly_energy?: number | null
           name?: string
+          pagarme_plan_id?: string | null
           payment_provider?: string | null
           price_cents?: number
           stripe_extra_energy_price_id?: string | null
