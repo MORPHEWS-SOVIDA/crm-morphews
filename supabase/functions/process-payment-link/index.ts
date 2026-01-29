@@ -430,6 +430,34 @@ serve(async (req) => {
       user_agent: req.headers.get("user-agent"),
     });
 
+    // If payment is approved and linked to a sale, update the sale status
+    if (transactionStatus === "paid" && sale_id) {
+      try {
+        await supabaseAdmin
+          .from("sales")
+          .update({
+            payment_status: "paid",
+            payment_confirmed_at: new Date().toISOString(),
+            payment_method: "credit_card",
+            payment_notes: `Pago via Televendas - Transação #${transaction.id} - Cartão ${transactionData.card_brand || ""} •••• ${transactionData.card_last_digits || ""}`,
+          })
+          .eq("id", sale_id);
+
+        console.log(`Sale ${sale_id} marked as paid`);
+      } catch (saleUpdateError) {
+        console.error("Error updating sale:", saleUpdateError);
+        // Don't fail the transaction, just log the error
+      }
+    }
+
+    // Increment use count if payment link
+    if (paymentLinkId && transactionStatus === "paid") {
+      await supabaseAdmin
+        .from("payment_links")
+        .update({ use_count: (paymentLink?.use_count || 0) + 1 })
+        .eq("id", paymentLinkId);
+    }
+
     // Build response
     const response: Record<string, unknown> = {
       success: true,
