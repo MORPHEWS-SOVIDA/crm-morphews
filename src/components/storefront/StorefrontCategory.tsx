@@ -1,67 +1,12 @@
 import { useOutletContext, useParams, Link } from 'react-router-dom';
 import { Package, ArrowLeft } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import type { StorefrontData, PublicProduct } from '@/hooks/ecommerce/usePublicStorefront';
-import type { StorefrontProduct } from '@/hooks/ecommerce';
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(cents / 100);
-}
-
-function ProductCard({ 
-  storefrontProduct, 
-  storefrontSlug,
-  primaryColor 
-}: { 
-  storefrontProduct: StorefrontProduct & { product: PublicProduct };
-  storefrontSlug: string;
-  primaryColor: string;
-}) {
-  const product = storefrontProduct.product;
-  const displayName = product.ecommerce_title || product.name;
-  const displayDescription = product.ecommerce_short_description || product.description;
-  const displayImage = (product.ecommerce_images?.[0]) || product.image_url;
-  const price = storefrontProduct.custom_price_cents || product.price_1_unit || product.base_price_cents || 0;
-
-  return (
-    <Link to={`/loja/${storefrontSlug}/produto/${product.id}`}>
-      <Card className="group overflow-hidden hover:shadow-lg transition-shadow">
-        <div className="aspect-square relative overflow-hidden bg-muted">
-          {displayImage ? (
-            <img 
-              src={displayImage} 
-              alt={displayName}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Package className="h-16 w-16 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-        <CardContent className="p-4">
-          <h3 className="font-semibold line-clamp-2 mb-1">{displayName}</h3>
-          {displayDescription && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-              {displayDescription}
-            </p>
-          )}
-          <span className="text-lg font-bold" style={{ color: primaryColor }}>
-            {formatCurrency(price)}
-          </span>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
+import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
+import { TemplatedProductCard } from './templates/TemplatedProductCard';
 
 export function StorefrontCategory() {
-  const { storefront } = useOutletContext<{ storefront: StorefrontData & { all_products: any[] } }>();
+  const { storefront } = useOutletContext<{ storefront: StorefrontData & { all_products: any[], installment_config?: any } }>();
   const { categorySlug } = useParams<{ categorySlug: string }>();
+  const templateSlug = storefront.template?.slug;
   
   const category = storefront.categories.find(c => c.slug === categorySlug);
   
@@ -120,11 +65,15 @@ export function StorefrontCategory() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {categoryProducts.map(sp => (
-            <ProductCard 
+            <TemplatedProductCard 
               key={sp.id}
-              storefrontProduct={sp}
+              product={sp.product}
               storefrontSlug={storefront.slug}
+              customPriceCents={sp.custom_price_cents}
+              isFeatured={sp.is_featured}
+              templateSlug={templateSlug}
               primaryColor={storefront.primary_color}
+              installmentConfig={storefront.installment_config}
             />
           ))}
         </div>
