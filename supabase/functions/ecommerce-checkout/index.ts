@@ -238,7 +238,42 @@ serve(async (req) => {
         .maybeSingle();
 
       if (orgAffiliate) {
-        // Check if this affiliate is part of a network that has this checkout
+        // IMPORTANT: Set affiliatePartnerId to organization_affiliates.id for ecommerce_orders visibility
+        affiliatePartnerId = orgAffiliate.id;
+        
+        // Use default commission from organization_affiliates
+        affiliateCommissionType = orgAffiliate.default_commission_type || 'percentage';
+        affiliateCommissionValue = Number(orgAffiliate.default_commission_value) || 10;
+        
+        // Get or create virtual account for this affiliate
+        if (orgAffiliate.user_id) {
+          const { data: vaByUser } = await supabase
+            .from('virtual_accounts')
+            .select('id')
+            .eq('user_id', orgAffiliate.user_id)
+            .maybeSingle();
+          
+          if (vaByUser) {
+            affiliateVirtualAccountId = vaByUser.id;
+          } else {
+            // Create virtual account for this affiliate user
+            const { data: newVA } = await supabase
+              .from('virtual_accounts')
+              .insert({
+                organization_id: organizationId,
+                user_id: orgAffiliate.user_id,
+                account_type: 'affiliate',
+                holder_name: orgAffiliate.name || orgAffiliate.email,
+                holder_email: orgAffiliate.email,
+              })
+              .select('id')
+              .single();
+            
+            affiliateVirtualAccountId = newVA?.id || null;
+          }
+        }
+        
+        // Check if this affiliate is part of a network (optional override for commission)
         const { data: networkMember } = await supabase
           .from('affiliate_network_members')
           .select(`
@@ -254,41 +289,13 @@ serve(async (req) => {
           .maybeSingle();
 
         if (networkMember) {
-          // Use network member's commission settings
+          // Override with network member's commission settings if available
           affiliateNetworkMemberId = networkMember.id;
-          affiliateCommissionType = networkMember.commission_type || 'percentage';
-          affiliateCommissionValue = Number(networkMember.commission_value) || 10;
-          
-          // Create/get virtual account for this affiliate via user_id
-          if (orgAffiliate.user_id) {
-            const { data: vaByUser } = await supabase
-              .from('virtual_accounts')
-              .select('id')
-              .eq('user_id', orgAffiliate.user_id)
-              .maybeSingle();
-            
-            if (vaByUser) {
-              affiliateVirtualAccountId = vaByUser.id;
-            } else {
-              // Create virtual account for this affiliate user
-              const { data: newVA } = await supabase
-                .from('virtual_accounts')
-                .insert({
-                  organization_id: organizationId,
-                  user_id: orgAffiliate.user_id,
-                  account_type: 'affiliate',
-                  holder_name: orgAffiliate.name || orgAffiliate.email,
-                  holder_email: orgAffiliate.email,
-                })
-                .select('id')
-                .single();
-              
-              affiliateVirtualAccountId = newVA?.id || null;
-            }
-          }
-          
-          console.log(`[Checkout] Found network affiliate ${affiliate_code}: commission=${affiliateCommissionValue}${affiliateCommissionType === 'percentage' ? '%' : 'c'}`);
+          affiliateCommissionType = networkMember.commission_type || affiliateCommissionType;
+          affiliateCommissionValue = Number(networkMember.commission_value) || affiliateCommissionValue;
         }
+        
+        console.log(`[Checkout] Found affiliate ${affiliate_code} (org_affiliates.id=${orgAffiliate.id}): commission=${affiliateCommissionValue}${affiliateCommissionType === 'percentage' ? '%' : 'c'}`);
       }
 
       // LEGACY: Fallback to partner_associations if not found via networks
