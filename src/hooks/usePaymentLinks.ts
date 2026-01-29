@@ -309,6 +309,8 @@ export function useProcessPayment() {
       paymentLinkId?: string;
       organizationId?: string;
       amount_cents: number;
+      base_amount_cents?: number; // Valor base SEM juros (para cálculo de comissões)
+      interest_amount_cents?: number; // Juros de parcelamento (vai para plataforma)
       payment_method: 'pix' | 'boleto' | 'credit_card';
       installments?: number;
       customer: {

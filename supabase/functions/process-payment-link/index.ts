@@ -10,6 +10,8 @@ interface PaymentLinkRequest {
   paymentLinkId?: string;
   organizationId?: string;
   amount_cents: number;
+  base_amount_cents?: number; // Valor base SEM juros (para cálculo de comissões do tenant)
+  interest_amount_cents?: number; // Juros de parcelamento (receita da plataforma)
   payment_method: "pix" | "boleto" | "credit_card";
   installments?: number;
   customer: {
@@ -46,6 +48,8 @@ serve(async (req) => {
       paymentLinkId, 
       organizationId: orgIdFromBody,
       amount_cents, 
+      base_amount_cents,
+      interest_amount_cents = 0,
       payment_method, 
       installments = 1,
       customer, 
@@ -55,6 +59,9 @@ serve(async (req) => {
       lead_id,
       metadata = {}
     } = body;
+
+    // Valor base para cálculo de comissões (sem juros) - se não informado, usa amount_cents
+    const baseAmountForSplit = base_amount_cents || amount_cents;
 
     // Validate required fields
     if (!amount_cents || !payment_method || !customer?.document) {
@@ -252,6 +259,8 @@ serve(async (req) => {
         origin_type,
         sale_id,
         lead_id,
+        base_amount_cents: baseAmountForSplit, // Valor base para split (sem juros)
+        interest_amount_cents: interest_amount_cents, // Juros = receita plataforma
         ...metadata,
       },
     };
@@ -351,7 +360,9 @@ serve(async (req) => {
       customer_email: customer.email,
       customer_phone: customer.phone,
       customer_document: cleanDocument,
-      amount_cents,
+      amount_cents, // Valor total cobrado (com juros se houver)
+      base_amount_cents: baseAmountForSplit, // Valor base para cálculo de comissão do tenant
+      interest_amount_cents: interest_amount_cents, // Juros = receita plataforma
       fee_cents: feeCents,
       payment_method,
       gateway_type: "pagarme",
