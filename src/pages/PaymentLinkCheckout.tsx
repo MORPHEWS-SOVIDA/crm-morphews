@@ -46,6 +46,12 @@ interface PaymentLink {
   max_uses: number | null;
   use_count: number;
   is_active: boolean;
+  // Client-specific fields
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  customer_document: string | null;
+  lead_id: string | null;
 }
 
 interface TenantFees {
@@ -69,6 +75,15 @@ export default function PaymentLinkCheckout() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerDocument, setCustomerDocument] = useState('');
+  
+  // Address (optional for multi-use links)
+  const [showAddress, setShowAddress] = useState(false);
+  const [cep, setCep] = useState('');
+  const [street, setStreet] = useState('');
+  const [streetNumber, setStreetNumber] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   
   // Card data
   const [cardNumber, setCardNumber] = useState('');
@@ -132,6 +147,16 @@ export default function PaymentLinkCheckout() {
   useEffect(() => {
     if (paymentLink?.amount_cents) {
       setAmount(paymentLink.amount_cents);
+    }
+  }, [paymentLink]);
+
+  // Pre-fill customer data if it's a client-specific link
+  useEffect(() => {
+    if (paymentLink) {
+      if (paymentLink.customer_name) setCustomerName(paymentLink.customer_name);
+      if (paymentLink.customer_email) setCustomerEmail(paymentLink.customer_email);
+      if (paymentLink.customer_phone) setCustomerPhone(formatPhone(paymentLink.customer_phone));
+      if (paymentLink.customer_document) setCustomerDocument(formatDocument(paymentLink.customer_document));
     }
   }, [paymentLink]);
 
@@ -526,6 +551,11 @@ export default function PaymentLinkCheckout() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Seus Dados</CardTitle>
+            {paymentLink.customer_name && (
+              <p className="text-xs text-muted-foreground">
+                Dados já preenchidos pelo vendedor
+              </p>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -535,6 +565,8 @@ export default function PaymentLinkCheckout() {
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Seu nome"
+                  readOnly={!!paymentLink.customer_name}
+                  className={paymentLink.customer_name ? 'bg-muted' : ''}
                 />
               </div>
               <div className="col-span-2">
@@ -544,6 +576,8 @@ export default function PaymentLinkCheckout() {
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   placeholder="seu@email.com"
+                  readOnly={!!paymentLink.customer_email}
+                  className={paymentLink.customer_email ? 'bg-muted' : ''}
                 />
               </div>
               <div>
@@ -553,6 +587,8 @@ export default function PaymentLinkCheckout() {
                   onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
                   placeholder="(00) 00000-0000"
                   maxLength={15}
+                  readOnly={!!paymentLink.customer_phone}
+                  className={paymentLink.customer_phone ? 'bg-muted' : ''}
                 />
               </div>
               <div>
@@ -562,9 +598,80 @@ export default function PaymentLinkCheckout() {
                   onChange={(e) => setCustomerDocument(formatDocument(e.target.value))}
                   placeholder="000.000.000-00"
                   maxLength={18}
+                  readOnly={!!paymentLink.customer_document}
+                  className={paymentLink.customer_document ? 'bg-muted' : ''}
                 />
               </div>
             </div>
+
+            {/* Optional Address Section (for multi-use links only) */}
+            {!paymentLink.lead_id && (
+              <div className="pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowAddress(!showAddress)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>{showAddress ? '▼' : '▶'}</span>
+                  <span>Adicionar endereço (opcional)</span>
+                </button>
+                
+                {showAddress && (
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="col-span-2 sm:col-span-1">
+                      <Label>CEP</Label>
+                      <Input
+                        value={cep}
+                        onChange={(e) => setCep(e.target.value.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'))}
+                        placeholder="00000-000"
+                        maxLength={9}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label>Rua</Label>
+                      <Input
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                        placeholder="Nome da rua"
+                      />
+                    </div>
+                    <div>
+                      <Label>Número</Label>
+                      <Input
+                        value={streetNumber}
+                        onChange={(e) => setStreetNumber(e.target.value)}
+                        placeholder="123"
+                      />
+                    </div>
+                    <div>
+                      <Label>Bairro</Label>
+                      <Input
+                        value={neighborhood}
+                        onChange={(e) => setNeighborhood(e.target.value)}
+                        placeholder="Centro"
+                      />
+                    </div>
+                    <div>
+                      <Label>Cidade</Label>
+                      <Input
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="São Paulo"
+                      />
+                    </div>
+                    <div>
+                      <Label>Estado</Label>
+                      <Input
+                        value={state}
+                        onChange={(e) => setState(e.target.value.toUpperCase())}
+                        placeholder="SP"
+                        maxLength={2}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
