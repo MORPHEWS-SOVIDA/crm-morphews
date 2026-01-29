@@ -2,14 +2,24 @@ import { useParams, useOutletContext, Link } from 'react-router-dom';
 import { ShoppingCart, Package, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePublicProduct, type StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
+import { useCrosssellProducts } from '@/hooks/ecommerce/useCrosssellProducts';
 import { useCart } from './cart/CartContext';
 import { TemplatedProductPage } from './templates/TemplatedProductPage';
+import { ProductRecommendations } from './ProductRecommendations';
+import { toast } from 'sonner';
 
 export function StorefrontProductPage() {
   const { slug, productId } = useParams<{ slug: string; productId: string }>();
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
   const { data: storefrontProduct, isLoading, error } = usePublicProduct(slug, productId);
   const { addItem } = useCart();
+
+  // Fetch crosssell products
+  const { data: crosssellProducts = [] } = useCrosssellProducts(
+    storefront?.id,
+    storefrontProduct?.product?.crosssell_product_1_id,
+    storefrontProduct?.product?.crosssell_product_2_id
+  );
 
   if (isLoading) {
     return (
@@ -70,6 +80,9 @@ export function StorefrontProductPage() {
   // Determine template from storefront config
   const templateSlug = (storefront as any).template?.slug || 'minimal-clean';
 
+  // Check if crosssell is enabled for this product
+  const showCrosssell = storefrontProduct.show_crosssell !== false && crosssellProducts.length > 0;
+
   const handleAddToCart = (quantity: number, kitSize: 1 | 3 | 6 | 12) => {
     if (!slug) return;
     
@@ -84,25 +97,58 @@ export function StorefrontProductPage() {
     }, slug, storefront.id);
   };
 
+  const handleQuickAddCrosssell = (crosssellProduct: any) => {
+    if (!slug) return;
+    
+    const price = crosssellProduct.customPriceCents || crosssellProduct.price_1_unit || crosssellProduct.base_price_cents || 0;
+    addItem({
+      productId: crosssellProduct.id,
+      storefrontProductId: crosssellProduct.storefrontProductId,
+      name: crosssellProduct.ecommerce_title || crosssellProduct.name,
+      imageUrl: crosssellProduct.ecommerce_images?.[0] || crosssellProduct.image_url || null,
+      quantity: 1,
+      kitSize: 1,
+      unitPrice: price,
+    }, slug, storefront.id);
+    toast.success('Produto adicionado ao carrinho!');
+  };
+
   return (
-    <TemplatedProductPage
-      product={{
-        id: product.id,
-        name: displayName,
-        description: displayDescription,
-        images,
-        videoUrl: product.ecommerce_video_url || undefined,
-        benefits: benefits.map(b => String(b)),
-        basePrice,
-        kitPrices,
-        originalPrices,
-      }}
-      storefrontSlug={slug || ''}
-      storefrontName={storefront.name}
-      primaryColor={storefront.primary_color}
-      templateSlug={templateSlug}
-      showKitUpsell={storefrontProduct.show_kit_upsell !== false}
-      onAddToCart={handleAddToCart}
-    />
+    <>
+      <TemplatedProductPage
+        product={{
+          id: product.id,
+          name: displayName,
+          description: displayDescription,
+          images,
+          videoUrl: product.ecommerce_video_url || undefined,
+          benefits: benefits.map(b => String(b)),
+          basePrice,
+          kitPrices,
+          originalPrices,
+        }}
+        storefrontSlug={slug || ''}
+        storefrontName={storefront.name}
+        primaryColor={storefront.primary_color}
+        templateSlug={templateSlug}
+        showKitUpsell={storefrontProduct.show_kit_upsell !== false}
+        onAddToCart={handleAddToCart}
+      />
+
+      {/* Cross-sell Recommendations */}
+      {showCrosssell && (
+        <div className="container mx-auto px-4 pb-12">
+          <ProductRecommendations
+            products={crosssellProducts}
+            storefrontSlug={slug || ''}
+            primaryColor={storefront.primary_color}
+            title="Produtos Relacionados"
+            subtitle="Clientes que compraram este produto também se interessaram por:"
+            variant="product-page"
+            onQuickAdd={handleQuickAddCrosssell}
+          />
+        </div>
+      )}
+    </>
   );
 }

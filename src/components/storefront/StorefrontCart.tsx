@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from './cart/CartContext';
+import { useCartRecommendations } from '@/hooks/ecommerce/useCrosssellProducts';
+import { ProductRecommendations } from './ProductRecommendations';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
-
+import { toast } from 'sonner';
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -16,7 +18,15 @@ function formatCurrency(cents: number): string {
 
 export function StorefrontCart() {
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
-  const { items, updateQuantity, removeItem, subtotal, clearCart } = useCart();
+  const { items, updateQuantity, removeItem, subtotal, clearCart, storefrontSlug, storefrontId, addItem } = useCart();
+
+  const cartProductIds = items.map(item => item.productId);
+  
+  // Fetch recommendations based on cart items
+  const { data: recommendations = [] } = useCartRecommendations(
+    storefrontId || storefront.id,
+    cartProductIds
+  );
 
   const cartConfig = storefront.cart_config as {
     showCrosssell?: boolean;
@@ -34,6 +44,23 @@ export function StorefrontCart() {
     ? Math.max(0, freeShippingThreshold - subtotal)
     : 0;
   const canCheckout = subtotal >= minOrderValue;
+
+  // Check if crosssell is enabled in cart settings
+  const showCrosssell = cartConfig.showCrosssell !== false && recommendations.length > 0;
+
+  const handleQuickAddRecommendation = (product: any) => {
+    const price = product.customPriceCents || product.price_1_unit || product.base_price_cents || 0;
+    addItem({
+      productId: product.id,
+      storefrontProductId: product.storefrontProductId,
+      name: product.ecommerce_title || product.name,
+      imageUrl: product.ecommerce_images?.[0] || product.image_url || null,
+      quantity: 1,
+      kitSize: 1,
+      unitPrice: price,
+    }, storefront.slug, storefront.id);
+    toast.success('Produto adicionado ao carrinho!');
+  };
 
   if (items.length === 0) {
     return (
@@ -179,6 +206,19 @@ export function StorefrontCart() {
               Limpar Carrinho
             </Button>
           </div>
+
+          {/* Cart Recommendations */}
+          {showCrosssell && (
+            <ProductRecommendations
+              products={recommendations}
+              storefrontSlug={storefront.slug}
+              primaryColor={storefront.primary_color}
+              title="Complete sua compra"
+              subtitle="Produtos que combinam com seu pedido"
+              variant="cart"
+              onQuickAdd={handleQuickAddRecommendation}
+            />
+          )}
         </div>
 
         {/* Order Summary */}
