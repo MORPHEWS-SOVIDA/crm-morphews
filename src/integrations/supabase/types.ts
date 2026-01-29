@@ -3120,6 +3120,7 @@ export type Database = {
           notify_team_on_payment: boolean
           organization_id: string
           paid_notification_funnel_stage_id: string | null
+          receptivo_sale_funnel_stage_id: string | null
           updated_at: string
           whatsapp_recovery_delay_minutes: number
         }
@@ -3140,6 +3141,7 @@ export type Database = {
           notify_team_on_payment?: boolean
           organization_id: string
           paid_notification_funnel_stage_id?: string | null
+          receptivo_sale_funnel_stage_id?: string | null
           updated_at?: string
           whatsapp_recovery_delay_minutes?: number
         }
@@ -3160,6 +3162,7 @@ export type Database = {
           notify_team_on_payment?: boolean
           organization_id?: string
           paid_notification_funnel_stage_id?: string | null
+          receptivo_sale_funnel_stage_id?: string | null
           updated_at?: string
           whatsapp_recovery_delay_minutes?: number
         }
@@ -3188,6 +3191,13 @@ export type Database = {
           {
             foreignKeyName: "ecommerce_automation_config_paid_notification_funnel_stage_fkey"
             columns: ["paid_notification_funnel_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_automation_config_receptivo_sale_funnel_stage_id_fkey"
+            columns: ["receptivo_sale_funnel_stage_id"]
             isOneToOne: false
             referencedRelation: "organization_funnel_stages"
             referencedColumns: ["id"]
