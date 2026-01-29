@@ -125,6 +125,13 @@ export interface UserPermissions {
   telesales_view: boolean;
   telesales_manage: boolean;
   
+  // Payment Links & Telesales
+  payment_links_create: boolean;
+  payment_links_view_transactions: boolean;
+  telesales_charge_card: boolean;
+  bank_account_manage: boolean;
+  withdrawal_request: boolean;
+  
   // IA de Vendas
   ai_sales_chatbot_view: boolean;
   ai_product_recommendations_view: boolean;
@@ -251,6 +258,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   telesales_view: { label: 'Ver Televendas', description: 'Acessar painel de televendas', group: 'E-commerce' },
   telesales_manage: { label: 'Gerenciar Televendas', description: 'Configurar televendas e filas', group: 'E-commerce' },
   
+  // Links de Pagamento / Cobrar
+  payment_links_create: { label: 'Criar Links de Pagamento', description: 'Criar novos links de cobrança', group: 'Cobrar' },
+  payment_links_view_transactions: { label: 'Ver Transações', description: 'Visualizar transações dos links de pagamento', group: 'Cobrar' },
+  telesales_charge_card: { label: 'Cobrar Cartão (Televendas)', description: 'Realizar cobranças manuais de cartão por telefone', group: 'Cobrar' },
+  bank_account_manage: { label: 'Gerenciar Conta Bancária', description: 'Cadastrar e editar contas para saque', group: 'Cobrar' },
+  withdrawal_request: { label: 'Solicitar Saque', description: 'Solicitar transferência do saldo para conta bancária', group: 'Cobrar' },
   // IA de Vendas
   ai_sales_chatbot_view: { label: 'Chatbot IA Vendas', description: 'Usar chatbot de vendas nas landing pages', group: 'IA de Vendas' },
   ai_product_recommendations_view: { label: 'Recomendações IA', description: 'Ver recomendações de produtos por IA', group: 'IA de Vendas' },
