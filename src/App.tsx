@@ -88,7 +88,6 @@ const PickupClosingPrint = lazy(() => import("./pages/PickupClosingPrint"));
 const PickupClosing = lazy(() => import("./pages/PickupClosing"));
 const MotoboyClosingPage = lazy(() => import("./pages/DeliveryClosing").then(m => ({ default: m.MotoboyClosingPage })));
 const CarrierClosingPage = lazy(() => import("./pages/DeliveryClosing").then(m => ({ default: m.CarrierClosingPage })));
-const CashVerification = lazy(() => import("./pages/CashVerification"));
 
 // WhatsApp
 const WhatsAppDMs = lazy(() => import("./pages/WhatsAppDMs"));
@@ -828,14 +827,6 @@ const App = () => (
                 <Route
                   path="/expedicao/fechamento/:closingId/imprimir"
                   element={<PickupClosingPrint />}
-                />
-                <Route
-                  path="/expedicao/conferencia-dinheiro"
-                  element={
-                    <ProtectedRoute requiredPermissions={['cash_verification_view']}>
-                      <CashVerification />
-                    </ProtectedRoute>
-                  }
                 />
                 
                 {/* 2FA - for managers only */}

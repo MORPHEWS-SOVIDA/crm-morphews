@@ -20,6 +20,8 @@ import {
   Bike,
   Truck,
   Lock,
+  Banknote,
+  AlertCircle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -28,6 +30,14 @@ import { formatCurrency } from '@/hooks/useSales';
 import { useAuth } from '@/hooks/useAuth';
 import { calculateCategoryTotals, getCategoryConfig } from '@/lib/paymentCategories';
 import { PaymentCategoryTotals, PaymentCategoryBadges } from '@/components/expedition/PaymentCategoryTotals';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   useAvailableClosingSales,
   useDeliveryClosings,
@@ -60,6 +70,9 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
+  const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
+  const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
+  const [pendingCashAmount, setPendingCashAmount] = useState(0);
 
   const { data: availableSales = [], isLoading: loadingSales } = useAvailableClosingSales(closingType);
   const { data: closings = [], isLoading: loadingClosings } = useDeliveryClosings(closingType);
@@ -135,6 +148,30 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
     try {
       await confirmClosing.mutateAsync({ closingId, closingType, type });
       toast.success(type === 'auxiliar' ? 'Confirmado pelo auxiliar!' : 'Confirmação final realizada!');
+    } catch (error) {
+      toast.error('Erro ao confirmar');
+      console.error(error);
+    }
+  };
+
+  const handleOpenCashConfirm = (closing: DeliveryClosingType) => {
+    setPendingCashClosingId(closing.id);
+    setPendingCashAmount(closing.total_cash_cents);
+    setCashConfirmDialogOpen(true);
+  };
+
+  const handleConfirmCash = async () => {
+    if (!pendingCashClosingId) return;
+    
+    try {
+      await confirmClosing.mutateAsync({ 
+        closingId: pendingCashClosingId, 
+        closingType, 
+        type: 'admin' 
+      });
+      toast.success('Dinheiro conferido e fechamento confirmado!');
+      setCashConfirmDialogOpen(false);
+      setPendingCashClosingId(null);
     } catch (error) {
       toast.error('Erro ao confirmar');
       console.error(error);
@@ -415,24 +452,42 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                           )
                         )}
                         
-                        {/* Confirm Admin Button */}
-                        {closing.status === 'confirmed_auxiliar' && (
-                          canConfirmAdmin ? (
+                        {/* Admin Buttons - Two separate confirmations */}
+                        {closing.status === 'confirmed_auxiliar' && canConfirmAdmin && (
+                          <>
+                            {/* Confirm Report Button */}
                             <Button 
                               size="sm"
-                              className="bg-green-600 hover:bg-green-700"
+                              variant="outline"
+                              className="border-blue-400 text-blue-700 hover:bg-blue-50"
                               onClick={() => handleConfirm(closing.id, 'admin')}
-                              disabled={confirmClosing.isPending}
+                              disabled={confirmClosing.isPending || closing.total_cash_cents > 0}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Confirmar Final
+                              Confirmar Relatório
                             </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" disabled className="opacity-50">
-                              <Lock className="w-4 h-4 mr-1" />
-                              Confirmar Final
-                            </Button>
-                          )
+
+                            {/* Confirm Cash Button - Only if there's cash */}
+                            {closing.total_cash_cents > 0 && (
+                              <Button 
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => handleOpenCashConfirm(closing)}
+                                disabled={confirmClosing.isPending}
+                              >
+                                <Banknote className="w-4 h-4 mr-1" />
+                                Conferir Dinheiro ({formatCurrency(closing.total_cash_cents)})
+                              </Button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Admin locked button when not authorized */}
+                        {closing.status === 'confirmed_auxiliar' && !canConfirmAdmin && (
+                          <Button variant="outline" size="sm" disabled className="opacity-50">
+                            <Lock className="w-4 h-4 mr-1" />
+                            Aguardando Admin
+                          </Button>
                         )}
                       </div>
 
@@ -463,6 +518,54 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Cash Confirmation Dialog */}
+        <Dialog open={cashConfirmDialogOpen} onOpenChange={setCashConfirmDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-green-600" />
+                Confirmar Recebimento em Dinheiro
+              </DialogTitle>
+              <DialogDescription>
+                Você está confirmando que recebeu o valor em dinheiro deste fechamento.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-6">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <p className="text-sm text-green-700 mb-2">Valor total em dinheiro</p>
+                <p className="text-4xl font-bold text-green-700">
+                  {formatCurrency(pendingCashAmount)}
+                </p>
+              </div>
+              
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-yellow-800">
+                    Ao confirmar, você atesta que conferiu e recebeu este valor em espécie.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setCashConfirmDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleConfirmCash}
+                disabled={confirmClosing.isPending}
+              >
+                {confirmClosing.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Banknote className="w-4 h-4 mr-2" />
+                Confirmar Recebimento
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

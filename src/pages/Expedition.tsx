@@ -783,16 +783,6 @@ export default function Expedition() {
               <Truck className="w-4 h-4 mr-2" />
               Baixa Transportadora
             </Button>
-            {permissions?.cash_verification_view && (
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/expedicao/conferencia-dinheiro')}
-                className="border-green-300 text-green-700 hover:bg-green-50"
-              >
-                <Banknote className="w-4 h-4 mr-2" />
-                Dinheiro
-              </Button>
-            )}
             <Button variant="outline" onClick={() => navigate('/expedicao/etiquetas-correios')}>
               <Package className="w-4 h-4 mr-2" />
               Etiquetas Correios
