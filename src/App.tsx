@@ -134,10 +134,32 @@ const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
 
 // Admin
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
-const FeatureOverrides = lazy(() => import("./pages/super-admin/FeatureOverrides"));
-const PlanEditorPage = lazy(() => import("./pages/super-admin/PlanEditorPage"));
 const InterestedLeads = lazy(() => import("./pages/InterestedLeads"));
 const Cadastro = lazy(() => import("./pages/Cadastro"));
+
+// Super Admin Pages (URL-based routing)
+const OrganizacoesPage = lazy(() => import("./pages/super-admin/OrganizacoesPage"));
+const UsuariosPage = lazy(() => import("./pages/super-admin/UsuariosPage"));
+const QuizLeadsPage = lazy(() => import("./pages/super-admin/QuizLeadsPage"));
+const InadimplenciaPage = lazy(() => import("./pages/super-admin/InadimplenciaPage"));
+const CuponsPage = lazy(() => import("./pages/super-admin/CuponsPage"));
+const PlanosPage = lazy(() => import("./pages/super-admin/PlanosPage"));
+const ImplementadoresPage = lazy(() => import("./pages/super-admin/ImplementadoresPage"));
+const ReceitasGatewayPage = lazy(() => import("./pages/super-admin/ReceitasGatewayPage"));
+const GatewaysPage = lazy(() => import("./pages/super-admin/GatewaysPage"));
+const TaxasTenantsPage = lazy(() => import("./pages/super-admin/TaxasTenantsPage"));
+const TemplatesLPPage = lazy(() => import("./pages/super-admin/TemplatesLPPage"));
+const CreditosWhatsAppPage = lazy(() => import("./pages/super-admin/CreditosWhatsAppPage"));
+const ProvedoresWhatsAppPage = lazy(() => import("./pages/super-admin/ProvedoresWhatsAppPage"));
+const AdminInstancePage = lazy(() => import("./pages/super-admin/AdminInstancePage"));
+const EnergiaIAPage = lazy(() => import("./pages/super-admin/EnergiaIAPage"));
+const CustosModelosPage = lazy(() => import("./pages/super-admin/CustosModelosPage"));
+const SecretariaPage = lazy(() => import("./pages/super-admin/SecretariaPage"));
+const DonnaPage = lazy(() => import("./pages/super-admin/DonnaPage"));
+const ComunicacoesPage = lazy(() => import("./pages/super-admin/ComunicacoesPage"));
+const OverridesPage = lazy(() => import("./pages/super-admin/OverridesPage"));
+const LogsPage = lazy(() => import("./pages/super-admin/LogsPage"));
+const EmailsPage = lazy(() => import("./pages/super-admin/EmailsPage"));
 
 // Ecommerce
 const Ecommerce = lazy(() => import("./pages/Ecommerce"));
@@ -396,10 +418,186 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/super-admin/organizacoes"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <OrganizacoesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/usuarios"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <UsuariosPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/quiz"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <QuizLeadsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/billing/inadimplencia"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <InadimplenciaPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/billing/cupons"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <CuponsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/billing/planos"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <PlanosPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/billing/implementadores"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <ImplementadoresPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ecommerce/receitas-gateway"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <ReceitasGatewayPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ecommerce/gateways"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <GatewaysPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ecommerce/taxas-tenants"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <TaxasTenantsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ecommerce/templates-lp"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <TemplatesLPPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/whatsapp/creditos"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <CreditosWhatsAppPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/whatsapp/provedores"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <ProvedoresWhatsAppPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/whatsapp/admin-instance"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AdminInstancePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ia/energia-ia"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <EnergiaIAPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ia/custos-modelos"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <CustosModelosPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ia/secretaria"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <SecretariaPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/ia/donna"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <DonnaPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/sistema/comunicacoes"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <ComunicacoesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/sistema/overrides"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <OverridesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/sistema/logs"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <LogsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/sistema/emails"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <EmailsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/super-admin/feature-overrides"
                   element={
                     <ProtectedRoute requireAdmin>
-                      <FeatureOverrides />
+                      <OverridesPage />
                     </ProtectedRoute>
                   }
                 />
@@ -407,7 +605,23 @@ const App = () => (
                   path="/super-admin/plan-editor"
                   element={
                     <ProtectedRoute requireAdmin>
-                      <PlanEditorPage />
+                      <PlanosPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/editor-de-planos"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <PlanosPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/override-de-features"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <OverridesPage />
                     </ProtectedRoute>
                   }
                 />

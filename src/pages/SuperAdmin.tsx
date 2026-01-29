@@ -111,7 +111,11 @@ interface OnboardingData {
   completed_at: string | null;
 }
 
-export default function SuperAdmin() {
+interface SuperAdminProps {
+  defaultTab?: string;
+}
+
+export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminProps) {
   const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   
@@ -138,7 +142,7 @@ export default function SuperAdmin() {
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [sendingCredentialsFor, setSendingCredentialsFor] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("organizations");
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Only allow master admin
   if (!authLoading && user?.email !== MASTER_ADMIN_EMAIL) {
