@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { FunnelStage } from '@/types/lead';
 
+// TracZAP - Meta CAPI event types
+export type CapiEventName = 'Lead' | 'Contact' | 'Schedule' | 'Purchase' | 'CompleteRegistration' | 'SubmitApplication' | 'ViewContent' | null;
+
 export interface FunnelStageCustom {
   id: string;
   organization_id: string;
@@ -15,6 +18,9 @@ export interface FunnelStageCustom {
   enum_value: FunnelStage | null; // NEW: maps to lead.stage
   requires_contact: boolean; // Leads in this stage appear in "Clientes sem contato"
   default_followup_reason_id: string | null; // Follow-up automático preferencial para esta etapa
+  // TracZAP - CAPI integration
+  capi_event_name: CapiEventName; // Standard Meta event to fire when lead enters this stage
+  capi_custom_event: string | null; // Custom event name if using non-standard events
   created_at: string;
   updated_at: string;
 }

@@ -72,6 +72,9 @@ interface AddStageHistoryParams {
   previous_stage?: FunnelStage | null;
   reason?: string | null;
   changed_by?: string | null;
+  // TracZAP integration
+  to_stage_id?: string; // UUID of the target funnel stage for CAPI event trigger
+  source?: 'manual' | 'whatsapp' | 'automation' | 'webhook' | 'ecommerce';
 }
 
 export function useAddStageHistory() {
@@ -88,6 +91,7 @@ export function useAddStageHistory() {
           previous_stage: params.previous_stage || null,
           reason: params.reason || null,
           changed_by: params.changed_by || null,
+          source: params.source || 'manual',
         })
         .select()
         .single();
@@ -95,6 +99,32 @@ export function useAddStageHistory() {
       if (error) {
         console.error('Error adding stage history:', error);
         throw error;
+      }
+
+      // TracZAP: Dispatch stage event to Meta CAPI (non-blocking)
+      if (params.to_stage_id) {
+        try {
+          // Call TracZAP edge function asynchronously
+          supabase.functions.invoke('traczap-stage-event', {
+            body: {
+              lead_id: params.lead_id,
+              organization_id: params.organization_id,
+              to_stage_id: params.to_stage_id,
+              history_id: data.id,
+            },
+          }).then(result => {
+            if (result.error) {
+              console.warn('[TracZAP] Event dispatch failed:', result.error);
+            } else {
+              console.log('[TracZAP] Event dispatched:', result.data);
+            }
+          }).catch(err => {
+            console.warn('[TracZAP] Event dispatch error:', err);
+          });
+        } catch (e) {
+          // Non-blocking - don't fail the stage change
+          console.warn('[TracZAP] Error invoking function:', e);
+        }
       }
 
       return data;

@@ -7623,6 +7623,9 @@ export type Database = {
       }
       lead_stage_history: {
         Row: {
+          capi_event_id: string | null
+          capi_event_name: string | null
+          capi_event_sent: boolean | null
           changed_by: string | null
           created_at: string
           funnel_stage_id: string | null
@@ -7631,9 +7634,13 @@ export type Database = {
           organization_id: string
           previous_stage: Database["public"]["Enums"]["funnel_stage"] | null
           reason: string | null
+          source: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
         }
         Insert: {
+          capi_event_id?: string | null
+          capi_event_name?: string | null
+          capi_event_sent?: boolean | null
           changed_by?: string | null
           created_at?: string
           funnel_stage_id?: string | null
@@ -7642,9 +7649,13 @@ export type Database = {
           organization_id: string
           previous_stage?: Database["public"]["Enums"]["funnel_stage"] | null
           reason?: string | null
+          source?: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
         }
         Update: {
+          capi_event_id?: string | null
+          capi_event_name?: string | null
+          capi_event_sent?: boolean | null
           changed_by?: string | null
           created_at?: string
           funnel_stage_id?: string | null
@@ -7653,6 +7664,7 @@ export type Database = {
           organization_id?: string
           previous_stage?: Database["public"]["Enums"]["funnel_stage"] | null
           reason?: string | null
+          source?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
         }
         Relationships: [
@@ -8851,6 +8863,8 @@ export type Database = {
       }
       organization_funnel_stages: {
         Row: {
+          capi_custom_event: string | null
+          capi_event_name: string | null
           color: string
           created_at: string
           default_followup_reason_id: string | null
@@ -8866,6 +8880,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          capi_custom_event?: string | null
+          capi_event_name?: string | null
           color?: string
           created_at?: string
           default_followup_reason_id?: string | null
@@ -8881,6 +8897,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          capi_custom_event?: string | null
+          capi_event_name?: string | null
           color?: string
           created_at?: string
           default_followup_reason_id?: string | null
@@ -16107,6 +16125,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tracking_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      traczap_config: {
+        Row: {
+          auto_track_new_leads: boolean | null
+          auto_track_purchases: boolean | null
+          auto_track_stage_changes: boolean | null
+          created_at: string | null
+          default_utm_campaign: string | null
+          default_utm_medium: string | null
+          default_utm_source: string | null
+          id: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_track_new_leads?: boolean | null
+          auto_track_purchases?: boolean | null
+          auto_track_stage_changes?: boolean | null
+          created_at?: string | null
+          default_utm_campaign?: string | null
+          default_utm_medium?: string | null
+          default_utm_source?: string | null
+          id?: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_track_new_leads?: boolean | null
+          auto_track_purchases?: boolean | null
+          auto_track_stage_changes?: boolean | null
+          created_at?: string | null
+          default_utm_campaign?: string | null
+          default_utm_medium?: string | null
+          default_utm_source?: string | null
+          id?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traczap_config_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
