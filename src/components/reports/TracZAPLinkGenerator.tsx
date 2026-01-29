@@ -137,16 +137,19 @@ function generateSlug(name: string): string {
     .slice(0, 20);
 }
 
-function buildWhatsAppLink(link: TracZAPLink): string {
+function buildTrackingLink(link: TracZAPLink): string {
+  // Use the tracking redirect URL instead of direct wa.me
+  // This goes through /t/:slug which records the click and then redirects to WhatsApp
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/t/${link.slug}`;
+}
+
+function buildDirectWhatsAppLink(link: TracZAPLink): string {
+  // Direct link (for preview/testing purposes)
   const phone = link.whatsapp_number.replace(/\D/g, '');
   const params = new URLSearchParams();
   
-  // Build message with UTM info embedded
   let message = link.default_message || '';
-  
-  // Append tracking params as a hidden reference (for attribution when lead is created)
-  const trackingRef = `[ref:${link.slug}]`;
-  
   if (message) {
     params.set('text', message);
   }
@@ -329,7 +332,7 @@ function QRCodeDialog({
 }) {
   if (!link) return null;
   
-  const waLink = buildWhatsAppLink(link);
+  const waLink = buildTrackingLink(link);
   
   const downloadQR = () => {
     const canvas = document.getElementById('traczap-qr-canvas') as HTMLCanvasElement;
@@ -398,7 +401,7 @@ export function TracZAPLinkGenerator() {
   const deleteLink = useDeleteTracZAPLink();
   
   const copyLink = (link: TracZAPLink) => {
-    const waLink = buildWhatsAppLink(link);
+    const waLink = buildTrackingLink(link);
     navigator.clipboard.writeText(waLink);
     toast.success('Link copiado!');
   };
@@ -502,7 +505,7 @@ export function TracZAPLinkGenerator() {
                       <Button 
                         variant="ghost" 
                         size="icon"
-                        onClick={() => window.open(buildWhatsAppLink(link), '_blank')}
+                        onClick={() => window.open(buildTrackingLink(link), '_blank')}
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>

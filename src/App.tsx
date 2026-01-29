@@ -48,6 +48,7 @@ const PublicCheckoutPage = lazy(() => import("./pages/ecommerce/PublicCheckoutPa
 const LandingPixPayment = lazy(() => import("./pages/ecommerce/LandingPixPayment"));
 const LandingPaymentConfirmed = lazy(() => import("./pages/ecommerce/LandingPaymentConfirmed"));
 const QuizPublic = lazy(() => import("./pages/QuizPublic"));
+const TracZAPRedirect = lazy(() => import("./pages/TracZAPRedirect"));
 const NetworkInviteAccept = lazy(() => import("./pages/public/NetworkInviteAccept"));
 const PaymentLinkCheckout = lazy(() => import("./pages/PaymentLinkCheckout"));
 
@@ -209,6 +210,7 @@ const App = () => (
                 <Route path="/pagamento-confirmado" element={<LandingPaymentConfirmed />} />
                 <Route path="/quiz/:slug" element={<QuizPublic />} />
                 <Route path="/pagar/:slug" element={<PaymentLinkCheckout />} />
+                <Route path="/t/:slug" element={<TracZAPRedirect />} />
                 
                 {/* Partner Routes (Public) */}
                 <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />
