@@ -157,7 +157,7 @@ serve(async (req) => {
       pix_fee_fixed_cents: 100,
       pix_release_days: 1,
       card_fee_percentage: 4.99,
-      card_fee_fixed_cents: 0,
+      card_fee_fixed_cents: 100, // R$1,00 fixed fee for anti-fraud + processing
       card_release_days: 15,
       boleto_fee_percentage: 0.5,
       boleto_fee_fixed_cents: 400,
