@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
-import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save, Gift } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -44,6 +45,9 @@ interface DeliveryTypeSelectorProps {
     scheduledShift: 'morning' | 'afternoon' | 'full_day' | null;
     carrierId: string | null;
     shippingCost: number;
+    freeShipping?: boolean;
+    shippingCostReal?: number;
+    selectedQuoteServiceId?: string | null;
   };
   onChange: (value: DeliveryTypeSelectorProps['value']) => void;
 }
@@ -127,7 +131,10 @@ export function DeliveryTypeSelector({
     onChange({
       ...value,
       carrierId: matchingCarrier?.id || value.carrierId,
-      shippingCost: quote.price_cents,
+      shippingCost: value.freeShipping ? 0 : quote.price_cents,
+      shippingCostReal: quote.price_cents, // Always store real cost
+      selectedQuoteServiceId: quote.service_code,
+      freeShipping: value.freeShipping ?? false,
     });
   };
 
@@ -161,6 +168,9 @@ export function DeliveryTypeSelector({
       scheduledShift: null,
       carrierId: null,
       shippingCost: 0,
+      freeShipping: false,
+      shippingCostReal: 0,
+      selectedQuoteServiceId: null,
     });
   };
 
@@ -598,21 +608,66 @@ export function DeliveryTypeSelector({
               </div>
             )}
 
-            {/* Editable shipping cost - Always visible */}
-            <div>
-              <Label>Custo de Frete Cobrado</Label>
-              <CurrencyInput
-                value={value.shippingCost}
-                onChange={(cents) => onChange({ ...value, shippingCost: cents })}
-                className="mt-1"
-                placeholder="0,00"
+            {/* Free shipping checkbox */}
+            <div className="flex items-center space-x-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+              <Checkbox
+                id="free-shipping"
+                checked={value.freeShipping || false}
+                onCheckedChange={(checked) => {
+                  const realCost = value.shippingCostReal || value.shippingCost || 0;
+                  onChange({
+                    ...value,
+                    freeShipping: !!checked,
+                    shippingCostReal: realCost,
+                    shippingCost: checked ? 0 : realCost,
+                  });
+                }}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {selectedQuoteServiceId 
-                  ? 'Valor da cotação (editável para ajustes)'
-                  : 'Valor a ser cobrado do cliente pelo frete'}
-              </p>
+              <div className="flex-1">
+                <label htmlFor="free-shipping" className="flex items-center gap-2 text-sm font-medium text-green-800 dark:text-green-200 cursor-pointer">
+                  <Gift className="h-4 w-4" />
+                  Isentar frete para o cliente
+                </label>
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  O cliente não será cobrado, mas você verá o custo real abaixo
+                </p>
+              </div>
             </div>
+
+            {/* Show real cost when free shipping is enabled */}
+            {value.freeShipping && (value.shippingCostReal || 0) > 0 && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Custo real do frete (interno):
+                  </span>
+                  <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                    {formatCurrency(value.shippingCostReal || 0)}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Este valor não será cobrado do cliente, mas é registrado para controle
+                </p>
+              </div>
+            )}
+
+            {/* Editable shipping cost - Only visible when NOT free shipping */}
+            {!value.freeShipping && (
+              <div>
+                <Label>Custo de Frete Cobrado</Label>
+                <CurrencyInput
+                  value={value.shippingCost}
+                  onChange={(cents) => onChange({ ...value, shippingCost: cents, shippingCostReal: cents })}
+                  className="mt-1"
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedQuoteServiceId 
+                    ? 'Valor da cotação (editável para ajustes)'
+                    : 'Valor a ser cobrado do cliente pelo frete'}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
