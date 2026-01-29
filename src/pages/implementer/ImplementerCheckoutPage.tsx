@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, CreditCard, CheckCircle, Banknote, QrCode } from 'lucide-react';
+import { Loader2, CreditCard, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { CreditCardForm, CreditCardData } from '@/components/storefront/checkout/CreditCardForm';
 
@@ -41,8 +40,6 @@ function formatCurrency(cents: number) {
   }).format(cents / 100);
 }
 
-type PaymentMethod = 'credit_card' | 'pix' | 'boleto';
-
 export default function ImplementerCheckoutPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -59,13 +56,8 @@ export default function ImplementerCheckoutPage() {
     document: '', // CPF/CNPJ
   });
   
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card');
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [totalWithInterest, setTotalWithInterest] = useState<number>(0);
-  
-  // PIX payment state
-  const [pixData, setPixData] = useState<{ qr_code: string; qr_code_url: string; order_id: string } | null>(null);
-  const [isPollingPix, setIsPollingPix] = useState(false);
 
   useEffect(() => {
     async function fetchCheckoutLink() {
@@ -161,7 +153,7 @@ export default function ImplementerCheckoutPage() {
       return;
     }
 
-    if (paymentMethod === 'credit_card' && !cardData) {
+    if (!cardData) {
       toast.error('Preencha os dados do cartão');
       return;
     }
@@ -176,68 +168,25 @@ export default function ImplementerCheckoutPage() {
           customerEmail: formData.email,
           customerWhatsapp: formData.whatsapp,
           customerDocument: formData.document.replace(/\D/g, ''),
-          paymentMethod,
-          cardData: paymentMethod === 'credit_card' ? cardData : undefined,
+          paymentMethod: 'credit_card',
+          cardData,
         },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      if (paymentMethod === 'pix' && data?.pix) {
-        // Show PIX QR Code and start polling
-        setPixData({
-          qr_code: data.pix.qr_code,
-          qr_code_url: data.pix.qr_code_url,
-          order_id: data.order_id,
-        });
-        setIsPollingPix(true);
-        toast.success('PIX gerado! Escaneie o QR Code para pagar.');
-      } else if (paymentMethod === 'boleto' && data?.boleto) {
-        // Open boleto URL
-        window.open(data.boleto.url, '_blank');
-        toast.success('Boleto gerado! Acesse o link para pagamento.');
-        navigate('/login?signup=pending');
-      } else if (data?.success) {
-        // Card payment approved or instant activation
+      if (data?.success) {
         toast.success('Pagamento aprovado! Sua conta foi criada.');
         navigate('/login?signup=success');
+      } else {
+        throw new Error('Pagamento não aprovado');
       }
     } catch (err: any) {
       console.error('Checkout error:', err);
       toast.error(err.message || 'Erro ao processar checkout');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Poll for PIX payment confirmation
-  useEffect(() => {
-    if (!isPollingPix || !pixData?.order_id) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const { data } = await supabase.functions.invoke('ecommerce-sale-status', {
-          body: { orderId: pixData.order_id },
-        });
-
-        if (data?.status === 'paid' || data?.status === 'active') {
-          setIsPollingPix(false);
-          toast.success('Pagamento confirmado! Sua conta foi criada.');
-          navigate('/login?signup=success');
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [isPollingPix, pixData, navigate]);
-
-  const copyPixCode = () => {
-    if (pixData?.qr_code) {
-      navigator.clipboard.writeText(pixData.qr_code);
-      toast.success('Código PIX copiado!');
     }
   };
 
@@ -268,63 +217,6 @@ export default function ImplementerCheckoutPage() {
   }
 
   const totalFirstPayment = linkData.plan.price_cents + linkData.implementation_fee_cents;
-  const displayTotal = paymentMethod === 'credit_card' ? totalWithInterest : totalFirstPayment;
-
-  // PIX Payment Screen
-  if (pixData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-muted/30 to-muted/50 py-8 px-4">
-        <div className="max-w-lg mx-auto space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">Morphews CRM</h1>
-            <p className="text-muted-foreground">Pagamento via PIX</p>
-          </div>
-
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2">
-                <QrCode className="h-5 w-5" />
-                Escaneie o QR Code
-              </CardTitle>
-              <CardDescription>
-                Use o app do seu banco para pagar
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {pixData.qr_code_url && (
-                <div className="flex justify-center">
-                  <img 
-                    src={pixData.qr_code_url} 
-                    alt="QR Code PIX" 
-                    className="w-64 h-64 border rounded-lg"
-                  />
-                </div>
-              )}
-              
-              <div className="text-center">
-                <p className="text-2xl font-bold text-primary">
-                  {formatCurrency(totalFirstPayment)}
-                </p>
-              </div>
-
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={copyPixCode}
-              >
-                Copiar Código PIX
-              </Button>
-
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Aguardando pagamento...
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/30 to-muted/50 py-8 px-4">
@@ -387,7 +279,7 @@ export default function ImplementerCheckoutPage() {
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>Total Hoje</span>
-                <span className="text-primary">{formatCurrency(displayTotal)}</span>
+                <span className="text-primary">{formatCurrency(totalWithInterest || totalFirstPayment)}</span>
               </div>
               <p className="text-xs text-muted-foreground">
                 Após o primeiro mês, será cobrado {formatCurrency(linkData.plan.price_cents)}/mês
@@ -452,121 +344,49 @@ export default function ImplementerCheckoutPage() {
 
               <Separator />
 
-              {/* Payment Method Selection */}
+              {/* Payment Method - Credit Card Only for Subscriptions */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Forma de Pagamento (1ª Cobrança)</Label>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <Label className="text-base font-medium">Pagamento via Cartão de Crédito</Label>
                 </div>
-                <RadioGroup 
-                  value={paymentMethod} 
-                  onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
-                  className="grid grid-cols-3 gap-2"
-                >
-                  <Label
-                    htmlFor="credit_card"
-                    className={`flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${
-                      paymentMethod === 'credit_card' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-muted hover:border-muted-foreground/50'
-                    }`}
-                  >
-                    <RadioGroupItem value="credit_card" id="credit_card" className="sr-only" />
-                    <CreditCard className="h-5 w-5" />
-                    <span className="text-xs font-medium">Cartão</span>
-                  </Label>
-                  
-                  <Label
-                    htmlFor="pix"
-                    className={`flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${
-                      paymentMethod === 'pix' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-muted hover:border-muted-foreground/50'
-                    }`}
-                  >
-                    <RadioGroupItem value="pix" id="pix" className="sr-only" />
-                    <QrCode className="h-5 w-5" />
-                    <span className="text-xs font-medium">PIX</span>
-                  </Label>
-                  
-                  <Label
-                    htmlFor="boleto"
-                    className={`flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${
-                      paymentMethod === 'boleto' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-muted hover:border-muted-foreground/50'
-                    }`}
-                  >
-                    <RadioGroupItem value="boleto" id="boleto" className="sr-only" />
-                    <Banknote className="h-5 w-5" />
-                    <span className="text-xs font-medium">Boleto</span>
-                  </Label>
-                </RadioGroup>
-
-                {/* Subscription notice for PIX/Boleto */}
-                {paymentMethod !== 'credit_card' && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      <strong>Importante:</strong> A cobrança recorrente (mensalidade) será feita via cartão de crédito.
-                      Você poderá cadastrar o cartão após a confirmação do pagamento via {paymentMethod === 'pix' ? 'PIX' : 'Boleto'}.
-                    </p>
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Assinaturas são cobradas automaticamente via cartão de crédito.
+                </p>
               </div>
 
-              {/* Credit Card Form - for first payment */}
-              {paymentMethod === 'credit_card' && (
-                <CreditCardForm
-                  onCardDataChange={setCardData}
-                  totalCents={totalFirstPayment}
-                  onTotalWithInterestChange={handleTotalWithInterestChange}
-                />
-              )}
-
-              {/* PIX Info */}
-              {paymentMethod === 'pix' && (
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                  <p>Você será redirecionado para a página de pagamento PIX com QR Code.</p>
-                </div>
-              )}
-
-              {/* Boleto Info */}
-              {paymentMethod === 'boleto' && (
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                  <p>O boleto será gerado e você poderá pagar em qualquer banco. Vencimento em 3 dias úteis.</p>
-                </div>
-              )}
+              {/* Credit Card Form */}
+              <CreditCardForm
+                onCardDataChange={setCardData}
+                totalCents={totalFirstPayment}
+                onTotalWithInterestChange={handleTotalWithInterestChange}
+              />
 
               <Button 
                 type="submit" 
                 className="w-full" 
                 size="lg"
-                disabled={isSubmitting || (paymentMethod === 'credit_card' && !cardData)}
+                disabled={isSubmitting || !cardData}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processando...
                   </>
                 ) : (
                   <>
-                    {paymentMethod === 'credit_card' && <CreditCard className="h-4 w-4 mr-2" />}
-                    {paymentMethod === 'pix' && <QrCode className="h-4 w-4 mr-2" />}
-                    {paymentMethod === 'boleto' && <Banknote className="h-4 w-4 mr-2" />}
-                    {paymentMethod === 'credit_card' ? 'Pagar' : 'Gerar'} {formatCurrency(displayTotal)}
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Pagar {formatCurrency(totalWithInterest || totalFirstPayment)}
                   </>
                 )}
               </Button>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Ao continuar, você concorda com nossos termos de uso
-              </p>
             </form>
           </CardContent>
         </Card>
 
-        {/* Implementer Badge */}
+        {/* Implementer Info */}
         <p className="text-center text-xs text-muted-foreground">
-          Implementação por parceiro certificado Morphews
+          Implementação por {linkData.implementer.organization.name}
         </p>
       </div>
     </div>
