@@ -1,8 +1,9 @@
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Settings, History } from 'lucide-react';
+import { BarChart3, Settings, History, Zap } from 'lucide-react';
 import { AttributionDashboard } from '@/components/reports/AttributionDashboard';
 import { TrackingConfigManager } from '@/components/settings/TrackingConfigManager';
+import { TracZAPDashboard } from '@/components/reports/TracZAPDashboard';
 import { useConversionEvents } from '@/hooks/useTrackingConfig';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,8 +100,12 @@ export default function Attribution() {
           </p>
         </div>
 
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs defaultValue="traczap" className="w-full">
           <TabsList>
+            <TabsTrigger value="traczap" className="gap-2">
+              <Zap className="h-4 w-4" />
+              TracZAP
+            </TabsTrigger>
             <TabsTrigger value="dashboard" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Dashboard ROI
@@ -114,6 +119,10 @@ export default function Attribution() {
               Histórico
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="traczap" className="mt-6">
+            <TracZAPDashboard />
+          </TabsContent>
 
           <TabsContent value="dashboard" className="mt-6">
             <AttributionDashboard />
