@@ -454,7 +454,9 @@ export default function ImplementerCheckoutPage() {
 
               {/* Payment Method Selection */}
               <div className="space-y-3">
-                <Label>Forma de Pagamento</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Forma de Pagamento (1ª Cobrança)</Label>
+                </div>
                 <RadioGroup 
                   value={paymentMethod} 
                   onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
@@ -499,9 +501,19 @@ export default function ImplementerCheckoutPage() {
                     <span className="text-xs font-medium">Boleto</span>
                   </Label>
                 </RadioGroup>
+
+                {/* Subscription notice for PIX/Boleto */}
+                {paymentMethod !== 'credit_card' && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      <strong>Importante:</strong> A cobrança recorrente (mensalidade) será feita via cartão de crédito.
+                      Você poderá cadastrar o cartão após a confirmação do pagamento via {paymentMethod === 'pix' ? 'PIX' : 'Boleto'}.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Credit Card Form */}
+              {/* Credit Card Form - for first payment */}
               {paymentMethod === 'credit_card' && (
                 <CreditCardForm
                   onCardDataChange={setCardData}
