@@ -37,6 +37,7 @@ import { GatewayFinancialDashboard } from "@/components/super-admin/GatewayFinan
 import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFeesTab";
 import { LandingTemplatesTab } from "@/components/super-admin/LandingTemplatesTab";
 import { ImplementersTab } from "@/components/super-admin/ImplementersTab";
+import { CommunicationLogsTab } from "@/components/super-admin/CommunicationLogsTab";
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
 import { cn } from "@/lib/utils";
 
@@ -927,6 +928,7 @@ export default function SuperAdmin() {
             {activeTab === "ai-costs" && <AIModelCostsTab />}
             {activeTab === "secretary-messages" && <SecretaryMessagesManager />}
             {activeTab === "helper-donna" && <HelperConversationsTab />}
+            {activeTab === "communication-logs" && <CommunicationLogsTab />}
             {activeTab === "org-overrides" && <OrgFeatureOverridesEditor />}
             {activeTab === "error-logs" && <ErrorLogsTab />}
             {activeTab === "onboarding-emails" && <OnboardingEmailsManager />}

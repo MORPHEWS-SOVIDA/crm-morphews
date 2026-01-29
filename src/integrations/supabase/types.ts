@@ -15622,6 +15622,74 @@ export type Database = {
           },
         ]
       }
+      system_communication_logs: {
+        Row: {
+          channel: string
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          message_content: string
+          metadata: Json | null
+          organization_id: string | null
+          organization_name: string | null
+          recipient_email: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          sale_id: string | null
+          source: string
+          status: string
+          subject: string | null
+          user_id: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          message_content: string
+          metadata?: Json | null
+          organization_id?: string | null
+          organization_name?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          sale_id?: string | null
+          source: string
+          status?: string
+          subject?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          message_content?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          organization_name?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          subject?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_communication_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_settings: {
         Row: {
           created_at: string

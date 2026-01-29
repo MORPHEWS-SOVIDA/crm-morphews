@@ -1,6 +1,7 @@
 /**
  * Partner Notifications Module
  * Sends email and WhatsApp notifications to partners when they earn commission from a sale
+ * All notifications are logged to system_communication_logs for audit
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -18,12 +19,30 @@ interface PartnerNotification {
   customerName: string;
   saleId: string;
   productName?: string;
+  organizationId?: string;
+  organizationName?: string;
 }
 
 interface AdminWhatsAppConfig {
   api_url: string;
   api_key: string;
   instance_name: string;
+}
+
+interface CommunicationLog {
+  channel: 'whatsapp' | 'email';
+  source: string;
+  recipient_phone?: string;
+  recipient_email?: string;
+  recipient_name: string;
+  organization_id?: string;
+  organization_name?: string;
+  sale_id?: string;
+  subject?: string;
+  message_content: string;
+  status: 'sent' | 'failed';
+  error_message?: string;
+  metadata?: Record<string, unknown>;
 }
 
 // =====================================================
@@ -52,6 +71,41 @@ function getPartnerTypeLabel(type: string): string {
     factory: 'Fábrica',
   };
   return labels[type] || type;
+}
+
+// =====================================================
+// LOGGING
+// =====================================================
+
+async function logCommunication(
+  supabase: SupabaseClient,
+  log: CommunicationLog
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('system_communication_logs')
+      .insert({
+        channel: log.channel,
+        source: log.source,
+        recipient_phone: log.recipient_phone,
+        recipient_email: log.recipient_email,
+        recipient_name: log.recipient_name,
+        organization_id: log.organization_id,
+        organization_name: log.organization_name,
+        sale_id: log.sale_id,
+        subject: log.subject,
+        message_content: log.message_content,
+        status: log.status,
+        error_message: log.error_message,
+        metadata: log.metadata || {},
+      });
+
+    if (error) {
+      console.error('[PartnerNotifications] Failed to log communication:', error);
+    }
+  } catch (err) {
+    console.error('[PartnerNotifications] Error logging communication:', err);
+  }
 }
 
 // =====================================================
@@ -89,15 +143,20 @@ async function getAdminWhatsAppConfig(supabase: SupabaseClient): Promise<AdminWh
 }
 
 async function sendWhatsAppNotification(
+  supabase: SupabaseClient,
   config: AdminWhatsAppConfig,
   phone: string,
-  message: string
+  message: string,
+  notification: PartnerNotification
 ): Promise<boolean> {
   const normalizedPhone = normalizeWhatsApp(phone);
   if (!normalizedPhone) {
     console.log("[PartnerNotifications] Invalid phone number:", phone);
     return false;
   }
+
+  let success = false;
+  let errorMessage: string | undefined;
 
   try {
     const response = await fetch(
@@ -117,16 +176,36 @@ async function sendWhatsAppNotification(
 
     if (response.ok) {
       console.log("[PartnerNotifications] WhatsApp sent to", normalizedPhone);
-      return true;
+      success = true;
     } else {
-      const errorData = await response.text();
-      console.error("[PartnerNotifications] WhatsApp error:", errorData);
-      return false;
+      errorMessage = await response.text();
+      console.error("[PartnerNotifications] WhatsApp error:", errorMessage);
     }
   } catch (error) {
+    errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[PartnerNotifications] WhatsApp send error:", error);
-    return false;
   }
+
+  // Log the communication
+  await logCommunication(supabase, {
+    channel: 'whatsapp',
+    source: 'partner_notification',
+    recipient_phone: normalizedPhone,
+    recipient_name: notification.partnerName,
+    organization_id: notification.organizationId,
+    organization_name: notification.organizationName,
+    sale_id: notification.saleId,
+    message_content: message,
+    status: success ? 'sent' : 'failed',
+    error_message: errorMessage,
+    metadata: {
+      partner_type: notification.partnerType,
+      commission_cents: notification.commissionCents,
+      customer_name: notification.customerName,
+    },
+  });
+
+  return success;
 }
 
 // =====================================================
@@ -134,6 +213,7 @@ async function sendWhatsAppNotification(
 // =====================================================
 
 async function sendEmailNotification(
+  supabase: SupabaseClient,
   notification: PartnerNotification
 ): Promise<boolean> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -146,6 +226,10 @@ async function sendEmailNotification(
     console.log("[PartnerNotifications] No email for partner:", notification.partnerName);
     return false;
   }
+
+  let success = false;
+  let errorMessage: string | undefined;
+  const subject = `🎉 Nova venda! Você ganhou ${formatCurrency(notification.commissionCents)}`;
 
   try {
     const partnerTypeLabel = getPartnerTypeLabel(notification.partnerType);
@@ -234,7 +318,7 @@ async function sendEmailNotification(
       body: JSON.stringify({
         from: "Morphews <vendas@morphews.com>",
         to: [notification.partnerEmail],
-        subject: `🎉 Nova venda! Você ganhou ${formatCurrency(notification.commissionCents)}`,
+        subject,
         html: htmlContent,
       }),
     });
@@ -242,16 +326,38 @@ async function sendEmailNotification(
     if (response.ok) {
       const result = await response.json();
       console.log("[PartnerNotifications] Email sent to", notification.partnerEmail, result);
-      return true;
+      success = true;
     } else {
-      const errorData = await response.text();
-      console.error("[PartnerNotifications] Email error:", errorData);
-      return false;
+      errorMessage = await response.text();
+      console.error("[PartnerNotifications] Email error:", errorMessage);
     }
   } catch (error) {
+    errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[PartnerNotifications] Email send error:", error);
-    return false;
   }
+
+  // Log the communication
+  await logCommunication(supabase, {
+    channel: 'email',
+    source: 'partner_notification',
+    recipient_email: notification.partnerEmail,
+    recipient_name: notification.partnerName,
+    organization_id: notification.organizationId,
+    organization_name: notification.organizationName,
+    sale_id: notification.saleId,
+    subject,
+    message_content: `Comissão de ${formatCurrency(notification.commissionCents)} para ${notification.partnerName} (${getPartnerTypeLabel(notification.partnerType)})`,
+    status: success ? 'sent' : 'failed',
+    error_message: errorMessage,
+    metadata: {
+      partner_type: notification.partnerType,
+      commission_cents: notification.commissionCents,
+      customer_name: notification.customerName,
+      product_name: notification.productName,
+    },
+  });
+
+  return success;
 }
 
 // =====================================================
@@ -280,13 +386,13 @@ Hora de comemorar! Saiu uma venda com seu link!
 
 Acesse crm.morphews.com/login e confira os detalhes! 🚀`;
 
-      await sendWhatsAppNotification(whatsappConfig, notification.partnerPhone, whatsappMessage);
+      await sendWhatsAppNotification(supabase, whatsappConfig, notification.partnerPhone, whatsappMessage, notification);
     }
   }
 
   // Email notification
   if (notification.partnerEmail) {
-    await sendEmailNotification(notification);
+    await sendEmailNotification(supabase, notification);
   }
 }
 
@@ -312,15 +418,27 @@ export async function notifyAllPartnersForSale(
     return;
   }
 
-  // Get sale details for customer name
+  // Get sale details for customer name and organization
   const { data: sale } = await supabase
     .from('sales')
-    .select('lead_id, total_cents')
+    .select('lead_id, total_cents, organization_id')
     .eq('id', saleId)
     .single();
 
   let customerName = 'Cliente';
   let productName: string | undefined;
+  let organizationId: string | undefined;
+  let organizationName: string | undefined;
+
+  if (sale?.organization_id) {
+    organizationId = sale.organization_id;
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', organizationId)
+      .single();
+    organizationName = org?.name;
+  }
 
   if (sale?.lead_id) {
     const { data: lead } = await supabase
@@ -353,6 +471,8 @@ export async function notifyAllPartnersForSale(
       customerName,
       saleId,
       productName,
+      organizationId,
+      organizationName,
     });
   }
 

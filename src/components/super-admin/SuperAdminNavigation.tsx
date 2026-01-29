@@ -22,6 +22,7 @@ import {
   FileText,
   TrendingUp,
   Handshake,
+  History,
 } from "lucide-react";
 import {
   Collapsible,
@@ -111,6 +112,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
     icon: Settings,
     color: "text-gray-500",
     items: [
+      { id: "communication-logs", label: "Comunicações", icon: History, description: "WhatsApp e Emails" },
       { id: "org-overrides", label: "Overrides", icon: Settings, description: "Features por org" },
       { id: "error-logs", label: "Logs", icon: AlertTriangle, description: "Erros do sistema" },
       { id: "onboarding-emails", label: "Emails", icon: MailOpen, description: "Onboarding" },
