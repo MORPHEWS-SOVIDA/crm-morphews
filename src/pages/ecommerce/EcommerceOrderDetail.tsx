@@ -41,6 +41,7 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { OrderFinancialBreakdown } from '@/components/ecommerce/OrderFinancialBreakdown';
+import { OrderExpeditionStatusViewer } from '@/components/ecommerce/OrderExpeditionStatusViewer';
 
 // Status configuration
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
@@ -609,45 +610,11 @@ export default function EcommerceOrderDetail() {
           <TabsContent value="tracking" className="mt-4">
             <Card>
               <CardContent className="pt-6">
-                {order.tracking_code ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Código de Rastreio</p>
-                        <p className="font-mono font-medium text-lg">{order.tracking_code}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => copyToClipboard(order.tracking_code!, 'Código de rastreio')}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => window.open(`https://www.linkcorreios.com.br/?id=${order.tracking_code}`, '_blank')}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {order.carrier && (
-                      <div className="flex items-center justify-between p-4 bg-muted rounded-lg mb-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Transportadora</p>
-                          <p className="font-medium">{order.carrier}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">
-                    Nenhum código de rastreio cadastrado
-                  </p>
-                )}
+                <OrderExpeditionStatusViewer 
+                  saleId={order.sale_id} 
+                  trackingCode={order.tracking_code}
+                  carrier={order.carrier}
+                />
               </CardContent>
             </Card>
           </TabsContent>
