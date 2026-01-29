@@ -26,9 +26,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePublicCheckout, useCheckoutTestimonials, type CheckoutElements, type CheckoutTheme } from '@/hooks/ecommerce/useStandaloneCheckouts';
-import { CreditCardForm, type CreditCardData } from '@/components/storefront/checkout/CreditCardForm';
+import { CreditCardForm, type CreditCardData, type InstallmentConfig } from '@/components/storefront/checkout/CreditCardForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useUniversalTracking, extractTrackingParams } from '@/hooks/ecommerce/useUniversalTracking';
+import { useQuery } from '@tanstack/react-query';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -53,6 +54,30 @@ export default function PublicCheckoutPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: checkout, isLoading, error } = usePublicCheckout(slug);
   const { data: testimonials } = useCheckoutTestimonials(checkout?.id);
+
+  // Fetch tenant payment fees for installment calculation
+  const { data: tenantPaymentFees } = useQuery({
+    queryKey: ['tenant-payment-fees-checkout', checkout?.organization_id],
+    queryFn: async () => {
+      if (!checkout?.organization_id) return null;
+      const { data, error } = await supabase
+        .from('tenant_payment_fees')
+        .select('installment_fees, installment_fee_passed_to_buyer, max_installments')
+        .eq('organization_id', checkout.organization_id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!checkout?.organization_id,
+  });
+
+  // Build installment config for CreditCardForm using tenant fees
+  const installmentConfig: InstallmentConfig = useMemo(() => ({
+    installment_fees: tenantPaymentFees?.installment_fees as Record<string, number> | undefined,
+    installment_fee_passed_to_buyer: tenantPaymentFees?.installment_fee_passed_to_buyer ?? true,
+    max_installments: tenantPaymentFees?.max_installments || 12,
+  }), [tenantPaymentFees]);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -927,6 +952,7 @@ export default function PublicCheckoutPage() {
                         <CreditCardForm
                           onCardDataChange={setCardData}
                           totalCents={subtotal}
+                          installmentConfig={installmentConfig}
                           onTotalWithInterestChange={handleTotalWithInterestChange}
                         />
                       )}
