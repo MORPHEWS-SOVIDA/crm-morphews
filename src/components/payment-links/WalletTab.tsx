@@ -347,6 +347,10 @@ export function WalletTab({ canManageBank, canWithdraw }: WalletTabProps) {
                 placeholder="CPF, e-mail, telefone ou chave aleatória"
               />
             </div>
+            
+            <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+              Taxa de R$ 3,80 por saque realizado
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBankDialog(false)}>
