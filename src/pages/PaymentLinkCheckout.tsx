@@ -113,8 +113,11 @@ export default function PaymentLinkCheckout() {
         // Return defaults
         return {
           pix_fee_percentage: 0.99,
+          pix_fee_fixed_cents: 100,
           card_fee_percentage: 4.99,
+          card_fee_fixed_cents: 100, // R$1,00 fixed fee for anti-fraud + processing
           boleto_fee_percentage: 0.5,
+          boleto_fee_fixed_cents: 400,
           installment_fees: { "2": 2.69, "3": 2.69, "4": 2.69, "5": 2.69, "6": 2.69, "7": 2.69, "8": 2.69, "9": 2.69, "10": 2.69, "11": 2.69, "12": 2.69 },
           installment_fee_passed_to_buyer: true,
           max_installments: 12,
