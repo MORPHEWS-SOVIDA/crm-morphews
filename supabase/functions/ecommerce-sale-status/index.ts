@@ -7,10 +7,12 @@ const corsHeaders = {
 };
 
 /**
- * Public (storefront) sale status endpoint.
- * Used by the PIX waiting screen to refresh payment_status and total_cents.
+ * Public sale status endpoint for PIX payment verification.
+ * Supports both storefront checkouts and standalone checkouts.
  * 
  * GET /functions/v1/ecommerce-sale-status?sale_id=...&storefront_slug=...
+ * 
+ * For standalone checkouts, pass storefront_slug=_standalone
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -33,13 +35,47 @@ serve(async (req) => {
     const saleId = url.searchParams.get("sale_id");
     const storefrontSlug = url.searchParams.get("storefront_slug");
 
-    if (!saleId || !storefrontSlug) {
-      return new Response(JSON.stringify({ success: false, error: "Missing sale_id or storefront_slug" }), {
+    if (!saleId) {
+      return new Response(JSON.stringify({ success: false, error: "Missing sale_id" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // For standalone checkouts, we just fetch the sale directly
+    const isStandalone = !storefrontSlug || storefrontSlug === "_standalone";
+
+    if (isStandalone) {
+      // Standalone checkout - fetch sale directly
+      const { data: sale, error: saleError } = await supabase
+        .from("sales")
+        .select("id, organization_id, status, payment_status, total_cents, updated_at")
+        .eq("id", saleId)
+        .maybeSingle();
+
+      if (saleError) {
+        console.error("[ecommerce-sale-status] DB error:", saleError);
+        return new Response(JSON.stringify({ success: false, error: "Database error" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!sale) {
+        return new Response(JSON.stringify({ success: false, error: "Sale not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log(`[ecommerce-sale-status] Standalone sale ${saleId}: payment_status=${sale.payment_status}`);
+
+      return new Response(JSON.stringify({ success: true, sale }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Storefront checkout - verify organization match
     const { data: storefront } = await supabase
       .from("tenant_storefronts")
       .select("organization_id")
@@ -65,6 +101,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log(`[ecommerce-sale-status] Storefront sale ${saleId}: payment_status=${sale.payment_status}`);
 
     return new Response(JSON.stringify({ success: true, sale }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

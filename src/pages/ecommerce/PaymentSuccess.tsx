@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { CheckCircle, Package, ArrowRight, Loader2, Copy, Clock, RefreshCw } from 'lucide-react';
+import { CheckCircle, Package, ArrowRight, Loader2, Copy, Clock, RefreshCw, MessageCircle, Sparkles } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface PixPaymentData {
   saleId: string;
@@ -13,6 +14,7 @@ interface PixPaymentData {
   pix_expiration?: string;
   total_cents: number;
   storefront_slug?: string;
+  organization_whatsapp?: string;
 }
 
 export default function PaymentSuccess() {
@@ -26,6 +28,7 @@ export default function PaymentSuccess() {
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes default
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [checkAttempts, setCheckAttempts] = useState(0);
 
   // Check if this is a PIX payment pending confirmation
   const isPixPending = paymentMethod === 'pix' && pixData && !paymentConfirmed;
@@ -55,13 +58,14 @@ export default function PaymentSuccess() {
       );
       
       const json = await resp.json();
+      console.log('[PaymentSuccess] Status check response:', json);
       
       if (json?.success && json?.sale?.payment_status) {
         const status = json.sale.payment_status.toLowerCase();
         if (status === 'paid') {
           setPaymentConfirmed(true);
           localStorage.removeItem('pix_payment_data');
-          toast.success('Pagamento confirmado!');
+          toast.success('🎉 Pagamento confirmado!');
           return true;
         }
       }
@@ -76,10 +80,22 @@ export default function PaymentSuccess() {
 
   // Manual check button handler
   const handleManualCheck = async () => {
+    setCheckAttempts(prev => prev + 1);
     const confirmed = await checkPaymentStatus();
     if (!confirmed) {
-      toast.info('Pagamento ainda não confirmado. Aguarde alguns instantes.');
+      if (checkAttempts >= 2) {
+        toast.info('Pode demorar alguns instantes para o banco processar. Verifique seu e-mail ou WhatsApp.');
+      } else {
+        toast.info('Ainda não confirmado. Aguarde alguns instantes.');
+      }
     }
+  };
+
+  // WhatsApp support handler
+  const handleWhatsAppSupport = () => {
+    const whatsappNumber = pixData?.organization_whatsapp || '5551999999999'; // fallback
+    const message = encodeURIComponent(`Olá! Fiz um pagamento PIX do pedido ${saleId?.slice(0, 8)} e gostaria de enviar o comprovante.`);
+    window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 
   useEffect(() => {
@@ -130,17 +146,17 @@ export default function PaymentSuccess() {
     return () => clearInterval(timer);
   }, [isPixPending, timeLeft]);
 
-  // Poll for payment status using public edge function
+  // Poll for payment status using public edge function - faster polling (5s)
   useEffect(() => {
     if (!isPixPending || !saleId) return;
 
     // Initial check
     checkPaymentStatus();
 
-    // Poll every 8 seconds
+    // Poll every 5 seconds for faster feedback
     const pollInterval = setInterval(() => {
       checkPaymentStatus();
-    }, 8000);
+    }, 5000);
 
     return () => clearInterval(pollInterval);
   }, [isPixPending, saleId, checkPaymentStatus]);
@@ -211,27 +227,27 @@ export default function PaymentSuccess() {
   // Show PIX QR Code if payment is pending
   if (isPixPending) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-12">
-        <div className="container mx-auto px-4 max-w-xl">
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-8">
+        <div className="container mx-auto px-4 max-w-md">
           <Card className="border-green-200 dark:border-green-800 shadow-xl">
-            <CardContent className="p-8 text-center space-y-6">
+            <CardContent className="p-6 text-center space-y-4">
               {/* Header */}
               <div>
-                <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-4">
-                  <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <div className="mx-auto w-14 h-14 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-3">
+                  <CheckCircle className="h-7 w-7 text-green-600 dark:text-green-400" />
                 </div>
-                <h1 className="text-2xl font-bold text-green-700 dark:text-green-400">
+                <h1 className="text-xl font-bold text-green-700 dark:text-green-400">
                   Pedido Criado!
                 </h1>
-                <p className="text-muted-foreground mt-2">
-                  Escaneie o QR Code ou copie o código PIX para pagar
+                <p className="text-sm text-muted-foreground mt-1">
+                  Escaneie o QR Code ou copie o código PIX
                 </p>
               </div>
 
               {/* Total */}
-              <div className="p-4 bg-muted rounded-lg">
-                <span className="text-sm text-muted-foreground">Valor a pagar:</span>
-                <p className="text-3xl font-bold">
+              <div className="p-3 bg-muted rounded-lg">
+                <span className="text-xs text-muted-foreground">Valor a pagar:</span>
+                <p className="text-2xl font-bold">
                   {formatCurrency(pixData.total_cents)}
                 </p>
               </div>
@@ -239,31 +255,78 @@ export default function PaymentSuccess() {
               {/* Timer */}
               {timeLeft > 0 && (
                 <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
-                  <Clock className="h-5 w-5" />
-                  <span className="font-medium">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-sm font-medium">
                     Expira em: {formatTime(timeLeft)}
                   </span>
                 </div>
               )}
 
               {/* QR Code */}
-              <div className="flex justify-center p-6 bg-white rounded-xl">
+              <div className="flex justify-center p-4 bg-white rounded-xl">
                 <QRCodeSVG
                   value={pixData.pix_code}
-                  size={220}
+                  size={200}
                   level="H"
                   includeMargin
                 />
               </div>
 
+              {/* "Já Paguei" Button - MOVED CLOSER TO QR CODE */}
+              <Button
+                onClick={handleManualCheck}
+                disabled={isCheckingPayment}
+                size="lg"
+                className={cn(
+                  "w-full gap-2 text-base font-semibold transition-all",
+                  "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700",
+                  "shadow-lg hover:shadow-xl",
+                  "animate-pulse hover:animate-none"
+                )}
+              >
+                {isCheckingPayment ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5" />
+                    JÁ PAGUEI ✓
+                  </>
+                )}
+              </Button>
+
+              {/* Helper text */}
+              <p className="text-xs text-muted-foreground">
+                Ou verifique se recebeu um e-mail ou WhatsApp com seu comprovante de compra
+              </p>
+
+              {/* WhatsApp support button - shows after 3+ attempts */}
+              {checkAttempts >= 3 && (
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Está com dificuldades? Envie o comprovante por WhatsApp:
+                  </p>
+                  <Button
+                    onClick={handleWhatsAppSupport}
+                    variant="outline"
+                    className="w-full gap-2 border-green-500 text-green-600 hover:bg-green-50"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Enviar comprovante por WhatsApp
+                  </Button>
+                </div>
+              )}
+
               {/* Copy Button */}
-              <div className="space-y-2 text-left">
-                <label className="text-sm font-medium">Código PIX Copia e Cola:</label>
+              <div className="space-y-2 text-left pt-2 border-t">
+                <label className="text-xs font-medium text-muted-foreground">Código PIX Copia e Cola:</label>
                 <div className="relative">
                   <textarea
                     readOnly
                     value={pixData.pix_code}
-                    className="w-full h-24 p-3 pr-20 text-xs rounded-lg border bg-muted resize-none font-mono"
+                    className="w-full h-20 p-2 pr-20 text-xs rounded-lg border bg-muted resize-none font-mono"
                   />
                   <Button
                     size="sm"
@@ -273,12 +336,12 @@ export default function PaymentSuccess() {
                   >
                     {copied ? (
                       <>
-                        <CheckCircle className="h-4 w-4 mr-1" />
+                        <CheckCircle className="h-3 w-3 mr-1" />
                         Copiado
                       </>
                     ) : (
                       <>
-                        <Copy className="h-4 w-4 mr-1" />
+                        <Copy className="h-3 w-3 mr-1" />
                         Copiar
                       </>
                     )}
@@ -286,42 +349,10 @@ export default function PaymentSuccess() {
                 </div>
               </div>
 
-              {/* Instructions */}
-              <div className="space-y-2 text-sm text-muted-foreground text-left">
-                <p className="font-medium text-foreground">Como pagar:</p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>Abra o app do seu banco</li>
-                  <li>Escolha pagar via PIX Copia e Cola</li>
-                  <li>Cole o código copiado</li>
-                  <li>Confirme o pagamento</li>
-                </ol>
-              </div>
-
-              {/* Status + Manual Check Button */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Aguardando confirmação do pagamento...</span>
-                </div>
-                
-                <Button
-                  onClick={handleManualCheck}
-                  disabled={isCheckingPayment}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {isCheckingPayment ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Verificando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Já paguei — verificar agora
-                    </>
-                  )}
-                </Button>
+              {/* Status indicator */}
+              <div className="flex items-center justify-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-xs">Verificando pagamento automaticamente...</span>
               </div>
             </CardContent>
           </Card>
@@ -335,13 +366,13 @@ export default function PaymentSuccess() {
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center p-4">
       <Card className="max-w-md w-full shadow-xl border-0">
         <CardContent className="p-8 text-center">
-          {/* Success Icon */}
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-scale-in">
+          {/* Success Icon with animation */}
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
             <CheckCircle className="h-12 w-12 text-green-600" />
           </div>
 
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Pagamento Confirmado!
+            🎉 Pagamento Confirmado!
           </h1>
           
           <p className="text-gray-600 mb-6">
