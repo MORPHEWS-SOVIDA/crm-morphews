@@ -14,6 +14,7 @@
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { notifyAllPartnersForSale } from "./partner-notifications.ts";
 
 // =====================================================
 // TYPES
@@ -51,6 +52,14 @@ interface SplitResult {
   tenant_amount: number;
   platform_amount: number;
   gateway_fee: number;
+}
+
+interface PartnerToNotify {
+  type: 'affiliate' | 'coproducer' | 'industry' | 'factory';
+  name: string;
+  email?: string;
+  phone?: string;
+  commissionCents: number;
 }
 
 // =====================================================
@@ -476,6 +485,9 @@ export async function processSaleSplitsV3(
     gateway_fee: gatewayFeeCents,
   };
 
+  // Track partners to notify after all splits are processed
+  const partnersToNotify: PartnerToNotify[] = [];
+
   // =====================================================
   // STEP A: FACTORY (priority=1, first to receive, never liable)
   // =====================================================
@@ -530,6 +542,17 @@ export async function processSaleSplitsV3(
             if (created) {
               result.factory_amount += factoryAmount;
               remaining -= factoryAmount;
+              
+              // Add factory to notification list
+              if (factory?.email || factory?.phone) {
+                partnersToNotify.push({
+                  type: 'factory',
+                  name: (factory?.name as string) || 'Fábrica',
+                  email: factory?.email as string | undefined,
+                  phone: factory?.phone as string | undefined,
+                  commissionCents: factoryAmount,
+                });
+              }
             }
           }
         }
@@ -579,6 +602,17 @@ export async function processSaleSplitsV3(
             if (created) {
               result.industry_amount += industryAmount;
               remaining -= industryAmount;
+              
+              // Add industry to notification list
+              if (industry?.email || industry?.phone) {
+                partnersToNotify.push({
+                  type: 'industry',
+                  name: (industry?.name as string) || 'Indústria',
+                  email: industry?.email as string | undefined,
+                  phone: industry?.phone as string | undefined,
+                  commissionCents: industryAmount,
+                });
+              }
             }
           }
         }
@@ -667,6 +701,31 @@ export async function processSaleSplitsV3(
               result.coproducer_amount += coproducerAmount;
               remaining -= coproducerAmount;
               console.log(`[SplitEngine] Coproducer split: R$${(coproducerAmount / 100).toFixed(2)} (${commissionPercent}%)`);
+              
+              // Add coproducer to notification list
+              const holderEmail = virtualAccount?.holder_email as string | undefined;
+              const holderName = virtualAccount?.holder_name as string || 'Co-produtor';
+              if (holderEmail) {
+                // Try to get phone from profiles if user_id exists
+                let holderPhone: string | undefined;
+                const userId = virtualAccount?.user_id as string | undefined;
+                if (userId) {
+                  const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('whatsapp')
+                    .eq('user_id', userId)
+                    .maybeSingle();
+                  holderPhone = profile?.whatsapp;
+                }
+                
+                partnersToNotify.push({
+                  type: 'coproducer',
+                  name: holderName,
+                  email: holderEmail,
+                  phone: holderPhone,
+                  commissionCents: coproducerAmount,
+                });
+              }
             }
           }
         }
@@ -888,6 +947,26 @@ export async function processSaleSplitsV3(
               remaining -= affiliateAmount;
               console.log(`[SplitEngine] Affiliate split (${networkMember ? 'network' : 'standalone'}): R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
               affiliateProcessed = true;
+              
+              // Add affiliate to notification list
+              // Get contact info from profiles if available
+              let affiliatePhone: string | undefined;
+              if (orgAffiliate.user_id) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('whatsapp')
+                  .eq('user_id', orgAffiliate.user_id)
+                  .maybeSingle();
+                affiliatePhone = profile?.whatsapp;
+              }
+              
+              partnersToNotify.push({
+                type: 'affiliate',
+                name: orgAffiliate.name || orgAffiliate.email || 'Afiliado',
+                email: orgAffiliate.email,
+                phone: affiliatePhone,
+                commissionCents: affiliateAmount,
+              });
             }
           }
         }
@@ -950,6 +1029,31 @@ export async function processSaleSplitsV3(
             result.affiliate_amount = affiliateAmount;
             remaining -= affiliateAmount;
             console.log(`[SplitEngine] Partner split (${partner.partner_type}): R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
+            
+            // Add legacy partner to notification list
+            const holderEmail = virtualAccount?.holder_email as string | undefined;
+            const holderName = virtualAccount?.holder_name as string || partner.affiliate_code || 'Parceiro';
+            if (holderEmail) {
+              // Try to get phone from profiles if user_id exists
+              let holderPhone: string | undefined;
+              const userId = virtualAccount?.user_id as string | undefined;
+              if (userId) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('whatsapp')
+                  .eq('user_id', userId)
+                  .maybeSingle();
+                holderPhone = profile?.whatsapp;
+              }
+              
+              partnersToNotify.push({
+                type: 'affiliate',
+                name: holderName,
+                email: holderEmail,
+                phone: holderPhone,
+                commissionCents: affiliateAmount,
+              });
+            }
           }
         }
       }
@@ -1006,6 +1110,19 @@ export async function processSaleSplitsV3(
   }
 
   console.log(`[SplitEngine] Completed splits for sale ${saleId}:`, result);
+
+  // =====================================================
+  // STEP G: NOTIFY ALL PARTNERS (async, non-blocking)
+  // =====================================================
+  if (partnersToNotify.length > 0) {
+    console.log(`[SplitEngine] Notifying ${partnersToNotify.length} partners for sale ${saleId}`);
+    
+    // Run notifications in background (don't await to avoid blocking webhook response)
+    notifyAllPartnersForSale(supabase, saleId, partnersToNotify)
+      .then(() => console.log(`[SplitEngine] Partner notifications completed for sale ${saleId}`))
+      .catch((err) => console.error(`[SplitEngine] Partner notification error:`, err));
+  }
+
   return result;
 }
 
