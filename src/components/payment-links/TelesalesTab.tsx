@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useProcessPayment } from '@/hooks/usePaymentLinks';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 import { 
   CreditCard, 
@@ -41,6 +43,60 @@ export function TelesalesTab() {
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+
+  // Fetch tenant payment fees for installment calculation
+  const { data: tenantFees } = useQuery({
+    queryKey: ['tenant-fees-telesales-tab', profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return null;
+      
+      const { data } = await supabase
+        .from('tenant_payment_fees')
+        .select('max_installments, installment_fees, installment_fee_passed_to_buyer')
+        .eq('organization_id', profile.organization_id)
+        .single();
+      
+      if (!data) {
+        // Default values matching the migration defaults
+        return {
+          max_installments: 12,
+          installment_fees: { "2": 5.26, "3": 7.06, "4": 8.87, "5": 10.7, "6": 12.56, "7": 14.43, "8": 16.32, "9": 18.24, "10": 20.17, "11": 22.12, "12": 24.09 },
+          installment_fee_passed_to_buyer: true,
+        };
+      }
+      return data;
+    },
+    enabled: !!profile?.organization_id,
+  });
+
+  // Calculate installment options with interest
+  const installmentOptions = useMemo(() => {
+    const maxInst = tenantFees?.max_installments || 12;
+    const fees = tenantFees?.installment_fees as Record<string, number> | null;
+    const passToCustomer = tenantFees?.installment_fee_passed_to_buyer !== false;
+    
+    const options = [];
+    for (let i = 1; i <= maxInst; i++) {
+      let totalValue = amountCents;
+      let hasInterest = false;
+      
+      if (i > 1 && passToCustomer && fees) {
+        const feePercent = fees[i.toString()] || 2.69;
+        // Apply simple interest on the amount (matching Super Admin config)
+        totalValue = Math.round(amountCents * (1 + feePercent / 100));
+        hasInterest = true;
+      }
+      
+      options.push({
+        installments: i,
+        totalValue,
+        perInstallment: Math.ceil(totalValue / i),
+        hasInterest,
+        interestAmount: totalValue - amountCents,
+      });
+    }
+    return options;
+  }, [amountCents, tenantFees]);
 
   const resetForm = () => {
     setCustomerName('');
@@ -255,9 +311,11 @@ export function TelesalesTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                      <SelectItem key={n} value={n.toString()}>
-                        {n}x {n === 1 ? 'à vista' : `de ${formatCurrency(amountCents / n)}`}
+                    {installmentOptions.map((opt) => (
+                      <SelectItem key={opt.installments} value={opt.installments.toString()}>
+                        {opt.installments}x {opt.installments === 1 
+                          ? 'à vista' 
+                          : `de ${formatCurrency(opt.perInstallment)}${opt.hasInterest ? '' : ' sem juros'}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
