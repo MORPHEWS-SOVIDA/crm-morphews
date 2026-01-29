@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getTemplateStyles, type TemplateSlug } from './templateUtils';
+import { AddToCartConfirmDialog } from '../AddToCartConfirmDialog';
 
 interface ProductData {
   id: string;
@@ -49,6 +50,8 @@ export function TemplatedProductPage({
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [showCartConfirm, setShowCartConfirm] = useState(false);
+  const [addedProduct, setAddedProduct] = useState<{ quantity: number; kitSize: number; totalPrice: number } | null>(null);
 
   const styles = getTemplateStyles(templateSlug);
   const totalPrice = product.kitPrices[selectedKit] * quantity;
@@ -397,7 +400,15 @@ export function TemplatedProductPage({
                   ${isVitrineModerna ? 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]' : ''}
                 `}
                 style={!isVitrineModerna ? { backgroundColor: primaryColor } : undefined}
-                onClick={() => onAddToCart(quantity, selectedKit)}
+                onClick={() => {
+                  onAddToCart(quantity, selectedKit);
+                  setAddedProduct({
+                    quantity,
+                    kitSize: selectedKit,
+                    totalPrice: product.kitPrices[selectedKit] * quantity,
+                  });
+                  setShowCartConfirm(true);
+                }}
               >
                 <ShoppingCart className="h-6 w-6" />
                 Adicionar ao Carrinho
@@ -414,6 +425,20 @@ export function TemplatedProductPage({
           </div>
         </div>
       </div>
+
+      {/* Add to Cart Confirmation Dialog */}
+      {addedProduct && (
+        <AddToCartConfirmDialog
+          open={showCartConfirm}
+          onOpenChange={setShowCartConfirm}
+          storefrontSlug={storefrontSlug}
+          productName={product.name}
+          quantity={addedProduct.quantity}
+          kitSize={addedProduct.kitSize}
+          totalPrice={addedProduct.totalPrice}
+          primaryColor={primaryColor}
+        />
+      )}
     </div>
   );
 }
