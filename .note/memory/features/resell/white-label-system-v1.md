@@ -17,15 +17,24 @@ Implementadores com plano White Label podem revender o sistema com sua própria 
    - Nome da marca no lugar de "Morphews"
    - Cor primária personalizada
    - SEO com meta tags personalizadas
+   - CTA redireciona para /planos?ref=slug (atribui vendas)
 
-2. **Checkout Personalizado** (planejado)
-   - Logo do revendedor
-   - E-mails de boas-vindas com a marca
+2. **Checkout Personalizado** (`/implementador/:slug`) ✅ IMPLEMENTADO
+   - Logo do revendedor no header
+   - Nome da marca customizado
+   - Cor primária aplicada
+   - Footer com "Powered by [Marca]"
 
-3. **Contato & Suporte**
-   - Nome nos e-mails
-   - E-mail de suporte customizado
-   - WhatsApp de suporte customizado
+3. **E-mails de Boas-Vindas** ✅ IMPLEMENTADO
+   - Nome do remetente customizado
+   - Logo no header do e-mail
+   - Cor primária no gradiente
+   - Contato de suporte customizado
+   - Subject com nome da marca
+
+4. **WhatsApp de Boas-Vindas** ✅ IMPLEMENTADO
+   - Mensagem com nome da marca
+   - Contato de suporte customizado
 
 ### Tabela: white_label_configs
 ```sql
@@ -65,6 +74,11 @@ is_active BOOLEAN DEFAULT true
 ### Rotas
 - `/pv2/:slug` - Página pública de vendas com branding do WL
 - `/implementador` (aba White Label) - Configuração do branding
+- `/implementador/:slug` - Checkout com branding WL (quando ativo)
+
+### Edge Functions Atualizadas
+- `send-welcome-email` - Aceita `whiteLabelBranding` para personalização
+- `implementer-checkout` - Busca WL config e envia para e-mail/WhatsApp
 
 ### Plano White Label
 - ID: `b7c3e8f9-1a2b-4c5d-6e7f-8a9b0c1d2e3f`
@@ -73,8 +87,6 @@ is_active BOOLEAN DEFAULT true
 - Permite White Label: true
 - Visível no site: false (contratação direta)
 
-### Próximos Passos
-1. Integrar checkout do implementador com branding WL
-2. Personalizar e-mails transacionais com logo/nome WL
-3. Sistema de domínios customizados (DNS/CNAME)
-4. Dashboard interno com branding parcial (logo na sidebar)
+### Próximos Passos (Opcionais)
+1. Sistema de domínios customizados (DNS/CNAME)
+2. Dashboard interno com branding parcial (logo na sidebar)

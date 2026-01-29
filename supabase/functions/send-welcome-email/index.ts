@@ -8,11 +8,21 @@ const corsHeaders = {
 // Internal secret for service-to-service calls
 const INTERNAL_SECRET = Deno.env.get("INTERNAL_AUTH_SECRET");
 
+interface WhiteLabelBranding {
+  brand_name: string;
+  logo_url: string | null;
+  primary_color: string;
+  email_from_name: string | null;
+  support_email: string | null;
+  support_whatsapp: string | null;
+}
+
 interface WelcomeEmailRequest {
   email: string;
   name: string;
   password: string;
   planName: string;
+  whiteLabelBranding?: WhiteLabelBranding;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -31,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const { email, name, password, planName }: WelcomeEmailRequest = await req.json();
+    const { email, name, password, planName, whiteLabelBranding }: WelcomeEmailRequest = await req.json();
 
     console.log("Sending welcome email to:", email);
 
@@ -41,6 +51,20 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const loginUrl = "https://crm.morphews.com/login";
+    
+    // Use white label branding if provided, otherwise use Morphews defaults
+    const brandName = whiteLabelBranding?.brand_name || "Morphews CRM";
+    const primaryColor = whiteLabelBranding?.primary_color || "#667eea";
+    const secondaryColor = "#764ba2";
+    const fromName = whiteLabelBranding?.email_from_name || brandName;
+    const supportInfo = whiteLabelBranding?.support_whatsapp 
+      ? `Precisa de ajuda? Entre em contato pelo WhatsApp: ${whiteLabelBranding.support_whatsapp}`
+      : "Precisa de ajuda? Entre em contato pelo WhatsApp";
+    
+    // Build logo or text header
+    const logoSection = whiteLabelBranding?.logo_url 
+      ? `<img src="${whiteLabelBranding.logo_url}" alt="${brandName}" style="max-height: 40px; margin-bottom: 10px;" />`
+      : "";
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -50,7 +74,8 @@ const handler = async (req: Request): Promise<Response> => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+        <div style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+          ${logoSection}
           <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Parabéns, ${name}!</h1>
           <p style="color: rgba(255,255,255,0.9); margin-top: 10px;">Sua assinatura do plano ${planName} foi confirmada!</p>
         </div>
@@ -68,20 +93,21 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <div style="text-align: center; margin-top: 30px;">
-            <a href="${loginUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Acessar o Sistema</a>
+            <a href="${loginUrl}" style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%); color: white; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Acessar o Sistema</a>
           </div>
           
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
           
           <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
-            Precisa de ajuda? Entre em contato pelo WhatsApp<br>
-            <strong>Morphews CRM</strong> - Transforme seus leads em clientes
+            ${supportInfo}<br>
+            <strong>${brandName}</strong> - Transforme seus leads em clientes
           </p>
         </div>
       </body>
       </html>
     `;
 
+    // Use verified Morphews domain for sending, but customize display name
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -89,9 +115,9 @@ const handler = async (req: Request): Promise<Response> => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Morphews CRM <noreply@morphews.com>",
+        from: `${fromName} <noreply@morphews.com>`,
         to: [email],
-        subject: "🎉 Bem-vindo ao Morphews CRM - Suas credenciais de acesso",
+        subject: `🎉 Bem-vindo ao ${brandName} - Suas credenciais de acesso`,
         html: emailHtml,
       }),
     });

@@ -10,6 +10,13 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { CreditCardForm, CreditCardData } from '@/components/storefront/checkout/CreditCardForm';
 
+interface WhiteLabelConfig {
+  brand_name: string;
+  logo_url: string | null;
+  primary_color: string;
+  support_whatsapp: string | null;
+}
+
 interface CheckoutLink {
   id: string;
   plan_id: string;
@@ -18,6 +25,8 @@ interface CheckoutLink {
   description: string | null;
   implementer: {
     referral_code: string;
+    is_white_label: boolean;
+    white_label_config_id: string | null;
     organization: {
       name: string;
     };
@@ -45,6 +54,7 @@ export default function ImplementerCheckoutPage() {
   const navigate = useNavigate();
   
   const [linkData, setLinkData] = useState<CheckoutLink | null>(null);
+  const [whiteLabelConfig, setWhiteLabelConfig] = useState<WhiteLabelConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +88,8 @@ export default function ImplementerCheckoutPage() {
             description,
             implementer:implementers!implementer_id(
               referral_code,
+              is_white_label,
+              white_label_config_id,
               organization:organizations!organization_id(name)
             ),
             plan:subscription_plans!plan_id(
@@ -106,9 +118,24 @@ export default function ImplementerCheckoutPage() {
           .update({ uses_count: (data as any).uses_count + 1 })
           .eq('id', data.id);
 
-        setLinkData(data as unknown as CheckoutLink);
+        const checkoutData = data as unknown as CheckoutLink;
+        setLinkData(checkoutData);
         const total = (data as any).plan.price_cents + (data as any).implementation_fee_cents;
         setTotalWithInterest(total);
+
+        // Fetch white label config if implementer has it
+        if (checkoutData.implementer?.is_white_label && checkoutData.implementer?.white_label_config_id) {
+          const { data: wlConfig } = await supabase
+            .from('white_label_configs')
+            .select('brand_name, logo_url, primary_color, support_whatsapp')
+            .eq('id', checkoutData.implementer.white_label_config_id)
+            .eq('is_active', true)
+            .maybeSingle();
+          
+          if (wlConfig) {
+            setWhiteLabelConfig(wlConfig as WhiteLabelConfig);
+          }
+        }
       } catch (err) {
         console.error('Error fetching checkout link:', err);
         setError('Erro ao carregar checkout');
@@ -218,12 +245,28 @@ export default function ImplementerCheckoutPage() {
 
   const totalFirstPayment = linkData.plan.price_cents + linkData.implementation_fee_cents;
 
+  const brandName = whiteLabelConfig?.brand_name || 'Morphews CRM';
+  const primaryColor = whiteLabelConfig?.primary_color || undefined;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/30 to-muted/50 py-8 px-4">
       <div className="max-w-lg mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Morphews CRM</h1>
+          {whiteLabelConfig?.logo_url ? (
+            <img 
+              src={whiteLabelConfig.logo_url} 
+              alt={brandName} 
+              className="h-10 mx-auto mb-2" 
+            />
+          ) : (
+            <h1 
+              className="text-2xl font-bold"
+              style={primaryColor ? { color: primaryColor } : undefined}
+            >
+              {brandName}
+            </h1>
+          )}
           <p className="text-muted-foreground">Checkout com Implementação</p>
         </div>
 
@@ -386,7 +429,10 @@ export default function ImplementerCheckoutPage() {
 
         {/* Implementer Info */}
         <p className="text-center text-xs text-muted-foreground">
-          Implementação por {linkData.implementer.organization.name}
+          {whiteLabelConfig 
+            ? `Powered by ${whiteLabelConfig.brand_name}`
+            : `Implementação por ${linkData.implementer.organization.name}`
+          }
         </p>
       </div>
     </div>

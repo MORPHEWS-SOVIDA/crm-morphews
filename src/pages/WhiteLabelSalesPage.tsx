@@ -161,7 +161,7 @@ export default function WhiteLabelSalesPage() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to={`/planos`}>
+                <Link to={`/planos?ref=${slug}`}>
                   <Button 
                     size="lg"
                     className="text-lg px-8"
