@@ -35,6 +35,9 @@ function formatCurrency(cents: number) {
 function OfferCard({ offer }: { offer: AvailableOffer }) {
   const [copied, setCopied] = useState(false);
 
+  const offerTypeLabel =
+    offer.type === 'checkout' ? 'Checkout' : offer.type === 'landing' ? 'Landing' : 'Loja';
+
   const handleCopyLink = () => {
     if (!offer.affiliate_link) {
       toast.error('Link não disponível');
@@ -65,7 +68,7 @@ function OfferCard({ offer }: { offer: AvailableOffer }) {
             />
           ) : (
             <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-              {offer.type === 'checkout' ? (
+              {offer.type === 'checkout' || offer.type === 'storefront' ? (
                 <ShoppingBag className="h-8 w-8 text-primary/60" />
               ) : (
                 <FileText className="h-8 w-8 text-primary/60" />
@@ -78,7 +81,7 @@ function OfferCard({ offer }: { offer: AvailableOffer }) {
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold truncate text-lg">{offer.name}</h3>
               <Badge variant="outline" className="text-xs flex-shrink-0">
-                {offer.type === 'checkout' ? 'Checkout' : 'Landing'}
+                {offerTypeLabel}
               </Badge>
             </div>
             
@@ -169,6 +172,7 @@ export default function PartnerLinksPage() {
 
   const checkoutOffers = offers?.filter(o => o.type === 'checkout') || [];
   const landingOffers = offers?.filter(o => o.type === 'landing') || [];
+  const storefrontOffers = offers?.filter(o => o.type === 'storefront') || [];
   const enrolledOffers = offers?.filter(o => o.is_enrolled && o.affiliate_link) || [];
 
   // Calculate totals from associations
@@ -342,6 +346,9 @@ export default function PartnerLinksPage() {
                   <TabsTrigger value="landings">
                     Landings ({landingOffers.filter(o => o.is_enrolled).length})
                   </TabsTrigger>
+                  <TabsTrigger value="storefronts">
+                    Lojas ({storefrontOffers.filter(o => o.is_enrolled).length})
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all" className="space-y-4">
@@ -380,6 +387,20 @@ export default function PartnerLinksPage() {
                   ) : (
                     <div className="grid gap-4">
                       {landingOffers.filter(o => o.is_enrolled).map((offer) => (
+                        <OfferCard key={offer.id} offer={offer} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="storefronts" className="space-y-4">
+                  {storefrontOffers.filter(o => o.is_enrolled).length === 0 ? (
+                    <p className="text-center text-muted-foreground py-6">
+                      Nenhuma loja vinculada.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4">
+                      {storefrontOffers.filter(o => o.is_enrolled).map((offer) => (
                         <OfferCard key={offer.id} offer={offer} />
                       ))}
                     </div>
