@@ -433,7 +433,7 @@ serve(async (req) => {
         .insert({
           sale_id: sale.id,
           organization_id: organizationId,
-          affiliate_id: null, // Deprecated - Split Engine resolves via code_or_ref
+          affiliate_id: affiliatePartnerId || null, // Now properly filled with organization_affiliates.id
           attribution_type: 'link', // ?ref= parameter = affiliate link
           code_or_ref: affiliate_code,
         });
