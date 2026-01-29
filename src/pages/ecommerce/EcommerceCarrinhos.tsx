@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { EcommerceLayout } from '@/components/ecommerce/EcommerceLayout';
@@ -96,6 +97,8 @@ const LEAD_CREATION_OPTIONS = [
 
 export default function EcommerceCarrinhos() {
   const { profile } = useAuth();
+  const { role } = useTenant();
+  const isPartner = role?.startsWith('partner_') ?? false;
   const organizationId = profile?.organization_id;
   const queryClient = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
@@ -231,15 +234,16 @@ export default function EcommerceCarrinhos() {
   return (
     <EcommerceLayout title="Carrinhos" description="Acompanhe e recupere carrinhos abandonados">
       <div className="space-y-6">
-        {/* Header with Config Button */}
-        <div className="flex justify-end">
-          <Dialog open={configOpen} onOpenChange={setConfigOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2" onClick={handleOpenConfig}>
-                <Settings className="h-4 w-4" />
-                Configurações de Automação
-              </Button>
-            </DialogTrigger>
+        {/* Header with Config Button - hidden for partners */}
+        {!isPartner && (
+          <div className="flex justify-end">
+            <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2" onClick={handleOpenConfig}>
+                  <Settings className="h-4 w-4" />
+                  Configurações de Automação
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Configurações de Automação</DialogTitle>
@@ -421,6 +425,7 @@ export default function EcommerceCarrinhos() {
             </DialogContent>
           </Dialog>
         </div>
+        )}
 
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">

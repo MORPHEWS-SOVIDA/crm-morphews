@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/hooks/useTenant';
 import { EcommerceLayout } from '@/components/ecommerce/EcommerceLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -84,6 +85,8 @@ const STATUS_GROUPS = [
 
 export default function EcommerceVendas() {
   const navigate = useNavigate();
+  const { role } = useTenant();
+  const isPartner = role?.startsWith('partner_') ?? false;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -151,10 +154,12 @@ export default function EcommerceVendas() {
   return (
     <EcommerceLayout title="Vendas Online" description="Acompanhe e gerencie seus pedidos online">
       <div className="space-y-6">
-        {/* Header with automation config */}
-        <div className="flex justify-end">
-          <SalesAutomationDialog />
-        </div>
+        {/* Header with automation config - hidden for partners */}
+        {!isPartner && (
+          <div className="flex justify-end">
+            <SalesAutomationDialog />
+          </div>
+        )}
         
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-6">
