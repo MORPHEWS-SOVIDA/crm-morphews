@@ -31,11 +31,13 @@ import {
   History,
   RefreshCw,
   Percent,
-  Loader2
+  Loader2,
+  BarChart3
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useMemo } from 'react';
+import { GatewayDetailedTable } from './GatewayDetailedTable';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -646,14 +648,23 @@ export function GatewayFinancialDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="orders" className="w-full">
+      <Tabs defaultValue="detailed" className="w-full">
         <TabsList className="flex-wrap">
+          <TabsTrigger value="detailed" className="flex items-center gap-1">
+            <BarChart3 className="h-4 w-4" />
+            Detalhado
+          </TabsTrigger>
           <TabsTrigger value="orders">Pedidos</TabsTrigger>
           <TabsTrigger value="attempts">Tentativas</TabsTrigger>
           <TabsTrigger value="splits">Árvore de Splits</TabsTrigger>
           <TabsTrigger value="methods">Por Método</TabsTrigger>
           <TabsTrigger value="sources">Por Origem</TabsTrigger>
         </TabsList>
+        
+        {/* Detailed Financial Table Tab */}
+        <TabsContent value="detailed">
+          <GatewayDetailedTable onViewSale={(saleId) => setSelectedSaleId(saleId)} />
+        </TabsContent>
 
         {/* E-commerce Orders Tab */}
         <TabsContent value="orders">
