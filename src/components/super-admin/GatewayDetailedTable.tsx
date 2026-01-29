@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Download, 
@@ -292,11 +291,10 @@ export function GatewayDetailedTable({ onViewSale }: GatewayDetailedTableProps) 
       'Custo Co-produtor',
       'Custo Indústria',
       'Custo Fábrica',
-      'Taxa Plataforma',
-      'Repasse Lojista',
       'Ganho Gateway (Plataforma)',
       'Lucro Juros',
-      'Lucro Total Plataforma',
+      'Lucro Total (Gateway+Juros)',
+      'Repasse Lojista',
       'ID Transação Gateway',
       'Link Pagar.me'
     ];
@@ -333,10 +331,9 @@ export function GatewayDetailedTable({ onViewSale }: GatewayDetailedTableProps) 
         (sale.splits.industry / 100).toFixed(2).replace('.', ','),
         (sale.splits.factory / 100).toFixed(2).replace('.', ','),
         (platformGain / 100).toFixed(2).replace('.', ','),
-        (sale.splits.tenant / 100).toFixed(2).replace('.', ','),
-        (platformGain / 100).toFixed(2).replace('.', ','),
         (interestProfit / 100).toFixed(2).replace('.', ','),
         (totalPlatformProfit / 100).toFixed(2).replace('.', ','),
+        (sale.splits.tenant / 100).toFixed(2).replace('.', ','),
         sale.gateway_transaction_id || '-',
         buildPagarmeUrl(sale.gateway_transaction_id) || '-'
       ];
@@ -533,38 +530,52 @@ export function GatewayDetailedTable({ onViewSale }: GatewayDetailedTableProps) 
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[600px]">
-            <Table>
-              <TableHeader>
+        <CardContent className="p-0">
+          {/* Scrollable container for both horizontal and vertical scrolling */}
+          <div className="overflow-auto max-h-[700px] border-t">
+            <Table className="min-w-[1800px]">
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-background">Pedido</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="text-right">Juros</TableHead>
-                  <TableHead className="text-right text-red-600">Gateway</TableHead>
-                  <TableHead className="text-right text-green-600">Afiliado</TableHead>
-                  <TableHead className="text-right text-cyan-600">Co-prod</TableHead>
-                  <TableHead className="text-right text-orange-600">Indústria</TableHead>
-                  <TableHead className="text-right text-amber-600">Fábrica</TableHead>
-                  <TableHead className="text-right text-purple-600">Plataforma</TableHead>
-                  <TableHead className="text-right font-bold text-green-700">Lucro</TableHead>
-                  <TableHead>Pagar.me</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="sticky left-0 bg-background z-20 min-w-[120px]">Pedido</TableHead>
+                  <TableHead className="min-w-[100px]">Data</TableHead>
+                  <TableHead className="min-w-[80px]">Origem</TableHead>
+                  <TableHead className="min-w-[90px]">Método</TableHead>
+                  <TableHead className="text-right min-w-[100px]">Valor</TableHead>
+                  <TableHead className="text-right min-w-[80px]">Juros</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-red-600">Custo Gateway</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-amber-600">Custo Antecip.</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-green-600">Custo Afiliado</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-cyan-600">Custo Co-prod</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-orange-600">Custo Indústria</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-amber-700">Custo Fábrica</TableHead>
+                  <TableHead className="text-right min-w-[110px] text-purple-600 font-semibold">Ganho Gateway</TableHead>
+                  <TableHead className="text-right min-w-[100px] text-emerald-600 font-semibold">Lucro Juros</TableHead>
+                  <TableHead className="text-right min-w-[140px] text-green-700 font-bold bg-green-50">Lucro Total (Gateway+Juros)</TableHead>
+                  <TableHead className="min-w-[280px]">Link Pagar.me</TableHead>
+                  <TableHead className="min-w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {detailedSales?.map((sale) => {
                   const estimatedGatewayFee = Math.round(sale.total_cents * 0.0088) + 9;
                   const gatewayFee = sale.gateway_fee_cents || estimatedGatewayFee;
-                  const platformProfit = sale.splits.platform_fee + sale.interest_cents;
+                  
+                  // Calculate anticipation cost for this sale
+                  let anticipationCost = 0;
+                  if (sale.payment_method === 'credit_card') {
+                    const daysAnticipated = 28;
+                    const dailyRate = ANTICIPATION_RATE_MONTHLY / 30;
+                    anticipationCost = Math.round(sale.total_cents * (dailyRate * daysAnticipated / 100));
+                  }
+                  
+                  const platformGain = sale.splits.platform_fee;
+                  const interestProfit = sale.interest_cents;
+                  const totalPlatformProfit = platformGain + interestProfit;
                   const pagarmeUrl = buildPagarmeUrl(sale.gateway_transaction_id);
 
                   return (
                     <TableRow key={sale.id}>
-                      <TableCell className="font-mono text-sm sticky left-0 bg-background">
+                      <TableCell className="font-mono text-sm sticky left-0 bg-background z-10">
                         {sale.order_number}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
@@ -594,37 +605,44 @@ export function GatewayDetailedTable({ onViewSale }: GatewayDetailedTableProps) 
                       <TableCell className="text-right text-red-600 text-xs">
                         -{formatCurrency(gatewayFee)}
                       </TableCell>
+                      <TableCell className="text-right text-amber-600 text-xs">
+                        {anticipationCost > 0 ? `-${formatCurrency(anticipationCost)}` : '-'}
+                      </TableCell>
                       <TableCell className="text-right text-green-600 text-xs">
-                        {sale.splits.affiliate > 0 ? formatCurrency(sale.splits.affiliate) : '-'}
+                        {sale.splits.affiliate > 0 ? `-${formatCurrency(sale.splits.affiliate)}` : '-'}
                       </TableCell>
                       <TableCell className="text-right text-cyan-600 text-xs">
-                        {sale.splits.coproducer > 0 ? formatCurrency(sale.splits.coproducer) : '-'}
+                        {sale.splits.coproducer > 0 ? `-${formatCurrency(sale.splits.coproducer)}` : '-'}
                       </TableCell>
                       <TableCell className="text-right text-orange-600 text-xs">
-                        {sale.splits.industry > 0 ? formatCurrency(sale.splits.industry) : '-'}
+                        {sale.splits.industry > 0 ? `-${formatCurrency(sale.splits.industry)}` : '-'}
                       </TableCell>
-                      <TableCell className="text-right text-amber-600 text-xs">
-                        {sale.splits.factory > 0 ? formatCurrency(sale.splits.factory) : '-'}
+                      <TableCell className="text-right text-amber-700 text-xs">
+                        {sale.splits.factory > 0 ? `-${formatCurrency(sale.splits.factory)}` : '-'}
                       </TableCell>
                       <TableCell className="text-right text-purple-600 font-medium">
-                        {formatCurrency(sale.splits.platform_fee)}
+                        {formatCurrency(platformGain)}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-green-700">
-                        {formatCurrency(platformProfit)}
+                      <TableCell className="text-right text-emerald-600 font-medium">
+                        {interestProfit > 0 ? formatCurrency(interestProfit) : '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right font-bold text-green-700 bg-green-50">
+                        {formatCurrency(totalPlatformProfit)}
+                      </TableCell>
+                      <TableCell className="text-xs">
                         {pagarmeUrl ? (
                           <a 
                             href={pagarmeUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:underline break-all"
+                            title={pagarmeUrl}
                           >
-                            <ExternalLink className="h-3 w-3" />
-                            Ver
+                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate max-w-[240px]">{pagarmeUrl}</span>
                           </a>
                         ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -641,14 +659,14 @@ export function GatewayDetailedTable({ onViewSale }: GatewayDetailedTableProps) 
                 })}
                 {(!detailedSales || detailedSales.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={17} className="text-center text-muted-foreground py-8">
                       Nenhuma venda encontrada nos últimos 30 dias
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     </div>
