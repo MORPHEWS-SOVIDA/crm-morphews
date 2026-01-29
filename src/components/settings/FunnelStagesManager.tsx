@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom } from '@/hooks/useFunnelStages';
+import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom, CapiEventName } from '@/hooks/useFunnelStages';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,6 +34,17 @@ import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const MAX_STAGES = 25;
+
+// TracZAP - CAPI Event options for Meta Ads integration
+const CAPI_EVENTS: { value: CapiEventName | 'none'; label: string; description: string }[] = [
+  { value: 'none', label: 'Não disparar evento', description: 'Nenhum evento será enviado para Meta Ads' },
+  { value: 'Lead', label: 'Lead', description: 'Novo lead capturado (primeiro contato)' },
+  { value: 'Contact', label: 'Contact', description: 'Lead qualificado / fez contato' },
+  { value: 'Schedule', label: 'Schedule', description: 'Lead agendou reunião/consulta' },
+  { value: 'CompleteRegistration', label: 'Complete Registration', description: 'Lead completou cadastro' },
+  { value: 'SubmitApplication', label: 'Submit Application', description: 'Lead enviou proposta/aplicação' },
+  { value: 'Purchase', label: 'Purchase', description: 'Lead virou cliente (venda fechada)' },
+];
 
 const STAGE_COLORS = [
   { value: 'bg-slate-200', label: 'Cinza', textColor: 'text-slate-700' },
@@ -125,6 +136,10 @@ function StageEditForm({
   const [defaultFollowupReasonId, setDefaultFollowupReasonId] = useState<string | null>(
     stage?.default_followup_reason_id || null
   );
+  // TracZAP - CAPI event configuration
+  const [capiEventName, setCapiEventName] = useState<CapiEventName | 'none'>(
+    stage?.capi_event_name || 'none'
+  );
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
@@ -150,6 +165,8 @@ function StageEditForm({
       requires_contact: requiresContact,
       enum_value: enumValue === 'none' ? null : enumValue,
       default_followup_reason_id: defaultFollowupReasonId,
+      // TracZAP - CAPI event
+      capi_event_name: capiEventName === 'none' ? null : capiEventName,
     };
 
     if (isNew) {
@@ -343,7 +360,51 @@ function StageEditForm({
         </p>
       </div>
 
-      {/* Preview */}
+      {/* TracZAP - CAPI Event Selector */}
+      <div className="space-y-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-blue-600" />
+          <Label className="text-sm font-medium">TracZAP - Evento Meta Ads</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Quando um lead entrar nesta etapa, este evento será enviado automaticamente para o Meta Ads (CAPI) para otimizar suas campanhas.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Select 
+          value={capiEventName || 'none'} 
+          onValueChange={(v) => setCapiEventName(v === 'none' ? null : v as CapiEventName)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Nenhum evento CAPI" />
+          </SelectTrigger>
+          <SelectContent>
+            {CAPI_EVENTS.map((event) => (
+              <SelectItem key={event.value || 'none'} value={event.value || 'none'}>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    {event.value !== 'none' && <Send className="w-3 h-3 text-blue-500" />}
+                    <span>{event.label}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{event.description}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {capiEventName && capiEventName !== 'none' && (
+          <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+            <Send className="w-3 h-3" />
+            <span>Evento <strong>{capiEventName}</strong> será enviado ao Meta Ads quando lead entrar nesta etapa</span>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2">
         <Label>Preview</Label>
         <div className={cn('p-3 rounded-lg', color)}>
@@ -420,6 +481,16 @@ function SortableStageItem({ stage, canDelete, onEdit, onDelete }: SortableStage
                     <Phone className="w-3 h-3 text-orange-600" />
                   </TooltipTrigger>
                   <TooltipContent>Requer contato</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {stage.capi_event_name && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Zap className="w-3 h-3 text-blue-600" />
+                  </TooltipTrigger>
+                  <TooltipContent>TracZAP: {stage.capi_event_name}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}

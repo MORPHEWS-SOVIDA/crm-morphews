@@ -147,7 +147,10 @@ export default function LeadDetail() {
       // Update the lead stage
       await updateLead.mutateAsync({ id, stage: stageChangeDialog.newStage });
       
-      // Record the stage change in history
+      // Find the target stage ID for TracZAP integration
+      const targetStage = funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
+      
+      // Record the stage change in history (TracZAP event is triggered automatically)
       await addStageHistory.mutateAsync({
         lead_id: id,
         organization_id: lead.organization_id!,
@@ -155,6 +158,9 @@ export default function LeadDetail() {
         previous_stage: lead.stage,
         reason: result.reason,
         changed_by: user?.id || null,
+        // TracZAP: Pass stage ID for CAPI event
+        to_stage_id: targetStage?.id,
+        source: 'manual',
       });
       
       // Schedule follow-up if selected
