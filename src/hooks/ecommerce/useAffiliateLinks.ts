@@ -26,7 +26,7 @@ export interface AffiliateLink {
 
 export interface AvailableOffer {
   id: string;
-  type: 'checkout' | 'landing';
+  type: 'checkout' | 'landing' | 'storefront';
   name: string;
   slug: string;
   attribution_model: string;
@@ -334,7 +334,10 @@ export function useAffiliateAvailableOffers() {
         }
       }
 
-      // 2. NOVO: Buscar vínculos via checkout_affiliate_links (sistema V2 - organization_affiliates)
+      // Collect offers from multiple systems (network -> v2 checkout links -> legacy partner associations)
+      const aggregatedOffers: AvailableOffer[] = [];
+
+      // 2. Buscar vínculos via checkout_affiliate_links (sistema V2 - organization_affiliates)
       // Primeiro verificar se o usuário tem um registro em organization_affiliates
       const { data: orgAffiliate } = await supabase
         .from('organization_affiliates')
@@ -408,13 +411,16 @@ export function useAffiliateAvailableOffers() {
             });
           }
 
-          if (offers.length > 0) {
-            return offers;
+          // Merge V2 checkout offers into aggregated list (do not early-return; legacy links may include storefront/landing)
+          for (const o of offers) {
+            if (!aggregatedOffers.some((x) => x.type === o.type && x.id === o.id)) {
+              aggregatedOffers.push(o);
+            }
           }
         }
       }
 
-      // 2. Fallback: Sistema antigo via partner_associations
+      // 3. Fallback: Sistema antigo via partner_associations (inclui Loja)
       // Buscar a conta virtual do usuário
       const { data: virtualAccount } = await supabase
         .from('virtual_accounts')
@@ -422,28 +428,24 @@ export function useAffiliateAvailableOffers() {
         .eq('user_id', profile.user_id)
         .maybeSingle();
 
-      if (!virtualAccount) return [];
+      if (!virtualAccount) return aggregatedOffers;
 
       // Buscar TODAS as associações do afiliado para determinar organization_id
       const { data: allAssociations } = await supabase
         .from('partner_associations')
-        .select('id, affiliate_code, commission_type, commission_value, organization_id, linked_checkout_id, linked_landing_id')
+        .select('id, affiliate_code, commission_type, commission_value, organization_id, linked_checkout_id, linked_landing_id, linked_storefront_id')
         .eq('virtual_account_id', virtualAccount.id)
         .eq('partner_type', 'affiliate')
         .eq('is_active', true);
 
-      if (!allAssociations || allAssociations.length === 0) return [];
+      if (!allAssociations || allAssociations.length === 0) return aggregatedOffers;
 
       // Get organization_id from association (more reliable than virtual_account.organization_id for partners)
       const organizationId = allAssociations[0].organization_id;
-      if (!organizationId) return [];
+      if (!organizationId) return aggregatedOffers;
 
-      // Buscar associação geral (sem vínculo específico)
-      const myAssociation = allAssociations.find(a => !a.linked_checkout_id && !a.linked_landing_id);
-      
-      // Buscar vínculos específicos do afiliado
-      const linkedCheckoutIds = new Set(allAssociations.map(l => l.linked_checkout_id).filter(Boolean));
-      const linkedLandingIds = new Set(allAssociations.map(l => l.linked_landing_id).filter(Boolean));
+      // Observação: o afiliado só vê ofertas explicitamente vinculadas (linked_*),
+      // então não precisamos de associação geral nem sets auxiliares aqui.
 
       // Buscar checkouts disponíveis
       const { data: checkouts } = await supabase
@@ -474,6 +476,13 @@ export function useAffiliateAvailableOffers() {
       const { data: landings } = await supabase
         .from('landing_pages')
         .select('id, name, slug, attribution_model')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true);
+
+      // Buscar lojas disponíveis
+      const { data: storefronts } = await supabase
+        .from('tenant_storefronts')
+        .select('id, name, slug, logo_url')
         .eq('organization_id', organizationId)
         .eq('is_active', true);
 
@@ -527,7 +536,32 @@ export function useAffiliateAvailableOffers() {
         });
       }
 
-      return offers;
+      // Adicionar lojas - APENAS as que têm vínculo específico
+      for (const sf of storefronts || []) {
+        const specificAssoc = allAssociations.find(l => l.linked_storefront_id === sf.id);
+        if (!specificAssoc) continue;
+
+        const code = specificAssoc.affiliate_code || affiliateCode;
+        offers.push({
+          id: sf.id,
+          type: 'storefront',
+          name: sf.name,
+          slug: sf.slug,
+          attribution_model: 'last_click',
+          product_image: (sf as any).logo_url || undefined,
+          is_enrolled: true,
+          affiliate_link: code ? `${window.location.origin}/loja/${sf.slug}?ref=${code}` : undefined,
+        });
+      }
+
+      // Merge legacy offers into aggregated list
+      for (const o of offers) {
+        if (!aggregatedOffers.some((x) => x.type === o.type && x.id === o.id)) {
+          aggregatedOffers.push(o);
+        }
+      }
+
+      return aggregatedOffers;
     },
     enabled: !!profile?.user_id,
   });
