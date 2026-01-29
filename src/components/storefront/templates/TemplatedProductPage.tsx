@@ -8,6 +8,14 @@ import { Separator } from '@/components/ui/separator';
 import { getTemplateStyles, type TemplateSlug } from './templateUtils';
 import { AddToCartConfirmDialog } from '../AddToCartConfirmDialog';
 
+// Dynamic kit structure - supports any quantity
+export interface KitOption {
+  quantity: number;
+  price: number;           // in cents
+  originalPrice: number;   // in cents (for showing crossed-out price)
+  isBestSeller?: boolean;
+}
+
 interface ProductData {
   id: string;
   name: string;
@@ -16,8 +24,7 @@ interface ProductData {
   videoUrl?: string;
   benefits: string[];
   basePrice: number;
-  kitPrices: { 1: number; 3: number; 6: number; 12: number };
-  originalPrices: { 1: number; 3: number; 6: number; 12: number };
+  kits: KitOption[];  // Dynamic list of kit options
 }
 
 interface TemplatedProductPageProps {
@@ -27,7 +34,7 @@ interface TemplatedProductPageProps {
   primaryColor: string;
   templateSlug?: TemplateSlug;
   showKitUpsell?: boolean;
-  onAddToCart: (quantity: number, kitSize: 1 | 3 | 6 | 12) => void;
+  onAddToCart: (quantity: number, kitSize: number) => void;
 }
 
 function formatCurrency(cents: number): string {
@@ -46,7 +53,9 @@ export function TemplatedProductPage({
   showKitUpsell = true,
   onAddToCart,
 }: TemplatedProductPageProps) {
-  const [selectedKit, setSelectedKit] = useState<1 | 3 | 6 | 12>(1);
+  // Get the default kit (first one with quantity 1, or just the first kit)
+  const defaultKit = product.kits.find(k => k.quantity === 1) || product.kits[0];
+  const [selectedKitQty, setSelectedKitQty] = useState<number>(defaultKit?.quantity || 1);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
@@ -54,7 +63,8 @@ export function TemplatedProductPage({
   const [addedProduct, setAddedProduct] = useState<{ quantity: number; kitSize: number; totalPrice: number } | null>(null);
 
   const styles = getTemplateStyles(templateSlug);
-  const totalPrice = product.kitPrices[selectedKit] * quantity;
+  const selectedKit = product.kits.find(k => k.quantity === selectedKitQty) || defaultKit;
+  const totalPrice = (selectedKit?.price || product.basePrice) * quantity;
 
   const isVitrineModerna = templateSlug === 'vitrine-moderna';
   const isPremiumSaude = templateSlug === 'premium-saude';
@@ -254,24 +264,23 @@ export function TemplatedProductPage({
 
             <Separator />
 
-            {/* Kit Selection */}
-            {showKitUpsell && (
+            {/* Kit Selection - Dynamic kits */}
+            {showKitUpsell && product.kits.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Escolha seu kit:</h3>
                 <div className="space-y-3">
-                  {([1, 3, 6, 12] as const).map((size) => {
-                    if (product.kitPrices[size] <= 0) return null;
+                  {product.kits.map((kit) => {
+                    if (kit.price <= 0) return null;
                     
-                    const savings = size > 1 
-                      ? ((1 - product.kitPrices[size] / product.originalPrices[size]) * 100).toFixed(0)
+                    const savings = kit.quantity > 1 && kit.originalPrice > kit.price
+                      ? ((1 - kit.price / kit.originalPrice) * 100).toFixed(0)
                       : null;
-                    const isSelected = selectedKit === size;
-                    const isBestSeller = size === 3;
+                    const isSelected = selectedKitQty === kit.quantity;
 
                     return (
                       <div
-                        key={size}
-                        onClick={() => setSelectedKit(size)}
+                        key={kit.quantity}
+                        onClick={() => setSelectedKitQty(kit.quantity)}
                         className={`
                           relative p-5 rounded-2xl border-2 cursor-pointer transition-all
                           ${isSelected 
@@ -285,7 +294,7 @@ export function TemplatedProductPage({
                       >
                         {/* Badges */}
                         <div className="absolute -top-3 left-4 flex gap-2">
-                          {isBestSeller && (
+                          {kit.isBestSeller && (
                             <Badge 
                               className="text-xs px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 border-0 text-white shadow-lg"
                             >
@@ -316,10 +325,10 @@ export function TemplatedProductPage({
                             </div>
                             <div>
                               <span className="font-bold text-lg">
-                                {size} {size === 1 ? 'frasco' : 'frascos'}
+                                Kit {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
                               </span>
                               <p className="text-sm text-muted-foreground">
-                                {formatCurrency(product.kitPrices[size] / size)} por unidade
+                                {formatCurrency(kit.price / kit.quantity)}/un
                               </p>
                             </div>
                           </div>
@@ -329,11 +338,11 @@ export function TemplatedProductPage({
                               className="text-2xl font-bold"
                               style={{ color: primaryColor }}
                             >
-                              {formatCurrency(product.kitPrices[size])}
+                              {formatCurrency(kit.price)}
                             </span>
-                            {size > 1 && (
+                            {kit.quantity > 1 && kit.originalPrice > kit.price && (
                               <p className="text-sm text-muted-foreground line-through">
-                                {formatCurrency(product.originalPrices[size])}
+                                {formatCurrency(kit.originalPrice)}
                               </p>
                             )}
                           </div>
@@ -385,9 +394,9 @@ export function TemplatedProductPage({
                   >
                     {formatCurrency(totalPrice)}
                   </span>
-                  {selectedKit > 1 && (
+                  {selectedKit && selectedKit.quantity > 1 && selectedKit.originalPrice > selectedKit.price && (
                     <p className="text-sm text-muted-foreground line-through">
-                      {formatCurrency(product.originalPrices[selectedKit] * quantity)}
+                      {formatCurrency(selectedKit.originalPrice * quantity)}
                     </p>
                   )}
                 </div>
@@ -401,11 +410,13 @@ export function TemplatedProductPage({
                 `}
                 style={!isVitrineModerna ? { backgroundColor: primaryColor } : undefined}
                 onClick={() => {
-                  onAddToCart(quantity, selectedKit);
+                  const kitQty = selectedKit?.quantity || 1;
+                  const kitPrice = selectedKit?.price || product.basePrice;
+                  onAddToCart(quantity, kitQty);
                   setAddedProduct({
                     quantity,
-                    kitSize: selectedKit,
-                    totalPrice: product.kitPrices[selectedKit] * quantity,
+                    kitSize: kitQty,
+                    totalPrice: kitPrice * quantity,
                   });
                   setShowCartConfirm(true);
                 }}

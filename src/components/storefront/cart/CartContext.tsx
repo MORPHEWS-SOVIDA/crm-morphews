@@ -8,7 +8,7 @@ export interface CartItem {
   name: string;
   imageUrl: string | null;
   quantity: number;
-  kitSize: 1 | 3 | 6 | 12;
+  kitSize: number; // Dynamic kit sizes (1, 2, 3, 5, 10, etc.)
   unitPrice: number; // Price per unit in cents
   totalPrice: number; // Total price for this line item
 }

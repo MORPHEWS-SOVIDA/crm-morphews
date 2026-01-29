@@ -1,10 +1,10 @@
 import { useParams, useOutletContext, Link } from 'react-router-dom';
 import { ShoppingCart, Package, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePublicProduct, type StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
+import { usePublicProduct, usePublicProductKits, type StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { useCrosssellProducts } from '@/hooks/ecommerce/useCrosssellProducts';
 import { useCart } from './cart/CartContext';
-import { TemplatedProductPage } from './templates/TemplatedProductPage';
+import { TemplatedProductPage, type KitOption } from './templates/TemplatedProductPage';
 import { ProductRecommendations } from './ProductRecommendations';
 import { toast } from 'sonner';
 
@@ -13,6 +13,12 @@ export function StorefrontProductPage() {
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
   const { data: storefrontProduct, isLoading, error } = usePublicProduct(slug, productId);
   const { addItem } = useCart();
+
+  // Fetch product kits (dynamic pricing)
+  const { data: productKits = [] } = usePublicProductKits(
+    storefrontProduct?.product?.id,
+    storefront?.organization_id
+  );
 
   // Fetch crosssell products
   const { data: crosssellProducts = [] } = useCrosssellProducts(
@@ -63,19 +69,37 @@ export function StorefrontProductPage() {
 
   const basePrice = storefrontProduct.custom_price_cents || product.price_1_unit || product.base_price_cents || 0;
   
-  const kitPrices = {
-    1: basePrice,
-    3: product.price_3_units || basePrice * 3,
-    6: product.price_6_units || basePrice * 6,
-    12: product.price_12_units || basePrice * 12,
-  };
+  // Build dynamic kits from product_price_kits or custom_kit_prices
+  const customKitPrices = storefrontProduct.custom_kit_prices as Record<string, number> | null;
+  
+  // Convert product kits to the format expected by TemplatedProductPage
+  const kits: KitOption[] = [];
+  
+  if (productKits.length > 0) {
+    // Use product_price_kits from database
+    for (const kit of productKits) {
+      const customPrice = customKitPrices?.[String(kit.quantity)];
+      const kitPrice = customPrice ?? kit.promotional_price_cents ?? kit.regular_price_cents;
+      const originalPrice = kit.regular_price_cents;
+      
+      kits.push({
+        quantity: kit.quantity,
+        price: kitPrice,
+        originalPrice: originalPrice,
+        isBestSeller: kit.position === 1, // First kit by position is "best seller"
+      });
+    }
+  } else {
+    // Fallback: create a single kit with base price
+    kits.push({
+      quantity: 1,
+      price: basePrice,
+      originalPrice: basePrice,
+    });
+  }
 
-  const originalPrices = {
-    1: basePrice,
-    3: basePrice * 3,
-    6: basePrice * 6,
-    12: basePrice * 12,
-  };
+  // Sort kits by quantity
+  kits.sort((a, b) => a.quantity - b.quantity);
 
   // Determine template from storefront config
   const templateSlug = (storefront as any).template?.slug || 'minimal-clean';
@@ -83,8 +107,12 @@ export function StorefrontProductPage() {
   // Check if crosssell is enabled for this product
   const showCrosssell = storefrontProduct.show_crosssell !== false && crosssellProducts.length > 0;
 
-  const handleAddToCart = (quantity: number, kitSize: 1 | 3 | 6 | 12) => {
+  const handleAddToCart = (quantity: number, kitSize: number) => {
     if (!slug) return;
+    
+    // Find the selected kit to get correct pricing
+    const selectedKit = kits.find(k => k.quantity === kitSize);
+    const unitPrice = selectedKit ? selectedKit.price / selectedKit.quantity : basePrice;
     
     addItem({
       productId: product.id,
@@ -93,7 +121,7 @@ export function StorefrontProductPage() {
       imageUrl: images[0] || null,
       quantity,
       kitSize,
-      unitPrice: kitPrices[kitSize] / kitSize,
+      unitPrice,
     }, slug, storefront.id);
   };
 
@@ -124,8 +152,7 @@ export function StorefrontProductPage() {
           videoUrl: product.ecommerce_video_url || undefined,
           benefits: benefits.map(b => String(b)),
           basePrice,
-          kitPrices,
-          originalPrices,
+          kits,
         }}
         storefrontSlug={slug || ''}
         storefrontName={storefront.name}
