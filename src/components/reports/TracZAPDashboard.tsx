@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Zap, 
   ArrowRight, 
@@ -20,10 +21,12 @@ import {
   Target,
   Activity,
   Settings,
+  Link2,
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { TracZAPLinkGenerator } from './TracZAPLinkGenerator';
 
 interface StageStats {
   stage_id: string;
@@ -200,32 +203,47 @@ export function TracZAPDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header with period selector */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-            <Zap className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">TracZAP</h2>
-            <p className="text-sm text-muted-foreground">
-              Rastreamento de conversões por etapa do funil
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+          <Zap className="h-6 w-6 text-white" />
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Últimos 7 dias</SelectItem>
-            <SelectItem value="14">Últimos 14 dias</SelectItem>
-            <SelectItem value="30">Últimos 30 dias</SelectItem>
-            <SelectItem value="60">Últimos 60 dias</SelectItem>
-            <SelectItem value="90">Últimos 90 dias</SelectItem>
-          </SelectContent>
-        </Select>
+        <div>
+          <h2 className="text-xl font-bold">TracZAP</h2>
+          <p className="text-sm text-muted-foreground">
+            Rastreamento de conversões por etapa do funil
+          </p>
+        </div>
       </div>
+
+      <Tabs defaultValue="funnel" className="w-full">
+        <TabsList>
+          <TabsTrigger value="funnel" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Funil CAPI
+          </TabsTrigger>
+          <TabsTrigger value="links" className="gap-2">
+            <Link2 className="h-4 w-4" />
+            Links Rastreáveis
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="funnel" className="mt-6 space-y-6">
+          {/* Period selector */}
+          <div className="flex justify-end">
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="14">Últimos 14 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="60">Últimos 60 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -439,6 +457,12 @@ export function TracZAPDashboard() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="links" className="mt-6">
+          <TracZAPLinkGenerator />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
