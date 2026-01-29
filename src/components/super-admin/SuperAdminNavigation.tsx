@@ -21,6 +21,7 @@ import {
   ChevronDown,
   FileText,
   TrendingUp,
+  Handshake,
 } from "lucide-react";
 import {
   Collapsible,
@@ -66,6 +67,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
       { id: "billing", label: "Inadimplência", icon: AlertTriangle, description: "D+3, D+7, D+14" },
       { id: "coupons", label: "Cupons", icon: Tag, description: "Desconto" },
       { id: "plan-editor", label: "Planos", icon: Package, description: "Editor" },
+      { id: "implementers", label: "Implementadores", icon: Handshake, description: "Parceiros revenda" },
     ],
   },
   {

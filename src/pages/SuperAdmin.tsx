@@ -36,6 +36,7 @@ import { PlatformGatewaysTab } from "@/components/super-admin/PlatformGatewaysTa
 import { GatewayFinancialDashboard } from "@/components/super-admin/GatewayFinancialDashboard";
 import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFeesTab";
 import { LandingTemplatesTab } from "@/components/super-admin/LandingTemplatesTab";
+import { ImplementersTab } from "@/components/super-admin/ImplementersTab";
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
 import { cn } from "@/lib/utils";
 
@@ -914,6 +915,7 @@ export default function SuperAdmin() {
             {activeTab === "billing" && <BillingManagementTab />}
             {activeTab === "coupons" && <CouponsTab />}
             {activeTab === "plan-editor" && <PlanEditor />}
+            {activeTab === "implementers" && <ImplementersTab />}
             {activeTab === "gateway-financial" && <GatewayFinancialDashboard />}
             {activeTab === "gateways" && <PlatformGatewaysTab />}
             {activeTab === "tenant-fees" && <TenantPaymentFeesTab />}
