@@ -160,6 +160,7 @@ export function StorefrontProductPage() {
         templateSlug={templateSlug}
         showKitUpsell={storefrontProduct.show_kit_upsell !== false}
         onAddToCart={handleAddToCart}
+        installmentConfig={(storefront as any).installment_config}
       />
 
       {/* Cross-sell Recommendations */}

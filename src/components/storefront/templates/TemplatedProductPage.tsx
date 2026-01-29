@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getTemplateStyles, type TemplateSlug } from './templateUtils';
 import { AddToCartConfirmDialog } from '../AddToCartConfirmDialog';
+import { calculateInstallmentWithInterest } from '@/hooks/ecommerce/useTenantInstallmentFees';
 
 // Dynamic kit structure - supports any quantity
 export interface KitOption {
@@ -14,6 +15,12 @@ export interface KitOption {
   price: number;           // in cents
   originalPrice: number;   // in cents (for showing crossed-out price)
   isBestSeller?: boolean;
+}
+
+interface InstallmentConfig {
+  installment_fees: Record<string, number>;
+  installment_fee_passed_to_buyer: boolean;
+  max_installments: number;
 }
 
 interface ProductData {
@@ -35,6 +42,7 @@ interface TemplatedProductPageProps {
   templateSlug?: TemplateSlug;
   showKitUpsell?: boolean;
   onAddToCart: (quantity: number, kitSize: number) => void;
+  installmentConfig?: InstallmentConfig;
 }
 
 function formatCurrency(cents: number): string {
@@ -52,6 +60,7 @@ export function TemplatedProductPage({
   templateSlug = 'minimal-clean',
   showKitUpsell = true,
   onAddToCart,
+  installmentConfig,
 }: TemplatedProductPageProps) {
   // Get the default kit (first one with quantity 1, or just the first kit)
   const defaultKit = product.kits.find(k => k.quantity === 1) || product.kits[0];
@@ -65,6 +74,9 @@ export function TemplatedProductPage({
   const styles = getTemplateStyles(templateSlug);
   const selectedKit = product.kits.find(k => k.quantity === selectedKitQty) || defaultKit;
   const totalPrice = (selectedKit?.price || product.basePrice) * quantity;
+  
+  // Get installment config with defaults
+  const maxInstallments = installmentConfig?.max_installments || 12;
 
   const isVitrineModerna = templateSlug === 'vitrine-moderna';
   const isPremiumSaude = templateSlug === 'premium-saude';
@@ -273,10 +285,16 @@ export function TemplatedProductPage({
                   {product.kits.map((kit) => {
                     if (kit.price <= 0) return null;
                     
-                    const savings = kit.quantity > 1 && kit.originalPrice > kit.price
-                      ? ((1 - kit.price / kit.originalPrice) * 100).toFixed(0)
-                      : null;
+                    const hasDiscount = kit.originalPrice > kit.price;
                     const isSelected = selectedKitQty === kit.quantity;
+                    
+                    // Calculate installment with real interest rates
+                    const installmentInfo = calculateInstallmentWithInterest(
+                      kit.price,
+                      maxInstallments,
+                      installmentConfig?.installment_fees,
+                      installmentConfig?.installment_fee_passed_to_buyer ?? true
+                    );
 
                     return (
                       <div
@@ -303,14 +321,6 @@ export function TemplatedProductPage({
                               Mais vendido
                             </Badge>
                           )}
-                          {savings && parseInt(savings) >= 10 && (
-                            <Badge 
-                              className="text-xs px-3 py-1 text-white shadow-lg"
-                              style={{ backgroundColor: primaryColor }}
-                            >
-                              Economize {savings}%
-                            </Badge>
-                          )}
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -328,24 +338,36 @@ export function TemplatedProductPage({
                               <span className="font-bold text-lg">
                                 Kit {kit.quantity} {kit.quantity === 1 ? 'unidade' : 'unidades'}
                               </span>
-                              <p className="text-sm text-muted-foreground">
-                                {formatCurrency(kit.price / kit.quantity)}/un
-                              </p>
+                              {/* Show "DE R$___ POR R$___" when there's a discount */}
+                              {hasDiscount ? (
+                                <p className="text-sm">
+                                  <span className="text-muted-foreground line-through">
+                                    De {formatCurrency(kit.originalPrice)}
+                                  </span>
+                                  {' '}
+                                  <span className="font-medium text-green-600">
+                                    Por {formatCurrency(kit.price)}
+                                  </span>
+                                </p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">
+                                  {formatCurrency(kit.price)} à vista
+                                </p>
+                              )}
                             </div>
                           </div>
                           
+                          {/* Installment value - HIGHLIGHT */}
                           <div className="text-right">
-                            <span 
-                              className="text-2xl font-bold"
-                              style={{ color: primaryColor }}
-                            >
-                              {formatCurrency(kit.price)}
-                            </span>
-                            {kit.quantity > 1 && kit.originalPrice > kit.price && (
-                              <p className="text-sm text-muted-foreground line-through">
-                                {formatCurrency(kit.originalPrice)}
-                              </p>
-                            )}
+                            <div className="flex items-baseline justify-end gap-1">
+                              <span className="text-xs text-muted-foreground">{maxInstallments}x</span>
+                              <span 
+                                className="text-2xl font-bold"
+                                style={{ color: primaryColor }}
+                              >
+                                {formatCurrency(installmentInfo.installmentValue)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
