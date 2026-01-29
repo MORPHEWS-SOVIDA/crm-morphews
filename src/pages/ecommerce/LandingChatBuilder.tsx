@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, Eye, Code, Smartphone, Monitor, Save, ExternalLink, Sparkles } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Eye, Code, Smartphone, Monitor, Save, ExternalLink, Sparkles, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { LandingImageUpload } from '@/components/ecommerce/landing/LandingImageUpload';
 
+// URL detection regex
+const URL_REGEX = /https?:\/\/[^\s]+\.(app|com|com\.br|net|org|io|dev)[^\s]*/gi;
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -31,15 +33,23 @@ REGRAS IMPORTANTES:
 7. Pergunte sobre: produto, público-alvo, benefícios, diferenciais, garantia, urgência
 8. Use técnicas de copywriting persuasivo: headlines impactantes, bullet points de benefícios, prova social, escassez
 
-CLONAGEM DE SITES:
-Quando o usuário pedir para clonar/recriar um site existente (ex: "recrie igual", "clone esse site", "faça igual"):
-- Replique FIELMENTE o design, estrutura, cores, fontes e layout original
-- Baixe e use as MESMAS imagens do site original (use URLs absolutas das imagens do site)
-- Mantenha o mesmo texto/copy do original, a menos que o usuário peça para mudar
-- NÃO faça alterações criativas - o objetivo é uma réplica exata
-- Pergunte ao usuário apenas se algo não ficou claro sobre o site original
-
 Comece perguntando sobre o produto que o usuário quer vender.`;
+
+const CLONE_SYSTEM_PROMPT = `Você é um especialista em replicar landing pages com fidelidade EXATA.
+
+REGRAS CRÍTICAS PARA CLONAGEM:
+1. Você receberá o HTML REAL do site original capturado via scraping
+2. Seu trabalho é MANTER esse HTML o mais fiel possível, apenas fazendo ajustes mínimos necessários
+3. NÃO mude cores, fontes, estrutura, layout ou design - eles já estão corretos no HTML original
+4. NÃO invente conteúdo novo - use EXATAMENTE o que está no HTML original
+5. Apenas ajuste:
+   - Links de checkout para usar "/pay/[slug]"
+   - Remova scripts de terceiros problemáticos
+   - Converta URLs de imagens para absolutas se necessário
+6. Retorne o HTML entre <landing-html> e </landing-html>
+7. Se precisar de algum ajuste, pergunte ao usuário
+
+O HTML capturado do site original será fornecido. Preserve-o fielmente.`;
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/landing-chat-builder`;
 
@@ -52,12 +62,15 @@ export default function LandingChatBuilder() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isScraping, setIsScraping] = useState(false);
   const [htmlPreview, setHtmlPreview] = useState<string>('');
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [deviceMode, setDeviceMode] = useState<'desktop' | 'mobile'>('desktop');
   const [landingPageId, setLandingPageId] = useState<string | null>(id || null);
   const [landingSlug, setLandingSlug] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCloneMode, setIsCloneMode] = useState(false);
+  const [scrapedHtml, setScrapedHtml] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,9 +152,49 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
     return null;
   }, []);
 
+  // Detect if message contains a URL to clone
+  const detectCloneUrl = (text: string): string | null => {
+    const urls = text.match(URL_REGEX);
+    if (urls && urls.length > 0) {
+      // Check if it's a clone request
+      const cloneKeywords = ['clone', 'clon', 'recri', 'igual', 'copi', 'replica', 'mesmo', 'site'];
+      const lowerText = text.toLowerCase();
+      const isCloneRequest = cloneKeywords.some(kw => lowerText.includes(kw));
+      if (isCloneRequest || urls[0].includes('.lovable.app') || urls[0].includes('.vercel.app')) {
+        return urls[0].replace(/[.,;!?]+$/, ''); // Clean trailing punctuation
+      }
+    }
+    return null;
+  };
+
+  // Scrape a URL to get its HTML
+  const scrapeUrl = async (url: string): Promise<string | null> => {
+    setIsScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-landing-page', {
+        body: { url },
+      });
+      
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Erro ao acessar o site');
+      
+      return data.full_html || null;
+    } catch (error) {
+      console.error('Scrape error:', error);
+      toast({
+        title: 'Erro ao acessar site',
+        description: error instanceof Error ? error.message : 'Não foi possível capturar o HTML do site',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
   // Stream chat with AI
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isScraping) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -152,20 +205,64 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+
+    // Check if this is a clone request with a URL
+    const cloneUrl = detectCloneUrl(userMessage.content);
+    let capturedHtml: string | null = null;
+    
+    if (cloneUrl) {
+      // Add status message
+      const scrapingMsgId = `scraping-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: scrapingMsgId,
+        role: 'assistant',
+        content: `🔍 Capturando o HTML do site ${cloneUrl}...\n\nIsso pode levar alguns segundos.`,
+        timestamp: new Date(),
+      }]);
+      
+      capturedHtml = await scrapeUrl(cloneUrl);
+      
+      if (capturedHtml) {
+        setScrapedHtml(capturedHtml);
+        setIsCloneMode(true);
+        // Update the message
+        setMessages(prev => prev.map(m => 
+          m.id === scrapingMsgId 
+            ? { ...m, content: `✅ HTML capturado com sucesso! (${Math.round(capturedHtml!.length / 1024)}KB)\n\nProcessando para criar sua landing page...` }
+            : m
+        ));
+      } else {
+        setMessages(prev => prev.map(m => 
+          m.id === scrapingMsgId 
+            ? { ...m, content: `❌ Não foi possível capturar o HTML do site. Vou tentar criar uma versão baseada no que você descreveu.` }
+            : m
+        ));
+      }
+    }
+
     setIsLoading(true);
 
-    // Prepare messages for API (include system prompt)
+    // Prepare messages for API - use different prompts for clone vs create
+    const systemPrompt = capturedHtml ? CLONE_SYSTEM_PROMPT : (isCloneMode && scrapedHtml ? CLONE_SYSTEM_PROMPT : INITIAL_SYSTEM_PROMPT);
+    
     const apiMessages = [
-      { role: 'system', content: INITIAL_SYSTEM_PROMPT },
-      ...messages.filter(m => m.role !== 'system').map(m => ({
+      { role: 'system', content: systemPrompt },
+      ...messages.filter(m => m.role !== 'system' && !m.id.startsWith('scraping-')).map(m => ({
         role: m.role,
         content: m.content,
       })),
       { role: 'user', content: userMessage.content },
     ];
 
-    // Add current HTML context if exists
-    if (htmlPreview) {
+    // If we have scraped HTML, add it as context
+    const htmlContext = capturedHtml || scrapedHtml;
+    if (htmlContext && (capturedHtml || isCloneMode)) {
+      apiMessages.push({
+        role: 'system',
+        content: `HTML ORIGINAL CAPTURADO DO SITE (mantenha-o fielmente):\n\n${htmlContext.slice(0, 100000)}`,
+      });
+    } else if (htmlPreview) {
+      // Add current HTML context if exists
       apiMessages.push({
         role: 'system',
         content: `HTML atual da landing page:\n<current-html>${htmlPreview}</current-html>\n\nQuando o usuário pedir modificações, retorne o HTML completo atualizado entre <landing-html> tags.`,
@@ -255,6 +352,15 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
       const extractedHtml = extractHtmlFromResponse(assistantContent);
       if (extractedHtml) {
         setHtmlPreview(extractedHtml);
+      } else if (capturedHtml && !extractedHtml) {
+        // If clone mode but AI didn't return HTML, use the captured HTML directly
+        setHtmlPreview(capturedHtml);
+        setMessages(prev => [...prev, {
+          id: `auto-${Date.now()}`,
+          role: 'assistant',
+          content: '✅ Usando o HTML original capturado diretamente. Posso fazer ajustes se você precisar!',
+          timestamp: new Date(),
+        }]);
       }
 
     } catch (error) {
@@ -483,7 +589,7 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
                     setInput(prev => prev + (prev ? '\n' : '') + `Use esta imagem: ${url}`);
                     textareaRef.current?.focus();
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isScraping}
                 />
               </div>
               <Textarea
@@ -491,16 +597,18 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Descreva o que você quer criar..."
+                placeholder="Descreva o que quer criar ou cole uma URL para clonar..."
                 className="min-h-[80px] resize-none"
-                disabled={isLoading}
+                disabled={isLoading || isScraping}
               />
               <Button
                 onClick={sendMessage}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || isScraping}
                 className="self-end"
               >
-                {isLoading ? (
+                {isScraping ? (
+                  <Link2 className="h-4 w-4 animate-pulse" />
+                ) : isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
@@ -508,7 +616,7 @@ Pode me passar o nome, uma breve descrição e, se tiver, o link do checkout (ex
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              📷 Clique no ícone para enviar imagens • Passe o link do checkout (ex: /pay/produto) para os botões
+              📷 Imagens • 🔗 Cole uma URL para clonar sites • /pay/produto para CTAs
             </p>
           </div>
         </div>
