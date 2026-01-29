@@ -52,6 +52,14 @@ interface PaymentLink {
   customer_phone: string | null;
   customer_document: string | null;
   lead_id: string | null;
+  // Address fields (for better card approval)
+  customer_cep: string | null;
+  customer_street: string | null;
+  customer_street_number: string | null;
+  customer_neighborhood: string | null;
+  customer_city: string | null;
+  customer_state: string | null;
+  customer_complement: string | null;
 }
 
 interface TenantFees {
@@ -153,10 +161,22 @@ export default function PaymentLinkCheckout() {
   // Pre-fill customer data if it's a client-specific link
   useEffect(() => {
     if (paymentLink) {
+      // Basic customer data
       if (paymentLink.customer_name) setCustomerName(paymentLink.customer_name);
       if (paymentLink.customer_email) setCustomerEmail(paymentLink.customer_email);
       if (paymentLink.customer_phone) setCustomerPhone(formatPhone(paymentLink.customer_phone));
       if (paymentLink.customer_document) setCustomerDocument(formatDocument(paymentLink.customer_document));
+      
+      // Address data (important for card approval on high-ticket sales)
+      if (paymentLink.customer_cep) {
+        setCep(paymentLink.customer_cep);
+        setShowAddress(true); // Show address section if we have address data
+      }
+      if (paymentLink.customer_street) setStreet(paymentLink.customer_street);
+      if (paymentLink.customer_street_number) setStreetNumber(paymentLink.customer_street_number);
+      if (paymentLink.customer_neighborhood) setNeighborhood(paymentLink.customer_neighborhood);
+      if (paymentLink.customer_city) setCity(paymentLink.customer_city);
+      if (paymentLink.customer_state) setState(paymentLink.customer_state);
     }
   }, [paymentLink]);
 
