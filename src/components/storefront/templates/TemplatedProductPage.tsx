@@ -431,26 +431,43 @@ export function TemplatedProductPage({
             <Separator />
 
             {/* Total & Add to Cart */}
-            <div className={`
-              p-6 rounded-2xl space-y-4
-              ${isVitrineModerna ? 'bg-gradient-to-r from-pink-50 to-purple-50' : 'bg-gray-50'}
-            `}>
-              <div className="flex items-baseline justify-between">
-                <span className="text-lg">Total:</span>
-                <div className="text-right">
-                  <span 
-                    className="text-4xl font-bold"
-                    style={{ color: primaryColor }}
-                  >
-                    {formatCurrency(totalPrice)}
-                  </span>
-                  {selectedKit && selectedKit.quantity > 1 && selectedKit.originalPrice > selectedKit.price && (
-                    <p className="text-sm text-muted-foreground line-through">
-                      {formatCurrency(selectedKit.originalPrice * quantity)}
-                    </p>
-                  )}
-                </div>
-              </div>
+            {(() => {
+              // Calculate total installment with real interest rates
+              const totalInstallmentInfo = calculateInstallmentWithInterest(
+                totalPrice,
+                maxInstallments,
+                installmentConfig?.installment_fees,
+                installmentConfig?.installment_fee_passed_to_buyer ?? true
+              );
+              const totalParts = formatCurrencyParts(totalInstallmentInfo.installmentValue);
+              
+              return (
+                <div className={`
+                  p-6 rounded-2xl space-y-4
+                  ${isVitrineModerna ? 'bg-gradient-to-r from-pink-50 to-purple-50' : 'bg-gray-50'}
+                `}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">Total:</span>
+                    <div className="text-right">
+                      {/* Installment value - HIGHLIGHT */}
+                      <div className="flex items-baseline justify-end gap-0.5">
+                        <span className="text-sm text-muted-foreground">{maxInstallments}x</span>
+                        <span 
+                          className="text-3xl font-bold"
+                          style={{ color: primaryColor }}
+                        >
+                          {totalParts.main}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {totalParts.decimals}
+                        </span>
+                      </div>
+                      {/* Cash price - secondary */}
+                      <p className="text-sm text-muted-foreground">
+                        ou {formatCurrency(totalPrice)} à vista
+                      </p>
+                    </div>
+                  </div>
 
               <Button 
                 size="lg" 
@@ -483,6 +500,8 @@ export function TemplatedProductPage({
                 <span className="text-xs text-muted-foreground">Pix • Boleto</span>
               </div>
             </div>
+              );
+            })()}
           </div>
         </div>
       </div>
