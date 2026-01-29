@@ -181,9 +181,41 @@ serve(async (req) => {
         if (emailResponse.ok) {
           emailSent = true;
           console.log("E-mail enviado com sucesso");
+          
+          // Registrar no log de comunicações
+          await supabase.from('system_communication_logs').insert({
+            organization_id: data.organization_id,
+            channel: 'email',
+            source: 'partner_approval',
+            recipient_email: data.email,
+            recipient_name: data.name,
+            subject: subject,
+            message_content: `Aprovação de parceiro: ${data.name}`,
+            status: 'sent',
+            metadata: {
+              type: type,
+              affiliate_code: data.affiliate_code,
+            },
+          });
         } else {
           const errorText = await emailResponse.text();
           console.error("Erro ao enviar e-mail:", errorText);
+          
+          // Registrar erro no log
+          await supabase.from('system_communication_logs').insert({
+            organization_id: data.organization_id,
+            channel: 'email',
+            source: 'partner_approval',
+            recipient_email: data.email,
+            recipient_name: data.name,
+            subject: subject,
+            message_content: `Aprovação de parceiro: ${data.name}`,
+            status: 'failed',
+            error_message: errorText,
+            metadata: {
+              type: type,
+            },
+          });
         }
       } catch (emailError) {
         console.error("Erro ao enviar e-mail:", emailError);
