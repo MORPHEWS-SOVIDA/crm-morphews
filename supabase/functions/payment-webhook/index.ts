@@ -195,6 +195,28 @@ serve(async (req) => {
 
       case 'chargedback':
         await processRefundOrChargeback(supabase, saleIdStr, stableRef, 'chargeback');
+        
+        // CRITICAL: Send chargeback alerts to all affected parties
+        try {
+          const chargebackAlertUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/chargeback-alerts`;
+          await fetch(chargebackAlertUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              sale_id: saleIdStr,
+              organization_id: saleRecord.organization_id,
+              amount_cents: amountCents || saleTotalCents,
+              reason: rawData?.reason || rawData?.dispute_reason || 'Chargeback via gateway',
+            }),
+          });
+          console.log(`[PaymentWebhook] Chargeback alerts dispatched for sale ${saleIdStr}`);
+        } catch (alertError) {
+          console.error(`[PaymentWebhook] Failed to send chargeback alerts:`, alertError);
+          // Don't fail the webhook - alerts are secondary
+        }
         break;
 
       default:
