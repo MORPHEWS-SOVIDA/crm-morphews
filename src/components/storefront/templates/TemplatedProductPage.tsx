@@ -224,9 +224,10 @@ export function TemplatedProductPage({
                 {product.name}
               </h1>
               {product.description && (
-                <p className="text-lg text-muted-foreground leading-relaxed">
-                  {product.description}
-                </p>
+                <div 
+                  className="text-lg text-muted-foreground leading-relaxed prose prose-lg max-w-none"
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
               )}
             </div>
 
