@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { useProcessPayment } from '@/hooks/usePaymentLinks';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   CreditCard, 
   CheckCircle2, 
@@ -56,6 +58,31 @@ export function InlineTelesalesForm({
   const { data: orgFeatures } = useOrgFeatures();
   const processMutation = useProcessPayment();
   
+  // Buscar taxas do tenant para aplicar juros
+  const { data: tenantFees } = useQuery({
+    queryKey: ['tenant-fees-telesales', profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return null;
+      
+      const { data } = await supabase
+        .from('tenant_payment_fees')
+        .select('max_installments, installment_fees, installment_fee_passed_to_buyer')
+        .eq('organization_id', profile.organization_id)
+        .single();
+      
+      if (!data) {
+        // Valores padrão caso não exista configuração
+        return {
+          max_installments: 12,
+          installment_fees: { "2": 3.49, "3": 4.29, "4": 4.99, "5": 5.49, "6": 5.99, "7": 6.49, "8": 6.99, "9": 7.49, "10": 7.99, "11": 8.49, "12": 8.99 },
+          installment_fee_passed_to_buyer: true,
+        };
+      }
+      return data;
+    },
+    enabled: !!profile?.organization_id,
+  });
+  
   const [step, setStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
   const [result, setResult] = useState<any>(null);
   
@@ -72,6 +99,38 @@ export function InlineTelesalesForm({
   // Check permissions
   const canTelesales = isAdmin || permissions?.telesales_manage;
   const hasFeature = orgFeatures?.telesales !== false;
+
+  // Calcular opções de parcelamento COM juros
+  const installmentOptions = useMemo(() => {
+    const maxInst = tenantFees?.max_installments || 12;
+    const fees = tenantFees?.installment_fees as Record<string, number> | null;
+    const passToCustomer = tenantFees?.installment_fee_passed_to_buyer !== false;
+    
+    const options = [];
+    for (let i = 1; i <= maxInst; i++) {
+      let totalValue = amountCents;
+      let hasInterest = false;
+      
+      if (i > 1 && passToCustomer && fees) {
+        const feePercent = fees[i.toString()] || 2.69;
+        // Aplicar juros simples sobre o valor (como na config do Super Admin)
+        totalValue = Math.round(amountCents * (1 + feePercent / 100));
+        hasInterest = true;
+      }
+      
+      options.push({
+        installments: i,
+        totalValue, // Valor que o cliente paga (com juros)
+        perInstallment: Math.ceil(totalValue / i),
+        hasInterest,
+        interestAmount: totalValue - amountCents, // Diferença = juros (vai para plataforma)
+      });
+    }
+    return options;
+  }, [amountCents, tenantFees]);
+
+  // Valor selecionado atual (com juros se aplicável)
+  const selectedOption = installmentOptions.find(o => o.installments === installments) || installmentOptions[0];
 
   const resetForm = () => {
     setCardNumber('');
@@ -103,9 +162,15 @@ export function InlineTelesalesForm({
     setStep('processing');
 
     try {
+      // Enviar valor COM juros para o gateway (cliente paga o total)
+      // O split engine vai separar: amountCents para o tenant, juros para a plataforma
+      const chargeAmount = selectedOption?.totalValue || amountCents;
+      
       const response = await processMutation.mutateAsync({
         organizationId: profile?.organization_id || '',
-        amount_cents: amountCents,
+        amount_cents: chargeAmount, // Valor total COM juros
+        base_amount_cents: amountCents, // Valor base SEM juros (para o split)
+        interest_amount_cents: selectedOption?.interestAmount || 0, // Juros (vai para plataforma)
         payment_method: 'credit_card',
         installments,
         customer: {
@@ -248,13 +313,19 @@ export function InlineTelesalesForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                    <SelectItem key={n} value={n.toString()}>
-                      {n}x de {formatCurrency(Math.ceil(amountCents / n))}
+                  {installmentOptions.map((opt) => (
+                    <SelectItem key={opt.installments} value={opt.installments.toString()}>
+                      {opt.installments}x de {formatCurrency(opt.perInstallment)}
+                      {opt.hasInterest && ' (com juros)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedOption?.hasInterest && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total: {formatCurrency(selectedOption.totalValue)} (juros de {formatCurrency(selectedOption.interestAmount)})
+                </p>
+              )}
             </div>
 
             {/* Card Data */}
@@ -319,7 +390,7 @@ export function InlineTelesalesForm({
                 disabled={!cardNumber || !cardHolder || !cardExpiry || !cardCvv || !customerDoc}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
-                Cobrar {formatCurrency(amountCents)}
+                Cobrar {formatCurrency(selectedOption?.totalValue || amountCents)}
               </Button>
             </div>
           </div>
