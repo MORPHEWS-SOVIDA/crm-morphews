@@ -18184,6 +18184,14 @@ export type Database = {
         Args: { coupon_id: string }
         Returns: undefined
       }
+      increment_implementer_totals: {
+        Args: {
+          p_clients_count?: number
+          p_earnings_cents: number
+          p_implementer_id: string
+        }
+        Returns: undefined
+      }
       initialize_demand_board_columns: {
         Args: { p_board_id: string; p_organization_id: string }
         Returns: undefined
