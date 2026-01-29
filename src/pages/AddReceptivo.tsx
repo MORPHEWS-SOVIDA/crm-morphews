@@ -1021,7 +1021,18 @@ export default function AddReceptivo() {
     }
     setCurrentStep('payment');
   };
-  const handleGoToSaleOrReason = () => setCurrentStep('sale_or_reason');
+  const handleGoToSaleOrReason = () => {
+    // Validate payment method is selected before proceeding
+    if (!selectedPaymentMethodId) {
+      toast({ 
+        title: 'Selecione a forma de pagamento', 
+        description: 'É obrigatório selecionar uma forma de pagamento antes de continuar.',
+        variant: 'destructive' 
+      });
+      return;
+    }
+    setCurrentStep('sale_or_reason');
+  };
 
   const handleRejectKit = async () => {
     if (!rejectionReason.trim()) {
