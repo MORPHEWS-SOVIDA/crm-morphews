@@ -74,7 +74,7 @@ export function TenantPaymentFeesTab() {
     pix_release_days: 2,
     pix_enabled: true,
     card_fee_percentage: 4.99,
-    card_fee_fixed_cents: 0,
+    card_fee_fixed_cents: 100, // R$ 1,00 padrão para anti-fraude
     card_release_days: 14,
     card_enabled: true,
     max_installments: 12,
@@ -455,7 +455,7 @@ export function TenantPaymentFeesTab() {
                   onCheckedChange={(v) => setFormData(prev => ({ ...prev, card_enabled: v }))}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Taxa Percentual (%)</Label>
                   <Input
@@ -464,6 +464,17 @@ export function TenantPaymentFeesTab() {
                     value={formData.card_fee_percentage}
                     onChange={(e) => setFormData(prev => ({ ...prev, card_fee_percentage: parseFloat(e.target.value) || 0 }))}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Taxa Fixa (centavos)</Label>
+                  <Input
+                    type="number"
+                    value={formData.card_fee_fixed_cents}
+                    onChange={(e) => setFormData(prev => ({ ...prev, card_fee_fixed_cents: parseInt(e.target.value) || 0 }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    R$ {(formData.card_fee_fixed_cents / 100).toFixed(2)} (anti-fraude)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Dias para Liberação</Label>
