@@ -147,6 +147,14 @@ export interface CreatePaymentLinkInput {
   customer_email?: string;
   customer_phone?: string;
   customer_document?: string;
+  // Address fields for client-specific links (improves card approval rates)
+  customer_cep?: string;
+  customer_street?: string;
+  customer_street_number?: string;
+  customer_neighborhood?: string;
+  customer_city?: string;
+  customer_state?: string;
+  customer_complement?: string;
   lead_id?: string;
   external_reference?: string;
   notes?: string;
@@ -194,6 +202,14 @@ export function useCreatePaymentLink() {
           customer_email: input.customer_email,
           customer_phone: input.customer_phone,
           customer_document: input.customer_document,
+          // Address fields for better card approval
+          customer_cep: input.customer_cep,
+          customer_street: input.customer_street,
+          customer_street_number: input.customer_street_number,
+          customer_neighborhood: input.customer_neighborhood,
+          customer_city: input.customer_city,
+          customer_state: input.customer_state,
+          customer_complement: input.customer_complement,
           lead_id: input.lead_id,
           external_reference: input.external_reference,
           notes: input.notes,

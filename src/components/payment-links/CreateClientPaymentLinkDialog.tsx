@@ -24,6 +24,12 @@ interface Lead {
   cep: string | null;
 }
 
+// Check if lead has complete address for better approval rates
+const hasCompleteAddress = (lead: Lead | null) => {
+  if (!lead) return false;
+  return !!(lead.cep && lead.street && lead.city && lead.state);
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -96,6 +102,14 @@ export function CreateClientPaymentLinkDialog({ open, onOpenChange }: Props) {
       customer_email: selectedLead.email || undefined,
       customer_phone: selectedLead.whatsapp,
       customer_document: selectedLead.cpf_cnpj || undefined,
+      // Address data from CRM (important for card approval)
+      customer_cep: selectedLead.cep || undefined,
+      customer_street: selectedLead.street || undefined,
+      customer_street_number: selectedLead.street_number || undefined,
+      customer_neighborhood: selectedLead.neighborhood || undefined,
+      customer_city: selectedLead.city || undefined,
+      customer_state: selectedLead.state || undefined,
+      customer_complement: selectedLead.complement || undefined,
       max_uses: 1, // Single use for client links
     });
 
@@ -221,9 +235,18 @@ export function CreateClientPaymentLinkDialog({ open, onOpenChange }: Props) {
             </div>
           )}
 
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
+          {selectedLead && !hasCompleteAddress(selectedLead) && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
+              ⚠️ <strong>Endereço incompleto:</strong> Recomendamos cadastrar o endereço do cliente no CRM 
+              para aumentar a taxa de aprovação de pagamentos no cartão, principalmente em tickets altos.
+            </div>
+          )}
+          
+          <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
             Este link é de <strong>uso único</strong> e expira após o primeiro pagamento.
-            Os dados do cliente já estarão preenchidos no checkout.
+            {hasCompleteAddress(selectedLead) 
+              ? ' Todos os dados do cliente (incluindo endereço) já estarão preenchidos no checkout.'
+              : ' Os dados do cliente já estarão preenchidos no checkout.'}
           </div>
         </div>
 

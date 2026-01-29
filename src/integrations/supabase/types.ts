@@ -10281,10 +10281,17 @@ export type Database = {
           card_enabled: boolean | null
           created_at: string
           created_by: string | null
+          customer_cep: string | null
+          customer_city: string | null
+          customer_complement: string | null
           customer_document: string | null
           customer_email: string | null
           customer_name: string | null
+          customer_neighborhood: string | null
           customer_phone: string | null
+          customer_state: string | null
+          customer_street: string | null
+          customer_street_number: string | null
           description: string | null
           expires_at: string | null
           external_reference: string | null
@@ -10310,10 +10317,17 @@ export type Database = {
           card_enabled?: boolean | null
           created_at?: string
           created_by?: string | null
+          customer_cep?: string | null
+          customer_city?: string | null
+          customer_complement?: string | null
           customer_document?: string | null
           customer_email?: string | null
           customer_name?: string | null
+          customer_neighborhood?: string | null
           customer_phone?: string | null
+          customer_state?: string | null
+          customer_street?: string | null
+          customer_street_number?: string | null
           description?: string | null
           expires_at?: string | null
           external_reference?: string | null
@@ -10339,10 +10353,17 @@ export type Database = {
           card_enabled?: boolean | null
           created_at?: string
           created_by?: string | null
+          customer_cep?: string | null
+          customer_city?: string | null
+          customer_complement?: string | null
           customer_document?: string | null
           customer_email?: string | null
           customer_name?: string | null
+          customer_neighborhood?: string | null
           customer_phone?: string | null
+          customer_state?: string | null
+          customer_street?: string | null
+          customer_street_number?: string | null
           description?: string | null
           expires_at?: string | null
           external_reference?: string | null
