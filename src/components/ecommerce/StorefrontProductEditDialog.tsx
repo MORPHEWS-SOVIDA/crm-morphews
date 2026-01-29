@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Package, Image as ImageIcon, X, Settings, Tag, DollarSign, Info, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Package, Settings, Tag, DollarSign, Info, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import type { StorefrontProduct } from '@/hooks/ecommerce';
+import { useProductPriceKits } from '@/hooks/useProductPriceKits';
 
 interface ProductData {
   id: string;
@@ -55,6 +56,11 @@ function parseCurrency(value: string): number {
   return Math.round(parseFloat(cleaned || '0') * 100);
 }
 
+function formatCentsToInput(cents: number | null | undefined): string {
+  if (!cents) return '';
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
 export function StorefrontProductEditDialog({
   open,
   onOpenChange,
@@ -63,15 +69,21 @@ export function StorefrontProductEditDialog({
   isPending = false,
 }: StorefrontProductEditDialogProps) {
   const product = storefrontProduct.product;
+  
+  // Fetch product price kits
+  const { data: priceKits, isLoading: isLoadingKits } = useProductPriceKits(product?.id);
 
   // Form state - overrides
   const [customName, setCustomName] = useState('');
   const [customDescription, setCustomDescription] = useState('');
   const [useCustomPrice, setUseCustomPrice] = useState(false);
-  const [customPrice, setCustomPrice] = useState('');
-  const [customPrice3, setCustomPrice3] = useState('');
-  const [customPrice6, setCustomPrice6] = useState('');
-  const [customPrice12, setCustomPrice12] = useState('');
+  
+  // Single unit price (base price)
+  const [customUnitPrice, setCustomUnitPrice] = useState('');
+  
+  // Dynamic kit prices: { "2": "297,00", "3": "397,00", ... }
+  const [customKitPrices, setCustomKitPrices] = useState<Record<string, string>>({});
+  
   const [isVisible, setIsVisible] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [showCrosssell, setShowCrosssell] = useState(true);
@@ -85,23 +97,26 @@ export function StorefrontProductEditDialog({
     if (storefrontProduct) {
       setCustomName(storefrontProduct.custom_name || '');
       setCustomDescription(storefrontProduct.custom_description || '');
-      setUseCustomPrice(storefrontProduct.custom_price_cents !== null);
-      setCustomPrice(storefrontProduct.custom_price_cents 
-        ? (storefrontProduct.custom_price_cents / 100).toFixed(2).replace('.', ',')
-        : ''
-      );
-      setCustomPrice3(storefrontProduct.custom_price_3_cents 
-        ? (storefrontProduct.custom_price_3_cents / 100).toFixed(2).replace('.', ',')
-        : ''
-      );
-      setCustomPrice6(storefrontProduct.custom_price_6_cents 
-        ? (storefrontProduct.custom_price_6_cents / 100).toFixed(2).replace('.', ',')
-        : ''
-      );
-      setCustomPrice12(storefrontProduct.custom_price_12_cents 
-        ? (storefrontProduct.custom_price_12_cents / 100).toFixed(2).replace('.', ',')
-        : ''
-      );
+      
+      // Check if has custom pricing
+      const hasCustomPrice = storefrontProduct.custom_price_cents !== null || 
+        (storefrontProduct.custom_kit_prices && Object.keys(storefrontProduct.custom_kit_prices).length > 0);
+      setUseCustomPrice(hasCustomPrice);
+      
+      // Load single unit custom price
+      setCustomUnitPrice(formatCentsToInput(storefrontProduct.custom_price_cents));
+      
+      // Load kit custom prices
+      if (storefrontProduct.custom_kit_prices) {
+        const kitPricesFormatted: Record<string, string> = {};
+        for (const [qty, cents] of Object.entries(storefrontProduct.custom_kit_prices)) {
+          kitPricesFormatted[qty] = formatCentsToInput(cents as number);
+        }
+        setCustomKitPrices(kitPricesFormatted);
+      } else {
+        setCustomKitPrices({});
+      }
+      
       setIsVisible(storefrontProduct.is_visible !== false);
       setIsFeatured(storefrontProduct.is_featured || false);
       setShowCrosssell(storefrontProduct.show_crosssell !== false);
@@ -112,14 +127,30 @@ export function StorefrontProductEditDialog({
     }
   }, [storefrontProduct]);
 
+  // Get base price for single unit
+  const baseUnitPrice = product?.price_1_unit || product?.base_price_cents || 0;
+
+  const handleKitPriceChange = (quantity: number, value: string) => {
+    setCustomKitPrices(prev => ({
+      ...prev,
+      [quantity.toString()]: value,
+    }));
+  };
+
   const handleSave = () => {
+    // Build custom kit prices object
+    const kitPricesCents: Record<string, number> = {};
+    for (const [qty, value] of Object.entries(customKitPrices)) {
+      if (value && value.trim()) {
+        kitPricesCents[qty] = parseCurrency(value);
+      }
+    }
+    
     onSave({
       custom_name: customName || null,
       custom_description: customDescription || null,
-      custom_price_cents: useCustomPrice ? parseCurrency(customPrice) : null,
-      custom_price_3_cents: useCustomPrice && customPrice3 ? parseCurrency(customPrice3) : null,
-      custom_price_6_cents: useCustomPrice && customPrice6 ? parseCurrency(customPrice6) : null,
-      custom_price_12_cents: useCustomPrice && customPrice12 ? parseCurrency(customPrice12) : null,
+      custom_price_cents: useCustomPrice && customUnitPrice ? parseCurrency(customUnitPrice) : null,
+      custom_kit_prices: useCustomPrice && Object.keys(kitPricesCents).length > 0 ? kitPricesCents : null,
       is_visible: isVisible,
       is_featured: isFeatured,
       show_crosssell: showCrosssell,
@@ -129,6 +160,12 @@ export function StorefrontProductEditDialog({
       display_order: displayOrder,
     });
   };
+
+  // Sort kits by quantity
+  const sortedKits = useMemo(() => {
+    if (!priceKits) return [];
+    return [...priceKits].sort((a, b) => a.quantity - b.quantity);
+  }, [priceKits]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -255,7 +292,7 @@ export function StorefrontProductEditDialog({
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Preços Personalizados</CardTitle>
                 <CardDescription>
-                  Defina preços específicos para esta loja
+                  Defina preços promocionais para esta loja. O preço de tabela será riscado.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -272,92 +309,126 @@ export function StorefrontProductEditDialog({
                   />
                 </div>
 
-                {useCustomPrice && (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Preço 1 Unidade</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                        <Input
-                          className="pl-10"
-                          placeholder="0,00"
-                          value={customPrice}
-                          onChange={(e) => setCustomPrice(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Preço 3 Unidades</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                        <Input
-                          className="pl-10"
-                          placeholder="0,00"
-                          value={customPrice3}
-                          onChange={(e) => setCustomPrice3(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Preço 6 Unidades</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                        <Input
-                          className="pl-10"
-                          placeholder="0,00"
-                          value={customPrice6}
-                          onChange={(e) => setCustomPrice6(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Preço 12 Unidades</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                        <Input
-                          className="pl-10"
-                          placeholder="0,00"
-                          value={customPrice12}
-                          onChange={(e) => setCustomPrice12(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                {isLoadingKits ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
+                ) : (
+                  <>
+                    {/* Single Unit Price */}
+                    <div className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-medium">1 Unidade</h4>
+                          <p className="text-xs text-muted-foreground">Preço base unitário</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-sm ${useCustomPrice && customUnitPrice ? 'line-through text-muted-foreground' : 'font-medium'}`}>
+                            {formatCurrency(baseUnitPrice)}
+                          </span>
+                          {useCustomPrice && customUnitPrice && (
+                            <span className="block text-lg font-bold text-primary">
+                              {formatCurrency(parseCurrency(customUnitPrice))}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {useCustomPrice && (
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                          <Input
+                            className="pl-10"
+                            placeholder="Preço promocional..."
+                            value={customUnitPrice}
+                            onChange={(e) => setCustomUnitPrice(e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Kit Prices */}
+                    {sortedKits.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Kits Disponíveis
+                        </h4>
+                        
+                        {sortedKits.map((kit) => {
+                          const customValue = customKitPrices[kit.quantity.toString()] || '';
+                          const hasCustom = useCustomPrice && customValue.trim();
+                          const unitPrice = kit.regular_price_cents / kit.quantity;
+                          
+                          return (
+                            <div key={kit.id} className="rounded-lg border p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <div>
+                                  <h4 className="font-medium">Kit {kit.quantity} unidades</h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatCurrency(unitPrice)}/un
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`text-sm ${hasCustom ? 'line-through text-muted-foreground' : 'font-medium'}`}>
+                                    {formatCurrency(kit.regular_price_cents)}
+                                  </span>
+                                  {hasCustom && (
+                                    <span className="block text-lg font-bold text-primary">
+                                      {formatCurrency(parseCurrency(customValue))}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {useCustomPrice && (
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                  <Input
+                                    className="pl-10"
+                                    placeholder="Preço promocional..."
+                                    value={customValue}
+                                    onChange={(e) => handleKitPriceChange(kit.quantity, e.target.value)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {sortedKits.length === 0 && !isLoadingKits && (
+                      <div className="rounded-lg border border-dashed p-6 text-center">
+                        <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Nenhum kit de preço configurado para este produto.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Configure kits em Produtos → Editar Produto → Preços
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <Separator />
 
-                {/* Original prices info */}
+                {/* Original prices summary */}
                 <div className="rounded-lg border p-4 bg-muted/30">
                   <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                     <DollarSign className="h-4 w-4" />
-                    Preços Originais do Produto
+                    Resumo de Preços de Tabela
                   </h4>
-                  <div className="grid grid-cols-4 gap-3 text-sm">
-                    <div className="text-center p-2 rounded bg-background">
-                      <span className="block text-muted-foreground text-xs">1 UN</span>
-                      <span className="font-medium">
-                        {formatCurrency(product?.price_1_unit || product?.base_price_cents || 0)}
-                      </span>
-                    </div>
-                    <div className="text-center p-2 rounded bg-background">
-                      <span className="block text-muted-foreground text-xs">3 UN</span>
-                      <span className="font-medium">
-                        {formatCurrency(product?.price_3_units || 0)}
-                      </span>
-                    </div>
-                    <div className="text-center p-2 rounded bg-background">
-                      <span className="block text-muted-foreground text-xs">6 UN</span>
-                      <span className="font-medium">
-                        {formatCurrency(product?.price_6_units || 0)}
-                      </span>
-                    </div>
-                    <div className="text-center p-2 rounded bg-background">
-                      <span className="block text-muted-foreground text-xs">12 UN</span>
-                      <span className="font-medium">
-                        {formatCurrency(product?.price_12_units || 0)}
-                      </span>
-                    </div>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <Badge variant="outline" className="font-mono">
+                      1 UN: {formatCurrency(baseUnitPrice)}
+                    </Badge>
+                    {sortedKits.map((kit) => (
+                      <Badge key={kit.id} variant="outline" className="font-mono">
+                        {kit.quantity} UN: {formatCurrency(kit.regular_price_cents)}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               </CardContent>
@@ -412,8 +483,8 @@ export function StorefrontProductEditDialog({
                     onChange={(e) => setHighlightBadge(e.target.value)}
                   />
                   {highlightBadge && (
-                    <div className="mt-2">
-                      <span className="text-sm text-muted-foreground">Preview: </span>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-muted-foreground">Prévia:</span>
                       <Badge variant="secondary">{highlightBadge}</Badge>
                     </div>
                   )}
@@ -424,12 +495,12 @@ export function StorefrontProductEditDialog({
                   <Input
                     id="display-order"
                     type="number"
-                    min="0"
+                    placeholder="0"
                     value={displayOrder}
-                    onChange={(e) => setDisplayOrder(Number(e.target.value))}
+                    onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Produtos com número menor aparecem primeiro
+                    Produtos com menor número aparecem primeiro
                   </p>
                 </div>
               </CardContent>
@@ -445,27 +516,27 @@ export function StorefrontProductEditDialog({
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between p-3 rounded-lg border">
                   <div>
-                    <p className="font-medium">Mostrar Kits/Quantidades</p>
+                    <p className="font-medium">Cross-sell</p>
                     <p className="text-sm text-muted-foreground">
-                      Exibir opções de Kit 3, Kit 6, Kit 12
-                    </p>
-                  </div>
-                  <Switch
-                    checked={showKitUpsell}
-                    onCheckedChange={setShowKitUpsell}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium">Mostrar Cross-Sell</p>
-                    <p className="text-sm text-muted-foreground">
-                      Exibir produtos relacionados
+                      Mostrar produtos relacionados
                     </p>
                   </div>
                   <Switch
                     checked={showCrosssell}
                     onCheckedChange={setShowCrosssell}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border">
+                  <div>
+                    <p className="font-medium">Upsell de Kits</p>
+                    <p className="text-sm text-muted-foreground">
+                      Sugerir kits maiores com desconto
+                    </p>
+                  </div>
+                  <Switch
+                    checked={showKitUpsell}
+                    onCheckedChange={setShowKitUpsell}
                   />
                 </div>
               </CardContent>
@@ -474,11 +545,22 @@ export function StorefrontProductEditDialog({
         </Tabs>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={isPending}>
-            {isPending ? 'Salvando...' : 'Salvar Alterações'}
+            {isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              'Salvar Alterações'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
