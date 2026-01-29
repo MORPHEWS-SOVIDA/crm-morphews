@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -233,15 +234,14 @@ export function StorefrontProductEditDialog({
 
                 <div className="space-y-2">
                   <Label htmlFor="custom-description">Descrição Personalizada</Label>
-                  <Textarea
-                    id="custom-description"
-                    placeholder="Descrição do produto para esta loja..."
+                  <RichTextEditor
                     value={customDescription}
-                    onChange={(e) => setCustomDescription(e.target.value)}
-                    rows={4}
+                    onChange={setCustomDescription}
+                    placeholder="Descrição do produto para esta loja... Você pode usar HTML para criar layouts ricos!"
+                    rows={6}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Deixe em branco para usar a descrição padrão do produto
+                    Use o editor visual ou alterne para HTML. Deixe em branco para usar a descrição padrão.
                   </p>
                 </div>
 
