@@ -5156,6 +5156,59 @@ export type Database = {
           },
         ]
       }
+      implementer_pending_checkouts: {
+        Row: {
+          checkout_link_id: string
+          created_at: string
+          customer_document: string
+          customer_email: string
+          customer_name: string
+          customer_whatsapp: string | null
+          expires_at: string | null
+          id: string
+          paid_at: string | null
+          payment_method: string
+          status: string
+          total_amount_cents: number
+        }
+        Insert: {
+          checkout_link_id: string
+          created_at?: string
+          customer_document: string
+          customer_email: string
+          customer_name: string
+          customer_whatsapp?: string | null
+          expires_at?: string | null
+          id: string
+          paid_at?: string | null
+          payment_method: string
+          status?: string
+          total_amount_cents: number
+        }
+        Update: {
+          checkout_link_id?: string
+          created_at?: string
+          customer_document?: string
+          customer_email?: string
+          customer_name?: string
+          customer_whatsapp?: string | null
+          expires_at?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_method?: string
+          status?: string
+          total_amount_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "implementer_pending_checkouts_checkout_link_id_fkey"
+            columns: ["checkout_link_id"]
+            isOneToOne: false
+            referencedRelation: "implementer_checkout_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       implementer_sales: {
         Row: {
           cancelled_at: string | null

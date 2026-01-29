@@ -19,6 +19,9 @@ export default function DirectCheckout() {
   const planId = searchParams.get("plan");
   const isAnnualParam = searchParams.get("annual") === "true";
   
+  // Get implementer referral code from URL
+  const implementerRef = searchParams.get("ref");
+  
   const { data: plan, isLoading: planLoading, error: planError } = useSubscriptionPlanById(planId);
   
   const [showLeadModal, setShowLeadModal] = useState(false);
@@ -81,6 +84,7 @@ export default function DirectCheckout() {
           customerWhatsapp: leadForm.whatsapp.trim(),
           successUrl: `${window.location.origin}/?subscription=success`,
           cancelUrl: `${window.location.origin}/checkout?plan=${planId}`,
+          implementerRef: implementerRef || undefined, // Pass implementer referral code
         },
       });
 
