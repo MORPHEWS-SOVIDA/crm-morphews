@@ -234,6 +234,30 @@ serve(async (req) => {
 
     console.log("[ImplementerCheckout] Plan:", plan.name, "Total:", totalAmount);
 
+    // Fetch white label config if implementer has it
+    let whiteLabelBranding: {
+      brand_name: string;
+      logo_url: string | null;
+      primary_color: string;
+      email_from_name: string | null;
+      support_email: string | null;
+      support_whatsapp: string | null;
+    } | undefined;
+
+    if (implementer.is_white_label && implementer.white_label_config_id) {
+      const { data: wlConfig } = await supabaseAdmin
+        .from("white_label_configs")
+        .select("brand_name, logo_url, primary_color, email_from_name, support_email, support_whatsapp")
+        .eq("id", implementer.white_label_config_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      
+      if (wlConfig) {
+        whiteLabelBranding = wlConfig;
+        console.log("[ImplementerCheckout] White Label brand:", wlConfig.brand_name);
+      }
+    }
+
     // Check if implementer has active subscription
     const { data: implementerSub } = await supabaseAdmin
       .from("subscriptions")
@@ -475,6 +499,8 @@ serve(async (req) => {
     });
 
     // 7. Send welcome notification (WhatsApp)
+    const brandName = whiteLabelBranding?.brand_name || "Morphews CRM";
+    
     try {
       const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
       const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
@@ -482,7 +508,13 @@ serve(async (req) => {
 
       if (EVOLUTION_API_URL && EVOLUTION_API_KEY && EVOLUTION_INSTANCE_NAME && customerWhatsapp) {
         const whatsappNumber = customerWhatsapp.replace(/\D/g, '');
-        const message = `🎉 *Bem-vindo ao Morphews CRM!*\n\nSua conta foi criada com sucesso!\n\n📧 E-mail: ${customerEmail}\n🔑 Senha temporária: ${tempPassword}\n\nAcesse: https://crm.morphews.com\n\nSe precisar de ajuda, entre em contato com seu implementador ${implementer.referral_code}.`;
+        
+        // Use white label branding in message if available
+        const supportContact = whiteLabelBranding?.support_whatsapp 
+          ? `Suporte: ${whiteLabelBranding.support_whatsapp}`
+          : `Implementador: ${implementer.referral_code}`;
+        
+        const message = `🎉 *Bem-vindo ao ${brandName}!*\n\nSua conta foi criada com sucesso!\n\n📧 E-mail: ${customerEmail}\n🔑 Senha temporária: ${tempPassword}\n\nAcesse: https://crm.morphews.com\n\n${supportContact}`;
 
         await fetch(`${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`, {
           method: 'POST',
@@ -500,6 +532,34 @@ serve(async (req) => {
       }
     } catch (whatsappError) {
       console.error("[ImplementerCheckout] WhatsApp send failed:", whatsappError);
+    }
+
+    // 8. Send welcome email with white label branding
+    try {
+      const internalSecret = Deno.env.get("INTERNAL_AUTH_SECRET");
+      const emailResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": internalSecret || "",
+        },
+        body: JSON.stringify({
+          email: customerEmail,
+          name: customerName,
+          password: tempPassword,
+          planName: plan.name,
+          whiteLabelBranding: whiteLabelBranding,
+        }),
+      });
+      
+      if (emailResponse.ok) {
+        console.log("[ImplementerCheckout] Welcome email sent with branding:", brandName);
+      } else {
+        const emailError = await emailResponse.text();
+        console.error("[ImplementerCheckout] Welcome email failed:", emailError);
+      }
+    } catch (emailError) {
+      console.error("[ImplementerCheckout] Email send error:", emailError);
     }
 
     console.log("[ImplementerCheckout] Complete! User:", customerEmail, "Org:", newOrg.id);
