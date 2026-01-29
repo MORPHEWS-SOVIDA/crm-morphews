@@ -16461,6 +16461,7 @@ export type Database = {
           sales_mark_delivered: boolean
           sales_mark_printed: boolean
           sales_report_view: boolean | null
+          sales_uncheck_checkpoint: boolean
           sales_validate_expedition: boolean
           sales_view: boolean
           sales_view_all: boolean
@@ -16543,6 +16544,7 @@ export type Database = {
           sales_mark_delivered?: boolean
           sales_mark_printed?: boolean
           sales_report_view?: boolean | null
+          sales_uncheck_checkpoint?: boolean
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
@@ -16625,6 +16627,7 @@ export type Database = {
           sales_mark_delivered?: boolean
           sales_mark_printed?: boolean
           sales_report_view?: boolean | null
+          sales_uncheck_checkpoint?: boolean
           sales_validate_expedition?: boolean
           sales_view?: boolean
           sales_view_all?: boolean
