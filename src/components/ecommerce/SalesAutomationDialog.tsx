@@ -21,7 +21,6 @@ interface AutomationConfig {
   lead_funnel_stage_id: string | null;
   paid_notification_funnel_stage_id: string | null;
   notify_team_on_payment: boolean;
-  receptivo_sale_funnel_stage_id: string | null;
 }
 
 export function SalesAutomationDialog() {
@@ -71,14 +70,12 @@ export function SalesAutomationDialog() {
         default_seller_id: config.default_seller_id || null,
         paid_notification_funnel_stage_id: config.paid_notification_funnel_stage_id || null,
         notify_team_on_payment: config.notify_team_on_payment ?? true,
-        receptivo_sale_funnel_stage_id: config.receptivo_sale_funnel_stage_id || null,
       });
     } else if (open && !config) {
       setConfigForm({
         default_seller_id: null,
         paid_notification_funnel_stage_id: null,
         notify_team_on_payment: true,
-        receptivo_sale_funnel_stage_id: null,
       });
     }
   }, [open, config]);
@@ -187,33 +184,6 @@ export function SalesAutomationDialog() {
                 checked={configForm.notify_team_on_payment}
                 onCheckedChange={(v) => setConfigForm({ ...configForm, notify_team_on_payment: v })}
               />
-            </div>
-          </div>
-
-          {/* Funnel Stage for Add Receptivo Sales */}
-          <div className="space-y-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-            <Label className="text-base font-semibold">Venda Add Receptivo</Label>
-            <div className="space-y-2">
-              <Label>Mover lead para etapa do funil quando a venda é criada:</Label>
-              <Select
-                value={configForm.receptivo_sale_funnel_stage_id || '__none__'}
-                onValueChange={(v) => setConfigForm({ ...configForm, receptivo_sale_funnel_stage_id: v === '__none__' ? null : v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Manter etapa atual" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Manter etapa atual</SelectItem>
-                  {funnelStages?.map((stage) => (
-                    <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Quando o vendedor finaliza a venda no Add Receptivo, o lead será movido para esta etapa.
-                <br />
-                <strong>Dica:</strong> Configure um "Follow-up Automático" na etapa destino (Configurações → Etapas do Funil) para disparar mensagens automáticas pós-venda.
-              </p>
             </div>
           </div>
 

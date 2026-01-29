@@ -697,104 +697,95 @@ export function useCreateSale() {
 
       // =================================================================
       // AUTOMAÇÃO PÓS-VENDA: Mover lead para etapa configurada
+      // Busca a etapa marcada como destino do Add Receptivo (is_receptivo_destination)
       // Se a etapa tiver um follow-up padrão, será disparado automaticamente
       // =================================================================
       try {
-        // Fetch automation config
-        const { data: automationConfig } = await supabase
-          .from('ecommerce_automation_config')
-          .select('receptivo_sale_funnel_stage_id')
+        // Find the stage marked as receptivo destination
+        const { data: targetStage } = await supabase
+          .from('organization_funnel_stages')
+          .select('id, name, default_followup_reason_id')
           .eq('organization_id', organizationId)
+          .eq('is_receptivo_destination', true)
           .maybeSingle();
 
-        if (automationConfig?.receptivo_sale_funnel_stage_id && data.lead_id) {
-          const targetStageId = automationConfig.receptivo_sale_funnel_stage_id;
+        if (targetStage && data.lead_id) {
+          // Move lead to the target stage
+          await supabase
+            .from('leads')
+            .update({ 
+              funnel_stage_id: targetStage.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', data.lead_id);
 
-          // Get the target stage to check for default follow-up
-          const { data: targetStage } = await supabase
-            .from('organization_funnel_stages')
-            .select('id, name, default_followup_reason_id')
-            .eq('id', targetStageId)
-            .single();
+          console.log(`[Post-sale Automation] Lead ${data.lead_id} moved to stage "${targetStage.name}"`);
 
-          if (targetStage) {
-            // Move lead to the target stage
-            await supabase
+          // If the stage has a default follow-up reason, schedule the messages
+          if (targetStage.default_followup_reason_id) {
+            // Get lead info for message scheduling
+            const { data: leadData } = await supabase
               .from('leads')
-              .update({ 
-                funnel_stage_id: targetStageId,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', data.lead_id);
+              .select('name, whatsapp')
+              .eq('id', data.lead_id)
+              .single();
 
-            console.log(`[Post-sale Automation] Lead ${data.lead_id} moved to stage "${targetStage.name}"`);
+            if (leadData) {
+              // Get templates for the follow-up reason
+              const { data: templates } = await supabase
+                .from('non_purchase_message_templates')
+                .select('*')
+                .eq('non_purchase_reason_id', targetStage.default_followup_reason_id)
+                .eq('is_active', true)
+                .order('position', { ascending: true });
 
-            // If the stage has a default follow-up reason, schedule the messages
-            if (targetStage.default_followup_reason_id) {
-              // Get lead info for message scheduling
-              const { data: leadData } = await supabase
-                .from('leads')
-                .select('name, whatsapp')
-                .eq('id', data.lead_id)
-                .single();
-
-              if (leadData) {
-                // Get templates for the follow-up reason
-                const { data: templates } = await supabase
-                  .from('non_purchase_message_templates')
-                  .select('*')
-                  .eq('non_purchase_reason_id', targetStage.default_followup_reason_id)
-                  .eq('is_active', true)
-                  .order('position', { ascending: true });
-
-                if (templates && templates.length > 0) {
-                  // Schedule messages
-                  const scheduledMessages = templates.map((template) => {
-                    const scheduledAt = new Date(new Date().getTime() + template.delay_minutes * 60 * 1000);
-                    
-                    // Apply business hours if configured
-                    if (template.send_start_hour !== null && template.send_end_hour !== null) {
-                      const hour = scheduledAt.getHours();
-                      if (hour < template.send_start_hour) {
-                        scheduledAt.setHours(template.send_start_hour, 0, 0, 0);
-                      } else if (hour >= template.send_end_hour) {
-                        scheduledAt.setDate(scheduledAt.getDate() + 1);
-                        scheduledAt.setHours(template.send_start_hour, 0, 0, 0);
-                      }
+              if (templates && templates.length > 0) {
+                // Schedule messages
+                const scheduledMessages = templates.map((template) => {
+                  const scheduledAt = new Date(new Date().getTime() + template.delay_minutes * 60 * 1000);
+                  
+                  // Apply business hours if configured
+                  if (template.send_start_hour !== null && template.send_end_hour !== null) {
+                    const hour = scheduledAt.getHours();
+                    if (hour < template.send_start_hour) {
+                      scheduledAt.setHours(template.send_start_hour, 0, 0, 0);
+                    } else if (hour >= template.send_end_hour) {
+                      scheduledAt.setDate(scheduledAt.getDate() + 1);
+                      scheduledAt.setHours(template.send_start_hour, 0, 0, 0);
                     }
-
-                    // Replace variables
-                    const firstName = leadData.name?.split(' ')[0] || leadData.name || '';
-                    const finalMessage = template.message_template
-                      .replace(/\{\{nome\}\}/gi, leadData.name || '')
-                      .replace(/\{\{primeiro_nome\}\}/gi, firstName);
-
-                    return {
-                      organization_id: organizationId,
-                      lead_id: data.lead_id,
-                      lead_name: leadData.name,
-                      lead_whatsapp: leadData.whatsapp,
-                      non_purchase_reason_id: targetStage.default_followup_reason_id,
-                      template_id: template.id,
-                      message: finalMessage,
-                      final_message: finalMessage,
-                      original_scheduled_at: scheduledAt.toISOString(),
-                      media_url: template.media_url || null,
-                      media_filename: template.media_filename || null,
-                      scheduled_at: scheduledAt.toISOString(),
-                      status: 'pending',
-                    };
-                  });
-
-                  const { error: insertError } = await supabase
-                    .from('lead_scheduled_messages')
-                    .insert(scheduledMessages);
-
-                  if (!insertError) {
-                    console.log(`[Post-sale Automation] Scheduled ${scheduledMessages.length} follow-up messages for lead ${data.lead_id}`);
-                  } else {
-                    console.error('[Post-sale Automation] Error scheduling messages:', insertError);
                   }
+
+                  // Replace variables
+                  const firstName = leadData.name?.split(' ')[0] || leadData.name || '';
+                  const finalMessage = template.message_template
+                    .replace(/\{\{nome\}\}/gi, leadData.name || '')
+                    .replace(/\{\{primeiro_nome\}\}/gi, firstName);
+
+                  return {
+                    organization_id: organizationId,
+                    lead_id: data.lead_id,
+                    lead_name: leadData.name,
+                    lead_whatsapp: leadData.whatsapp,
+                    non_purchase_reason_id: targetStage.default_followup_reason_id,
+                    template_id: template.id,
+                    message: finalMessage,
+                    final_message: finalMessage,
+                    original_scheduled_at: scheduledAt.toISOString(),
+                    media_url: template.media_url || null,
+                    media_filename: template.media_filename || null,
+                    scheduled_at: scheduledAt.toISOString(),
+                    status: 'pending',
+                  };
+                });
+
+                const { error: insertError } = await supabase
+                  .from('lead_scheduled_messages')
+                  .insert(scheduledMessages);
+
+                if (!insertError) {
+                  console.log(`[Post-sale Automation] Scheduled ${scheduledMessages.length} follow-up messages for lead ${data.lead_id}`);
+                } else {
+                  console.error('[Post-sale Automation] Error scheduling messages:', insertError);
                 }
               }
             }
