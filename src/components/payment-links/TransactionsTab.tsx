@@ -136,12 +136,12 @@ export function TransactionsTab() {
 
       {/* Filters */}
       <div className="flex gap-4">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter || '__all__'} onValueChange={(v) => setStatusFilter(v === '__all__' ? '' : v)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="__all__">Todos</SelectItem>
             <SelectItem value="pending">Pendente</SelectItem>
             <SelectItem value="paid">Pago</SelectItem>
             <SelectItem value="failed">Falhou</SelectItem>
@@ -149,12 +149,12 @@ export function TransactionsTab() {
           </SelectContent>
         </Select>
 
-        <Select value={methodFilter} onValueChange={setMethodFilter}>
+        <Select value={methodFilter || '__all__'} onValueChange={(v) => setMethodFilter(v === '__all__' ? '' : v)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Método" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="__all__">Todos</SelectItem>
             <SelectItem value="pix">PIX</SelectItem>
             <SelectItem value="credit_card">Cartão</SelectItem>
             <SelectItem value="boleto">Boleto</SelectItem>
