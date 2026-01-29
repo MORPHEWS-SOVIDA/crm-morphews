@@ -21,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { useAffiliateAvailableOffers, type AvailableOffer } from '@/hooks/ecommerce/useAffiliateLinks';
+import { useAffiliateAvailableOffers, useMyAffiliateCode, type AvailableOffer } from '@/hooks/ecommerce/useAffiliateLinks';
 import { useMyPartnerAssociations } from '@/hooks/ecommerce/usePartners';
 import { useTenant } from '@/hooks/useTenant';
 
@@ -155,6 +155,7 @@ export default function PartnerLinksPage() {
   const { role, isAdmin } = useTenant();
   const { data: offers, isLoading: offersLoading } = useAffiliateAvailableOffers();
   const { data: associations, isLoading: associationsLoading } = useMyPartnerAssociations();
+  const { data: affiliateCodeData, isLoading: codeLoading } = useMyAffiliateCode();
 
   // Check if user is a partner
   const isPartner = role?.startsWith('partner_') ?? false;
@@ -164,7 +165,7 @@ export default function PartnerLinksPage() {
     return <Navigate to="/ecommerce/lojas" replace />;
   }
 
-  const isLoading = offersLoading || associationsLoading;
+  const isLoading = offersLoading || associationsLoading || codeLoading;
 
   const checkoutOffers = offers?.filter(o => o.type === 'checkout') || [];
   const landingOffers = offers?.filter(o => o.type === 'landing') || [];
@@ -181,8 +182,8 @@ export default function PartnerLinksPage() {
     0
   ) || 0;
 
-  // Get affiliate code from first association
-  const affiliateCode = associations?.find(a => a.affiliate_code)?.affiliate_code;
+  // Prioriza código V2 (AFF...) sobre legado (P...)
+  const affiliateCode = affiliateCodeData?.code || associations?.find(a => a.affiliate_code)?.affiliate_code;
 
   if (isLoading) {
     return (
