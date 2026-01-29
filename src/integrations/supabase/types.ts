@@ -337,6 +337,52 @@ export type Database = {
           },
         ]
       }
+      affiliate_network_storefronts: {
+        Row: {
+          created_at: string
+          id: string
+          network_id: string
+          organization_id: string
+          storefront_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          network_id: string
+          organization_id: string
+          storefront_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          network_id?: string
+          organization_id?: string
+          storefront_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_network_storefronts_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_storefronts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_storefronts_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_networks: {
         Row: {
           created_at: string

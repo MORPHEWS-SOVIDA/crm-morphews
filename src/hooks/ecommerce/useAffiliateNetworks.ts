@@ -53,6 +53,34 @@ export interface NetworkCheckout {
   } | null;
 }
 
+export interface NetworkLanding {
+  id: string;
+  network_id: string;
+  landing_page_id: string;
+  organization_id: string;
+  created_at: string;
+  landing_page?: {
+    id: string;
+    name: string;
+    slug: string;
+    is_active: boolean;
+  } | null;
+}
+
+export interface NetworkStorefront {
+  id: string;
+  network_id: string;
+  storefront_id: string;
+  organization_id: string;
+  created_at: string;
+  storefront?: {
+    id: string;
+    name: string;
+    slug: string;
+    is_active: boolean;
+  } | null;
+}
+
 export function useAffiliateNetworks() {
   const { data: organizationId, isLoading: isOrgLoading } = useEcommerceOrganizationId();
 
@@ -243,6 +271,7 @@ export function useAddCheckoutToNetwork() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['network-checkouts', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['available-checkouts-for-network', variables.network_id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-networks'] });
     },
   });
@@ -263,6 +292,7 @@ export function useRemoveCheckoutFromNetwork() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['network-checkouts', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['available-checkouts-for-network', variables.network_id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-networks'] });
     },
   });
@@ -358,5 +388,223 @@ export function useAvailableCheckouts(networkId: string | null) {
       return checkouts?.filter((c) => !linkedIds.has(c.id)) || [];
     },
     enabled: !!organizationId,
+  });
+}
+
+// ==================== LANDING PAGES ====================
+
+export function useNetworkLandings(networkId: string | null) {
+  return useQuery({
+    queryKey: ['network-landings', networkId],
+    queryFn: async () => {
+      if (!networkId) return [];
+
+      const { data, error } = await (supabase as any)
+        .from('affiliate_network_landings')
+        .select(`
+          *,
+          landing_page:landing_pages(id, name, slug, is_active)
+        `)
+        .eq('network_id', networkId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as unknown as NetworkLanding[];
+    },
+    enabled: !!networkId,
+  });
+}
+
+export function useAvailableLandings(networkId: string | null) {
+  const { data: organizationId } = useEcommerceOrganizationId();
+
+  return useQuery({
+    queryKey: ['available-landings-for-network', networkId, organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+
+      const { data: landings, error: landingsError } = await supabase
+        .from('landing_pages')
+        .select('id, name, slug, is_active')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (landingsError) throw landingsError;
+
+      if (!networkId) return landings || [];
+
+      const { data: linked, error: linkedError } = await (supabase as any)
+        .from('affiliate_network_landings')
+        .select('landing_page_id')
+        .eq('network_id', networkId);
+
+      if (linkedError) throw linkedError;
+
+      const linkedIds = new Set((linked as any[])?.map((l) => l.landing_page_id) || []);
+      return landings?.filter((l) => !linkedIds.has(l.id)) || [];
+    },
+    enabled: !!organizationId,
+  });
+}
+
+export function useAddLandingToNetwork() {
+  const queryClient = useQueryClient();
+  const { data: organizationId } = useEcommerceOrganizationId();
+
+  return useMutation({
+    mutationFn: async (data: { network_id: string; landing_page_id: string }) => {
+      if (!organizationId) throw new Error('Organization not found');
+
+      const { error } = await (supabase as any)
+        .from('affiliate_network_landings')
+        .insert({
+          network_id: data.network_id,
+          landing_page_id: data.landing_page_id,
+          organization_id: organizationId,
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('Esta landing page já está vinculada a esta rede');
+        }
+        throw error;
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['network-landings', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['available-landings-for-network', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-networks'] });
+    },
+  });
+}
+
+export function useRemoveLandingFromNetwork() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { network_id: string; landing_page_id: string }) => {
+      const { error } = await (supabase as any)
+        .from('affiliate_network_landings')
+        .delete()
+        .eq('network_id', data.network_id)
+        .eq('landing_page_id', data.landing_page_id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['network-landings', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['available-landings-for-network', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-networks'] });
+    },
+  });
+}
+
+// ==================== STOREFRONTS ====================
+
+export function useNetworkStorefronts(networkId: string | null) {
+  return useQuery({
+    queryKey: ['network-storefronts', networkId],
+    queryFn: async () => {
+      if (!networkId) return [];
+
+      const { data, error } = await (supabase as any)
+        .from('affiliate_network_storefronts')
+        .select(`
+          *,
+          storefront:tenant_storefronts(id, name, slug, is_active)
+        `)
+        .eq('network_id', networkId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as unknown as NetworkStorefront[];
+    },
+    enabled: !!networkId,
+  });
+}
+
+export function useAvailableStorefronts(networkId: string | null) {
+  const { data: organizationId } = useEcommerceOrganizationId();
+
+  return useQuery({
+    queryKey: ['available-storefronts-for-network', networkId, organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+
+      const { data: storefronts, error: storefrontsError } = await supabase
+        .from('tenant_storefronts')
+        .select('id, name, slug, is_active')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (storefrontsError) throw storefrontsError;
+
+      if (!networkId) return storefronts || [];
+
+      const { data: linked, error: linkedError } = await (supabase as any)
+        .from('affiliate_network_storefronts')
+        .select('storefront_id')
+        .eq('network_id', networkId);
+
+      if (linkedError) throw linkedError;
+
+      const linkedIds = new Set((linked as any[])?.map((l) => l.storefront_id) || []);
+      return storefronts?.filter((s) => !linkedIds.has(s.id)) || [];
+    },
+    enabled: !!organizationId,
+  });
+}
+
+export function useAddStorefrontToNetwork() {
+  const queryClient = useQueryClient();
+  const { data: organizationId } = useEcommerceOrganizationId();
+
+  return useMutation({
+    mutationFn: async (data: { network_id: string; storefront_id: string }) => {
+      if (!organizationId) throw new Error('Organization not found');
+
+      const { error } = await (supabase as any)
+        .from('affiliate_network_storefronts')
+        .insert({
+          network_id: data.network_id,
+          storefront_id: data.storefront_id,
+          organization_id: organizationId,
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('Esta loja já está vinculada a esta rede');
+        }
+        throw error;
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['network-storefronts', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['available-storefronts-for-network', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-networks'] });
+    },
+  });
+}
+
+export function useRemoveStorefrontFromNetwork() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { network_id: string; storefront_id: string }) => {
+      const { error } = await (supabase as any)
+        .from('affiliate_network_storefronts')
+        .delete()
+        .eq('network_id', data.network_id)
+        .eq('storefront_id', data.storefront_id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['network-storefronts', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['available-storefronts-for-network', variables.network_id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-networks'] });
+    },
   });
 }
