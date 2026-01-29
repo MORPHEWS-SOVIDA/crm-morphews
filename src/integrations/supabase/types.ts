@@ -15337,6 +15337,7 @@ export type Database = {
           created_at: string
           custom_description: string | null
           custom_images: Json | null
+          custom_kit_prices: Json | null
           custom_name: string | null
           custom_price_12_cents: number | null
           custom_price_3_cents: number | null
@@ -15357,6 +15358,7 @@ export type Database = {
           created_at?: string
           custom_description?: string | null
           custom_images?: Json | null
+          custom_kit_prices?: Json | null
           custom_name?: string | null
           custom_price_12_cents?: number | null
           custom_price_3_cents?: number | null
@@ -15377,6 +15379,7 @@ export type Database = {
           created_at?: string
           custom_description?: string | null
           custom_images?: Json | null
+          custom_kit_prices?: Json | null
           custom_name?: string | null
           custom_price_12_cents?: number | null
           custom_price_3_cents?: number | null

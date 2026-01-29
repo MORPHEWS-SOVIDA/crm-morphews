@@ -77,6 +77,8 @@ export interface StorefrontProduct {
   category_label?: string | null;
   highlight_badge?: string | null;
   custom_images?: any;
+  // Flexible kit pricing: { "2": 29700, "3": 39700, ... } where key=quantity, value=price_cents
+  custom_kit_prices?: Record<string, number>;
   product?: {
     id: string;
     name: string;
