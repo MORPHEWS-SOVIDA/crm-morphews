@@ -64,8 +64,8 @@ export function useImpersonation() {
       localStorage.setItem('impersonation_data', JSON.stringify(impersonationData));
 
       // Sign in as the target user using the OTP token hash
+      // Note: When using token_hash, we should NOT pass the email - the token_hash contains all info
       const { error: signInError } = await supabase.auth.verifyOtp({
-        email: data.email,
         token_hash: data.tokenHash,
         type: 'magiclink',
       });
