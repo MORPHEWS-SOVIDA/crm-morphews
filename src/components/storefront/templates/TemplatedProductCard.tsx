@@ -10,7 +10,14 @@ import {
   getDiscountPercentage,
   type TemplateStyleKey 
 } from './templateUtils';
+import { calculateInstallmentWithInterest } from '@/hooks/ecommerce/useTenantInstallmentFees';
 import type { PublicProduct } from '@/hooks/ecommerce/usePublicStorefront';
+
+interface InstallmentConfig {
+  installment_fees: Record<string, number>;
+  installment_fee_passed_to_buyer: boolean;
+  max_installments: number;
+}
 
 interface TemplatedProductCardProps {
   product: PublicProduct;
@@ -21,6 +28,7 @@ interface TemplatedProductCardProps {
   primaryColor?: string;
   showQuickAdd?: boolean;
   onQuickAdd?: () => void;
+  installmentConfig?: InstallmentConfig;
 }
 
 export function TemplatedProductCard({
@@ -32,6 +40,7 @@ export function TemplatedProductCard({
   primaryColor,
   showQuickAdd,
   onQuickAdd,
+  installmentConfig,
 }: TemplatedProductCardProps) {
   const styles = getTemplateStyles(templateSlug);
   const displayName = product.ecommerce_title || product.name;
@@ -39,6 +48,15 @@ export function TemplatedProductCard({
   const price = getProductPrice(customPriceCents, product);
   const originalPrice = product.price_1_unit || product.base_price_cents || 0;
   const discount = getDiscountPercentage(originalPrice, price);
+
+  // Calculate 12x installment with real interest rates
+  const maxInstallments = installmentConfig?.max_installments || 12;
+  const installmentInfo = calculateInstallmentWithInterest(
+    price,
+    maxInstallments,
+    installmentConfig?.installment_fees,
+    installmentConfig?.installment_fee_passed_to_buyer ?? true
+  );
 
   return (
     <Link to={`/loja/${storefrontSlug}/produto/${product.id}`}>
@@ -106,23 +124,25 @@ export function TemplatedProductCard({
             <span className="text-xs text-muted-foreground ml-1">(127)</span>
           </div>
 
-          {/* Price */}
-          <div className="flex items-baseline gap-2">
-            <span className={styles.cardPrice}>
-              {formatCurrency(price)}
-            </span>
-            {discount > 0 && originalPrice > 0 && (
-              <span className="text-sm text-muted-foreground line-through">
-                {formatCurrency(originalPrice)}
-              </span>
-            )}
-          </div>
-
-          {/* Installments */}
+          {/* Price Display - Emphasis on installment value */}
           {price > 0 && (
-            <p className="text-xs text-muted-foreground">
-              ou 12x de {formatCurrency(Math.ceil(price / 12))}
-            </p>
+            <div className="space-y-1">
+              {/* Installment - Main highlight */}
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm text-muted-foreground">{maxInstallments}x</span>
+                <span 
+                  className="text-xl font-bold"
+                  style={{ color: primaryColor }}
+                >
+                  {formatCurrency(installmentInfo.installmentValue)}
+                </span>
+              </div>
+              
+              {/* Cash price - secondary */}
+              <p className="text-sm text-muted-foreground">
+                ou {formatCurrency(price)} à vista
+              </p>
+            </div>
           )}
         </div>
       </Card>

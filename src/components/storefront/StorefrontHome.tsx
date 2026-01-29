@@ -49,7 +49,7 @@ function HeroBanners({ storefront }: { storefront: StorefrontData }) {
   );
 }
 
-function FeaturedProducts({ storefront }: { storefront: StorefrontData }) {
+function FeaturedProducts({ storefront }: { storefront: StorefrontData & { installment_config?: any } }) {
   const featuredProducts = storefront.featured_products || [];
   const templateSlug = storefront.template?.slug;
   const styles = getTemplateStyles(templateSlug);
@@ -83,6 +83,7 @@ function FeaturedProducts({ storefront }: { storefront: StorefrontData }) {
               isFeatured={sp.is_featured}
               templateSlug={templateSlug}
               primaryColor={storefront.primary_color}
+              installmentConfig={storefront.installment_config}
             />
           ))}
         </div>
@@ -143,7 +144,7 @@ function CategoriesSection({ storefront }: { storefront: StorefrontData }) {
   );
 }
 
-function AllProducts({ storefront }: { storefront: StorefrontData & { all_products: any[] } }) {
+function AllProducts({ storefront }: { storefront: StorefrontData & { all_products: any[], installment_config?: any } }) {
   const products = storefront.all_products || [];
   const templateSlug = storefront.template?.slug;
   const styles = getTemplateStyles(templateSlug);
@@ -177,6 +178,7 @@ function AllProducts({ storefront }: { storefront: StorefrontData & { all_produc
               isFeatured={sp.is_featured}
               templateSlug={templateSlug}
               primaryColor={storefront.primary_color}
+              installmentConfig={storefront.installment_config}
             />
           ))}
         </div>
@@ -186,7 +188,7 @@ function AllProducts({ storefront }: { storefront: StorefrontData & { all_produc
 }
 
 export function StorefrontHome() {
-  const { storefront } = useOutletContext<{ storefront: StorefrontData & { all_products: any[] } }>();
+  const { storefront } = useOutletContext<{ storefront: StorefrontData & { all_products: any[], installment_config?: any } }>();
   const templateSlug = storefront.template?.slug;
 
   return (

@@ -58,8 +58,8 @@ export function usePublicStorefront(slug: string | undefined) {
       if (error) throw error;
       if (!storefront) throw new Error('Loja não encontrada');
 
-      // Fetch banners, pages, categories and featured products in parallel
-      const [bannersRes, pagesRes, categoriesRes, productsRes] = await Promise.all([
+      // Fetch banners, pages, categories, products and payment fees in parallel
+      const [bannersRes, pagesRes, categoriesRes, productsRes, paymentFeesRes] = await Promise.all([
         supabase
           .from('storefront_banners')
           .select('*')
@@ -95,10 +95,26 @@ export function usePublicStorefront(slug: string | undefined) {
           .eq('storefront_id', storefront.id)
           .eq('is_visible', true)
           .order('display_order'),
+        // Fetch payment fees for this organization
+        supabase
+          .from('tenant_payment_fees')
+          .select('installment_fees, installment_fee_passed_to_buyer, max_installments')
+          .eq('organization_id', storefront.organization_id)
+          .maybeSingle(),
       ]);
 
       // Filter out products where the join returned null (RLS denied access to lead_products)
       const validProducts = (productsRes.data || []).filter(p => p.product !== null);
+
+      // Default installment config
+      const installmentConfig = {
+        installment_fees: (paymentFeesRes.data?.installment_fees as Record<string, number>) || {
+          "2": 3.49, "3": 4.29, "4": 4.99, "5": 5.49, "6": 5.99,
+          "7": 6.49, "8": 6.99, "9": 7.49, "10": 7.99, "11": 8.49, "12": 8.99,
+        },
+        installment_fee_passed_to_buyer: paymentFeesRes.data?.installment_fee_passed_to_buyer ?? true,
+        max_installments: paymentFeesRes.data?.max_installments || 12,
+      };
 
       return {
         ...storefront,
@@ -107,7 +123,11 @@ export function usePublicStorefront(slug: string | undefined) {
         categories: categoriesRes.data || [],
         featured_products: validProducts.filter(p => p.is_featured),
         all_products: validProducts,
-      } as unknown as StorefrontData & { all_products: (StorefrontProduct & { product: PublicProduct })[] };
+        installment_config: installmentConfig,
+      } as unknown as StorefrontData & { 
+        all_products: (StorefrontProduct & { product: PublicProduct })[],
+        installment_config: typeof installmentConfig,
+      };
     },
   });
 }
