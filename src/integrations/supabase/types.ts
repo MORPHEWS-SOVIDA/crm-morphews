@@ -10096,6 +10096,7 @@ export type Database = {
       payment_link_transactions: {
         Row: {
           amount_cents: number
+          base_amount_cents: number | null
           boleto_barcode: string | null
           boleto_expires_at: string | null
           boleto_url: string | null
@@ -10118,6 +10119,7 @@ export type Database = {
           id: string
           installment_fee_cents: number | null
           installments: number | null
+          interest_amount_cents: number | null
           ip_address: string | null
           lead_id: string | null
           metadata: Json | null
@@ -10141,6 +10143,7 @@ export type Database = {
         }
         Insert: {
           amount_cents: number
+          base_amount_cents?: number | null
           boleto_barcode?: string | null
           boleto_expires_at?: string | null
           boleto_url?: string | null
@@ -10163,6 +10166,7 @@ export type Database = {
           id?: string
           installment_fee_cents?: number | null
           installments?: number | null
+          interest_amount_cents?: number | null
           ip_address?: string | null
           lead_id?: string | null
           metadata?: Json | null
@@ -10186,6 +10190,7 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          base_amount_cents?: number | null
           boleto_barcode?: string | null
           boleto_expires_at?: string | null
           boleto_url?: string | null
@@ -10208,6 +10213,7 @@ export type Database = {
           id?: string
           installment_fee_cents?: number | null
           installments?: number | null
+          interest_amount_cents?: number | null
           ip_address?: string | null
           lead_id?: string | null
           metadata?: Json | null
