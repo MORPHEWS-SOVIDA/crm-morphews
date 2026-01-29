@@ -661,7 +661,12 @@ export default function LeadDetail() {
             {/* Lead Sales - only show if plan has sales feature */}
             {orgFeatures?.sales !== false && (
               <SectionErrorBoundary title="Vendas">
-                <LeadSalesSection leadId={id!} leadName={lead.name} />
+                <LeadSalesSection 
+                  leadId={id!} 
+                  leadName={lead.name} 
+                  leadPhone={lead.whatsapp}
+                  leadEmail={lead.email}
+                />
               </SectionErrorBoundary>
             )}
 

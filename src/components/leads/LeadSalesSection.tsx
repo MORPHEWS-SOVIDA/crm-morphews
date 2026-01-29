@@ -9,13 +9,16 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { QuickPaymentLinkButton } from '@/components/payment-links/QuickPaymentLinkButton';
 
 interface LeadSalesSectionProps {
   leadId: string;
   leadName?: string;
+  leadPhone?: string;
+  leadEmail?: string;
 }
 
-export function LeadSalesSection({ leadId, leadName }: LeadSalesSectionProps) {
+export function LeadSalesSection({ leadId, leadName, leadPhone, leadEmail }: LeadSalesSectionProps) {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { data: permissions } = useMyPermissions();
@@ -51,15 +54,23 @@ export function LeadSalesSection({ leadId, leadName }: LeadSalesSectionProps) {
             </Badge>
           )}
         </div>
-        {!hideNewSaleButton && (
-          <Button 
-            size="sm"
-            onClick={() => navigate(`/vendas/nova?leadId=${leadId}`)}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Nova Venda
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <QuickPaymentLinkButton
+            leadId={leadId}
+            leadName={leadName}
+            leadPhone={leadPhone}
+            leadEmail={leadEmail}
+          />
+          {!hideNewSaleButton && (
+            <Button 
+              size="sm"
+              onClick={() => navigate(`/vendas/nova?leadId=${leadId}`)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Nova Venda
+            </Button>
+          )}
+        </div>
       </div>
 
       {!sales || sales.length === 0 ? (

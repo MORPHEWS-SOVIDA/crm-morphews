@@ -49,6 +49,7 @@ const LandingPixPayment = lazy(() => import("./pages/ecommerce/LandingPixPayment
 const LandingPaymentConfirmed = lazy(() => import("./pages/ecommerce/LandingPaymentConfirmed"));
 const QuizPublic = lazy(() => import("./pages/QuizPublic"));
 const NetworkInviteAccept = lazy(() => import("./pages/public/NetworkInviteAccept"));
+const PaymentLinkCheckout = lazy(() => import("./pages/PaymentLinkCheckout"));
 
 const LeadsList = lazy(() => import("./pages/LeadsList"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
@@ -207,6 +208,7 @@ const App = () => (
                 <Route path="/pix-pagamento" element={<LandingPixPayment />} />
                 <Route path="/pagamento-confirmado" element={<LandingPaymentConfirmed />} />
                 <Route path="/quiz/:slug" element={<QuizPublic />} />
+                <Route path="/pagar/:slug" element={<PaymentLinkCheckout />} />
                 
                 {/* Partner Routes (Public) */}
                 <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />
