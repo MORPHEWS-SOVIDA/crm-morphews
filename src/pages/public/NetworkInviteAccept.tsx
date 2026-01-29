@@ -14,9 +14,6 @@ interface NetworkInfo {
   description: string | null;
   photo_url: string | null;
   organization_id: string;
-  organization?: {
-    name: string;
-  };
 }
 
 export default function NetworkInviteAccept() {
@@ -39,23 +36,23 @@ export default function NetworkInviteAccept() {
 
     const fetchNetwork = async () => {
       try {
+        // Fetch network info without join to organizations (RLS blocks anonymous access to organizations)
         const { data, error: fetchError } = await supabase
           .from('affiliate_networks')
-          .select(`
-            id, name, description, photo_url, organization_id,
-            organization:organizations(name)
-          `)
+          .select('id, name, description, photo_url, organization_id')
           .eq('invite_code', inviteCode)
           .eq('is_active', true)
           .single();
 
         if (fetchError || !data) {
+          console.error('Error fetching network:', fetchError);
           setError('Rede não encontrada ou inativa');
           return;
         }
 
-        setNetwork(data as unknown as NetworkInfo);
+        setNetwork(data as NetworkInfo);
       } catch (err) {
+        console.error('Network fetch error:', err);
         setError('Erro ao carregar informações da rede');
       } finally {
         setLoading(false);
@@ -151,11 +148,6 @@ export default function NetworkInviteAccept() {
               <CardDescription>
                 {network?.description || 'Você foi convidado para participar desta rede de afiliados'}
               </CardDescription>
-              {network?.organization && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Por <strong>{(network.organization as any)?.name}</strong>
-                </p>
-              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-muted/50 rounded-lg p-4 text-center">
