@@ -4,7 +4,7 @@ import {
   createPagarmeSubscription,
   getOrCreatePagarmePlan,
   SubscriptionRequest 
-} from "../ecommerce-checkout/gateways/pagarme-subscription.ts";
+} from "../_shared/pagarme-subscription.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -323,7 +323,8 @@ serve(async (req) => {
     // Update implementer totals
     await supabaseAdmin.rpc('increment_implementer_totals', {
       p_implementer_id: implementer.id,
-      p_earnings: (implementationFeeCents > 0 ? Math.round(implementationFeeCents * 0.88) : 0) + firstMonthCommission,
+      p_earnings_cents: (implementationFeeCents > 0 ? Math.round(implementationFeeCents * 0.88) : 0) + firstMonthCommission,
+      p_clients_count: 1,
     });
 
     // 7. Send welcome notification (WhatsApp)
