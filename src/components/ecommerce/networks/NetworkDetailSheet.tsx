@@ -65,11 +65,11 @@ interface NetworkDetailSheetProps {
 export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetailSheetProps) {
   const { data: members, isLoading: membersLoading } = useNetworkMembers(network?.id || null);
   const { data: checkouts, isLoading: checkoutsLoading } = useNetworkCheckouts(network?.id || null);
-  const { data: availableCheckouts } = useAvailableCheckouts(network?.id || null);
+  const { data: availableCheckouts, isLoading: availableCheckoutsLoading } = useAvailableCheckouts(network?.id || null);
   const { data: landings, isLoading: landingsLoading } = useNetworkLandings(network?.id || null);
-  const { data: availableLandings } = useAvailableLandings(network?.id || null);
+  const { data: availableLandings, isLoading: availableLandingsLoading } = useAvailableLandings(network?.id || null);
   const { data: storefronts, isLoading: storefrontsLoading } = useNetworkStorefronts(network?.id || null);
-  const { data: availableStorefronts } = useAvailableStorefronts(network?.id || null);
+  const { data: availableStorefronts, isLoading: availableStorefrontsLoading } = useAvailableStorefronts(network?.id || null);
   
   const addCheckout = useAddCheckoutToNetwork();
   const removeCheckout = useRemoveCheckoutFromNetwork();
@@ -282,21 +282,36 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
                 {/* Checkouts Tab */}
                 <TabsContent value="checkouts" className="mt-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Select value={selectedCheckout} onValueChange={setSelectedCheckout}>
+                    <Select 
+                      value={selectedCheckout} 
+                      onValueChange={setSelectedCheckout}
+                      disabled={availableCheckoutsLoading}
+                    >
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Selecionar checkout..." />
+                        <SelectValue placeholder={availableCheckoutsLoading ? "Carregando..." : "Selecionar checkout..."} />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableCheckouts?.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
+                        {availableCheckoutsLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <span className="text-sm text-muted-foreground">Carregando...</span>
+                          </div>
+                        ) : availableCheckouts?.length === 0 ? (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Nenhum checkout disponível
+                          </div>
+                        ) : (
+                          availableCheckouts?.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <Button
                       onClick={handleAddCheckout}
-                      disabled={!selectedCheckout || addCheckout.isPending}
+                      disabled={!selectedCheckout || addCheckout.isPending || availableCheckoutsLoading}
                     >
                       {addCheckout.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -334,21 +349,36 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
                 {/* Landings Tab */}
                 <TabsContent value="landings" className="mt-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Select value={selectedLanding} onValueChange={setSelectedLanding}>
+                    <Select 
+                      value={selectedLanding} 
+                      onValueChange={setSelectedLanding}
+                      disabled={availableLandingsLoading}
+                    >
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Selecionar landing page..." />
+                        <SelectValue placeholder={availableLandingsLoading ? "Carregando..." : "Selecionar landing page..."} />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableLandings?.map((l) => (
-                          <SelectItem key={l.id} value={l.id}>
-                            {l.name}
-                          </SelectItem>
-                        ))}
+                        {availableLandingsLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <span className="text-sm text-muted-foreground">Carregando...</span>
+                          </div>
+                        ) : availableLandings?.length === 0 ? (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Nenhuma landing page disponível
+                          </div>
+                        ) : (
+                          availableLandings?.map((l) => (
+                            <SelectItem key={l.id} value={l.id}>
+                              {l.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <Button
                       onClick={handleAddLanding}
-                      disabled={!selectedLanding || addLanding.isPending}
+                      disabled={!selectedLanding || addLanding.isPending || availableLandingsLoading}
                     >
                       {addLanding.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -386,21 +416,36 @@ export function NetworkDetailSheet({ network, open, onOpenChange }: NetworkDetai
                 {/* Storefronts Tab */}
                 <TabsContent value="storefronts" className="mt-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Select value={selectedStorefront} onValueChange={setSelectedStorefront}>
+                    <Select 
+                      value={selectedStorefront} 
+                      onValueChange={setSelectedStorefront}
+                      disabled={availableStorefrontsLoading}
+                    >
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Selecionar loja..." />
+                        <SelectValue placeholder={availableStorefrontsLoading ? "Carregando..." : "Selecionar loja..."} />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableStorefronts?.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
+                        {availableStorefrontsLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <span className="text-sm text-muted-foreground">Carregando...</span>
+                          </div>
+                        ) : availableStorefronts?.length === 0 ? (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Nenhuma loja disponível
+                          </div>
+                        ) : (
+                          availableStorefronts?.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <Button
                       onClick={handleAddStorefront}
-                      disabled={!selectedStorefront || addStorefront.isPending}
+                      disabled={!selectedStorefront || addStorefront.isPending || availableStorefrontsLoading}
                     >
                       {addStorefront.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
