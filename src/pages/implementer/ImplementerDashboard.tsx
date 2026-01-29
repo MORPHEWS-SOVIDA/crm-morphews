@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import { 
   Wallet, Users, Link2, ArrowUpRight, 
   Copy, LogOut, TrendingUp, Plus, ExternalLink,
-  CheckCircle, Clock, XCircle, Trash2, Settings
+  CheckCircle, Clock, XCircle, Trash2, Settings,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,6 +32,7 @@ import {
   useDeleteImplementerLink,
 } from '@/hooks/useImplementer';
 import { CreateCheckoutLinkDialog } from '@/components/implementer/CreateCheckoutLinkDialog';
+import { WhiteLabelConfigPanel } from '@/components/implementer/WhiteLabelConfigPanel';
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -246,6 +248,10 @@ export default function ImplementerDashboard() {
             </TabsTrigger>
             <TabsTrigger value="commissions">
               Comissões ({commissions?.length || 0})
+            </TabsTrigger>
+            <TabsTrigger value="whitelabel" className="flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              White Label
             </TabsTrigger>
           </TabsList>
 
@@ -477,6 +483,11 @@ export default function ImplementerDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* White Label Tab */}
+          <TabsContent value="whitelabel">
+            <WhiteLabelConfigPanel implementer={implementer} />
           </TabsContent>
         </Tabs>
       </main>

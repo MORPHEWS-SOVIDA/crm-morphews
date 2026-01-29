@@ -9,6 +9,8 @@ export interface Implementer {
   organization_id: string;
   referral_code: string;
   is_active: boolean;
+  is_white_label: boolean;
+  white_label_config_id: string | null;
   total_clients: number;
   total_earnings_cents: number;
   created_at: string;

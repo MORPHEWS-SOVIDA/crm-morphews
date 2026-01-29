@@ -51,6 +51,7 @@ const QuizPublic = lazy(() => import("./pages/QuizPublic"));
 const TracZAPRedirect = lazy(() => import("./pages/TracZAPRedirect"));
 const NetworkInviteAccept = lazy(() => import("./pages/public/NetworkInviteAccept"));
 const PaymentLinkCheckout = lazy(() => import("./pages/PaymentLinkCheckout"));
+const WhiteLabelSalesPage = lazy(() => import("./pages/WhiteLabelSalesPage"));
 
 const LeadsList = lazy(() => import("./pages/LeadsList"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
@@ -221,6 +222,9 @@ const App = () => (
                 {/* Implementer Routes */}
                 <Route path="/implementador" element={<ImplementerDashboard />} />
                 <Route path="/implementador/:slug" element={<ImplementerCheckoutPage />} />
+                
+                {/* White Label Sales Page */}
+                <Route path="/pv2/:slug" element={<WhiteLabelSalesPage />} />
 
                 {/* Public Storefront Routes */}
                 <Route path="/loja/:slug" element={<StorefrontPublic />}>
