@@ -49,6 +49,24 @@ import { AnimatePresence } from 'framer-motion';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";
 
+// Helper to translate role to Portuguese
+function getRoleLabel(role: string | null, isAdmin: boolean): string {
+  if (!role) return isAdmin ? 'Administrador' : 'Usuário';
+  
+  const roleLabels: Record<string, string> = {
+    owner: 'Proprietário',
+    admin: 'Administrador',
+    manager: 'Gerente',
+    member: 'Membro',
+    partner_affiliate: 'Afiliado',
+    partner_coproducer: 'Co-produtor',
+    partner_industry: 'Indústria',
+    partner_factory: 'Fábrica',
+  };
+  
+  return roleLabels[role] || (isAdmin ? 'Administrador' : 'Usuário');
+}
+
 export function Sidebar() {
   const { user, profile, isAdmin: isGlobalAdmin, signOut } = useAuth();
   const { data: permissions } = useMyPermissions();
@@ -230,7 +248,7 @@ export function Sidebar() {
                     {profile ? `${profile.first_name} ${profile.last_name}` : user.email}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {isAdmin ? 'Administrador' : 'Usuário'}
+                    {getRoleLabel(role, isAdmin)}
                   </p>
                 </div>
               </div>
