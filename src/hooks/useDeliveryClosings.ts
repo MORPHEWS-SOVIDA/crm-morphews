@@ -89,8 +89,11 @@ export function useAvailableClosingSales(closingType: ClosingType) {
           created_at,
           assigned_delivery_user_id,
           seller_user_id,
+          tracking_code,
+          carrier_tracking_status,
           lead:leads(id, name),
-          payment_method_rel:payment_methods(id, name, category)
+          payment_method_rel:payment_methods(id, name, category),
+          melhor_envio_labels(id, tracking_code, status, company_name, service_name, label_pdf_url)
         `)
         .eq('organization_id', tenantId)
         .eq('delivery_type', deliveryTypeValue as any)
@@ -126,14 +129,25 @@ export function useAvailableClosingSales(closingType: ClosingType) {
         }, {} as typeof profilesMap);
       }
       
-      // Map the data to include payment_category and profiles
-      return (data || []).map(sale => ({
-        ...sale,
-        // Use category from payment_method_rel
-        payment_category: (sale.payment_method_rel?.category || null) as PaymentCategory | null,
-        motoboy_profile: sale.assigned_delivery_user_id ? profilesMap[sale.assigned_delivery_user_id] : null,
-        seller_profile: sale.seller_user_id ? profilesMap[sale.seller_user_id] : null,
-      }));
+      // Map the data to include payment_category, profiles, and tracking info
+      return (data || []).map(sale => {
+        // Get the most relevant tracking info (from sale or melhor_envio_labels)
+        const melhorEnvioLabel = (sale as any).melhor_envio_labels?.[0];
+        const trackingCode = sale.tracking_code || melhorEnvioLabel?.tracking_code;
+        const trackingStatus = sale.carrier_tracking_status || melhorEnvioLabel?.status;
+        
+        return {
+          ...sale,
+          // Use category from payment_method_rel
+          payment_category: (sale.payment_method_rel?.category || null) as PaymentCategory | null,
+          motoboy_profile: sale.assigned_delivery_user_id ? profilesMap[sale.assigned_delivery_user_id] : null,
+          seller_profile: sale.seller_user_id ? profilesMap[sale.seller_user_id] : null,
+          // Tracking info
+          tracking_code: trackingCode || null,
+          carrier_tracking_status: trackingStatus || null,
+          melhor_envio_label: melhorEnvioLabel || null,
+        };
+      });
     },
     enabled: !!tenantId && !!user,
   });
