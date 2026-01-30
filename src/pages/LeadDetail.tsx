@@ -43,6 +43,7 @@ import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
 import { LeadNonPurchaseSection } from '@/components/leads/LeadNonPurchaseSection';
 import { LeadWebhookDataSection } from '@/components/leads/LeadWebhookDataSection';
 import { LeadCustomFieldsSection } from '@/components/leads/LeadCustomFieldsSection';
+import { LeadFiscalRegistrationSection } from '@/components/leads/LeadFiscalRegistrationSection';
 import { LeadWebhookHistorySection } from '@/components/leads/LeadWebhookHistorySection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
@@ -128,7 +129,7 @@ export default function LeadDetail() {
     label: product.name,
   }));
 
-  const handleUpdate = (field: string, value: string | number | null) => {
+  const handleUpdate = (field: string, value: string | number | boolean | null) => {
     if (!id) return;
     
     // If changing stage, open dialog instead
@@ -556,6 +557,14 @@ export default function LeadDetail() {
                       />
                     </div>
                   </div>
+                )}
+
+                {/* Fiscal Registration Fields */}
+                {canSeeSensitiveData && (
+                  <LeadFiscalRegistrationSection
+                    lead={lead}
+                    onUpdate={(field, value) => handleUpdate(field, value)}
+                  />
                 )}
 
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">

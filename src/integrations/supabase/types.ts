@@ -8070,6 +8070,10 @@ export type Database = {
           gender: string | null
           google_maps_link: string | null
           id: string
+          inscricao_estadual: string | null
+          inscricao_estadual_isento: boolean | null
+          inscricao_municipal: string | null
+          inscricao_municipal_isento: boolean | null
           instagram: string | null
           lead_source: string | null
           linkedin: string | null
@@ -8129,6 +8133,10 @@ export type Database = {
           gender?: string | null
           google_maps_link?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          inscricao_estadual_isento?: boolean | null
+          inscricao_municipal?: string | null
+          inscricao_municipal_isento?: boolean | null
           instagram?: string | null
           lead_source?: string | null
           linkedin?: string | null
@@ -8188,6 +8196,10 @@ export type Database = {
           gender?: string | null
           google_maps_link?: string | null
           id?: string
+          inscricao_estadual?: string | null
+          inscricao_estadual_isento?: boolean | null
+          inscricao_municipal?: string | null
+          inscricao_municipal_isento?: boolean | null
           instagram?: string | null
           lead_source?: string | null
           linkedin?: string | null

@@ -32,6 +32,43 @@ function mapTaxRegimeToFocusCode(taxRegime: unknown): string {
   return '1';
 }
 
+// Determina o indicador de IE do destinatário para NF-e
+// 1 = Contribuinte ICMS (tem IE)
+// 2 = Contribuinte isento de inscrição
+// 9 = Não contribuinte (pessoa física ou PJ sem IE)
+function getIndicadorIEDestinatario(draft: any, lead: any, isJuridica: boolean): string {
+  // Check draft first (manual override from invoice form)
+  const draftIE = draft?.recipient_inscricao_estadual;
+  const draftIEIsento = draft?.recipient_inscricao_estadual_isento;
+  
+  if (draftIE && !draftIEIsento) return '1'; // Contribuinte com IE
+  if (draftIEIsento === true) return '2'; // Contribuinte isento
+  
+  // Fallback to lead data
+  const leadIE = lead?.inscricao_estadual;
+  const leadIEIsento = lead?.inscricao_estadual_isento;
+  
+  if (leadIE && !leadIEIsento) return '1'; // Contribuinte com IE
+  if (leadIEIsento === true && isJuridica) return '2'; // PJ isento
+  
+  return '9'; // Não contribuinte (default for PF or PJ without IE info)
+}
+
+// Retorna a inscrição estadual do destinatário, se aplicável
+function getInscricaoEstadualDestinatario(draft: any, lead: any, isJuridica: boolean): string | undefined {
+  // Draft takes precedence
+  if (draft?.recipient_inscricao_estadual && !draft?.recipient_inscricao_estadual_isento) {
+    return normalizeDigits(draft.recipient_inscricao_estadual);
+  }
+  
+  // Fallback to lead
+  if (lead?.inscricao_estadual && !lead?.inscricao_estadual_isento) {
+    return normalizeDigits(lead.inscricao_estadual);
+  }
+  
+  return undefined;
+}
+
 function getFocusErrorMessage(focusResult: any): string {
   if (!focusResult) return 'Erro desconhecido na emissão.';
   if (typeof focusResult.mensagem === 'string' && focusResult.mensagem.trim()) return focusResult.mensagem;
@@ -664,7 +701,13 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
     uf_destinatario: destinatarioUf,
     cep_destinatario: normalizeDigits(draft?.recipient_cep || sale?.delivery_zip || sale?.lead?.cep),
     telefone_destinatario: normalizeDigits(draft?.recipient_phone || sale?.lead?.phone) || undefined,
-    indicador_inscricao_estadual_destinatario: '9', // 9 = não contribuinte
+    // Inscrição Estadual do destinatário:
+    // 1 = Contribuinte ICMS, 2 = Contribuinte isento, 9 = Não contribuinte
+    indicador_inscricao_estadual_destinatario: getIndicadorIEDestinatario(draft, sale?.lead, recipientIsJuridica),
+    // Se tiver IE e não for isento, incluir o número
+    ...(getInscricaoEstadualDestinatario(draft, sale?.lead, recipientIsJuridica) && {
+      inscricao_estadual_destinatario: getInscricaoEstadualDestinatario(draft, sale?.lead, recipientIsJuridica),
+    }),
     
     // Itens
     items,
