@@ -15334,6 +15334,7 @@ export type Database = {
       storefront_products: {
         Row: {
           category_label: string | null
+          combo_id: string | null
           created_at: string
           custom_description: string | null
           custom_images: Json | null
@@ -15348,13 +15349,14 @@ export type Database = {
           id: string
           is_featured: boolean | null
           is_visible: boolean | null
-          product_id: string
+          product_id: string | null
           show_crosssell: boolean | null
           show_kit_upsell: boolean | null
           storefront_id: string
         }
         Insert: {
           category_label?: string | null
+          combo_id?: string | null
           created_at?: string
           custom_description?: string | null
           custom_images?: Json | null
@@ -15369,13 +15371,14 @@ export type Database = {
           id?: string
           is_featured?: boolean | null
           is_visible?: boolean | null
-          product_id: string
+          product_id?: string | null
           show_crosssell?: boolean | null
           show_kit_upsell?: boolean | null
           storefront_id: string
         }
         Update: {
           category_label?: string | null
+          combo_id?: string | null
           created_at?: string
           custom_description?: string | null
           custom_images?: Json | null
@@ -15390,12 +15393,19 @@ export type Database = {
           id?: string
           is_featured?: boolean | null
           is_visible?: boolean | null
-          product_id?: string
+          product_id?: string | null
           show_crosssell?: boolean | null
           show_kit_upsell?: boolean | null
           storefront_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "storefront_products_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "product_combos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "storefront_products_product_id_fkey"
             columns: ["product_id"]
