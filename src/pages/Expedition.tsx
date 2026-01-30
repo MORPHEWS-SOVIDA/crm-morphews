@@ -791,6 +791,14 @@ export default function Expedition() {
               <FileText className="w-4 h-4 mr-2" />
               Relatório
             </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/expedicao/produtividade-motoboys')}
+              className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 dark:border-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-950/30"
+            >
+              <Bike className="w-4 h-4 mr-2" />
+              Produtividade Motoboys
+            </Button>
           </div>
         </div>
 

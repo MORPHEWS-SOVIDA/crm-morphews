@@ -132,6 +132,7 @@ const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
 const FiscalInvoices = lazy(() => import("./pages/FiscalInvoices"));
 const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
 const SalesHourlyReport = lazy(() => import("./pages/SalesHourlyReport"));
+const MotoboyProductivityReport = lazy(() => import("./pages/MotoboyProductivityReport"));
 
 // Admin
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
@@ -836,6 +837,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['sales_validate_expedition']}>
                       <ConfirmedSalesReport />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/produtividade-motoboys"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <ErrorBoundary title="Relatório indisponível">
+                        <MotoboyProductivityReport />
+                      </ErrorBoundary>
                     </ProtectedRoute>
                   }
                 />
