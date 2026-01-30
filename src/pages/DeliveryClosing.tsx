@@ -294,6 +294,7 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                           isSelected={selectedSales.has(sale.id)}
                           onToggle={() => toggleSale(sale.id)}
                           selectedBgClass={colors.selected}
+                          showTracking={closingType === 'carrier'}
                         />
                       ))}
                     </div>

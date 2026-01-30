@@ -12,6 +12,8 @@ import {
   FileImage, 
   Pencil,
   Loader2,
+  Package,
+  MapPin,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,6 +25,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSignedStorageUrl } from '@/lib/storage-utils';
+
+// Tracking status labels for display
+const TRACKING_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  waiting_post: { label: 'Aguardando postagem', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  posted: { label: 'Postado', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  in_transit: { label: 'Em trânsito', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  in_destination_city: { label: 'Na cidade destino', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+  out_for_delivery: { label: 'Saiu para entrega', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  delivered: { label: 'Entregue', color: 'bg-green-100 text-green-700 border-green-300' },
+  returned: { label: 'Devolvido', color: 'bg-red-100 text-red-700 border-red-300' },
+  generated: { label: 'Etiqueta gerada', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+};
 
 interface SaleSelectionCardProps {
   sale: {
@@ -39,6 +53,16 @@ interface SaleSelectionCardProps {
     created_at?: string | null;
     delivery_type?: string | null;
     status?: string | null;
+    tracking_code?: string | null;
+    carrier_tracking_status?: string | null;
+    melhor_envio_label?: {
+      id: string;
+      tracking_code: string | null;
+      status: string | null;
+      company_name?: string | null;
+      service_name?: string | null;
+      label_pdf_url?: string | null;
+    } | null;
     motoboy_profile?: { first_name: string | null; last_name: string | null } | null;
     seller_profile?: { first_name: string | null; last_name: string | null } | null;
   };
@@ -47,6 +71,7 @@ interface SaleSelectionCardProps {
   selectedBgClass?: string;
   showProofLink?: boolean;
   showEditPayment?: boolean;
+  showTracking?: boolean;
   onPaymentCategoryChange?: (saleId: string, newCategory: PaymentCategory) => void;
 }
 
@@ -85,6 +110,7 @@ export function SaleSelectionCard({
   selectedBgClass = 'bg-green-50 dark:bg-green-950/30',
   showProofLink = true,
   showEditPayment = true,
+  showTracking = false,
   onPaymentCategoryChange,
 }: SaleSelectionCardProps) {
   const queryClient = useQueryClient();
@@ -258,7 +284,46 @@ export function SaleSelectionCard({
             )}
           </div>
 
-          {/* Line 3: Motoboy / Seller info */}
+          {/* Line 3: Tracking Info (for carrier) */}
+          {showTracking && (sale.tracking_code || sale.carrier_tracking_status) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {sale.tracking_code && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Open tracking link based on carrier
+                    const trackingUrl = sale.melhor_envio_label?.company_name?.toLowerCase().includes('correios')
+                      ? `https://rastreamento.correios.com.br/app/index.php?objeto=${sale.tracking_code}`
+                      : `https://www.google.com/search?q=${sale.tracking_code}+rastreamento`;
+                    window.open(trackingUrl, '_blank');
+                  }}
+                  title="Clique para rastrear"
+                >
+                  <Package className="w-3 h-3 mr-1" />
+                  {sale.tracking_code}
+                </Button>
+              )}
+              {sale.carrier_tracking_status && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${TRACKING_STATUS_LABELS[sale.carrier_tracking_status]?.color || 'bg-gray-100 text-gray-700'}`}
+                >
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {TRACKING_STATUS_LABELS[sale.carrier_tracking_status]?.label || sale.carrier_tracking_status}
+                </Badge>
+              )}
+              {sale.melhor_envio_label?.company_name && (
+                <span className="text-xs text-muted-foreground">
+                  {sale.melhor_envio_label.company_name} {sale.melhor_envio_label.service_name && `- ${sale.melhor_envio_label.service_name}`}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Line 4: Motoboy / Seller info */}
           <div className="flex items-center gap-3 flex-wrap">
             {sale.motoboy_profile?.first_name && (
               <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
