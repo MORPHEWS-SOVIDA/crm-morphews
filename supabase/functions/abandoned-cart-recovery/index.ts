@@ -125,6 +125,30 @@ serve(async (req) => {
           console.log(`✅ Recovery sent for cart ${cart.id}`);
         }
 
+        // Trigger abandoned cart email sequence
+        if (cart.customer_email) {
+          try {
+            const triggerUrl = `${supabaseUrl}/functions/v1/trigger-email-sequence`;
+            await fetch(triggerUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                trigger_type: 'abandoned_cart',
+                organization_id: cart.organization_id,
+                lead_id: cart.lead_id,
+                email: cart.customer_email,
+                triggered_by: cart.id,
+              }),
+            });
+            console.log(`📧 Abandoned cart email sequence triggered for ${cart.customer_email}`);
+          } catch (emailError) {
+            console.error(`Failed to trigger email sequence for cart ${cart.id}:`, emailError);
+          }
+        }
+
         // Mark cart as recovery sent
         await supabase
           .from('ecommerce_carts')

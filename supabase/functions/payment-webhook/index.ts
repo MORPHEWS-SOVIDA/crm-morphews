@@ -187,6 +187,39 @@ serve(async (req) => {
 
         // Send server-side conversion event (Purchase)
         await sendPurchaseConversion(supabase, saleIdStr, saleRecord.organization_id as string);
+        
+        // Trigger post-purchase email sequence
+        try {
+          // Get customer email from sale
+          const { data: saleData } = await supabase
+            .from('sales')
+            .select('lead_id, leads(email, name)')
+            .eq('id', saleIdStr)
+            .single();
+          
+          const customerEmail = (saleData?.leads as any)?.email;
+          if (customerEmail && saleRecord.organization_id) {
+            const triggerUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/trigger-email-sequence`;
+            await fetch(triggerUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                trigger_type: 'post_purchase',
+                organization_id: saleRecord.organization_id,
+                lead_id: saleData?.lead_id,
+                email: customerEmail,
+                triggered_by: saleIdStr,
+              }),
+            });
+            console.log(`[PaymentWebhook] Post-purchase email sequence triggered for ${customerEmail}`);
+          }
+        } catch (emailError) {
+          console.error(`[PaymentWebhook] Failed to trigger email sequence:`, emailError);
+          // Don't fail webhook - email is secondary
+        }
         break;
 
       case 'refunded':
