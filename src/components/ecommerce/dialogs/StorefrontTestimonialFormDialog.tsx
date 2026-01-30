@@ -6,13 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Info, Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 import { 
   useCreateStorefrontTestimonial, 
   useUpdateStorefrontTestimonial, 
   type StorefrontTestimonial 
 } from '@/hooks/ecommerce/useStorefrontTestimonials';
 import { useAuth } from '@/hooks/useAuth';
+import { StorefrontImageUpload } from '../StorefrontImageUpload';
 
 interface StorefrontTestimonialFormDialogProps {
   open: boolean;
@@ -92,17 +93,17 @@ export function StorefrontTestimonialFormDialog({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-muted-foreground" />
-              <Label>URL da Foto do Cliente</Label>
+              <Label>Foto do Cliente</Label>
               <Badge variant="outline" className="text-xs">400 x 400 px</Badge>
             </div>
-            <Input 
-              value={formData.photo_url} 
-              onChange={(e) => setFormData(prev => ({ ...prev, photo_url: e.target.value }))} 
+            <StorefrontImageUpload
+              value={formData.photo_url}
+              onChange={(url) => setFormData(prev => ({ ...prev, photo_url: url }))}
+              storefrontId={storefrontId}
+              folder="testimonials"
               placeholder="https://exemplo.com/foto-cliente.jpg"
+              recommendedSize="Proporção 1:1 (quadrada). Foto do cliente com o produto. Max 5MB"
             />
-            <p className="text-xs text-muted-foreground">
-              Proporção 1:1 (quadrada). Foto do cliente com o produto.
-            </p>
           </div>
 
           {/* Customer Name */}

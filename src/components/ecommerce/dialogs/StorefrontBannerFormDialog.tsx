@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Info, Monitor, Smartphone } from 'lucide-react';
 import { useCreateStorefrontBanner, useUpdateStorefrontBanner, type StorefrontBanner } from '@/hooks/ecommerce';
+import { StorefrontImageUpload } from '../StorefrontImageUpload';
 
 interface StorefrontBannerFormDialogProps {
   open: boolean;
@@ -95,15 +96,14 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
                 <Label>Imagem Desktop *</Label>
                 <Badge variant="secondary" className="text-xs">1920 x 800 px</Badge>
               </div>
-              <Input 
-                value={formData.image_url} 
-                onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))} 
+              <StorefrontImageUpload
+                value={formData.image_url}
+                onChange={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
+                storefrontId={storefrontId}
+                folder="banners/desktop"
                 placeholder="https://exemplo.com/banner-desktop.jpg"
-                required 
+                recommendedSize="Proporção 21:9 (widescreen). Formatos: JPG, PNG ou WebP. Max 5MB"
               />
-              <p className="text-xs text-muted-foreground">
-                Proporção 21:9 (widescreen). Formatos: JPG, PNG ou WebP
-              </p>
             </div>
 
             {/* Mobile Image */}
@@ -113,14 +113,14 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
                 <Label>Imagem Mobile (opcional)</Label>
                 <Badge variant="outline" className="text-xs">750 x 900 px</Badge>
               </div>
-              <Input 
-                value={formData.image_mobile_url} 
-                onChange={(e) => setFormData(prev => ({ ...prev, image_mobile_url: e.target.value }))} 
+              <StorefrontImageUpload
+                value={formData.image_mobile_url}
+                onChange={(url) => setFormData(prev => ({ ...prev, image_mobile_url: url }))}
+                storefrontId={storefrontId}
+                folder="banners/mobile"
                 placeholder="https://exemplo.com/banner-mobile.jpg"
+                recommendedSize="Proporção 4:5 (vertical). Se não informar, usará a imagem desktop adaptada"
               />
-              <p className="text-xs text-muted-foreground">
-                Proporção 4:5 (vertical). Se não informar, usará a imagem desktop adaptada
-              </p>
             </div>
           </div>
 
