@@ -30,8 +30,12 @@ export function ManagerFilter({
   compact = false 
 }: ManagerFilterProps) {
   const [open, setOpen] = useState(false);
-  const { data: managers = [] } = useManagers();
-  const { data: teamMembers = [] } = useTeamMembers();
+  const { data: managers = [], isLoading: managersLoading } = useManagers();
+  const { data: teamMembers = [], isLoading: teamLoading } = useTeamMembers();
+
+  // Debug: Log de dados carregados
+  console.log('[ManagerFilter] managers:', managers.length, managers);
+  console.log('[ManagerFilter] teamMembers:', teamMembers.length, teamMembers.slice(0, 5));
 
   // Mapa de gerente -> vendedores associados
   const managerMembersMap = useMemo(() => {

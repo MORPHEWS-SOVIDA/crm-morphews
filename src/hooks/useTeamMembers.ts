@@ -41,11 +41,15 @@ export function useTeamMembers() {
 
       if (assocError) throw assocError;
 
+      console.log('[useTeamMembers] Associations loaded:', associations?.length, associations);
+
       // Criar mapa de vendedor → gerente
       const memberToManager: Record<string, string> = {};
       (associations || []).forEach(a => {
         memberToManager[a.team_member_user_id] = a.manager_user_id;
       });
+
+      console.log('[useTeamMembers] memberToManager map:', memberToManager);
 
       return (members || []).map((m: any) => ({
         user_id: m.user_id,
