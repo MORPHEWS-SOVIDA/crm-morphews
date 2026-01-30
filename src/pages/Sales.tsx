@@ -76,6 +76,8 @@ const STATUS_TABS: { value: SaleStatus | 'all'; label: string; icon: React.Compo
   { value: 'delivered', label: 'Entregue', icon: CheckCircle },
   { value: 'payment_pending', label: 'Pgto Pendente', icon: CreditCard },
   { value: 'payment_confirmed', label: 'Confirmado', icon: CheckCircle },
+  { value: 'closed', label: 'Baixado', icon: CheckCircle },
+  { value: 'finalized', label: 'Finalizado', icon: CheckCircle },
   { value: 'cancelled', label: 'Cancelado', icon: XCircle },
 ];
 
