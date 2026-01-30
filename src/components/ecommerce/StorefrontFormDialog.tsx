@@ -17,6 +17,7 @@ import {
   type CreateStorefrontInput,
 } from '@/hooks/ecommerce';
 import { StorefrontCreationWizard } from './StorefrontCreationWizard';
+import { StorefrontImageUpload } from './StorefrontImageUpload';
 
 interface StorefrontFormDialogProps {
   open: boolean;
@@ -354,14 +355,14 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
 
             <TabsContent value="appearance" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="logo_url">URL do Logo</Label>
-                <Input
-                  id="logo_url"
-                  value={formData.logo_url}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, logo_url: e.target.value }))
-                  }
-                  placeholder="https://..."
+                <Label>Logo da Loja</Label>
+                <StorefrontImageUpload
+                  value={formData.logo_url || ''}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, logo_url: url }))}
+                  storefrontId={storefront?.id}
+                  folder="logos"
+                  placeholder="https://exemplo.com/logo.png"
+                  recommendedSize="Tamanho recomendado: 400 x 100 px (formato horizontal) ou 200 x 200 px (formato quadrado)"
                 />
               </div>
 

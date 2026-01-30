@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 interface StorefrontImageUploadProps {
   value: string;
   onChange: (url: string) => void;
-  storefrontId: string;
+  storefrontId?: string;
   folder?: string;
   placeholder?: string;
   recommendedSize?: string;
@@ -49,7 +49,8 @@ export function StorefrontImageUpload({
     try {
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${storefrontId}/${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const folderPath = storefrontId || 'temp';
+      const fileName = `${folderPath}/${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
