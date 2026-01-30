@@ -12,6 +12,7 @@ const MAIN_DOMAINS = [
   '127.0.0.1',
   'lovable.app',
   'lovable.dev',
+  'lovableproject.com',
   'morphews.com',
   'sales.morphews.com',
   'crm-morphews.lovable.app',
