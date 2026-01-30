@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Store, FileText, ShoppingCart, Wallet, Users, Mail, Factory, ClipboardList, Package } from 'lucide-react';
+import { Store, FileText, ShoppingCart, Wallet, Users, Mail, Factory, ClipboardList, Package, Ticket } from 'lucide-react';
 import { StorefrontsManager } from '@/components/ecommerce/StorefrontsManager';
 import { LandingPagesManager } from '@/components/ecommerce/LandingPagesManager';
 import { CartsManager } from '@/components/ecommerce/CartsManager';
@@ -11,6 +11,7 @@ import { IndustriesManager } from '@/components/ecommerce/IndustriesManager';
 import { EmailMarketingManager } from '@/pages/ecommerce/EmailMarketingManager';
 import { QuizManager } from '@/components/ecommerce/quiz';
 import { PartnerSalesView } from '@/components/ecommerce/PartnerSalesView';
+import { CouponsManager } from '@/components/ecommerce/CouponsManager';
 import { useTenant } from '@/hooks/useTenant';
 
 export default function Ecommerce() {
@@ -38,7 +39,7 @@ export default function Ecommerce() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className={`grid w-full ${isPartner ? 'grid-cols-3 lg:w-auto lg:inline-grid' : 'grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid'}`}>
+          <TabsList className={`grid w-full ${isPartner ? 'grid-cols-3 lg:w-auto lg:inline-grid' : 'grid-cols-5 lg:grid-cols-10 lg:w-auto lg:inline-grid'}`}>
             {!isPartner && (
               <TabsTrigger value="storefronts" className="gap-2">
                 <Store className="h-4 w-4" />
@@ -74,6 +75,12 @@ export default function Ecommerce() {
               <TabsTrigger value="email" className="gap-2">
                 <Mail className="h-4 w-4" />
                 <span className="hidden sm:inline">E-mails</span>
+              </TabsTrigger>
+            )}
+            {!isPartner && (
+              <TabsTrigger value="coupons" className="gap-2">
+                <Ticket className="h-4 w-4" />
+                <span className="hidden sm:inline">Cupons</span>
               </TabsTrigger>
             )}
             {!isPartner && (
@@ -128,6 +135,12 @@ export default function Ecommerce() {
           {!isPartner && (
             <TabsContent value="email" className="mt-6">
               <EmailMarketingManager />
+            </TabsContent>
+          )}
+
+          {!isPartner && (
+            <TabsContent value="coupons" className="mt-6">
+              <CouponsManager />
             </TabsContent>
           )}
 

@@ -2192,6 +2192,81 @@ export type Database = {
           },
         ]
       }
+      coupon_usages: {
+        Row: {
+          attributed_affiliate_id: string | null
+          cart_id: string | null
+          coupon_id: string
+          created_at: string
+          customer_email: string | null
+          customer_phone: string | null
+          discount_cents: number
+          id: string
+          organization_id: string
+          sale_id: string | null
+        }
+        Insert: {
+          attributed_affiliate_id?: string | null
+          cart_id?: string | null
+          coupon_id: string
+          created_at?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          discount_cents: number
+          id?: string
+          organization_id: string
+          sale_id?: string | null
+        }
+        Update: {
+          attributed_affiliate_id?: string | null
+          cart_id?: string | null
+          coupon_id?: string
+          created_at?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          discount_cents?: number
+          id?: string
+          organization_id?: string
+          sale_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_usages_attributed_affiliate_id_fkey"
+            columns: ["attributed_affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "organization_affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usages_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usages_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "discount_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usages_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coupons: {
         Row: {
           affiliate_id: string | null
@@ -3068,39 +3143,96 @@ export type Database = {
       }
       discount_coupons: {
         Row: {
+          affiliate_only: boolean | null
+          allow_with_affiliate: boolean | null
+          applies_to: string | null
+          auto_attribute_affiliate_id: string | null
           code: string
+          combo_ids: string[] | null
           created_at: string
           created_by: string | null
           current_uses: number
+          description: string | null
+          discount_type: string | null
           discount_value_cents: number
           id: string
           is_active: boolean
           max_uses: number | null
+          max_uses_per_customer: number | null
+          min_order_cents: number | null
+          name: string | null
+          organization_id: string | null
+          product_ids: string[] | null
+          updated_at: string | null
+          valid_from: string | null
           valid_until: string | null
         }
         Insert: {
+          affiliate_only?: boolean | null
+          allow_with_affiliate?: boolean | null
+          applies_to?: string | null
+          auto_attribute_affiliate_id?: string | null
           code: string
+          combo_ids?: string[] | null
           created_at?: string
           created_by?: string | null
           current_uses?: number
+          description?: string | null
+          discount_type?: string | null
           discount_value_cents?: number
           id?: string
           is_active?: boolean
           max_uses?: number | null
+          max_uses_per_customer?: number | null
+          min_order_cents?: number | null
+          name?: string | null
+          organization_id?: string | null
+          product_ids?: string[] | null
+          updated_at?: string | null
+          valid_from?: string | null
           valid_until?: string | null
         }
         Update: {
+          affiliate_only?: boolean | null
+          allow_with_affiliate?: boolean | null
+          applies_to?: string | null
+          auto_attribute_affiliate_id?: string | null
           code?: string
+          combo_ids?: string[] | null
           created_at?: string
           created_by?: string | null
           current_uses?: number
+          description?: string | null
+          discount_type?: string | null
           discount_value_cents?: number
           id?: string
           is_active?: boolean
           max_uses?: number | null
+          max_uses_per_customer?: number | null
+          min_order_cents?: number | null
+          name?: string | null
+          organization_id?: string | null
+          product_ids?: string[] | null
+          updated_at?: string | null
+          valid_from?: string | null
           valid_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "discount_coupons_auto_attribute_affiliate_id_fkey"
+            columns: ["auto_attribute_affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "organization_affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_coupons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ecommerce_automation_config: {
         Row: {
@@ -3265,6 +3397,8 @@ export type Database = {
           affiliate_id: string | null
           converted_sale_id: string | null
           coupon_code: string | null
+          coupon_discount_cents: number | null
+          coupon_id: string | null
           created_at: string
           customer_cpf: string | null
           customer_email: string | null
@@ -3307,6 +3441,8 @@ export type Database = {
           affiliate_id?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
+          coupon_discount_cents?: number | null
+          coupon_id?: string | null
           created_at?: string
           customer_cpf?: string | null
           customer_email?: string | null
@@ -3349,6 +3485,8 @@ export type Database = {
           affiliate_id?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
+          coupon_discount_cents?: number | null
+          coupon_id?: string | null
           created_at?: string
           customer_cpf?: string | null
           customer_email?: string | null
@@ -3399,6 +3537,13 @@ export type Database = {
             columns: ["converted_sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "discount_coupons"
             referencedColumns: ["id"]
           },
           {
