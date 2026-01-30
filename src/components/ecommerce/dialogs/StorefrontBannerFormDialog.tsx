@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Info, Monitor, Smartphone } from 'lucide-react';
 import { useCreateStorefrontBanner, useUpdateStorefrontBanner, type StorefrontBanner } from '@/hooks/ecommerce';
 
 interface StorefrontBannerFormDialogProps {
@@ -23,8 +26,12 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
     title: '',
     subtitle: '',
     image_url: '',
+    image_mobile_url: '',
     link_url: '',
     button_text: '',
+    button_style: 'solid',
+    text_color: '#ffffff',
+    position: 'left',
     is_active: true,
   });
 
@@ -34,12 +41,27 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
         title: banner.title || '',
         subtitle: banner.subtitle || '',
         image_url: banner.image_url,
+        image_mobile_url: banner.image_mobile_url || '',
         link_url: banner.link_url || '',
         button_text: banner.button_text || '',
+        button_style: banner.button_style || 'solid',
+        text_color: banner.text_color || '#ffffff',
+        position: banner.position || 'left',
         is_active: banner.is_active,
       });
     } else {
-      setFormData({ title: '', subtitle: '', image_url: '', link_url: '', button_text: '', is_active: true });
+      setFormData({ 
+        title: '', 
+        subtitle: '', 
+        image_url: '', 
+        image_mobile_url: '',
+        link_url: '', 
+        button_text: '', 
+        button_style: 'solid',
+        text_color: '#ffffff',
+        position: 'left',
+        is_active: true 
+      });
     }
   }, [banner, open]);
 
@@ -54,38 +76,162 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Banner' : 'Novo Banner'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>URL da Imagem *</Label>
-            <Input value={formData.image_url} onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))} required />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Image Section */}
+          <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Info className="h-4 w-4 text-blue-500" />
+              <span>Tamanhos recomendados para imagens</span>
+            </div>
+            
+            {/* Desktop Image */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Monitor className="h-4 w-4 text-muted-foreground" />
+                <Label>Imagem Desktop *</Label>
+                <Badge variant="secondary" className="text-xs">1920 x 800 px</Badge>
+              </div>
+              <Input 
+                value={formData.image_url} 
+                onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))} 
+                placeholder="https://exemplo.com/banner-desktop.jpg"
+                required 
+              />
+              <p className="text-xs text-muted-foreground">
+                Proporção 21:9 (widescreen). Formatos: JPG, PNG ou WebP
+              </p>
+            </div>
+
+            {/* Mobile Image */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <Label>Imagem Mobile (opcional)</Label>
+                <Badge variant="outline" className="text-xs">750 x 900 px</Badge>
+              </div>
+              <Input 
+                value={formData.image_mobile_url} 
+                onChange={(e) => setFormData(prev => ({ ...prev, image_mobile_url: e.target.value }))} 
+                placeholder="https://exemplo.com/banner-mobile.jpg"
+              />
+              <p className="text-xs text-muted-foreground">
+                Proporção 4:5 (vertical). Se não informar, usará a imagem desktop adaptada
+              </p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Título</Label>
-            <Input value={formData.title} onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))} />
+
+          {/* Content Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Título</Label>
+              <Input 
+                value={formData.title} 
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))} 
+                placeholder="Promoção de Verão"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Posição do texto</Label>
+              <Select 
+                value={formData.position} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, position: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Esquerda</SelectItem>
+                  <SelectItem value="center">Centro</SelectItem>
+                  <SelectItem value="right">Direita</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
           <div className="space-y-2">
             <Label>Subtítulo</Label>
-            <Textarea value={formData.subtitle} onChange={(e) => setFormData(prev => ({ ...prev, subtitle: e.target.value }))} />
+            <Textarea 
+              value={formData.subtitle} 
+              onChange={(e) => setFormData(prev => ({ ...prev, subtitle: e.target.value }))} 
+              placeholder="Aproveite descontos incríveis em toda a loja"
+              rows={2}
+            />
           </div>
-          <div className="space-y-2">
-            <Label>Link de destino</Label>
-            <Input value={formData.link_url} onChange={(e) => setFormData(prev => ({ ...prev, link_url: e.target.value }))} placeholder="https://..." />
+
+          {/* Button & Link Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Link de destino</Label>
+              <Input 
+                value={formData.link_url} 
+                onChange={(e) => setFormData(prev => ({ ...prev, link_url: e.target.value }))} 
+                placeholder="/loja/minha-loja/produtos"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Texto do botão</Label>
+              <Input 
+                value={formData.button_text} 
+                onChange={(e) => setFormData(prev => ({ ...prev, button_text: e.target.value }))} 
+                placeholder="Comprar agora"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Texto do botão</Label>
-            <Input value={formData.button_text} onChange={(e) => setFormData(prev => ({ ...prev, button_text: e.target.value }))} placeholder="Comprar agora" />
+
+          {/* Style Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Estilo do botão</Label>
+              <Select 
+                value={formData.button_style} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, button_style: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="solid">Sólido</SelectItem>
+                  <SelectItem value="outline">Contorno</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Cor do texto</Label>
+              <div className="flex gap-2">
+                <Input 
+                  type="color"
+                  value={formData.text_color} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, text_color: e.target.value }))} 
+                  className="w-14 h-10 p-1 cursor-pointer"
+                />
+                <Input 
+                  value={formData.text_color} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, text_color: e.target.value }))} 
+                  className="flex-1"
+                  placeholder="#ffffff"
+                />
+              </div>
+            </div>
+            <div className="flex items-end gap-2 pb-2">
+              <Switch 
+                checked={formData.is_active} 
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))} 
+              />
+              <Label>Banner ativo</Label>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))} />
-            <Label>Ativo</Label>
-          </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={createBanner.isPending || updateBanner.isPending}>Salvar</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={createBanner.isPending || updateBanner.isPending}>
+              {createBanner.isPending || updateBanner.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

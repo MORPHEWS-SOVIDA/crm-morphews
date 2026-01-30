@@ -13,13 +13,13 @@ import {
   getGridColumns,
   formatCurrency,
 } from './templates';
+import { HeroBannerCarousel } from './HeroBannerCarousel';
 
 function HeroBanners({ storefront }: { storefront: StorefrontData }) {
   const activeBanners = storefront.banners || [];
   const templateSlug = storefront.template?.slug;
-  const templateConfig = storefront.template?.config as any;
   
-  // If no banners but has template, show templated hero
+  // If no banners, show templated hero with default content
   if (activeBanners.length === 0) {
     return (
       <TemplatedHero
@@ -33,18 +33,14 @@ function HeroBanners({ storefront }: { storefront: StorefrontData }) {
     );
   }
 
-  // Use first banner as hero
-  const banner = activeBanners[0];
-
+  // Use carousel for banners
   return (
-    <TemplatedHero
-      templateSlug={templateSlug}
-      title={banner.title || storefront.name}
-      subtitle={banner.subtitle || ''}
-      ctaText={banner.button_text || 'Ver Produtos'}
-      ctaLink={banner.link_url || `/loja/${storefront.slug}/produtos`}
-      imageUrl={banner.image_url}
+    <HeroBannerCarousel
+      banners={activeBanners}
+      storefrontSlug={storefront.slug}
+      storefrontName={storefront.name}
       primaryColor={storefront.primary_color}
+      autoplayInterval={5000}
     />
   );
 }
