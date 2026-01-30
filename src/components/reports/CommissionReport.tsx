@@ -167,9 +167,9 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
     salesData.forEach((sale) => {
       if (!sale.seller_user_id) return;
 
-      const seller = users.find((u) => u.id === sale.seller_user_id);
+      const seller = users.find((u) => u.user_id === sale.seller_user_id);
       const sellerName = seller
-        ? `${seller.first_name} ${seller.last_name}`
+        ? `${seller.first_name} ${seller.last_name}`.trim() || 'Vendedor sem nome'
         : 'Vendedor Desconhecido';
 
       if (!sellersMap.has(sale.seller_user_id)) {
