@@ -53,7 +53,7 @@ export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition
 // Labels for closing status steps (not part of checkpoints, come from sales table)
 export const closingStepLabels = {
   closed: 'Baixado (Financeiro)',
-  finalized: 'Finalizado (Thiago)',
+  finalized: 'Finalizado',
 };
 
 export function useSaleCheckpoints(saleId: string | undefined) {
