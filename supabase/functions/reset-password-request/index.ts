@@ -75,15 +75,38 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find user by email
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+    // Find user by email using pagination to handle large user bases
+    let user = null;
+    let page = 1;
+    const perPage = 1000;
     
-    if (userError) {
-      console.error("Error listing users:", userError);
-      throw userError;
-    }
+    while (!user) {
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+      
+      if (userError) {
+        console.error("Error listing users:", userError);
+        throw userError;
+      }
 
-    const user = userData.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      // Search for user in current page
+      user = userData.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      
+      // If no more users to check, break
+      if (userData.users.length < perPage) {
+        break;
+      }
+      
+      page++;
+      
+      // Safety limit to avoid infinite loops
+      if (page > 100) {
+        console.error("Too many pages, stopping search");
+        break;
+      }
+    }
     
     if (!user) {
       console.log("User not found for email:", email);
