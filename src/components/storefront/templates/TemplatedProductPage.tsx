@@ -32,6 +32,7 @@ interface ProductData {
   benefits: string[];
   basePrice: number;
   kits: KitOption[];  // Dynamic list of kit options
+  reviewCount?: number;
 }
 
 interface TemplatedProductPageProps {
@@ -244,7 +245,7 @@ export function TemplatedProductPage({
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star key={star} className="h-5 w-5 text-amber-400" fill="currentColor" />
                 ))}
-                <span className="text-sm text-muted-foreground ml-2">(127 avaliações)</span>
+                <span className="text-sm text-muted-foreground ml-2">({product.reviewCount ?? 0} avaliações)</span>
               </div>
               <h1 className={`
                 ${styles.heroTitle} mb-4

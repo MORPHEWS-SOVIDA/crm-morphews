@@ -23,6 +23,7 @@ export interface PublicProduct {
   price_12_units: number;
   crosssell_product_1_id: string | null;
   crosssell_product_2_id: string | null;
+  review_count: number | null;
 }
 
 export interface StorefrontData extends Omit<Storefront, 'template'> {
@@ -92,7 +93,7 @@ export function usePublicStorefront(slug: string | undefined) {
               ecommerce_title, ecommerce_description, ecommerce_short_description,
               ecommerce_images, ecommerce_video_url, ecommerce_benefits,
               base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units,
-              crosssell_product_1_id, crosssell_product_2_id
+              crosssell_product_1_id, crosssell_product_2_id, review_count
             )
           `)
           .eq('storefront_id', storefront.id)
@@ -171,7 +172,7 @@ export function usePublicProduct(storefrontSlug: string | undefined, productId: 
             ecommerce_title, ecommerce_description, ecommerce_short_description,
             ecommerce_images, ecommerce_video_url, ecommerce_benefits,
             base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units,
-            crosssell_product_1_id, crosssell_product_2_id
+            crosssell_product_1_id, crosssell_product_2_id, review_count
           )
         `)
         .eq('storefront_id', storefront.id)
@@ -248,7 +249,7 @@ export function usePublicCategoryProducts(storefrontSlug: string | undefined, ca
             product:lead_products(
               id, name, description, image_url,
               ecommerce_title, ecommerce_short_description,
-              base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units
+              base_price_cents, price_1_unit, price_3_units, price_6_units, price_12_units, review_count
             )
           )
         `)
