@@ -15606,6 +15606,63 @@ export type Database = {
         }
         Relationships: []
       }
+      storefront_testimonials: {
+        Row: {
+          created_at: string
+          customer_name: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          is_verified: boolean | null
+          organization_id: string
+          photo_url: string | null
+          storefront_id: string
+          testimonial_text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          organization_id: string
+          photo_url?: string | null
+          storefront_id: string
+          testimonial_text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          organization_id?: string
+          photo_url?: string | null
+          storefront_id?: string
+          testimonial_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_testimonials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_testimonials_storefront_id_fkey"
+            columns: ["storefront_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_storefronts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           allows_white_label: boolean | null
@@ -16196,6 +16253,7 @@ export type Database = {
           slug: string
           social_links: Json | null
           template_id: string | null
+          testimonials_enabled: boolean | null
           updated_at: string
           whatsapp_number: string | null
         }
@@ -16223,6 +16281,7 @@ export type Database = {
           slug: string
           social_links?: Json | null
           template_id?: string | null
+          testimonials_enabled?: boolean | null
           updated_at?: string
           whatsapp_number?: string | null
         }
@@ -16250,6 +16309,7 @@ export type Database = {
           slug?: string
           social_links?: Json | null
           template_id?: string | null
+          testimonials_enabled?: boolean | null
           updated_at?: string
           whatsapp_number?: string | null
         }

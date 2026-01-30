@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Storefront, StorefrontProduct, StorefrontBanner } from '@/hooks/ecommerce';
 import type { StorefrontPage } from '@/hooks/ecommerce/useStorefrontPages';
 import type { StorefrontCategory } from '@/hooks/ecommerce/useStorefrontCategories';
+import type { StorefrontTestimonial } from '@/hooks/ecommerce/useStorefrontTestimonials';
 
 export interface PublicProduct {
   id: string;
@@ -34,6 +35,8 @@ export interface StorefrontData extends Omit<Storefront, 'template'> {
   banners: StorefrontBanner[];
   pages: StorefrontPage[];
   categories: StorefrontCategory[];
+  testimonials: StorefrontTestimonial[];
+  testimonials_enabled: boolean;
   featured_products: (StorefrontProduct & { product: PublicProduct })[];
 }
 
@@ -58,8 +61,8 @@ export function usePublicStorefront(slug: string | undefined) {
       if (error) throw error;
       if (!storefront) throw new Error('Loja não encontrada');
 
-      // Fetch banners, pages, categories, products and payment fees in parallel
-      const [bannersRes, pagesRes, categoriesRes, productsRes, paymentFeesRes] = await Promise.all([
+      // Fetch banners, pages, categories, products, testimonials and payment fees in parallel
+      const [bannersRes, pagesRes, categoriesRes, productsRes, testimonialsRes, paymentFeesRes] = await Promise.all([
         supabase
           .from('storefront_banners')
           .select('*')
@@ -95,6 +98,15 @@ export function usePublicStorefront(slug: string | undefined) {
           .eq('storefront_id', storefront.id)
           .eq('is_visible', true)
           .order('display_order'),
+        // Fetch testimonials if enabled
+        storefront.testimonials_enabled 
+          ? supabase
+              .from('storefront_testimonials')
+              .select('*')
+              .eq('storefront_id', storefront.id)
+              .eq('is_active', true)
+              .order('display_order')
+          : Promise.resolve({ data: [] }),
         // Fetch payment fees for this organization
         supabase
           .from('tenant_payment_fees')
@@ -121,6 +133,7 @@ export function usePublicStorefront(slug: string | undefined) {
         banners: bannersRes.data || [],
         pages: pagesRes.data || [],
         categories: categoriesRes.data || [],
+        testimonials: (testimonialsRes.data || []) as StorefrontTestimonial[],
         featured_products: validProducts.filter(p => p.is_featured),
         all_products: validProducts,
         installment_config: installmentConfig,

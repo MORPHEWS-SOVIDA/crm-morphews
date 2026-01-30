@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users } from 'lucide-react';
+import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users, MessageSquareQuote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStorefront } from '@/hooks/ecommerce';
@@ -8,6 +8,7 @@ import { StorefrontPagesTab } from './tabs/StorefrontPagesTab';
 import { StorefrontCategoriesTab } from './tabs/StorefrontCategoriesTab';
 import { StorefrontProductsTab } from './tabs/StorefrontProductsTab';
 import { StorefrontSettingsTab } from './tabs/StorefrontSettingsTab';
+import { StorefrontTestimonialsTab } from './tabs/StorefrontTestimonialsTab';
 import { StorefrontEmailSequences } from './StorefrontEmailSequences';
 import { AffiliatesTab } from './affiliates/AffiliatesTab';
 interface StorefrontDetailManagerProps {
@@ -69,10 +70,14 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="banners" className="gap-2">
             <Image className="h-4 w-4" />
             <span className="hidden sm:inline">Banners</span>
+          </TabsTrigger>
+          <TabsTrigger value="testimonials" className="gap-2">
+            <MessageSquareQuote className="h-4 w-4" />
+            <span className="hidden sm:inline">Depoimentos</span>
           </TabsTrigger>
           <TabsTrigger value="pages" className="gap-2">
             <FileText className="h-4 w-4" />
@@ -102,6 +107,10 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
         <TabsContent value="banners" className="mt-6">
           <StorefrontBannersTab storefrontId={storefrontId} />
+        </TabsContent>
+
+        <TabsContent value="testimonials" className="mt-6">
+          <StorefrontTestimonialsTab storefrontId={storefrontId} />
         </TabsContent>
 
         <TabsContent value="pages" className="mt-6">
