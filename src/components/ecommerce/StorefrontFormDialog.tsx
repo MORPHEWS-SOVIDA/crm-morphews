@@ -54,6 +54,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
         template_id: storefront.template_id || '',
         logo_url: storefront.logo_url || '',
         logo_mobile_url: storefront.logo_mobile_url || '',
+        favicon_url: storefront.favicon_url || '',
         primary_color: storefront.primary_color,
         secondary_color: storefront.secondary_color,
         meta_title: storefront.meta_title || '',
@@ -68,6 +69,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
         template_id: '',
         logo_url: '',
         logo_mobile_url: '',
+        favicon_url: '',
         primary_color: '#000000',
         secondary_color: '#ffffff',
         meta_title: '',
@@ -429,6 +431,18 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
             </TabsContent>
 
             <TabsContent value="seo" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Favicon (ícone da aba do navegador)</Label>
+                <StorefrontImageUpload
+                  value={formData.favicon_url || ''}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, favicon_url: url }))}
+                  storefrontId={storefront?.id}
+                  folder="favicons"
+                  placeholder="https://exemplo.com/favicon.png"
+                  recommendedSize="Tamanho recomendado: 32 x 32 px ou 64 x 64 px (formato quadrado)"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="meta_title">Título da Página (SEO)</Label>
                 <Input
