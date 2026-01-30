@@ -159,6 +159,34 @@ export function StorefrontCheckout() {
   const showSavedCards = paymentMethod === 'credit_card' && SAVED_CARDS.length > 0;
   const isOneClickCheckout = selectedCardId !== null && paymentMethod === 'credit_card';
 
+  // Form validation - check if all required fields are filled
+  const isFormValid = useMemo(() => {
+    // Basic required fields
+    const hasBasicFields = !!(
+      formData.name.trim() &&
+      formData.email.trim() &&
+      formData.phone.trim() &&
+      formData.cpf.trim()
+    );
+
+    // Address fields (when required)
+    const needsAddress = checkoutConfig.collectAddress !== false;
+    const hasAddressFields = !needsAddress || !!(
+      formData.cep.trim() &&
+      formData.street.trim() &&
+      formData.number.trim() &&
+      formData.neighborhood.trim() &&
+      formData.city.trim() &&
+      formData.state.trim()
+    );
+
+    // Credit card validation (only when credit card is selected and not one-click)
+    const needsCardData = paymentMethod === 'credit_card' && !isOneClickCheckout;
+    const hasCardData = !needsCardData || !!cardData;
+
+    return hasBasicFields && hasAddressFields && hasCardData && acceptedTerms;
+  }, [formData, paymentMethod, isOneClickCheckout, cardData, acceptedTerms, checkoutConfig.collectAddress]);
+
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
@@ -694,8 +722,8 @@ export function StorefrontCheckout() {
                 type="submit"
                 size="lg"
                 className="w-full"
-                disabled={isSubmitting || !acceptedTerms}
-                style={{ backgroundColor: storefront.primary_color }}
+                disabled={isSubmitting || !isFormValid}
+                style={{ backgroundColor: isFormValid ? storefront.primary_color : undefined }}
               >
                 {isSubmitting ? (
                   <>
