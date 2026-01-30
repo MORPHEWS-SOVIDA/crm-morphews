@@ -35,7 +35,7 @@ export function StorefrontCheckout() {
   const { items, subtotal, clearCart, cartId, updateCustomerData, updateShippingData } = useCart();
   const { getUtmForCheckout } = useUtmTracker();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('credit_card');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveCard, setSaveCard] = useState(false);

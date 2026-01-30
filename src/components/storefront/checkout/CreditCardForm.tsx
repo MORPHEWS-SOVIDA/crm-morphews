@@ -77,7 +77,8 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
   const [cardHolderName, setCardHolderName] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
-  const [installments, setInstallments] = useState('1');
+  // Default to max installments (12x) to maximize platform interest revenue
+  const [installments, setInstallments] = useState(String(installmentConfig?.max_installments || 12));
   const [cardBrand, setCardBrand] = useState<string | null>(null);
 
   // Determine if interest should be applied

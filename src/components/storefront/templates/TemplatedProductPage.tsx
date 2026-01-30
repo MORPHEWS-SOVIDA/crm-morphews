@@ -517,6 +517,7 @@ export function TemplatedProductPage({
           kitSize={addedProduct.kitSize}
           totalPrice={addedProduct.totalPrice}
           primaryColor={primaryColor}
+          installmentConfig={installmentConfig}
         />
       )}
     </div>

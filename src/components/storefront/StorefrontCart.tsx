@@ -7,13 +7,28 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from './cart/CartContext';
 import { useCartRecommendations } from '@/hooks/ecommerce/useCrosssellProducts';
 import { ProductRecommendations } from './ProductRecommendations';
+import { useTenantInstallmentFees, calculateInstallmentWithInterest } from '@/hooks/ecommerce/useTenantInstallmentFees';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { toast } from 'sonner';
+
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(cents / 100);
+}
+
+function formatCurrencyParts(cents: number): { main: string; decimals: string } {
+  const formatted = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(cents / 100);
+  
+  const match = formatted.match(/^(R\$\s*\d+(?:\.\d{3})*)(,\d{2})$/);
+  if (match) {
+    return { main: match[1], decimals: match[2] };
+  }
+  return { main: formatted, decimals: '' };
 }
 
 export function StorefrontCart() {
@@ -27,6 +42,9 @@ export function StorefrontCart() {
     storefrontId || storefront.id,
     cartProductIds
   );
+
+  // Fetch tenant installment fees
+  const { data: installmentConfig } = useTenantInstallmentFees(storefront.organization_id);
 
   const cartConfig = storefront.cart_config as {
     showCrosssell?: boolean;
@@ -47,6 +65,16 @@ export function StorefrontCart() {
 
   // Check if crosssell is enabled in cart settings
   const showCrosssell = cartConfig.showCrosssell !== false && recommendations.length > 0;
+
+  // Calculate installment with interest for the total
+  const maxInstallments = installmentConfig?.max_installments || 12;
+  const installmentInfo = calculateInstallmentWithInterest(
+    subtotal,
+    maxInstallments,
+    installmentConfig?.installment_fees,
+    installmentConfig?.installment_fee_passed_to_buyer ?? true
+  );
+  const totalParts = formatCurrencyParts(installmentInfo.installmentValue);
 
   const handleQuickAddRecommendation = (product: any) => {
     const price = product.customPriceCents || product.price_1_unit || product.base_price_cents || 0;
@@ -245,11 +273,28 @@ export function StorefrontCart() {
 
               <Separator />
 
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span style={{ color: storefront.primary_color }}>
-                  {formatCurrency(subtotal)}
-                </span>
+              {/* Total with installment highlight */}
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold">Total</span>
+                <div className="text-right">
+                  {/* Installment value - HIGHLIGHT */}
+                  <div className="flex items-baseline justify-end gap-0.5">
+                    <span className="text-sm text-muted-foreground">{maxInstallments}x</span>
+                    <span 
+                      className="text-2xl font-bold"
+                      style={{ color: storefront.primary_color }}
+                    >
+                      {totalParts.main}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {totalParts.decimals}
+                    </span>
+                  </div>
+                  {/* Cash price - secondary */}
+                  <p className="text-sm text-muted-foreground">
+                    ou {formatCurrency(subtotal)} à vista
+                  </p>
+                </div>
               </div>
 
               {/* Min order warning */}

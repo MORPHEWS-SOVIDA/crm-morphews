@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { calculateInstallmentWithInterest } from '@/hooks/ecommerce/useTenantInstallmentFees';
 
 interface AddToCartConfirmDialogProps {
   open: boolean;
@@ -17,6 +18,12 @@ interface AddToCartConfirmDialogProps {
   kitSize: number;
   totalPrice: number;
   primaryColor: string;
+  // Optional installment config for real interest rates
+  installmentConfig?: {
+    installment_fees?: Record<string, number>;
+    installment_fee_passed_to_buyer?: boolean;
+    max_installments?: number;
+  };
 }
 
 function formatCurrency(cents: number): string {
@@ -24,6 +31,19 @@ function formatCurrency(cents: number): string {
     style: 'currency',
     currency: 'BRL',
   }).format(cents / 100);
+}
+
+function formatCurrencyParts(cents: number): { main: string; decimals: string } {
+  const formatted = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(cents / 100);
+  
+  const match = formatted.match(/^(R\$\s*\d+(?:\.\d{3})*)(,\d{2})$/);
+  if (match) {
+    return { main: match[1], decimals: match[2] };
+  }
+  return { main: formatted, decimals: '' };
 }
 
 export function AddToCartConfirmDialog({
@@ -35,6 +55,7 @@ export function AddToCartConfirmDialog({
   kitSize,
   totalPrice,
   primaryColor,
+  installmentConfig,
 }: AddToCartConfirmDialogProps) {
   const navigate = useNavigate();
 
@@ -49,6 +70,16 @@ export function AddToCartConfirmDialog({
   };
 
   const totalUnits = quantity * kitSize;
+  
+  // Calculate installment with interest
+  const maxInstallments = installmentConfig?.max_installments || 12;
+  const installmentInfo = calculateInstallmentWithInterest(
+    totalPrice,
+    maxInstallments,
+    installmentConfig?.installment_fees,
+    installmentConfig?.installment_fee_passed_to_buyer ?? true
+  );
+  const parts = formatCurrencyParts(installmentInfo.installmentValue);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,12 +113,23 @@ export function AddToCartConfirmDialog({
               </p>
             </div>
             <div className="text-right">
-              <span 
-                className="font-bold text-lg"
-                style={{ color: primaryColor }}
-              >
-                {formatCurrency(totalPrice)}
-              </span>
+              {/* Installment value - HIGHLIGHT */}
+              <div className="flex items-baseline justify-end gap-0.5">
+                <span className="text-sm text-muted-foreground">{maxInstallments}x</span>
+                <span 
+                  className="text-xl font-bold"
+                  style={{ color: primaryColor }}
+                >
+                  {parts.main}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {parts.decimals}
+                </span>
+              </div>
+              {/* Cash price - secondary */}
+              <p className="text-xs text-muted-foreground">
+                ou {formatCurrency(totalPrice)} à vista
+              </p>
             </div>
           </div>
 
