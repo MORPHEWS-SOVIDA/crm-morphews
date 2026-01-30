@@ -15227,6 +15227,7 @@ export type Database = {
           ends_at: string | null
           id: string
           image_mobile_url: string | null
+          image_tablet_url: string | null
           image_url: string
           is_active: boolean | null
           link_target: string | null
@@ -15248,6 +15249,7 @@ export type Database = {
           ends_at?: string | null
           id?: string
           image_mobile_url?: string | null
+          image_tablet_url?: string | null
           image_url: string
           is_active?: boolean | null
           link_target?: string | null
@@ -15269,6 +15271,7 @@ export type Database = {
           ends_at?: string | null
           id?: string
           image_mobile_url?: string | null
+          image_tablet_url?: string | null
           image_url?: string
           is_active?: boolean | null
           link_target?: string | null

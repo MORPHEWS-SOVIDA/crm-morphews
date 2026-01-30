@@ -8,6 +8,7 @@ export interface StorefrontBanner {
   title: string | null;
   subtitle: string | null;
   image_url: string;
+  image_tablet_url: string | null;
   image_mobile_url: string | null;
   link_url: string | null;
   link_target: string;
@@ -29,6 +30,7 @@ export interface CreateBannerInput {
   title?: string;
   subtitle?: string;
   image_url: string;
+  image_tablet_url?: string;
   image_mobile_url?: string;
   link_url?: string;
   link_target?: string;
