@@ -273,6 +273,52 @@ export type Database = {
           },
         ]
       }
+      affiliate_network_landings: {
+        Row: {
+          created_at: string
+          id: string
+          landing_page_id: string
+          network_id: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          landing_page_id: string
+          network_id: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          landing_page_id?: string
+          network_id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_network_landings_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_landings_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_network_landings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_network_members: {
         Row: {
           affiliate_id: string | null

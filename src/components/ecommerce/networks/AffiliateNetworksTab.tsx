@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAffiliateNetworks, useDeleteNetwork, type AffiliateNetwork } from '@/hooks/ecommerce/useAffiliateNetworks';
 import { NetworkCreateDialog } from './NetworkCreateDialog';
-import { NetworkDetailSheet } from './NetworkDetailSheet';
+import { NetworkEditDialog } from './NetworkEditDialog';
 
 export function AffiliateNetworksTab() {
   const { data: networks, isLoading } = useAffiliateNetworks();
@@ -173,8 +173,8 @@ export function AffiliateNetworksTab() {
         onOpenChange={setCreateDialogOpen}
       />
 
-      {/* Detail Sheet */}
-      <NetworkDetailSheet
+      {/* Edit Dialog */}
+      <NetworkEditDialog
         network={selectedNetwork}
         open={!!selectedNetwork}
         onOpenChange={(open) => !open && setSelectedNetwork(null)}
