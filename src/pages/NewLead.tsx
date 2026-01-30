@@ -6,6 +6,7 @@ import { StarRating } from '@/components/StarRating';
 import { MultiSelect } from '@/components/MultiSelect';
 import { LeadTransferDialog } from '@/components/LeadTransferDialog';
 import { LeadAddressForm } from '@/components/leads/LeadAddressForm';
+import { LeadFiscalRegistrationFields } from '@/components/leads/LeadFiscalRegistrationFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -116,6 +117,10 @@ export default function NewLead() {
     birth_date: '',
     gender: '',
     favorite_team: '',
+    inscricao_estadual: '',
+    inscricao_estadual_isento: true,
+    inscricao_municipal: '',
+    inscricao_municipal_isento: true,
   });
 
   // Get selectable stages (funnel and cloud, not trash)
@@ -229,6 +234,10 @@ export default function NewLead() {
         birth_date: formData.birth_date || null,
         gender: formData.gender || null,
         favorite_team: formData.favorite_team || null,
+        inscricao_estadual: formData.inscricao_estadual || null,
+        inscricao_estadual_isento: formData.inscricao_estadual_isento,
+        inscricao_municipal: formData.inscricao_municipal || null,
+        inscricao_municipal_isento: formData.inscricao_municipal_isento,
       } as any);
       
       if (pendingAddresses.length > 0 && newLead?.id) {
@@ -274,7 +283,7 @@ export default function NewLead() {
     }
   };
 
-  const updateField = (field: string, value: string | number | string[]) => {
+  const updateField = (field: string, value: string | number | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -463,6 +472,17 @@ export default function NewLead() {
                     <Input value={formData.cpf_cnpj} onChange={(e) => updateField('cpf_cnpj', e.target.value)} placeholder="000.000.000-00" />
                   </div>
                 </div>
+
+                {/* Fiscal Registration Fields */}
+                <LeadFiscalRegistrationFields
+                  data={{
+                    inscricao_estadual: formData.inscricao_estadual,
+                    inscricao_estadual_isento: formData.inscricao_estadual_isento,
+                    inscricao_municipal: formData.inscricao_municipal,
+                    inscricao_municipal_isento: formData.inscricao_municipal_isento,
+                  }}
+                  onChange={(field, value) => updateField(field, value)}
+                />
 
                 {/* Lead Source */}
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-teal-500/10">
