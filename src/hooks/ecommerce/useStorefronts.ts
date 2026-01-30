@@ -60,7 +60,8 @@ export interface StorefrontDomain {
 export interface StorefrontProduct {
   id: string;
   storefront_id: string;
-  product_id: string;
+  product_id: string | null;
+  combo_id?: string | null;
   display_order: number;
   is_featured: boolean;
   custom_price_cents: number | null;
@@ -85,6 +86,13 @@ export interface StorefrontProduct {
     base_price_cents?: number | null;
     price_1_unit?: number | null;
     image_url: string | null;
+  };
+  combo?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    image_url?: string | null;
+    is_active?: boolean;
   };
 }
 
@@ -152,7 +160,7 @@ export function useStorefront(id: string | undefined) {
   });
 }
 
-// Fetch products for a storefront
+// Fetch products for a storefront (includes both products and combos)
 export function useStorefrontProducts(storefrontId: string | undefined) {
   return useQuery({
     queryKey: ['storefront-products', storefrontId],
@@ -162,7 +170,8 @@ export function useStorefrontProducts(storefrontId: string | undefined) {
         .from('storefront_products')
         .select(`
           *,
-          product:lead_products(id, name, base_price_cents, price_1_unit, image_url)
+          product:lead_products(id, name, base_price_cents, price_1_unit, image_url),
+          combo:product_combos(id, name, description, image_url, is_active)
         `)
         .eq('storefront_id', storefrontId)
         .order('display_order');
@@ -315,17 +324,23 @@ export function useAddStorefrontDomain() {
   });
 }
 
-// Add/update products in storefront
+// Add/update products and combos in storefront
 export function useUpdateStorefrontProducts() {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ 
       storefrontId, 
-      products 
+      items 
     }: { 
       storefrontId: string; 
-      products: { product_id: string; display_order?: number; is_featured?: boolean; custom_price_cents?: number | null }[];
+      items: { 
+        product_id?: string | null; 
+        combo_id?: string | null;
+        display_order?: number; 
+        is_featured?: boolean; 
+        custom_price_cents?: number | null;
+      }[];
     }) => {
       // Remove all existing
       await supabase
@@ -334,12 +349,13 @@ export function useUpdateStorefrontProducts() {
         .eq('storefront_id', storefrontId);
       
       // Insert new ones
-      if (products.length > 0) {
+      if (items.length > 0) {
         const { error } = await supabase
           .from('storefront_products')
-          .insert(products.map((p, idx) => ({
+          .insert(items.map((p, idx) => ({
             storefront_id: storefrontId,
-            product_id: p.product_id,
+            product_id: p.product_id || null,
+            combo_id: p.combo_id || null,
             display_order: p.display_order ?? idx,
             is_featured: p.is_featured ?? false,
             custom_price_cents: p.custom_price_cents,
@@ -351,7 +367,7 @@ export function useUpdateStorefrontProducts() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['storefront-products', variables.storefrontId] });
       queryClient.invalidateQueries({ queryKey: ['storefronts'] });
-      toast.success('Produtos atualizados!');
+      toast.success('Itens atualizados!');
     },
     onError: (error: Error) => {
       toast.error(error.message);
