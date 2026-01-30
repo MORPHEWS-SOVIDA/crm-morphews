@@ -1,6 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * Normalizes Brazilian phone numbers to always include country code 55
+ * Input can be: 21987654321, 5521987654321, (21) 98765-4321, etc.
+ * Output will always be: 5521987654321 (13 digits) or 5521876543210 (12 digits for landline)
+ */
+function normalizeBrazilianPhone(phone: string | null | undefined): string {
+  if (!phone) return '';
+  
+  // Remove all non-digits
+  const clean = phone.replace(/\D/g, '');
+  
+  // If already starts with 55 and has 12-13 digits, return as-is
+  if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
+    return clean;
+  }
+  
+  // If has 10-11 digits (local format), prepend 55
+  if (clean.length === 10 || clean.length === 11) {
+    return `55${clean}`;
+  }
+  
+  // Return cleaned number for edge cases
+  return clean;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -107,7 +132,7 @@ serve(async (req) => {
     }
     if (customer?.name) cartData.customer_name = customer.name;
     if (customer?.email) cartData.customer_email = customer.email;
-    if (customer?.phone) cartData.customer_phone = customer.phone?.replace(/\D/g, '');
+    if (customer?.phone) cartData.customer_phone = normalizeBrazilianPhone(customer.phone);
     if (customer?.cpf) cartData.customer_cpf = customer.cpf?.replace(/\D/g, '');
 
     // Add shipping data
@@ -156,7 +181,7 @@ serve(async (req) => {
 
     // 5. Try to link lead if we have contact info
     if (resultCartId && (customer?.email || customer?.phone)) {
-      const normalizedPhone = customer?.phone?.replace(/\D/g, '');
+      const normalizedPhone = normalizeBrazilianPhone(customer?.phone);
       
       // Find or create lead
       let leadId: string | null = null;

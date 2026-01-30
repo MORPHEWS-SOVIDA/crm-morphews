@@ -4,6 +4,31 @@ import { CheckoutRequest, PaymentMethod, CardData } from "./types.ts";
 import { FallbackEngine } from "./fallback-engine.ts";
 import { validateDocument } from "./document-validation.ts";
 
+/**
+ * Normalizes Brazilian phone numbers to always include country code 55
+ * Input can be: 21987654321, 5521987654321, (21) 98765-4321, etc.
+ * Output will always be: 5521987654321 (13 digits) or 5521876543210 (12 digits for landline)
+ */
+function normalizeBrazilianPhone(phone: string | null | undefined): string {
+  if (!phone) return '';
+  
+  // Remove all non-digits
+  const clean = phone.replace(/\D/g, '');
+  
+  // If already starts with 55 and has 12-13 digits, return as-is
+  if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
+    return clean;
+  }
+  
+  // If has 10-11 digits (local format), prepend 55
+  if (clean.length === 10 || clean.length === 11) {
+    return `55${clean}`;
+  }
+  
+  // Return cleaned number for edge cases
+  return clean;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -119,7 +144,7 @@ serve(async (req) => {
     }
 
     // 2. Create or update lead with UTM data
-    const normalizedPhone = customer.phone.replace(/\D/g, '');
+    const normalizedPhone = normalizeBrazilianPhone(customer.phone);
     
     let { data: lead } = await supabase
       .from('leads')
