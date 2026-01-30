@@ -34,9 +34,16 @@ import {
   formatPaymentMethod,
   PickupClosing as PickupClosingType,
 } from '@/hooks/usePickupClosings';
+import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
+
+// Thiago's email for admin confirmation
+const ADMIN_EMAIL = 'thiago@sonatura.com.br';
 
 export default function PickupClosing() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { data: permissions } = useMyPermissions();
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
@@ -46,6 +53,10 @@ export default function PickupClosing() {
   const { data: closingSales = [] } = usePickupClosingSales(viewingClosingId || undefined);
   const createClosing = useCreatePickupClosing();
   const confirmClosing = useConfirmPickupClosing();
+
+  // Permission checks
+  const canConfirmAuxiliar = permissions?.reports_view === true;
+  const canConfirmAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   const toggleSale = (saleId: string) => {
     setSelectedSales(prev => {
@@ -407,17 +418,24 @@ export default function PickupClosing() {
                           Imprimir
                         </Button>
                         {closing.status === 'pending' && (
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={() => handleConfirm(closing.id, 'auxiliar')}
-                            disabled={confirmClosing.isPending}
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Confirmar (Auxiliar)
-                          </Button>
+                          canConfirmAuxiliar ? (
+                            <Button 
+                              variant="secondary" 
+                              size="sm"
+                              onClick={() => handleConfirm(closing.id, 'auxiliar')}
+                              disabled={confirmClosing.isPending}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Confirmar (Financeiro)
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" disabled className="opacity-50">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Confirmar (Financeiro)
+                            </Button>
+                          )
                         )}
-                        {closing.status === 'confirmed_auxiliar' && (
+                        {closing.status === 'confirmed_auxiliar' && canConfirmAdmin && (
                           <Button 
                             size="sm"
                             className="bg-green-600 hover:bg-green-700"

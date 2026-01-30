@@ -80,6 +80,7 @@ import { CarrierTrackingCard } from '@/components/sales/CarrierTrackingCard';
 import { MotoboyTrackingCard } from '@/components/sales/MotoboyTrackingCard';
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { SaleInvoiceCard } from '@/components/sales/SaleInvoiceCard';
+import { SaleClosingInfoCard } from '@/components/sales/SaleClosingInfoCard';
 
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
@@ -1483,6 +1484,9 @@ export default function SaleDetail() {
                 }
               />
             )}
+
+            {/* Sale Closing Info Card - Shows which closing this sale belongs to */}
+            <SaleClosingInfoCard saleId={sale.id} />
 
             {/* Fiscal Invoice Card */}
             <Card>

@@ -46,10 +46,11 @@ import {
   useConfirmDeliveryClosing,
   formatPaymentMethod,
   closingTypeConfig,
-  canUserConfirm,
+  canUserConfirmAdmin,
   type ClosingType,
   type DeliveryClosing as DeliveryClosingType,
 } from '@/hooks/useDeliveryClosings';
+import { useMyPermissions } from '@/hooks/useUserPermissions';
 
 const iconMap = {
   Store: Store,
@@ -64,6 +65,7 @@ interface DeliveryClosingPageProps {
 export default function DeliveryClosingPage({ closingType }: DeliveryClosingPageProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: permissions } = useMyPermissions();
   const config = closingTypeConfig[closingType];
   const IconComponent = iconMap[config.icon as keyof typeof iconMap] || Store;
   
@@ -81,8 +83,10 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const confirmClosing = useConfirmDeliveryClosing();
 
   const userEmail = user?.email?.toLowerCase();
-  const canConfirmAuxiliar = canUserConfirm(userEmail, closingType, 'auxiliar');
-  const canConfirmAdmin = canUserConfirm(userEmail, closingType, 'admin');
+  // Auxiliar confirmation now uses reports_view permission (Financeiro)
+  const canConfirmAuxiliar = permissions?.reports_view === true;
+  // Admin confirmation still uses email check
+  const canConfirmAdmin = canUserConfirmAdmin(userEmail, closingType);
 
   const toggleSale = (saleId: string) => {
     setSelectedSales(prev => {
@@ -435,7 +439,7 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                           Imprimir
                         </Button>
                         
-                        {/* Confirm Auxiliar Button */}
+                        {/* Confirm Auxiliar Button - Now uses Financeiro permission */}
                         {closing.status === 'pending' && (
                           canConfirmAuxiliar ? (
                             <Button 
@@ -445,12 +449,12 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                               disabled={confirmClosing.isPending}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Confirmar (Auxiliar)
+                              Confirmar (Financeiro)
                             </Button>
                           ) : (
                             <Button variant="outline" size="sm" disabled className="opacity-50">
                               <Lock className="w-4 h-4 mr-1" />
-                              Confirmar (Auxiliar)
+                              Confirmar (Financeiro)
                             </Button>
                           )
                         )}
