@@ -56,7 +56,7 @@ import type { DynamicQuestion } from '@/components/products/DynamicQuestionsMana
 import type { ProductFaq } from '@/components/products/ProductFaqManager';
 import type { ProductIngredient } from '@/components/products/ProductIngredientsManager';
 
-type ViewMode = 'list' | 'create' | 'edit';
+type ViewMode = 'list' | 'create' | 'edit' | 'clone';
 type DisplayMode = 'cards' | 'list' | 'brands';
 
 // Categorias que usam kits dinâmicos
@@ -69,6 +69,7 @@ export default function Products() {
   const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cloneSourceId, setCloneSourceId] = useState<string | null>(null); // Original product ID for cloning
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,12 +103,14 @@ export default function Products() {
     return map;
   }, [brands]);
 
-  // Load kits and other data when editing a product
-  const { data: productKits } = useProductPriceKits(selectedProduct?.id);
-  const { data: productQuestions } = useProductQuestions(selectedProduct?.id);
-  const { data: productFaqs } = useProductFaqs(selectedProduct?.id);
-  const { data: productIngredients } = useProductIngredients(selectedProduct?.id);
-  const { data: productVisibility } = useProductVisibility(selectedProduct?.id);
+  // Load kits and other data when editing or cloning a product
+  // For cloning, use the original product ID (cloneSourceId)
+  const productIdForData = cloneSourceId || selectedProduct?.id;
+  const { data: productKits } = useProductPriceKits(productIdForData);
+  const { data: productQuestions } = useProductQuestions(productIdForData);
+  const { data: productFaqs } = useProductFaqs(productIdForData);
+  const { data: productIngredients } = useProductIngredients(productIdForData);
+  const { data: productVisibility } = useProductVisibility(productIdForData);
 
   useEffect(() => {
     if (productKits) {
@@ -293,6 +296,7 @@ export default function Products() {
     }
     
     setViewMode('list');
+    setCloneSourceId(null); // Clear clone source on success
   };
 
   const handleUpdate = async (data: ProductFormData, priceKits?: ProductPriceKitFormData[], questions?: DynamicQuestion[], faqs?: ProductFaq[], ingredients?: ProductIngredient[], selectedUserIds?: string[]) => {
@@ -365,9 +369,22 @@ export default function Products() {
     setViewMode('edit');
   };
 
+  const handleClone = (product: Product) => {
+    // Store original product ID to load kits/questions/faqs/ingredients
+    setCloneSourceId(product.id);
+    // Set the product as a clone source (we'll modify name to indicate it's a copy)
+    setSelectedProduct({
+      ...product,
+      id: '', // Clear ID so it creates a new product
+      name: `${product.name} (Cópia)`,
+    } as Product);
+    setViewMode('clone');
+  };
+
   const handleCancel = () => {
     setViewMode('list');
     setSelectedProduct(null);
+    setCloneSourceId(null);
     setInitialKits([]);
     setInitialQuestions([]);
     setInitialFaqs([]);
@@ -385,6 +402,30 @@ export default function Products() {
             onSubmit={handleCreate}
             isLoading={createProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending || saveFaqs.isPending || saveIngredients.isPending || saveProductVisibility.isPending}
             onCancel={handleCancel}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (viewMode === 'clone' && selectedProduct) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-bold mb-6">Clonar Produto</h1>
+          <p className="text-muted-foreground mb-4">
+            Criando uma cópia de <strong>{selectedProduct.name.replace(' (Cópia)', '')}</strong>
+          </p>
+          <ProductForm
+            product={selectedProduct}
+            onSubmit={handleCreate}
+            isLoading={createProduct.isPending || bulkSaveKits.isPending || saveQuestions.isPending || saveFaqs.isPending || saveIngredients.isPending || saveProductVisibility.isPending}
+            onCancel={handleCancel}
+            initialPriceKits={initialKits}
+            initialQuestions={initialQuestions}
+            initialFaqs={initialFaqs}
+            initialIngredients={initialIngredients}
+            initialVisibleUserIds={initialVisibleUserIds}
           />
         </div>
       </Layout>
@@ -538,6 +579,7 @@ export default function Products() {
                           onView={setViewProduct}
                           onEdit={handleEdit}
                           onDelete={setProductToDelete}
+                          onClone={handleClone}
                           canManage={canManageProducts}
                         />
                       ))}
@@ -570,6 +612,7 @@ export default function Products() {
                         onView={setViewProduct}
                         onEdit={handleEdit}
                         onDelete={setProductToDelete}
+                        onClone={handleClone}
                         canManage={canManageProducts}
                       />
                     ))}
@@ -605,6 +648,7 @@ export default function Products() {
                 onView={setViewProduct}
                 onEdit={handleEdit}
                 onDelete={setProductToDelete}
+                onClone={handleClone}
                 canManage={canManageProducts}
               />
             ))}
@@ -619,6 +663,7 @@ export default function Products() {
                 onView={setViewProduct}
                 onEdit={handleEdit}
                 onDelete={setProductToDelete}
+                onClone={handleClone}
                 canManage={canManageProducts}
               />
             ))}
