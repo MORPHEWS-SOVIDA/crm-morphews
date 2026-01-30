@@ -13,6 +13,9 @@ const MAIN_DOMAINS = [
   'lovable.app',
   'lovable.dev',
   'lovableproject.com',
+  'morphews.com',
+  'sales.morphews.com',
+  'crm-morphews.lovable.app',
 ];
 
 function isMainDomain(hostname: string): boolean {
