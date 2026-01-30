@@ -14,6 +14,7 @@ import {
   formatCurrency,
 } from './templates';
 import { HeroBannerCarousel } from './HeroBannerCarousel';
+import { TestimonialsCarousel } from './TestimonialsCarousel';
 
 function HeroBanners({ storefront }: { storefront: StorefrontData }) {
   const activeBanners = storefront.banners || [];
@@ -184,8 +185,9 @@ function AllProducts({ storefront }: { storefront: StorefrontData & { all_produc
 }
 
 export function StorefrontHome() {
-  const { storefront } = useOutletContext<{ storefront: StorefrontData & { all_products: any[], installment_config?: any } }>();
+  const { storefront } = useOutletContext<{ storefront: StorefrontData & { all_products: any[], installment_config?: any, testimonials?: any[], testimonials_enabled?: boolean } }>();
   const templateSlug = storefront.template?.slug;
+  const showTestimonials = storefront.testimonials_enabled && storefront.testimonials && storefront.testimonials.length > 0;
 
   return (
     <div className="min-h-screen">
@@ -199,6 +201,15 @@ export function StorefrontHome() {
       )}
       
       <FeaturedProducts storefront={storefront} />
+      
+      {/* Testimonials Carousel - between featured and all products */}
+      {showTestimonials && (
+        <TestimonialsCarousel
+          testimonials={storefront.testimonials || []}
+          primaryColor={storefront.primary_color}
+          autoplayInterval={4000}
+        />
+      )}
       
       {/* Social Proof - only for some templates */}
       {templateSlug && templateSlug === 'premium-saude' && (

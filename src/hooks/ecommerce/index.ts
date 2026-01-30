@@ -43,6 +43,20 @@ export {
 } from './useStorefrontBanners';
 
 // =============================================================================
+// STOREFRONT TESTIMONIALS
+// =============================================================================
+export {
+  useStorefrontTestimonials,
+  useCreateStorefrontTestimonial,
+  useUpdateStorefrontTestimonial,
+  useDeleteStorefrontTestimonial,
+  useReorderStorefrontTestimonials,
+  useToggleTestimonialsEnabled,
+  type StorefrontTestimonial,
+  type CreateTestimonialInput,
+} from './useStorefrontTestimonials';
+
+// =============================================================================
 // STOREFRONT PAGES (Institucionais)
 // =============================================================================
 export {
