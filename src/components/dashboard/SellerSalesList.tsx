@@ -168,15 +168,16 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
     let deliveredValue = 0;
     let paidCount = 0; // payment_status = paid_now or paid_in_delivery (regardless of delivery)
     let paidValue = 0;
-    let completedCount = 0; // status = delivered AND paid
+    let completedCount = 0; // status = finalized - this is what earns commission
     let completedValue = 0;
-    let completedCommission = 0; // ONLY commission from completed sales
+    let completedCommission = 0; // ONLY commission from finalized sales
 
     for (const sale of sales) {
       const value = sale.total_cents || 0;
       const commission = sale.commission_cents || 0;
       const isPaid = sale.payment_status === 'paid_now' || sale.payment_status === 'paid_in_delivery';
       const isDelivered = sale.status === 'delivered';
+      const isFinalized = sale.status === 'finalized';
       const isPending = ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched'].includes(sale.status);
 
       totalSales += value;
@@ -199,8 +200,8 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
         paidValue += value;
       }
 
-      // Entregue + Pago: BOTH delivered AND paid - this is what earns commission
-      if (isDelivered && isPaid) {
+      // Finalizado: ONLY finalized sales count for commission payout
+      if (isFinalized) {
         completedCount++;
         completedValue += value;
         completedCommission += commission;

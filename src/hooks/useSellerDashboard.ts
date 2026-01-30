@@ -326,11 +326,9 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         .gte('created_at', monthStart.toISOString())
         .lte('created_at', monthEnd.toISOString());
 
-      // Filter out sales that are both delivered AND paid (those go to "a receber")
+      // Filter out finalized sales (those go to "a receber")
       const pendingSalesFiltered = (pendingCommissionSales || []).filter((s: any) => {
-        const isDelivered = s.status === 'delivered';
-        const isPaid = s.payment_status === 'paid_now' || s.payment_status === 'paid_in_delivery';
-        return !(isDelivered && isPaid);
+        return s.status !== 'finalized';
       });
 
       // Calculate pending totals using commission_cents from items when available
@@ -349,26 +347,23 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         }
       });
 
-      // Comissões a Receber: vendas PAGAS e ENTREGUES, filtradas pela data de ENTREGA do mês
+      // Comissões a Receber: vendas FINALIZADAS, filtradas pela data de FINALIZAÇÃO do mês
       const { data: toReceiveSales } = await supabase
         .from('sales')
         .select(`
           id, 
           total_cents, 
-          delivered_at, 
-          payment_status,
+          finalized_at,
           sale_items(commission_cents)
         `)
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
-        .eq('status', 'delivered')
-        .gte('delivered_at', monthStart.toISOString())
-        .lte('delivered_at', monthEnd.toISOString());
+        .eq('status', 'finalized')
+        .gte('finalized_at', monthStart.toISOString())
+        .lte('finalized_at', monthEnd.toISOString());
 
-      // Only count sales that are both delivered AND paid
-      const toReceiveSalesFiltered = (toReceiveSales || []).filter((s: any) => {
-        return s.payment_status === 'paid_now' || s.payment_status === 'paid_in_delivery';
-      });
+      // All finalized sales count for commission
+      const toReceiveSalesFiltered = toReceiveSales || [];
 
       // Calculate to-receive totals using commission_cents from items
       let toReceiveSalesTotal = 0;

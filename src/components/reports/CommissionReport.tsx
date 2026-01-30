@@ -207,13 +207,10 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
 
       sellerInfo.totalCommission += saleCommission;
 
-      // Separate pending vs paid
-      const isDelivered = sale.status === 'delivered';
-      const isPaid =
-        sale.payment_status === 'paid_now' ||
-        sale.payment_status === 'paid_in_delivery';
+      // Separate pending vs paid - only finalized sales count as paid
+      const isFinalized = sale.status === 'finalized';
 
-      if (isDelivered && isPaid) {
+      if (isFinalized) {
         sellerInfo.paidCommission += saleCommission;
       } else {
         sellerInfo.pendingCommission += saleCommission;
