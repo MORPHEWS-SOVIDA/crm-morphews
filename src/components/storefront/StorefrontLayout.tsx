@@ -1,6 +1,7 @@
 import { Outlet, useParams, Link } from 'react-router-dom';
 import { ShoppingCart, Menu, Search, X, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -291,13 +292,26 @@ export function StorefrontLayout() {
     );
   }
 
+  const pageTitle = storefront.meta_title || storefront.name;
+  const pageDescription = storefront.meta_description || `Loja oficial ${storefront.name}`;
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <StorefrontHeader storefront={storefront} />
-      <main className="flex-1">
-        <Outlet context={{ storefront }} />
-      </main>
-      <StorefrontFooter storefront={storefront} />
-    </div>
+    <>
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        {storefront.favicon_url && <link rel="icon" href={storefront.favicon_url} />}
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        {storefront.logo_url && <meta property="og:image" content={storefront.logo_url} />}
+      </Helmet>
+      <div className="min-h-screen flex flex-col">
+        <StorefrontHeader storefront={storefront} />
+        <main className="flex-1">
+          <Outlet context={{ storefront }} />
+        </main>
+        <StorefrontFooter storefront={storefront} />
+      </div>
+    </>
   );
 }

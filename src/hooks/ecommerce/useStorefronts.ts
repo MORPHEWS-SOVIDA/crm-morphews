@@ -190,6 +190,7 @@ export interface CreateStorefrontInput {
   template_id?: string;
   logo_url?: string;
   logo_mobile_url?: string;
+  favicon_url?: string;
   primary_color?: string;
   secondary_color?: string;
   meta_title?: string;
