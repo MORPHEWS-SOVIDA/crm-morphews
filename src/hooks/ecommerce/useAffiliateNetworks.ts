@@ -248,11 +248,20 @@ export function useDeleteNetwork() {
 
 export function useAddCheckoutToNetwork() {
   const queryClient = useQueryClient();
-  const { data: organizationId } = useEcommerceOrganizationId();
+  const { data: organizationId, isLoading: orgLoading } = useEcommerceOrganizationId();
 
   return useMutation({
     mutationFn: async (data: { network_id: string; checkout_id: string }) => {
-      if (!organizationId) throw new Error('Organization not found');
+      if (!organizationId) {
+        console.error('[useAddCheckoutToNetwork] organizationId is null/undefined');
+        throw new Error('Organização não encontrada. Tente recarregar a página.');
+      }
+
+      console.log('[useAddCheckoutToNetwork] Inserting checkout:', {
+        network_id: data.network_id,
+        checkout_id: data.checkout_id,
+        organization_id: organizationId,
+      });
 
       const { error } = await supabase
         .from('affiliate_network_checkouts')
@@ -263,6 +272,7 @@ export function useAddCheckoutToNetwork() {
         });
 
       if (error) {
+        console.error('[useAddCheckoutToNetwork] Insert error:', error);
         if (error.code === '23505') {
           throw new Error('Este checkout já está vinculado a esta rede');
         }
@@ -508,7 +518,7 @@ export function useNetworkStorefronts(networkId: string | null) {
     queryFn: async () => {
       if (!networkId) return [];
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('affiliate_network_storefronts')
         .select(`
           *,
@@ -543,14 +553,14 @@ export function useAvailableStorefronts(networkId: string | null) {
 
       if (!networkId) return storefronts || [];
 
-      const { data: linked, error: linkedError } = await (supabase as any)
+      const { data: linked, error: linkedError } = await supabase
         .from('affiliate_network_storefronts')
         .select('storefront_id')
         .eq('network_id', networkId);
 
       if (linkedError) throw linkedError;
 
-      const linkedIds = new Set((linked as any[])?.map((l) => l.storefront_id) || []);
+      const linkedIds = new Set(linked?.map((l) => l.storefront_id) || []);
       return storefronts?.filter((s) => !linkedIds.has(s.id)) || [];
     },
     enabled: !!organizationId,
@@ -559,13 +569,22 @@ export function useAvailableStorefronts(networkId: string | null) {
 
 export function useAddStorefrontToNetwork() {
   const queryClient = useQueryClient();
-  const { data: organizationId } = useEcommerceOrganizationId();
+  const { data: organizationId, isLoading: orgLoading } = useEcommerceOrganizationId();
 
   return useMutation({
     mutationFn: async (data: { network_id: string; storefront_id: string }) => {
-      if (!organizationId) throw new Error('Organization not found');
+      if (!organizationId) {
+        console.error('[useAddStorefrontToNetwork] organizationId is null/undefined');
+        throw new Error('Organização não encontrada. Tente recarregar a página.');
+      }
 
-      const { error } = await (supabase as any)
+      console.log('[useAddStorefrontToNetwork] Inserting storefront:', {
+        network_id: data.network_id,
+        storefront_id: data.storefront_id,
+        organization_id: organizationId,
+      });
+
+      const { error } = await supabase
         .from('affiliate_network_storefronts')
         .insert({
           network_id: data.network_id,
@@ -574,6 +593,7 @@ export function useAddStorefrontToNetwork() {
         });
 
       if (error) {
+        console.error('[useAddStorefrontToNetwork] Insert error:', error);
         if (error.code === '23505') {
           throw new Error('Esta loja já está vinculada a esta rede');
         }
@@ -593,7 +613,7 @@ export function useRemoveStorefrontFromNetwork() {
 
   return useMutation({
     mutationFn: async (data: { network_id: string; storefront_id: string }) => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('affiliate_network_storefronts')
         .delete()
         .eq('network_id', data.network_id)
