@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -14,9 +14,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, FileSpreadsheet, X, Printer, Eye, Check, AlertCircle } from 'lucide-react';
-import { Sale, formatCurrency, getStatusLabel } from '@/hooks/useSales';
+import { Download, FileSpreadsheet, X, Printer, Eye, Check, AlertCircle, PackageCheck, UserCheck } from 'lucide-react';
+import { Sale, formatCurrency } from '@/hooks/useSales';
 import { useUsers } from '@/hooks/useUsers';
+import { useSaleClosingStatus } from '@/hooks/useSaleClosingStatus';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SalesDetailedReportProps {
   sales: Sale[];
@@ -49,6 +51,10 @@ function escapeCSVField(value: any): string {
 
 export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailedReportProps) {
   const { data: users } = useUsers();
+  
+  // Get sale IDs for closing status lookup
+  const saleIds = useMemo(() => sales.map(s => s.id), [sales]);
+  const { data: closingStatus } = useSaleClosingStatus(saleIds);
   
   // Create user lookup map
   const userMap = useMemo(() => {
@@ -127,12 +133,16 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
       'Comissão Vendedor (%)',
       'Comissão Vendedor (R$)',
       'Valor Total',
+      'Foi Baixado?',
+      'Confirmado Auxiliar?',
+      'Confirmado Thiago?',
     ];
 
     const rows = sales.map(sale => {
       const saleCast = sale as any;
       const commission = getCommissionInfo(sale);
       const paymentMethod = saleCast.payment_method_data?.name || saleCast.payment_method || '—';
+      const status = closingStatus?.[sale.id];
       
       return [
         sale.romaneio_number || '—',
@@ -152,6 +162,9 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
         commission.percentage.toFixed(2).replace('.', ','),
         (commission.cents / 100).toFixed(2).replace('.', ','),
         (sale.total_cents / 100).toFixed(2).replace('.', ','),
+        status?.wasClosed ? 'Sim' : 'Não',
+        status?.confirmedByAuxiliar ? 'Sim' : 'Não',
+        status?.confirmedByThiago ? 'Sim' : 'Não',
       ].map(escapeCSVField);
     });
 
@@ -273,6 +286,51 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
                   <TableHead className="whitespace-nowrap text-right">Comissão %</TableHead>
                   <TableHead className="whitespace-nowrap text-right">Comissão R$</TableHead>
                   <TableHead className="whitespace-nowrap text-right">Valor Total</TableHead>
+                  <TableHead className="whitespace-nowrap text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center justify-center gap-1">
+                            <PackageCheck className="h-4 w-4" />
+                            Baixado?
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Passou pela baixa (Motoboy/Balcão/Transportadora)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center justify-center gap-1">
+                            <UserCheck className="h-4 w-4" />
+                            Aux?
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Confirmado por auxiliar.sovida@gmail.com</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center justify-center gap-1">
+                            <UserCheck className="h-4 w-4" />
+                            Thiago?
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Confirmado por thiago@sonatura.com.br</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
                   <TableHead className="print:hidden"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -284,6 +342,7 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
                   const isDelivered = sale.status === 'delivered';
                   const hasProof = !!sale.payment_proof_url;
                   const paymentMethod = saleCast.payment_method_data?.name || saleCast.payment_method || '—';
+                  const status = closingStatus?.[sale.id];
                   
                   return (
                     <TableRow key={sale.id}>
@@ -352,6 +411,27 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(sale.total_cents)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {status?.wasClosed ? (
+                          <Check className="h-4 w-4 text-green-600 mx-auto" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {status?.confirmedByAuxiliar ? (
+                          <Check className="h-4 w-4 text-green-600 mx-auto" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {status?.confirmedByThiago ? (
+                          <Check className="h-4 w-4 text-green-600 mx-auto" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
+                        )}
                       </TableCell>
                       <TableCell className="print:hidden">
                         <Button
