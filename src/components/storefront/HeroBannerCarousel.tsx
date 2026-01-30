@@ -63,14 +63,24 @@ export function HeroBannerCarousel({
               index === currentIndex ? 'opacity-100' : 'opacity-0 absolute inset-0'
             )}
           >
-            {/* Desktop Image */}
+            {/* Desktop Image (lg+: 1024px and above) */}
             <div
               className="relative w-full min-h-[400px] md:min-h-[500px] lg:min-h-[600px] bg-cover bg-center"
               style={{
                 backgroundImage: `url(${banner.image_url})`,
               }}
             >
-              {/* Mobile Image Override */}
+              {/* Tablet Image Override (md to lg: 768px-1023px) */}
+              {banner.image_tablet_url && (
+                <div
+                  className="absolute inset-0 bg-cover bg-center hidden md:block lg:hidden"
+                  style={{
+                    backgroundImage: `url(${banner.image_tablet_url})`,
+                  }}
+                />
+              )}
+              
+              {/* Mobile Image Override (<768px) */}
               {banner.image_mobile_url && (
                 <div
                   className="absolute inset-0 bg-cover bg-center md:hidden"

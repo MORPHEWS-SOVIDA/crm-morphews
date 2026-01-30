@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Info, Monitor, Smartphone } from 'lucide-react';
+import { Info, Monitor, Smartphone, Tablet } from 'lucide-react';
 import { useCreateStorefrontBanner, useUpdateStorefrontBanner, type StorefrontBanner } from '@/hooks/ecommerce';
 import { StorefrontImageUpload } from '../StorefrontImageUpload';
 
@@ -27,6 +27,7 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
     title: '',
     subtitle: '',
     image_url: '',
+    image_tablet_url: '',
     image_mobile_url: '',
     link_url: '',
     button_text: '',
@@ -42,6 +43,7 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
         title: banner.title || '',
         subtitle: banner.subtitle || '',
         image_url: banner.image_url,
+        image_tablet_url: banner.image_tablet_url || '',
         image_mobile_url: banner.image_mobile_url || '',
         link_url: banner.link_url || '',
         button_text: banner.button_text || '',
@@ -55,6 +57,7 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
         title: '', 
         subtitle: '', 
         image_url: '', 
+        image_tablet_url: '',
         image_mobile_url: '',
         link_url: '', 
         button_text: '', 
@@ -103,6 +106,23 @@ export function StorefrontBannerFormDialog({ open, onOpenChange, storefrontId, b
                 folder="banners/desktop"
                 placeholder="https://exemplo.com/banner-desktop.jpg"
                 recommendedSize="Proporção 21:9 (widescreen). Formatos: JPG, PNG ou WebP. Max 5MB"
+              />
+            </div>
+
+            {/* Tablet Image */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Tablet className="h-4 w-4 text-muted-foreground" />
+                <Label>Imagem Tablet (opcional)</Label>
+                <Badge variant="outline" className="text-xs">1024 x 600 px</Badge>
+              </div>
+              <StorefrontImageUpload
+                value={formData.image_tablet_url}
+                onChange={(url) => setFormData(prev => ({ ...prev, image_tablet_url: url }))}
+                storefrontId={storefrontId}
+                folder="banners/tablet"
+                placeholder="https://exemplo.com/banner-tablet.jpg"
+                recommendedSize="Proporção 16:9 (paisagem). Se não informar, usará a imagem desktop adaptada"
               />
             </div>
 
