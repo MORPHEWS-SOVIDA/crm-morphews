@@ -11,6 +11,7 @@ import { queryClient } from "@/lib/queryClient";
 import { UtmProvider } from "@/hooks/useUtmTracker";
 import { HelmetProvider } from "react-helmet-async";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { CustomDomainRedirect } from "@/components/CustomDomainRedirect";
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -208,10 +209,11 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <ImpersonationBanner />
-            <ErrorBoundary title="Ops! Algo deu errado">
-              <Suspense fallback={<PageLoader />}>
-              <Routes>
+            <CustomDomainRedirect>
+              <ImpersonationBanner />
+              <ErrorBoundary title="Ops! Algo deu errado">
+                <Suspense fallback={<PageLoader />}>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -1157,9 +1159,10 @@ const App = () => (
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        </BrowserRouter>
+              </Suspense>
+            </ErrorBoundary>
+            </CustomDomainRedirect>
+          </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
   </UtmProvider>
