@@ -41,6 +41,7 @@ export function StorefrontCheckout() {
   const [saveCard, setSaveCard] = useState(false);
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [totalWithInterest, setTotalWithInterest] = useState<number | null>(null);
+  const [selectedInstallments, setSelectedInstallments] = useState<number>(12); // Default to 12x
   const [selectedShipping, setSelectedShipping] = useState<{
     service_code: string;
     service_name: string;
@@ -106,6 +107,7 @@ export function StorefrontCheckout() {
   // Handle total with interest change from card form
   const handleTotalWithInterestChange = useCallback((newTotal: number, installments: number) => {
     setTotalWithInterest(installments > 1 ? newTotal : null);
+    setSelectedInstallments(installments);
   }, []);
 
   // Cart config for free shipping threshold
@@ -630,14 +632,23 @@ export function StorefrontCheckout() {
 
               <hr />
 
-              {/* Totals - Subtotal, Frete, and Juros hidden for cleaner UX */}
+              {/* Totals - Show installments only when credit card selected for cleaner UX */}
               <div className="space-y-2">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span>
-                  <span style={{ color: storefront.primary_color }}>
-                    {formatCurrency(paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest : total)}
-                  </span>
-                </div>
+                {paymentMethod === 'credit_card' ? (
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>{selectedInstallments}x de</span>
+                    <span style={{ color: storefront.primary_color }}>
+                      {formatCurrency(Math.round((totalWithInterest || total) / selectedInstallments))}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Total</span>
+                    <span style={{ color: storefront.primary_color }}>
+                      {formatCurrency(total)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* One-Click Badge */}
