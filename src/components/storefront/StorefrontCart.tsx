@@ -256,22 +256,7 @@ export function StorefrontCart() {
               <CardTitle>Resumo do Pedido</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Frete</span>
-                <span className="text-muted-foreground">
-                  {remainingForFreeShipping === 0 && freeShippingThreshold > 0 
-                    ? 'Grátis' 
-                    : 'Calcular no checkout'
-                  }
-                </span>
-              </div>
-
-              <Separator />
+              {/* Subtotal and Frete hidden for cleaner UX - go straight to Total */}
 
               {/* Total with installment highlight */}
               <div className="flex items-center justify-between">

@@ -630,31 +630,9 @@ export function StorefrontCheckout() {
 
               <hr />
 
-              {/* Totals */}
+              {/* Totals - Subtotal, Frete, and Juros hidden for cleaner UX */}
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <div className="text-muted-foreground">
-                    <span>Frete</span>
-                    {selectedShipping && (
-                      <span className="text-xs ml-1">
-                        ({selectedShipping.service_name} - {selectedShipping.delivery_days === 1 ? '1 dia' : `${selectedShipping.delivery_days} dias`})
-                      </span>
-                    )}
-                  </div>
-                  <span>{shippingCents > 0 ? formatCurrency(shippingCents) : formData.cep.length === 8 ? 'Grátis' : 'Calcular'}</span>
-                </div>
-                {/* Interest for installments */}
-                {paymentMethod === 'credit_card' && totalWithInterest && totalWithInterest > total && (
-                  <div className="flex justify-between text-sm text-orange-600">
-                    <span>Juros ({cardData?.installments}x)</span>
-                    <span>+{formatCurrency(totalWithInterest - total)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
                   <span style={{ color: storefront.primary_color }}>
                     {formatCurrency(paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest : total)}
