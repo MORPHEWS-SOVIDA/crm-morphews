@@ -134,7 +134,7 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
       'Comissão Vendedor (R$)',
       'Valor Total',
       'Foi Baixado?',
-      'Confirmado Auxiliar?',
+      'Confirmado Financeiro?',
       'Confirmado Thiago?',
     ];
 
@@ -163,7 +163,7 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
         (commission.cents / 100).toFixed(2).replace('.', ','),
         (sale.total_cents / 100).toFixed(2).replace('.', ','),
         status?.wasClosed ? 'Sim' : 'Não',
-        status?.confirmedByAuxiliar ? 'Sim' : 'Não',
+        status?.confirmedByFinanceiro ? 'Sim' : 'Não',
         status?.confirmedByThiago ? 'Sim' : 'Não',
       ].map(escapeCSVField);
     });
@@ -307,11 +307,11 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
                         <TooltipTrigger asChild>
                           <span className="flex items-center justify-center gap-1">
                             <UserCheck className="h-4 w-4" />
-                            Aux?
+                            Financeiro?
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Confirmado por auxiliar.sovida@gmail.com</p>
+                          <p>Confirmado por usuário com permissão Financeiro</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -420,7 +420,7 @@ export function SalesDetailedReport({ sales, isLoading, onClose }: SalesDetailed
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        {status?.confirmedByAuxiliar ? (
+                        {status?.confirmedByFinanceiro ? (
                           <Check className="h-4 w-4 text-green-600 mx-auto" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />

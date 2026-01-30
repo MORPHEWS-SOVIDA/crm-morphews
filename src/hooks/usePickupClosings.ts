@@ -275,15 +275,17 @@ export function useConfirmPickupClosing() {
     mutationFn: async ({ closingId, type }: ConfirmClosingData) => {
       if (!user) throw new Error('Not authenticated');
 
+      const now = new Date().toISOString();
+      
       const updateData = type === 'auxiliar'
         ? {
             confirmed_by_auxiliar: user.id,
-            confirmed_at_auxiliar: new Date().toISOString(),
+            confirmed_at_auxiliar: now,
             status: 'confirmed_auxiliar',
           }
         : {
             confirmed_by_admin: user.id,
-            confirmed_at_admin: new Date().toISOString(),
+            confirmed_at_admin: now,
             status: 'confirmed_final',
           };
 
@@ -293,9 +295,46 @@ export function useConfirmPickupClosing() {
         .eq('id', closingId);
 
       if (error) throw error;
+
+      // Update sales status based on confirmation type
+      // Get all sales in this closing
+      const { data: closingSales } = await supabase
+        .from('pickup_closing_sales')
+        .select('sale_id')
+        .eq('closing_id', closingId);
+
+      if (closingSales && closingSales.length > 0) {
+        const saleIds = closingSales.map(cs => cs.sale_id);
+        
+        if (type === 'auxiliar') {
+          // Update to 'closed' status
+          await supabase
+            .from('sales')
+            .update({ 
+              status: 'closed',
+              closed_at: now,
+              closed_by: user.id,
+            })
+            .in('id', saleIds)
+            .not('status', 'in', '("cancelled","returned","finalized")');
+        } else {
+          // Update to 'finalized' status
+          await supabase
+            .from('sales')
+            .update({ 
+              status: 'finalized',
+              finalized_at: now,
+              finalized_by: user.id,
+            })
+            .in('id', saleIds)
+            .not('status', 'in', '("cancelled","returned")');
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pickup-closings'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
     },
   });
 }

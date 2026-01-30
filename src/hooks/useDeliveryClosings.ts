@@ -326,15 +326,17 @@ export function useConfirmDeliveryClosing() {
     mutationFn: async ({ closingId, type }: ConfirmClosingData) => {
       if (!user) throw new Error('Not authenticated');
 
+      const now = new Date().toISOString();
+      
       const updateData = type === 'auxiliar'
         ? {
             confirmed_by_auxiliar: user.id,
-            confirmed_at_auxiliar: new Date().toISOString(),
+            confirmed_at_auxiliar: now,
             status: 'confirmed_auxiliar',
           }
         : {
             confirmed_by_admin: user.id,
-            confirmed_at_admin: new Date().toISOString(),
+            confirmed_at_admin: now,
             status: 'confirmed_final',
           };
 
@@ -344,9 +346,46 @@ export function useConfirmDeliveryClosing() {
         .eq('id', closingId);
 
       if (error) throw error;
+
+      // Update sales status based on confirmation type
+      // Get all sales in this closing
+      const { data: closingSales } = await supabase
+        .from('pickup_closing_sales')
+        .select('sale_id')
+        .eq('closing_id', closingId);
+
+      if (closingSales && closingSales.length > 0) {
+        const saleIds = closingSales.map(cs => cs.sale_id);
+        
+        if (type === 'auxiliar') {
+          // Update to 'closed' status
+          await supabase
+            .from('sales')
+            .update({ 
+              status: 'closed',
+              closed_at: now,
+              closed_by: user.id,
+            })
+            .in('id', saleIds)
+            .not('status', 'in', '("cancelled","returned","finalized")');
+        } else {
+          // Update to 'finalized' status
+          await supabase
+            .from('sales')
+            .update({ 
+              status: 'finalized',
+              finalized_at: now,
+              finalized_by: user.id,
+            })
+            .in('id', saleIds)
+            .not('status', 'in', '("cancelled","returned")');
+        }
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['delivery-closings', undefined, variables.closingType] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
     },
   });
 }
@@ -359,8 +398,7 @@ export const closingTypeConfig: Record<ClosingType, {
   color: string;
   emptyMessage: string;
   printPath: (id: string) => string;
-  // Emails allowed to confirm each stage
-  auxiliarEmails: string[];
+  // Admin email for final confirmation (second button)
   adminEmails: string[];
 }> = {
   pickup: {
@@ -370,7 +408,6 @@ export const closingTypeConfig: Record<ClosingType, {
     color: 'purple',
     emptyMessage: 'Nenhuma venda balcão disponível',
     printPath: (id) => `/expedicao/fechamento/${id}/imprimir`,
-    auxiliarEmails: ['auxiliar.sovida@gmail.com'],
     adminEmails: ['thiago@sonatura.com.br'],
   },
   motoboy: {
@@ -380,7 +417,6 @@ export const closingTypeConfig: Record<ClosingType, {
     color: 'orange',
     emptyMessage: 'Nenhuma venda motoboy disponível',
     printPath: (id) => `/expedicao/fechamento/${id}/imprimir?type=motoboy`,
-    auxiliarEmails: ['auxiliar.sovida@gmail.com'],
     adminEmails: ['thiago@sonatura.com.br'],
   },
   carrier: {
@@ -390,23 +426,18 @@ export const closingTypeConfig: Record<ClosingType, {
     color: 'blue',
     emptyMessage: 'Nenhuma venda transportadora disponível',
     printPath: (id) => `/expedicao/fechamento/${id}/imprimir?type=carrier`,
-    auxiliarEmails: ['auxiliar.sovida@gmail.com'],
     adminEmails: ['thiago@sonatura.com.br'],
   },
 };
 
-// Helper to check if user can confirm
-export function canUserConfirm(
+// Helper to check if user can confirm - now uses permission for auxiliar
+export function canUserConfirmAdmin(
   userEmail: string | undefined,
-  closingType: ClosingType,
-  confirmationType: 'auxiliar' | 'admin'
+  closingType: ClosingType
 ): boolean {
   if (!userEmail) return false;
   const config = closingTypeConfig[closingType];
-  const allowedEmails = confirmationType === 'auxiliar' 
-    ? config.auxiliarEmails 
-    : config.adminEmails;
-  return allowedEmails.includes(userEmail.toLowerCase());
+  return config.adminEmails.includes(userEmail.toLowerCase());
 }
 
 // Helper to format payment method for display

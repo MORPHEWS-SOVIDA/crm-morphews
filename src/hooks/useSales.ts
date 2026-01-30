@@ -12,6 +12,8 @@ export type SaleStatus =
   | 'delivered'
   | 'payment_pending'
   | 'payment_confirmed'
+  | 'closed'      // Baixado - confirmado pelo financeiro
+  | 'finalized'   // Finalizado - confirmado pelo admin (Thiago)
   | 'cancelled'
   | 'returned';
 
@@ -246,6 +248,8 @@ export function getStatusLabel(status: SaleStatus): string {
     delivered: 'Entregue',
     payment_pending: 'Aguardando Pagamento',
     payment_confirmed: 'Pagamento Confirmado',
+    closed: 'Baixado',
+    finalized: 'Finalizado',
     cancelled: 'Cancelado',
     returned: 'Voltou / Reagendar',
   };
@@ -260,6 +264,8 @@ export function getStatusColor(status: SaleStatus): string {
     delivered: 'bg-green-100 text-green-700',
     payment_pending: 'bg-yellow-100 text-yellow-700',
     payment_confirmed: 'bg-emerald-100 text-emerald-700',
+    closed: 'bg-teal-100 text-teal-700',
+    finalized: 'bg-purple-100 text-purple-700',
     cancelled: 'bg-red-100 text-red-700',
     returned: 'bg-amber-100 text-amber-700',
   };

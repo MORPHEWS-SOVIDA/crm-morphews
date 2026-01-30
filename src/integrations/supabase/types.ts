@@ -14209,6 +14209,8 @@ export type Database = {
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
           checkout_url: string | null
+          closed_at: string | null
+          closed_by: string | null
           conference_completed_at: string | null
           conference_completed_by: string | null
           conversion_sent_at: string | null
@@ -14237,6 +14239,8 @@ export type Database = {
           external_order_url: string | null
           external_source: string | null
           fbclid: string | null
+          finalized_at: string | null
+          finalized_by: string | null
           gateway_fee_cents: number | null
           gateway_net_cents: number | null
           gateway_transaction_id: string | null
@@ -14305,6 +14309,8 @@ export type Database = {
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
           checkout_url?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
           conference_completed_at?: string | null
           conference_completed_by?: string | null
           conversion_sent_at?: string | null
@@ -14335,6 +14341,8 @@ export type Database = {
           external_order_url?: string | null
           external_source?: string | null
           fbclid?: string | null
+          finalized_at?: string | null
+          finalized_by?: string | null
           gateway_fee_cents?: number | null
           gateway_net_cents?: number | null
           gateway_transaction_id?: string | null
@@ -14403,6 +14411,8 @@ export type Database = {
             | Database["public"]["Enums"]["carrier_tracking_status"]
             | null
           checkout_url?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
           conference_completed_at?: string | null
           conference_completed_by?: string | null
           conversion_sent_at?: string | null
@@ -14433,6 +14443,8 @@ export type Database = {
           external_order_url?: string | null
           external_source?: string | null
           fbclid?: string | null
+          finalized_at?: string | null
+          finalized_by?: string | null
           gateway_fee_cents?: number | null
           gateway_net_cents?: number | null
           gateway_transaction_id?: string | null
@@ -19698,6 +19710,8 @@ export type Database = {
         | "payment_confirmed"
         | "cancelled"
         | "returned"
+        | "closed"
+        | "finalized"
       secretary_message_type:
         | "scheduled"
         | "followup"
@@ -19995,6 +20009,8 @@ export const Constants = {
         "payment_confirmed",
         "cancelled",
         "returned",
+        "closed",
+        "finalized",
       ],
       secretary_message_type: [
         "scheduled",
