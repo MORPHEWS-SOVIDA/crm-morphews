@@ -98,6 +98,11 @@ export interface Sale {
   // Commission fields
   seller_commission_percentage: number | null;
   seller_commission_cents: number | null;
+  // Closing audit fields (Baixado/Finalizado)
+  closed_at: string | null;
+  closed_by: string | null;
+  finalized_at: string | null;
+  finalized_by: string | null;
   // Joined data
   lead?: {
     id: string;
@@ -132,6 +137,15 @@ export interface Sale {
     id: string;
     name: string;
   };
+  // Closing profiles
+  closed_by_profile?: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  finalized_by_profile?: {
+    first_name: string;
+    last_name: string;
+  } | null;
   melhor_envio_labels?: Array<{
     id: string;
     label_pdf_url: string | null;
@@ -438,12 +452,36 @@ export function useSale(id: string | undefined) {
         assigned_delivery_user_profile = profile;
       }
 
+      // Fetch closing profiles (closed_by and finalized_by)
+      let closed_by_profile = null;
+      let finalized_by_profile = null;
+
+      if (sale.closed_by) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.closed_by)
+          .maybeSingle();
+        closed_by_profile = profile;
+      }
+
+      if (sale.finalized_by) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', sale.finalized_by)
+          .maybeSingle();
+        finalized_by_profile = profile;
+      }
+
       return { 
         ...sale, 
         items: items || [],
         seller_profile,
         created_by_profile,
         assigned_delivery_user_profile,
+        closed_by_profile,
+        finalized_by_profile,
         return_reason: sale.return_reason
       } as Sale;
     },

@@ -23,6 +23,7 @@ import {
   checkpointLabels,
   checkpointOrder,
   checkpointEmojis,
+  closingStepLabels,
   getCheckpointStatus,
   type CheckpointType,
 } from '@/hooks/useSaleCheckpoints';
@@ -71,9 +72,22 @@ interface SaleCheckpointsCardProps {
   saleStatus?: string;
   isCancelled?: boolean;
   deliveryRegionId?: string | null;
+  closedAt?: string | null;
+  closedByName?: string | null;
+  finalizedAt?: string | null;
+  finalizedByName?: string | null;
 }
 
-export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryRegionId }: SaleCheckpointsCardProps) {
+export function SaleCheckpointsCard({ 
+  saleId, 
+  saleStatus, 
+  isCancelled, 
+  deliveryRegionId,
+  closedAt,
+  closedByName,
+  finalizedAt,
+  finalizedByName,
+}: SaleCheckpointsCardProps) {
   const { data: checkpoints = [], isLoading } = useSaleCheckpoints(saleId);
   const { data: history = [] } = useSaleCheckpointHistory(saleId);
   const { data: returnReasons = [] } = useDeliveryReturnReasons();
@@ -590,6 +604,93 @@ export function SaleCheckpointsCard({ saleId, saleStatus, isCancelled, deliveryR
               </div>
             );
           })}
+
+          {/* Closing Steps - Baixado (closed) and Finalizado (finalized) */}
+          {/* Baixado - Confirmed by Financeiro */}
+          <div
+            className={`p-3 rounded-lg border transition-colors ${
+              closedAt
+                ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+                : 'bg-muted/30 border-border'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl mt-0.5">{checkpointEmojis.closed}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`font-medium ${
+                      closedAt ? 'text-green-700 dark:text-green-400' : 'text-foreground'
+                    }`}
+                  >
+                    {closingStepLabels.closed}
+                  </span>
+                  {closedAt && (
+                    <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">
+                      ✓
+                    </Badge>
+                  )}
+                </div>
+                {closedAt && (
+                  <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {format(new Date(closedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                    {closedByName && (
+                      <span className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {closedByName}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Finalizado - Confirmed by Thiago */}
+          <div
+            className={`p-3 rounded-lg border transition-colors ${
+              finalizedAt
+                ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+                : 'bg-muted/30 border-border'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl mt-0.5">{checkpointEmojis.finalized}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`font-medium ${
+                      finalizedAt ? 'text-green-700 dark:text-green-400' : 'text-foreground'
+                    }`}
+                  >
+                    {closingStepLabels.finalized}
+                  </span>
+                  {finalizedAt && (
+                    <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">
+                      ✓
+                    </Badge>
+                  )}
+                </div>
+                {finalizedAt && (
+                  <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {format(new Date(finalizedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                    {finalizedByName && (
+                      <span className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {finalizedByName}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Voltou / Não Entregue Button - show after dispatched but before delivered */}
           {showReturnButton && (

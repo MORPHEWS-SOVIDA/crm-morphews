@@ -35,7 +35,7 @@ export const checkpointLabels: Record<CheckpointType, string> = {
   payment_confirmed: 'Pagamento Confirmado',
 };
 
-export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'cancelled', string> = {
+export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'cancelled' | 'closed' | 'finalized', string> = {
   draft: '👀',
   printed: '🖨️',
   pending_expedition: '📦',
@@ -44,9 +44,17 @@ export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'c
   delivered: '✅',
   payment_confirmed: '💰',
   cancelled: '😭💔',
+  closed: '📋',
+  finalized: '🏆',
 };
 
 export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
+
+// Labels for closing status steps (not part of checkpoints, come from sales table)
+export const closingStepLabels = {
+  closed: 'Baixado (Financeiro)',
+  finalized: 'Finalizado (Thiago)',
+};
 
 export function useSaleCheckpoints(saleId: string | undefined) {
   const { user } = useAuth();
