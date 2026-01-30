@@ -938,6 +938,7 @@ export default function EditSale() {
                                   return !availableDateStrings.includes(dateStr);
                                 }}
                                 locale={ptBR}
+                                className="pointer-events-auto"
                               />
                             </PopoverContent>
                           </Popover>
