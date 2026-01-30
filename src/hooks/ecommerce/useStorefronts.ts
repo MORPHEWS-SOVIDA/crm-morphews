@@ -22,6 +22,7 @@ export interface Storefront {
   slug: string;
   template_id: string | null;
   logo_url: string | null;
+  logo_mobile_url: string | null;
   favicon_url: string | null;
   primary_color: string;
   secondary_color: string;
@@ -188,6 +189,7 @@ export interface CreateStorefrontInput {
   slug: string;
   template_id?: string;
   logo_url?: string;
+  logo_mobile_url?: string;
   primary_color?: string;
   secondary_color?: string;
   meta_title?: string;
