@@ -110,15 +110,15 @@ function RecommendationCard({
 
   return (
     <Card 
-      className={`group overflow-hidden transition-all hover:shadow-lg ${compact ? 'min-w-[200px] max-w-[200px]' : ''}`}
+      className={`group overflow-hidden transition-all hover:shadow-lg ${compact ? 'min-w-[180px] max-w-[180px]' : ''}`}
     >
       <Link to={`/loja/${storefrontSlug}/produto/${product.id}`}>
-        <div className={`relative ${compact ? 'aspect-square' : 'aspect-[4/3]'} bg-muted overflow-hidden`}>
+        <div className={`relative ${compact ? 'aspect-square' : 'aspect-[4/3]'} bg-gradient-to-b from-gray-50 to-white overflow-hidden flex items-center justify-center p-2`}>
           {displayImage ? (
             <img 
               src={displayImage} 
               alt={displayName}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
             />
           ) : (
