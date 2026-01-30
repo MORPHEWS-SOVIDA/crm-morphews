@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Eye, Package, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, Eye, Package, AlertTriangle, Copy } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
 import { getAvailableStock } from '@/hooks/useProducts';
 import { useProductPriceKits } from '@/hooks/useProductPriceKits';
@@ -11,6 +11,7 @@ interface ProductCardProps {
   onView: (product: Product) => void;
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
+  onClone?: (product: Product) => void;
   canManage: boolean;
 }
 
@@ -24,7 +25,7 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-export function ProductCard({ product, onView, onEdit, onDelete, canManage }: ProductCardProps) {
+export function ProductCard({ product, onView, onEdit, onDelete, onClone, canManage }: ProductCardProps) {
   const availableStock = getAvailableStock(product);
   const isLowStock = product.track_stock && availableStock <= product.minimum_stock;
   
@@ -146,6 +147,11 @@ export function ProductCard({ product, onView, onEdit, onDelete, canManage }: Pr
             </Button>
             {canManage && (
               <>
+                {onClone && (
+                  <Button variant="outline" size="sm" onClick={() => onClone(product)} title="Clonar produto">
+                    <Copy className="h-4 w-4 text-blue-500" />
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(product)}>
                   <Pencil className="h-4 w-4 mr-1" />
                   Editar

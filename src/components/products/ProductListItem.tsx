@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Eye, Package, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, Eye, Package, AlertTriangle, Copy } from 'lucide-react';
 import type { Product } from '@/hooks/useProducts';
 import { getAvailableStock } from '@/hooks/useProducts';
 
@@ -10,6 +10,7 @@ interface ProductListItemProps {
   onView: (product: Product) => void;
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
+  onClone?: (product: Product) => void;
   canManage: boolean;
 }
 
@@ -25,7 +26,8 @@ export function ProductListItem({
   brandName,
   onView, 
   onEdit, 
-  onDelete, 
+  onDelete,
+  onClone, 
   canManage 
 }: ProductListItemProps) {
   const availableStock = getAvailableStock(product);
@@ -88,6 +90,11 @@ export function ProductListItem({
         </Button>
         {canManage && (
           <>
+            {onClone && (
+              <Button variant="ghost" size="sm" onClick={() => onClone(product)} title="Clonar produto">
+                <Copy className="h-4 w-4 text-blue-500" />
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => onEdit(product)}>
               <Pencil className="h-4 w-4" />
             </Button>
