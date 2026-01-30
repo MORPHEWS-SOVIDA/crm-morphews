@@ -67,6 +67,8 @@ export interface Product {
   bot_can_send_image: boolean | null;
   bot_can_send_video: boolean | null;
   bot_can_send_site_link: boolean | null;
+  // Avaliações (prova social)
+  review_count: number;
 }
 
 // Computed property for available stock
@@ -120,6 +122,8 @@ export interface ProductFormData {
   bot_can_send_image?: boolean;
   bot_can_send_video?: boolean;
   bot_can_send_site_link?: boolean;
+  // Avaliações (prova social)
+  review_count?: number;
 }
 
 export function useProducts() {

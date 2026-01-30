@@ -29,6 +29,7 @@ interface TemplatedProductCardProps {
   showQuickAdd?: boolean;
   onQuickAdd?: () => void;
   installmentConfig?: InstallmentConfig;
+  reviewCount?: number;
 }
 
 export function TemplatedProductCard({
@@ -41,6 +42,7 @@ export function TemplatedProductCard({
   showQuickAdd,
   onQuickAdd,
   installmentConfig,
+  reviewCount,
 }: TemplatedProductCardProps) {
   const styles = getTemplateStyles(templateSlug);
   const displayName = product.ecommerce_title || product.name;
@@ -113,7 +115,7 @@ export function TemplatedProductCard({
             {displayName}
           </h3>
           
-          {/* Rating (placeholder) */}
+          {/* Rating */}
           <div className="flex items-center gap-1">
             {[...Array(5)].map((_, i) => (
               <Star 
@@ -121,7 +123,7 @@ export function TemplatedProductCard({
                 className="h-3 w-3 fill-yellow-400 text-yellow-400" 
               />
             ))}
-            <span className="text-xs text-muted-foreground ml-1">(127)</span>
+            <span className="text-xs text-muted-foreground ml-1">({reviewCount ?? product.review_count ?? 0})</span>
           </div>
 
           {/* Price Display - Emphasis on installment value */}

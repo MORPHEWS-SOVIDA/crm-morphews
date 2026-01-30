@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
@@ -119,6 +119,8 @@ const formSchema = z.object({
   bot_can_send_image: z.boolean().optional(),
   bot_can_send_video: z.boolean().optional(),
   bot_can_send_site_link: z.boolean().optional(),
+  // Avaliações (prova social)
+  review_count: z.coerce.number().min(0).max(200).optional(),
 });
 
 interface ProductFormProps {
@@ -241,6 +243,8 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       fiscal_pis_fixed: (product as any)?.fiscal_pis_fixed || null,
       fiscal_cofins_fixed: (product as any)?.fiscal_cofins_fixed || null,
       fiscal_additional_info: (product as any)?.fiscal_additional_info || '',
+      // Avaliações (prova social) - se não existir, gera aleatório entre 50-200
+      review_count: (product as any)?.review_count ?? Math.floor(Math.random() * 151 + 50),
     },
   });
 
@@ -527,6 +531,34 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                     )}
                   />
                 </div>
+
+                {/* Prova Social - Avaliações */}
+                <FormField
+                  control={form.control}
+                  name="review_count"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <Star className="h-4 w-4" />
+                        Número de Avaliações (Prova Social)
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={0} 
+                          max={200} 
+                          placeholder="0 a 200" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Exibido na loja virtual. Novo produto recebe valor aleatório (50-200).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
 

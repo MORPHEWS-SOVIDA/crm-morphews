@@ -7328,6 +7328,7 @@ export type Database = {
           price_3_units: number | null
           price_6_units: number | null
           restrict_to_users: boolean
+          review_count: number | null
           sales_script: string | null
           seo_description: string | null
           seo_keywords: string[] | null
@@ -7416,6 +7417,7 @@ export type Database = {
           price_3_units?: number | null
           price_6_units?: number | null
           restrict_to_users?: boolean
+          review_count?: number | null
           sales_script?: string | null
           seo_description?: string | null
           seo_keywords?: string[] | null
@@ -7504,6 +7506,7 @@ export type Database = {
           price_3_units?: number | null
           price_6_units?: number | null
           restrict_to_users?: boolean
+          review_count?: number | null
           sales_script?: string | null
           seo_description?: string | null
           seo_keywords?: string[] | null

@@ -153,6 +153,7 @@ export function StorefrontProductPage() {
           benefits: benefits.map(b => String(b)),
           basePrice,
           kits,
+          reviewCount: product.review_count ?? 0,
         }}
         storefrontSlug={slug || ''}
         storefrontName={storefront.name}
