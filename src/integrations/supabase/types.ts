@@ -16241,6 +16241,7 @@ export type Database = {
           header_config: Json | null
           id: string
           is_active: boolean | null
+          logo_mobile_url: string | null
           logo_url: string | null
           meta_description: string | null
           meta_title: string | null
@@ -16269,6 +16270,7 @@ export type Database = {
           header_config?: Json | null
           id?: string
           is_active?: boolean | null
+          logo_mobile_url?: string | null
           logo_url?: string | null
           meta_description?: string | null
           meta_title?: string | null
@@ -16297,6 +16299,7 @@ export type Database = {
           header_config?: Json | null
           id?: string
           is_active?: boolean | null
+          logo_mobile_url?: string | null
           logo_url?: string | null
           meta_description?: string | null
           meta_title?: string | null

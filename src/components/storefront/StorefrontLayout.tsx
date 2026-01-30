@@ -28,6 +28,10 @@ function StorefrontHeader({ storefront }: { storefront: StorefrontData }) {
     stickyHeader?: boolean;
   } || {};
 
+  // Get appropriate logo for screen size
+  const desktopLogo = storefront.logo_url;
+  const mobileLogo = storefront.logo_mobile_url || storefront.logo_url;
+
   return (
     <header 
       className={`border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50 ${headerConfig.stickyHeader !== false ? 'sticky top-0' : ''}`}
@@ -36,8 +40,13 @@ function StorefrontHeader({ storefront }: { storefront: StorefrontData }) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to={`/loja/${storefront.slug}`} className="flex items-center gap-2">
-            {storefront.logo_url ? (
-              <img src={storefront.logo_url} alt={storefront.name} className="h-8" />
+            {desktopLogo ? (
+              <>
+                {/* Desktop logo */}
+                <img src={desktopLogo} alt={storefront.name} className="h-8 hidden md:block" />
+                {/* Mobile logo */}
+                <img src={mobileLogo || desktopLogo} alt={storefront.name} className="h-8 md:hidden" />
+              </>
             ) : (
               <span 
                 className="text-xl font-bold"

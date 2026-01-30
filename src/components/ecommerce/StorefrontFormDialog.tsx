@@ -38,6 +38,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
     slug: '',
     template_id: '',
     logo_url: '',
+    logo_mobile_url: '',
     primary_color: '#000000',
     secondary_color: '#ffffff',
     meta_title: '',
@@ -52,6 +53,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
         slug: storefront.slug,
         template_id: storefront.template_id || '',
         logo_url: storefront.logo_url || '',
+        logo_mobile_url: storefront.logo_mobile_url || '',
         primary_color: storefront.primary_color,
         secondary_color: storefront.secondary_color,
         meta_title: storefront.meta_title || '',
@@ -65,6 +67,7 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
         slug: '',
         template_id: '',
         logo_url: '',
+        logo_mobile_url: '',
         primary_color: '#000000',
         secondary_color: '#ffffff',
         meta_title: '',
@@ -355,14 +358,26 @@ export function StorefrontFormDialog({ open, onOpenChange, storefront }: Storefr
 
             <TabsContent value="appearance" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label>Logo da Loja</Label>
+                <Label>Logo Desktop</Label>
                 <StorefrontImageUpload
                   value={formData.logo_url || ''}
                   onChange={(url) => setFormData((prev) => ({ ...prev, logo_url: url }))}
                   storefrontId={storefront?.id}
                   folder="logos"
                   placeholder="https://exemplo.com/logo.png"
-                  recommendedSize="Tamanho recomendado: 400 x 100 px (formato horizontal) ou 200 x 200 px (formato quadrado)"
+                  recommendedSize="Tamanho recomendado: 400 x 100 px (formato horizontal)"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Logo Mobile</Label>
+                <StorefrontImageUpload
+                  value={formData.logo_mobile_url || ''}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, logo_mobile_url: url }))}
+                  storefrontId={storefront?.id}
+                  folder="logos"
+                  placeholder="https://exemplo.com/logo-mobile.png"
+                  recommendedSize="Tamanho recomendado: 100 x 100 px (formato quadrado/ícone)"
                 />
               </div>
 
