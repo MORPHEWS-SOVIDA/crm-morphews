@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CreditCard, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
+import { CreditCardVisual } from './CreditCardVisual';
 
 // Default installment fees if not configured
 const DEFAULT_INSTALLMENT_FEES: Record<string, number> = {
@@ -80,6 +81,7 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
   // Default to max installments (12x) to maximize platform interest revenue
   const [installments, setInstallments] = useState(String(installmentConfig?.max_installments || 12));
   const [cardBrand, setCardBrand] = useState<string | null>(null);
+  const [isCvvFocused, setIsCvvFocused] = useState(false);
 
   // Determine if interest should be applied
   const passFeeToCustomer = installmentConfig?.installment_fee_passed_to_buyer ?? true;
@@ -116,11 +118,10 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
       
       return {
         value: String(n),
+        // Never show total - only show installment value to encourage purchase
         label: n === 1 
           ? `À vista - ${formatted}` 
-          : hasInterest 
-            ? `${n}x de ${formatted} (Total: ${totalFormatted})`
-            : `${n}x de ${formatted} sem juros`,
+          : `${n}x de ${formatted}`,
         totalWithInterest: totalForInstallment,
       };
     });
@@ -188,6 +189,16 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
 
   return (
     <div className="space-y-4 p-4 bg-muted/30 rounded-lg border mt-4">
+      {/* Visual Credit Card */}
+      <CreditCardVisual
+        cardNumber={cardNumber}
+        cardHolderName={cardHolderName}
+        expiryDate={expiryDate}
+        cvv={cvv}
+        cardBrand={cardBrand}
+        isFlipped={isCvvFocused}
+      />
+
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
         <Lock className="h-4 w-4" />
         <span>Seus dados são criptografados</span>
@@ -196,28 +207,16 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
       {/* Card Number */}
       <div className="space-y-2">
         <Label htmlFor="card_number">Número do Cartão *</Label>
-        <div className="relative">
-          <Input
-            id="card_number"
-            type="text"
-            inputMode="numeric"
-            placeholder="0000 0000 0000 0000"
-            value={cardNumber}
-            onChange={handleCardNumberChange}
-            className="pr-12"
-            maxLength={19}
-            required
-          />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            {cardBrand ? (
-              <span className="text-xs font-medium uppercase text-muted-foreground">
-                {cardBrand}
-              </span>
-            ) : (
-              <CreditCard className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </div>
+        <Input
+          id="card_number"
+          type="text"
+          inputMode="numeric"
+          placeholder="0000 0000 0000 0000"
+          value={cardNumber}
+          onChange={handleCardNumberChange}
+          maxLength={19}
+          required
+        />
       </div>
 
       {/* Card Holder Name */}
@@ -258,6 +257,8 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
             placeholder="123"
             value={cvv}
             onChange={handleCvvChange}
+            onFocus={() => setIsCvvFocused(true)}
+            onBlur={() => setIsCvvFocused(false)}
             maxLength={4}
             required
           />
