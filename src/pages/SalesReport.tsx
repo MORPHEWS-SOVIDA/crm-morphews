@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/layout/Layout";
@@ -41,6 +41,7 @@ import {
   X,
   Loader2,
   Percent,
+  Clock,
 } from "lucide-react";
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { CommissionReport } from '@/components/reports/CommissionReport';
@@ -407,6 +408,16 @@ export default function SalesReport() {
             >
               <Percent className="h-4 w-4" />
               Relatório de Comissões
+            </Button>
+            <Button
+              variant="outline"
+              asChild
+              className="gap-2 bg-purple-50 border-purple-300 hover:bg-purple-100 text-purple-800"
+            >
+              <Link to="/relatorios/vendas/horarios">
+                <Clock className="h-4 w-4" />
+                Análise de Horários
+              </Link>
             </Button>
             <Button
               variant="outline"

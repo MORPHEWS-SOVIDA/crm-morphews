@@ -131,6 +131,7 @@ const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
 // Fiscal
 const FiscalInvoices = lazy(() => import("./pages/FiscalInvoices"));
 const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
+const SalesHourlyReport = lazy(() => import("./pages/SalesHourlyReport"));
 
 // Admin
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
@@ -856,6 +857,16 @@ const App = () => (
                     <ProtectedRoute requiredPermissions={['reports_view']}>
                       <ErrorBoundary title="Relatórios indisponíveis">
                         <SalesReport />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/relatorios/vendas/horarios"
+                  element={
+                    <ProtectedRoute requiredPermissions={['reports_view']}>
+                      <ErrorBoundary title="Relatório indisponível">
+                        <SalesHourlyReport />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   }
