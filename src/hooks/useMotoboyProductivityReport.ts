@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
-import { format, parseISO, getHours, eachDayOfInterval, startOfDay, getDay } from 'date-fns';
+import { format, parseISO, eachDayOfInterval, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export interface MotoboyDailyDelivery {
@@ -10,9 +10,9 @@ export interface MotoboyDailyDelivery {
   dateFormatted: string;
   dayOfWeek: string;
   deliveries: number;
-  morningDeliveries: number; // 06:00-12:00
-  afternoonDeliveries: number; // 12:00-18:00
-  eveningDeliveries: number; // 18:00-24:00
+  morningDeliveries: number; // scheduled_delivery_shift = 'morning'
+  afternoonDeliveries: number; // scheduled_delivery_shift = 'afternoon'
+  fullDayDeliveries: number; // scheduled_delivery_shift = 'full_day'
 }
 
 export interface MotoboyRegionSummary {
@@ -39,7 +39,7 @@ export interface RegionDailySummary {
     dayOfWeek: string;
     morning: number;
     afternoon: number;
-    evening: number;
+    fullDay: number;
     total: number;
   }[];
   totalDeliveries: number;
@@ -54,7 +54,7 @@ export interface ProductivityReportData {
     dayOfWeek: string;
     morning: number;
     afternoon: number;
-    evening: number;
+    fullDay: number;
     total: number;
     costPerDelivery: number;
   }[];
@@ -96,6 +96,7 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
           delivered_at,
           assigned_delivery_user_id,
           delivery_region_id,
+          scheduled_delivery_shift,
           delivery_region:delivery_regions!sales_delivery_region_id_fkey(id, name)
         `)
         .eq('organization_id', organizationId)
@@ -129,20 +130,20 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
       // Initialize data structures
       const motoboyData: Record<string, {
         name: string;
-        regions: Record<string, { name: string; days: Record<string, { morning: number; afternoon: number; evening: number }> }>;
+        regions: Record<string, { name: string; days: Record<string, { morning: number; afternoon: number; fullDay: number }> }>;
       }> = {};
 
       const regionData: Record<string, { 
         name: string; 
-        days: Record<string, { morning: number; afternoon: number; evening: number }> 
+        days: Record<string, { morning: number; afternoon: number; fullDay: number }> 
       }> = {};
 
-      const dailyTotals: Record<string, { morning: number; afternoon: number; evening: number }> = {};
+      const dailyTotals: Record<string, { morning: number; afternoon: number; fullDay: number }> = {};
 
       // Initialize days for all data
       allDays.forEach(day => {
         const dateKey = format(day, 'yyyy-MM-dd');
-        dailyTotals[dateKey] = { morning: 0, afternoon: 0, evening: 0 };
+        dailyTotals[dateKey] = { morning: 0, afternoon: 0, fullDay: 0 };
       });
 
       // Process sales
@@ -151,7 +152,6 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
 
         const deliveredDate = parseISO(sale.delivered_at);
         const dateKey = format(deliveredDate, 'yyyy-MM-dd');
-        const hour = getHours(deliveredDate);
         
         const motoboyId = sale.assigned_delivery_user_id;
         const motoboyName = profilesMap[motoboyId] || 'Motoboy Desconhecido';
@@ -159,14 +159,17 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
         const regionId = sale.delivery_region_id || 'sem-regiao';
         const regionName = (sale.delivery_region as any)?.name || 'Sem Região';
 
-        // Determine shift
-        let shift: 'morning' | 'afternoon' | 'evening';
-        if (hour >= 6 && hour < 12) {
+        // Determine shift from scheduled_delivery_shift field
+        // Values: 'morning', 'afternoon', 'full_day'
+        const rawShift = (sale as any).scheduled_delivery_shift;
+        let shift: 'morning' | 'afternoon' | 'fullDay';
+        if (rawShift === 'morning') {
           shift = 'morning';
-        } else if (hour >= 12 && hour < 18) {
+        } else if (rawShift === 'afternoon') {
           shift = 'afternoon';
         } else {
-          shift = 'evening';
+          // full_day or null/undefined defaults to fullDay
+          shift = 'fullDay';
         }
 
         // Initialize motoboy if needed
@@ -180,7 +183,7 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
           };
           allDays.forEach(day => {
             const dk = format(day, 'yyyy-MM-dd');
-            motoboyData[motoboyId].regions[regionId].days[dk] = { morning: 0, afternoon: 0, evening: 0 };
+            motoboyData[motoboyId].regions[regionId].days[dk] = { morning: 0, afternoon: 0, fullDay: 0 };
           });
         }
 
@@ -189,7 +192,7 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
           regionData[regionId] = { name: regionName, days: {} };
           allDays.forEach(day => {
             const dk = format(day, 'yyyy-MM-dd');
-            regionData[regionId].days[dk] = { morning: 0, afternoon: 0, evening: 0 };
+            regionData[regionId].days[dk] = { morning: 0, afternoon: 0, fullDay: 0 };
           });
         }
 
@@ -210,16 +213,16 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
         const regions: MotoboyRegionSummary[] = Object.entries(data.regions).map(([regionId, regionData]) => {
           const deliveries: MotoboyDailyDelivery[] = allDays.map(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
-            const dayData = regionData.days[dateKey] || { morning: 0, afternoon: 0, evening: 0 };
+            const dayData = regionData.days[dateKey] || { morning: 0, afternoon: 0, fullDay: 0 };
             const dayOfWeekIndex = getDay(day);
             return {
               date: dateKey,
               dateFormatted: format(day, 'dd/MM/yyyy', { locale: ptBR }),
               dayOfWeek: DAY_NAMES[dayOfWeekIndex],
-              deliveries: dayData.morning + dayData.afternoon + dayData.evening,
+              deliveries: dayData.morning + dayData.afternoon + dayData.fullDay,
               morningDeliveries: dayData.morning,
               afternoonDeliveries: dayData.afternoon,
-              eveningDeliveries: dayData.evening,
+              fullDayDeliveries: dayData.fullDay,
             };
           });
           
@@ -235,14 +238,14 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
         const dailyTotals: MotoboyDailyDelivery[] = allDays.map(day => {
           const dateKey = format(day, 'yyyy-MM-dd');
           const dayOfWeekIndex = getDay(day);
-          let morning = 0, afternoon = 0, evening = 0;
+          let morning = 0, afternoon = 0, fullDay = 0;
           
           regions.forEach(r => {
             const dayData = r.deliveries.find(d => d.date === dateKey);
             if (dayData) {
               morning += dayData.morningDeliveries;
               afternoon += dayData.afternoonDeliveries;
-              evening += dayData.eveningDeliveries;
+              fullDay += dayData.fullDayDeliveries;
             }
           });
           
@@ -250,10 +253,10 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
             date: dateKey,
             dateFormatted: format(day, 'dd/MM/yyyy', { locale: ptBR }),
             dayOfWeek: DAY_NAMES[dayOfWeekIndex],
-            deliveries: morning + afternoon + evening,
+            deliveries: morning + afternoon + fullDay,
             morningDeliveries: morning,
             afternoonDeliveries: afternoon,
-            eveningDeliveries: evening,
+            fullDayDeliveries: fullDay,
           };
         });
 
@@ -270,7 +273,7 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
       const regionSummaries: RegionDailySummary[] = Object.entries(regionData).map(([regionId, data]) => {
         const dailyData = allDays.map(day => {
           const dateKey = format(day, 'yyyy-MM-dd');
-          const dayData = data.days[dateKey] || { morning: 0, afternoon: 0, evening: 0 };
+          const dayData = data.days[dateKey] || { morning: 0, afternoon: 0, fullDay: 0 };
           const dayOfWeekIndex = getDay(day);
           return {
             date: dateKey,
@@ -278,8 +281,8 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
             dayOfWeek: DAY_NAMES[dayOfWeekIndex],
             morning: dayData.morning,
             afternoon: dayData.afternoon,
-            evening: dayData.evening,
-            total: dayData.morning + dayData.afternoon + dayData.evening,
+            fullDay: dayData.fullDay,
+            total: dayData.morning + dayData.afternoon + dayData.fullDay,
           };
         });
 
@@ -293,14 +296,14 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
 
       // Transform daily totals
       const overallTotal = Object.values(dailyTotals).reduce(
-        (sum, d) => sum + d.morning + d.afternoon + d.evening, 0
+        (sum, d) => sum + d.morning + d.afternoon + d.fullDay, 0
       );
 
       const dailyTotalsArray = allDays.map(day => {
         const dateKey = format(day, 'yyyy-MM-dd');
-        const dayData = dailyTotals[dateKey] || { morning: 0, afternoon: 0, evening: 0 };
+        const dayData = dailyTotals[dateKey] || { morning: 0, afternoon: 0, fullDay: 0 };
         const dayOfWeekIndex = getDay(day);
-        const dayTotal = dayData.morning + dayData.afternoon + dayData.evening;
+        const dayTotal = dayData.morning + dayData.afternoon + dayData.fullDay;
         
         return {
           date: dateKey,
@@ -308,7 +311,7 @@ export function useMotoboyProductivityReport(startDate: Date, endDate: Date, tot
           dayOfWeek: DAY_NAMES[dayOfWeekIndex],
           morning: dayData.morning,
           afternoon: dayData.afternoon,
-          evening: dayData.evening,
+          fullDay: dayData.fullDay,
           total: dayTotal,
           costPerDelivery: dayTotal > 0 ? Math.round((totalCostCents / overallTotal) * dayTotal / dayTotal) : 0,
         };
