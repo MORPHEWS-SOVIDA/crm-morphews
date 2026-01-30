@@ -63,8 +63,13 @@ export function ProtectedRoute({
 
   // Handle initial redirect based on user's default_landing_page
   // Only do this for the root path to avoid loops
-  // Partners should go to their portal
+  // Partners should go to their dedicated portal
   if (location.pathname === '/' && isPartner) {
+    // Affiliates go to a dedicated mobile-optimized portal
+    if (role === 'partner_affiliate') {
+      return <Navigate to="/afiliado" replace />;
+    }
+    // Other partners (coproducer, etc.) go to ecommerce
     return <Navigate to="/ecommerce" replace />;
   }
   

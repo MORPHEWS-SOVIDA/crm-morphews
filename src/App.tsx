@@ -180,6 +180,7 @@ const PartnerLinksPage = lazy(() => import("./pages/ecommerce/PartnerLinksPage")
 const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
 const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
 const PartnerApplicationPage = lazy(() => import("./pages/partner/PartnerApplicationPage"));
+const AffiliatePortal = lazy(() => import("./pages/partner/AffiliatePortal"));
 // Implementer pages
 const ImplementerDashboard = lazy(() => import("./pages/implementer/ImplementerDashboard"));
 const ImplementerCheckoutPage = lazy(() => import("./pages/implementer/ImplementerCheckoutPage"));
@@ -983,6 +984,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <DemandsSettings />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Affiliate Portal - Dedicated mobile-optimized experience for affiliates */}
+                <Route
+                  path="/afiliado"
+                  element={
+                    <ProtectedRoute allowPartners>
+                      <AffiliatePortal />
                     </ProtectedRoute>
                   }
                 />
