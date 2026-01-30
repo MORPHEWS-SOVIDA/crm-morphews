@@ -585,6 +585,10 @@ export default function SaleDetail() {
   const canCancel = permissions?.sales_cancel;
   const canEditDraft = permissions?.sales_edit_draft;
   
+  // Admin check for reactivating cancelled sales
+  const { isAdmin } = useAuth();
+  const canReactivateCancelledSale = isAdmin;
+  
   // Pode editar se:
   // - draft/returned
   // - pending_expedition com expedição desmarcada (sem expedition_validated_at)
@@ -595,6 +599,7 @@ export default function SaleDetail() {
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false);
   const [showPaymentProofRequiredDialog, setShowPaymentProofRequiredDialog] = useState(false);
   
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
@@ -881,6 +886,55 @@ export default function SaleDetail() {
     toast.success('Venda cancelada');
   };
 
+  // Reactivate cancelled sale (admin only)
+  const handleReactivateSale = async () => {
+    if (!sale) return;
+
+    try {
+      // 1. Clear all checkpoints for this sale
+      await supabase
+        .from('sale_checkpoints')
+        .update({
+          completed_at: null,
+          completed_by: null,
+        })
+        .eq('sale_id', sale.id);
+
+      // 2. Clear expedition markers
+      await supabase
+        .from('sales')
+        .update({
+          expedition_validated_at: null,
+          expedition_validated_by: null,
+          separated_at: null,
+          separated_by: null,
+          printed_at: null,
+          printed_by: null,
+          dispatched_at: null,
+          dispatched_by: null,
+          delivered_at: null,
+          assigned_delivery_user_id: null,
+          carrier_tracking_status: null,
+          motoboy_tracking_status: null,
+        })
+        .eq('id', sale.id);
+
+      // 3. Reactivate to draft
+      await updateSale.mutateAsync({
+        id: sale.id,
+        data: {
+          status: 'draft',
+        }
+      });
+
+      setShowReactivateDialog(false);
+      toast.success('Venda reativada! Agora você pode editá-la.');
+    } catch (error) {
+      console.error('Error reactivating sale:', error);
+      toast.error('Erro ao reativar venda');
+    }
+  };
+
   // Handle invoice upload
   const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'pdf' | 'xml') => {
     const file = e.target.files?.[0];
@@ -998,6 +1052,18 @@ export default function SaleDetail() {
               <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => setShowCancelDialog(true)}>
                 <XCircle className="w-4 h-4 mr-2" />
                 Cancelar
+              </Button>
+            )}
+            {/* Reactivate button for admin - only on cancelled sales */}
+            {canReactivateCancelledSale && sale.status === 'cancelled' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1 sm:flex-none border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30"
+                onClick={() => setShowReactivateDialog(true)}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reativar Venda
               </Button>
             )}
           </div>
@@ -1968,6 +2034,39 @@ export default function SaleDetail() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Sim, cancelar venda
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reactivate Cancelled Sale Dialog (Admin Only) */}
+      <AlertDialog open={showReactivateDialog} onOpenChange={setShowReactivateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-green-600" />
+              Reativar Venda Cancelada
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Você está prestes a <strong>reativar uma venda cancelada</strong>.
+              </p>
+              <p>
+                A venda será restaurada para o status <strong>"Rascunho"</strong> e você poderá editá-la normalmente.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400">
+                Todos os checkpoints de expedição serão resetados.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReactivateSale}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reativar Venda
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
