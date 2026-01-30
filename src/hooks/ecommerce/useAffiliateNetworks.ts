@@ -409,7 +409,7 @@ export function useNetworkLandings(networkId: string | null) {
     queryFn: async () => {
       if (!networkId) return [];
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('affiliate_network_landings')
         .select(`
           *,
@@ -444,14 +444,14 @@ export function useAvailableLandings(networkId: string | null) {
 
       if (!networkId) return landings || [];
 
-      const { data: linked, error: linkedError } = await (supabase as any)
+      const { data: linked, error: linkedError } = await supabase
         .from('affiliate_network_landings')
         .select('landing_page_id')
         .eq('network_id', networkId);
 
       if (linkedError) throw linkedError;
 
-      const linkedIds = new Set((linked as any[])?.map((l) => l.landing_page_id) || []);
+      const linkedIds = new Set(linked?.map((l) => l.landing_page_id) || []);
       return landings?.filter((l) => !linkedIds.has(l.id)) || [];
     },
     enabled: !!organizationId,
@@ -466,7 +466,7 @@ export function useAddLandingToNetwork() {
     mutationFn: async (data: { network_id: string; landing_page_id: string }) => {
       if (!organizationId) throw new Error('Organization not found');
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('affiliate_network_landings')
         .insert({
           network_id: data.network_id,
@@ -494,7 +494,7 @@ export function useRemoveLandingFromNetwork() {
 
   return useMutation({
     mutationFn: async (data: { network_id: string; landing_page_id: string }) => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('affiliate_network_landings')
         .delete()
         .eq('network_id', data.network_id)
