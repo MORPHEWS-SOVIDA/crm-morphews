@@ -19247,6 +19247,14 @@ export type Database = {
           transaction_type: string
         }[]
       }
+      get_user_affiliate_info: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: {
+          affiliate_code: string
+          affiliate_id: string
+          is_active: boolean
+        }[]
+      }
       get_user_org_ids: { Args: never; Returns: string[] }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
@@ -19336,6 +19344,14 @@ export type Database = {
         Returns: boolean
       }
       is_org_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
+      is_partner: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_real_team_member: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
