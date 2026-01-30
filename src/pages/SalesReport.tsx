@@ -60,6 +60,8 @@ const STATUS_OPTIONS = [
   { value: "delivered", label: "Entregue" },
   { value: "payment_pending", label: "Aguardando Pagamento" },
   { value: "payment_confirmed", label: "Pagamento Confirmado" },
+  { value: "closed", label: "Baixado" },
+  { value: "finalized", label: "Finalizado" },
   { value: "cancelled", label: "Cancelado" },
 ];
 

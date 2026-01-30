@@ -37,6 +37,8 @@ const statusPriority: Record<string, number> = {
   payment_confirmed: 4,
   draft: 5,
   delivered: 6,
+  closed: 7,
+  finalized: 8,
   cancelled: 99,
 };
 
@@ -224,6 +226,8 @@ export const sellerSaleStatusLabels: Record<string, string> = {
   payment_confirmed: 'Separado',
   dispatched: 'Despachado',
   delivered: 'Entregue',
+  closed: 'Baixado',
+  finalized: 'Finalizado',
   returned: 'Voltou',
   cancelled: 'Cancelado',
 };
@@ -239,6 +243,8 @@ export function getSellerSaleStatusColor(status: string, paymentStatus?: string 
     const isPaid = paymentStatus === 'paid_now' || paymentStatus === 'paid_in_delivery';
     return isPaid ? 'bg-green-600 text-white' : 'bg-green-500 text-white';
   }
+  if (status === 'closed') return 'bg-teal-500 text-white';
+  if (status === 'finalized') return 'bg-purple-500 text-white';
   if (status === 'cancelled') return 'bg-gray-400 text-white';
   return 'bg-gray-500 text-white';
 }

@@ -434,6 +434,8 @@ export function SellerSalesList() {
                 <SelectItem value="draft">Rascunho</SelectItem>
                 <SelectItem value="delivered">Entregue</SelectItem>
                 <SelectItem value="paid">Pago</SelectItem>
+                <SelectItem value="closed">Baixado</SelectItem>
+                <SelectItem value="finalized">Finalizado</SelectItem>
                 <SelectItem value="cancelled">Cancelado</SelectItem>
               </SelectContent>
             </Select>

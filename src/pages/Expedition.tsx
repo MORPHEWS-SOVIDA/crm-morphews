@@ -93,6 +93,8 @@ const STATUS_BG_COLORS: Record<string, string> = {
   'carrier-no-tracking': 'bg-orange-50 dark:bg-orange-950/30 border-orange-200', // Light orange
   'carrier-tracking': 'bg-red-50 dark:bg-red-950/30 border-red-200', // Light red/vermillion
   pickup: 'bg-purple-50 dark:bg-purple-950/30 border-purple-200', // Light purple for pickup
+  closed: 'bg-teal-50 dark:bg-teal-950/30 border-teal-200', // Teal for closed
+  finalized: 'bg-purple-50 dark:bg-purple-950/30 border-purple-300', // Purple for finalized
 };
 
 // Button colors for stats cards
@@ -689,6 +691,8 @@ export default function Expedition() {
       dispatched: '🚚 Despachado',
       returned: '⚠️ Voltou',
       delivered: '✅ Entregue',
+      closed: '📋 Baixado',
+      finalized: '🏁 Finalizado',
       cancelled: '❌ Cancelado',
       'carrier-no-tracking': '📦 Correio s/ Rastreio',
       'carrier-tracking': '📮 Correio c/ Rastreio',
