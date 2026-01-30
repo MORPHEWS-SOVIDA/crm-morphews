@@ -362,6 +362,104 @@ export function StorefrontEmailSequences({
     },
   });
 
+  // Regenerate sequence with AI
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  
+  const regenerateSequence = useMutation({
+    mutationFn: async (sequence: EmailSequence) => {
+      setRegeneratingId(sequence.id);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Não autenticado');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.organization_id) throw new Error('Organização não encontrada');
+
+      // Get presets for this type
+      const typePresets = presets?.filter(p => p.preset_type === sequence.trigger_type) || [];
+      if (typePresets.length === 0) throw new Error('Presets não encontrados');
+
+      // Call AI to regenerate with better context
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('generate-email-sequence', {
+        body: {
+          sequenceType: sequence.trigger_type,
+          productName: productName || entityName,
+          niche: niche || 'e-commerce',
+          storeName: entityName,
+          presets: typePresets,
+          regenerate: true,
+        }
+      });
+
+      if (aiError) throw aiError;
+      if (!aiData?.steps) throw new Error('Falha ao gerar emails');
+
+      // Delete old steps and templates
+      const oldSteps = sequence.steps || [];
+      for (const step of oldSteps) {
+        if (step.template_id) {
+          await supabase.from('email_templates').delete().eq('id', step.template_id);
+        }
+      }
+      await supabase.from('email_sequence_steps').delete().eq('sequence_id', sequence.id);
+
+      // Create new templates and steps
+      const typeConfig = SEQUENCE_TYPES.find(t => t.type === sequence.trigger_type);
+      
+      for (const preset of aiData.steps) {
+        const { data: template, error: tplError } = await supabase
+          .from('email_templates')
+          .insert({
+            organization_id: profile.organization_id,
+            name: `${typeConfig?.label} - Passo ${preset.step_number}`,
+            subject: preset.default_subject,
+            html_content: preset.default_html_template,
+            category: sequence.trigger_type,
+            variables: preset.variables,
+          })
+          .select('id')
+          .single();
+
+        if (tplError) throw tplError;
+
+        const { error: stepError } = await supabase
+          .from('email_sequence_steps')
+          .insert({
+            sequence_id: sequence.id,
+            organization_id: profile.organization_id,
+            template_id: template.id,
+            step_order: preset.step_number,
+            delay_minutes: preset.delay_minutes,
+            is_active: true,
+          });
+
+        if (stepError) throw stepError;
+      }
+
+      // Mark as AI generated
+      await supabase
+        .from('email_sequences')
+        .update({ ai_generated: true })
+        .eq('id', sequence.id);
+
+      return sequence;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-sequences', entityType, entityId] });
+      toast.success('Sequência recriada com IA!');
+      setRegeneratingId(null);
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setRegeneratingId(null);
+    },
+  });
+
   const formatDelay = (minutes: number): string => {
     if (minutes === 0) return 'Imediato';
     if (minutes < 60) return `${minutes} min`;
@@ -536,7 +634,20 @@ export function StorefrontEmailSequences({
                             </div>
                           ))}
                           
-                          <div className="flex justify-end pt-2">
+                          <div className="flex justify-between pt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => regenerateSequence.mutate(seq)}
+                              disabled={regeneratingId === seq.id}
+                            >
+                              {regeneratingId === seq.id ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4 mr-1" />
+                              )}
+                              Recriar com IA
+                            </Button>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -544,7 +655,7 @@ export function StorefrontEmailSequences({
                               onClick={() => setDeleteSequenceId(seq.id)}
                             >
                               <Trash2 className="h-4 w-4 mr-1" />
-                              Remover Sequência
+                              Remover
                             </Button>
                           </div>
                         </div>

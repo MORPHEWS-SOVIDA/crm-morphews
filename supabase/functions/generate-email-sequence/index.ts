@@ -105,38 +105,79 @@ serve(async (req) => {
       welcome_lead: "boas-vindas para novos leads",
     };
 
-    const systemPrompt = `Você é um especialista em email marketing para e-commerce brasileiro.
-Sua tarefa é personalizar templates de email para o nicho e produto específico.
+    const sequenceStrategies: Record<string, string> = {
+      abandoned_cart: `ESTRATÉGIA CARRINHO ABANDONADO:
+- Email 1 (imediato): Tom amigável, lembrete sutil. "Esqueceu algo?" Destaque os produtos, crie curiosidade.
+- Email 2 (1h): Urgência leve, benefícios do produto. Responda objeções comuns.
+- Email 3 (3h): Escassez, prova social. "Outros estão comprando", estoque limitado.
+- Email 4 (24h): Última chance, desconto exclusivo se aplicável. FOMO máximo.`,
+      post_purchase: `ESTRATÉGIA PÓS-COMPRA:
+- Email 1 (imediato): Confirmação calorosa, celebre a decisão. Reduza dissonância cognitiva.
+- Email 2 (5min): Upsell inteligente, produtos complementares. "Quem comprou X também levou Y".
+- Email 3 (24h): Informações de rastreio, expectativa sobre entrega, dicas de uso.`,
+      recompra: `ESTRATÉGIA RECOMPRA:
+- Email 1 (30 dias): Verificar satisfação, dica de uso avançado. Preparar terreno.
+- Email 2 (90 dias): Lembrete de reposição, oferta especial para cliente fiel.`,
+      welcome_lead: `ESTRATÉGIA BOAS-VINDAS:
+- Email 1 (imediato): Apresentação calorosa, proposta de valor clara, primeiro benefício.
+- Email 2 (24h): Conteúdo de valor, dica prática, construir autoridade.`,
+    };
 
-Regras:
-- Mantenha a estrutura HTML base, apenas personalize textos
-- Use linguagem persuasiva e emocional apropriada ao nicho
-- Mantenha as variáveis ({{nome}}, {{produtos}}, etc.)
-- Assuntos devem ter no máximo 50 caracteres
-- Inclua emojis estratégicos nos assuntos
-- O tom deve combinar com o nicho: saúde=profissional, beleza=aspiracional, suplementos=energético`;
+    const systemPrompt = `Você é um COPYWRITER BRASILEIRO especialista em e-mail marketing para e-commerce.
+Você domina técnicas avançadas de persuasão: AIDA, PAS, storytelling, gatilhos mentais.
 
-    const userPrompt = `Personalize esta sequência de ${sequenceLabels[sequenceType] || sequenceType} para:
+REGRAS DE OURO:
+1. ASSUNTOS: Máximo 50 caracteres. Use números, perguntas, emojis estratégicos, curiosidade.
+   Bons exemplos: "🛒 Você esqueceu isso aqui...", "Última chance: só até meia-noite", "Seu pedido está a caminho! 📦"
+   
+2. TOM E VOZ:
+   - Saúde/Bem-estar: Profissional, empático, educativo
+   - Beleza/Estética: Aspiracional, confiante, transformador
+   - Suplementos/Fitness: Energético, motivacional, resultados
+   - Moda: Elegante, exclusivo, tendências
+   - Geral: Amigável, próximo, confiável
 
-Produto: ${productName}
-Nicho: ${niche}
-Loja: ${storeName}
+3. ESTRUTURA DO EMAIL:
+   - Abertura que PRENDE (primeiros 2 segundos)
+   - Corpo com benefícios claros (não features)
+   - CTA único e irresistível
+   - P.S. para reforçar urgência/benefício
 
-Templates base para personalizar:
+4. GATILHOS MENTAIS:
+   - Escassez: "Últimas unidades", "Oferta termina em X"
+   - Prova social: "Milhares já experimentaram"
+   - Reciprocidade: Ofereça algo de valor primeiro
+   - Autoridade: Números, estudos, especialistas
+   - Urgência: Deadlines claros e reais
+
+5. HTML: Mantenha estrutura base, personalize APENAS textos. Variáveis: {{nome}}, {{produtos}}, {{valor}}, {{link_carrinho}}, {{link_rastreio}}
+
+6. PERSONALIZAÇÃO: Use {{nome}} naturalmente, não force. Emails devem parecer escritos por humano.`;
+
+    const userPrompt = `CRIE uma sequência de ${sequenceLabels[sequenceType] || sequenceType} ALTAMENTE PERSUASIVA para:
+
+📦 PRODUTO: ${productName}
+🎯 NICHO: ${niche}
+🏪 LOJA: ${storeName}
+
+${sequenceStrategies[sequenceType] || ''}
+
+BASE A PERSONALIZAR (mantenha delays e estrutura HTML, melhore MUITO os textos):
 ${presets.map((p, i) => `
---- E-mail ${i + 1} (envio: ${p.delay_minutes === 0 ? 'imediato' : p.delay_minutes < 60 ? p.delay_minutes + ' min' : Math.floor(p.delay_minutes / 60) + 'h'}) ---
-Assunto: ${p.default_subject}
-HTML: ${p.default_html_template.substring(0, 500)}...
+═══ E-mail ${i + 1} (envio: ${p.delay_minutes === 0 ? 'imediato' : p.delay_minutes < 60 ? p.delay_minutes + ' min' : p.delay_minutes < 1440 ? Math.floor(p.delay_minutes / 60) + 'h' : Math.floor(p.delay_minutes / 1440) + ' dias'}) ═══
+Assunto atual: ${p.default_subject}
+HTML base:
+${p.default_html_template}
 `).join('\n')}
 
-Retorne um JSON com a estrutura:
+RETORNE um JSON válido:
 {
   "steps": [
     {
       "step_number": 1,
       "delay_minutes": 0,
-      "default_subject": "Assunto personalizado",
-      "default_html_template": "HTML completo personalizado",
+      "default_subject": "Assunto MUITO melhor e persuasivo",
+      "default_html_template": "HTML completo com textos TRANSFORMADOS",
       "variables": ["nome", "produtos", "valor", "link_carrinho"]
     }
   ]
@@ -161,7 +202,8 @@ Retorne um JSON com a estrutura:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.7,
+        temperature: 0.85, // Increased for more creative outputs
+        max_tokens: 8000, // Ensure full emails are generated
       }),
     });
 
