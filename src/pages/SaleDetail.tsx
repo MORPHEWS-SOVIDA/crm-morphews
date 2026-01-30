@@ -1456,6 +1456,14 @@ export default function SaleDetail() {
               saleStatus={sale.status}
               isCancelled={sale.status === 'cancelled'}
               deliveryRegionId={sale.delivery_region_id}
+              closedAt={sale.closed_at}
+              closedByName={sale.closed_by_profile 
+                ? `${sale.closed_by_profile.first_name || ''} ${sale.closed_by_profile.last_name || ''}`.trim() 
+                : null}
+              finalizedAt={sale.finalized_at}
+              finalizedByName={sale.finalized_by_profile 
+                ? `${sale.finalized_by_profile.first_name || ''} ${sale.finalized_by_profile.last_name || ''}`.trim() 
+                : null}
             />
 
             {/* Carrier Tracking Card - only for carrier delivery */}
