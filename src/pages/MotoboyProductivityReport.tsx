@@ -304,7 +304,7 @@ export default function MotoboyProductivityReport() {
                                     <Sunset className="w-4 h-4 mx-auto text-orange-500" />
                                   </TableHead>
                                   <TableHead className="text-center w-[60px]">
-                                    <Moon className="w-4 h-4 mx-auto text-indigo-500" />
+                                    <CalendarIcon className="w-4 h-4 mx-auto text-cyan-500" />
                                   </TableHead>
                                   <TableHead className="text-right w-[70px]">Total</TableHead>
                                 </TableRow>
@@ -336,9 +336,9 @@ export default function MotoboyProductivityReport() {
                                       )}
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      {day.eveningDeliveries > 0 && (
-                                        <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30">
-                                          {day.eveningDeliveries}
+                                      {day.fullDayDeliveries > 0 && (
+                                        <Badge className="bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30">
+                                          {day.fullDayDeliveries}
                                         </Badge>
                                       )}
                                     </TableCell>
@@ -368,7 +368,7 @@ export default function MotoboyProductivityReport() {
                                 <TableHead className="w-[80px]">Dia</TableHead>
                                 <TableHead className="text-center w-[60px]">Manhã</TableHead>
                                 <TableHead className="text-center w-[60px]">Tarde</TableHead>
-                                <TableHead className="text-center w-[60px]">Noite</TableHead>
+                                <TableHead className="text-center w-[60px]">Dia Todo</TableHead>
                                 <TableHead className="text-right w-[70px]">Total</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -386,7 +386,7 @@ export default function MotoboyProductivityReport() {
                                   </TableCell>
                                   <TableCell className="text-center">{day.morningDeliveries || '-'}</TableCell>
                                   <TableCell className="text-center">{day.afternoonDeliveries || '-'}</TableCell>
-                                  <TableCell className="text-center">{day.eveningDeliveries || '-'}</TableCell>
+                                  <TableCell className="text-center">{day.fullDayDeliveries || '-'}</TableCell>
                                   <TableCell className="text-right font-bold">{day.deliveries}</TableCell>
                                 </TableRow>
                               ))}
@@ -432,21 +432,21 @@ export default function MotoboyProductivityReport() {
                               <TableHead className="w-[100px]">Data</TableHead>
                               <TableHead className="w-[80px]">Dia</TableHead>
                               <TableHead className="text-center">
-                                <div className="flex items-center justify-center gap-1">
+                                <div className="flex flex-col items-center">
                                   <Sun className="w-4 h-4 text-yellow-500" />
-                                  <span className="text-xs">06-12h</span>
+                                  <span className="text-xs">Manhã</span>
                                 </div>
                               </TableHead>
                               <TableHead className="text-center">
-                                <div className="flex items-center justify-center gap-1">
+                                <div className="flex flex-col items-center">
                                   <Sunset className="w-4 h-4 text-orange-500" />
-                                  <span className="text-xs">12-18h</span>
+                                  <span className="text-xs">Tarde</span>
                                 </div>
                               </TableHead>
                               <TableHead className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Moon className="w-4 h-4 text-indigo-500" />
-                                  <span className="text-xs">18-24h</span>
+                                <div className="flex flex-col items-center">
+                                  <CalendarIcon className="w-4 h-4 text-cyan-500" />
+                                  <span className="text-xs">Dia Todo</span>
                                 </div>
                               </TableHead>
                               <TableHead className="text-right">Total</TableHead>
@@ -466,7 +466,7 @@ export default function MotoboyProductivityReport() {
                                 </TableCell>
                                 <TableCell className="text-center">{day.morning || '-'}</TableCell>
                                 <TableCell className="text-center">{day.afternoon || '-'}</TableCell>
-                                <TableCell className="text-center">{day.evening || '-'}</TableCell>
+                                <TableCell className="text-center">{day.fullDay || '-'}</TableCell>
                                 <TableCell className="text-right font-semibold">{day.total}</TableCell>
                               </TableRow>
                             ))}
@@ -516,8 +516,8 @@ export default function MotoboyProductivityReport() {
                             </TableHead>
                             <TableHead className="text-center">
                               <div className="flex items-center justify-center gap-1">
-                                <Moon className="w-4 h-4 text-indigo-500" />
-                                <span className="text-xs">Noite</span>
+                                <CalendarIcon className="w-4 h-4 text-cyan-500" />
+                                <span className="text-xs">Dia Todo</span>
                               </div>
                             </TableHead>
                             <TableHead className="text-right">Total</TableHead>
@@ -538,7 +538,7 @@ export default function MotoboyProductivityReport() {
                               </TableCell>
                               <TableCell className="text-center">{day.morning || '-'}</TableCell>
                               <TableCell className="text-center">{day.afternoon || '-'}</TableCell>
-                              <TableCell className="text-center">{day.evening || '-'}</TableCell>
+                              <TableCell className="text-center">{day.fullDay || '-'}</TableCell>
                               <TableCell className="text-right font-semibold">{day.total}</TableCell>
                               <TableCell className="text-right text-green-600 dark:text-green-400">
                                 {day.total > 0 ? formatCurrency(report.averageCostPerDelivery) : '-'}
@@ -555,7 +555,7 @@ export default function MotoboyProductivityReport() {
                               {report.dailyTotals.reduce((sum, d) => sum + d.afternoon, 0)}
                             </TableCell>
                             <TableCell className="text-center">
-                              {report.dailyTotals.reduce((sum, d) => sum + d.evening, 0)}
+                              {report.dailyTotals.reduce((sum, d) => sum + d.fullDay, 0)}
                             </TableCell>
                             <TableCell className="text-right">{report.overallTotal}</TableCell>
                             <TableCell className="text-right text-green-600 dark:text-green-400">
