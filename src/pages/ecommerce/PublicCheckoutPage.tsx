@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,6 +90,11 @@ export default function PublicCheckoutPage() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+  
+  // Cart sync for abandoned cart tracking
+  const [cartId, setCartId] = useState<string | null>(null);
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Capture affiliate code from URL
   const affiliateCode = useMemo(() => {
@@ -261,6 +266,87 @@ export default function PublicCheckoutPage() {
       setIsLoadingShipping(false);
     }
   }, [checkout?.organization_id, shippingMode]);
+
+  // ========== PROGRESSIVE CART SYNC FOR ABANDONED CART TRACKING ==========
+  // Sync cart to backend whenever customer fills in name/email/phone
+  const syncCartToBackend = useCallback(async (customerData: typeof formData) => {
+    if (!checkout?.id || !checkout?.organization_id) return;
+    
+    // Only sync if we have at least name or email
+    if (!customerData.name && !customerData.email) return;
+    
+    try {
+      const payload = {
+        cart_id: cartId || undefined,
+        session_id: sessionId,
+        standalone_checkout_id: checkout.id,
+        source: 'standalone_checkout' as const,
+        items: [{
+          product_id: checkout.product_id,
+          quantity: checkout.quantity || 1,
+          price_cents: productPrice,
+        }],
+        customer: {
+          name: customerData.name || undefined,
+          email: customerData.email || undefined,
+          phone: customerData.phone || undefined,
+          cpf: customerData.cpf || undefined,
+        },
+        shipping: shippingMode !== 'none' ? {
+          cep: customerData.cep || undefined,
+          street: customerData.street || undefined,
+          number: customerData.number || undefined,
+          complement: customerData.complement || undefined,
+          neighborhood: customerData.neighborhood || undefined,
+          city: customerData.city || undefined,
+          state: customerData.state || undefined,
+        } : undefined,
+        affiliate_code: affiliateCode || undefined,
+      };
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cart-sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.success && result.cart_id && !cartId) {
+        setCartId(result.cart_id);
+      }
+    } catch (error) {
+      console.error('Cart sync error:', error);
+      // Silent fail - don't show error to user
+    }
+  }, [cartId, sessionId, checkout, productPrice, shippingMode, affiliateCode]);
+
+  // Debounced sync on field blur - captures data progressively
+  const handleFieldBlur = useCallback((field: keyof typeof formData) => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    syncTimeoutRef.current = setTimeout(() => {
+      if (formData[field]) {
+        syncCartToBackend(formData);
+      }
+    }, 500);
+  }, [formData, syncCartToBackend]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // CEP lookup via ViaCEP API
   const handleCepBlur = async () => {
@@ -695,6 +781,7 @@ export default function PublicCheckoutPage() {
                             id="name"
                             value={formData.name}
                             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                            onBlur={() => handleFieldBlur('name')}
                             required
                           />
                         </div>
@@ -705,6 +792,7 @@ export default function PublicCheckoutPage() {
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                            onBlur={() => handleFieldBlur('email')}
                             required
                           />
                         </div>
@@ -715,6 +803,7 @@ export default function PublicCheckoutPage() {
                             type="tel"
                             value={formData.phone}
                             onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                            onBlur={() => handleFieldBlur('phone')}
                             placeholder="(00) 00000-0000"
                             required
                           />
@@ -725,6 +814,7 @@ export default function PublicCheckoutPage() {
                             id="cpf"
                             value={formData.cpf}
                             onChange={(e) => setFormData(prev => ({ ...prev, cpf: formatCpfCnpjInput(e.target.value) }))}
+                            onBlur={() => handleFieldBlur('cpf')}
                             placeholder="CPF ou CNPJ"
                             inputMode="numeric"
                             maxLength={18}
@@ -749,7 +839,7 @@ export default function PublicCheckoutPage() {
                               placeholder="00000-000"
                               value={formData.cep}
                               onChange={(e) => setFormData(prev => ({ ...prev, cep: e.target.value.replace(/\D/g, '') }))}
-                              onBlur={handleCepBlur}
+                              onBlur={() => { handleCepBlur(); handleFieldBlur('cep'); }}
                               required
                             />
                             {isLoadingCep && (
@@ -765,6 +855,7 @@ export default function PublicCheckoutPage() {
                             id="street"
                             value={formData.street}
                             onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
+                            onBlur={() => handleFieldBlur('street')}
                             required
                           />
                         </div>
@@ -774,6 +865,7 @@ export default function PublicCheckoutPage() {
                             id="number"
                             value={formData.number}
                             onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value }))}
+                            onBlur={() => handleFieldBlur('number')}
                             required
                           />
                         </div>
@@ -786,6 +878,7 @@ export default function PublicCheckoutPage() {
                             placeholder="Apto, Bloco, etc."
                             value={formData.complement}
                             onChange={(e) => setFormData(prev => ({ ...prev, complement: e.target.value }))}
+                            onBlur={() => handleFieldBlur('complement')}
                           />
                         </div>
                         <div className="space-y-2">
@@ -794,6 +887,7 @@ export default function PublicCheckoutPage() {
                             id="neighborhood"
                             value={formData.neighborhood}
                             onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                            onBlur={() => handleFieldBlur('neighborhood')}
                             required
                           />
                         </div>
@@ -805,6 +899,7 @@ export default function PublicCheckoutPage() {
                             id="city"
                             value={formData.city}
                             onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                            onBlur={() => handleFieldBlur('city')}
                             required
                           />
                         </div>
@@ -816,6 +911,7 @@ export default function PublicCheckoutPage() {
                             placeholder="UF"
                             value={formData.state}
                             onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                            onBlur={() => handleFieldBlur('state')}
                             required
                           />
                         </div>
