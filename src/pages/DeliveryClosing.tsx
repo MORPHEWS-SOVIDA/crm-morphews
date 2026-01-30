@@ -295,6 +295,8 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                           onToggle={() => toggleSale(sale.id)}
                           selectedBgClass={colors.selected}
                           showTracking={closingType === 'carrier'}
+                          showProofLink={closingType === 'motoboy' || closingType === 'carrier'}
+                          showEditPayment={closingType === 'motoboy' || closingType === 'carrier'}
                         />
                       ))}
                     </div>
