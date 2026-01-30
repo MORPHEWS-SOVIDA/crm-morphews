@@ -373,12 +373,14 @@ serve(async (req) => {
       }
     }
 
-    // 6. Create sale in payment_pending status with UTM attribution
+    // 6. Create sale in ecommerce_pending status (won't appear in ERP until payment confirmed)
+    // This status is used for e-commerce orders awaiting payment
+    // Once paid, status changes to payment_confirmed and appears in /vendas
     const salePayload: Record<string, unknown> = {
       organization_id: organizationId,
       lead_id: lead.id,
       created_by: defaultUserId,
-      status: 'payment_pending',
+      status: 'ecommerce_pending', // NEW: E-commerce pending status (hidden from ERP)
       payment_status: 'pending',
       subtotal_cents: subtotalCents,
       shipping_cost_cents: shippingCents,

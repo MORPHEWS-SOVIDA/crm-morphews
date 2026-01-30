@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 export type SaleStatus = 
   | 'draft'
+  | 'ecommerce_pending' // Pedido e-commerce aguardando pagamento (NÃO aparece no ERP)
   | 'pending_expedition'
   | 'dispatched'
   | 'delivered'
@@ -243,6 +244,7 @@ export function formatCurrency(cents: number): string {
 export function getStatusLabel(status: SaleStatus): string {
   const labels: Record<SaleStatus, string> = {
     draft: 'Rascunho',
+    ecommerce_pending: 'Aguardando Pagamento (Online)',
     pending_expedition: 'Aguardando Expedição',
     dispatched: 'Despachado',
     delivered: 'Entregue',
@@ -259,6 +261,7 @@ export function getStatusLabel(status: SaleStatus): string {
 export function getStatusColor(status: SaleStatus): string {
   const colors: Record<SaleStatus, string> = {
     draft: 'bg-slate-100 text-slate-700',
+    ecommerce_pending: 'bg-amber-50 text-amber-600',
     pending_expedition: 'bg-orange-100 text-orange-700',
     dispatched: 'bg-blue-100 text-blue-700',
     delivered: 'bg-green-100 text-green-700',
@@ -316,6 +319,7 @@ export function useSales(filters?: { status?: SaleStatus; limit?: number }) {
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at)
         `)
         .eq('organization_id', organizationId)
+        .neq('status', 'ecommerce_pending') // Hide e-commerce orders awaiting payment from ERP
         .order('created_at', { ascending: false })
         .limit(limit);
 

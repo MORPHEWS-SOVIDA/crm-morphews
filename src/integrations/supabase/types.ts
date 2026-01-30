@@ -19712,6 +19712,7 @@ export type Database = {
         | "returned"
         | "closed"
         | "finalized"
+        | "ecommerce_pending"
       secretary_message_type:
         | "scheduled"
         | "followup"
@@ -20011,6 +20012,7 @@ export const Constants = {
         "returned",
         "closed",
         "finalized",
+        "ecommerce_pending",
       ],
       secretary_message_type: [
         "scheduled",
