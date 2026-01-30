@@ -180,12 +180,21 @@ export default function PublicCheckoutPage() {
   const pixDiscount = checkout?.pix_discount_percent || 0;
   const shippingMode = checkout?.shipping_mode || 'none';
   
+  // IMPORTANT: Never show Order Bump if it's the same product as the main checkout product
+  // This prevents duplication bugs and improves conversion by offering complementary products
+  const shouldShowOrderBump = useMemo(() => {
+    if (!checkout?.order_bump_enabled || !checkout?.order_bump_product) return false;
+    // Block if Order Bump product is the same as main product
+    if (checkout.order_bump_product_id === checkout.product_id) return false;
+    return true;
+  }, [checkout]);
+
   const orderBumpPrice = useMemo(() => {
-    if (!checkout?.order_bump_enabled || !checkout?.order_bump_product) return 0;
+    if (!shouldShowOrderBump || !checkout?.order_bump_product) return 0;
     const originalPrice = checkout.order_bump_product.price_1_unit || checkout.order_bump_product.base_price_cents;
     const discount = checkout.order_bump_discount_percent || 0;
     return Math.round(originalPrice * (1 - discount / 100));
-  }, [checkout]);
+  }, [shouldShowOrderBump, checkout]);
 
   // Shipping cost - only added when calculated, partners don't earn commission on this
   const shippingCost = shippingMode === 'calculated' && selectedShipping ? selectedShipping.price_cents : 0;
@@ -640,8 +649,8 @@ export default function PublicCheckoutPage() {
                     </div>
                   </div>
 
-                  {/* Order Bump */}
-                  {checkout.order_bump_enabled && checkout.order_bump_product && (
+                  {/* Order Bump - Only show if enabled AND not the same product */}
+                  {shouldShowOrderBump && checkout.order_bump_product && (
                     <>
                       <Separator />
                       <div 
