@@ -42,7 +42,8 @@ import {
   MapPin,
   Box,
   CircleAlert,
-  Link2
+  Link2,
+  Store
 } from 'lucide-react';
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { QuickPaymentLinkButton } from '@/components/payment-links/QuickPaymentLinkButton';
@@ -387,6 +388,13 @@ export default function Sales() {
             <p className="text-muted-foreground">Gerencie suas vendas e romaneios</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/expedicao/baixa-balcao')}
+            >
+              <Store className="w-4 h-4 mr-2" />
+              Baixar Balcão
+            </Button>
             <QuickPaymentLinkButton />
             {!hideNewSaleButton && (
               <Button onClick={() => navigate('/vendas/nova')}>
