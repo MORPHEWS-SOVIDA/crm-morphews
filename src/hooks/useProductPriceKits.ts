@@ -239,11 +239,21 @@ export function useBulkSaveProductPriceKits() {
     mutationFn: async ({ productId, kits }: { productId: string; kits: ProductPriceKitFormData[] }) => {
       if (!profile?.organization_id) throw new Error('Organização não encontrada');
 
+      console.log('[BulkSaveKits] Starting save for product:', productId, 'kits count:', kits.length);
+      console.log('[BulkSaveKits] Kits data:', JSON.stringify(kits, null, 2));
+
       // Delete existing kits for this product
-      await supabase
+      const { error: deleteError, count: deletedCount } = await supabase
         .from('product_price_kits')
         .delete()
         .eq('product_id', productId);
+
+      if (deleteError) {
+        console.error('[BulkSaveKits] Delete error:', deleteError);
+        throw deleteError;
+      }
+      
+      console.log('[BulkSaveKits] Deleted existing kits, count:', deletedCount);
 
       // Insert new kits
       if (kits.length > 0) {
@@ -253,16 +263,16 @@ export function useBulkSaveProductPriceKits() {
           quantity: kit.quantity,
           sku: kit.sku || null,
           regular_price_cents: kit.regular_price_cents,
-          regular_use_default_commission: kit.regular_use_default_commission,
+          regular_use_default_commission: kit.regular_use_default_commission ?? true,
           regular_custom_commission: kit.regular_use_default_commission ? null : kit.regular_custom_commission,
           promotional_price_cents: kit.promotional_price_cents || null,
-          promotional_use_default_commission: kit.promotional_use_default_commission,
+          promotional_use_default_commission: kit.promotional_use_default_commission ?? true,
           promotional_custom_commission: kit.promotional_use_default_commission ? null : kit.promotional_custom_commission,
           promotional_price_2_cents: kit.promotional_price_2_cents || null,
-          promotional_2_use_default_commission: kit.promotional_2_use_default_commission,
+          promotional_2_use_default_commission: kit.promotional_2_use_default_commission ?? true,
           promotional_2_custom_commission: kit.promotional_2_use_default_commission ? null : kit.promotional_2_custom_commission,
           minimum_price_cents: kit.minimum_price_cents || null,
-          minimum_use_default_commission: kit.minimum_use_default_commission,
+          minimum_use_default_commission: kit.minimum_use_default_commission ?? true,
           minimum_custom_commission: kit.minimum_use_default_commission ? null : kit.minimum_custom_commission,
           points_regular: kit.points_regular || 0,
           points_promotional: kit.points_promotional || 0,
@@ -273,21 +283,31 @@ export function useBulkSaveProductPriceKits() {
           position: index,
         }));
 
-        const { error } = await supabase
-          .from('product_price_kits')
-          .insert(kitsToInsert);
+        console.log('[BulkSaveKits] Inserting kits:', JSON.stringify(kitsToInsert, null, 2));
 
-        if (error) throw error;
+        const { data: insertedData, error } = await supabase
+          .from('product_price_kits')
+          .insert(kitsToInsert)
+          .select();
+
+        if (error) {
+          console.error('[BulkSaveKits] Insert error:', error);
+          throw error;
+        }
+        
+        console.log('[BulkSaveKits] Successfully inserted kits:', insertedData?.length);
       }
 
       return { productId };
     },
     onSuccess: (result) => {
+      console.log('[BulkSaveKits] Success! Invalidating cache for:', result.productId);
       queryClient.invalidateQueries({ queryKey: ['product-price-kits', result.productId] });
+      toast.success('Kits de preço salvos!');
     },
     onError: (error: Error) => {
-      console.error('Erro ao salvar kits:', error);
-      toast.error('Erro ao salvar kits de preço');
+      console.error('[BulkSaveKits] Mutation error:', error);
+      toast.error('Erro ao salvar kits de preço: ' + error.message);
     },
   });
 }
