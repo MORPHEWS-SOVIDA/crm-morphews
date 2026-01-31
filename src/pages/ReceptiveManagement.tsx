@@ -127,9 +127,15 @@ export default function ReceptiveManagement() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Gerência de Receptivos</h1>
-          <p className="text-muted-foreground">Gerencie atendimentos, áudios e transcrições</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Gerência de Receptivos</h1>
+            <p className="text-muted-foreground">Gerencie atendimentos, áudios e transcrições</p>
+          </div>
+          <Button variant="outline" onClick={() => window.location.href = '/gerencia-receptivo/3c'}>
+            <Phone className="w-4 h-4 mr-2" />
+            Validar 3C+
+          </Button>
         </div>
 
         {/* Stats Cards */}
