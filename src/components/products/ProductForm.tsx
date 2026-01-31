@@ -149,11 +149,9 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   const { data: brands = [] } = useProductBrands();
   const { data: orgFeatures } = useOrgFeatures();
   
-  // Sync state when initial values change
+  // Sync state when initial values change - always sync when initialPriceKits changes
   useEffect(() => {
-    if (initialPriceKits.length > 0 || (initialPriceKits.length === 0 && priceKits.length === 0 && product)) {
-      setPriceKits(initialPriceKits);
-    }
+    setPriceKits(initialPriceKits);
   }, [JSON.stringify(initialPriceKits)]);
 
   useEffect(() => {

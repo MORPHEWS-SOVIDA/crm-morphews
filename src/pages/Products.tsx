@@ -59,8 +59,8 @@ import type { ProductIngredient } from '@/components/products/ProductIngredients
 type ViewMode = 'list' | 'create' | 'edit' | 'clone';
 type DisplayMode = 'cards' | 'list' | 'brands';
 
-// Categorias que usam kits dinâmicos
-const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping'];
+// Categorias que usam kits dinâmicos (deve ser igual ao ProductForm.tsx)
+const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping', 'outro'];
 
 export default function Products() {
   const navigate = useNavigate();
@@ -116,6 +116,7 @@ export default function Products() {
     if (productKits) {
       setInitialKits(productKits.map(kit => ({
         quantity: kit.quantity,
+        sku: kit.sku,
         regular_price_cents: kit.regular_price_cents,
         regular_use_default_commission: kit.regular_use_default_commission,
         regular_custom_commission: kit.regular_custom_commission,
@@ -128,6 +129,12 @@ export default function Products() {
         minimum_price_cents: kit.minimum_price_cents,
         minimum_use_default_commission: kit.minimum_use_default_commission,
         minimum_custom_commission: kit.minimum_custom_commission,
+        points_regular: kit.points_regular,
+        points_promotional: kit.points_promotional,
+        points_promotional_2: kit.points_promotional_2,
+        points_minimum: kit.points_minimum,
+        usage_period_days: kit.usage_period_days,
+        sales_hack: kit.sales_hack,
         position: kit.position,
       })));
     } else {
