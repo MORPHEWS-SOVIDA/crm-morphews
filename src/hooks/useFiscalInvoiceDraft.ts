@@ -88,6 +88,7 @@ export function useCreateDraftFromSale() {
         .limit(1);
 
       const primaryAddress = addresses?.[0];
+      const primaryAddressAny = primaryAddress as any;
 
       // Build items array with fiscal data
       const items = (sale.items || []).map((item: any) => ({
@@ -119,10 +120,18 @@ export function useCreateDraftFromSale() {
       const recipientCep = primaryAddress?.cep || saleAny.delivery_cep || '';
       const recipientState = primaryAddress?.state || saleAny.delivery_state || '';
       const recipientCity = primaryAddress?.city || saleAny.delivery_city || '';
+      const leadAny = sale.lead as any;
+      const recipientCityCode = primaryAddressAny?.city_code || saleAny.delivery_city_code || leadAny?.city_code || '';
       const recipientNeighborhood = primaryAddress?.neighborhood || saleAny.delivery_neighborhood || '';
       const recipientStreet = primaryAddress?.street || saleAny.delivery_street || '';
       const recipientNumber = primaryAddress?.street_number || saleAny.delivery_number || '';
       const recipientComplement = primaryAddress?.complement || saleAny.delivery_complement || '';
+
+      // Lead fiscal registrations (optional overrides)
+      const recipientIE = leadAny?.inscricao_estadual ? String(leadAny.inscricao_estadual).replace(/\D/g, '') : null;
+      const recipientIEIsento = !!leadAny?.inscricao_estadual_isento;
+      const recipientIM = leadAny?.inscricao_municipal ? String(leadAny.inscricao_municipal).replace(/\D/g, '') : null;
+      const recipientIMIsento = !!leadAny?.inscricao_municipal_isento;
 
       // IMPORTANT: Reserve the invoice number NOW to avoid duplicates
       const currentLastNumber = data.invoice_type === 'nfe' 
@@ -178,10 +187,15 @@ export function useCreateDraftFromSale() {
           recipient_cep: String(recipientCep).replace(/\D/g, ''),
           recipient_state: recipientState,
           recipient_city: recipientCity,
+          recipient_city_code: recipientCityCode || null,
           recipient_neighborhood: recipientNeighborhood,
           recipient_street: recipientStreet,
           recipient_number: recipientNumber || 'S/N',
           recipient_complement: recipientComplement,
+          recipient_inscricao_estadual: recipientIE,
+          recipient_inscricao_estadual_isento: recipientIEIsento,
+          recipient_inscricao_municipal: recipientIM,
+          recipient_inscricao_municipal_isento: recipientIMIsento,
           // Items
           items,
           customer_data: {

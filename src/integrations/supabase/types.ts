@@ -4885,6 +4885,10 @@ export type Database = {
           recipient_cpf_cnpj: string | null
           recipient_email: string | null
           recipient_ie: string | null
+          recipient_inscricao_estadual: string | null
+          recipient_inscricao_estadual_isento: boolean
+          recipient_inscricao_municipal: string | null
+          recipient_inscricao_municipal_isento: boolean
           recipient_is_final_consumer: boolean | null
           recipient_name: string | null
           recipient_neighborhood: string | null
@@ -4961,6 +4965,10 @@ export type Database = {
           recipient_cpf_cnpj?: string | null
           recipient_email?: string | null
           recipient_ie?: string | null
+          recipient_inscricao_estadual?: string | null
+          recipient_inscricao_estadual_isento?: boolean
+          recipient_inscricao_municipal?: string | null
+          recipient_inscricao_municipal_isento?: boolean
           recipient_is_final_consumer?: boolean | null
           recipient_name?: string | null
           recipient_neighborhood?: string | null
@@ -5037,6 +5045,10 @@ export type Database = {
           recipient_cpf_cnpj?: string | null
           recipient_email?: string | null
           recipient_ie?: string | null
+          recipient_inscricao_estadual?: string | null
+          recipient_inscricao_estadual_isento?: boolean
+          recipient_inscricao_municipal?: string | null
+          recipient_inscricao_municipal_isento?: boolean
           recipient_is_final_consumer?: boolean | null
           recipient_name?: string | null
           recipient_neighborhood?: string | null
