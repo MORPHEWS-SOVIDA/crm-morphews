@@ -757,7 +757,7 @@ function buildNFSePayload(invoiceDraft: any, sale: any, company: any, ref: strin
     .map((item: any) => `${item.quantity ?? 1}x ${item.name || item.product_name || item.product?.name || 'Serviço'}`)
     .join('; ');
 
-  return {
+  const payload: any = {
     numero: numero,
     serie: serie,
     razao_social_prestador: company.company_name,
@@ -770,10 +770,15 @@ function buildNFSePayload(invoiceDraft: any, sale: any, company: any, ref: strin
     logradouro_tomador: draft?.recipient_street || sale?.lead?.address_street,
     numero_tomador: draft?.recipient_number || sale?.lead?.address_number || 'S/N',
     bairro_tomador: draft?.recipient_neighborhood || sale?.lead?.address_neighborhood,
-    codigo_municipio_tomador: sale.lead?.city_code || company.address_city_code,
+    // Prefer draft recipient_city_code (manual override), then lead city_code, then company
+    codigo_municipio_tomador: normalizeDigits(draft?.recipient_city_code) || (sale.lead as any)?.city_code || company.address_city_code,
     uf_tomador: draft?.recipient_state || sale.lead?.state,
     cep_tomador: normalizeDigits(draft?.recipient_cep || sale.lead?.cep),
     telefone_tomador: normalizeDigits(draft?.recipient_phone || sale.lead?.phone),
+    // Optional IM for tomador (when provided)
+    ...(normalizeDigits(draft?.recipient_inscricao_municipal) && {
+      inscricao_municipal_tomador: normalizeDigits(draft?.recipient_inscricao_municipal),
+    }),
     discriminacao: servicesDescription,
     valor_servicos: totalValue.toFixed(2),
     base_calculo: totalValue.toFixed(2),
@@ -782,4 +787,13 @@ function buildNFSePayload(invoiceDraft: any, sale: any, company: any, ref: strin
     iss_retido: false,
     codigo_servico: company.nfse_municipal_code || '1701',
   };
+
+  // Remove undefined/null/empty values from payload
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+      delete payload[key];
+    }
+  });
+
+  return payload;
 }

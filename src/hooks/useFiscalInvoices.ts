@@ -64,6 +64,11 @@ export interface FiscalInvoice {
   recipient_street?: string;
   recipient_number?: string;
   recipient_complement?: string;
+  // Recipient fiscal registrations (manual override)
+  recipient_inscricao_estadual?: string | null;
+  recipient_inscricao_estadual_isento?: boolean;
+  recipient_inscricao_municipal?: string | null;
+  recipient_inscricao_municipal_isento?: boolean;
   // Transport data
   transport_type?: string;
   freight_responsibility?: string;

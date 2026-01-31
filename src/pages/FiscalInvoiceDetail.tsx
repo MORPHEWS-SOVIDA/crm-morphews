@@ -116,7 +116,7 @@ export default function FiscalInvoiceDetail() {
 
   // Editable form state
   const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState<Partial<typeof invoice>>({});
+  const [formData, setFormData] = useState<Partial<FiscalInvoice>>({});
 
   // Sync form data when invoice loads
   useEffect(() => {
@@ -127,9 +127,14 @@ export default function FiscalInvoiceDetail() {
         recipient_cpf_cnpj: invoice.recipient_cpf_cnpj || '',
         recipient_email: invoice.recipient_email || '',
         recipient_phone: invoice.recipient_phone || '',
+        recipient_inscricao_estadual: invoice.recipient_inscricao_estadual || '',
+        recipient_inscricao_estadual_isento: invoice.recipient_inscricao_estadual_isento ?? false,
+        recipient_inscricao_municipal: invoice.recipient_inscricao_municipal || '',
+        recipient_inscricao_municipal_isento: invoice.recipient_inscricao_municipal_isento ?? false,
         recipient_cep: invoice.recipient_cep || '',
         recipient_state: invoice.recipient_state || '',
         recipient_city: invoice.recipient_city || '',
+        recipient_city_code: invoice.recipient_city_code || '',
         recipient_neighborhood: invoice.recipient_neighborhood || '',
         recipient_street: invoice.recipient_street || '',
         recipient_number: invoice.recipient_number || '',
@@ -506,6 +511,66 @@ export default function FiscalInvoiceDetail() {
                             placeholder="Apenas números"
                           />
                         </div>
+
+                        <Separator className="col-span-full my-2" />
+
+                        <div>
+                          <Label htmlFor="recipient_inscricao_estadual">Inscrição Estadual (IE)</Label>
+                          <Input
+                            id="recipient_inscricao_estadual"
+                            value={formData.recipient_inscricao_estadual || ''}
+                            onChange={(e) => updateFormField('recipient_inscricao_estadual', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Somente números"
+                            disabled={
+                              (formData.recipient_type || 'fisica') !== 'juridica' ||
+                              !!formData.recipient_inscricao_estadual_isento
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 md:mt-6">
+                          <Checkbox
+                            id="recipient_inscricao_estadual_isento"
+                            checked={formData.recipient_inscricao_estadual_isento ?? false}
+                            onCheckedChange={(checked) => {
+                              const isento = !!checked;
+                              updateFormField('recipient_inscricao_estadual_isento', isento);
+                              if (isento) updateFormField('recipient_inscricao_estadual', '');
+                            }}
+                            disabled={(formData.recipient_type || 'fisica') !== 'juridica'}
+                          />
+                          <Label htmlFor="recipient_inscricao_estadual_isento" className="cursor-pointer">
+                            IE Isento
+                          </Label>
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_inscricao_municipal">Inscrição Municipal (IM)</Label>
+                          <Input
+                            id="recipient_inscricao_municipal"
+                            value={formData.recipient_inscricao_municipal || ''}
+                            onChange={(e) => updateFormField('recipient_inscricao_municipal', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Somente números"
+                            disabled={
+                              (formData.recipient_type || 'fisica') !== 'juridica' ||
+                              !!formData.recipient_inscricao_municipal_isento
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 md:mt-6">
+                          <Checkbox
+                            id="recipient_inscricao_municipal_isento"
+                            checked={formData.recipient_inscricao_municipal_isento ?? false}
+                            onCheckedChange={(checked) => {
+                              const isento = !!checked;
+                              updateFormField('recipient_inscricao_municipal_isento', isento);
+                              if (isento) updateFormField('recipient_inscricao_municipal', '');
+                            }}
+                            disabled={(formData.recipient_type || 'fisica') !== 'juridica'}
+                          />
+                          <Label htmlFor="recipient_inscricao_municipal_isento" className="cursor-pointer">
+                            IM Isento
+                          </Label>
+                        </div>
+
                         <Separator className="col-span-full my-2" />
                         <div>
                           <Label htmlFor="recipient_cep">CEP *</Label>
@@ -556,6 +621,16 @@ export default function FiscalInvoiceDetail() {
                             id="recipient_city"
                             value={formData.recipient_city || ''}
                             onChange={(e) => updateFormField('recipient_city', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="recipient_city_code">Cód. Município (IBGE)</Label>
+                          <Input
+                            id="recipient_city_code"
+                            value={formData.recipient_city_code || ''}
+                            onChange={(e) => updateFormField('recipient_city_code', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Opcional"
+                            maxLength={7}
                           />
                         </div>
                         <div>
@@ -618,6 +693,26 @@ export default function FiscalInvoiceDetail() {
                           <Label className="text-muted-foreground text-xs">CEP</Label>
                           <p className="font-medium">{invoice.recipient_cep || '-'}</p>
                         </div>
+                        {(invoice.recipient_inscricao_estadual || invoice.recipient_inscricao_estadual_isento) && (
+                          <div>
+                            <Label className="text-muted-foreground text-xs">IE</Label>
+                            <p className="font-medium">
+                              {invoice.recipient_inscricao_estadual_isento
+                                ? 'ISENTO'
+                                : (invoice.recipient_inscricao_estadual || '-')}
+                            </p>
+                          </div>
+                        )}
+                        {(invoice.recipient_inscricao_municipal || invoice.recipient_inscricao_municipal_isento) && (
+                          <div>
+                            <Label className="text-muted-foreground text-xs">IM</Label>
+                            <p className="font-medium">
+                              {invoice.recipient_inscricao_municipal_isento
+                                ? 'ISENTO'
+                                : (invoice.recipient_inscricao_municipal || '-')}
+                            </p>
+                          </div>
+                        )}
                         {invoice.recipient_email && (
                           <div>
                             <Label className="text-muted-foreground text-xs">E-mail</Label>
