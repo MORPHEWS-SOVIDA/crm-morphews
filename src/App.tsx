@@ -123,6 +123,7 @@ const Financial = lazy(() => import("./pages/Financial"));
 // Receptive
 const AddReceptivo = lazy(() => import("./pages/AddReceptivo"));
 const ReceptiveManagement = lazy(() => import("./pages/ReceptiveManagement"));
+const Voip3cValidation = lazy(() => import("./pages/Voip3cValidation"));
 
 // AI & Demands
 const AIBots = lazy(() => import("./pages/AIBots"));
@@ -939,6 +940,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['receptive_module_access']}>
                       <ReceptiveManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/gerencia-receptivo/3c"
+                  element={
+                    <ProtectedRoute requiredPermissions={['receptive_module_access']}>
+                      <Voip3cValidation />
                     </ProtectedRoute>
                   }
                 />

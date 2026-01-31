@@ -17184,6 +17184,85 @@ export type Database = {
           },
         ]
       }
+      voip_3c_config: {
+        Row: {
+          blacklist_numbers: string[]
+          cnpj_numbers: string[]
+          created_at: string
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          blacklist_numbers?: string[]
+          cnpj_numbers?: string[]
+          created_at?: string
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          blacklist_numbers?: string[]
+          cnpj_numbers?: string[]
+          created_at?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voip_3c_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voip_3c_validations: {
+        Row: {
+          calls_with_record_no_sale: number
+          calls_without_record: number
+          created_at: string
+          file_name: string
+          id: string
+          organization_id: string
+          total_calls: number
+          uploaded_by: string
+          validation_data: Json
+        }
+        Insert: {
+          calls_with_record_no_sale?: number
+          calls_without_record?: number
+          created_at?: string
+          file_name: string
+          id?: string
+          organization_id: string
+          total_calls?: number
+          uploaded_by: string
+          validation_data?: Json
+        }
+        Update: {
+          calls_with_record_no_sale?: number
+          calls_without_record?: number
+          created_at?: string
+          file_name?: string
+          id?: string
+          organization_id?: string
+          total_calls?: number
+          uploaded_by?: string
+          validation_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voip_3c_validations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_assistant_states: {
         Row: {
           expires_at: string
