@@ -54,37 +54,19 @@ export function ProductRecommendations({
         )}
       </div>
 
-      {variant === 'cart' ? (
-        // Horizontal scroll for cart
-        <ScrollArea className="w-full">
-          <div className="flex gap-4 pb-4">
-            {products.map((product) => (
-              <RecommendationCard
-                key={product.id}
-                product={product}
-                storefrontSlug={storefrontSlug}
-                primaryColor={primaryColor}
-                compact
-                onQuickAdd={onQuickAdd}
-              />
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-      ) : (
-        // Grid for product page
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {products.map((product) => (
-            <RecommendationCard
-              key={product.id}
-              product={product}
-              storefrontSlug={storefrontSlug}
-              primaryColor={primaryColor}
-              onQuickAdd={onQuickAdd}
-            />
-          ))}
-        </div>
-      )}
+      {/* Grid layout for both variants - 2 cols on mobile, 4 on desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        {products.map((product) => (
+          <RecommendationCard
+            key={product.id}
+            product={product}
+            storefrontSlug={storefrontSlug}
+            primaryColor={primaryColor}
+            compact={variant === 'cart'}
+            onQuickAdd={onQuickAdd}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -110,7 +92,7 @@ function RecommendationCard({
 
   return (
     <Card 
-      className={`group overflow-hidden transition-all hover:shadow-lg ${compact ? 'min-w-[180px] max-w-[180px]' : ''}`}
+      className="group overflow-hidden transition-all hover:shadow-lg"
     >
       <Link to={`/loja/${storefrontSlug}/produto/${product.id}`}>
         <div className={`relative ${compact ? 'aspect-square' : 'aspect-[4/3]'} bg-gradient-to-b from-gray-50 to-white overflow-hidden flex items-center justify-center p-2`}>
