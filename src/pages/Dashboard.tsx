@@ -23,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const { isAdmin, profile } = useAuth();
-  const { role } = useTenant();
+  const { role, isLoading: tenantLoading, tenantId } = useTenant();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
   const { data: leads = [], isLoading, error } = useLeads();
   const { data: stages = [], isLoading: loadingStages } = useFunnelStages();
@@ -43,6 +43,9 @@ export default function Dashboard() {
   
   // User has some useful permissions even if not leads/deliveries
   const hasAnyUsefulPermission = canSeeLeads || canSeeDeliveries || canSeeSales || canSeeWhatsapp || canSeeProducts;
+  
+  // Consider truly loaded only when tenant and permissions are both resolved
+  const isTrulyLoaded = !tenantLoading && !permissionsLoading && tenantId !== undefined;
 
   const responsaveis = useMemo(() => {
     const uniqueResponsaveis = [...new Set(leads.map(lead => lead.assigned_to))];
@@ -102,7 +105,8 @@ export default function Dashboard() {
     return leads.some(lead => lead.stage !== 'cloud' && lead.stage !== 'prospect');
   }, [leads]);
 
-  if (isLoading || loadingStages || permissionsLoading) {
+  // Show loading while tenant or permissions are still being resolved
+  if (isLoading || loadingStages || tenantLoading || permissionsLoading || !isTrulyLoaded) {
     return (
       <SmartLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
