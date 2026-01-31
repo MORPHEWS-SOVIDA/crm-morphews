@@ -318,9 +318,36 @@ async function createLabel(
     }
   }
 
-  // Get tracking code from order info
-  const trackingCode = purchasedOrder.tracking || orderId;
+  // After generate, fetch updated order info to get the real tracking code
+  let realTrackingCode = purchasedOrder.tracking;
+  
+  // If tracking is not available yet, query the order info endpoint
+  if (!realTrackingCode || realTrackingCode === orderId) {
+    try {
+      const orderInfoResponse = await fetch(`${baseUrl}/me/orders/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+        },
+      });
+      
+      if (orderInfoResponse.ok) {
+        const orderInfo = await orderInfoResponse.json();
+        console.log('[Melhor Envio] Order info for tracking:', JSON.stringify(orderInfo).substring(0, 500));
+        realTrackingCode = orderInfo.tracking || orderInfo.self_tracking || null;
+      }
+    } catch (err) {
+      console.warn('[Melhor Envio] Could not fetch order info for tracking:', err);
+    }
+  }
+  
+  // Use real tracking code if available, otherwise store the order ID (webhook will update later)
+  const trackingCode = realTrackingCode || orderId;
   const serviceName = purchasedOrder.service?.name || `Serviço ${service_id}`;
+  
+  console.log(`[Melhor Envio] Final tracking code: ${trackingCode} (real: ${!!realTrackingCode})`);
 
   // Save label to database
   const labelData = {

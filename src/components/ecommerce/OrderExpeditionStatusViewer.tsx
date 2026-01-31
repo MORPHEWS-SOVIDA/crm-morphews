@@ -282,7 +282,12 @@ export function OrderExpeditionStatusViewer({ saleId, trackingCode, carrier }: O
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => window.open(`https://www.melhorrastreio.com.br/rastreio/${finalTrackingCode}`, '_blank')}
+                  onClick={() => {
+                    // Use /app/correios/ for Correios carriers, otherwise generic /app/rastreio/
+                    const companyName = melhorEnvioLabel?.company_name || correiosLabel?.service_name || '';
+                    const carrier = companyName.toLowerCase().includes('correios') ? 'correios' : 'rastreio';
+                    window.open(`https://www.melhorrastreio.com.br/app/${carrier}/${finalTrackingCode}`, '_blank');
+                  }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>

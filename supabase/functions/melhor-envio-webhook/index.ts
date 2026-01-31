@@ -101,38 +101,94 @@ serve(async (req) => {
 });
 
 async function handleTrackingUpdate(supabase: any, data: any, event: string) {
-  const { tracking_code, status, description } = data;
+  const { tracking_code, status, description, order_id } = data;
   
   if (!tracking_code) {
     console.log('[melhor-envio-webhook] No tracking code in data');
     return;
   }
 
-  console.log(`[melhor-envio-webhook] Updating tracking for ${tracking_code}: ${status}`);
+  console.log(`[melhor-envio-webhook] Updating tracking for ${tracking_code}: ${status} (order_id: ${order_id})`);
 
-  // Get label info including sale_id and organization_id
-  const { data: label, error: labelError } = await supabase
+  // Try to find label by tracking_code first, then by melhor_envio_order_id (UUID)
+  let label: any = null;
+  let labelError: any = null;
+  
+  // First try: exact tracking_code match
+  const result1 = await supabase
     .from('melhor_envio_labels')
-    .select('id, sale_id, organization_id')
+    .select('id, sale_id, organization_id, tracking_code, melhor_envio_order_id')
     .eq('tracking_code', tracking_code)
     .single();
+  
+  if (result1.data) {
+    label = result1.data;
+  } else if (order_id) {
+    // Second try: find by melhor_envio_order_id (the UUID we saved when tracking wasn't available)
+    const result2 = await supabase
+      .from('melhor_envio_labels')
+      .select('id, sale_id, organization_id, tracking_code, melhor_envio_order_id')
+      .eq('melhor_envio_order_id', order_id)
+      .single();
+    
+    if (result2.data) {
+      label = result2.data;
+      console.log(`[melhor-envio-webhook] Found label by order_id: ${order_id}`);
+    } else {
+      labelError = result2.error;
+    }
+  } else {
+    // Third try: the tracking_code we received might be in melhor_envio_order_id field
+    const result3 = await supabase
+      .from('melhor_envio_labels')
+      .select('id, sale_id, organization_id, tracking_code, melhor_envio_order_id')
+      .eq('melhor_envio_order_id', tracking_code)
+      .single();
+    
+    if (result3.data) {
+      label = result3.data;
+      console.log(`[melhor-envio-webhook] Found label by tracking_code as order_id`);
+    } else {
+      labelError = result3.error;
+    }
+  }
 
-  if (labelError || !label) {
+  if (!label) {
     console.log('[melhor-envio-webhook] Label not found:', labelError);
     return;
   }
 
-  // Update label status
+  // Check if we need to update the tracking_code (it was saved as UUID but now we have the real one)
+  const needsTrackingUpdate = label.tracking_code !== tracking_code && 
+    label.tracking_code === label.melhor_envio_order_id;
+
+  // Update label status and optionally the tracking code
+  const updateData: any = {
+    status: status || 'tracking_updated',
+    updated_at: new Date().toISOString(),
+  };
+  
+  if (needsTrackingUpdate) {
+    updateData.tracking_code = tracking_code;
+    console.log(`[melhor-envio-webhook] Updating tracking_code from ${label.tracking_code} to ${tracking_code}`);
+  }
+
   const { error } = await supabase
     .from('melhor_envio_labels')
-    .update({
-      status: status || 'tracking_updated',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('tracking_code', tracking_code);
+    .update(updateData)
+    .eq('id', label.id);
 
   if (error) {
     console.error('[melhor-envio-webhook] Error updating label:', error);
+  }
+
+  // Also update the sale's tracking_code if needed
+  if (needsTrackingUpdate && label.sale_id) {
+    await supabase
+      .from('sales')
+      .update({ tracking_code: tracking_code })
+      .eq('id', label.sale_id);
+    console.log(`[melhor-envio-webhook] Updated sale ${label.sale_id} tracking_code to ${tracking_code}`);
   }
 
   // Map to internal status and trigger notification
@@ -143,47 +199,82 @@ async function handleTrackingUpdate(supabase: any, data: any, event: string) {
 }
 
 async function handlePosted(supabase: any, data: any) {
-  const { tracking_code } = data;
+  const { tracking_code, order_id } = data;
   
   if (!tracking_code) return;
 
-  console.log(`[melhor-envio-webhook] Marking as posted: ${tracking_code}`);
+  console.log(`[melhor-envio-webhook] Marking as posted: ${tracking_code} (order_id: ${order_id})`);
 
-  // Get label info
-  const { data: label, error: labelError } = await supabase
+  // Try to find label by tracking_code or by melhor_envio_order_id
+  let label: any = null;
+  
+  const result1 = await supabase
     .from('melhor_envio_labels')
-    .select('id, sale_id, organization_id, price_cents')
+    .select('id, sale_id, organization_id, price_cents, tracking_code, melhor_envio_order_id')
     .eq('tracking_code', tracking_code)
     .single();
+  
+  if (result1.data) {
+    label = result1.data;
+  } else if (order_id) {
+    const result2 = await supabase
+      .from('melhor_envio_labels')
+      .select('id, sale_id, organization_id, price_cents, tracking_code, melhor_envio_order_id')
+      .eq('melhor_envio_order_id', order_id)
+      .single();
+    if (result2.data) label = result2.data;
+  } else {
+    // Try tracking_code as order_id
+    const result3 = await supabase
+      .from('melhor_envio_labels')
+      .select('id, sale_id, organization_id, price_cents, tracking_code, melhor_envio_order_id')
+      .eq('melhor_envio_order_id', tracking_code)
+      .single();
+    if (result3.data) label = result3.data;
+  }
 
-  if (labelError || !label) {
-    console.log('[melhor-envio-webhook] Label not found:', labelError);
+  if (!label) {
+    console.log('[melhor-envio-webhook] Label not found for posted event');
     return;
   }
 
-  // Update label as posted
+  // Check if we need to update the tracking_code
+  const needsTrackingUpdate = label.tracking_code !== tracking_code && 
+    label.tracking_code === label.melhor_envio_order_id;
+
+  const updateData: any = {
+    status: 'posted',
+    posted_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  
+  if (needsTrackingUpdate) {
+    updateData.tracking_code = tracking_code;
+    console.log(`[melhor-envio-webhook] Posted: Updating tracking_code to ${tracking_code}`);
+  }
+
   const { error } = await supabase
     .from('melhor_envio_labels')
-    .update({
-      status: 'posted',
-      posted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('tracking_code', tracking_code);
+    .update(updateData)
+    .eq('id', label.id);
 
   if (error) {
     console.error('[melhor-envio-webhook] Error updating posted status:', error);
   }
 
-  // Update sale shipping status
+  // Update sale shipping status and tracking_code if needed
   if (label.sale_id) {
+    const saleUpdate: any = {
+      shipping_status: 'shipped',
+      carrier_tracking_status: 'posted',
+      updated_at: new Date().toISOString(),
+    };
+    if (needsTrackingUpdate) {
+      saleUpdate.tracking_code = tracking_code;
+    }
     await supabase
       .from('sales')
-      .update({
-        shipping_status: 'shipped',
-        carrier_tracking_status: 'posted',
-        updated_at: new Date().toISOString(),
-      })
+      .update(saleUpdate)
       .eq('id', label.sale_id);
   }
 
@@ -194,22 +285,61 @@ async function handlePosted(supabase: any, data: any) {
 }
 
 async function handleDelivered(supabase: any, data: any) {
-  const { tracking_code } = data;
+  const { tracking_code, order_id } = data;
   
   if (!tracking_code) return;
 
   console.log(`[melhor-envio-webhook] Marking as delivered: ${tracking_code}`);
 
-  // Update label as delivered
-  const { data: label, error } = await supabase
+  // Try to find label by tracking_code or by melhor_envio_order_id
+  let label: any = null;
+  
+  const result1 = await supabase
     .from('melhor_envio_labels')
-    .update({
-      status: 'delivered',
-      updated_at: new Date().toISOString(),
-    })
+    .select('id, sale_id, organization_id, tracking_code, melhor_envio_order_id')
     .eq('tracking_code', tracking_code)
-    .select('sale_id, organization_id')
     .single();
+  
+  if (result1.data) {
+    label = result1.data;
+  } else if (order_id) {
+    const result2 = await supabase
+      .from('melhor_envio_labels')
+      .select('id, sale_id, organization_id, tracking_code, melhor_envio_order_id')
+      .eq('melhor_envio_order_id', order_id)
+      .single();
+    if (result2.data) label = result2.data;
+  } else {
+    const result3 = await supabase
+      .from('melhor_envio_labels')
+      .select('id, sale_id, organization_id, tracking_code, melhor_envio_order_id')
+      .eq('melhor_envio_order_id', tracking_code)
+      .single();
+    if (result3.data) label = result3.data;
+  }
+
+  if (!label) {
+    console.log('[melhor-envio-webhook] Label not found for delivered event');
+    return;
+  }
+
+  // Check if we need to update the tracking_code
+  const needsTrackingUpdate = label.tracking_code !== tracking_code && 
+    label.tracking_code === label.melhor_envio_order_id;
+
+  const updateData: any = {
+    status: 'delivered',
+    updated_at: new Date().toISOString(),
+  };
+  
+  if (needsTrackingUpdate) {
+    updateData.tracking_code = tracking_code;
+  }
+
+  const { error } = await supabase
+    .from('melhor_envio_labels')
+    .update(updateData)
+    .eq('id', label.id);
 
   if (error) {
     console.error('[melhor-envio-webhook] Error updating delivered status:', error);
@@ -217,14 +347,18 @@ async function handleDelivered(supabase: any, data: any) {
   }
 
   // If linked to a sale, update sale status
-  if (label?.sale_id) {
+  if (label.sale_id) {
+    const saleUpdate: any = {
+      shipping_status: 'delivered',
+      carrier_tracking_status: 'delivered',
+      updated_at: new Date().toISOString(),
+    };
+    if (needsTrackingUpdate) {
+      saleUpdate.tracking_code = tracking_code;
+    }
     await supabase
       .from('sales')
-      .update({
-        shipping_status: 'delivered',
-        carrier_tracking_status: 'delivered',
-        updated_at: new Date().toISOString(),
-      })
+      .update(saleUpdate)
       .eq('id', label.sale_id);
 
     // Trigger notification for 'delivered' status

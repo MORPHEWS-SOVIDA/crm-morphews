@@ -103,7 +103,11 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
           <Button
             size="sm"
             variant="outline"
-            onClick={() => window.open(`https://www.melhorrastreio.com.br/rastreio/${label.tracking_code}`, '_blank')}
+            onClick={() => {
+              // Format: /app/correios/TRACKING_CODE for Correios
+              const carrier = label.company_name?.toLowerCase().includes('correios') ? 'correios' : 'rastreio';
+              window.open(`https://www.melhorrastreio.com.br/app/${carrier}/${label.tracking_code}`, '_blank');
+            }}
           >
             <ExternalLink className="w-4 h-4" />
           </Button>
