@@ -18645,57 +18645,78 @@ export type Database = {
       }
       white_label_configs: {
         Row: {
+          app_domain: string | null
           brand_name: string
+          checkout_domain: string | null
           created_at: string | null
           custom_domain: string | null
+          dashboard_welcome_message: string | null
           email_from_name: string | null
           email_logo_url: string | null
           favicon_url: string | null
           id: string
           implementer_id: string
           is_active: boolean | null
+          login_background_url: string | null
           logo_url: string | null
           primary_color: string | null
+          privacy_url: string | null
           sales_page_slug: string | null
           secondary_color: string | null
           support_email: string | null
+          support_phone: string | null
           support_whatsapp: string | null
+          terms_url: string | null
           updated_at: string | null
         }
         Insert: {
+          app_domain?: string | null
           brand_name: string
+          checkout_domain?: string | null
           created_at?: string | null
           custom_domain?: string | null
+          dashboard_welcome_message?: string | null
           email_from_name?: string | null
           email_logo_url?: string | null
           favicon_url?: string | null
           id?: string
           implementer_id: string
           is_active?: boolean | null
+          login_background_url?: string | null
           logo_url?: string | null
           primary_color?: string | null
+          privacy_url?: string | null
           sales_page_slug?: string | null
           secondary_color?: string | null
           support_email?: string | null
+          support_phone?: string | null
           support_whatsapp?: string | null
+          terms_url?: string | null
           updated_at?: string | null
         }
         Update: {
+          app_domain?: string | null
           brand_name?: string
+          checkout_domain?: string | null
           created_at?: string | null
           custom_domain?: string | null
+          dashboard_welcome_message?: string | null
           email_from_name?: string | null
           email_logo_url?: string | null
           favicon_url?: string | null
           id?: string
           implementer_id?: string
           is_active?: boolean | null
+          login_background_url?: string | null
           logo_url?: string | null
           primary_color?: string | null
+          privacy_url?: string | null
           sales_page_slug?: string | null
           secondary_color?: string | null
           support_email?: string | null
+          support_phone?: string | null
           support_whatsapp?: string | null
+          terms_url?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -18704,6 +18725,165 @@ export type Database = {
             columns: ["implementer_id"]
             isOneToOne: true
             referencedRelation: "implementers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      white_label_customers: {
+        Row: {
+          activated_at: string | null
+          cancelled_at: string | null
+          contracted_price_cents: number | null
+          created_at: string | null
+          id: string
+          organization_id: string
+          setup_fee_paid_cents: number | null
+          status: string | null
+          trial_ends_at: string | null
+          white_label_config_id: string
+          white_label_plan_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          cancelled_at?: string | null
+          contracted_price_cents?: number | null
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          setup_fee_paid_cents?: number | null
+          status?: string | null
+          trial_ends_at?: string | null
+          white_label_config_id: string
+          white_label_plan_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          cancelled_at?: string | null
+          contracted_price_cents?: number | null
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          setup_fee_paid_cents?: number | null
+          status?: string | null
+          trial_ends_at?: string | null
+          white_label_config_id?: string
+          white_label_plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "white_label_customers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "white_label_customers_white_label_config_id_fkey"
+            columns: ["white_label_config_id"]
+            isOneToOne: false
+            referencedRelation: "white_label_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "white_label_customers_white_label_plan_id_fkey"
+            columns: ["white_label_plan_id"]
+            isOneToOne: false
+            referencedRelation: "white_label_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      white_label_plans: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          has_ai_bots: boolean | null
+          has_ecommerce: boolean | null
+          has_email_marketing: boolean | null
+          has_erp: boolean | null
+          has_nfe: boolean | null
+          has_tracking: boolean | null
+          has_whatsapp: boolean | null
+          id: string
+          is_active: boolean | null
+          is_public: boolean | null
+          max_ecommerce_products: number | null
+          max_energy_per_month: number | null
+          max_leads: number | null
+          max_storefronts: number | null
+          max_users: number | null
+          max_whatsapp_instances: number | null
+          name: string
+          platform_cost_cents: number | null
+          platform_percentage: number | null
+          price_cents: number
+          setup_fee_cents: number | null
+          slug: string
+          updated_at: string | null
+          white_label_config_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          has_ai_bots?: boolean | null
+          has_ecommerce?: boolean | null
+          has_email_marketing?: boolean | null
+          has_erp?: boolean | null
+          has_nfe?: boolean | null
+          has_tracking?: boolean | null
+          has_whatsapp?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          is_public?: boolean | null
+          max_ecommerce_products?: number | null
+          max_energy_per_month?: number | null
+          max_leads?: number | null
+          max_storefronts?: number | null
+          max_users?: number | null
+          max_whatsapp_instances?: number | null
+          name: string
+          platform_cost_cents?: number | null
+          platform_percentage?: number | null
+          price_cents?: number
+          setup_fee_cents?: number | null
+          slug: string
+          updated_at?: string | null
+          white_label_config_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          has_ai_bots?: boolean | null
+          has_ecommerce?: boolean | null
+          has_email_marketing?: boolean | null
+          has_erp?: boolean | null
+          has_nfe?: boolean | null
+          has_tracking?: boolean | null
+          has_whatsapp?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          is_public?: boolean | null
+          max_ecommerce_products?: number | null
+          max_energy_per_month?: number | null
+          max_leads?: number | null
+          max_storefronts?: number | null
+          max_users?: number | null
+          max_whatsapp_instances?: number | null
+          name?: string
+          platform_cost_cents?: number | null
+          platform_percentage?: number | null
+          price_cents?: number
+          setup_fee_cents?: number | null
+          slug?: string
+          updated_at?: string | null
+          white_label_config_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "white_label_plans_white_label_config_id_fkey"
+            columns: ["white_label_config_id"]
+            isOneToOne: false
+            referencedRelation: "white_label_configs"
             referencedColumns: ["id"]
           },
         ]
@@ -19364,6 +19544,7 @@ export type Database = {
         Args: { p_organization_id: string }
         Returns: Json
       }
+      get_my_white_label_config: { Args: never; Returns: string }
       get_next_available_user_for_distribution: {
         Args: { p_instance_id: string; p_organization_id: string }
         Returns: string
@@ -19551,6 +19732,7 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      is_white_label_owner: { Args: { _user_id: string }; Returns: boolean }
       join_affiliate_network: {
         Args: { p_email: string; p_invite_code: string; p_name: string }
         Returns: Json

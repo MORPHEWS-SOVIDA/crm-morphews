@@ -138,6 +138,12 @@ export default function ImplementerDashboard() {
             <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
+            {implementer?.is_white_label && (
+              <Button variant="default" size="sm" onClick={() => navigate('/white-admin')} className="bg-purple-600 hover:bg-purple-700">
+                <Sparkles className="h-4 w-4 mr-2" />
+                White Admin
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => navigate('/')}>
               <Settings className="h-4 w-4 mr-2" />
               Sistema
