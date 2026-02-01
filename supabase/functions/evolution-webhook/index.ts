@@ -69,10 +69,10 @@ function extractNPSRatingDirect(text: string): number | null {
 // AI-POWERED NPS CLASSIFICATION (usando Groq API)
 // ============================================================================
 
-async function classifyNPSWithAI(text: string): Promise<{ rating: number | null; confidence: string }> {
+async function classifyNPSWithAI(text: string): Promise<{ rating: number | null; confidence: string; reasoning: string | null }> {
   if (!GROQ_API_KEY) {
     console.log("⚠️ GROQ_API_KEY not configured, skipping AI classification");
-    return { rating: null, confidence: "none" };
+    return { rating: null, confidence: "none", reasoning: null };
   }
 
   try {
@@ -91,7 +91,7 @@ IMPORTANTE: Responda APENAS em JSON válido, sem markdown.
 Resposta do cliente: "${text.substring(0, 500)}"
 
 Responda no formato JSON:
-{"rating": <numero_0_a_10_ou_null>, "confidence": "<alta|media|baixa>", "reason": "<breve explicação>"}`;
+{"rating": <numero_0_a_10_ou_null>, "confidence": "<alta|media|baixa>", "reason": "<breve explicação da classificação>"}`;
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -110,7 +110,7 @@ Responda no formato JSON:
     if (!response.ok) {
       const errorText = await response.text();
       console.error("❌ Groq API error:", response.status, errorText);
-      return { rating: null, confidence: "error" };
+      return { rating: null, confidence: "error", reasoning: null };
     }
 
     const data = await response.json();
@@ -125,44 +125,49 @@ Responda no formato JSON:
         const parsed = JSON.parse(jsonMatch[0]);
         const rating = parsed.rating;
         const confidence = parsed.confidence || "media";
+        const reasoning = parsed.reason || null;
         
         // Validar que rating está entre 0 e 10 ou é null
         if (rating === null || (typeof rating === "number" && rating >= 0 && rating <= 10)) {
-          console.log(`🤖 AI classified NPS: ${rating} (confidence: ${confidence}, reason: ${parsed.reason})`);
-          return { rating, confidence };
+          console.log(`🤖 AI classified NPS: ${rating} (confidence: ${confidence}, reason: ${reasoning})`);
+          return { rating, confidence, reasoning };
         }
       } catch (e) {
         console.error("❌ Failed to parse AI JSON response:", e);
       }
     }
 
-    return { rating: null, confidence: "error" };
+    return { rating: null, confidence: "error", reasoning: null };
   } catch (error) {
     console.error("❌ Error calling Groq API for NPS classification:", error);
-    return { rating: null, confidence: "error" };
+    return { rating: null, confidence: "error", reasoning: null };
   }
 }
 
 // Função principal que combina extração direta + IA
-async function extractNPSRating(text: string): Promise<{ rating: number | null; source: "regex" | "ai" | "none" }> {
+async function extractNPSRating(text: string): Promise<{ 
+  rating: number | null; 
+  source: "regex" | "ai" | "none";
+  reasoning: string | null;
+}> {
   // Primeiro tenta extração direta (rápido)
   const directRating = extractNPSRatingDirect(text);
   if (directRating !== null) {
-    return { rating: directRating, source: "regex" };
+    return { rating: directRating, source: "regex", reasoning: `Número ${directRating} identificado diretamente na mensagem` };
   }
 
   // Se não encontrou número direto e o texto é muito curto, pode ser lixo
   if (text.trim().length < 3) {
-    return { rating: null, source: "none" };
+    return { rating: null, source: "none", reasoning: null };
   }
 
   // Usa IA para classificar respostas textuais
   const aiResult = await classifyNPSWithAI(text);
   if (aiResult.rating !== null && aiResult.confidence !== "error") {
-    return { rating: aiResult.rating, source: "ai" };
+    return { rating: aiResult.rating, source: "ai", reasoning: aiResult.reasoning };
   }
 
-  return { rating: null, source: "none" };
+  return { rating: null, source: "none", reasoning: null };
 }
 
 // Normaliza telefone brasileiro para SEMPRE ter 55 + DD + 9 + 8 dígitos (para celular)
@@ -1002,8 +1007,9 @@ serve(async (req) => {
           const npsResult = await extractNPSRating(messageContent);
           const extractedRating = npsResult.rating;
           const ratingSource = npsResult.source;
+          const ratingReasoning = npsResult.reasoning;
           
-          console.log(`📊 NPS Response detected! Rating: ${extractedRating} (source: ${ratingSource}) Response: ${messageContent.substring(0, 50)}`);
+          console.log(`📊 NPS Response detected! Rating: ${extractedRating} (source: ${ratingSource}, reasoning: ${ratingReasoning}) Response: ${messageContent.substring(0, 50)}`);
           
           if (extractedRating !== null || ratingSource !== "none" || messageContent.length < 100) {
             // É uma resposta NPS válida - processar automaticamente
@@ -1023,10 +1029,13 @@ serve(async (req) => {
                 .from("conversation_satisfaction_ratings")
                 .update({
                   rating: extractedRating,
+                  ai_original_rating: extractedRating, // Preservar nota original para histórico
                   raw_response: messageContent,
                   is_pending_review: extractedRating !== null && extractedRating <= 6, // Detratores precisam revisão
                   responded_at: new Date().toISOString(),
                   auto_classified: ratingSource === "ai", // Marca como classificado por IA
+                  classification_source: ratingSource, // 'regex', 'ai' ou 'none'
+                  classification_reasoning: ratingReasoning, // Explicação da IA
                 })
                 .eq("id", existingRating.id);
               
@@ -1040,10 +1049,13 @@ serve(async (req) => {
                 assigned_user_id: conversation.assigned_user_id,
                 lead_id: conversation.lead_id,
                 rating: extractedRating,
+                ai_original_rating: extractedRating, // Preservar nota original
                 raw_response: messageContent,
                 is_pending_review: extractedRating !== null && extractedRating <= 6,
                 responded_at: new Date().toISOString(),
                 auto_classified: ratingSource === "ai",
+                classification_source: ratingSource,
+                classification_reasoning: ratingReasoning,
               });
               console.log(`📊 Created new NPS rating record with rating: ${extractedRating} (source: ${ratingSource})`);
             }

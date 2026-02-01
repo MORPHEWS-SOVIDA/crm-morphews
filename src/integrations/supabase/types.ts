@@ -1698,11 +1698,15 @@ export type Database = {
       }
       conversation_satisfaction_ratings: {
         Row: {
+          ai_original_rating: number | null
           assigned_user_id: string | null
           auto_classified: boolean | null
+          classification_reasoning: string | null
+          classification_source: string | null
           closed_at: string
           conversation_id: string
           created_at: string
+          final_rating: number | null
           id: string
           instance_id: string
           is_pending_review: boolean | null
@@ -1712,15 +1716,23 @@ export type Database = {
           raw_response: string | null
           responded_at: string | null
           review_notes: string | null
+          review_request_reason: string | null
+          review_requested: boolean | null
+          review_requested_at: string | null
+          review_requested_by: string | null
           reviewed_at: string | null
           reviewed_by: string | null
         }
         Insert: {
+          ai_original_rating?: number | null
           assigned_user_id?: string | null
           auto_classified?: boolean | null
+          classification_reasoning?: string | null
+          classification_source?: string | null
           closed_at?: string
           conversation_id: string
           created_at?: string
+          final_rating?: number | null
           id?: string
           instance_id: string
           is_pending_review?: boolean | null
@@ -1730,15 +1742,23 @@ export type Database = {
           raw_response?: string | null
           responded_at?: string | null
           review_notes?: string | null
+          review_request_reason?: string | null
+          review_requested?: boolean | null
+          review_requested_at?: string | null
+          review_requested_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
         }
         Update: {
+          ai_original_rating?: number | null
           assigned_user_id?: string | null
           auto_classified?: boolean | null
+          classification_reasoning?: string | null
+          classification_source?: string | null
           closed_at?: string
           conversation_id?: string
           created_at?: string
+          final_rating?: number | null
           id?: string
           instance_id?: string
           is_pending_review?: boolean | null
@@ -1748,6 +1768,10 @@ export type Database = {
           raw_response?: string | null
           responded_at?: string | null
           review_notes?: string | null
+          review_request_reason?: string | null
+          review_requested?: boolean | null
+          review_requested_at?: string | null
+          review_requested_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
         }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgAdmin } from "@/hooks/useOrgAdmin";
 import { Layout } from "@/components/layout/Layout";
 import { 
   Star, 
@@ -14,7 +15,9 @@ import {
   ArrowLeft,
   Filter,
   Calendar,
-  CheckCircle
+  CheckCircle,
+  Bot,
+  Hash
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -41,6 +50,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { NPSReviewPanel } from "@/components/whatsapp/NPSReviewPanel";
 
 interface NPSMetrics {
   total_responses: number;
@@ -62,13 +72,19 @@ interface SatisfactionRating {
   id: string;
   conversation_id: string;
   rating: number | null;
+  ai_original_rating: number | null;
+  final_rating: number | null;
   raw_response: string | null;
+  classification_source: string | null;
+  classification_reasoning: string | null;
   closed_at: string;
   responded_at: string | null;
   lead_id: string | null;
   assigned_user_id: string | null;
   instance_id: string;
   is_pending_review: boolean | null;
+  review_requested: boolean | null;
+  review_request_reason: string | null;
   review_notes: string | null;
   reviewed_at: string | null;
   leads?: { name: string; whatsapp_number: string | null } | null;
@@ -78,6 +94,7 @@ interface SatisfactionRating {
 
 export default function WhatsAppNPS() {
   const { profile } = useAuth();
+  const { data: isOrgAdmin } = useOrgAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
@@ -86,6 +103,7 @@ export default function WhatsAppNPS() {
   const [ratingFilter, setRatingFilter] = useState<string>("all");
   const [selectedReview, setSelectedReview] = useState<SatisfactionRating | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [manualRating, setManualRating] = useState<string>("");
 
   // Buscar métricas NPS da organização
   const { data: metrics, isLoading: metricsLoading } = useQuery({
@@ -136,13 +154,19 @@ export default function WhatsAppNPS() {
           id,
           conversation_id,
           rating,
+          ai_original_rating,
+          final_rating,
           raw_response,
+          classification_source,
+          classification_reasoning,
           closed_at,
           responded_at,
           lead_id,
           assigned_user_id,
           instance_id,
           is_pending_review,
+          review_requested,
+          review_request_reason,
           review_notes,
           reviewed_at,
           leads(name, whatsapp_number),
@@ -175,30 +199,59 @@ export default function WhatsAppNPS() {
     enabled: !!profile?.organization_id,
   });
 
-  // Mutation para marcar como revisado
+  // Mutation para marcar como revisado (com opção de alterar nota)
   const markAsReviewed = useMutation({
-    mutationFn: async ({ ratingId, notes }: { ratingId: string; notes: string }) => {
-      const { error } = await supabase
-        .from("conversation_satisfaction_ratings")
-        .update({
-          is_pending_review: false,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: profile?.user_id,
-          review_notes: notes || null
-        })
-        .eq("id", ratingId);
-      
-      if (error) throw error;
+    mutationFn: async ({ ratingId, notes, newRating }: { ratingId: string; notes: string; newRating?: number }) => {
+      // Se vai alterar a nota, buscar nota original primeiro
+      if (newRating !== undefined) {
+        const { data: current } = await supabase
+          .from("conversation_satisfaction_ratings")
+          .select("rating, ai_original_rating")
+          .eq("id", ratingId)
+          .single();
+        
+        const { error } = await supabase
+          .from("conversation_satisfaction_ratings")
+          .update({
+            rating: newRating,
+            final_rating: newRating,
+            ai_original_rating: current?.ai_original_rating ?? current?.rating,
+            is_pending_review: false,
+            review_requested: false,
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: profile?.user_id,
+            review_notes: notes || null,
+            classification_source: "manual",
+          })
+          .eq("id", ratingId);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("conversation_satisfaction_ratings")
+          .update({
+            is_pending_review: false,
+            review_requested: false,
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: profile?.user_id,
+            review_notes: notes || null
+          })
+          .eq("id", ratingId);
+        
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Avaliação marcada como revisada");
+      toast.success("Avaliação revisada com sucesso");
       setSelectedReview(null);
       setReviewNotes("");
+      setManualRating("");
       queryClient.invalidateQueries({ queryKey: ["satisfaction-ratings-full"] });
       queryClient.invalidateQueries({ queryKey: ["org-nps-metrics-full"] });
+      queryClient.invalidateQueries({ queryKey: ["nps-review-requests"] });
     },
     onError: () => {
-      toast.error("Erro ao marcar como revisado");
+      toast.error("Erro ao revisar avaliação");
     }
   });
 
@@ -334,6 +387,9 @@ export default function WhatsAppNPS() {
           </Card>
         )}
 
+        {/* Painel de Revisões Pendentes (apenas para admins/gerentes) */}
+        {isOrgAdmin && <NPSReviewPanel className="mb-4" />}
+
         {/* Ranking por vendedor */}
         {metrics?.by_user && metrics.by_user.length > 0 && (
           <Card className="p-4">
@@ -443,6 +499,33 @@ export default function WhatsAppNPS() {
                             {rating.rating !== null ? rating.rating : "–"}
                           </Badge>
                           
+                          {/* Indicador de fonte da classificação */}
+                          {rating.classification_source && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                                    {rating.classification_source === "ai" ? (
+                                      <Bot className="h-3 w-3" />
+                                    ) : rating.classification_source === "regex" ? (
+                                      <Hash className="h-3 w-3" />
+                                    ) : null}
+                                    <span>{rating.classification_source === "ai" ? "IA" : rating.classification_source === "regex" ? "Auto" : "Manual"}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-sm">
+                                  <p className="font-medium">
+                                    {rating.classification_source === "ai" ? "Classificado por IA" : 
+                                     rating.classification_source === "regex" ? "Número detectado automaticamente" : "Classificação manual"}
+                                  </p>
+                                  {rating.classification_reasoning && (
+                                    <p className="text-xs mt-1">{rating.classification_reasoning}</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          
                           <div>
                             <p className="font-medium">
                               {rating.leads?.name || rating.leads?.whatsapp_number || "Cliente desconhecido"}
@@ -466,17 +549,37 @@ export default function WhatsAppNPS() {
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          {rating.is_pending_review && (
+                          {rating.review_requested && (
+                            <Badge variant="outline" className="text-orange-600 border-orange-300">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Revisão solicitada
+                            </Badge>
+                          )}
+                          {rating.is_pending_review && !rating.review_requested && (
                             <Badge variant="outline" className="text-red-600 border-red-300">
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               Revisar
                             </Badge>
                           )}
-                          {rating.reviewed_at && (
+                          {rating.reviewed_at && !rating.review_requested && (
                             <Badge variant="outline" className="text-green-600 border-green-300">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Revisado
                             </Badge>
+                          )}
+                          {rating.ai_original_rating !== null && rating.ai_original_rating !== rating.rating && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <span className="text-xs text-muted-foreground line-through">
+                                    ({rating.ai_original_rating})
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Nota original da IA: {rating.ai_original_rating}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                           <Button 
                             variant="ghost" 
@@ -494,6 +597,13 @@ export default function WhatsAppNPS() {
                       {rating.raw_response && (
                         <p className="text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
                           "{rating.raw_response}"
+                        </p>
+                      )}
+                      
+                      {rating.classification_reasoning && rating.classification_source === "ai" && (
+                        <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                          <Bot className="h-3 w-3" />
+                          {rating.classification_reasoning}
                         </p>
                       )}
                     </div>
@@ -521,21 +631,66 @@ export default function WhatsAppNPS() {
             {selectedReview && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Badge 
-                    variant={getRatingBadgeVariant(selectedReview.rating) as any}
-                    className={cn("text-lg font-bold px-3 py-1", getRatingColor(selectedReview.rating))}
-                  >
-                    Nota: {selectedReview.rating !== null ? selectedReview.rating : "Sem nota"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={getRatingBadgeVariant(selectedReview.rating) as any}
+                      className={cn("text-lg font-bold px-3 py-1", getRatingColor(selectedReview.rating))}
+                    >
+                      Nota: {selectedReview.rating !== null ? selectedReview.rating : "Sem nota"}
+                    </Badge>
+                    {selectedReview.classification_source && (
+                      <Badge variant="outline" className="text-xs">
+                        {selectedReview.classification_source === "ai" ? (
+                          <><Bot className="h-3 w-3 mr-1" /> IA</>
+                        ) : selectedReview.classification_source === "regex" ? (
+                          <><Hash className="h-3 w-3 mr-1" /> Auto</>
+                        ) : "Manual"}
+                      </Badge>
+                    )}
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     {format(new Date(selectedReview.closed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                   </span>
                 </div>
 
+                {/* Justificativa da IA */}
+                {selectedReview.classification_reasoning && selectedReview.classification_source === "ai" && (
+                  <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-900/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Bot className="h-4 w-4 text-blue-600" />
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                        Justificativa da IA:
+                      </p>
+                    </div>
+                    <p className="text-sm">{selectedReview.classification_reasoning}</p>
+                  </div>
+                )}
+
+                {/* Nota original se foi alterada */}
+                {selectedReview.ai_original_rating !== null && 
+                 selectedReview.ai_original_rating !== selectedReview.rating && (
+                  <div className="text-sm text-muted-foreground">
+                    Nota original: <span className="line-through">{selectedReview.ai_original_rating}</span> → {selectedReview.rating}
+                  </div>
+                )}
+
                 {selectedReview.raw_response && (
                   <div className="bg-muted/50 p-3 rounded-lg">
                     <p className="text-sm font-medium mb-1">Resposta do cliente:</p>
                     <p>"{selectedReview.raw_response}"</p>
+                  </div>
+                )}
+
+                {/* Motivo da solicitação de revisão */}
+                {selectedReview.review_requested && selectedReview.review_request_reason && (
+                  <div className="bg-orange-50 dark:bg-orange-950/20 p-3 rounded-lg border border-orange-200 dark:border-orange-900/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      <p className="text-sm font-medium text-orange-700 dark:text-orange-400">
+                        Motivo da solicitação de revisão:
+                      </p>
+                    </div>
+                    <p className="text-sm">{selectedReview.review_request_reason}</p>
                   </div>
                 )}
 
@@ -568,6 +723,26 @@ export default function WhatsAppNPS() {
                   )}
                 </div>
 
+                {/* Alterar nota manualmente (apenas para admins) */}
+                {isOrgAdmin && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Alterar nota manualmente:</p>
+                    <Select value={manualRating} onValueChange={setManualRating}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Manter nota atual" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Manter nota atual</SelectItem>
+                        {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map(n => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n} - {n >= 9 ? "Promotor" : n >= 7 ? "Neutro" : "Detrator"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Notas de revisão:</p>
                   <Textarea
@@ -590,12 +765,13 @@ export default function WhatsAppNPS() {
                     className="flex-1"
                     onClick={() => markAsReviewed.mutate({ 
                       ratingId: selectedReview.id, 
-                      notes: reviewNotes 
+                      notes: reviewNotes,
+                      newRating: manualRating ? parseInt(manualRating) : undefined
                     })}
                     disabled={markAsReviewed.isPending}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Marcar como Revisado
+                    {manualRating ? `Salvar (Nota: ${manualRating})` : "Marcar como Revisado"}
                   </Button>
                 </div>
               </div>
