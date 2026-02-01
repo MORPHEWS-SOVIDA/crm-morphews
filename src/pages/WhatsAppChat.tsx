@@ -34,6 +34,7 @@ import {
   Info,
   Mail,
   Copy,
+  Trash2,
 } from 'lucide-react';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useUsers } from '@/hooks/useUsers';
@@ -1310,6 +1311,25 @@ export default function WhatsAppChat() {
             {/* Botões de ação (atender/encerrar) */}
             {(selectedConversation.status === 'pending' || selectedConversation.status === 'autodistributed' || selectedConversation.status === 'with_bot') && (
               <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 max-w-[120px] border-gray-300 text-gray-600"
+                  onClick={() => {
+                    if (selectedConversation) {
+                      closeConversationWithoutNPS.mutateAsync({ conversationId: selectedConversation.id });
+                      setConversations(prev => prev.map(c => 
+                        c.id === selectedConversation.id ? { ...c, status: 'closed' } : c
+                      ));
+                      setSelectedConversation(null);
+                    }
+                  }}
+                  disabled={closeConversationWithoutNPS.isPending}
+                  title="Descarta a conversa sem atender e sem enviar NPS"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Descartar
+                </Button>
                 <Button
                   size="sm"
                   className={cn(
