@@ -1,67 +1,204 @@
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { 
-  CheckCircle, 
-  Sparkles, 
-  MessageCircle, 
-  BarChart3, 
-  Bot, 
-  Zap,
-  ArrowRight,
-  Shield,
-  Clock,
-  Users
+  Check, Zap, Crown, Rocket, Loader2, Star, Phone, ArrowRight, MessageCircle, 
+  Sparkles, Shield, Clock, Mic, Bot, ChevronRight, Users, 
+  Target, Calendar, BarChart3, TrendingUp, CheckCircle2, Headphones, 
+  FileText, Settings, Webhook, Bell, Brain, Kanban, ClipboardCheck, 
+  UserCheck, MessageSquare, Volume2, Eye, Globe, Cpu, Layers, Lock,
+  ChevronDown, Menu, X, Heart, Flame, Award, Gauge, MousePointer,
+  Workflow, ListTodo, HeartHandshake, AlertCircle, HelpCircle, DollarSign,
+  Timer, Repeat, AudioLines, ImageIcon, Share2, Link2, Package,
+  Building2, GraduationCap, ShoppingCart, Wrench, TrendingDown, Percent,
+  ThumbsUp, ThumbsDown, Smile, Frown, Meh, Mail, Store, LayoutTemplate,
+  RefreshCw, Puzzle, Receipt, Truck, Route, Network, Megaphone, Video
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useWhiteLabelBySlug } from '@/hooks/useWhiteLabel';
+import { useWhiteLabelPlansByConfigId, WhiteLabelPlan } from '@/hooks/useWhiteLabelPlans';
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import donnaAvatar from "@/assets/donna-avatar.png";
 
-const features = [
-  {
-    icon: MessageCircle,
-    title: 'WhatsApp Integrado',
-    description: 'Conecte múltiplos números e gerencie todas as conversas em um só lugar.',
-  },
-  {
-    icon: Bot,
-    title: 'IA de Vendas',
-    description: 'Robôs inteligentes que qualificam leads e agendam reuniões automaticamente.',
-  },
-  {
-    icon: BarChart3,
-    title: 'CRM Visual',
-    description: 'Funil de vendas drag-and-drop para acompanhar cada oportunidade.',
-  },
-  {
-    icon: Zap,
-    title: 'Automações',
-    description: 'Dispare mensagens, e-mails e tarefas de forma automática.',
-  },
-];
+// Animated counter component
+const AnimatedCounter = ({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) => {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true });
 
-const benefits = [
-  'Aumente suas vendas em até 3x',
-  'Reduza o tempo de resposta para segundos',
-  'Centralize todos os canais de atendimento',
-  'Relatórios detalhados em tempo real',
-  'Suporte técnico especializado',
-  'Atualizações constantes',
+  useEffect(() => {
+    if (!isInView) return;
+    let startTime: number;
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1);
+      setCount(Math.floor(progress * end));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [isInView, end, duration]);
+
+  return <span ref={ref}>{count.toLocaleString("pt-BR")}{suffix}</span>;
+};
+
+// Floating elements animation
+const FloatingElement = ({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) => (
+  <motion.div
+    initial={{ y: 0 }}
+    animate={{ y: [-10, 10, -10] }}
+    transition={{ duration: 4, repeat: Infinity, delay, ease: "easeInOut" }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
+
+// Gradient text component - dynamic color
+const GradientText = ({ children, className = "", primaryColor = "#8B5CF6" }: { children: React.ReactNode; className?: string; primaryColor?: string }) => (
+  <span 
+    className={cn("bg-clip-text text-transparent", className)}
+    style={{ backgroundImage: `linear-gradient(to right, ${primaryColor}, #a855f7, #ec4899)` }}
+  >
+    {children}
+  </span>
+);
+
+// Sales funnel visualization component
+const SalesFunnel = ({ primaryColor }: { primaryColor: string }) => {
+  const stages = [
+    { label: "Prospectando", count: 45, color: "bg-orange-500", width: "100%" },
+    { label: "Contatado", count: 38, color: "bg-orange-400", width: "85%" },
+    { label: "Convencendo", count: 28, color: "bg-yellow-500", width: "70%" },
+    { label: "Reunião Agendada", count: 18, color: "bg-blue-500", width: "55%" },
+    { label: "Positivo", count: 12, color: "bg-green-500", width: "40%" },
+    { label: "Aguardando Pgto", count: 8, color: "bg-green-400", width: "30%" },
+    { label: "SUCESSO! 🎉", count: 5, color: "bg-green-600", width: "20%" },
+  ];
+
+  return (
+    <div className="bg-card rounded-2xl border p-6 shadow-xl">
+      <h3 className="text-lg font-semibold text-center mb-2">Funil de Vendas Visual</h3>
+      <Badge variant="outline" className="mx-auto block w-fit mb-6 border-orange-300 text-orange-600 bg-orange-50">
+        ↺ Não classificado (3)
+      </Badge>
+      <div className="space-y-3">
+        {stages.map((stage, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.1 }}
+            className="flex items-center gap-3"
+          >
+            <div
+              className={cn("h-10 rounded-lg flex items-center justify-between px-4 text-white font-medium text-sm", stage.color)}
+              style={{ width: stage.width }}
+            >
+              <span>{stage.label}</span>
+              <span className="bg-white/20 px-2 py-0.5 rounded">{stage.count}</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <Badge variant="outline" className="border-red-300 text-red-600 bg-red-50">
+          🗑️ Sem interesse (2)
+        </Badge>
+      </div>
+    </div>
+  );
+};
+
+// Testimonial card
+const TestimonialCard = ({ name, role, company, quote, avatar, primaryColor }: { name: string; role: string; company: string; quote: string; avatar: string; primaryColor: string }) => (
+  <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-card to-muted/50">
+    <CardContent className="pt-6">
+      <div className="flex gap-1 mb-4">
+        {[...Array(5)].map((_, i) => (
+          <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+        ))}
+      </div>
+      <p className="text-lg mb-6 italic">"{quote}"</p>
+      <div className="flex items-center gap-3">
+        <div 
+          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
+          style={{ background: `linear-gradient(135deg, ${primaryColor}, #9333ea)` }}
+        >
+          {avatar}
+        </div>
+        <div>
+          <p className="font-semibold">{name}</p>
+          <p className="text-sm text-muted-foreground">{role}{company ? ` • ${company}` : ''}</p>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Feature anchor items for the hero
+const featureAnchors = [
+  { id: "donna", label: "Atualização do CRM por conversa no WhatsApp com sua secretária DONNA", icon: MessageCircle },
+  { id: "crm", label: "CRM com funil de vendas", icon: TrendingDown },
+  { id: "erp", label: "ERP com NF-e e etiquetas automáticas", icon: Receipt },
+  { id: "demandas", label: "Sistema de demandas", icon: ListTodo },
+  { id: "sac", label: "Sistema de SAC", icon: Headphones },
+  { id: "pos-venda", label: "Pós venda automático", icon: HeartHandshake },
+  { id: "robos", label: "Crie seu time de robôs de IA", icon: Bot },
+  { id: "audio", label: "Até mesmo que gravam áudios", icon: Mic },
+  { id: "equipe", label: "E que trabalham em equipe", icon: Network },
+  { id: "escolha-ia", label: "Escolha a IA que combina com você", icon: Cpu },
+  { id: "nps", label: "Sistema de NPS no WhatsApp", icon: ThumbsUp },
+  { id: "assistente", label: "Tudo com uma assistente virtual", icon: Heart },
+  { id: "integracoes", label: "Conecte tudo", icon: Webhook },
+  { id: "ecommerce", label: "E-commerce ou landing page feito por IA", icon: Store },
+  { id: "quiz", label: "Quiz de qualificação integrado com CRM", icon: Puzzle },
+  { id: "tracker", label: "Tracker Facebook, Google", icon: Target },
+  { id: "email-marketing", label: "Email Marketing inteligente", icon: Mail },
+  { id: "whatsapp-marketing", label: "WhatsApp Marketing", icon: Megaphone },
+  { id: "whatsapp-multi", label: "WhatsApp multi agente e multi instância", icon: Users },
+  { id: "tipos-robos", label: "Com dezenas de tipos de robôs", icon: Settings },
 ];
 
 export default function WhiteLabelSalesPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
   const { data: config, isLoading, error } = useWhiteLabelBySlug(slug);
+  const { data: plans, isLoading: plansLoading } = useWhiteLabelPlansByConfigId(config?.id);
+  
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<WhiteLabelPlan | null>(null);
+  const [leadForm, setLeadForm] = useState({ name: "", whatsapp: "", email: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(true);
 
-  if (isLoading) {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="space-y-4 text-center">
-          <Skeleton className="h-12 w-48 mx-auto" />
-          <Skeleton className="h-6 w-64 mx-auto" />
+          <Loader2 className="h-12 w-12 animate-spin mx-auto" />
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     );
@@ -87,8 +224,94 @@ export default function WhiteLabelSalesPage() {
 
   const primaryColor = config.primary_color || '#8B5CF6';
   const whatsappLink = config.support_whatsapp 
-    ? `https://wa.me/${config.support_whatsapp.replace(/\D/g, '')}`
+    ? `https://wa.me/${config.support_whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Vim do site e quero saber mais sobre ${config.brand_name}`)}`
     : null;
+
+  const formatPrice = (cents: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(cents / 100);
+  };
+
+  const getAnnualPrice = (monthlyCents: number) => {
+    const annualDiscount = 0.40;
+    const discountedMonthly = monthlyCents * (1 - annualDiscount);
+    return Math.round(discountedMonthly);
+  };
+
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    setMobileMenuOpen(false);
+  };
+
+  const handleSelectPlan = (plan: WhiteLabelPlan) => {
+    setSelectedPlan(plan);
+    setShowLeadModal(true);
+  };
+
+  const handleLeadSubmit = async () => {
+    if (!leadForm.name.trim() || !leadForm.whatsapp.trim() || !leadForm.email.trim()) {
+      toast({
+        title: "Preencha todos os campos",
+        description: "Nome, WhatsApp e E-mail são necessários para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await supabase.from("interested_leads").insert({
+        name: leadForm.name.trim(),
+        whatsapp: leadForm.whatsapp.trim(),
+        email: leadForm.email.trim(),
+        plan_id: selectedPlan?.id,
+        plan_name: selectedPlan?.name,
+        status: "checkout_started",
+      });
+
+      // Redirect to WhatsApp with plan info
+      if (whatsappLink) {
+        const planInfo = selectedPlan ? ` Tenho interesse no plano ${selectedPlan.name}.` : '';
+        const url = `https://wa.me/${config.support_whatsapp?.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Meu nome é ${leadForm.name}, meu email é ${leadForm.email}.${planInfo} Gostaria de saber mais!`)}`;
+        window.open(url, '_blank');
+      }
+
+      toast({
+        title: "Dados enviados com sucesso! 🎉",
+        description: "Em breve entraremos em contato.",
+      });
+      
+      setShowLeadModal(false);
+      setLeadForm({ name: "", whatsapp: "", email: "" });
+    } catch (error: any) {
+      console.error("Error submitting lead:", error);
+      toast({
+        title: "Erro ao processar",
+        description: error.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getPlanFeatures = (plan: WhiteLabelPlan) => {
+    const features: string[] = [];
+    features.push(`${plan.max_users} usuário${plan.max_users > 1 ? 's' : ''}`);
+    if (plan.max_whatsapp_instances) features.push(`${plan.max_whatsapp_instances} instância${plan.max_whatsapp_instances > 1 ? 's' : ''} WhatsApp`);
+    if (plan.has_ai_bots) features.push("Robôs de IA");
+    if (plan.has_whatsapp) features.push("WhatsApp integrado");
+    if (plan.has_ecommerce) features.push("E-commerce");
+    if (plan.has_erp) features.push("ERP completo");
+    if (plan.has_nfe) features.push("Emissão de NF-e");
+    if (plan.has_email_marketing) features.push("Email Marketing");
+    if (plan.has_tracking) features.push("Tracking avançado");
+    if (plan.max_energy_per_month) features.push(`${plan.max_energy_per_month.toLocaleString('pt-BR')} energia/mês`);
+    return features;
+  };
 
   return (
     <>
@@ -98,24 +321,47 @@ export default function WhiteLabelSalesPage() {
         {config.favicon_url && <link rel="icon" href={config.favicon_url} />}
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b">
+      <div className="min-h-screen bg-background overflow-x-hidden">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: `${primaryColor}15` }} />
+          <div className="absolute top-1/3 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 left-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl" />
+        </div>
+
+        {/* Navigation */}
+        <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-2">
                 {config.logo_url ? (
                   <img src={config.logo_url} alt={config.brand_name} className="h-8" />
                 ) : (
-                  <span 
-                    className="text-xl font-bold"
-                    style={{ color: primaryColor }}
-                  >
+                  <span className="text-xl font-bold" style={{ color: primaryColor }}>
                     {config.brand_name}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+
+              <nav className="hidden md:flex items-center gap-8">
+                <button onClick={() => scrollToSection("robos")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Robôs IA
+                </button>
+                <button onClick={() => scrollToSection("crm")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  CRM
+                </button>
+                <button onClick={() => scrollToSection("ecommerce")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  E-commerce
+                </button>
+                <button onClick={() => scrollToSection("whatsapp-multi")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  WhatsApp
+                </button>
+                <button onClick={() => scrollToSection("precos")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Preços
+                </button>
+              </nav>
+
+              <div className="hidden md:flex items-center gap-3">
                 {whatsappLink && (
                   <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" size="sm">
@@ -127,179 +373,717 @@ export default function WhiteLabelSalesPage() {
                 <Link to="/login">
                   <Button variant="ghost" size="sm">Entrar</Button>
                 </Link>
+                <Button 
+                  onClick={() => scrollToSection("precos")}
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Começar Agora
+                </Button>
               </div>
+
+              <button 
+                className="md:hidden p-2"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
             </div>
           </div>
+
+          {/* Mobile menu */}
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="md:hidden bg-background border-b p-4"
+            >
+              <nav className="flex flex-col gap-4">
+                <button onClick={() => scrollToSection("robos")} className="text-left py-2">Robôs IA</button>
+                <button onClick={() => scrollToSection("crm")} className="text-left py-2">CRM</button>
+                <button onClick={() => scrollToSection("ecommerce")} className="text-left py-2">E-commerce</button>
+                <button onClick={() => scrollToSection("whatsapp-multi")} className="text-left py-2">WhatsApp</button>
+                <button onClick={() => scrollToSection("precos")} className="text-left py-2">Preços</button>
+                <Link to="/login" className="py-2">Entrar</Link>
+                <Button onClick={() => scrollToSection("precos")} style={{ backgroundColor: primaryColor }} className="w-full">
+                  Começar Agora
+                </Button>
+              </nav>
+            </motion.div>
+          )}
         </header>
 
-        {/* Hero */}
-        <section className="py-20 md:py-32">
-          <div className="container mx-auto px-4 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <Badge 
-                className="mb-6"
-                style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+        {/* Hero Section */}
+        <motion.section 
+          ref={heroRef}
+          style={{ opacity: heroOpacity, scale: heroScale }}
+          className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden"
+        >
+          <div className="container mx-auto px-4">
+            <div className="max-w-5xl mx-auto text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
               >
-                <Sparkles className="h-3 w-3 mr-1" />
-                Plataforma completa de vendas
-              </Badge>
-              
-              <h1 className="text-4xl md:text-6xl font-bold mb-6 max-w-4xl mx-auto">
-                Venda mais com{' '}
-                <span style={{ color: primaryColor }}>
-                  inteligência artificial
-                </span>
-              </h1>
-              
-              <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                CRM, WhatsApp, automações e IA em uma única plataforma. 
-                Simplifique sua operação e multiplique seus resultados.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to={`/planos?ref=${slug}`}>
-                  <Button 
-                    size="lg"
-                    className="text-lg px-8"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    Começar agora
-                    <ArrowRight className="h-5 w-5 ml-2" />
-                  </Button>
-                </Link>
-                {whatsappLink && (
-                  <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="lg" className="text-lg px-8">
-                      <MessageCircle className="h-5 w-5 mr-2" />
-                      Agendar demonstração
-                    </Button>
-                  </a>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        </section>
+                <Badge variant="outline" className="mb-6 px-4 py-1.5 text-sm" style={{ borderColor: `${primaryColor}50` }}>
+                  <Bot className="h-4 w-4 mr-2" style={{ color: primaryColor }} />
+                  Robôs + IA + Automação Total
+                </Badge>
+              </motion.div>
 
-        {/* Features */}
-        <section className="py-20 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Tudo que você precisa</h2>
-              <p className="text-muted-foreground">
-                Ferramentas poderosas para escalar suas vendas
-              </p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((feature, index) => (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <Card className="h-full hover:shadow-lg transition-shadow">
-                    <CardContent className="pt-6">
-                      <div 
-                        className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                        style={{ backgroundColor: `${primaryColor}20` }}
-                      >
-                        <feature.icon className="h-6 w-6" style={{ color: primaryColor }} />
-                      </div>
-                      <h3 className="font-semibold mb-2">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground">{feature.description}</p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight"
+              >
+                Robôs que vão fazer
+                <br />
+                <GradientText primaryColor={primaryColor}>sua empresa vender mais</GradientText>
+              </motion.h1>
 
-        {/* Benefits */}
-        <section className="py-20">
-          <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <h2 className="text-3xl font-bold mb-6">
-                  Por que escolher {config.brand_name}?
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="mb-8"
+              >
+                <h2 className="text-2xl md:text-3xl font-bold mb-6">
+                  Tudo em um único lugar
                 </h2>
-                <div className="space-y-4">
-                  {benefits.map((benefit, index) => (
-                    <motion.div
-                      key={benefit}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      viewport={{ once: true }}
-                      className="flex items-center gap-3"
-                    >
-                      <CheckCircle className="h-5 w-5 flex-shrink-0" style={{ color: primaryColor }} />
-                      <span>{benefit}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <Card className="text-center p-6">
-                  <Users className="h-8 w-8 mx-auto mb-2" style={{ color: primaryColor }} />
-                  <div className="text-3xl font-bold">500+</div>
-                  <div className="text-sm text-muted-foreground">Empresas ativas</div>
-                </Card>
-                <Card className="text-center p-6">
-                  <MessageCircle className="h-8 w-8 mx-auto mb-2" style={{ color: primaryColor }} />
-                  <div className="text-3xl font-bold">2M+</div>
-                  <div className="text-sm text-muted-foreground">Mensagens/mês</div>
-                </Card>
-                <Card className="text-center p-6">
-                  <Clock className="h-8 w-8 mx-auto mb-2" style={{ color: primaryColor }} />
-                  <div className="text-3xl font-bold">24/7</div>
-                  <div className="text-sm text-muted-foreground">Atendimento IA</div>
-                </Card>
-                <Card className="text-center p-6">
-                  <Shield className="h-8 w-8 mx-auto mb-2" style={{ color: primaryColor }} />
-                  <div className="text-3xl font-bold">99.9%</div>
-                  <div className="text-sm text-muted-foreground">Uptime</div>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </section>
+                <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+                  Você já pode ter visto sistemas que têm alguma dessas funções, a <span className="font-bold" style={{ color: primaryColor }}>{config.brand_name}</span> tem tudo <span className="font-bold" style={{ color: primaryColor }}>INTEGRADO</span> em um só login e senha
+                </p>
+              </motion.div>
 
-        {/* CTA */}
-        <section className="py-20" style={{ backgroundColor: `${primaryColor}10` }}>
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold mb-4">
-              Pronto para começar?
-            </h2>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Junte-se a centenas de empresas que já estão vendendo mais com nossa plataforma.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/planos">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="flex flex-col sm:flex-row items-center justify-center gap-4"
+              >
                 <Button 
                   size="lg"
                   className="text-lg px-8"
                   style={{ backgroundColor: primaryColor }}
+                  onClick={() => scrollToSection("precos")}
                 >
-                  Ver planos e preços
+                  Começar Agora
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
-              </Link>
+                {whatsappLink && (
+                  <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="lg" className="text-lg px-8">
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      Falar com consultor
+                    </Button>
+                  </a>
+                )}
+              </motion.div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Feature Anchors List */}
+        <section className="py-12 md:py-20 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="grid sm:grid-cols-2 gap-3"
+              >
+                {featureAnchors.map((item, index) => (
+                  <motion.button
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.03 }}
+                    onClick={() => scrollToSection(item.id)}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-card border hover:border-opacity-50 transition-all text-left group"
+                    style={{ '--hover-border-color': primaryColor } as any}
+                  >
+                    <div 
+                      className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                      style={{ backgroundColor: `${primaryColor}15` }}
+                    >
+                      <item.icon className="h-5 w-5" style={{ color: primaryColor }} />
+                    </div>
+                    <span className="text-sm font-medium transition-colors">{item.label}</span>
+                    <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground" />
+                  </motion.button>
+                ))}
+              </motion.div>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.5 }}
+                className="text-center text-lg font-bold mt-8"
+                style={{ color: primaryColor }}
+              >
+                Tudo integrado.
+              </motion.p>
+            </div>
+          </div>
+        </section>
+
+        {/* VSL Video Section */}
+        <section className="py-16 md:py-24">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto text-center">
+              <Badge variant="outline" className="mb-4">
+                <Video className="h-3 w-3 mr-2" />
+                Conheça o {config.brand_name}
+              </Badge>
+              <h2 className="text-2xl md:text-4xl font-bold mb-6">
+                Entenda como podemos <GradientText primaryColor={primaryColor}>transformar seu negócio</GradientText>
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
+                Uma plataforma completa de automação comercial com inteligência artificial. 
+                Unificamos CRM, E-commerce, WhatsApp, NF-e, etiquetas de envio e muito mais em um único sistema 
+                que trabalha 24 horas por dia para você vender mais.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* DONNA Section */}
+        <section id="donna" className="py-20 md:py-32 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  className="relative flex justify-center"
+                >
+                  <div className="relative">
+                    <div className="w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 shadow-2xl" style={{ borderColor: `${primaryColor}30` }}>
+                      <img 
+                        src={donnaAvatar} 
+                        alt="Donna - Assistente Virtual" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <FloatingElement delay={0} className="absolute -top-4 -right-4">
+                      <div className="text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2" style={{ backgroundColor: primaryColor }}>
+                        <Bot className="h-4 w-4" />
+                        Online 24/7
+                      </div>
+                    </FloatingElement>
+                    <FloatingElement delay={1} className="absolute -bottom-4 -left-4">
+                      <div className="bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Suporte Instantâneo
+                      </div>
+                    </FloatingElement>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                >
+                  <Badge variant="outline" className="mb-4">
+                    <MessageCircle className="h-3 w-3 mr-2" />
+                    Atualização do CRM por conversa no WhatsApp
+                  </Badge>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                    Sua secretária IA <GradientText primaryColor={primaryColor}>DONNA</GradientText>
+                  </h2>
+                  <p className="text-lg text-muted-foreground mb-8">
+                    Atualize seu CRM por <strong>áudio no WhatsApp</strong>. Diga: "Donna, cadastra o João, 
+                    telefone tal, ele quer o produto X". Pronto! Lead cadastrado, etapa do funil definida.
+                  </p>
+
+                  <div className="space-y-4 mb-8">
+                    {[
+                      { icon: Mic, text: "Cadastre leads por áudio enquanto dirige" },
+                      { icon: MessageCircle, text: "Atualize etapas do funil por mensagem" },
+                      { icon: Clock, text: "Agende follow-ups falando com a Donna" },
+                      { icon: HelpCircle, text: "Tire dúvidas sobre o sistema instantaneamente" },
+                      { icon: Brain, text: "Receba sugestões inteligentes de ações" },
+                    ].map(({ icon: Icon, text }, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Icon className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        <span>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CRM Visual Section */}
+        <section id="crm" className="py-20 md:py-32">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-8">
+                <Badge variant="outline" className="mb-4">
+                  <TrendingDown className="h-3 w-3 mr-2 rotate-180" />
+                  CRM Visual
+                </Badge>
+              </div>
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <motion.div
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                >
+                  <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                    CRM com funil de vendas
+                  </h2>
+                  <p className="text-lg text-muted-foreground mb-8">
+                    Organize todos os seus leads com <strong>Kanban visual</strong>. Etapas customizáveis, 
+                    qualificação por estrelas e rastreamento completo de cada oportunidade.
+                  </p>
+                  <ul className="space-y-4">
+                    {[
+                      { icon: Layers, text: "Etapas customizáveis por tipo de venda" },
+                      { icon: Star, text: "Qualificação por estrelas (1-5)" },
+                      { icon: Kanban, text: "Kanban visual arrastar e soltar" },
+                      { icon: Users, text: "Atribuição de responsáveis" },
+                      { icon: Clock, text: "Tempo em cada etapa" },
+                      { icon: Bell, text: "Alertas de leads parados" },
+                    ].map(({ icon: Icon, text }, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                          <Icon className="h-4 w-4" style={{ color: primaryColor }} />
+                        </div>
+                        <span>{text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                >
+                  <SalesFunnel primaryColor={primaryColor} />
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ERP Section */}
+        <section id="erp" className="py-20 md:py-32 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-8">
+                <Badge variant="outline" className="mb-4 border-indigo-500/50 text-indigo-600 bg-indigo-50">
+                  <Receipt className="h-3 w-3 mr-2" />
+                  ERP com NF-e e etiquetas automáticas
+                </Badge>
+              </div>
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <motion.div
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  className="order-2 lg:order-1"
+                >
+                  <Card className="overflow-hidden shadow-2xl">
+                    <CardHeader className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white">
+                      <CardTitle className="text-lg">Fluxo Automático de Venda</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-3 mb-2">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          <span className="font-medium text-green-700">1. Venda Aprovada</span>
+                        </div>
+                        <p className="text-sm text-green-600">Pagamento confirmado no checkout</p>
+                      </div>
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Receipt className="h-5 w-5 text-blue-600" />
+                          <span className="font-medium text-blue-700">2. NF-e Emitida</span>
+                        </div>
+                        <p className="text-sm text-blue-600">Automaticamente via integração fiscal</p>
+                      </div>
+                      <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Truck className="h-5 w-5 text-purple-600" />
+                          <span className="font-medium text-purple-700">3. Etiqueta Gerada</span>
+                        </div>
+                        <p className="text-sm text-purple-600">Correios ou Melhor Envio automático</p>
+                      </div>
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-3 mb-2">
+                          <MessageCircle className="h-5 w-5 text-green-600" />
+                          <span className="font-medium text-green-700">4. Cliente Notificado</span>
+                        </div>
+                        <p className="text-sm text-green-600">WhatsApp + Email com rastreio</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  className="order-1 lg:order-2"
+                >
+                  <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                    NF-e e etiquetas <GradientText primaryColor={primaryColor}>100% automáticas</GradientText>
+                  </h2>
+                  <p className="text-lg text-muted-foreground mb-8">
+                    Venda aprovada? O sistema emite NF-e, gera etiqueta de envio e notifica 
+                    o cliente por <strong>email e WhatsApp</strong>. Você não precisa fazer nada.
+                  </p>
+
+                  <div className="space-y-4">
+                    {[
+                      { icon: Receipt, text: "Emissão automática de NF-e" },
+                      { icon: Truck, text: "Integração Correios e Melhor Envio" },
+                      { icon: Mail, text: "Envio de NF-e e rastreio por email" },
+                      { icon: MessageCircle, text: "Notificação por WhatsApp com rastreio" },
+                    ].map(({ icon: Icon, text }, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                          <Icon className="h-4 w-4 text-indigo-600" />
+                        </div>
+                        <span>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Robôs IA Section */}
+        <section id="robos" className="py-20 md:py-32">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto text-center">
+              <Badge variant="outline" className="mb-4">
+                <Bot className="h-3 w-3 mr-2" />
+                Crie seu time de robôs de IA
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                Crie colaboradores <GradientText primaryColor={primaryColor}>virtuais</GradientText>
+              </h2>
+              <p className="text-lg text-muted-foreground mb-12 max-w-2xl mx-auto">
+                Robôs com personalidade, sotaque regional, gírias e comportamento customizável. 
+                Eles entendem áudio, imagens e texto. Atendimento 24/7 sem custo de folha.
+              </p>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+                {[
+                  { age: "18-25 anos", style: "Jovem, informal" },
+                  { age: "26-35 anos", style: "Profissional, acessível" },
+                  { age: "36-50 anos", style: "Formal, objetivo" },
+                  { age: "50+ anos", style: "Muito formal" },
+                ].map((item, i) => (
+                  <Card key={i} className="text-center p-6 hover:border-opacity-50 transition-all" style={{ borderColor: i === 1 ? primaryColor : undefined }}>
+                    <Bot className="h-8 w-8 mx-auto mb-3" style={{ color: primaryColor }} />
+                    <p className="font-medium">{item.age}</p>
+                    <p className="text-sm text-muted-foreground">{item.style}</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* E-commerce Section */}
+        <section id="ecommerce" className="py-20 md:py-32 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto text-center">
+              <Badge variant="outline" className="mb-4">
+                <Store className="h-3 w-3 mr-2" />
+                E-commerce ou landing page feito por IA
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                Loja ou Landing <GradientText primaryColor={primaryColor}>em minutos</GradientText>
+              </h2>
+              <p className="text-lg text-muted-foreground mb-12 max-w-2xl mx-auto">
+                Crie lojas completas ou landing pages de alta conversão com ajuda da IA. 
+                Checkout integrado, pagamentos automáticos e leads direto no CRM.
+              </p>
+
+              <div className="grid md:grid-cols-3 gap-6">
+                {[
+                  { icon: LayoutTemplate, title: "Templates Prontos", desc: "Dezenas de modelos otimizados para conversão" },
+                  { icon: Puzzle, title: "Quiz Integrado", desc: "Qualifique leads com perguntas inteligentes" },
+                  { icon: Target, title: "Tracking Completo", desc: "Facebook Pixel, Google Analytics integrados" },
+                ].map(({ icon: Icon, title, desc }, i) => (
+                  <Card key={i} className="p-6">
+                    <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: `${primaryColor}15` }}>
+                      <Icon className="h-6 w-6" style={{ color: primaryColor }} />
+                    </div>
+                    <h3 className="font-semibold mb-2">{title}</h3>
+                    <p className="text-sm text-muted-foreground">{desc}</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* WhatsApp Multi Section */}
+        <section id="whatsapp-multi" className="py-20 md:py-32">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-12">
+                <Badge variant="outline" className="mb-4 border-green-500/50 text-green-600 bg-green-50">
+                  <Phone className="h-3 w-3 mr-2" />
+                  WhatsApp multi agente e multi instância
+                </Badge>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                  WhatsApp <GradientText primaryColor={primaryColor}>profissional</GradientText>
+                </h2>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Conecte múltiplos números. Vários atendentes no mesmo número. Robôs que respondem automaticamente.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-6">
+                {[
+                  { title: "Multi-instância", desc: "Conecte vários números WhatsApp", icon: Phone },
+                  { title: "Multi-agente", desc: "Vários atendentes no mesmo número", icon: Users },
+                  { title: "Robôs 24/7", desc: "Automação completa de atendimento", icon: Bot },
+                ].map(({ title, desc, icon: Icon }, i) => (
+                  <Card key={i} className="p-6 text-center">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-4">
+                      <Icon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h3 className="font-semibold mb-2">{title}</h3>
+                    <p className="text-sm text-muted-foreground">{desc}</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials */}
+        <section className="py-20 md:py-32 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-16">
+              <Badge variant="outline" className="mb-4">Depoimentos</Badge>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4">
+                O que nossos clientes <GradientText primaryColor={primaryColor}>dizem</GradientText>
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              <TestimonialCard
+                name="Mariana Costa"
+                role="Clínica de Estética"
+                company=""
+                quote="A secretária IA mudou minha vida. Agora cadastro leads por áudio enquanto dirijo. Simplesmente funciona!"
+                avatar="MC"
+                primaryColor={primaryColor}
+              />
+              <TestimonialCard
+                name="Amanda Pimentel"
+                role="InfoProdutora"
+                company=""
+                quote="Nunca mais esquecemos um follow-up. O sistema lembra tudo. Recuperamos clientes que estavam perdidos."
+                avatar="AP"
+                primaryColor={primaryColor}
+              />
+              <TestimonialCard
+                name="Carlos Eduardo"
+                role="Ecom de Nutraceuticos"
+                company=""
+                quote="Integração perfeita com nosso ERP. Vendas entram automaticamente, expedição é notificada. Zero retrabalho."
+                avatar="CE"
+                primaryColor={primaryColor}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section id="precos" className="py-20 md:py-32">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-16">
+              <Badge variant="outline" className="mb-4">Planos</Badge>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4">
+                Investimento que <GradientText primaryColor={primaryColor}>se paga</GradientText>
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+                Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
+              </p>
+
+              <div className="inline-flex items-center gap-4 bg-card border rounded-full px-6 py-3">
+                <span className={cn("text-sm font-medium", !isAnnual && "font-bold")} style={{ color: !isAnnual ? primaryColor : undefined }}>Mensal</span>
+                <Switch
+                  checked={isAnnual}
+                  onCheckedChange={setIsAnnual}
+                />
+                <span className={cn("text-sm font-medium flex items-center gap-2", isAnnual && "font-bold")} style={{ color: isAnnual ? primaryColor : undefined }}>
+                  Anual
+                  <Badge className="bg-green-500 text-white text-xs">
+                    40% OFF
+                  </Badge>
+                </span>
+              </div>
+            </div>
+
+            {plansLoading ? (
+              <div className="flex justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : plans && plans.length > 0 ? (
+              <div className={cn(
+                "grid gap-6 max-w-6xl mx-auto",
+                plans.length === 1 ? "md:grid-cols-1 max-w-md" :
+                plans.length === 2 ? "md:grid-cols-2 max-w-2xl" :
+                plans.length === 3 ? "md:grid-cols-3 max-w-4xl" :
+                "md:grid-cols-2 lg:grid-cols-4"
+              )}>
+                {plans.map((plan, index) => {
+                  const gradients = [
+                    "from-gray-500 to-gray-600",
+                    "from-blue-500 to-cyan-500",
+                    "from-purple-500 to-pink-500",
+                    "from-amber-500 to-orange-500",
+                  ];
+
+                  const displayPrice = isAnnual && plan.price_cents > 0 
+                    ? getAnnualPrice(plan.price_cents)
+                    : plan.price_cents;
+
+                  const features = getPlanFeatures(plan);
+                  const isPro = index === plans.length - 1 && plans.length > 1;
+                  
+                  return (
+                    <motion.div
+                      key={plan.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className={cn(
+                        "relative h-full flex flex-col",
+                        isPro && "border-2 shadow-xl"
+                      )} style={{ borderColor: isPro ? primaryColor : undefined }}>
+                        {isPro && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                            <Badge style={{ backgroundColor: primaryColor }} className="text-white">
+                              <Crown className="h-3 w-3 mr-1" />
+                              RECOMENDADO
+                            </Badge>
+                          </div>
+                        )}
+                        <CardHeader className="text-center pb-2">
+                          <div className={cn(
+                            "w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br flex items-center justify-center mb-4",
+                            gradients[index % gradients.length]
+                          )}>
+                            {index === 0 && <Star className="h-7 w-7 text-white" />}
+                            {index === 1 && <Zap className="h-7 w-7 text-white" />}
+                            {index === 2 && <Crown className="h-7 w-7 text-white" />}
+                            {index === 3 && <Rocket className="h-7 w-7 text-white" />}
+                          </div>
+                          <CardTitle>{plan.name}</CardTitle>
+                          {plan.description && (
+                            <CardDescription>{plan.description}</CardDescription>
+                          )}
+                          <div className="mt-4">
+                            {isAnnual && plan.price_cents > 0 && (
+                              <div className="text-sm text-muted-foreground line-through mb-1">
+                                {formatPrice(plan.price_cents)}/mês
+                              </div>
+                            )}
+                            <span className="text-4xl font-bold">{formatPrice(displayPrice)}</span>
+                            <span className="text-muted-foreground">/mês</span>
+                            {isAnnual && plan.price_cents > 0 && (
+                              <p className="text-xs text-green-600 mt-1">
+                                Economia de {formatPrice((plan.price_cents - displayPrice) * 12)}/ano
+                              </p>
+                            )}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="flex-1">
+                          <ul className="space-y-3">
+                            {features.map((feature, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                                <span className="text-sm">{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                        <CardFooter>
+                          <Button
+                            className="w-full"
+                            style={isPro ? { backgroundColor: primaryColor } : undefined}
+                            variant={isPro ? "default" : "outline"}
+                            onClick={() => handleSelectPlan(plan)}
+                          >
+                            {plan.price_cents === 0 ? "Começar Grátis" : "Escolher Plano"}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground">
+                <p>Entre em contato para conhecer nossos planos.</p>
+                {whatsappLink && (
+                  <Button className="mt-4" style={{ backgroundColor: primaryColor }} asChild>
+                    <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Falar com Consultor
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Enterprise */}
+            <div className="max-w-2xl mx-auto mt-12">
+              <Card className="border-2 border-dashed" style={{ borderColor: `${primaryColor}30`, backgroundColor: `${primaryColor}05` }}>
+                <CardContent className="py-8 text-center">
+                  <Building2 className="h-12 w-12 mx-auto mb-4" style={{ color: primaryColor }} />
+                  <h3 className="text-xl font-bold mb-2">Precisa de mais?</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Planos Enterprise com instâncias ilimitadas, usuários ilimitados e suporte dedicado.
+                  </p>
+                  {whatsappLink && (
+                    <Button 
+                      variant="outline" 
+                      asChild
+                      style={{ borderColor: primaryColor, color: primaryColor }}
+                    >
+                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Falar com Consultor
+                      </a>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="py-12 border-t">
+        <footer className="bg-muted/50 border-t py-12">
           <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="flex items-center gap-2">
                 {config.logo_url ? (
                   <img src={config.logo_url} alt={config.brand_name} className="h-6" />
@@ -323,6 +1107,68 @@ export default function WhiteLabelSalesPage() {
             </div>
           </div>
         </footer>
+
+        {/* Lead Modal */}
+        <Dialog open={showLeadModal} onOpenChange={setShowLeadModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center">
+                Quase lá! 🎉
+              </DialogTitle>
+              <DialogDescription className="text-center">
+                Preencha seus dados para continuar com o plano <strong>{selectedPlan?.name}</strong>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome completo</Label>
+                <Input
+                  id="name"
+                  placeholder="Seu nome"
+                  value={leadForm.name}
+                  onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">WhatsApp</Label>
+                <Input
+                  id="whatsapp"
+                  placeholder="(00) 00000-0000"
+                  value={leadForm.whatsapp}
+                  onChange={(e) => setLeadForm({ ...leadForm, whatsapp: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={leadForm.email}
+                  onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                />
+              </div>
+            </div>
+            <Button
+              onClick={handleLeadSubmit}
+              disabled={isSubmitting}
+              className="w-full"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  Continuar
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );
