@@ -18664,14 +18664,18 @@ export type Database = {
           primary_color: string | null
           primary_color_dark: string | null
           privacy_url: string | null
+          resend_api_key: string | null
           sales_page_slug: string | null
           secondary_color: string | null
           secondary_color_dark: string | null
+          send_welcome_via_email: boolean | null
+          send_welcome_via_whatsapp: boolean | null
           support_email: string | null
           support_phone: string | null
           support_whatsapp: string | null
           terms_url: string | null
           updated_at: string | null
+          welcome_whatsapp_instance_id: string | null
         }
         Insert: {
           app_domain?: string | null
@@ -18693,14 +18697,18 @@ export type Database = {
           primary_color?: string | null
           primary_color_dark?: string | null
           privacy_url?: string | null
+          resend_api_key?: string | null
           sales_page_slug?: string | null
           secondary_color?: string | null
           secondary_color_dark?: string | null
+          send_welcome_via_email?: boolean | null
+          send_welcome_via_whatsapp?: boolean | null
           support_email?: string | null
           support_phone?: string | null
           support_whatsapp?: string | null
           terms_url?: string | null
           updated_at?: string | null
+          welcome_whatsapp_instance_id?: string | null
         }
         Update: {
           app_domain?: string | null
@@ -18722,14 +18730,18 @@ export type Database = {
           primary_color?: string | null
           primary_color_dark?: string | null
           privacy_url?: string | null
+          resend_api_key?: string | null
           sales_page_slug?: string | null
           secondary_color?: string | null
           secondary_color_dark?: string | null
+          send_welcome_via_email?: boolean | null
+          send_welcome_via_whatsapp?: boolean | null
           support_email?: string | null
           support_phone?: string | null
           support_whatsapp?: string | null
           terms_url?: string | null
           updated_at?: string | null
+          welcome_whatsapp_instance_id?: string | null
         }
         Relationships: [
           {
@@ -18737,6 +18749,20 @@ export type Database = {
             columns: ["implementer_id"]
             isOneToOne: true
             referencedRelation: "implementers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "white_label_configs_welcome_whatsapp_instance_id_fkey"
+            columns: ["welcome_whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "white_label_configs_welcome_whatsapp_instance_id_fkey"
+            columns: ["welcome_whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
         ]
@@ -18809,6 +18835,7 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          extra_energy_cost_cents: number | null
           has_ai_bots: boolean | null
           has_ecommerce: boolean | null
           has_email_marketing: boolean | null
@@ -18828,6 +18855,7 @@ export type Database = {
           name: string
           platform_cost_cents: number | null
           platform_percentage: number | null
+          platform_setup_fee_percentage: number | null
           price_cents: number
           setup_fee_cents: number | null
           slug: string
@@ -18837,6 +18865,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          extra_energy_cost_cents?: number | null
           has_ai_bots?: boolean | null
           has_ecommerce?: boolean | null
           has_email_marketing?: boolean | null
@@ -18856,6 +18885,7 @@ export type Database = {
           name: string
           platform_cost_cents?: number | null
           platform_percentage?: number | null
+          platform_setup_fee_percentage?: number | null
           price_cents?: number
           setup_fee_cents?: number | null
           slug: string
@@ -18865,6 +18895,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          extra_energy_cost_cents?: number | null
           has_ai_bots?: boolean | null
           has_ecommerce?: boolean | null
           has_email_marketing?: boolean | null
@@ -18884,6 +18915,7 @@ export type Database = {
           name?: string
           platform_cost_cents?: number | null
           platform_percentage?: number | null
+          platform_setup_fee_percentage?: number | null
           price_cents?: number
           setup_fee_cents?: number | null
           slug?: string

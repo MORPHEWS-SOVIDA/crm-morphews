@@ -3,9 +3,10 @@ import { WhiteAdminDashboard } from '@/components/white-admin/WhiteAdminDashboar
 import { WhiteAdminOrganizations } from '@/components/white-admin/WhiteAdminOrganizations';
 import { WhiteAdminPlans } from '@/components/white-admin/WhiteAdminPlans';
 import { WhiteAdminBranding } from '@/components/white-admin/WhiteAdminBranding';
+import { WhiteAdminSettings } from '@/components/white-admin/WhiteAdminSettings';
 import { Routes, Route } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { Construction, Users, Wallet } from 'lucide-react';
+import { Users, Wallet } from 'lucide-react';
 
 // Placeholder for Users page
 function WhiteAdminUsers() {
@@ -42,27 +43,6 @@ function WhiteAdminFinancial() {
           <h3 className="text-lg font-medium mb-2">Em Desenvolvimento</h3>
           <p className="text-muted-foreground">
             Relatórios financeiros serão disponibilizados em breve.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Placeholder for Settings page
-function WhiteAdminSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-muted-foreground">Configurações avançadas da franquia</p>
-      </div>
-      <Card>
-        <CardContent className="py-12 text-center">
-          <Construction className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-          <h3 className="text-lg font-medium mb-2">Em Desenvolvimento</h3>
-          <p className="text-muted-foreground">
-            Configurações adicionais serão disponibilizadas em breve.
           </p>
         </CardContent>
       </Card>

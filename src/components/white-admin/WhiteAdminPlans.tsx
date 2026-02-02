@@ -24,8 +24,9 @@ const PLATFORM_COSTS = {
   WHATSAPP_BASE_INCLUDED: 1,
   WHATSAPP_ADDITIONAL_COST_CENTS: 5000, // R$ 50,00
   
-  // Energia: base de 1000 incluída (custo zero), acima disso não temos custo extra por enquanto
+  // Energia: base de 1000 incluída, cada 1000 extra +R$ 7,00
   ENERGY_BASE_INCLUDED: 1000,
+  ENERGY_ADDITIONAL_COST_CENTS: 700, // R$ 7,00 por 1000 extra
   
   // Nota Fiscal: +R$ 150/mês (inclui 100 notas, R$ 0,10 por adicional)
   NFE_MONTHLY_COST_CENTS: 15000, // R$ 150,00
@@ -38,6 +39,9 @@ const PLATFORM_COSTS = {
   // Usuários: 3 incluídos, cada adicional +R$ 2/mês
   USERS_BASE_INCLUDED: 3,
   USER_ADDITIONAL_COST_CENTS: 200, // R$ 2,00
+  
+  // Setup fee: 12% vai para a plataforma
+  SETUP_FEE_PLATFORM_PERCENTAGE: 12,
 };
 
 // Calcula o custo mínimo que a plataforma terá
@@ -48,6 +52,13 @@ function calculatePlatformCost(plan: Partial<WhiteLabelPlan>): number {
   const whatsappInstances = plan.max_whatsapp_instances || 1;
   if (whatsappInstances > PLATFORM_COSTS.WHATSAPP_BASE_INCLUDED) {
     costCents += (whatsappInstances - PLATFORM_COSTS.WHATSAPP_BASE_INCLUDED) * PLATFORM_COSTS.WHATSAPP_ADDITIONAL_COST_CENTS;
+  }
+  
+  // Energia adicional
+  const energy = plan.max_energy_per_month || 1000;
+  if (energy > PLATFORM_COSTS.ENERGY_BASE_INCLUDED) {
+    const extraEnergy = Math.ceil((energy - PLATFORM_COSTS.ENERGY_BASE_INCLUDED) / 1000);
+    costCents += extraEnergy * PLATFORM_COSTS.ENERGY_ADDITIONAL_COST_CENTS;
   }
   
   // Nota Fiscal
@@ -67,6 +78,11 @@ function calculatePlatformCost(plan: Partial<WhiteLabelPlan>): number {
   }
   
   return costCents;
+}
+
+// Calcula quanto da taxa de setup vai para a plataforma
+function calculatePlatformSetupFee(setupFeeCents: number): number {
+  return Math.round(setupFeeCents * (PLATFORM_COSTS.SETUP_FEE_PLATFORM_PERCENTAGE / 100));
 }
 
 const defaultPlan: Partial<WhiteLabelPlan> = {
@@ -190,6 +206,22 @@ export function WhiteAdminPlans() {
       });
     }
     
+    // Energia
+    const energy = formData.max_energy_per_month || 1000;
+    if (energy > PLATFORM_COSTS.ENERGY_BASE_INCLUDED) {
+      const extraEnergy = Math.ceil((energy - PLATFORM_COSTS.ENERGY_BASE_INCLUDED) / 1000);
+      items.push({
+        label: `Energia extra (${extraEnergy}x 1k)`,
+        cost: extraEnergy * PLATFORM_COSTS.ENERGY_ADDITIONAL_COST_CENTS,
+      });
+    } else {
+      items.push({
+        label: 'Energia IA',
+        cost: 0,
+        included: '1.000 incluída',
+      });
+    }
+    
     // Nota Fiscal
     if (formData.has_nfe) {
       items.push({
@@ -209,6 +241,15 @@ export function WhiteAdminPlans() {
     
     return items.filter(i => i.cost > 0 || i.included);
   }, [formData]);
+  
+  // Calcula ganho da plataforma com setup
+  const platformSetupGain = useMemo(() => {
+    return calculatePlatformSetupFee(formData.setup_fee_cents || 0);
+  }, [formData.setup_fee_cents]);
+  
+  const sellerSetupGain = useMemo(() => {
+    return (formData.setup_fee_cents || 0) - platformSetupGain;
+  }, [formData.setup_fee_cents, platformSetupGain]);
 
   return (
     <div className="space-y-6">
