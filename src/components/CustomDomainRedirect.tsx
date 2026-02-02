@@ -3,6 +3,7 @@ import { lazy, Suspense, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCustomDomainDetection } from '@/hooks/useCustomDomainDetection';
 import { useAuth } from '@/hooks/useAuth';
+// useEffect is already imported above
 import { CartProvider } from '@/components/storefront/cart/CartContext';
 import { StorefrontLayoutWithSlug } from '@/components/storefront/StorefrontLayoutWithSlug';
 import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
@@ -50,8 +51,20 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
   const { user, isLoading: isAuthLoading } = useAuth();
   const location = useLocation();
 
+  // Redirect sales.morphews.com to main login
+  useEffect(() => {
+    if (window.location.hostname === 'sales.morphews.com') {
+      window.location.href = 'https://morphews.com/login';
+    }
+  }, []);
+
   // While loading domain detection, show loader
   if (isLoading) {
+    return <PageLoader />;
+  }
+
+  // Block render if redirecting from sales.morphews.com
+  if (window.location.hostname === 'sales.morphews.com') {
     return <PageLoader />;
   }
 
