@@ -18658,6 +18658,7 @@ export type Database = {
           implementer_id: string
           is_active: boolean | null
           login_background_url: string | null
+          logo_dark_url: string | null
           logo_url: string | null
           primary_color: string | null
           privacy_url: string | null
@@ -18683,6 +18684,7 @@ export type Database = {
           implementer_id: string
           is_active?: boolean | null
           login_background_url?: string | null
+          logo_dark_url?: string | null
           logo_url?: string | null
           primary_color?: string | null
           privacy_url?: string | null
@@ -18708,6 +18710,7 @@ export type Database = {
           implementer_id?: string
           is_active?: boolean | null
           login_background_url?: string | null
+          logo_dark_url?: string | null
           logo_url?: string | null
           primary_color?: string | null
           privacy_url?: string | null
