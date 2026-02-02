@@ -33,6 +33,7 @@ import {
   Store,
   HelpCircle,
   Link2,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { useTenant } from '@/hooks/useTenant';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
+import { useIsWhiteLabelOwner } from '@/hooks/useWhiteAdmin';
 import logoMorphews from '@/assets/logo-morphews.png';
 import donnaAvatar from '@/assets/donna-avatar.png';
 import { useState } from 'react';
@@ -73,6 +75,7 @@ export function Sidebar() {
   const { data: isManager } = useIsManager();
   const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
+  const { data: isWhiteLabelOwner } = useIsWhiteLabelOwner();
   const navigate = useNavigate();
   const [isDonnaOpen, setIsDonnaOpen] = useState(false);
   
@@ -214,6 +217,9 @@ export function Sidebar() {
     
     // Master admin only
     { icon: Crown, label: 'Super Admin', path: '/super-admin', visible: isMasterAdmin },
+    
+    // White Label owner - sub-admin panel
+    { icon: Building2, label: 'White Admin', path: '/white-admin', visible: isWhiteLabelOwner === true },
     
     // Instagram (permission controlled)
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
