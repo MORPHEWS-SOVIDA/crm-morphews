@@ -118,7 +118,7 @@ export function WhiteLabelConfigPanel({ implementer }: WhiteLabelConfigPanelProp
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/pv2/${formData.sales_page_slug}`;
+    const url = `${window.location.origin}/${formData.sales_page_slug}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copiado!');
   };
@@ -194,7 +194,7 @@ export function WhiteLabelConfigPanel({ implementer }: WhiteLabelConfigPanelProp
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.open(`/pv2/${config.sales_page_slug}`, '_blank')}
+                  onClick={() => window.open(`/${config.sales_page_slug}`, '_blank')}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Ver Página

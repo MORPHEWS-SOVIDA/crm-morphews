@@ -335,7 +335,7 @@ export function WhiteAdminBranding() {
             <div className="space-y-2">
               <Label>Slug da Página de Vendas</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">/pv2/</span>
+                <span className="text-sm text-muted-foreground">morphews.com/</span>
                 <Input 
                   value={formData.sales_page_slug}
                   onChange={(e) => handleChange('sales_page_slug', e.target.value)}
@@ -343,7 +343,7 @@ export function WhiteAdminBranding() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Sua página de vendas: crm.morphews.com/pv2/{formData.sales_page_slug || 'seu-slug'}
+                Página de vendas: morphews.com/{formData.sales_page_slug || 'seu-slug'} • Login: morphews.com/{formData.sales_page_slug || 'seu-slug'}/login
               </p>
             </div>
             

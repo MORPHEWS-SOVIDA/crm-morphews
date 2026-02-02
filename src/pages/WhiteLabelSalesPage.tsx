@@ -171,11 +171,30 @@ const featureAnchors = [
   { id: "tipos-robos", label: "Com dezenas de tipos de robôs", icon: Settings },
 ];
 
+// Reserved slugs that should not be treated as white label pages
+const RESERVED_SLUGS = [
+  'login', 'forgot-password', 'reset-password', 'force-password-change', 'setup',
+  'planos', 'secretaria-whatsapp', '2026', 'para', 'checkout', 'signup-success',
+  'auth', 'legal', 'lp', 'helper', 'pagamento-sucesso', 'pagamento-cancelado',
+  'c', 'pay', 'pix-pagamento', 'pagamento-confirmado', 'quiz', 'pagar', 't',
+  'parceiro', 'convite-parceiros', 'rede', 'implementador', 'pv2', 'entrar',
+  'white-admin', 'loja', 'dashboard-kanban', 'leads', 'sales', 'vendas',
+  'produtos', 'expedicao', 'whatsapp', 'instagram', 'team', 'settings',
+  'onboarding', 'integrations', 'demandas', 'sac', 'financial', 'receptivo',
+  'ai-bots', 'fiscal', 'super-admin', 'cadastro', 'ecommerce', 'afiliado',
+  'sales-landing', 'cobrar', 'produtos-custos', 'combos', 'notas-compra',
+  'romaneio', 'fechamento', 'entregas', 'relatorios', 'nps', 'api-docs',
+];
+
 export default function WhiteLabelSalesPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const { data: config, isLoading, error } = useWhiteLabelBySlug(slug);
+  
+  // Check if slug is reserved
+  const isReservedSlug = slug ? RESERVED_SLUGS.includes(slug.toLowerCase()) : false;
+  
+  const { data: config, isLoading, error } = useWhiteLabelBySlug(isReservedSlug ? undefined : slug);
   const { data: plans, isLoading: plansLoading } = useWhiteLabelPlansByConfigId(config?.id);
   
   const [showLeadModal, setShowLeadModal] = useState(false);

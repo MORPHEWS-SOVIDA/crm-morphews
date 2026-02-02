@@ -253,12 +253,6 @@ const App = () => (
                 <Route path="/implementador" element={<ImplementerDashboard />} />
                 <Route path="/implementador/:slug" element={<ImplementerCheckoutPage />} />
                 
-                {/* White Label Sales Page */}
-                <Route path="/pv2/:slug" element={<WhiteLabelSalesPage />} />
-                
-                {/* White Label Login Page */}
-                <Route path="/entrar/:slug" element={<WhiteLabelLogin />} />
-                
                 {/* White Label Admin Panel */}
                 <Route path="/white-admin/*" element={
                   <ProtectedRoute>
@@ -1176,6 +1170,10 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+
+                {/* White Label Routes - /:slug namespace (must be last before 404) */}
+                <Route path="/:slug" element={<WhiteLabelSalesPage />} />
+                <Route path="/:slug/login" element={<WhiteLabelLogin />} />
 
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
