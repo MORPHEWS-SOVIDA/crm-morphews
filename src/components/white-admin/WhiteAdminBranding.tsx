@@ -156,6 +156,7 @@ export function WhiteAdminBranding() {
   
   const [formData, setFormData] = useState({
     brand_name: '',
+    page_title: '',
     logo_url: '',
     logo_dark_url: '',
     favicon_url: '',
@@ -185,6 +186,7 @@ export function WhiteAdminBranding() {
     if (config && !isInitialized) {
       setFormData({
         brand_name: config.brand_name || '',
+        page_title: (config as any).page_title || '',
         logo_url: config.logo_url || '',
         logo_dark_url: (config as any).logo_dark_url || '',
         favicon_url: config.favicon_url || '',
@@ -276,6 +278,18 @@ export function WhiteAdminBranding() {
                 onChange={(e) => handleChange('brand_name', e.target.value)}
                 placeholder="Ex: AtomicSales"
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Título da Página (Navegador)</Label>
+              <Input 
+                value={formData.page_title}
+                onChange={(e) => handleChange('page_title', e.target.value)}
+                placeholder="Ex: AtomicSales - CRM de Vendas"
+              />
+              <p className="text-xs text-muted-foreground">
+                Aparece na aba do navegador. Se vazio, usa o nome da marca.
+              </p>
             </div>
             
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
