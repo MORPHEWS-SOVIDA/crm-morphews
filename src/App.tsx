@@ -53,6 +53,7 @@ const TracZAPRedirect = lazy(() => import("./pages/TracZAPRedirect"));
 const NetworkInviteAccept = lazy(() => import("./pages/public/NetworkInviteAccept"));
 const PaymentLinkCheckout = lazy(() => import("./pages/PaymentLinkCheckout"));
 const WhiteLabelSalesPage = lazy(() => import("./pages/WhiteLabelSalesPage"));
+const WhiteLabelLogin = lazy(() => import("./pages/WhiteLabelLogin"));
 const WhiteAdminPage = lazy(() => import("./pages/white-admin/WhiteAdminPage"));
 
 const LeadsList = lazy(() => import("./pages/LeadsList"));
@@ -254,6 +255,9 @@ const App = () => (
                 
                 {/* White Label Sales Page */}
                 <Route path="/pv2/:slug" element={<WhiteLabelSalesPage />} />
+                
+                {/* White Label Login Page */}
+                <Route path="/entrar/:slug" element={<WhiteLabelLogin />} />
                 
                 {/* White Label Admin Panel */}
                 <Route path="/white-admin/*" element={

@@ -16,6 +16,7 @@ export interface WhiteLabelConfig {
   email_logo_url: string | null;
   support_email: string | null;
   support_whatsapp: string | null;
+  login_background_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
