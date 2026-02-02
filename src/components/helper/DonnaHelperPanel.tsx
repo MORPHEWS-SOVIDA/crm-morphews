@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import donnaAvatar from "@/assets/donna-avatar.png";
+import morphewsAvatar from "@/assets/morphews-avatar.png";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -80,15 +80,15 @@ export function DonnaHelperPanel({ onClose }: DonnaHelperPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Mensagem inicial da Donna - Personalidade Donna Paulsen
+  // Mensagem inicial do Morphews
   useEffect(() => {
     if (messages.length === 0) {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Oi! Eu sou a Donna. 💜
+        content: `Olá! Eu sou o Morphews. 🚀
 
-E antes que você pergunte: sim, *aquela* Donna - perceptiva, direta e sempre um passo à frente.
+Seu assistente virtual inteligente, sempre pronto para te ajudar!
 
 Posso te guiar por qualquer canto desse CRM:
 • **Criar robôs de IA** que atendem seus clientes 24h
@@ -182,13 +182,13 @@ Me diz: no que posso te ajudar agora?`,
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-500 to-green-500 p-4 flex items-center gap-3 relative">
         <img 
-          src={donnaAvatar} 
-          alt="Donna" 
+          src={morphewsAvatar} 
+          alt="Morphews" 
           className="w-12 h-12 rounded-full border-2 border-white/50 object-cover"
         />
         <div className="flex-1">
-          <h3 className="font-semibold text-white">Donna</h3>
-          <p className="text-xs text-white/80">Assistente Virtual Morphews</p>
+          <h3 className="font-semibold text-white">Morphews</h3>
+          <p className="text-xs text-white/80">Assistente Virtual IA</p>
         </div>
         <Button
           variant="ghost"
@@ -231,8 +231,8 @@ Me diz: no que posso te ajudar agora?`,
                 >
                   {message.role !== "user" && (
                     <img
-                      src={donnaAvatar}
-                      alt="Donna"
+                      src={morphewsAvatar}
+                      alt="Morphews"
                       className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                     />
                   )}
@@ -256,8 +256,8 @@ Me diz: no que posso te ajudar agora?`,
               {isLoading && (
                 <div className="flex gap-2">
                   <img
-                    src={donnaAvatar}
-                    alt="Donna"
+                    src={morphewsAvatar}
+                    alt="Morphews"
                     className="w-8 h-8 rounded-full object-cover"
                   />
                   <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 py-3">
