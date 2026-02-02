@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import donnaAvatar from "@/assets/donna-avatar.png";
+import morphewsAvatar from "@/assets/morphews-avatar.png";
 import { DonnaHelperPanel } from "./DonnaHelperPanel";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +41,8 @@ export function DonnaHelperButton() {
           ) : (
             <motion.img
               key="avatar"
-              src={donnaAvatar}
-              alt="Donna - Assistente Virtual"
+              src={morphewsAvatar}
+              alt="Morphews - Assistente Virtual"
               className="w-full h-full object-cover"
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

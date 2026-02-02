@@ -45,7 +45,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useIsWhiteLabelOwner } from '@/hooks/useWhiteAdmin';
 import logoMorphews from '@/assets/logo-morphews.png';
-import donnaAvatar from '@/assets/donna-avatar.png';
+import morphewsAvatar from '@/assets/morphews-avatar.png';
 import { useState } from 'react';
 import { DonnaHelperPanel } from '@/components/helper/DonnaHelperPanel';
 import { AnimatePresence } from 'framer-motion';
@@ -288,21 +288,21 @@ export function Sidebar() {
 
           {/* Footer */}
           <div className="p-3 border-t border-sidebar-border space-y-2">
-            {/* Donna Helper Section - only show if org has feature enabled */}
+            {/* Morphews Helper Section - only show if org has feature enabled */}
             {orgFeatures?.donna_helper && permissions?.helper_donna_view !== false && (
               <div className="mb-2">
-                <p className="text-[10px] text-muted-foreground text-center mb-1">AJUDA? Fale com DONNA</p>
+                <p className="text-[10px] text-muted-foreground text-center mb-1">AJUDA? Fale com MORPHEWS</p>
                 <button
                   onClick={() => setIsDonnaOpen(true)}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/30 dark:hover:to-emerald-900/30 transition-colors border border-green-200 dark:border-green-800"
                 >
                   <img 
-                    src={donnaAvatar} 
-                    alt="Donna" 
+                    src={morphewsAvatar} 
+                    alt="Morphews" 
                     className="w-8 h-8 rounded-full ring-2 ring-green-300/50"
                   />
                   <div className="flex-1 text-left">
-                    <p className="text-xs font-medium text-green-700 dark:text-green-400">Donna</p>
+                    <p className="text-xs font-medium text-green-700 dark:text-green-400">Morphews</p>
                     <p className="text-[10px] text-green-600/70 dark:text-green-500/70">Assistente IA</p>
                   </div>
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
