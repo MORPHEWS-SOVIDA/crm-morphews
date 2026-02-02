@@ -11,6 +11,21 @@ import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
 import { useWhiteLabelBySlug } from '@/hooks/useWhiteLabel';
 
+// Reserved slugs that should not be treated as white label pages
+const RESERVED_SLUGS = [
+  'login', 'forgot-password', 'reset-password', 'force-password-change', 'setup',
+  'planos', 'secretaria-whatsapp', '2026', 'para', 'checkout', 'signup-success',
+  'auth', 'legal', 'lp', 'helper', 'pagamento-sucesso', 'pagamento-cancelado',
+  'c', 'pay', 'pix-pagamento', 'pagamento-confirmado', 'quiz', 'pagar', 't',
+  'parceiro', 'convite-parceiros', 'rede', 'implementador', 'pv2', 'entrar',
+  'white-admin', 'loja', 'dashboard-kanban', 'leads', 'sales', 'vendas',
+  'produtos', 'expedicao', 'whatsapp', 'instagram', 'team', 'settings',
+  'onboarding', 'integrations', 'demandas', 'sac', 'financial', 'receptivo',
+  'ai-bots', 'fiscal', 'super-admin', 'cadastro', 'ecommerce', 'afiliado',
+  'sales-landing', 'cobrar', 'produtos-custos', 'combos', 'notas-compra',
+  'romaneio', 'fechamento', 'entregas', 'relatorios', 'nps', 'api-docs',
+];
+
 export default function WhiteLabelLogin() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -22,8 +37,11 @@ export default function WhiteLabelLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
+  // Check if slug is reserved
+  const isReservedSlug = slug ? RESERVED_SLUGS.includes(slug.toLowerCase()) : false;
+
   // Fetch white label config by slug
-  const { data: config, isLoading: isLoadingConfig } = useWhiteLabelBySlug(slug);
+  const { data: config, isLoading: isLoadingConfig } = useWhiteLabelBySlug(isReservedSlug ? undefined : slug);
 
   // Set favicon dynamically
   useEffect(() => {
