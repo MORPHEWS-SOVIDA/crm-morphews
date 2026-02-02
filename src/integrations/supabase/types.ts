@@ -18661,9 +18661,11 @@ export type Database = {
           logo_dark_url: string | null
           logo_url: string | null
           primary_color: string | null
+          primary_color_dark: string | null
           privacy_url: string | null
           sales_page_slug: string | null
           secondary_color: string | null
+          secondary_color_dark: string | null
           support_email: string | null
           support_phone: string | null
           support_whatsapp: string | null
@@ -18687,9 +18689,11 @@ export type Database = {
           logo_dark_url?: string | null
           logo_url?: string | null
           primary_color?: string | null
+          primary_color_dark?: string | null
           privacy_url?: string | null
           sales_page_slug?: string | null
           secondary_color?: string | null
+          secondary_color_dark?: string | null
           support_email?: string | null
           support_phone?: string | null
           support_whatsapp?: string | null
@@ -18713,9 +18717,11 @@ export type Database = {
           logo_dark_url?: string | null
           logo_url?: string | null
           primary_color?: string | null
+          primary_color_dark?: string | null
           privacy_url?: string | null
           sales_page_slug?: string | null
           secondary_color?: string | null
+          secondary_color_dark?: string | null
           support_email?: string | null
           support_phone?: string | null
           support_whatsapp?: string | null

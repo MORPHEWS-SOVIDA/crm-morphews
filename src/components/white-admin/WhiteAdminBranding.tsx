@@ -161,6 +161,8 @@ export function WhiteAdminBranding() {
     favicon_url: '',
     primary_color: '#8B5CF6',
     secondary_color: '#ffffff',
+    primary_color_dark: '#A78BFA',
+    secondary_color_dark: '#1f1f1f',
     sales_page_slug: '',
     app_domain: '',
     checkout_domain: '',
@@ -188,6 +190,8 @@ export function WhiteAdminBranding() {
         favicon_url: config.favicon_url || '',
         primary_color: config.primary_color || '#8B5CF6',
         secondary_color: config.secondary_color || '#ffffff',
+        primary_color_dark: (config as any).primary_color_dark || '#A78BFA',
+        secondary_color_dark: (config as any).secondary_color_dark || '#1f1f1f',
         sales_page_slug: config.sales_page_slug || '',
         app_domain: config.app_domain || '',
         checkout_domain: config.checkout_domain || '',
@@ -314,37 +318,86 @@ export function WhiteAdminBranding() {
               helpText="Ícone do navegador. Recomendado: 32x32px ou 64x64px"
             />
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Cor Primária</Label>
-                <div className="flex gap-2">
-                  <input 
-                    type="color"
-                    value={formData.primary_color}
-                    onChange={(e) => handleChange('primary_color', e.target.value)}
-                    className="w-12 h-10 rounded border cursor-pointer"
-                  />
-                  <Input 
-                    value={formData.primary_color}
-                    onChange={(e) => handleChange('primary_color', e.target.value)}
-                    className="flex-1"
-                  />
+            {/* Light Theme Colors */}
+            <div className="space-y-4 p-4 border rounded-lg bg-white dark:bg-zinc-900">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <div className="w-4 h-4 rounded-full bg-gradient-to-r from-amber-200 to-yellow-400" />
+                Cores do Tema Claro
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Cor Primária</Label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="color"
+                      value={formData.primary_color}
+                      onChange={(e) => handleChange('primary_color', e.target.value)}
+                      className="w-10 h-9 rounded border cursor-pointer"
+                    />
+                    <Input 
+                      value={formData.primary_color}
+                      onChange={(e) => handleChange('primary_color', e.target.value)}
+                      className="flex-1 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Cor Secundária</Label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="color"
+                      value={formData.secondary_color}
+                      onChange={(e) => handleChange('secondary_color', e.target.value)}
+                      className="w-10 h-9 rounded border cursor-pointer"
+                    />
+                    <Input 
+                      value={formData.secondary_color}
+                      onChange={(e) => handleChange('secondary_color', e.target.value)}
+                      className="flex-1 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Cor Secundária</Label>
-                <div className="flex gap-2">
-                  <input 
-                    type="color"
-                    value={formData.secondary_color}
-                    onChange={(e) => handleChange('secondary_color', e.target.value)}
-                    className="w-12 h-10 rounded border cursor-pointer"
-                  />
-                  <Input 
-                    value={formData.secondary_color}
-                    onChange={(e) => handleChange('secondary_color', e.target.value)}
-                    className="flex-1"
-                  />
+            </div>
+            
+            {/* Dark Theme Colors */}
+            <div className="space-y-4 p-4 border rounded-lg bg-zinc-900 dark:bg-zinc-950">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <div className="w-4 h-4 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600" />
+                Cores do Tema Escuro
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-zinc-300">Cor Primária</Label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="color"
+                      value={formData.primary_color_dark}
+                      onChange={(e) => handleChange('primary_color_dark', e.target.value)}
+                      className="w-10 h-9 rounded border border-zinc-700 cursor-pointer"
+                    />
+                    <Input 
+                      value={formData.primary_color_dark}
+                      onChange={(e) => handleChange('primary_color_dark', e.target.value)}
+                      className="flex-1 text-sm bg-zinc-800 border-zinc-700 text-white"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-zinc-300">Cor Secundária</Label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="color"
+                      value={formData.secondary_color_dark}
+                      onChange={(e) => handleChange('secondary_color_dark', e.target.value)}
+                      className="w-10 h-9 rounded border border-zinc-700 cursor-pointer"
+                    />
+                    <Input 
+                      value={formData.secondary_color_dark}
+                      onChange={(e) => handleChange('secondary_color_dark', e.target.value)}
+                      className="flex-1 text-sm bg-zinc-800 border-zinc-700 text-white"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
