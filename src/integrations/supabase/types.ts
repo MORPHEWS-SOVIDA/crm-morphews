@@ -18660,6 +18660,7 @@ export type Database = {
           login_background_url: string | null
           logo_dark_url: string | null
           logo_url: string | null
+          page_title: string | null
           primary_color: string | null
           primary_color_dark: string | null
           privacy_url: string | null
@@ -18688,6 +18689,7 @@ export type Database = {
           login_background_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
+          page_title?: string | null
           primary_color?: string | null
           primary_color_dark?: string | null
           privacy_url?: string | null
@@ -18716,6 +18718,7 @@ export type Database = {
           login_background_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
+          page_title?: string | null
           primary_color?: string | null
           primary_color_dark?: string | null
           privacy_url?: string | null
