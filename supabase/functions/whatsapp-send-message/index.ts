@@ -239,13 +239,33 @@ async function sendEvolutionMessage(params: {
     ok: response.ok,
     hasKey: !!result?.key,
     error: result?.error || result?.message,
+    response: result?.response,
   });
 
   if (response.ok && result?.key?.id) {
     return { success: true, providerMessageId: result.key.id, raw: result };
   }
 
-  const errorMsg = result?.message || result?.error || `HTTP ${response.status}`;
+  // Parse error message for better user feedback
+  let errorMsg = result?.message || result?.error || `HTTP ${response.status}`;
+  const responseMessage = result?.response?.message;
+  
+  // Check for common error patterns
+  if (response.status === 400 || errorMsg === "Bad Request") {
+    // Check if it's a "not on WhatsApp" error
+    if (responseMessage?.includes?.("not on whatsapp") || 
+        responseMessage?.includes?.("não está no WhatsApp") ||
+        responseMessage?.includes?.("The number") ||
+        errorMsg.includes?.("not registered")) {
+      errorMsg = "Este número não está registrado no WhatsApp. Verifique se o número está correto.";
+    } else if (responseMessage?.includes?.("blocked") || errorMsg.includes?.("blocked")) {
+      errorMsg = "Este número pode ter bloqueado a instância do WhatsApp.";
+    } else {
+      // Generic bad request - likely invalid number
+      errorMsg = `Falha ao enviar: número pode não estar no WhatsApp ou formato inválido (${number})`;
+    }
+  }
+  
   return { success: false, providerMessageId: null, error: errorMsg };
 }
 
