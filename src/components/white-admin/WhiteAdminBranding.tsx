@@ -157,6 +157,7 @@ export function WhiteAdminBranding() {
   const [formData, setFormData] = useState({
     brand_name: config?.brand_name || '',
     logo_url: config?.logo_url || '',
+    logo_dark_url: (config as any)?.logo_dark_url || '',
     favicon_url: config?.favicon_url || '',
     primary_color: config?.primary_color || '#8B5CF6',
     secondary_color: config?.secondary_color || '#ffffff',
@@ -245,14 +246,36 @@ export function WhiteAdminBranding() {
               />
             </div>
             
-            <FileUploadField
-              label="Logo"
-              value={formData.logo_url}
-              onChange={(url) => handleChange('logo_url', url)}
-              configId={config.id}
-              fieldName="logo"
-              helpText="Recomendado: PNG ou SVG com fundo transparente"
-            />
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ImageIcon className="h-4 w-4" />
+                Logos da Marca
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Recomendamos ter duas versões do logo para melhor visibilidade em diferentes temas.
+                <br />
+                <strong>Tamanho ideal:</strong> 400×100px ou proporção similar (horizontal).
+                Use PNG ou SVG com fundo transparente.
+              </p>
+              
+              <FileUploadField
+                label="Logo (para fundo claro)"
+                value={formData.logo_url}
+                onChange={(url) => handleChange('logo_url', url)}
+                configId={config.id}
+                fieldName="logo"
+                helpText="Versão escura do logo para exibir em fundos brancos/claros. Tamanho: 400×100px"
+              />
+              
+              <FileUploadField
+                label="Logo (para fundo escuro)"
+                value={formData.logo_dark_url || ''}
+                onChange={(url) => handleChange('logo_dark_url', url)}
+                configId={config.id}
+                fieldName="logo_dark"
+                helpText="Versão clara do logo para exibir em fundos escuros. Tamanho: 400×100px"
+              />
+            </div>
             
             <FileUploadField
               label="Favicon"

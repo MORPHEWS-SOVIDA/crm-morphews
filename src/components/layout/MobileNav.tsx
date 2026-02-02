@@ -41,6 +41,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useNavigate } from 'react-router-dom';
 import logoMorphews from '@/assets/logo-morphews.png';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -442,16 +443,19 @@ export function MobileNav() {
                 </div>
               </ScrollArea>
 
-              {/* Footer - Logout */}
+              {/* Footer - Theme Toggle and Logout */}
               <div className="px-4 py-4 border-t border-border flex-shrink-0 safe-area-bottom">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 h-12"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="w-5 h-5" />
-                  Sair da conta
-                </Button>
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <Button
+                    variant="ghost"
+                    className="flex-1 justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 h-12"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Sair da conta
+                  </Button>
+                </div>
               </div>
             </div>
           </SheetContent>

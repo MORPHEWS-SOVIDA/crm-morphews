@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useIsManager } from '@/hooks/useDiscountAuthorization';
@@ -318,16 +319,19 @@ export function Sidebar() {
               Termos e Privacidade
             </NavLink>
             
-            {/* Sign out button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={handleSignOut}
-            >
-              <LogOut className="w-4 h-4" />
-              Sair
-            </Button>
+            {/* Theme toggle and Sign out */}
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={handleSignOut}
+              >
+                <LogOut className="w-4 h-4" />
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </aside>
