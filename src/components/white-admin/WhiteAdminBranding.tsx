@@ -1,13 +1,153 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useMyWhiteLabelConfig } from '@/hooks/useWhiteAdmin';
 import { useUpdateWhiteLabelConfig } from '@/hooks/useWhiteLabel';
-import { Palette, Upload, Globe, Mail, Phone, FileText, Save, CheckCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Palette, Upload, Globe, Mail, Phone, FileText, Save, ImageIcon, AlertCircle, Loader2, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+
+interface FileUploadFieldProps {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  configId: string;
+  fieldName: string;
+  accept?: string;
+  helpText?: string;
+}
+
+function FileUploadField({ label, value, onChange, configId, fieldName, accept = "image/*", helpText }: FileUploadFieldProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido é 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${configId}/${fieldName}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('white-label-assets')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('white-label-assets')
+        .getPublicUrl(fileName);
+
+      onChange(publicUrl);
+      toast({
+        title: "Upload concluído",
+        description: "Imagem enviada com sucesso",
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Erro no upload",
+        description: error.message || "Falha ao enviar arquivo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const handleRemove = () => {
+    onChange('');
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        className="hidden"
+        id={`upload-${fieldName}`}
+      />
+      
+      {value ? (
+        <div className="relative group">
+          <div className="p-4 border rounded-lg bg-muted/50 flex items-center gap-4">
+            <img 
+              src={value} 
+              alt={label} 
+              className="h-16 w-auto max-w-[200px] object-contain rounded"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground truncate">{value}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => inputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRemove}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full h-24 border-dashed flex flex-col gap-2"
+          onClick={() => inputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <>
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-sm">Enviando...</span>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="h-6 w-6 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Clique para fazer upload</span>
+            </>
+          )}
+        </Button>
+      )}
+      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
+    </div>
+  );
+}
 
 export function WhiteAdminBranding() {
   const { data: wlData, refetch } = useMyWhiteLabelConfig();
@@ -58,6 +198,14 @@ export function WhiteAdminBranding() {
 
   const primaryColor = formData.primary_color || '#8B5CF6';
 
+  if (!config?.id) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Carregando configurações...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -97,28 +245,23 @@ export function WhiteAdminBranding() {
               />
             </div>
             
-            <div className="space-y-2">
-              <Label>URL do Logo</Label>
-              <Input 
-                value={formData.logo_url}
-                onChange={(e) => handleChange('logo_url', e.target.value)}
-                placeholder="https://..."
-              />
-              {formData.logo_url && (
-                <div className="p-4 border rounded-lg bg-muted/50">
-                  <img src={formData.logo_url} alt="Logo" className="h-12 w-auto" />
-                </div>
-              )}
-            </div>
+            <FileUploadField
+              label="Logo"
+              value={formData.logo_url}
+              onChange={(url) => handleChange('logo_url', url)}
+              configId={config.id}
+              fieldName="logo"
+              helpText="Recomendado: PNG ou SVG com fundo transparente"
+            />
             
-            <div className="space-y-2">
-              <Label>URL do Favicon</Label>
-              <Input 
-                value={formData.favicon_url}
-                onChange={(e) => handleChange('favicon_url', e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+            <FileUploadField
+              label="Favicon"
+              value={formData.favicon_url}
+              onChange={(url) => handleChange('favicon_url', url)}
+              configId={config.id}
+              fieldName="favicon"
+              helpText="Ícone do navegador. Recomendado: 32x32px ou 64x64px"
+            />
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -188,9 +331,6 @@ export function WhiteAdminBranding() {
                 onChange={(e) => handleChange('app_domain', e.target.value)}
                 placeholder="app.seudominio.com.br"
               />
-              <p className="text-xs text-muted-foreground">
-                Requer configuração DNS. Entre em contato com o suporte.
-              </p>
             </div>
             
             <div className="space-y-2">
@@ -201,6 +341,13 @@ export function WhiteAdminBranding() {
                 placeholder="pay.seudominio.com.br"
               />
             </div>
+            
+            <Alert className="bg-amber-500/10 border-amber-500/20">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-700">
+                Após configurar os domínios, salve as alterações e entre em contato com o suporte para ativação.
+              </AlertDescription>
+            </Alert>
           </CardContent>
         </Card>
         
@@ -222,14 +369,14 @@ export function WhiteAdminBranding() {
               />
             </div>
             
-            <div className="space-y-2">
-              <Label>Logo para E-mails</Label>
-              <Input 
-                value={formData.email_logo_url}
-                onChange={(e) => handleChange('email_logo_url', e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+            <FileUploadField
+              label="Logo para E-mails"
+              value={formData.email_logo_url}
+              onChange={(url) => handleChange('email_logo_url', url)}
+              configId={config.id}
+              fieldName="email_logo"
+              helpText="Aparece no cabeçalho dos e-mails enviados"
+            />
           </CardContent>
         </Card>
         
@@ -310,14 +457,14 @@ export function WhiteAdminBranding() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Imagem de Fundo do Login</Label>
-              <Input 
-                value={formData.login_background_url}
-                onChange={(e) => handleChange('login_background_url', e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+            <FileUploadField
+              label="Imagem de Fundo do Login"
+              value={formData.login_background_url}
+              onChange={(url) => handleChange('login_background_url', url)}
+              configId={config.id}
+              fieldName="login_background"
+              helpText="Imagem exibida na tela de login. Recomendado: 1920x1080px"
+            />
             
             <div className="space-y-2">
               <Label>Mensagem de Boas-Vindas no Dashboard</Label>
