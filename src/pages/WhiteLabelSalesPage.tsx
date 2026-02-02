@@ -29,7 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import donnaAvatar from "@/assets/donna-avatar.png";
+import morphewsAvatar from "@/assets/morphews-avatar.png";
 
 // Animated counter component
 const AnimatedCounter = ({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) => {
@@ -149,7 +149,7 @@ const TestimonialCard = ({ name, role, company, quote, avatar, primaryColor }: {
 
 // Feature anchor items for the hero
 const featureAnchors = [
-  { id: "donna", label: "Atualização do CRM por conversa no WhatsApp com sua secretária DONNA", icon: MessageCircle },
+  { id: "morphews", label: "Atualização do CRM por conversa no WhatsApp com MORPHEWS", icon: MessageCircle },
   { id: "crm", label: "CRM com funil de vendas", icon: TrendingDown },
   { id: "erp", label: "ERP com NF-e e etiquetas automáticas", icon: Receipt },
   { id: "demandas", label: "Sistema de demandas", icon: ListTodo },
@@ -551,35 +551,85 @@ export default function WhiteLabelSalesPage() {
           </div>
         </section>
 
-        {/* DONNA Section */}
-        <section id="donna" className="py-20 md:py-32 bg-muted/30">
-          <div className="container mx-auto px-4">
+        {/* MORPHEWS Section */}
+        <section id="morphews" className="py-20 md:py-32 bg-muted/30 relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-20 left-10 w-72 h-72 rounded-full" style={{ backgroundColor: primaryColor }} />
+            <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full" style={{ backgroundColor: primaryColor }} />
+          </div>
+          
+          <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-6xl mx-auto">
+              {/* Section header */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="text-center mb-12"
+              >
+                <Badge className="mb-4" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor, borderColor: primaryColor }}>
+                  <Bot className="h-3 w-3 mr-2" />
+                  Assistente Virtual Inteligente
+                </Badge>
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
+                  Dúvidas? <span className="block mt-2">Fale com</span>
+                </h2>
+                <div className="inline-block">
+                  <span 
+                    className="text-5xl md:text-6xl lg:text-7xl font-black bg-clip-text text-transparent"
+                    style={{ backgroundImage: `linear-gradient(135deg, ${primaryColor}, #a855f7, #ec4899)` }}
+                  >
+                    MORPHEWS
+                  </span>
+                </div>
+              </motion.div>
+
               <div className="grid lg:grid-cols-2 gap-12 items-center">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
-                  className="relative flex justify-center"
+                  className="relative flex justify-center order-2 lg:order-1"
                 >
                   <div className="relative">
-                    <div className="w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 shadow-2xl" style={{ borderColor: `${primaryColor}30` }}>
+                    {/* Main avatar with enhanced styling */}
+                    <div 
+                      className="w-72 h-72 md:w-96 md:h-96 rounded-[2rem] overflow-hidden shadow-2xl ring-4 ring-offset-4 ring-offset-background"
+                      style={{ 
+                        borderColor: `${primaryColor}50`,
+                        boxShadow: `0 25px 60px -12px ${primaryColor}40`
+                      }}
+                    >
                       <img 
-                        src={donnaAvatar} 
-                        alt="Donna - Assistente Virtual" 
-                        className="w-full h-full object-cover"
+                        src={morphewsAvatar} 
+                        alt="Morphews - Assistente Virtual" 
+                        className="w-full h-full object-cover object-top"
                       />
                     </div>
+                    
+                    {/* Floating badges */}
                     <FloatingElement delay={0} className="absolute -top-4 -right-4">
-                      <div className="text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2" style={{ backgroundColor: primaryColor }}>
+                      <div 
+                        className="text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-xl flex items-center gap-2"
+                        style={{ backgroundColor: primaryColor }}
+                      >
                         <Bot className="h-4 w-4" />
                         Online 24/7
                       </div>
                     </FloatingElement>
+                    
                     <FloatingElement delay={1} className="absolute -bottom-4 -left-4">
-                      <div className="bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+                      <div className="bg-green-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-xl flex items-center gap-2">
                         <MessageCircle className="h-4 w-4" />
-                        Suporte Instantâneo
+                        Resposta Instantânea
+                      </div>
+                    </FloatingElement>
+
+                    <FloatingElement delay={0.5} className="absolute top-1/2 -left-8 -translate-y-1/2">
+                      <div className="bg-card border shadow-lg px-4 py-2 rounded-full text-sm flex items-center gap-2">
+                        <Mic className="h-4 w-4 text-red-500" />
+                        <span className="font-medium">Entende áudio</span>
                       </div>
                     </FloatingElement>
                   </div>
@@ -589,35 +639,56 @@ export default function WhiteLabelSalesPage() {
                   initial={{ opacity: 0, x: 30 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
+                  className="order-1 lg:order-2"
                 >
-                  <Badge variant="outline" className="mb-4">
-                    <MessageCircle className="h-3 w-3 mr-2" />
-                    Atualização do CRM por conversa no WhatsApp
-                  </Badge>
-                  <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                    Sua secretária IA <GradientText primaryColor={primaryColor}>DONNA</GradientText>
-                  </h2>
-                  <p className="text-lg text-muted-foreground mb-8">
-                    Atualize seu CRM por <strong>áudio no WhatsApp</strong>. Diga: "Donna, cadastra o João, 
-                    telefone tal, ele quer o produto X". Pronto! Lead cadastrado, etapa do funil definida.
+                  <p className="text-xl text-muted-foreground mb-8">
+                    Atualize seu CRM por <strong className="text-foreground">áudio no WhatsApp</strong>. 
+                    Basta falar: <em>"Morphews, cadastra o João, telefone tal, ele quer o produto X"</em>. 
+                    Pronto! Lead cadastrado, etapa do funil definida.
                   </p>
 
-                  <div className="space-y-4 mb-8">
+                  <div className="grid gap-4 mb-8">
                     {[
-                      { icon: Mic, text: "Cadastre leads por áudio enquanto dirige" },
-                      { icon: MessageCircle, text: "Atualize etapas do funil por mensagem" },
-                      { icon: Clock, text: "Agende follow-ups falando com a Donna" },
-                      { icon: HelpCircle, text: "Tire dúvidas sobre o sistema instantaneamente" },
-                      { icon: Brain, text: "Receba sugestões inteligentes de ações" },
-                    ].map(({ icon: Icon, text }, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
-                          <Icon className="h-4 w-4" style={{ color: primaryColor }} />
+                      { icon: Mic, text: "Cadastre leads por áudio enquanto dirige", highlight: true },
+                      { icon: MessageCircle, text: "Atualize etapas do funil por mensagem", highlight: false },
+                      { icon: Clock, text: "Agende follow-ups falando com o Morphews", highlight: false },
+                      { icon: HelpCircle, text: "Tire dúvidas sobre o sistema instantaneamente", highlight: false },
+                      { icon: Brain, text: "Receba sugestões inteligentes de ações", highlight: false },
+                    ].map(({ icon: Icon, text, highlight }, i) => (
+                      <motion.div 
+                        key={i} 
+                        className={cn(
+                          "flex items-center gap-4 p-3 rounded-xl transition-all",
+                          highlight ? "bg-gradient-to-r from-primary/10 to-transparent" : "hover:bg-muted/50"
+                        )}
+                        initial={{ opacity: 0, x: 20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.1 }}
+                      >
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" 
+                          style={{ backgroundColor: `${primaryColor}15` }}
+                        >
+                          <Icon className="h-5 w-5" style={{ color: primaryColor }} />
                         </div>
-                        <span>{text}</span>
-                      </div>
+                        <span className="font-medium">{text}</span>
+                      </motion.div>
                     ))}
                   </div>
+
+                  <Button 
+                    size="lg" 
+                    className="text-white font-bold group"
+                    style={{ backgroundColor: primaryColor }}
+                    onClick={() => {
+                      const plansSection = document.getElementById('planos');
+                      if (plansSection) plansSection.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    Quero o Morphews no meu negócio
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
                 </motion.div>
               </div>
             </div>
