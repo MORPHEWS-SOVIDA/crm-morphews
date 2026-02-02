@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,15 +6,67 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMyWhiteLabelConfig, useWhiteLabelPlans, useCreateWhiteLabelPlan, useUpdateWhiteLabelPlan, WhiteLabelPlan } from '@/hooks/useWhiteAdmin';
-import { Package, Plus, Edit, Users, Zap, MessageSquare, ShoppingCart, FileText, BarChart3 } from 'lucide-react';
+import { Package, Plus, Edit, Users, Zap, MessageSquare, ShoppingCart, FileText, BarChart3, AlertTriangle, DollarSign, TrendingUp } from 'lucide-react';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(cents / 100);
+}
+
+// ===== REGRAS DE CUSTO PARA PLATAFORMA =====
+// Custos que a plataforma (super-admin) terá com cada cliente white label
+const PLATFORM_COSTS = {
+  // WhatsApp: 1 instância incluída, cada adicional +R$ 50/mês
+  WHATSAPP_BASE_INCLUDED: 1,
+  WHATSAPP_ADDITIONAL_COST_CENTS: 5000, // R$ 50,00
+  
+  // Energia: base de 1000 incluída (custo zero), acima disso não temos custo extra por enquanto
+  ENERGY_BASE_INCLUDED: 1000,
+  
+  // Nota Fiscal: +R$ 150/mês (inclui 100 notas, R$ 0,10 por adicional)
+  NFE_MONTHLY_COST_CENTS: 15000, // R$ 150,00
+  NFE_INCLUDED_INVOICES: 100,
+  NFE_ADDITIONAL_COST_CENTS: 10, // R$ 0,10 por nota adicional
+  
+  // Tracking & Pixels: +R$ 125/mês
+  TRACKING_MONTHLY_COST_CENTS: 12500, // R$ 125,00
+  
+  // Usuários: 3 incluídos, cada adicional +R$ 2/mês
+  USERS_BASE_INCLUDED: 3,
+  USER_ADDITIONAL_COST_CENTS: 200, // R$ 2,00
+};
+
+// Calcula o custo mínimo que a plataforma terá
+function calculatePlatformCost(plan: Partial<WhiteLabelPlan>): number {
+  let costCents = 0;
+  
+  // WhatsApp adicional
+  const whatsappInstances = plan.max_whatsapp_instances || 1;
+  if (whatsappInstances > PLATFORM_COSTS.WHATSAPP_BASE_INCLUDED) {
+    costCents += (whatsappInstances - PLATFORM_COSTS.WHATSAPP_BASE_INCLUDED) * PLATFORM_COSTS.WHATSAPP_ADDITIONAL_COST_CENTS;
+  }
+  
+  // Nota Fiscal
+  if (plan.has_nfe) {
+    costCents += PLATFORM_COSTS.NFE_MONTHLY_COST_CENTS;
+  }
+  
+  // Tracking & Pixels
+  if (plan.has_tracking) {
+    costCents += PLATFORM_COSTS.TRACKING_MONTHLY_COST_CENTS;
+  }
+  
+  // Usuários adicionais
+  const users = plan.max_users || 1;
+  if (users > PLATFORM_COSTS.USERS_BASE_INCLUDED) {
+    costCents += (users - PLATFORM_COSTS.USERS_BASE_INCLUDED) * PLATFORM_COSTS.USER_ADDITIONAL_COST_CENTS;
+  }
+  
+  return costCents;
 }
 
 const defaultPlan: Partial<WhiteLabelPlan> = {
@@ -26,7 +78,7 @@ const defaultPlan: Partial<WhiteLabelPlan> = {
   max_users: 1,
   max_leads: null,
   max_whatsapp_instances: 1,
-  max_energy_per_month: 5000,
+  max_energy_per_month: 1000, // Mudado de 5000 para 1000 (padrão base)
   max_ecommerce_products: 0,
   max_storefronts: 0,
   has_ai_bots: false,
@@ -53,6 +105,11 @@ export function WhiteAdminPlans() {
   
   const primaryColor = wlData?.white_label_configs?.primary_color || '#8B5CF6';
 
+  // Calcula custo mínimo em tempo real
+  const platformCost = useMemo(() => calculatePlatformCost(formData), [formData]);
+  const sellerProfit = (formData.price_cents || 0) - platformCost;
+  const isPriceValid = (formData.price_cents || 0) > platformCost;
+
   const handleOpenDialog = (plan?: WhiteLabelPlan) => {
     if (plan) {
       setEditingPlan(plan);
@@ -67,11 +124,21 @@ export function WhiteAdminPlans() {
   const handleSave = () => {
     if (!configId) return;
     
+    // Validar preço mínimo
+    if (!isPriceValid) {
+      return;
+    }
+    
+    const planData = {
+      ...formData,
+      platform_cost_cents: platformCost, // Salvar custo da plataforma
+    };
+    
     if (editingPlan?.id) {
-      updatePlan.mutate({ id: editingPlan.id, updates: formData });
+      updatePlan.mutate({ id: editingPlan.id, updates: planData });
     } else {
       createPlan.mutate({
-        ...formData,
+        ...planData,
         white_label_config_id: configId,
       } as WhiteLabelPlan);
     }
@@ -86,6 +153,62 @@ export function WhiteAdminPlans() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
   };
+
+  // Gera breakdown detalhado dos custos
+  const costBreakdown = useMemo(() => {
+    const items: { label: string; cost: number; included?: string }[] = [];
+    
+    // WhatsApp
+    const whatsappInstances = formData.max_whatsapp_instances || 1;
+    if (whatsappInstances > PLATFORM_COSTS.WHATSAPP_BASE_INCLUDED) {
+      const extraInstances = whatsappInstances - PLATFORM_COSTS.WHATSAPP_BASE_INCLUDED;
+      items.push({
+        label: `WhatsApp adicional (${extraInstances}x)`,
+        cost: extraInstances * PLATFORM_COSTS.WHATSAPP_ADDITIONAL_COST_CENTS,
+      });
+    } else {
+      items.push({
+        label: 'WhatsApp',
+        cost: 0,
+        included: '1 instância incluída',
+      });
+    }
+    
+    // Usuários
+    const users = formData.max_users || 1;
+    if (users > PLATFORM_COSTS.USERS_BASE_INCLUDED) {
+      const extraUsers = users - PLATFORM_COSTS.USERS_BASE_INCLUDED;
+      items.push({
+        label: `Usuários adicionais (${extraUsers}x)`,
+        cost: extraUsers * PLATFORM_COSTS.USER_ADDITIONAL_COST_CENTS,
+      });
+    } else {
+      items.push({
+        label: 'Usuários',
+        cost: 0,
+        included: `até ${PLATFORM_COSTS.USERS_BASE_INCLUDED} incluídos`,
+      });
+    }
+    
+    // Nota Fiscal
+    if (formData.has_nfe) {
+      items.push({
+        label: 'Nota Fiscal',
+        cost: PLATFORM_COSTS.NFE_MONTHLY_COST_CENTS,
+        included: `${PLATFORM_COSTS.NFE_INCLUDED_INVOICES} notas/mês`,
+      });
+    }
+    
+    // Tracking
+    if (formData.has_tracking) {
+      items.push({
+        label: 'Tracking & Pixels',
+        cost: PLATFORM_COSTS.TRACKING_MONTHLY_COST_CENTS,
+      });
+    }
+    
+    return items.filter(i => i.cost > 0 || i.included);
+  }, [formData]);
 
   return (
     <div className="space-y-6">
@@ -143,6 +266,20 @@ export function WhiteAdminPlans() {
                   <p className="text-sm text-muted-foreground">
                     + {formatCurrency(plan.setup_fee_cents)} de setup
                   </p>
+                )}
+                
+                {/* Show platform cost and profit */}
+                {plan.platform_cost_cents > 0 && (
+                  <div className="text-xs text-muted-foreground border-t pt-2">
+                    <div className="flex justify-between">
+                      <span>Custo plataforma:</span>
+                      <span>{formatCurrency(plan.platform_cost_cents)}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Seu lucro:</span>
+                      <span>{formatCurrency(plan.price_cents - plan.platform_cost_cents)}</span>
+                    </div>
+                  </div>
                 )}
                 
                 <div className="space-y-2 text-sm">
@@ -205,172 +342,264 @@ export function WhiteAdminPlans() {
       
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPlan ? 'Editar Plano' : 'Novo Plano'}</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
-            {/* Basic Info */}
-            <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Main Form - 2 columns */}
+            <div className="md:col-span-2 space-y-6">
+              {/* Basic Info */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Nome do Plano</Label>
+                  <Input 
+                    value={formData.name}
+                    onChange={(e) => {
+                      setFormData({ 
+                        ...formData, 
+                        name: e.target.value,
+                        slug: editingPlan ? formData.slug : generateSlug(e.target.value)
+                      });
+                    }}
+                    placeholder="Ex: Plano Starter"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Slug (URL)</Label>
+                  <Input 
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    placeholder="plano-starter"
+                  />
+                </div>
+              </div>
+              
               <div className="space-y-2">
-                <Label>Nome do Plano</Label>
-                <Input 
-                  value={formData.name}
-                  onChange={(e) => {
-                    setFormData({ 
-                      ...formData, 
-                      name: e.target.value,
-                      slug: editingPlan ? formData.slug : generateSlug(e.target.value)
-                    });
-                  }}
-                  placeholder="Ex: Plano Starter"
+                <Label>Descrição</Label>
+                <Textarea 
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Descrição curta do plano..."
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Slug (URL)</Label>
-                <Input 
-                  value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  placeholder="plano-starter"
-                />
+              
+              {/* Pricing */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Preço Mensal (R$)</Label>
+                  <Input 
+                    type="number"
+                    value={(formData.price_cents || 0) / 100}
+                    onChange={(e) => setFormData({ ...formData, price_cents: Math.round(parseFloat(e.target.value) * 100) })}
+                    step="0.01"
+                    className={!isPriceValid ? 'border-red-500' : ''}
+                  />
+                  {!isPriceValid && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Preço deve ser maior que {formatCurrency(platformCost)}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Taxa de Setup (R$)</Label>
+                  <Input 
+                    type="number"
+                    value={(formData.setup_fee_cents || 0) / 100}
+                    onChange={(e) => setFormData({ ...formData, setup_fee_cents: Math.round(parseFloat(e.target.value) * 100) })}
+                    step="0.01"
+                  />
+                </div>
+              </div>
+              
+              {/* Limits */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Máx. Usuários</Label>
+                  <Input 
+                    type="number"
+                    min={1}
+                    value={formData.max_users}
+                    onChange={(e) => setFormData({ ...formData, max_users: parseInt(e.target.value) || 1 })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {(formData.max_users || 1) <= 3 
+                      ? '✓ Incluído (até 3)' 
+                      : `+${formatCurrency(((formData.max_users || 1) - 3) * 200)}/mês`
+                    }
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>WhatsApp</Label>
+                  <Input 
+                    type="number"
+                    min={1}
+                    value={formData.max_whatsapp_instances}
+                    onChange={(e) => setFormData({ ...formData, max_whatsapp_instances: parseInt(e.target.value) || 1 })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {(formData.max_whatsapp_instances || 1) <= 1 
+                      ? '✓ 1 incluído' 
+                      : `+${formatCurrency(((formData.max_whatsapp_instances || 1) - 1) * 5000)}/mês`
+                    }
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Energia/mês</Label>
+                  <Input 
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    value={formData.max_energy_per_month}
+                    onChange={(e) => setFormData({ ...formData, max_energy_per_month: Math.max(1000, parseInt(e.target.value) || 1000) })}
+                  />
+                  <p className="text-xs text-muted-foreground">Mínimo: 1.000</p>
+                </div>
+              </div>
+              
+              {/* Features */}
+              <div className="space-y-4">
+                <Label>Features Incluídas</Label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span>WhatsApp</span>
+                    <Switch 
+                      checked={formData.has_whatsapp}
+                      onCheckedChange={(v) => setFormData({ ...formData, has_whatsapp: v })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span>IA & Robôs</span>
+                    <Switch 
+                      checked={formData.has_ai_bots}
+                      onCheckedChange={(v) => setFormData({ ...formData, has_ai_bots: v })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span>E-commerce</span>
+                    <Switch 
+                      checked={formData.has_ecommerce}
+                      onCheckedChange={(v) => setFormData({ ...formData, has_ecommerce: v })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span>ERP</span>
+                    <Switch 
+                      checked={formData.has_erp}
+                      onCheckedChange={(v) => setFormData({ ...formData, has_erp: v })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-cyan-500/10">
+                    <div>
+                      <span>Tracking & Pixels</span>
+                      <p className="text-xs text-muted-foreground">+R$ 125/mês</p>
+                    </div>
+                    <Switch 
+                      checked={formData.has_tracking}
+                      onCheckedChange={(v) => setFormData({ ...formData, has_tracking: v })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-purple-500/10">
+                    <div>
+                      <span>Nota Fiscal</span>
+                      <p className="text-xs text-muted-foreground">+R$ 150/mês (100 notas)</p>
+                    </div>
+                    <Switch 
+                      checked={formData.has_nfe}
+                      onCheckedChange={(v) => setFormData({ ...formData, has_nfe: v })}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Visibility */}
+              <div className="flex gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={formData.is_active}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_active: v })}
+                  />
+                  <Label>Plano ativo</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={formData.is_public}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_public: v })}
+                  />
+                  <Label>Visível na página de planos</Label>
+                </div>
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea 
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descrição curta do plano..."
-              />
-            </div>
-            
-            {/* Pricing */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Preço Mensal (R$)</Label>
-                <Input 
-                  type="number"
-                  value={(formData.price_cents || 0) / 100}
-                  onChange={(e) => setFormData({ ...formData, price_cents: Math.round(parseFloat(e.target.value) * 100) })}
-                  step="0.01"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Taxa de Setup (R$)</Label>
-                <Input 
-                  type="number"
-                  value={(formData.setup_fee_cents || 0) / 100}
-                  onChange={(e) => setFormData({ ...formData, setup_fee_cents: Math.round(parseFloat(e.target.value) * 100) })}
-                  step="0.01"
-                />
-              </div>
-            </div>
-            
-            {/* Limits */}
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Máx. Usuários</Label>
-                <Input 
-                  type="number"
-                  value={formData.max_users}
-                  onChange={(e) => setFormData({ ...formData, max_users: parseInt(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>WhatsApp</Label>
-                <Input 
-                  type="number"
-                  value={formData.max_whatsapp_instances}
-                  onChange={(e) => setFormData({ ...formData, max_whatsapp_instances: parseInt(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Energia/mês</Label>
-                <Input 
-                  type="number"
-                  value={formData.max_energy_per_month}
-                  onChange={(e) => setFormData({ ...formData, max_energy_per_month: parseInt(e.target.value) })}
-                />
-              </div>
-            </div>
-            
-            {/* Features */}
+            {/* Cost Summary - 1 column */}
             <div className="space-y-4">
-              <Label>Features Incluídas</Label>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span>WhatsApp</span>
-                  <Switch 
-                    checked={formData.has_whatsapp}
-                    onCheckedChange={(v) => setFormData({ ...formData, has_whatsapp: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span>IA & Robôs</span>
-                  <Switch 
-                    checked={formData.has_ai_bots}
-                    onCheckedChange={(v) => setFormData({ ...formData, has_ai_bots: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span>E-commerce</span>
-                  <Switch 
-                    checked={formData.has_ecommerce}
-                    onCheckedChange={(v) => setFormData({ ...formData, has_ecommerce: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span>ERP</span>
-                  <Switch 
-                    checked={formData.has_erp}
-                    onCheckedChange={(v) => setFormData({ ...formData, has_erp: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span>Tracking & Pixels</span>
-                  <Switch 
-                    checked={formData.has_tracking}
-                    onCheckedChange={(v) => setFormData({ ...formData, has_tracking: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span>Nota Fiscal</span>
-                  <Switch 
-                    checked={formData.has_nfe}
-                    onCheckedChange={(v) => setFormData({ ...formData, has_nfe: v })}
-                  />
-                </div>
-              </div>
+              <Card className="sticky top-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Resumo de Custos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Cost breakdown */}
+                  <div className="space-y-2 text-sm">
+                    {costBreakdown.map((item, i) => (
+                      <div key={i} className="flex justify-between items-start">
+                        <div>
+                          <span className={item.cost > 0 ? 'text-foreground' : 'text-muted-foreground'}>
+                            {item.label}
+                          </span>
+                          {item.included && (
+                            <p className="text-xs text-muted-foreground">{item.included}</p>
+                          )}
+                        </div>
+                        <span className={item.cost > 0 ? 'text-red-500 font-medium' : 'text-green-600'}>
+                          {item.cost > 0 ? `+${formatCurrency(item.cost)}` : 'Grátis'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Custo mínimo:</span>
+                      <span className="font-bold text-red-500">{formatCurrency(platformCost)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Você cobra:</span>
+                      <span className="font-bold">{formatCurrency(formData.price_cents || 0)}</span>
+                    </div>
+                    <div className={`flex justify-between text-sm pt-2 border-t ${isPriceValid ? 'text-green-600' : 'text-red-500'}`}>
+                      <span className="flex items-center gap-1">
+                        <TrendingUp className="h-4 w-4" />
+                        Seu lucro:
+                      </span>
+                      <span className="font-bold text-lg">
+                        {formatCurrency(sellerProfit)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {!isPriceValid && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-600">
+                      <AlertTriangle className="h-4 w-4 inline mr-1" />
+                      O preço deve ser maior que o custo mínimo para você ter lucro.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Button 
+                onClick={handleSave}
+                className="w-full"
+                style={{ backgroundColor: primaryColor }}
+                disabled={!formData.name || !formData.slug || !isPriceValid || createPlan.isPending || updatePlan.isPending}
+              >
+                {editingPlan ? 'Salvar Alterações' : 'Criar Plano'}
+              </Button>
             </div>
-            
-            {/* Visibility */}
-            <div className="flex gap-6">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  checked={formData.is_active}
-                  onCheckedChange={(v) => setFormData({ ...formData, is_active: v })}
-                />
-                <Label>Plano ativo</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch 
-                  checked={formData.is_public}
-                  onCheckedChange={(v) => setFormData({ ...formData, is_public: v })}
-                />
-                <Label>Visível na página de planos</Label>
-              </div>
-            </div>
-            
-            <Button 
-              onClick={handleSave}
-              className="w-full"
-              style={{ backgroundColor: primaryColor }}
-              disabled={!formData.name || !formData.slug || createPlan.isPending || updatePlan.isPending}
-            >
-              {editingPlan ? 'Salvar Alterações' : 'Criar Plano'}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
