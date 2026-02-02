@@ -45,6 +45,7 @@ export function WhiteAdminLayout({ children }: WhiteAdminLayoutProps) {
   const config = wlData?.white_label_configs;
   const brandName = config?.brand_name || 'White Admin';
   const logoUrl = config?.logo_url;
+  const faviconUrl = config?.favicon_url;
   const primaryColor = config?.primary_color || '#8B5CF6';
   
   if (isLoading) {
@@ -111,7 +112,7 @@ export function WhiteAdminLayout({ children }: WhiteAdminLayoutProps) {
             
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={logoUrl || undefined} />
+                <AvatarImage src={faviconUrl || undefined} />
                 <AvatarFallback style={{ backgroundColor: primaryColor, color: 'white' }}>
                   {brandName[0]}
                 </AvatarFallback>
