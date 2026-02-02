@@ -1,0 +1,3 @@
+# Memory: infrastructure/auth/white-label-custom-domain-v2
+
+Sistema de Domínios Customizados para White-Label: O hook `useCustomDomainDetection` detecta tanto domínios de storefront quanto de white-label verificando os campos `storefront_domains.domain`, `white_label_configs.custom_domain` e `white_label_configs.app_domain`. Para domínios white-label, a lógica aplica o seguinte comportamento: (1) Se o usuário está autenticado, renderiza o app normal (dashboard); (2) Se não autenticado e na rota /login, mostra login com branding do parceiro; (3) Para outras rotas, deixa o routing normal tratar. Isso garante que após login no domínio customizado, o usuário permanece no mesmo domínio e vê o dashboard normalmente.

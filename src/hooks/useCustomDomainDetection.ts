@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 interface CustomDomainResult {
   isCustomDomain: boolean;
   storefrontSlug: string | null;
+  whiteLabelSlug: string | null;
+  domainType: 'storefront' | 'white-label' | null;
   isLoading: boolean;
 }
 
@@ -28,14 +30,16 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
- * Hook to detect if the current domain is a custom storefront domain
- * and return the corresponding storefront slug.
- * Uses direct fetch to avoid TypeScript recursion issues with Supabase types.
+ * Hook to detect if the current domain is a custom domain
+ * and return the corresponding storefront or white-label slug.
+ * Supports both storefront custom domains and white-label custom domains.
  */
 export function useCustomDomainDetection(): CustomDomainResult {
   const [result, setResult] = useState<CustomDomainResult>({
     isCustomDomain: false,
     storefrontSlug: null,
+    whiteLabelSlug: null,
+    domainType: null,
     isLoading: true,
   });
 
@@ -47,6 +51,8 @@ export function useCustomDomainDetection(): CustomDomainResult {
       setResult({
         isCustomDomain: false,
         storefrontSlug: null,
+        whiteLabelSlug: null,
+        domainType: null,
         isLoading: false,
       });
       return;
@@ -54,7 +60,7 @@ export function useCustomDomainDetection(): CustomDomainResult {
 
     async function detectDomain() {
       try {
-        // Check storefront_domains table for verified domain (verified_at is not null)
+        // First, check storefront_domains table for verified domain
         const domainResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/storefront_domains?domain=eq.${encodeURIComponent(hostname)}&verified_at=not.is.null&select=storefront_id`,
           {
@@ -87,16 +93,45 @@ export function useCustomDomainDetection(): CustomDomainResult {
             setResult({
               isCustomDomain: true,
               storefrontSlug: storefrontData[0].slug,
+              whiteLabelSlug: null,
+              domainType: 'storefront',
               isLoading: false,
             });
             return;
           }
         }
 
+        // Second, check white_label_configs table for custom domain or app_domain
+        // We check both custom_domain and app_domain fields
+        const whiteLabelResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/white_label_configs?or=(custom_domain.eq.${encodeURIComponent(hostname)},app_domain.eq.${encodeURIComponent(hostname)})&is_active=eq.true&select=sales_page_slug`,
+          {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+            },
+          }
+        );
+        
+        const whiteLabelData = await whiteLabelResponse.json();
+        
+        if (whiteLabelData && whiteLabelData.length > 0) {
+          setResult({
+            isCustomDomain: true,
+            storefrontSlug: null,
+            whiteLabelSlug: whiteLabelData[0].sales_page_slug,
+            domainType: 'white-label',
+            isLoading: false,
+          });
+          return;
+        }
+
         // No matching domain found
         setResult({
           isCustomDomain: false,
           storefrontSlug: null,
+          whiteLabelSlug: null,
+          domainType: null,
           isLoading: false,
         });
       } catch (error) {
@@ -104,6 +139,8 @@ export function useCustomDomainDetection(): CustomDomainResult {
         setResult({
           isCustomDomain: false,
           storefrontSlug: null,
+          whiteLabelSlug: null,
+          domainType: null,
           isLoading: false,
         });
       }
