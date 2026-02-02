@@ -97,49 +97,60 @@ export function useMyWhiteLabelConfig() {
     queryFn: async () => {
       if (!user?.id) return null;
       
-      const { data, error } = await supabase
+      // First get the implementer
+      const { data: implementer, error: impError } = await supabase
         .from("implementers")
-        .select(`
-          id,
-          user_id,
-          organization_id,
-          referral_code,
-          is_white_label,
-          total_clients,
-          total_earnings_cents,
-          white_label_configs!inner(
-            id,
-            brand_name,
-            logo_url,
-            favicon_url,
-            primary_color,
-            secondary_color,
-            sales_page_slug,
-            custom_domain,
-            app_domain,
-            checkout_domain,
-            email_from_name,
-            email_logo_url,
-            support_email,
-            support_whatsapp,
-            support_phone,
-            terms_url,
-            privacy_url,
-            login_background_url,
-            dashboard_welcome_message,
-            is_active
-          )
-        `)
+        .select("id, user_id, organization_id, referral_code, is_white_label, total_clients, total_earnings_cents")
         .eq("user_id", user.id)
         .eq("is_white_label", true)
         .maybeSingle();
       
-      if (error) {
-        console.error("Error fetching WL config:", error);
+      if (impError) {
+        console.error("Error fetching implementer:", impError);
         return null;
       }
       
-      return data;
+      if (!implementer) return null;
+      
+      // Then get the white_label_config separately
+      const { data: config, error: configError } = await supabase
+        .from("white_label_configs")
+        .select(`
+          id,
+          brand_name,
+          logo_url,
+          favicon_url,
+          primary_color,
+          secondary_color,
+          sales_page_slug,
+          custom_domain,
+          app_domain,
+          checkout_domain,
+          email_from_name,
+          email_logo_url,
+          support_email,
+          support_whatsapp,
+          support_phone,
+          terms_url,
+          privacy_url,
+          login_background_url,
+          dashboard_welcome_message,
+          is_active
+        `)
+        .eq("implementer_id", implementer.id)
+        .maybeSingle();
+      
+      if (configError) {
+        console.error("Error fetching WL config:", configError);
+        return null;
+      }
+      
+      if (!config) return null;
+      
+      return {
+        ...implementer,
+        white_label_configs: config
+      };
     },
     enabled: !!user?.id,
   });
