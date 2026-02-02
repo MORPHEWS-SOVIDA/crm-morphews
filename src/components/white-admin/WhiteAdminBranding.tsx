@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -155,27 +155,55 @@ export function WhiteAdminBranding() {
   const updateConfig = useUpdateWhiteLabelConfig();
   
   const [formData, setFormData] = useState({
-    brand_name: config?.brand_name || '',
-    logo_url: config?.logo_url || '',
-    logo_dark_url: (config as any)?.logo_dark_url || '',
-    favicon_url: config?.favicon_url || '',
-    primary_color: config?.primary_color || '#8B5CF6',
-    secondary_color: config?.secondary_color || '#ffffff',
-    sales_page_slug: config?.sales_page_slug || '',
-    app_domain: config?.app_domain || '',
-    checkout_domain: config?.checkout_domain || '',
-    email_from_name: config?.email_from_name || '',
-    email_logo_url: config?.email_logo_url || '',
-    support_email: config?.support_email || '',
-    support_whatsapp: config?.support_whatsapp || '',
-    support_phone: config?.support_phone || '',
-    terms_url: config?.terms_url || '',
-    privacy_url: config?.privacy_url || '',
-    login_background_url: config?.login_background_url || '',
-    dashboard_welcome_message: config?.dashboard_welcome_message || '',
+    brand_name: '',
+    logo_url: '',
+    logo_dark_url: '',
+    favicon_url: '',
+    primary_color: '#8B5CF6',
+    secondary_color: '#ffffff',
+    sales_page_slug: '',
+    app_domain: '',
+    checkout_domain: '',
+    email_from_name: '',
+    email_logo_url: '',
+    support_email: '',
+    support_whatsapp: '',
+    support_phone: '',
+    terms_url: '',
+    privacy_url: '',
+    login_background_url: '',
+    dashboard_welcome_message: '',
   });
   
   const [hasChanges, setHasChanges] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Sync form data when config loads
+  useEffect(() => {
+    if (config && !isInitialized) {
+      setFormData({
+        brand_name: config.brand_name || '',
+        logo_url: config.logo_url || '',
+        logo_dark_url: (config as any).logo_dark_url || '',
+        favicon_url: config.favicon_url || '',
+        primary_color: config.primary_color || '#8B5CF6',
+        secondary_color: config.secondary_color || '#ffffff',
+        sales_page_slug: config.sales_page_slug || '',
+        app_domain: config.app_domain || '',
+        checkout_domain: config.checkout_domain || '',
+        email_from_name: config.email_from_name || '',
+        email_logo_url: config.email_logo_url || '',
+        support_email: config.support_email || '',
+        support_whatsapp: config.support_whatsapp || '',
+        support_phone: config.support_phone || '',
+        terms_url: config.terms_url || '',
+        privacy_url: config.privacy_url || '',
+        login_background_url: config.login_background_url || '',
+        dashboard_welcome_message: config.dashboard_welcome_message || '',
+      });
+      setIsInitialized(true);
+    }
+  }, [config, isInitialized]);
   
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
