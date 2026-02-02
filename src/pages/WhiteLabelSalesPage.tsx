@@ -265,11 +265,12 @@ export default function WhiteLabelSalesPage() {
   };
 
   const handleSelectPlan = (plan: WhiteLabelPlan) => {
-    setSelectedPlan(plan);
-    setShowLeadModal(true);
+    // Navigate directly to checkout
+    navigate(`/${slug}/checkout/${plan.slug}`);
   };
 
   const handleLeadSubmit = async () => {
+    // Legacy - keep for quiz/contact forms if needed
     if (!leadForm.name.trim() || !leadForm.whatsapp.trim() || !leadForm.email.trim()) {
       toast({
         title: "Preencha todos os campos",
@@ -291,18 +292,11 @@ export default function WhiteLabelSalesPage() {
         status: "checkout_started",
       });
 
-      // Redirect to WhatsApp with plan info
-      if (whatsappLink) {
-        const planInfo = selectedPlan ? ` Tenho interesse no plano ${selectedPlan.name}.` : '';
-        const url = `https://wa.me/${config.support_whatsapp?.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Meu nome é ${leadForm.name}, meu email é ${leadForm.email}.${planInfo} Gostaria de saber mais!`)}`;
-        window.open(url, '_blank');
+      // Redirect to checkout instead of WhatsApp
+      if (selectedPlan) {
+        navigate(`/${slug}/checkout/${selectedPlan.slug}`);
       }
 
-      toast({
-        title: "Dados enviados com sucesso! 🎉",
-        description: "Em breve entraremos em contato.",
-      });
-      
       setShowLeadModal(false);
       setLeadForm({ name: "", whatsapp: "", email: "" });
     } catch (error: any) {

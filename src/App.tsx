@@ -54,6 +54,7 @@ const NetworkInviteAccept = lazy(() => import("./pages/public/NetworkInviteAccep
 const PaymentLinkCheckout = lazy(() => import("./pages/PaymentLinkCheckout"));
 const WhiteLabelSalesPage = lazy(() => import("./pages/WhiteLabelSalesPage"));
 const WhiteLabelLogin = lazy(() => import("./pages/WhiteLabelLogin"));
+const WhiteLabelCheckoutPage = lazy(() => import("./pages/WhiteLabelCheckoutPage"));
 const WhiteAdminPage = lazy(() => import("./pages/white-admin/WhiteAdminPage"));
 
 const LeadsList = lazy(() => import("./pages/LeadsList"));
@@ -1173,6 +1174,7 @@ const App = () => (
 
                 {/* White Label Routes - /:slug namespace (must be last before 404) */}
                 <Route path="/:slug" element={<WhiteLabelSalesPage />} />
+                <Route path="/:slug/checkout/:planSlug" element={<WhiteLabelCheckoutPage />} />
                 <Route path="/:slug/login" element={<WhiteLabelLogin />} />
 
                 {/* 404 */}
