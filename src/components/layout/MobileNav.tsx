@@ -74,7 +74,7 @@ export function MobileNav() {
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
-  const { data: wlBranding } = useOrgWhiteLabelBranding();
+  const { data: wlBranding, isLoading: wlBrandingLoading } = useOrgWhiteLabelBranding();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,10 +83,13 @@ export function MobileNav() {
   const isPartner = role?.startsWith('partner_') ?? false;
   
   // Determine logo to use based on white label branding
+  // Wait for branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
-  const displayLogo = wlBranding 
-    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
-    : logoMorphews;
+  const displayLogo = wlBrandingLoading 
+    ? null
+    : wlBranding 
+      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
+      : logoMorphews;
 
   const hasFeature = (key: string) => {
     if (isMasterAdmin) return true;
@@ -369,7 +372,11 @@ export function MobileNav() {
               <SheetHeader className="px-4 py-4 border-b border-border flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <img src={displayLogo} alt="Menu" className="h-8 w-auto max-w-[140px] object-contain" />
+                    {displayLogo ? (
+                      <img src={displayLogo} alt="Menu" className="h-8 w-auto max-w-[140px] object-contain" />
+                    ) : (
+                      <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                    )}
                     <SheetTitle className="text-lg">Menu</SheetTitle>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
