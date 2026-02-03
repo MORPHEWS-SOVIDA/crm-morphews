@@ -51,25 +51,59 @@ export default function PickupClosingPrint() {
     enabled: !!closingId,
   });
 
-  // Fetch sales in this closing
+  // Fetch sales in this closing - join with actual sales to get payment info
   const { data: sales = [], isLoading: loadingSales } = useQuery({
     queryKey: ['pickup-closing-sales-print', closingId],
     queryFn: async () => {
       if (!closingId) return [];
 
-      const { data, error } = await supabase
+      // Get closing sales with sale_ids
+      const { data: closingSalesData, error: csError } = await supabase
         .from('pickup_closing_sales')
         .select('*')
         .eq('closing_id', closingId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      return data || [];
+      if (csError) throw csError;
+      if (!closingSalesData || closingSalesData.length === 0) return [];
+
+      // Get actual sales data with payment info
+      const saleIds = closingSalesData.map(cs => cs.sale_id);
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select(`
+          id,
+          payment_method,
+          payment_method_id,
+          payment_methods:payment_method_id (
+            id,
+            name,
+            category
+          )
+        `)
+        .in('id', saleIds);
+
+      if (salesError) throw salesError;
+
+      // Create a map for quick lookup
+      const salesMap = new Map(salesData?.map(s => [s.id, s]));
+
+      // Enrich closing sales with payment info from sales table
+      return closingSalesData.map(cs => {
+        const saleData = salesMap.get(cs.sale_id);
+        const paymentMethod = saleData?.payment_methods as { id: string; name: string; category: string } | null;
+        
+        return {
+          ...cs,
+          payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method,
+          payment_category: paymentMethod?.category || null,
+        };
+      });
     },
     enabled: !!closingId,
   });
 
-  // Group sales by payment category (inferred from payment_method text)
+  // Group sales by payment category (use category from payment_methods table if available)
   const groupedByCategory = React.useMemo(() => {
     const groups: Record<PaymentCategory, typeof sales> = {
       cash: [],
@@ -85,6 +119,13 @@ export default function PickupClosingPrint() {
     };
 
     sales.forEach(sale => {
+      // First, try to use the category from payment_methods table
+      if (sale.payment_category && sale.payment_category in groups) {
+        groups[sale.payment_category as PaymentCategory].push(sale);
+        return;
+      }
+      
+      // Fallback: infer from payment_method text
       const method = (sale.payment_method || '').toLowerCase();
       
       // Match to categories based on keywords
@@ -100,12 +141,15 @@ export default function PickupClosingPrint() {
         groups.payment_link.push(sale);
       } else if (method.includes('ecommerce') || method.includes('e-commerce') || method.includes('loja virtual')) {
         groups.ecommerce.push(sale);
-      } else if (method.includes('boleto') && (method.includes('pré') || method.includes('pre'))) {
+      } else if (method.includes('boleto') && (method.includes('pré') || method.includes('pre') || method.includes('antes') || method.includes('antecip'))) {
         groups.boleto_prepaid.push(sale);
-      } else if (method.includes('boleto') && (method.includes('pós') || method.includes('pos'))) {
+      } else if (method.includes('boleto') && (method.includes('pós') || method.includes('pos') || method.includes('depois') || method.includes('faturado'))) {
         groups.boleto_postpaid.push(sale);
       } else if (method.includes('boleto') && method.includes('parcel')) {
         groups.boleto_installment.push(sale);
+      } else if (method.includes('boleto')) {
+        // Generic boleto - put in prepaid by default
+        groups.boleto_prepaid.push(sale);
       } else if (method.includes('vale') || method.includes('presente') || method.includes('gift')) {
         groups.gift.push(sale);
       } else {
