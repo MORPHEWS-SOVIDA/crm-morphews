@@ -43,7 +43,8 @@ import {
   Box,
   CircleAlert,
   Link2,
-  Store
+  Store,
+  Users
 } from 'lucide-react';
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { QuickPaymentLinkButton } from '@/components/payment-links/QuickPaymentLinkButton';
@@ -127,6 +128,20 @@ function getCarrierTrackingColor(status: CarrierTrackingStatus | null) {
   return colors[status] || 'bg-muted text-muted-foreground';
 }
 
+// Grupos de vendedores pré-definidos
+const SELLER_GROUPS = [
+  {
+    id: 'vendas_caju',
+    name: 'VENDAS CAJU',
+    sellerIds: [
+      'd64326b4-cebe-4b97-8403-b603d0c2ac56', // Andrey Souza de Freitas
+      'c5d2458a-136f-44e9-b594-e3e1d1927d04', // Paulo Sovida
+      'ef48ff91-7d9d-47d3-bf2e-11e096a8965e', // Jessica Rache da Silva
+      '7fd54f0f-c1d4-48bb-a31b-04189b590ed4', // Liz Vanessa
+    ],
+  },
+];
+
 export default function Sales() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
@@ -138,7 +153,7 @@ export default function Sales() {
   // Check if new sale button should be hidden
   const hideNewSaleButton = !isAdmin && permissions?.sales_hide_new_button;
   
-  // Basic filters
+  // Basic filters - can be a seller ID or a group ID (prefixed with 'group_')
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<DeliveryType | 'all'>('all');
   const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>('');
@@ -177,6 +192,17 @@ export default function Sales() {
     });
     return Array.from(sellerMap.entries()).map(([id, name]) => ({ id, name }));
   }, [sales]);
+
+  // Parse seller filter to handle groups
+  const activeSellerIds = useMemo(() => {
+    if (sellerFilter === 'all') return null;
+    if (sellerFilter.startsWith('group_')) {
+      const groupId = sellerFilter.replace('group_', '');
+      const group = SELLER_GROUPS.find(g => g.id === groupId);
+      return group?.sellerIds || [];
+    }
+    return [sellerFilter];
+  }, [sellerFilter]);
 
   // Get unique motoboys (assigned_delivery_user_id with delivery_type motoboy)
   const motoboys = useMemo(() => {
@@ -223,9 +249,11 @@ export default function Sales() {
         }
       }
       
-      // Seller filter
-      if (sellerFilter !== 'all' && sale.seller_user_id !== sellerFilter) {
-        return false;
+      // Seller filter (supports groups)
+      if (activeSellerIds !== null) {
+        if (!sale.seller_user_id || !activeSellerIds.includes(sale.seller_user_id)) {
+          return false;
+        }
       }
       
       // Delivery type filter
@@ -308,7 +336,7 @@ export default function Sales() {
       return true;
     });
   }, [
-    sales, searchTerm, sellerFilter, deliveryTypeFilter, deliveryDateFilter,
+    sales, searchTerm, activeSellerIds, deliveryTypeFilter, deliveryDateFilter,
     saleDateFilter, noPaymentProofFilter, carrierNoTrackingFilter, 
     carrierTrackingStatusFilter, dispatchedMotoboyFilter, productFilter, leadSourceFilter,
     managerFilter, teamMembers, paymentMethodFilter, deliveryRegionFilter, statusFilter
@@ -495,6 +523,25 @@ export default function Sales() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos vendedores</SelectItem>
+                            {/* Grupos de vendedores */}
+                            {SELLER_GROUPS.length > 0 && (
+                              <>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                                  Grupos
+                                </div>
+                                {SELLER_GROUPS.map((group) => (
+                                  <SelectItem key={`group_${group.id}`} value={`group_${group.id}`}>
+                                    <div className="flex items-center gap-2">
+                                      <Users className="w-4 h-4 text-primary" />
+                                      {group.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                                  Vendedores
+                                </div>
+                              </>
+                            )}
                             {sellers.map((seller) => (
                               <SelectItem key={seller.id} value={seller.id}>
                                 {seller.name}
