@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
-  ExternalLink, 
   Clock, 
   User, 
   Bike, 
@@ -14,17 +13,19 @@ import {
   Loader2,
   Package,
   MapPin,
+  Eye,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/hooks/useSales';
-import { getCategoryConfig, PAYMENT_CATEGORIES, type PaymentCategory } from '@/lib/paymentCategories';
+import { getCategoryConfig, type PaymentCategory } from '@/lib/paymentCategories';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSignedStorageUrl } from '@/lib/storage-utils';
+import { useCurrentTenantId } from '@/hooks/useTenant';
 
 // Tracking status labels for display
 const TRACKING_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -114,13 +115,32 @@ export function SaleSelectionCard({
   onPaymentCategoryChange,
 }: SaleSelectionCardProps) {
   const queryClient = useQueryClient();
+  const { data: tenantId } = useCurrentTenantId();
   const categoryConfig = getCategoryConfig(sale.payment_category);
   const [isProofDialogOpen, setIsProofDialogOpen] = useState(false);
   const [isEditPaymentOpen, setIsEditPaymentOpen] = useState(false);
   const [proofImageUrl, setProofImageUrl] = useState<string | null>(null);
   const [loadingProof, setLoadingProof] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<PaymentCategory>(sale.payment_category || 'other');
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>(sale.payment_method_id || '');
+
+  // Fetch active payment methods for the organization
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ['payment-methods-for-closing', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('id, name, category')
+        .eq('is_active', true)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId && isEditPaymentOpen,
+    staleTime: 60000,
+  });
 
   const handleOpenProof = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,48 +162,40 @@ export function SaleSelectionCard({
 
   const handleOpenEditPayment = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedCategory(sale.payment_category || 'other');
+    setSelectedPaymentMethodId(sale.payment_method_id || '');
     setIsEditPaymentOpen(true);
   };
 
-  const handleSavePaymentCategory = async () => {
+  const handleSavePaymentMethod = async () => {
     setIsSaving(true);
     try {
-      // Skip 'other' as it's not a valid DB category - just update locally
-      if (selectedCategory === 'other') {
-        // Clear payment method if 'other' is selected
+      if (!selectedPaymentMethodId) {
+        // Clear payment method
         const { error } = await supabase
           .from('sales')
           .update({
             payment_method_id: null,
-            payment_method: 'Outros',
+            payment_method: 'Não informado',
           })
           .eq('id', sale.id);
 
         if (error) throw error;
       } else {
-        // Find a payment_method that matches this category to update payment_method_id
-        const { data: matchingMethod } = await supabase
-          .from('payment_methods')
-          .select('id, name')
-          .eq('category', selectedCategory)
-          .eq('is_active', true)
-          .limit(1)
-          .maybeSingle();
-
-        // Update the sale
-        const updateData: Record<string, unknown> = {};
-        if (matchingMethod) {
-          updateData.payment_method_id = matchingMethod.id;
-          updateData.payment_method = matchingMethod.name;
-        } else {
-          // If no method found, just update the description
-          updateData.payment_method = getCategoryConfig(selectedCategory).label;
+        // Find the selected payment method to get its name and category
+        const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
+        
+        if (!selectedMethod) {
+          toast.error('Forma de pagamento não encontrada');
+          return;
         }
 
+        // Update the sale with the selected payment method
         const { error } = await supabase
           .from('sales')
-          .update(updateData)
+          .update({
+            payment_method_id: selectedMethod.id,
+            payment_method: selectedMethod.name,
+          })
           .eq('id', sale.id);
 
         if (error) throw error;
@@ -194,10 +206,14 @@ export function SaleSelectionCard({
       
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ['available-closing-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
       
-      if (onPaymentCategoryChange) {
-        onPaymentCategoryChange(sale.id, selectedCategory);
+      if (onPaymentCategoryChange && selectedPaymentMethodId) {
+        const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
+        if (selectedMethod?.category) {
+          onPaymentCategoryChange(sale.id, selectedMethod.category as PaymentCategory);
+        }
       }
     } catch (error) {
       console.error('Error updating payment:', error);
@@ -219,25 +235,27 @@ export function SaleSelectionCard({
       >
         <Checkbox checked={isSelected} className="mt-1" />
         <div className="flex-1 min-w-0 space-y-2">
-          {/* Line 1: Romaneio + Client Name + Delivery Type + External Link */}
+          {/* Line 1: Romaneio + Client Name + Delivery Type + View Sale Button */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-primary">#{sale.romaneio_number}</span>
             <span className="font-medium truncate max-w-[200px]">{sale.lead?.name || 'Cliente'}</span>
             {getDeliveryTypeBadge(sale.delivery_type)}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-5 px-1 opacity-60 hover:opacity-100"
+              className="h-6 px-2 text-xs"
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(`/vendas/${sale.id}`, '_blank');
               }}
+              title="Ver venda em nova aba"
             >
-              <ExternalLink className="w-3 h-3" />
+              <Eye className="w-3 h-3 mr-1" />
+              Ver Venda
             </Button>
           </div>
 
-          {/* Line 2: Price + Date + Payment Badge + Actions */}
+          {/* Line 2: Price + Date + Payment Method Name + Actions */}
           <div className="flex items-center gap-2 text-sm flex-wrap">
             <span className="font-semibold text-lg text-foreground">
               {formatCurrency(sale.total_cents || 0)}
@@ -249,13 +267,14 @@ export function SaleSelectionCard({
               </span>
             )}
             
-            {/* Payment Badge with Edit Button */}
+            {/* Payment Method - shows full name with edit button */}
             <div className="flex items-center gap-1">
               <Badge 
                 variant="outline" 
                 className={`text-xs ${categoryConfig.bgClass} ${categoryConfig.colorClass} ${categoryConfig.borderClass}`}
+                title={sale.payment_method || categoryConfig.label}
               >
-                {categoryConfig.emoji} {categoryConfig.shortLabel}
+                {categoryConfig.emoji} {sale.payment_method || categoryConfig.shortLabel}
               </Badge>
               {showEditPayment && (
                 <Button
@@ -381,28 +400,37 @@ export function SaleSelectionCard({
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Categoria de Pagamento</label>
-              <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as PaymentCategory)}>
+              <label className="text-sm font-medium">Forma de Pagamento</label>
+              <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione uma forma de pagamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_CATEGORIES.map(cat => (
-                    <SelectItem key={cat.key} value={cat.key}>
-                      <span className="flex items-center gap-2">
-                        {cat.emoji} {cat.label}
-                      </span>
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="">
+                    <span className="text-muted-foreground">Não informado</span>
+                  </SelectItem>
+                  {paymentMethods.map(pm => {
+                    const catConfig = getCategoryConfig(pm.category);
+                    return (
+                      <SelectItem key={pm.id} value={pm.id}>
+                        <span className="flex items-center gap-2">
+                          {catConfig.emoji} {pm.name}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Selecione a forma de pagamento exata conforme cadastrado no sistema
+              </p>
             </div>
             
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditPaymentOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSavePaymentCategory} disabled={isSaving}>
+              <Button onClick={handleSavePaymentMethod} disabled={isSaving}>
                 {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Salvar
               </Button>
