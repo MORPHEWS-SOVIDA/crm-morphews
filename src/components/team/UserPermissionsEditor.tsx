@@ -44,6 +44,7 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
   'E-commerce': ['ecommerce', 'storefronts', 'landing_pages', 'email_marketing', 'affiliates', 'payment_gateways', 'virtual_wallet', 'telesales'],
   'IA de Vendas': ['ai_sales_chatbot', 'ai_product_recommendations', 'ai_telesales_copilot'],
   'Integrações & Tracking': ['google_analytics', 'google_tag_manager', 'google_ads_conversions', 'facebook_pixel', 'tiktok_pixel'],
+  'Voice AI': ['voice_ai_calls'],
   'Suporte': ['donna_helper'],
 };
 
@@ -98,6 +99,9 @@ const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
   // Integrações Google & Tracking
   'google_integrations_manage': 'google_analytics', // Usa GA4 como proxy para todo grupo Google
   'tracking_pixels_manage': 'facebook_pixel', // Usa FB Pixel como proxy para grupo de pixels
+  // Voice AI
+  'voice_ai_view': 'voice_ai_calls',
+  'voice_ai_manage': 'voice_ai_calls',
   // Suporte
   'helper_donna_view': 'donna_helper',
 };

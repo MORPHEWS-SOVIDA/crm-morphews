@@ -52,6 +52,10 @@ export interface UserPermissions {
   // AI Bots
   ai_bots_view: boolean;
   
+  // Voice AI
+  voice_ai_view: boolean;
+  voice_ai_manage: boolean;
+  
   // Demands
   demands_view: boolean;
   
@@ -197,6 +201,10 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   receptive_module_access: { label: 'Módulo Receptivo', description: 'Acesso ao módulo de atendimento receptivo', group: 'Módulos' },
   integrations_view: { label: 'Integrações', description: 'Acessar página de integrações e webhooks', group: 'Módulos' },
   
+  // Voice AI
+  voice_ai_view: { label: 'Voice AI', description: 'Ver módulo Voice AI e histórico de chamadas', group: 'Voice AI' },
+  voice_ai_manage: { label: 'Gerenciar Voice AI', description: 'Configurar agentes e iniciar campanhas Voice AI', group: 'Voice AI' },
+  
   // Produtos
   products_view: { label: 'Ver Produtos', description: 'Visualizar produtos', group: 'Produtos' },
   products_manage: { label: 'Gerenciar Produtos', description: 'Criar/editar/excluir produtos', group: 'Produtos' },
@@ -290,6 +298,7 @@ export const PERMISSION_GROUPS = [
   'Relatórios', 
   'Entregas', 
   'Módulos', 
+  'Voice AI',
   'Equipe', 
   'Pós-Venda', 
   'SAC', 

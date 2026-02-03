@@ -16826,6 +16826,8 @@ export type Database = {
           telesales_charge_card: boolean | null
           updated_at: string
           user_id: string
+          voice_ai_manage: boolean | null
+          voice_ai_view: boolean | null
           whatsapp_ai_settings_view: boolean | null
           whatsapp_manage_view: boolean
           whatsapp_send: boolean
@@ -16909,6 +16911,8 @@ export type Database = {
           telesales_charge_card?: boolean | null
           updated_at?: string
           user_id: string
+          voice_ai_manage?: boolean | null
+          voice_ai_view?: boolean | null
           whatsapp_ai_settings_view?: boolean | null
           whatsapp_manage_view?: boolean
           whatsapp_send?: boolean
@@ -16992,6 +16996,8 @@ export type Database = {
           telesales_charge_card?: boolean | null
           updated_at?: string
           user_id?: string
+          voice_ai_manage?: boolean | null
+          voice_ai_view?: boolean | null
           whatsapp_ai_settings_view?: boolean | null
           whatsapp_manage_view?: boolean
           whatsapp_send?: boolean
@@ -17226,6 +17232,7 @@ export type Database = {
           updated_at: string
           voice_id: string
           voice_name: string | null
+          welcome_message: string | null
           working_days: number[] | null
           working_hours_end: string | null
           working_hours_start: string | null
@@ -17247,6 +17254,7 @@ export type Database = {
           updated_at?: string
           voice_id: string
           voice_name?: string | null
+          welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
           working_hours_start?: string | null
@@ -17268,6 +17276,7 @@ export type Database = {
           updated_at?: string
           voice_id?: string
           voice_name?: string | null
+          welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
           working_hours_start?: string | null
@@ -17296,6 +17305,7 @@ export type Database = {
           created_by: string | null
           duration_seconds: number | null
           ended_at: string | null
+          energy_consumed: number | null
           error_message: string | null
           id: string
           instance_id: string | null
@@ -17328,6 +17338,7 @@ export type Database = {
           created_by?: string | null
           duration_seconds?: number | null
           ended_at?: string | null
+          energy_consumed?: number | null
           error_message?: string | null
           id?: string
           instance_id?: string | null
@@ -17360,6 +17371,7 @@ export type Database = {
           created_by?: string | null
           duration_seconds?: number | null
           ended_at?: string | null
+          energy_consumed?: number | null
           error_message?: string | null
           id?: string
           instance_id?: string | null
