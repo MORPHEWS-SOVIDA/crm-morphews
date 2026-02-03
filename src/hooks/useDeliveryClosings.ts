@@ -323,8 +323,18 @@ export function useConfirmDeliveryClosing() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ closingId, type }: ConfirmClosingData) => {
+    mutationFn: async ({ closingId, closingType, type }: ConfirmClosingData) => {
       if (!user) throw new Error('Not authenticated');
+
+      // SECURITY: Validate admin permission before sending to backend
+      // Only authorized emails can confirm as admin (final confirmation)
+      if (type === 'admin') {
+        const userEmail = user.email?.toLowerCase();
+        const config = closingTypeConfig[closingType];
+        if (!userEmail || !config.adminEmails.includes(userEmail)) {
+          throw new Error('Você não tem permissão para realizar a confirmação final. Somente usuários autorizados podem confirmar.');
+        }
+      }
 
       const now = new Date().toISOString();
       
