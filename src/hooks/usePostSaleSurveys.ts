@@ -285,6 +285,14 @@ export function useCreatePostSaleSurvey() {
         .single();
       
       if (error) throw error;
+      
+      // Move the sale to 'attempted_1' column so it doesn't get lost
+      // This indicates that a post-sale survey has been initiated
+      await supabase
+        .from('sales')
+        .update({ post_sale_contact_status: 'attempted_1' })
+        .eq('id', data.sale_id);
+      
       return survey;
     },
     onSuccess: (_, variables) => {
@@ -293,6 +301,10 @@ export function useCreatePostSaleSurvey() {
       queryClient.invalidateQueries({ queryKey: ['post-sale-survey'] });
       // Also specifically invalidate the sale-specific query
       queryClient.invalidateQueries({ queryKey: ['post-sale-survey', 'sale', variables.sale_id] });
+      // Invalidate post-sale sales (kanban) to update the column
+      queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
+      // Invalidate the sale detail
+      queryClient.invalidateQueries({ queryKey: ['sale', variables.sale_id] });
     },
     onError: (error: any) => {
       // Ignore duplicate errors silently
@@ -302,6 +314,7 @@ export function useCreatePostSaleSurvey() {
     },
   });
 }
+
 
 // Update a post-sale survey
 export function useUpdatePostSaleSurvey() {
