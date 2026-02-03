@@ -281,12 +281,82 @@ export function useEvolutionInstances() {
     },
   });
 
+  // Criar instância Instagram
+  const createInstagramInstance = useMutation({
+    mutationFn: async (params: { name: string }) => {
+      const response = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "create_instagram", name: params.name },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return {
+        instance: response.data?.instance,
+        oauth_url: response.data?.oauth_url as string | null,
+        message: response.data?.message as string,
+      };
+    },
+    onSuccess: (result) => {
+      if (result?.instance) {
+        toast.success(result.message || `Instância Instagram "${result.instance.name}" criada!`);
+        queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
+        
+        // Abrir URL OAuth em nova aba se disponível
+        if (result.oauth_url) {
+          window.open(result.oauth_url, "_blank");
+        }
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao criar instância Instagram: ${error.message}`);
+    },
+  });
+
+  // Buscar URL OAuth do Instagram
+  const getInstagramOAuthUrl = useMutation({
+    mutationFn: async (instanceId: string) => {
+      const response = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "get_instagram_oauth", instanceId },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return {
+        oauth_url: response.data?.oauth_url as string | null,
+      };
+    },
+    onSuccess: (result) => {
+      if (result?.oauth_url) {
+        window.open(result.oauth_url, "_blank");
+      } else {
+        toast.error("URL de autenticação não disponível. Tente novamente.");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro: ${error.message}`);
+    },
+  });
+
   return {
     instances,
     isLoading,
     refetch,
     createInstance,
+    createInstagramInstance,
     getQrCode,
+    getInstagramOAuthUrl,
     checkStatus,
     archiveInstance,
     unarchiveInstance,
