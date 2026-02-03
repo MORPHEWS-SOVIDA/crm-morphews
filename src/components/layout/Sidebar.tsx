@@ -45,6 +45,8 @@ import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { useTenant } from '@/hooks/useTenant';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useIsWhiteLabelOwner } from '@/hooks/useWhiteAdmin';
+import { useOrgWhiteLabelBranding } from '@/hooks/useOrgWhiteLabelBranding';
+import { useTheme } from 'next-themes';
 import logoMorphews from '@/assets/logo-morphews.png';
 import morphewsAvatar from '@/assets/morphews-avatar.png';
 import { useState } from 'react';
@@ -78,10 +80,20 @@ export function Sidebar() {
   const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const { data: isWhiteLabelOwner } = useIsWhiteLabelOwner();
+  const { data: wlBranding } = useOrgWhiteLabelBranding();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [isDonnaOpen, setIsDonnaOpen] = useState(false);
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  
+  // Determine logo to use based on white label branding
+  const isDark = resolvedTheme === 'dark';
+  const displayLogo = wlBranding 
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
+    : logoMorphews;
+  const brandName = wlBranding?.brand_name || 'Morphews CRM';
+  const brandTagline = wlBranding ? '' : 'Gestão de leads intuitiva'; // Hide tagline for white labels
   
   // Check if user is a partner (any partner role)
   const isPartner = role?.startsWith('partner_') ?? false;
@@ -245,8 +257,8 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">
-            <img src={logoMorphews} alt="Morphews CRM" className="h-8 w-auto" />
-            <p className="text-sm text-muted-foreground mt-2">Gestão de leads intuitiva</p>
+            <img src={displayLogo} alt={brandName} className="h-8 w-auto max-w-[180px] object-contain" />
+            {brandTagline && <p className="text-sm text-muted-foreground mt-2">{brandTagline}</p>}
           </div>
 
           {/* User Info */}
