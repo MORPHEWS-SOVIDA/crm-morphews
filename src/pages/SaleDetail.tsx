@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,6 +74,7 @@ import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmationDialog';
 import { useSalePostSaleSurvey, useCreatePostSaleSurvey, useUpdatePostSaleSurvey, PostSaleSurveyStatus } from '@/hooks/usePostSaleSurveys';
 import { MedicationAutocomplete } from '@/components/post-sale/MedicationAutocomplete';
+import { useActivePostSaleQuestions, useSurveyResponses, useSavePostSaleResponses } from '@/hooks/usePostSaleQuestions';
 import { useSaleChangesLog, getChangeTypeLabel } from '@/hooks/useSaleChangesLog';
 import { SaleCheckpointsCard } from '@/components/sales/SaleCheckpointsCard';
 import { CarrierTrackingCard } from '@/components/sales/CarrierTrackingCard';
@@ -368,10 +369,48 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
   const [continuousMedicationDetails, setContinuousMedicationDetails] = useState(survey.continuous_medication_details || '');
   const [deliveryRating, setDeliveryRating] = useState<number | null>(survey.delivery_rating);
   const [notes, setNotes] = useState(survey.notes || '');
+  
+  // Custom questions
+  const { data: customQuestions = [], isLoading: customQuestionsLoading } = useActivePostSaleQuestions();
+  const { data: existingResponses = [] } = useSurveyResponses(survey.id);
+  const saveResponses = useSavePostSaleResponses();
+  
+  // State for custom question responses
+  const [customResponses, setCustomResponses] = useState<Record<string, { text?: string; number?: number; boolean?: boolean }>>({});
+  
+  // Initialize custom responses from existing data
+  useEffect(() => {
+    if (existingResponses.length > 0) {
+      const responseMap: Record<string, { text?: string; number?: number; boolean?: boolean }> = {};
+      existingResponses.forEach((resp: any) => {
+        responseMap[resp.question_id] = {
+          text: resp.answer_text || undefined,
+          number: resp.answer_number ?? undefined,
+          boolean: resp.answer_boolean ?? undefined,
+        };
+      });
+      setCustomResponses(responseMap);
+    }
+  }, [existingResponses]);
 
   const deliveryType = survey.sale?.delivery_type || survey.delivery_type;
 
   const handleComplete = async (completionType: 'call' | 'whatsapp') => {
+    // Save custom responses first
+    if (customQuestions.length > 0) {
+      const responsesToSave = customQuestions.map(q => ({
+        question_id: q.id,
+        answer_text: customResponses[q.id]?.text || null,
+        answer_number: customResponses[q.id]?.number ?? null,
+        answer_boolean: customResponses[q.id]?.boolean ?? null,
+      }));
+      
+      await saveResponses.mutateAsync({
+        surveyId: survey.id,
+        responses: responsesToSave,
+      });
+    }
+    
     await updateSurvey.mutateAsync({
       id: survey.id,
       received_order: receivedOrder ?? undefined,
@@ -392,6 +431,13 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
       notes: notes || undefined,
       status: 'attempted',
     });
+  };
+  
+  const updateCustomResponse = (questionId: string, value: { text?: string; number?: number; boolean?: boolean }) => {
+    setCustomResponses(prev => ({
+      ...prev,
+      [questionId]: { ...prev[questionId], ...value },
+    }));
   };
 
   const YesNoButton = ({ value, selected, onClick, children }: { value: boolean; selected: boolean; onClick: () => void; children: React.ReactNode }) => (
@@ -490,6 +536,69 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
             <RatingButtons value={deliveryRating} onChange={setDeliveryRating} />
           </div>
         )}
+        
+        {/* Custom Questions */}
+        {customQuestionsLoading ? (
+          <div className="text-xs text-muted-foreground">Carregando perguntas...</div>
+        ) : customQuestions.length > 0 && (
+          <div className="space-y-3 pt-2 border-t">
+            <p className="text-xs font-medium text-muted-foreground">Perguntas Personalizadas</p>
+            {customQuestions.map((question) => (
+              <div key={question.id}>
+                <Label className="text-xs">
+                  {question.question}
+                  {question.is_required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                
+                {question.question_type === 'yes_no' && (
+                  <div className="flex gap-2 mt-1">
+                    <YesNoButton 
+                      value={true} 
+                      selected={customResponses[question.id]?.boolean === true} 
+                      onClick={() => updateCustomResponse(question.id, { boolean: true })}
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" /> Sim
+                    </YesNoButton>
+                    <YesNoButton 
+                      value={false} 
+                      selected={customResponses[question.id]?.boolean === false} 
+                      onClick={() => updateCustomResponse(question.id, { boolean: false })}
+                    >
+                      <XCircle className="w-3 h-3 mr-1" /> Não
+                    </YesNoButton>
+                  </div>
+                )}
+                
+                {question.question_type === 'rating_0_10' && (
+                  <RatingButtons 
+                    value={customResponses[question.id]?.number ?? null} 
+                    onChange={(v) => updateCustomResponse(question.id, { number: v })} 
+                  />
+                )}
+                
+                {question.question_type === 'text' && (
+                  <Textarea
+                    value={customResponses[question.id]?.text || ''}
+                    onChange={(e) => updateCustomResponse(question.id, { text: e.target.value })}
+                    placeholder="Digite sua resposta..."
+                    className="mt-1 text-sm"
+                    rows={2}
+                  />
+                )}
+                
+                {question.question_type === 'medication' && (
+                  <div className="mt-1">
+                    <MedicationAutocomplete
+                      value={customResponses[question.id]?.text || ''}
+                      onChange={(v) => updateCustomResponse(question.id, { text: v })}
+                      placeholder="Digite o nome do medicamento..."
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div>
           <Label className="text-xs">Observações</Label>
@@ -508,7 +617,7 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
         <div className="flex gap-2">
           <Button
             onClick={() => handleComplete('call')}
-            disabled={updateSurvey.isPending}
+            disabled={updateSurvey.isPending || saveResponses.isPending}
             size="sm"
             className="flex-1"
           >
@@ -517,7 +626,7 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
           </Button>
           <Button
             onClick={() => handleComplete('whatsapp')}
-            disabled={updateSurvey.isPending}
+            disabled={updateSurvey.isPending || saveResponses.isPending}
             size="sm"
             className="flex-1 bg-green-600 hover:bg-green-700"
           >
@@ -539,6 +648,7 @@ function PostSaleSurveyInlineForm({ survey, updateSurvey }: PostSaleSurveyInline
     </div>
   );
 }
+
 
 export default function SaleDetail() {
   const { id } = useParams<{ id: string }>();
