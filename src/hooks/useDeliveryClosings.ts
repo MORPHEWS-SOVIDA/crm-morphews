@@ -80,6 +80,7 @@ export function useAvailableClosingSales(closingType: ClosingType) {
           romaneio_number,
           status,
           delivery_type,
+          delivery_status,
           total_cents,
           payment_method,
           payment_method_id,
