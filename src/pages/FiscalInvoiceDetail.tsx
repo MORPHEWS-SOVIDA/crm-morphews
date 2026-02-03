@@ -209,6 +209,24 @@ export default function FiscalInvoiceDetail() {
     toast({ title: 'Copiado!' });
   };
 
+  const handleDownloadFile = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({ title: 'Erro ao baixar arquivo', variant: 'destructive' });
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'authorized':
@@ -312,21 +330,24 @@ export default function FiscalInvoiceDetail() {
             {invoice.pdf_url && (() => {
               // Determine if this is a production or test invoice based on URL
               const isHomologacao = invoice.pdf_url.includes('homologacao');
+              const pdfFilename = `DANFE_${invoice.invoice_number || invoice.focus_nfe_ref}.pdf`;
               return (
-                <Button variant="outline" asChild>
-                  <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Printer className="w-4 h-4 mr-2" />
-                    {isHomologacao ? 'Espelho NF-e (Teste)' : 'DANFE'}
-                  </a>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleDownloadFile(invoice.pdf_url!, pdfFilename)}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isHomologacao ? 'Espelho NF-e (Teste)' : 'DANFE'}
                 </Button>
               );
             })()}
             {invoice.xml_url && (
-              <Button variant="outline" asChild>
-                <a href={invoice.xml_url} target="_blank" rel="noopener noreferrer" download>
-                  <Download className="w-4 h-4 mr-2" />
-                  XML
-                </a>
+              <Button 
+                variant="outline" 
+                onClick={() => handleDownloadFile(invoice.xml_url!, `NFe_${invoice.invoice_number || invoice.focus_nfe_ref}.xml`)}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                XML
               </Button>
             )}
             {isEditable && !editMode && (
