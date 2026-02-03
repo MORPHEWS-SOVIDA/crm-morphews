@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { 
   usePostSaleSales, 
@@ -20,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   ClipboardList, 
   Loader2, 
@@ -31,21 +37,24 @@ import {
   MessageSquare,
   Filter,
   X,
-  FileText
+  FileText,
+  ArrowRightCircle
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { MoveToColumnDialog } from '@/components/post-sale/MoveToColumnDialog';
 
 interface SaleCardProps {
   sale: PostSaleSale;
   onDragStart: (e: React.DragEvent, sale: PostSaleSale) => void;
   onClick: () => void;
+  onMoveRequest: (sale: PostSaleSale, targetStatus: PostSaleContactStatus) => void;
 }
 
-function SaleCard({ sale, onDragStart, onClick }: SaleCardProps) {
+function SaleCard({ sale, onDragStart, onClick, onMoveRequest }: SaleCardProps) {
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -53,15 +62,17 @@ function SaleCard({ sale, onDragStart, onClick }: SaleCardProps) {
     }).format(cents / 100);
   };
 
+  // Get available columns (exclude current)
+  const availableColumns = POST_SALE_COLUMNS.filter(c => c.id !== sale.post_sale_contact_status);
+
   return (
     <div
       draggable
       onDragStart={(e) => onDragStart(e, sale)}
       className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-      onClick={onClick}
     >
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" onClick={onClick}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <User className="w-4 h-4 text-primary" />
@@ -76,7 +87,7 @@ function SaleCard({ sale, onDragStart, onClick }: SaleCardProps) {
           <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         </div>
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-xs text-muted-foreground" onClick={onClick}>
           <span className="font-medium text-foreground">{formatCurrency(sale.total_cents)}</span>
           {sale.delivered_at && (
             <div className="flex items-center gap-1">
@@ -86,7 +97,7 @@ function SaleCard({ sale, onDragStart, onClick }: SaleCardProps) {
           )}
         </div>
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" onClick={onClick}>
           {sale.seller && (
             <span className="text-xs text-muted-foreground">
               {sale.seller.first_name}
@@ -97,6 +108,33 @@ function SaleCard({ sale, onDragStart, onClick }: SaleCardProps) {
               <WhatsAppButton phone={sale.lead.whatsapp} variant="icon" className="h-7 w-7" />
             </div>
           )}
+        </div>
+
+        {/* Move to Column Dropdown */}
+        <div className="pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full h-7 text-xs justify-start gap-1.5 text-muted-foreground hover:text-foreground">
+                <ArrowRightCircle className="w-3.5 h-3.5" />
+                Mover para coluna...
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 bg-popover">
+              {availableColumns.map((column) => (
+                <DropdownMenuItem
+                  key={column.id}
+                  onClick={() => onMoveRequest(sale, column.id)}
+                  className="cursor-pointer"
+                >
+                  <div 
+                    className="w-2 h-2 rounded-full mr-2" 
+                    style={{ backgroundColor: column.color.replace('text-', '').replace('-700', '') }}
+                  />
+                  <span className={cn("text-sm", column.color)}>{column.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
@@ -110,9 +148,10 @@ interface KanbanColumnProps {
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent, status: PostSaleContactStatus) => void;
   onSaleClick: (sale: PostSaleSale) => void;
+  onMoveRequest: (sale: PostSaleSale, targetStatus: PostSaleContactStatus) => void;
 }
 
-function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleClick }: KanbanColumnProps) {
+function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleClick, onMoveRequest }: KanbanColumnProps) {
   return (
     <div 
       className={cn(
@@ -146,6 +185,7 @@ function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleCl
                 sale={sale} 
                 onDragStart={onDragStart}
                 onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
+                onMoveRequest={onMoveRequest}
               />
             ))
           )}
@@ -155,6 +195,7 @@ function KanbanColumn({ column, sales, onDragStart, onDragOver, onDrop, onSaleCl
   );
 }
 
+
 export default function PostSaleKanban() {
   const navigate = useNavigate();
   const { data: sales = [], isLoading } = usePostSaleSales();
@@ -163,6 +204,11 @@ export default function PostSaleKanban() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedSale, setDraggedSale] = useState<PostSaleSale | null>(null);
+  
+  // Move to column dialog state
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [saleToMove, setSaleToMove] = useState<PostSaleSale | null>(null);
+  const [targetStatus, setTargetStatus] = useState<PostSaleContactStatus | null>(null);
   
   // Filter states - default to current month
   const [startDate, setStartDate] = useState(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -279,6 +325,26 @@ export default function PostSaleKanban() {
 
   const handleSaleClick = (sale: PostSaleSale) => {
     navigate(`/vendas/${sale.id}`);
+  };
+
+  const handleMoveRequest = (sale: PostSaleSale, status: PostSaleContactStatus) => {
+    setSaleToMove(sale);
+    setTargetStatus(status);
+    setMoveDialogOpen(true);
+  };
+
+  const handleMoveConfirm = (reason: string) => {
+    if (saleToMove && targetStatus) {
+      // TODO: In the future, we could save the reason to a notes/logs table
+      console.log('Move reason:', reason);
+      updateStatus.mutate({ 
+        saleId: saleToMove.id, 
+        status: targetStatus 
+      });
+    }
+    setMoveDialogOpen(false);
+    setSaleToMove(null);
+    setTargetStatus(null);
   };
 
   const clearFilters = () => {
@@ -453,6 +519,7 @@ export default function PostSaleKanban() {
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                     onSaleClick={handleSaleClick}
+                    onMoveRequest={handleMoveRequest}
                   />
                 ))}
               </div>
@@ -461,6 +528,15 @@ export default function PostSaleKanban() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Move to Column Dialog */}
+      <MoveToColumnDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        targetColumn={targetStatus}
+        onConfirm={handleMoveConfirm}
+        isLoading={updateStatus.isPending}
+      />
     </Layout>
   );
 }
