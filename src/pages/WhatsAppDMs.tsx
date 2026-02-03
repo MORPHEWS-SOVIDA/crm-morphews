@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3 } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3, Info } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,8 +60,8 @@ export default function WhatsAppDMs() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   
-  // Hook para adicionar instância manual
-  const { addManualInstance } = useEvolutionInstances();
+  // Hook para adicionar instância manual e Instagram
+  const { addManualInstance, createInstagramInstance } = useEvolutionInstances();
 
   // Verificar se pode ver configurações globais
   const canViewGlobalConfig = Boolean(permissions?.whatsapp_ai_settings_view || isAdmin || isOrgAdmin);
@@ -104,6 +104,11 @@ export default function WhatsAppDMs() {
 
   // Dialog para configurações do Evolution
   const [evolutionSettingsInstance, setEvolutionSettingsInstance] = useState<EvolutionInstance | null>(null);
+
+  // Dialog para Instagram
+  const [showInstagramDialog, setShowInstagramDialog] = useState(false);
+  const [instagramName, setInstagramName] = useState("");
+  const [isCreatingInstagram, setIsCreatingInstagram] = useState(false);
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -484,6 +489,17 @@ export default function WhatsAppDMs() {
             >
               <Settings2 className="h-4 w-4" />
               Adicionar Manualmente
+            </Button>
+
+            <Button 
+              onClick={() => setShowInstagramDialog(true)}
+              variant="outline"
+              className="gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white border-0 hover:opacity-90"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+              Conectar Instagram
             </Button>
 
             <Button 
@@ -1109,6 +1125,87 @@ export default function WhatsAppDMs() {
             }}
           />
         )}
+
+        {/* Dialog Conectar Instagram */}
+        <Dialog open={showInstagramDialog} onOpenChange={setShowInstagramDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
+                  <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
+                </div>
+                Conectar Instagram Business
+              </DialogTitle>
+              <DialogDescription>
+                Conecte sua conta Instagram Business para receber e responder DMs diretamente no chat.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nome para identificar</Label>
+                <Input
+                  placeholder="Ex: Instagram Vendas, Suporte IG..."
+                  value={instagramName}
+                  onChange={(e) => setInstagramName(e.target.value)}
+                />
+              </div>
+              
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div className="text-sm text-muted-foreground">
+                    <strong>Requisitos:</strong>
+                    <ul className="list-disc list-inside mt-1">
+                      <li>Conta Instagram Business ou Creator</li>
+                      <li>Página do Facebook vinculada</li>
+                      <li>Acesso de admin à página</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={async () => {
+                  if (!instagramName.trim()) {
+                    toast({ title: "Digite um nome para identificar a conta", variant: "destructive" });
+                    return;
+                  }
+                  setIsCreatingInstagram(true);
+                  try {
+                    await createInstagramInstance.mutateAsync({ name: instagramName.trim() });
+                    setShowInstagramDialog(false);
+                    setInstagramName("");
+                    toast({ title: "Instagram configurado!", description: "Conecte-se na janela que será aberta." });
+                    refetch();
+                  } catch (error: any) {
+                    toast({ title: "Erro ao conectar Instagram", description: error.message, variant: "destructive" });
+                  } finally {
+                    setIsCreatingInstagram(false);
+                  }
+                }}
+                disabled={isCreatingInstagram || !instagramName.trim()}
+                className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white hover:opacity-90"
+              >
+                {isCreatingInstagram ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Conectando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                    Conectar com Facebook
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
