@@ -34,6 +34,7 @@ import {
   HelpCircle,
   Link2,
   Building2,
+  Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -122,6 +123,7 @@ export function Sidebar() {
   const canSeeExpeditionReport = isAdmin || permissions?.expedition_report_view;
   const canSeeWhatsAppManage = isAdmin || permissions?.whatsapp_manage_view;
   const canSeeAIBots = isAdmin || permissions?.ai_bots_view;
+  const canSeeVoiceAI = isAdmin || permissions?.voice_ai_view;
   const canSeeDemands = isAdmin || permissions?.demands_view;
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
   const canSeeIntegrations = isAdmin || permissions?.integrations_view;
@@ -199,6 +201,9 @@ export function Sidebar() {
     
     // AI Bots (permission controlled)
     { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
+    
+    // Voice AI (permission controlled)
+    { icon: Phone, label: 'Voice AI', path: '/voice-ai', visible: canSeeVoiceAI && hasFeature('voice_ai_calls') },
     
     // Team (permission controlled)
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam && hasFeature('team') },

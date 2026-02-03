@@ -31,6 +31,7 @@ import {
   User,
   BarChart3,
   Link2,
+  Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -104,6 +105,7 @@ export function MobileNav() {
   const canSeeExpeditionReport = isAdmin || permissions?.expedition_report_view;
   const canSeeWhatsAppManage = isAdmin || permissions?.whatsapp_manage_view;
   const canSeeAIBots = isAdmin || permissions?.ai_bots_view;
+  const canSeeVoiceAI = isAdmin || permissions?.voice_ai_view;
   const canSeeDemands = isAdmin || permissions?.demands_view;
   const canSeeScheduledMessages = isAdmin || permissions?.scheduled_messages_view;
   const canSeeDashboardFunnel = isAdmin || permissions?.dashboard_funnel_view;
@@ -212,6 +214,9 @@ export function MobileNav() {
     }
     if (canSeeAIBots && hasFeature('ai_bots')) {
       mgmtItems.push({ icon: Bot, label: 'Robôs IA', path: '/robos-ia' });
+    }
+    if (canSeeVoiceAI && hasFeature('voice_ai_calls')) {
+      mgmtItems.push({ icon: Phone, label: 'Voice AI', path: '/voice-ai' });
     }
     if (canSeeDemands && hasFeature('demands')) {
       mgmtItems.push({ icon: ListTodo, label: 'Demandas', path: '/demandas' });
