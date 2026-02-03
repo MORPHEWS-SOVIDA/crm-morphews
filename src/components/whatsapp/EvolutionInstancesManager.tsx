@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +10,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useEvolutionInstances, InstanceFilter } from "@/hooks/useEvolutionInstances";
-import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown } from "lucide-react";
+import { useEvolutionInstances, InstanceFilter, ChannelType } from "@/hooks/useEvolutionInstances";
+import { supabase } from "@/integrations/supabase/client";
+import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { InstancePermissions } from "./InstancePermissions";
 import { InstanceSettingsDialog } from "./InstanceSettingsDialog";
 import { EvolutionSettingsDialog } from "./EvolutionSettingsDialog";
+
+// Ícone do Instagram inline
+const InstagramIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+  </svg>
+);
 
 interface EvolutionInstance {
   id: string;
@@ -26,6 +35,8 @@ interface EvolutionInstance {
   qr_code_base64: string | null;
   created_at: string;
   deleted_at?: string | null;
+  channel_type?: ChannelType;
+  instagram_username?: string | null;
 }
 
 interface EvolutionInstancesManagerProps {
@@ -56,6 +67,8 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     setPollingInstanceId,
   } = useEvolutionInstances();
 
+  const queryClient = useQueryClient();
+
   const [newInstanceName, setNewInstanceName] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
@@ -76,6 +89,11 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [evolutionSettingsDialogOpen, setEvolutionSettingsDialogOpen] = useState(false);
   const [selectedInstanceForDialog, setSelectedInstanceForDialog] = useState<EvolutionInstance | null>(null);
+
+  // Estado para dialog de Instagram
+  const [instagramDialogOpen, setInstagramDialogOpen] = useState(false);
+  const [instagramName, setInstagramName] = useState("");
+  const [isConnectingInstagram, setIsConnectingInstagram] = useState(false);
 
   // Estado para configurações avançadas no dialog de criação
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -282,9 +300,9 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
       {/* Header com botões */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h3 className="text-lg font-medium">Instâncias WhatsApp</h3>
+          <h3 className="text-lg font-medium">Canais de Atendimento</h3>
           <p className="text-sm text-muted-foreground">
-            Gerencie suas conexões do WhatsApp
+            Gerencie suas conexões de WhatsApp e Instagram
           </p>
         </div>
         
@@ -367,12 +385,111 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
             </DialogContent>
           </Dialog>
           
-          {/* Botão Nova Instância (com QR Code) */}
+          {/* Botão Conectar Instagram */}
+          <Dialog open={instagramDialogOpen} onOpenChange={setInstagramDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white border-0 hover:opacity-90">
+                <InstagramIcon className="h-4 w-4 mr-2" />
+                Conectar Instagram
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
+                    <InstagramIcon className="h-5 w-5 text-white" />
+                  </div>
+                  Conectar Instagram Business
+                </DialogTitle>
+                <DialogDescription>
+                  Conecte sua conta Instagram Business para receber e responder DMs diretamente no chat.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Nome para identificar</Label>
+                  <Input
+                    placeholder="Ex: Instagram Vendas, Suporte IG..."
+                    value={instagramName}
+                    onChange={(e) => setInstagramName(e.target.value)}
+                  />
+                </div>
+                
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Requisitos:</strong>
+                    <ul className="list-disc list-inside mt-1 text-sm">
+                      <li>Conta Instagram Business ou Creator</li>
+                      <li>Página do Facebook vinculada</li>
+                      <li>Acesso de admin à página</li>
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+                
+                <Button 
+                  onClick={async () => {
+                    if (!instagramName.trim()) {
+                      toast.error("Digite um nome para identificar a conta");
+                      return;
+                    }
+                    setIsConnectingInstagram(true);
+                    try {
+                      // Chamar edge function para criar instância Instagram
+                      const response = await supabase.functions.invoke("evolution-instance-manager", {
+                        body: { 
+                          action: "create_instagram", 
+                          name: instagramName.trim() 
+                        },
+                      });
+                      
+                      if (response.error) {
+                        throw new Error(response.error.message);
+                      }
+                      
+                      if (response.data?.oauth_url) {
+                        // Abrir popup para OAuth do Meta
+                        window.open(response.data.oauth_url, "_blank", "width=600,height=700");
+                        toast.info("Complete a autenticação na janela do Facebook");
+                      } else if (response.data?.instance) {
+                        toast.success("Conta Instagram conectada!");
+                        queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
+                      }
+                      
+                      setInstagramDialogOpen(false);
+                      setInstagramName("");
+                    } catch (error) {
+                      console.error("Error connecting Instagram:", error);
+                      toast.error("Erro ao conectar Instagram: " + (error instanceof Error ? error.message : "Erro desconhecido"));
+                    } finally {
+                      setIsConnectingInstagram(false);
+                    }
+                  }}
+                  disabled={isConnectingInstagram || !instagramName.trim()}
+                  className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white hover:opacity-90"
+                >
+                  {isConnectingInstagram ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Conectando...
+                    </>
+                  ) : (
+                    <>
+                      <InstagramIcon className="h-4 w-4 mr-2" />
+                      Conectar com Facebook
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Botão Nova Instância WhatsApp (com QR Code) */}
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Nova Instância
+                Nova Instância WhatsApp
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -582,7 +699,21 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{instance.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {/* Channel type icon */}
+                      <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                        (instance as any).channel_type === 'instagram' 
+                          ? "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400"
+                          : "bg-green-500"
+                      }`}>
+                        {(instance as any).channel_type === 'instagram' ? (
+                          <InstagramIcon className="h-3.5 w-3.5 text-white" />
+                        ) : (
+                          <MessageCircle className="h-3.5 w-3.5 text-white" />
+                        )}
+                      </div>
+                      <CardTitle className="text-base">{instance.name}</CardTitle>
+                    </div>
                     {isArchived ? (
                       <Badge variant="secondary">
                         <Archive className="h-3 w-3 mr-1" /> Arquivada
@@ -600,7 +731,11 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                       </Badge>
                     )}
                   </div>
-                  {instance.phone_number && (
+                  {(instance as any).channel_type === 'instagram' && (instance as any).instagram_username ? (
+                    <CardDescription>
+                      @{(instance as any).instagram_username}
+                    </CardDescription>
+                  ) : instance.phone_number && (
                     <CardDescription>
                       +{instance.phone_number}
                     </CardDescription>
