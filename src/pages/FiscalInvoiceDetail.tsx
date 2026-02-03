@@ -155,8 +155,8 @@ export default function FiscalInvoiceDetail() {
     }
   }, [invoice]);
 
-  const isEditable = invoice?.is_draft || invoice?.status === 'pending' || invoice?.status === 'rejected';
-  const canResend = invoice?.status === 'rejected';
+  const isEditable = invoice?.is_draft || invoice?.status === 'pending' || invoice?.status === 'rejected' || invoice?.status === 'processing';
+  const canResend = invoice?.status === 'rejected' || invoice?.status === 'processing';
 
   const formatCurrency = (cents: number | null | undefined) => {
     return new Intl.NumberFormat('pt-BR', {
