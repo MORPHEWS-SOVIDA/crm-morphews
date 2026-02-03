@@ -110,6 +110,10 @@ export default function WhatsAppDMs() {
   const [instagramName, setInstagramName] = useState("");
   const [isCreatingInstagram, setIsCreatingInstagram] = useState(false);
 
+  // Filtros
+  const [statusFilter, setStatusFilter] = useState<"all" | "connected" | "disconnected">("all");
+  const [channelFilter, setChannelFilter] = useState<"all" | "whatsapp" | "instagram">("all");
+
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -698,6 +702,88 @@ export default function WhatsAppDMs() {
           </DialogContent>
         </Dialog>
 
+        {/* Filtros */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-muted-foreground mr-2">Filtros:</span>
+          
+          {/* Status Filter */}
+          <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+            <Button
+              variant={statusFilter === "all" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+              className="h-7 px-3 text-xs"
+            >
+              Todas
+              <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                {instances?.length || 0}
+              </Badge>
+            </Button>
+            <Button
+              variant={statusFilter === "connected" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setStatusFilter("connected")}
+              className="h-7 px-3 text-xs"
+            >
+              <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
+              Conectadas
+              <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-green-600">
+                {instances?.filter(i => i.is_connected).length || 0}
+              </Badge>
+            </Button>
+            <Button
+              variant={statusFilter === "disconnected" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setStatusFilter("disconnected")}
+              className="h-7 px-3 text-xs"
+            >
+              <span className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
+              Desconectadas
+              <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-yellow-600">
+                {instances?.filter(i => !i.is_connected).length || 0}
+              </Badge>
+            </Button>
+          </div>
+          
+          {/* Channel Filter */}
+          <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+            <Button
+              variant={channelFilter === "all" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setChannelFilter("all")}
+              className="h-7 px-3 text-xs"
+            >
+              Todos Canais
+            </Button>
+            <Button
+              variant={channelFilter === "whatsapp" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setChannelFilter("whatsapp")}
+              className="h-7 px-3 text-xs"
+            >
+              <MessageSquare className="w-3 h-3 mr-1.5 text-green-500" />
+              WhatsApp
+              <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                {instances?.filter(i => (i as any).channel_type !== 'instagram').length || 0}
+              </Badge>
+            </Button>
+            <Button
+              variant={channelFilter === "instagram" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setChannelFilter("instagram")}
+              className="h-7 px-3 text-xs bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-400/10"
+            >
+              <svg className="w-3 h-3 mr-1.5 text-pink-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+              Instagram
+              <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                {instances?.filter(i => (i as any).channel_type === 'instagram').length || 0}
+              </Badge>
+            </Button>
+          </div>
+        </div>
+
         {/* Instances List */}
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -721,15 +807,46 @@ export default function WhatsAppDMs() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {instances?.map((instance) => {
+            {instances
+              ?.filter(instance => {
+                // Status filter
+                if (statusFilter === "connected" && !instance.is_connected) return false;
+                if (statusFilter === "disconnected" && instance.is_connected) return false;
+                
+                // Channel filter
+                const channelType = (instance as any).channel_type || 'whatsapp';
+                if (channelFilter === "whatsapp" && channelType === 'instagram') return false;
+                if (channelFilter === "instagram" && channelType !== 'instagram') return false;
+                
+                return true;
+              })
+              .map((instance) => {
               const internalStatus = mapStatusToInternal(instance.status, instance.is_connected);
+              const channelType = (instance as any).channel_type || 'whatsapp';
+              const isInstagram = channelType === 'instagram';
               
               return (
-                <Card key={instance.id} className="relative overflow-hidden">
+                <Card key={instance.id} className={`relative overflow-hidden ${isInstagram ? 'ring-1 ring-pink-500/30' : ''}`}>
+                  {/* Channel indicator bar */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${isInstagram ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400' : 'bg-green-500'}`} />
+                  
                   <CardHeader className="pb-3 pt-4">
                     <div className="space-y-3">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{instance.name}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          {isInstagram ? (
+                            <div className="h-6 w-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
+                              <svg className="h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                              <MessageSquare className="h-3.5 w-3.5 text-white" />
+                            </div>
+                          )}
+                          <CardTitle className="text-lg">{instance.name}</CardTitle>
+                        </div>
                         {getStatusBadge(instance)}
                       </div>
                       
