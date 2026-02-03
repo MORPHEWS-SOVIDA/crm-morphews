@@ -27,10 +27,28 @@ export async function checkDuplicateWhatsApp(
     return null;
   }
 
+  // Ensure we only check duplicates inside the current user's organization.
+  // Without this, a lead in another tenant could incorrectly block lead creation.
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return null;
+  }
+
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', userData.user.id)
+    .maybeSingle();
+
+  if (profileError || !profileData?.organization_id) {
+    return null;
+  }
+
   // Query for existing lead with same WhatsApp in the organization
   let query = supabase
     .from('leads')
     .select('id, name, whatsapp')
+    .eq('organization_id', profileData.organization_id)
     .eq('whatsapp', normalizedPhone)
     .limit(1);
 

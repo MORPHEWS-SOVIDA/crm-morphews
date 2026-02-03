@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,8 @@ export function LeadSearchDialog({
   const [newLeadName, setNewLeadName] = useState('');
   const [selectedStageId, setSelectedStageId] = useState<string>('');
 
+  const matchRequestRef = useRef(0);
+
   // Get selectable stages (funnel and cloud, not trash)
   const selectableStages = funnelStages
     .filter(s => s.stage_type !== 'trash')
@@ -67,37 +69,80 @@ export function LeadSearchDialog({
   // Search for matching lead by phone on dialog open
   useEffect(() => {
     if (open && conversationPhone) {
+      // Reset transient state to avoid leaking results between conversations
+      setMatchingLead(null);
+      setSearchTerm('');
+      setLeads([]);
       findMatchingLead();
       setNewLeadName(contactName || '');
     }
   }, [open, conversationPhone]);
 
-  // Normalize phone for comparison
-  const normalizePhone = (phone: string) => {
-    return phone.replace(/\D/g, '').replace(/^55/, '');
+  const digitsOnly = (value: string) => value.replace(/\D/g, '');
+
+  const getPhoneVariants = (phone: string) => {
+    const digits = digitsOnly(phone);
+    const no55 = digits.startsWith('55') ? digits.slice(2) : digits;
+    // Remove empty strings (e.g. phone="55" -> "")
+    return Array.from(new Set([digits, no55].filter(Boolean)));
+  };
+
+  const getBestPhoneMatch = (candidates: Lead[], conversation: string) => {
+    const convoDigits = digitsOnly(conversation);
+    if (convoDigits.length < 8) return null;
+
+    const convoVariants = getPhoneVariants(convoDigits);
+    const convoLast10 = convoDigits.slice(-10);
+    const convoLast8 = convoDigits.slice(-8);
+
+    let best: { lead: Lead; score: number } | null = null;
+
+    for (const lead of candidates) {
+      const leadDigits = digitsOnly(lead.whatsapp || '');
+      if (leadDigits.length < 8) continue;
+
+      const leadVariants = getPhoneVariants(leadDigits);
+      const leadLast10 = leadDigits.slice(-10);
+      const leadLast8 = leadDigits.slice(-8);
+
+      let score = 0;
+      const exact = convoVariants.some((v) => leadVariants.includes(v));
+      if (exact) score = 100;
+      else if (convoLast10 && leadLast10 && convoLast10 === leadLast10) score = 70;
+      else if (convoLast8 && leadLast8 && convoLast8 === leadLast8) score = 50;
+
+      if (score > 0 && (!best || score > best.score)) {
+        best = { lead, score };
+      }
+    }
+
+    return best?.lead ?? null;
   };
 
   const findMatchingLead = async () => {
     if (!profile?.organization_id) return;
-    
-    const cleanPhone = normalizePhone(conversationPhone);
-    
+
+    const requestId = ++matchRequestRef.current;
+
+    const convoDigits = digitsOnly(conversationPhone);
+    if (convoDigits.length < 8) return;
+
+    // Search by last digits to avoid fetching the entire org and to prevent false matches
+    // (e.g. leads with whatsapp="55" would otherwise match everything after normalization)
+    const last8 = convoDigits.slice(-8);
+
     const { data, error } = await supabase
       .from('leads')
       .select('id, name, whatsapp, email, stars, stage')
-      .eq('organization_id', profile.organization_id);
+      .eq('organization_id', profile.organization_id)
+      .ilike('whatsapp', `%${last8}%`)
+      .limit(50);
 
-    if (!error && data) {
-      const match = data.find(lead => {
-        const leadPhone = normalizePhone(lead.whatsapp);
-        return leadPhone === cleanPhone || 
-               leadPhone.endsWith(cleanPhone) || 
-               cleanPhone.endsWith(leadPhone);
-      });
-      
-      if (match) {
-        setMatchingLead(match);
-      }
+    if (requestId !== matchRequestRef.current) return; // stale request
+
+    if (!error && data?.length) {
+      const match = getBestPhoneMatch(data as Lead[], conversationPhone);
+      setMatchingLead(match);
     }
   };
 
