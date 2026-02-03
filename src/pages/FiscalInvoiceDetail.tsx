@@ -117,6 +117,7 @@ export default function FiscalInvoiceDetail() {
   // Editable form state
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<FiscalInvoice>>({});
+  const [editableItems, setEditableItems] = useState<any[]>([]);
 
   // Sync form data when invoice loads
   useEffect(() => {
@@ -144,6 +145,13 @@ export default function FiscalInvoiceDetail() {
         presence_indicator: invoice.presence_indicator || '0',
         freight_responsibility: invoice.freight_responsibility || '9',
       });
+      // Initialize editable items from invoice items
+      const invoiceItems = Array.isArray(invoice.items) ? invoice.items : [];
+      setEditableItems(invoiceItems.map((item: any) => ({
+        ...item,
+        ncm: item.ncm || item.product?.fiscal_ncm || '',
+        cfop: item.cfop || '',
+      })));
     }
   }, [invoice]);
 
@@ -167,9 +175,20 @@ export default function FiscalInvoiceDetail() {
 
   const handleSave = async () => {
     if (!invoice?.id) return;
-    await saveDraft.mutateAsync({ id: invoice.id, updates: formData });
+    // Include updated items in the save
+    const updates = {
+      ...formData,
+      items: editableItems,
+    };
+    await saveDraft.mutateAsync({ id: invoice.id, updates });
     setEditMode(false);
     refetch();
+  };
+
+  const updateItemField = (index: number, field: string, value: string) => {
+    setEditableItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    ));
   };
 
   const handleSend = async () => {
@@ -749,19 +768,44 @@ export default function FiscalInvoiceDetail() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Produto</TableHead>
+                          <TableHead className="w-32">NCM</TableHead>
+                          <TableHead className="w-24">CFOP</TableHead>
                           <TableHead className="text-center">Qtd</TableHead>
                           <TableHead className="text-right">Unitário</TableHead>
                           <TableHead className="text-right">Total</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {items.map((item: any, index: number) => (
+                        {(editMode ? editableItems : items).map((item: any, index: number) => (
                           <TableRow key={index}>
                             <TableCell>
                               <p className="font-medium">{item.product_name || item.name || item.product?.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                NCM: {item.ncm || item.product?.fiscal_ncm || '-'} | CFOP: {item.cfop || '-'}
-                              </p>
+                            </TableCell>
+                            <TableCell>
+                              {editMode ? (
+                                <Input
+                                  value={item.ncm || ''}
+                                  onChange={(e) => updateItemField(index, 'ncm', e.target.value)}
+                                  placeholder="00000000"
+                                  className="h-8 w-28 font-mono text-xs"
+                                  maxLength={8}
+                                />
+                              ) : (
+                                <span className="text-xs font-mono">{item.ncm || item.product?.fiscal_ncm || '-'}</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {editMode ? (
+                                <Input
+                                  value={item.cfop || ''}
+                                  onChange={(e) => updateItemField(index, 'cfop', e.target.value)}
+                                  placeholder="5102"
+                                  className="h-8 w-20 font-mono text-xs"
+                                  maxLength={4}
+                                />
+                              ) : (
+                                <span className="text-xs font-mono">{item.cfop || '-'}</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-center">{item.quantity}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.unit_price_cents)}</TableCell>
