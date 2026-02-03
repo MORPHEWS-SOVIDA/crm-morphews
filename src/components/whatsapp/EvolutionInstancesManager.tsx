@@ -303,7 +303,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
         <div>
           <h3 className="text-lg font-medium">Canais de Atendimento</h3>
           <p className="text-sm text-muted-foreground">
-            Gerencie suas conexões de WhatsApp e Instagram
+            Gerencie suas conexões de WhatsApp, Instagram e outros canais
           </p>
         </div>
         
