@@ -19,7 +19,7 @@ export interface OrgWhiteLabelBranding {
  * or null if it's a direct Morphews customer.
  */
 export function useOrgWhiteLabelBranding() {
-  const { profile } = useAuth();
+  const { profile, isLoading: authLoading } = useAuth();
   const organizationId = profile?.organization_id;
 
   return useQuery({
@@ -70,7 +70,8 @@ export function useOrgWhiteLabelBranding() {
         support_whatsapp: config.support_whatsapp,
       } as OrgWhiteLabelBranding;
     },
-    enabled: !!organizationId,
+    // Only enable when auth is done loading AND we have an organization
+    enabled: !authLoading && !!organizationId,
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
   });
 }

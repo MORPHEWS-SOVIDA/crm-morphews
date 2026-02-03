@@ -69,7 +69,7 @@ interface NavGroup {
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, signOut, isLoading: authLoading } = useAuth();
   const { role } = useTenant();
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
@@ -83,9 +83,10 @@ export function MobileNav() {
   const isPartner = role?.startsWith('partner_') ?? false;
   
   // Determine logo to use based on white label branding
-  // Wait for branding to load before showing any logo to avoid flash
+  // Wait for auth AND branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
-  const displayLogo = wlBrandingLoading 
+  const isBrandingReady = !authLoading && !wlBrandingLoading;
+  const displayLogo = !isBrandingReady
     ? null
     : wlBranding 
       ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
