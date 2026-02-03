@@ -17208,6 +17208,293 @@ export type Database = {
           },
         ]
       }
+      voice_ai_agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          elevenlabs_agent_id: string | null
+          first_message: string | null
+          id: string
+          is_active: boolean | null
+          language: string | null
+          max_call_duration_seconds: number | null
+          max_daily_calls: number | null
+          name: string
+          organization_id: string
+          out_of_hours_message: string | null
+          system_prompt: string | null
+          updated_at: string
+          voice_id: string
+          voice_name: string | null
+          working_days: number[] | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          elevenlabs_agent_id?: string | null
+          first_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          language?: string | null
+          max_call_duration_seconds?: number | null
+          max_daily_calls?: number | null
+          name: string
+          organization_id: string
+          out_of_hours_message?: string | null
+          system_prompt?: string | null
+          updated_at?: string
+          voice_id: string
+          voice_name?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          elevenlabs_agent_id?: string | null
+          first_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          language?: string | null
+          max_call_duration_seconds?: number | null
+          max_daily_calls?: number | null
+          name?: string
+          organization_id?: string
+          out_of_hours_message?: string | null
+          system_prompt?: string | null
+          updated_at?: string
+          voice_id?: string
+          voice_name?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_agents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_ai_calls: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          answered_at: string | null
+          call_purpose: string | null
+          call_type: string
+          contact_id: string | null
+          contact_name: string | null
+          cost_credits: number | null
+          created_at: string
+          created_by: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          error_message: string | null
+          id: string
+          instance_id: string | null
+          lead_id: string | null
+          metadata: Json | null
+          next_action: string | null
+          next_action_date: string | null
+          organization_id: string
+          outcome: string | null
+          outcome_notes: string | null
+          phone_number: string
+          sentiment: string | null
+          started_at: string | null
+          status: string
+          summary: string | null
+          transcript: string | null
+          updated_at: string
+          voice_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          answered_at?: string | null
+          call_purpose?: string | null
+          call_type: string
+          contact_id?: string | null
+          contact_name?: string | null
+          cost_credits?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          instance_id?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          next_action?: string | null
+          next_action_date?: string | null
+          organization_id: string
+          outcome?: string | null
+          outcome_notes?: string | null
+          phone_number: string
+          sentiment?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          transcript?: string | null
+          updated_at?: string
+          voice_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          answered_at?: string | null
+          call_purpose?: string | null
+          call_type?: string
+          contact_id?: string | null
+          contact_name?: string | null
+          cost_credits?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          instance_id?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          next_action?: string | null
+          next_action_date?: string | null
+          organization_id?: string
+          outcome?: string | null
+          outcome_notes?: string | null
+          phone_number?: string
+          sentiment?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          transcript?: string | null
+          updated_at?: string
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_calls_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_calls_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_calls_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_calls_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_ai_campaigns: {
+        Row: {
+          agent_id: string | null
+          calls_answered: number | null
+          calls_converted: number | null
+          calls_made: number | null
+          calls_per_hour: number | null
+          campaign_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          lead_filters: Json | null
+          name: string
+          organization_id: string
+          scheduled_end: string | null
+          scheduled_start: string | null
+          status: string
+          total_leads: number | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          calls_answered?: number | null
+          calls_converted?: number | null
+          calls_made?: number | null
+          calls_per_hour?: number | null
+          campaign_type: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_filters?: Json | null
+          name: string
+          organization_id: string
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          calls_answered?: number | null
+          calls_converted?: number | null
+          calls_made?: number | null
+          calls_per_hour?: number | null
+          campaign_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_filters?: Json | null
+          name?: string
+          organization_id?: string
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_campaigns_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voip_3c_config: {
         Row: {
           blacklist_numbers: string[]
