@@ -74,7 +74,7 @@ function getRoleLabel(role: string | null, isAdmin: boolean): string {
 }
 
 export function Sidebar() {
-  const { user, profile, isAdmin: isGlobalAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin: isGlobalAdmin, signOut, isLoading: authLoading } = useAuth();
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
   const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
@@ -88,9 +88,10 @@ export function Sidebar() {
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   
   // Determine logo to use based on white label branding
-  // Wait for branding to load before showing any logo to avoid flash
+  // Wait for auth AND branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
-  const displayLogo = wlBrandingLoading 
+  const isBrandingReady = !authLoading && !wlBrandingLoading;
+  const displayLogo = !isBrandingReady
     ? null // Don't show any logo while loading
     : wlBranding 
       ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
@@ -265,7 +266,7 @@ export function Sidebar() {
             ) : (
               <div className="h-8 w-32 bg-muted animate-pulse rounded" />
             )}
-            {!wlBrandingLoading && brandTagline && <p className="text-sm text-muted-foreground mt-2">{brandTagline}</p>}
+            {isBrandingReady && brandTagline && <p className="text-sm text-muted-foreground mt-2">{brandTagline}</p>}
           </div>
 
           {/* User Info */}
