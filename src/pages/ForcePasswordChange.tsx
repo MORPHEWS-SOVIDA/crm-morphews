@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,15 +7,37 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, CheckCircle, XCircle } from "lucide-react";
+import { useOrgWhiteLabelBranding } from "@/hooks/useOrgWhiteLabelBranding";
+import { useTheme } from "next-themes";
 import logo from "@/assets/logo-morphews.png";
 
 export default function ForcePasswordChange() {
   const navigate = useNavigate();
+  const { data: wlBranding } = useOrgWhiteLabelBranding();
+  const { resolvedTheme } = useTheme();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Determine which logo to use
+  const isDark = resolvedTheme === 'dark';
+  const displayLogo = wlBranding 
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logo
+    : logo;
+  const brandName = wlBranding?.brand_name || 'Morphews CRM';
+
+  // Set favicon dynamically
+  useEffect(() => {
+    if (wlBranding?.favicon_url) {
+      const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+      link.type = 'image/x-icon';
+      link.rel = 'shortcut icon';
+      link.href = wlBranding.favicon_url;
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+  }, [wlBranding?.favicon_url]);
 
   // Password validation rules
   const hasMinLength = password.length >= 8;
@@ -101,7 +123,7 @@ export default function ForcePasswordChange() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img src={logo} alt="Morphews CRM" className="h-12" />
+            <img src={displayLogo} alt={brandName} className="h-12" />
           </div>
           <div>
             <CardTitle className="text-2xl flex items-center justify-center gap-2">

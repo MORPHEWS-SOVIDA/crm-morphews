@@ -44,6 +44,8 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useNavigate } from 'react-router-dom';
+import { useOrgWhiteLabelBranding } from '@/hooks/useOrgWhiteLabelBranding';
+import { useTheme } from 'next-themes';
 import logoMorphews from '@/assets/logo-morphews.png';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -72,11 +74,19 @@ export function MobileNav() {
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
+  const { data: wlBranding } = useOrgWhiteLabelBranding();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   const isPartner = role?.startsWith('partner_') ?? false;
+  
+  // Determine logo to use based on white label branding
+  const isDark = resolvedTheme === 'dark';
+  const displayLogo = wlBranding 
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
+    : logoMorphews;
 
   const hasFeature = (key: string) => {
     if (isMasterAdmin) return true;
@@ -359,7 +369,7 @@ export function MobileNav() {
               <SheetHeader className="px-4 py-4 border-b border-border flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <img src={logoMorphews} alt="Morphews" className="h-8 w-auto" />
+                    <img src={displayLogo} alt="Menu" className="h-8 w-auto max-w-[140px] object-contain" />
                     <SheetTitle className="text-lg">Menu</SheetTitle>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
