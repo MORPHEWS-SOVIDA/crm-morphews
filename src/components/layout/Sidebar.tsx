@@ -80,7 +80,7 @@ export function Sidebar() {
   const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const { data: isWhiteLabelOwner } = useIsWhiteLabelOwner();
-  const { data: wlBranding } = useOrgWhiteLabelBranding();
+  const { data: wlBranding, isLoading: wlBrandingLoading } = useOrgWhiteLabelBranding();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [isDonnaOpen, setIsDonnaOpen] = useState(false);
@@ -88,10 +88,13 @@ export function Sidebar() {
   const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
   
   // Determine logo to use based on white label branding
+  // Wait for branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
-  const displayLogo = wlBranding 
-    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
-    : logoMorphews;
+  const displayLogo = wlBrandingLoading 
+    ? null // Don't show any logo while loading
+    : wlBranding 
+      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
+      : logoMorphews;
   const brandName = wlBranding?.brand_name || 'Morphews CRM';
   const brandTagline = wlBranding ? '' : 'Gestão de leads intuitiva'; // Hide tagline for white labels
   
@@ -257,8 +260,12 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">
-            <img src={displayLogo} alt={brandName} className="h-8 w-auto max-w-[180px] object-contain" />
-            {brandTagline && <p className="text-sm text-muted-foreground mt-2">{brandTagline}</p>}
+            {displayLogo ? (
+              <img src={displayLogo} alt={brandName} className="h-8 w-auto max-w-[180px] object-contain" />
+            ) : (
+              <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+            )}
+            {!wlBrandingLoading && brandTagline && <p className="text-sm text-muted-foreground mt-2">{brandTagline}</p>}
           </div>
 
           {/* User Info */}
