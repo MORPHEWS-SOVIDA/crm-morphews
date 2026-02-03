@@ -72,6 +72,9 @@ Deno.serve(async (req) => {
       focus_nfe_response: body,
     };
 
+    // Focus NFe base URL for files
+    const focusNfeBaseUrl = 'https://api.focusnfe.com.br';
+
     switch (status) {
       case 'autorizado':
       case 'autorizada':
@@ -81,8 +84,13 @@ Deno.serve(async (req) => {
         updateData.access_key = chave_nfe;
         updateData.verification_code = codigo_verificacao;
         updateData.protocol_number = protocolo;
-        updateData.xml_url = caminho_xml_nota_fiscal;
-        updateData.pdf_url = caminho_danfe;
+        // Build full URLs with Focus NFe base
+        updateData.xml_url = caminho_xml_nota_fiscal 
+          ? (caminho_xml_nota_fiscal.startsWith('http') ? caminho_xml_nota_fiscal : `${focusNfeBaseUrl}${caminho_xml_nota_fiscal}`)
+          : null;
+        updateData.pdf_url = caminho_danfe 
+          ? (caminho_danfe.startsWith('http') ? caminho_danfe : `${focusNfeBaseUrl}${caminho_danfe}`)
+          : null;
         updateData.authorized_at = new Date().toISOString();
         break;
 
