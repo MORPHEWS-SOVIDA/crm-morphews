@@ -218,9 +218,9 @@ Me diz: no que posso te ajudar agora?`,
         </TabsList>
 
         {/* Chat Tab */}
-        <TabsContent value="chat" className="flex-1 flex flex-col m-0 p-0 min-h-0">
-          <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600 scrollbar-track-transparent">
-            <div className="space-y-4">
+        <TabsContent value="chat" className="flex-1 flex flex-col m-0 p-0 min-h-0 overflow-hidden">
+          <ScrollArea className="flex-1 h-full">
+            <div className="p-4 space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -267,7 +267,7 @@ Me diz: no que posso te ajudar agora?`,
               )}
               <div ref={messagesEndRef} />
             </div>
-          </div>
+          </ScrollArea>
 
           {/* Input */}
           <div className="p-4 border-t border-zinc-200 dark:border-zinc-700">
