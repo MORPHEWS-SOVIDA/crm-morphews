@@ -20,6 +20,10 @@ const MAIN_DOMAINS = [
   'crm-morphews.lovable.app',
 ];
 
+// Cache for faster domain detection on subsequent renders
+let domainCache: CustomDomainResult | null = null;
+let cachedHostname: string | null = null;
+
 function isMainDomain(hostname: string): boolean {
   return MAIN_DOMAINS.some(domain => 
     hostname === domain || hostname.endsWith(`.${domain}`)

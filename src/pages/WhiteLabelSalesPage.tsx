@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import morphewsAvatar from "@/assets/morphews-avatar.png";
+import { useSlugFromContext } from "@/components/CustomDomainRedirect";
 
 // Animated counter component
 const AnimatedCounter = ({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) => {
@@ -187,7 +188,10 @@ const RESERVED_SLUGS = [
 ];
 
 export default function WhiteLabelSalesPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const contextSlug = useSlugFromContext();
+  const slug = contextSlug || urlSlug; // Prefer context slug (from custom domain) over URL param
+  
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   

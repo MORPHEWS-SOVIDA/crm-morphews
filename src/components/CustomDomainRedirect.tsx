@@ -1,9 +1,8 @@
 import { useLocation, Routes, Route } from 'react-router-dom';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCustomDomainDetection } from '@/hooks/useCustomDomainDetection';
 import { useAuth } from '@/hooks/useAuth';
-// useEffect is already imported above
 import { CartProvider } from '@/components/storefront/cart/CartContext';
 import { StorefrontLayoutWithSlug } from '@/components/storefront/StorefrontLayoutWithSlug';
 import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
@@ -26,6 +25,10 @@ const StorefrontCheckout = lazy(() => import('@/components/storefront/Storefront
 const StorefrontPage = lazy(() => import('@/components/storefront/StorefrontPage').then(m => ({ default: m.StorefrontPage })));
 const StorefrontOrderConfirmed = lazy(() => import('@/components/storefront/StorefrontOrderConfirmed').then(m => ({ default: m.StorefrontOrderConfirmed })));
 const StorefrontPixPayment = lazy(() => import('@/components/storefront/StorefrontPixPayment').then(m => ({ default: m.StorefrontPixPayment })));
+
+// Import white-label components
+const WhiteLabelSalesPageComponent = lazy(() => import('@/pages/WhiteLabelSalesPage'));
+const WhiteLabelCheckoutPageComponent = lazy(() => import('@/pages/WhiteLabelCheckoutPage'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -78,13 +81,13 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
   }
 
   // Handle WHITE-LABEL custom domains
-  // For white-label, we want to:
-  // 1. Show branded login when NOT authenticated and on /login
-  // 2. Let everything else pass through to normal routing
-  // This way authenticated users get the normal dashboard
+  // For white-label custom domains, we handle all routing here:
+  // 1. Root path "/" shows the sales page with partner branding
+  // 2. "/login" shows branded login
+  // 3. "/checkout/:planSlug" shows checkout
+  // 4. If authenticated, normal app routes work
   if (isCustomDomain && domainType === 'white-label' && whiteLabelSlug) {
-    // If user is authenticated, just render normal app
-    // They'll get the dashboard like normal
+    // If user is authenticated, render normal app for dashboard/admin routes
     if (user) {
       return <>{children}</>;
     }
@@ -94,8 +97,9 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
       return <PageLoader />;
     }
 
-    // User NOT authenticated - show branded login for login path
-    // For other paths, let normal routing handle redirect to login
+    // User NOT authenticated - handle white-label public routes
+    
+    // Login page
     if (location.pathname === '/login' || location.pathname === `/${whiteLabelSlug}/login`) {
       return (
         <Suspense fallback={<PageLoader />}>
@@ -104,15 +108,93 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
       );
     }
     
-    // For root path on custom domain, redirect to login
-    if (location.pathname === '/') {
-      // Let children handle - it will likely redirect to login via ProtectedRoute
-      return <>{children}</>;
+    // Checkout page (pattern: /checkout/:planSlug)
+    const checkoutMatch = location.pathname.match(/^\/checkout\/([^/]+)$/);
+    if (checkoutMatch) {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <WhiteLabelCheckoutRouteWrapper slug={whiteLabelSlug} planSlug={checkoutMatch[1]} />
+        </Suspense>
+      );
     }
+    
+    // Root path "/" - show white-label sales page
+    if (location.pathname === '/' || location.pathname === '') {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <WhiteLabelSalesRouteWrapper slug={whiteLabelSlug} />
+        </Suspense>
+      );
+    }
+    
+    // Other paths for unauthenticated users - let normal routing handle
+    return <>{children}</>;
   }
 
   // Not a custom domain OR not a special case - render children (normal routing)
   return <>{children}</>;
+}
+
+/**
+ * Wrapper to render WhiteLabelSalesPage with the correct slug from custom domain
+ */
+function WhiteLabelSalesRouteWrapper({ slug }: { slug: string }) {
+  // We need to pass the slug as if it came from URL params
+  // Using a context or direct prop injection
+  return <WhiteLabelSalesPageWithSlug slug={slug} />;
+}
+
+/**
+ * Wrapper to render WhiteLabelCheckoutPage with the correct slugs from custom domain
+ */
+function WhiteLabelCheckoutRouteWrapper({ slug, planSlug }: { slug: string; planSlug: string }) {
+  return <WhiteLabelCheckoutPageWithSlug slug={slug} planSlug={planSlug} />;
+}
+
+/**
+ * WhiteLabelSalesPage that accepts slug as prop (for custom domain routing)
+ */
+function WhiteLabelSalesPageWithSlug({ slug }: { slug: string }) {
+  // Dynamically import and render with slug override
+  const WhiteLabelSalesPage = lazy(() => import('@/pages/WhiteLabelSalesPage'));
+  
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <SlugContext.Provider value={slug}>
+        <WhiteLabelSalesPage />
+      </SlugContext.Provider>
+    </Suspense>
+  );
+}
+
+/**
+ * WhiteLabelCheckoutPage that accepts slugs as props (for custom domain routing)
+ */
+function WhiteLabelCheckoutPageWithSlug({ slug, planSlug }: { slug: string; planSlug: string }) {
+  const WhiteLabelCheckoutPage = lazy(() => import('@/pages/WhiteLabelCheckoutPage'));
+  
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <SlugContext.Provider value={slug}>
+        <PlanSlugContext.Provider value={planSlug}>
+          <WhiteLabelCheckoutPage />
+        </PlanSlugContext.Provider>
+      </SlugContext.Provider>
+    </Suspense>
+  );
+}
+
+// Contexts for passing slugs to pages (createContext and useContext imported at top)
+
+export const SlugContext = createContext<string | null>(null);
+export const PlanSlugContext = createContext<string | null>(null);
+
+export function useSlugFromContext() {
+  return useContext(SlugContext);
+}
+
+export function usePlanSlugFromContext() {
+  return useContext(PlanSlugContext);
 }
 
 /**

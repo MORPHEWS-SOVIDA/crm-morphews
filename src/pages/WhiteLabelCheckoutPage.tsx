@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { CreditCardForm, CreditCardData } from '@/components/storefront/checkout/CreditCardForm';
 import { cn } from '@/lib/utils';
+import { useSlugFromContext, usePlanSlugFromContext } from '@/components/CustomDomainRedirect';
 
 interface WhiteLabelConfig {
   id: string;
@@ -49,7 +50,12 @@ function formatCurrency(cents: number) {
 }
 
 export default function WhiteLabelCheckoutPage() {
-  const { slug, planSlug } = useParams<{ slug: string; planSlug: string }>();
+  const { slug: urlSlug, planSlug: urlPlanSlug } = useParams<{ slug: string; planSlug: string }>();
+  const contextSlug = useSlugFromContext();
+  const contextPlanSlug = usePlanSlugFromContext();
+  const slug = contextSlug || urlSlug;
+  const planSlug = contextPlanSlug || urlPlanSlug;
+  
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
