@@ -2,61 +2,73 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { SaleSelectionCard } from '@/components/expedition/SaleSelectionCard';
 import { 
   Store, 
   FileText, 
   Loader2,
-  CreditCard,
-  Banknote,
-  Smartphone,
   Receipt,
   History,
   Eye,
   Printer,
   ArrowLeft,
-  CheckCircle,
+  Lock,
+  Banknote,
+  AlertCircle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/hooks/useSales';
+import { calculateCategoryTotals } from '@/lib/paymentCategories';
+import { PaymentCategoryTotals } from '@/components/expedition/PaymentCategoryTotals';
 import {
-  useAvailablePickupSales,
-  usePickupClosings,
-  usePickupClosingSales,
-  useCreatePickupClosing,
-  useConfirmPickupClosing,
-  formatPaymentMethod,
-  PickupClosing as PickupClosingType,
-} from '@/hooks/usePickupClosings';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  useAvailableClosingSales,
+  useDeliveryClosings,
+  useDeliveryClosingSales,
+  useCreateDeliveryClosing,
+  useConfirmDeliveryClosing,
+  closingTypeConfig,
+  canUserConfirmAdmin,
+  type DeliveryClosing as DeliveryClosingType,
+} from '@/hooks/useDeliveryClosings';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
-
-// Thiago's email for admin confirmation
-const ADMIN_EMAIL = 'thiago@sonatura.com.br';
 
 export default function PickupClosing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: permissions } = useMyPermissions();
+  const config = closingTypeConfig['pickup'];
+  
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
+  const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
+  const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
+  const [pendingCashAmount, setPendingCashAmount] = useState(0);
 
-  const { data: availableSales = [], isLoading: loadingSales } = useAvailablePickupSales();
-  const { data: closings = [], isLoading: loadingClosings } = usePickupClosings();
-  const { data: closingSales = [] } = usePickupClosingSales(viewingClosingId || undefined);
-  const createClosing = useCreatePickupClosing();
-  const confirmClosing = useConfirmPickupClosing();
+  const { data: availableSales = [], isLoading: loadingSales } = useAvailableClosingSales('pickup');
+  const { data: closings = [], isLoading: loadingClosings } = useDeliveryClosings('pickup');
+  const { data: closingSales = [] } = useDeliveryClosingSales(viewingClosingId || undefined);
+  const createClosing = useCreateDeliveryClosing();
+  const confirmClosing = useConfirmDeliveryClosing();
 
-  // Permission checks
+  const userEmail = user?.email?.toLowerCase();
   const canConfirmAuxiliar = permissions?.reports_view === true;
-  const canConfirmAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const canConfirmAdmin = canUserConfirmAdmin(userEmail, 'pickup');
 
   const toggleSale = (saleId: string) => {
     setSelectedSales(prev => {
@@ -83,29 +95,7 @@ export default function PickupClosing() {
   }, [availableSales, selectedSales]);
 
   const totals = useMemo(() => {
-    let total = 0;
-    let card = 0;
-    let pix = 0;
-    let cash = 0;
-    let other = 0;
-
-    selectedSalesData.forEach(sale => {
-      const amount = sale.total_cents || 0;
-      total += amount;
-
-      const method = (sale.payment_method || '').toLowerCase();
-      if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || method.includes('credito') || method.includes('débito') || method.includes('debito')) {
-        card += amount;
-      } else if (method.includes('pix')) {
-        pix += amount;
-      } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie')) {
-        cash += amount;
-      } else {
-        other += amount;
-      }
-    });
-
-    return { total, card, pix, cash, other };
+    return calculateCategoryTotals(selectedSalesData);
   }, [selectedSalesData]);
 
   const handleCreateClosing = async () => {
@@ -116,6 +106,7 @@ export default function PickupClosing() {
 
     try {
       const closing = await createClosing.mutateAsync({
+        closingType: 'pickup',
         sales: selectedSalesData,
       });
       
@@ -130,8 +121,17 @@ export default function PickupClosing() {
   };
 
   const handleConfirm = async (closingId: string, type: 'auxiliar' | 'admin') => {
+    if (type === 'auxiliar' && !canConfirmAuxiliar) {
+      toast.error('Você não tem permissão para confirmar como auxiliar');
+      return;
+    }
+    if (type === 'admin' && !canConfirmAdmin) {
+      toast.error('Você não tem permissão para confirmar como admin');
+      return;
+    }
+
     try {
-      await confirmClosing.mutateAsync({ closingId, type });
+      await confirmClosing.mutateAsync({ closingId, closingType: 'pickup', type });
       toast.success(type === 'auxiliar' ? 'Confirmado pelo auxiliar!' : 'Confirmação final realizada!');
     } catch (error) {
       toast.error('Erro ao confirmar');
@@ -139,8 +139,32 @@ export default function PickupClosing() {
     }
   };
 
-  const handlePrint = (closing: PickupClosingType) => {
-    window.open(`/expedicao/fechamento/${closing.id}/imprimir`, '_blank', 'noopener');
+  const handleOpenCashConfirm = (closing: DeliveryClosingType) => {
+    setPendingCashClosingId(closing.id);
+    setPendingCashAmount(closing.total_cash_cents);
+    setCashConfirmDialogOpen(true);
+  };
+
+  const handleConfirmCash = async () => {
+    if (!pendingCashClosingId) return;
+    
+    try {
+      await confirmClosing.mutateAsync({ 
+        closingId: pendingCashClosingId, 
+        closingType: 'pickup', 
+        type: 'admin' 
+      });
+      toast.success('Dinheiro conferido e fechamento confirmado!');
+      setCashConfirmDialogOpen(false);
+      setPendingCashClosingId(null);
+    } catch (error) {
+      toast.error('Erro ao confirmar');
+      console.error(error);
+    }
+  };
+
+  const handlePrint = (closing: DeliveryClosingType) => {
+    window.open(config.printPath(closing.id), '_blank', 'noopener');
   };
 
   const getStatusBadge = (status: string) => {
@@ -156,6 +180,15 @@ export default function PickupClosing() {
     }
   };
 
+  const colors = {
+    gradient: 'from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20 border-purple-200',
+    text: 'text-purple-600',
+    title: 'text-purple-700',
+    button: 'bg-purple-600 hover:bg-purple-700',
+    selected: 'bg-purple-50 dark:bg-purple-950/30',
+    ring: 'ring-purple-500',
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -166,12 +199,10 @@ export default function PickupClosing() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Store className="w-6 h-6 text-purple-600" />
-              Fechamento de Caixa Balcão
+              <Store className={`w-6 h-6 ${colors.text}`} />
+              {config.title}
             </h1>
-            <p className="text-muted-foreground">
-              Gere relatórios de fechamento para vendas retiradas no balcão
-            </p>
+            <p className="text-muted-foreground">{config.subtitle}</p>
           </div>
         </div>
 
@@ -196,7 +227,7 @@ export default function PickupClosing() {
               <Card>
                 <CardContent className="py-16 text-center text-muted-foreground">
                   <Store className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <p className="text-lg font-medium">Nenhuma venda balcão disponível</p>
+                  <p className="text-lg font-medium">{config.emptyMessage}</p>
                   <p className="text-sm">Vendas precisam estar marcadas como entregues</p>
                 </CardContent>
               </Card>
@@ -217,38 +248,21 @@ export default function PickupClosing() {
                   </div>
                 </div>
 
-                {/* Sales list */}
+                {/* Sales list using SaleSelectionCard */}
                 <Card>
                   <CardContent className="p-0">
                     <div className="divide-y">
                       {availableSales.map(sale => (
-                        <div
+                        <SaleSelectionCard
                           key={sale.id}
-                          className={`flex items-center gap-4 p-4 cursor-pointer transition-colors ${
-                            selectedSales.has(sale.id) 
-                              ? 'bg-purple-50 dark:bg-purple-950/30' 
-                              : 'hover:bg-muted/50'
-                          }`}
-                          onClick={() => toggleSale(sale.id)}
-                        >
-                          <Checkbox checked={selectedSales.has(sale.id)} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">#{sale.romaneio_number}</span>
-                              <span className="text-muted-foreground">•</span>
-                              <span className="truncate">{sale.lead?.name || 'Cliente'}</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                              <span>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm", { locale: ptBR }) : '-'}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {formatPaymentMethod(sale.payment_method)}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="text-right font-semibold text-lg">
-                            {formatCurrency(sale.total_cents || 0)}
-                          </div>
-                        </div>
+                          sale={sale}
+                          isSelected={selectedSales.has(sale.id)}
+                          onToggle={() => toggleSale(sale.id)}
+                          selectedBgClass={colors.selected}
+                          showTracking={false}
+                          showProofLink={true}
+                          showEditPayment={true}
+                        />
                       ))}
                     </div>
                   </CardContent>
@@ -258,46 +272,18 @@ export default function PickupClosing() {
                 {selectedSales.size > 0 && (
                   <div className="space-y-4">
                     <Separator />
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20 border-purple-200">
-                        <CardContent className="p-4 text-center">
-                          <Receipt className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                          <p className="text-xl font-bold text-purple-700">{formatCurrency(totals.total)}</p>
-                          <p className="text-xs text-purple-600">Total Geral</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-blue-200">
-                        <CardContent className="p-4 text-center">
-                          <CreditCard className="w-5 h-5 mx-auto mb-2 text-blue-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.card)}</p>
-                          <p className="text-xs text-muted-foreground">Cartão</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-green-200">
-                        <CardContent className="p-4 text-center">
-                          <Smartphone className="w-5 h-5 mx-auto mb-2 text-green-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.pix)}</p>
-                          <p className="text-xs text-muted-foreground">PIX</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-yellow-200">
-                        <CardContent className="p-4 text-center">
-                          <Banknote className="w-5 h-5 mx-auto mb-2 text-yellow-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.cash)}</p>
-                          <p className="text-xs text-muted-foreground">Dinheiro</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-gray-200">
-                        <CardContent className="p-4 text-center">
-                          <Receipt className="w-5 h-5 mx-auto mb-2 text-gray-600" />
-                          <p className="text-lg font-semibold">{formatCurrency(totals.other)}</p>
-                          <p className="text-xs text-muted-foreground">Outros</p>
-                        </CardContent>
-                      </Card>
-                    </div>
+                    <PaymentCategoryTotals 
+                      total={totals.total}
+                      byCategory={totals.byCategory}
+                      colorConfig={{
+                        gradient: colors.gradient,
+                        text: colors.text,
+                        title: colors.title,
+                      }}
+                    />
 
                     <Button 
-                      className="w-full bg-purple-600 hover:bg-purple-700" 
+                      className={`w-full ${colors.button}`}
                       size="lg"
                       onClick={handleCreateClosing}
                       disabled={createClosing.isPending}
@@ -332,7 +318,7 @@ export default function PickupClosing() {
                 {closings.map(closing => (
                   <Card 
                     key={closing.id} 
-                    className={`transition-all ${viewingClosingId === closing.id ? 'ring-2 ring-purple-500' : ''}`}
+                    className={`transition-all ${viewingClosingId === closing.id ? `ring-2 ${colors.ring}` : ''}`}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -357,7 +343,7 @@ export default function PickupClosing() {
                         </div>
                         <div>
                           <span className="text-muted-foreground">Total:</span>{' '}
-                          <span className="font-semibold text-purple-600">{formatCurrency(closing.total_amount_cents)}</span>
+                          <span className={`font-semibold ${colors.text}`}>{formatCurrency(closing.total_amount_cents)}</span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">💳 Cartão:</span>{' '}
@@ -409,63 +395,88 @@ export default function PickupClosing() {
                           <Eye className="w-4 h-4 mr-1" />
                           {viewingClosingId === closing.id ? 'Ocultar' : 'Ver Vendas'}
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handlePrint(closing)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => handlePrint(closing)}>
                           <Printer className="w-4 h-4 mr-1" />
                           Imprimir
                         </Button>
-                        {closing.status === 'pending' && (
-                          canConfirmAuxiliar ? (
-                            <Button 
-                              variant="secondary" 
-                              size="sm"
-                              onClick={() => handleConfirm(closing.id, 'auxiliar')}
-                              disabled={confirmClosing.isPending}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Confirmar (Financeiro)
-                            </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" disabled className="opacity-50">
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Confirmar (Financeiro)
-                            </Button>
-                          )
-                        )}
-                        {closing.status === 'confirmed_auxiliar' && canConfirmAdmin && (
+
+                        {/* Auxiliar confirmation (requires reports_view permission) */}
+                        {!closing.confirmed_at_auxiliar && canConfirmAuxiliar && (
                           <Button 
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() => handleConfirm(closing.id, 'admin')}
+                            size="sm" 
+                            variant="outline"
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                            onClick={() => handleConfirm(closing.id, 'auxiliar')}
                             disabled={confirmClosing.isPending}
                           >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Confirmar Final
+                            {confirmClosing.isPending ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Lock className="w-4 h-4 mr-1" />
+                            )}
+                            Confirmar (Auxiliar)
                           </Button>
+                        )}
+
+                        {/* Admin (cash) confirmation - only show after auxiliar confirmed */}
+                        {closing.confirmed_at_auxiliar && !closing.confirmed_at_admin && canConfirmAdmin && (
+                          <>
+                            {closing.total_cash_cents > 0 ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+                                onClick={() => handleOpenCashConfirm(closing)}
+                                disabled={confirmClosing.isPending}
+                              >
+                                <Banknote className="w-4 h-4 mr-1" />
+                                Conferir Dinheiro ({formatCurrency(closing.total_cash_cents)})
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+                                onClick={() => handleConfirm(closing.id, 'admin')}
+                                disabled={confirmClosing.isPending}
+                              >
+                                {confirmClosing.isPending ? (
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Lock className="w-4 h-4 mr-1" />
+                                )}
+                                Confirmar Final
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
 
-                      {/* Sales detail */}
+                      {/* Sales detail when viewing */}
                       {viewingClosingId === closing.id && closingSales.length > 0 && (
-                        <div className="mt-4 border rounded-lg overflow-hidden">
-                          <div className="bg-muted/50 px-4 py-2 text-sm font-medium">
-                            Vendas incluídas neste fechamento
-                          </div>
-                          <div className="divide-y max-h-64 overflow-auto">
-                            {closingSales.map(sale => (
-                              <div key={sale.id} className="flex items-center justify-between px-4 py-2 text-sm">
-                                <div>
-                                  <span className="font-medium">#{sale.sale_number}</span>
-                                  <span className="text-muted-foreground ml-2">{sale.lead_name}</span>
+                        <div className="mt-4 border-t pt-4">
+                          <h4 className="font-medium mb-2 text-sm">Vendas do Fechamento:</h4>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {closingSales.map(cs => (
+                              <div key={cs.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">#{cs.sale_number}</span>
+                                  <span className="text-muted-foreground">{cs.lead_name}</span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                   <Badge variant="secondary" className="text-xs">
-                                    {formatPaymentMethod(sale.payment_method)}
+                                    {cs.payment_method || 'N/A'}
                                   </Badge>
-                                  <span className="font-medium">{formatCurrency(sale.total_cents || 0)}</span>
+                                  <span className="font-medium">{formatCurrency(cs.total_cents || 0)}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => window.open(`/vendas/${cs.sale_id}`, '_blank')}
+                                    title="Ver venda"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                  </Button>
                                 </div>
                               </div>
                             ))}
@@ -479,6 +490,54 @@ export default function PickupClosing() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Cash confirmation dialog */}
+        <Dialog open={cashConfirmDialogOpen} onOpenChange={setCashConfirmDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-green-600" />
+                Confirmar Recebimento de Dinheiro
+              </DialogTitle>
+              <DialogDescription>
+                Confirme que você recebeu o dinheiro em espécie deste fechamento.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-6">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-2">Valor em dinheiro a conferir:</p>
+                <p className="text-4xl font-bold text-green-600">{formatCurrency(pendingCashAmount)}</p>
+              </div>
+              
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  Ao confirmar, você atesta que recebeu este valor em dinheiro. 
+                  Esta ação não pode ser desfeita.
+                </p>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCashConfirmDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleConfirmCash}
+                disabled={confirmClosing.isPending}
+              >
+                {confirmClosing.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Banknote className="w-4 h-4 mr-2" />
+                )}
+                Confirmar Recebimento
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
