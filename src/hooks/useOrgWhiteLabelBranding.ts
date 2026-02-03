@@ -28,11 +28,13 @@ export function useOrgWhiteLabelBranding() {
       if (!organizationId) return null;
 
       // Check if this org is a white label customer
+      // Use the explicit FK relationship white_label_config_id
       const { data, error } = await supabase
         .from("white_label_customers")
         .select(`
           status,
-          white_label_configs!inner(
+          white_label_config_id,
+          white_label_configs:white_label_config_id(
             brand_name,
             logo_url,
             logo_dark_url,
