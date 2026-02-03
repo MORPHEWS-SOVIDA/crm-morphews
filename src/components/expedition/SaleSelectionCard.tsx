@@ -54,6 +54,7 @@ interface SaleSelectionCardProps {
     created_at?: string | null;
     delivery_type?: string | null;
     status?: string | null;
+    delivery_status?: string | null;
     tracking_code?: string | null;
     carrier_tracking_status?: string | null;
     melhor_envio_label?: {
@@ -304,27 +305,25 @@ export function SaleSelectionCard({
           </div>
 
           {/* Line 3: Tracking Info (for carrier) */}
-          {showTracking && (sale.tracking_code || sale.carrier_tracking_status) && (
+          {showTracking && (
             <div className="flex items-center gap-2 flex-wrap">
-              {sale.tracking_code && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 px-2 text-xs bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Open tracking link based on carrier
-                    const trackingUrl = sale.melhor_envio_label?.company_name?.toLowerCase().includes('correios')
-                      ? `https://rastreamento.correios.com.br/app/index.php?objeto=${sale.tracking_code}`
-                      : `https://www.google.com/search?q=${sale.tracking_code}+rastreamento`;
-                    window.open(trackingUrl, '_blank');
-                  }}
-                  title="Clique para rastrear"
+              {/* Delivery Status Badge */}
+              {sale.delivery_status && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${
+                    sale.delivery_status.startsWith('delivered') 
+                      ? 'bg-green-100 text-green-700 border-green-300' 
+                      : sale.delivery_status === 'pending' 
+                        ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                        : 'bg-gray-100 text-gray-700 border-gray-300'
+                  }`}
                 >
-                  <Package className="w-3 h-3 mr-1" />
-                  {sale.tracking_code}
-                </Button>
+                  {sale.delivery_status.startsWith('delivered') ? '✅ Entregue' : '⏳ Pendente'}
+                </Badge>
               )}
+              
+              {/* Carrier Status Badge (from Melhor Envio webhook) */}
               {sale.carrier_tracking_status && (
                 <Badge 
                   variant="outline" 
@@ -334,10 +333,62 @@ export function SaleSelectionCard({
                   {TRACKING_STATUS_LABELS[sale.carrier_tracking_status]?.label || sale.carrier_tracking_status}
                 </Badge>
               )}
+
+              {/* Tracking Code with Label Info */}
+              {sale.tracking_code && (
+                <Badge variant="outline" className="text-xs bg-indigo-50 border-indigo-300 text-indigo-700">
+                  <Package className="w-3 h-3 mr-1" />
+                  {sale.tracking_code}
+                </Badge>
+              )}
+
+              {/* Carrier name */}
               {sale.melhor_envio_label?.company_name && (
                 <span className="text-xs text-muted-foreground">
                   {sale.melhor_envio_label.company_name} {sale.melhor_envio_label.service_name && `- ${sale.melhor_envio_label.service_name}`}
                 </span>
+              )}
+
+              {/* External Tracking Buttons */}
+              {sale.tracking_code && (
+                <>
+                  {/* Correios button */}
+                  {sale.melhor_envio_label?.company_name?.toLowerCase().includes('correios') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-xs bg-yellow-50 border-yellow-400 text-yellow-700 hover:bg-yellow-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`https://rastreamento.correios.com.br/app/index.php?objeto=${sale.tracking_code}`, '_blank');
+                      }}
+                      title="Ver no site dos Correios"
+                    >
+                      📦 Correios
+                    </Button>
+                  )}
+
+                  {/* Melhor Rastreio button - universal */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs bg-blue-50 border-blue-400 text-blue-700 hover:bg-blue-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(`https://app.melhorrastreio.com.br/app/public/tracking/${sale.tracking_code}`, '_blank');
+                    }}
+                    title="Ver no Melhor Rastreio"
+                  >
+                    🔍 Melhor Rastreio
+                  </Button>
+                </>
+              )}
+
+              {/* No tracking yet - show label generated status */}
+              {!sale.tracking_code && sale.melhor_envio_label?.id && (
+                <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-300">
+                  🏷️ Etiqueta gerada
+                </Badge>
               )}
             </div>
           )}
