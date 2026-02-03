@@ -1014,7 +1014,7 @@ const App = () => (
                 <Route
                   path="/notas-fiscais"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['fiscal_invoices_view']}>
                       <FiscalInvoices />
                     </ProtectedRoute>
                   }
@@ -1022,7 +1022,7 @@ const App = () => (
                 <Route
                   path="/notas-fiscais/:id"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['fiscal_invoices_view']}>
                       <FiscalInvoiceDetail />
                     </ProtectedRoute>
                   }
