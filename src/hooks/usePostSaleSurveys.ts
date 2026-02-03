@@ -287,8 +287,12 @@ export function useCreatePostSaleSurvey() {
       if (error) throw error;
       return survey;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Invalidate all post-sale survey queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['post-sale-surveys'] });
+      queryClient.invalidateQueries({ queryKey: ['post-sale-survey'] });
+      // Also specifically invalidate the sale-specific query
+      queryClient.invalidateQueries({ queryKey: ['post-sale-survey', 'sale', variables.sale_id] });
     },
     onError: (error: any) => {
       // Ignore duplicate errors silently
