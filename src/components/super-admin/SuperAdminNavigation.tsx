@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Handshake,
   History,
+  Phone,
 } from "lucide-react";
 import {
   Collapsible,
@@ -69,6 +70,7 @@ const TAB_TO_PATH: Record<string, string> = {
   "ai-costs": "/super-admin/ia/custos-modelos",
   "secretary-messages": "/super-admin/ia/secretaria",
   "helper-donna": "/super-admin/ia/donna",
+  "voice-ai": "/super-admin/ia/voice-ai",
   "communication-logs": "/super-admin/sistema/comunicacoes",
   "org-overrides": "/super-admin/sistema/overrides",
   "error-logs": "/super-admin/sistema/logs",
@@ -143,6 +145,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
       { id: "ai-costs", label: "Custos Modelos", icon: Cpu, description: "Preços por token", path: "/super-admin/ia/custos-modelos" },
       { id: "secretary-messages", label: "Secretária", icon: MessageSquare, description: "Msgs automáticas", path: "/super-admin/ia/secretaria" },
       { id: "helper-donna", label: "Donna", icon: HelpCircle, description: "Conversas", path: "/super-admin/ia/donna" },
+      { id: "voice-ai", label: "Voice AI", icon: Phone, description: "Ligações IA", path: "/super-admin/ia/voice-ai" },
     ],
   },
   {
