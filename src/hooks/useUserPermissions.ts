@@ -76,6 +76,9 @@ export interface UserPermissions {
   settings_teams: boolean;
   settings_lead_sources: boolean;
   
+  // Fiscal Invoices
+  fiscal_invoices_view: boolean;
+  
   // Reports
   reports_view: boolean;
   sales_report_view: boolean;
@@ -222,6 +225,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   settings_teams: { label: 'Times', description: 'Gerenciar times da organização', group: 'Configurações' },
   settings_lead_sources: { label: 'Origens de Lead', description: 'Gerenciar origens de lead', group: 'Configurações' },
   
+  // Notas Fiscais
+  fiscal_invoices_view: { label: 'Notas Fiscais', description: 'Acessar módulo de notas fiscais (NF-e/NFS-e)', group: 'Fiscal' },
+  
   // Relatórios
   sales_report_view: { label: 'Relatório de Vendas', description: 'Ver relatório de vendas', group: 'Relatórios' },
   expedition_report_view: { label: 'Relatório de Expedição', description: 'Ver relatório de expedição/romaneio', group: 'Relatórios' },
@@ -292,6 +298,7 @@ export const PERMISSION_GROUPS = [
   'Leads', 
   'Vendas', 
   'Financeiro', 
+  'Fiscal',
   'WhatsApp', 
   'Produtos', 
   'Configurações', 

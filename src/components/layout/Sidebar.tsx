@@ -128,6 +128,7 @@ export function Sidebar() {
   const canSeeReceptive = isAdmin || permissions?.receptive_module_access;
   const canSeeIntegrations = isAdmin || permissions?.integrations_view;
   const canSeePaymentLinks = isAdmin || permissions?.payment_links_view_transactions || permissions?.payment_links_create;
+  const canSeeFiscalInvoices = isAdmin || permissions?.fiscal_invoices_view;
 
   const handleSignOut = async () => {
     await signOut();
@@ -182,8 +183,8 @@ export function Sidebar() {
     // Payment Links / Cobrar
     { icon: Link2, label: 'Cobrar', path: '/cobrar', visible: canSeePaymentLinks && hasFeature('payment_links') },
     
-    // Fiscal Invoices (admin only)
-    { icon: FileText, label: 'Notas Fiscais', path: '/notas-fiscais', visible: canSeeSettings && hasFeature('fiscal_invoices') },
+    // Fiscal Invoices (permission controlled)
+    { icon: FileText, label: 'Notas Fiscais', path: '/notas-fiscais', visible: canSeeFiscalInvoices && hasFeature('fiscal_invoices') },
     
     // Reports
     { icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },

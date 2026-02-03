@@ -16764,6 +16764,7 @@ export type Database = {
           demands_view: boolean
           expedition_report_view: boolean | null
           expedition_view: boolean
+          fiscal_invoices_view: boolean | null
           helper_donna_view: boolean
           hide_sidebar: boolean | null
           id: string
@@ -16849,6 +16850,7 @@ export type Database = {
           demands_view?: boolean
           expedition_report_view?: boolean | null
           expedition_view?: boolean
+          fiscal_invoices_view?: boolean | null
           helper_donna_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
@@ -16934,6 +16936,7 @@ export type Database = {
           demands_view?: boolean
           expedition_report_view?: boolean | null
           expedition_view?: boolean
+          fiscal_invoices_view?: boolean | null
           helper_donna_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
