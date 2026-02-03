@@ -75,6 +75,7 @@ export default function PickupClosingPrint() {
           id,
           payment_method,
           payment_method_id,
+          delivery_status,
           payment_methods:payment_method_id (
             id,
             name,
@@ -88,7 +89,7 @@ export default function PickupClosingPrint() {
       // Create a map for quick lookup
       const salesMap = new Map(salesData?.map(s => [s.id, s]));
 
-      // Enrich closing sales with payment info from sales table
+      // Enrich closing sales with payment info and delivery status from sales table
       return closingSalesData.map(cs => {
         const saleData = salesMap.get(cs.sale_id);
         const paymentMethod = saleData?.payment_methods as { id: string; name: string; category: string } | null;
@@ -97,6 +98,7 @@ export default function PickupClosingPrint() {
           ...cs,
           payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method,
           payment_category: paymentMethod?.category || null,
+          delivery_status: saleData?.delivery_status || null,
         };
       });
     },
@@ -182,6 +184,15 @@ export default function PickupClosingPrint() {
     return totals;
   }, [groupedByCategory]);
 
+  // Calculate delivery status stats
+  const deliveryStats = React.useMemo(() => {
+    const delivered = sales.filter(s => 
+      s.delivery_status && s.delivery_status.startsWith('delivered')
+    ).length;
+    const pending = sales.filter(s => !s.delivery_status || s.delivery_status === 'pending').length;
+    return { delivered, pending, total: sales.length };
+  }, [sales]);
+
   // Get closing type info
   const closingTypeInfo = closing?.closing_type 
     ? closingTypeLabels[closing.closing_type] || closingTypeLabels.balcao
@@ -213,6 +224,13 @@ export default function PickupClosingPrint() {
     );
   }
 
+  // Helper to format delivery status
+  const formatDeliveryStatus = (status: string | null) => {
+    if (!status || status === 'pending') return { label: '⏳ Pendente', color: '#d32f2f' };
+    if (status.startsWith('delivered')) return { label: '✅ Entregue', color: '#2e7d32' };
+    return { label: status, color: '#666' };
+  };
+
   // Render a sales block for a category
   const renderCategoryBlock = (category: PaymentCategory, salesList: typeof sales) => {
     if (salesList.length === 0) return null;
@@ -241,21 +259,26 @@ export default function PickupClosingPrint() {
             <tr>
               <th>Nº</th>
               <th>Cliente</th>
-              <th>Entrega</th>
+              <th>Data/Hora</th>
+              <th className="text-center">Status App</th>
               <th className="text-right">Valor</th>
             </tr>
           </thead>
           <tbody>
-            {salesList.map(sale => (
-              <tr key={sale.id}>
-                <td className="font-bold">#{sale.sale_number}</td>
-                <td>{sale.lead_name || 'Cliente'}</td>
-                <td>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm") : '-'}</td>
-                <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
-              </tr>
-            ))}
+            {salesList.map(sale => {
+              const statusInfo = formatDeliveryStatus(sale.delivery_status);
+              return (
+                <tr key={sale.id}>
+                  <td className="font-bold">#{sale.sale_number}</td>
+                  <td>{sale.lead_name || 'Cliente'}</td>
+                  <td>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm") : '-'}</td>
+                  <td className="text-center" style={{ color: statusInfo.color }}>{statusInfo.label}</td>
+                  <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
+                </tr>
+              );
+            })}
             <tr className="total-row">
-              <td colSpan={3} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
+              <td colSpan={4} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
               <td className="text-right font-bold">{formatCurrency(total)}</td>
             </tr>
           </tbody>
@@ -401,7 +424,7 @@ export default function PickupClosingPrint() {
         </div>
 
         {/* Summary */}
-        <div className="summary-grid">
+        <div className="summary-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           <div className="summary-box" style={{ backgroundColor: '#f0f0ff' }}>
             <div className="label">Total Vendas</div>
             <div className="value">{closing.total_sales}</div>
@@ -414,6 +437,24 @@ export default function PickupClosingPrint() {
             <div className="label">Data Fechamento</div>
             <div className="value" style={{ fontSize: '14px' }}>{format(parseISO(closing.closing_date), "dd/MM/yyyy")}</div>
           </div>
+          {/* App Status - shows if motoboys are using the app */}
+          {closing.closing_type === 'motoboy' && (
+            <div className="summary-box" style={{ 
+              backgroundColor: deliveryStats.pending > 0 ? '#ffebee' : '#e8f5e9',
+              border: deliveryStats.pending > 0 ? '2px solid #d32f2f' : '1px solid #ddd'
+            }}>
+              <div className="label">📱 Status App Motoboy</div>
+              <div className="value" style={{ 
+                fontSize: '12px', 
+                color: deliveryStats.pending > 0 ? '#d32f2f' : '#2e7d32' 
+              }}>
+                {deliveryStats.pending > 0 
+                  ? `⚠️ ${deliveryStats.pending} sem baixa no app`
+                  : `✅ ${deliveryStats.delivered} marcadas`
+                }
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Payment Summary */}
