@@ -847,6 +847,151 @@ serve(async (req) => {
     }
 
     // =====================
+    // CREATE INSTAGRAM INSTANCE
+    // =====================
+    if (action === "create_instagram") {
+      if (!name) {
+        throw new Error("Nome da instância é obrigatório");
+      }
+
+      const evolutionInstanceName = generateInstanceName(organizationId, name);
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/evolution-instagram-webhook`;
+
+      console.log("Creating Instagram Evolution instance:", { evolutionInstanceName, webhookUrl });
+
+      // 1. Criar instância no Evolution API com integration INSTAGRAM
+      const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({
+          instanceName: evolutionInstanceName,
+          integration: "INSTAGRAM",
+          qrcode: false, // Instagram usa OAuth, não QR
+          webhook: {
+            url: webhookUrl,
+            byEvents: false,
+            base64: true,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            events: [
+              "MESSAGES_UPSERT",
+              "CONNECTION_UPDATE",
+              "SEND_MESSAGE",
+            ],
+          },
+        }),
+      });
+
+      const createResult = await createResponse.json().catch(() => ({}));
+      console.log("Instagram Evolution create response:", { status: createResponse.status, result: createResult });
+
+      if (!createResponse.ok) {
+        throw new Error(createResult?.message || createResult?.error || `Erro ao criar instância Instagram: ${createResponse.status}`);
+      }
+
+      // 2. Salvar no banco de dados com channel_type = 'instagram'
+      const { data: instance, error: insertError } = await supabase
+        .from("whatsapp_instances")
+        .insert({
+          organization_id: organizationId,
+          name: name,
+          provider: "evolution",
+          evolution_instance_id: evolutionInstanceName,
+          evolution_api_token: createResult?.hash || createResult?.token || null,
+          evolution_webhook_configured: true,
+          status: "pending_oauth",
+          is_connected: false,
+          monthly_price_cents: 0,
+          payment_source: "admin_grant",
+          channel_type: "instagram",
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error saving Instagram instance:", insertError);
+        // Tentar deletar a instância criada no Evolution
+        await fetch(`${EVOLUTION_API_URL}/instance/delete/${evolutionInstanceName}`, {
+          method: "DELETE",
+          headers: { "apikey": EVOLUTION_API_KEY },
+        });
+        throw new Error("Erro ao salvar instância no banco");
+      }
+
+      // 3. Buscar URL de autenticação OAuth do Instagram
+      let oauthUrl: string | null = null;
+      try {
+        const oauthResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${evolutionInstanceName}`, {
+          method: "GET",
+          headers: { "apikey": EVOLUTION_API_KEY },
+        });
+        
+        const oauthResult = await oauthResponse.json().catch(() => ({}));
+        console.log("Instagram OAuth response:", { status: oauthResponse.status, hasUrl: !!oauthResult?.oauthUrl });
+        oauthUrl = oauthResult?.oauthUrl || oauthResult?.url || null;
+      } catch (e) {
+        console.warn("Could not get Instagram OAuth URL:", e);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        instance: instance,
+        oauth_url: oauthUrl,
+        message: oauthUrl 
+          ? "Instância criada! Clique no link para conectar sua conta Instagram." 
+          : "Instância criada. Acesse a Evolution API para configurar o OAuth do Instagram.",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
+    // GET INSTAGRAM OAUTH URL
+    // =====================
+    if (action === "get_instagram_oauth") {
+      if (!instanceId) {
+        throw new Error("instanceId é obrigatório");
+      }
+
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("id", instanceId)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (!instance?.evolution_instance_id) {
+        throw new Error("Instância não encontrada");
+      }
+
+      if (instance.channel_type !== "instagram") {
+        throw new Error("Esta instância não é do tipo Instagram");
+      }
+
+      // Buscar URL OAuth
+      const oauthResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instance.evolution_instance_id}`, {
+        method: "GET",
+        headers: { "apikey": EVOLUTION_API_KEY },
+      });
+
+      const oauthResult = await oauthResponse.json().catch(() => ({}));
+      console.log("Instagram OAuth URL response:", oauthResult);
+
+      const oauthUrl = oauthResult?.oauthUrl || oauthResult?.url || null;
+
+      return new Response(JSON.stringify({
+        success: true,
+        oauth_url: oauthUrl,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
     // LIST INSTANCES
     // =====================
     if (action === "list") {

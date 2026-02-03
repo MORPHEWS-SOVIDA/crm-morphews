@@ -57,7 +57,9 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
     isLoading,
     refetch,
     createInstance,
+    createInstagramInstance,
     getQrCode,
+    getInstagramOAuthUrl,
     checkStatus,
     archiveInstance,
     unarchiveInstance,
@@ -93,7 +95,6 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   // Estado para dialog de Instagram
   const [instagramDialogOpen, setInstagramDialogOpen] = useState(false);
   const [instagramName, setInstagramName] = useState("");
-  const [isConnectingInstagram, setIsConnectingInstagram] = useState(false);
 
   // Estado para configurações avançadas no dialog de criação
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -433,42 +434,18 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                       toast.error("Digite um nome para identificar a conta");
                       return;
                     }
-                    setIsConnectingInstagram(true);
                     try {
-                      // Chamar edge function para criar instância Instagram
-                      const response = await supabase.functions.invoke("evolution-instance-manager", {
-                        body: { 
-                          action: "create_instagram", 
-                          name: instagramName.trim() 
-                        },
-                      });
-                      
-                      if (response.error) {
-                        throw new Error(response.error.message);
-                      }
-                      
-                      if (response.data?.oauth_url) {
-                        // Abrir popup para OAuth do Meta
-                        window.open(response.data.oauth_url, "_blank", "width=600,height=700");
-                        toast.info("Complete a autenticação na janela do Facebook");
-                      } else if (response.data?.instance) {
-                        toast.success("Conta Instagram conectada!");
-                        queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
-                      }
-                      
+                      await createInstagramInstance.mutateAsync({ name: instagramName.trim() });
                       setInstagramDialogOpen(false);
                       setInstagramName("");
                     } catch (error) {
-                      console.error("Error connecting Instagram:", error);
-                      toast.error("Erro ao conectar Instagram: " + (error instanceof Error ? error.message : "Erro desconhecido"));
-                    } finally {
-                      setIsConnectingInstagram(false);
+                      // Erro já tratado no hook
                     }
                   }}
-                  disabled={isConnectingInstagram || !instagramName.trim()}
+                  disabled={createInstagramInstance.isPending || !instagramName.trim()}
                   className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white hover:opacity-90"
                 >
-                  {isConnectingInstagram ? (
+                  {createInstagramInstance.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Conectando...
