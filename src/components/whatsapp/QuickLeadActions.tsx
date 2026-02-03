@@ -205,9 +205,9 @@ export function QuickLeadActions({
               {getCurrentStageName() || "Etapa"}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-48 p-1" align="start">
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+          <PopoverContent className="w-48 p-1 z-[9999]" align="start" side="bottom" sideOffset={4}>
+            <div className="space-y-0.5 max-h-[280px] overflow-y-auto">
+              <p className="text-xs font-medium text-muted-foreground px-2 py-1 sticky top-0 bg-popover">
                 Mover para:
               </p>
               {sortedStages.map((stage) => (
