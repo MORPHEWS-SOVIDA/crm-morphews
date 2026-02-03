@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+export type ChannelType = 'whatsapp' | 'instagram' | 'facebook' | 'email';
+
 interface EvolutionInstance {
   id: string;
   organization_id: string;
@@ -16,6 +18,9 @@ interface EvolutionInstance {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  channel_type?: ChannelType;
+  instagram_username?: string | null;
+  meta_page_id?: string | null;
 }
 
 export type InstanceFilter = "all" | "connected" | "disconnected" | "archived";

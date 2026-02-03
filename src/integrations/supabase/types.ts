@@ -17925,6 +17925,7 @@ export type Database = {
           bot_qualification_completed: boolean | null
           bot_qualification_step: number | null
           bot_started_at: string | null
+          channel_type: Database["public"]["Enums"]["channel_type"] | null
           chat_id: string | null
           closed_at: string | null
           contact_id: string | null
@@ -17966,6 +17967,7 @@ export type Database = {
           bot_qualification_completed?: boolean | null
           bot_qualification_step?: number | null
           bot_started_at?: string | null
+          channel_type?: Database["public"]["Enums"]["channel_type"] | null
           chat_id?: string | null
           closed_at?: string | null
           contact_id?: string | null
@@ -18007,6 +18009,7 @@ export type Database = {
           bot_qualification_completed?: boolean | null
           bot_qualification_step?: number | null
           bot_started_at?: string | null
+          channel_type?: Database["public"]["Enums"]["channel_type"] | null
           chat_id?: string | null
           closed_at?: string | null
           contact_id?: string | null
@@ -18357,6 +18360,7 @@ export type Database = {
           auto_transcribe_inbound: boolean | null
           auto_transcribe_outbound: boolean | null
           bot_team_id: string | null
+          channel_type: Database["public"]["Enums"]["channel_type"] | null
           created_at: string
           deleted_at: string | null
           discount_applied_cents: number | null
@@ -18367,11 +18371,15 @@ export type Database = {
           evolution_settings: Json | null
           evolution_webhook_configured: boolean | null
           id: string
+          instagram_username: string | null
           is_connected: boolean
           keyword_router_id: string | null
           last_assigned_user_id: string | null
           manual_device_label: string | null
           manual_instance_number: string | null
+          meta_access_token: string | null
+          meta_account_id: string | null
+          meta_page_id: string | null
           monthly_price_cents: number
           name: string
           organization_id: string
@@ -18411,6 +18419,7 @@ export type Database = {
           auto_transcribe_inbound?: boolean | null
           auto_transcribe_outbound?: boolean | null
           bot_team_id?: string | null
+          channel_type?: Database["public"]["Enums"]["channel_type"] | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -18421,11 +18430,15 @@ export type Database = {
           evolution_settings?: Json | null
           evolution_webhook_configured?: boolean | null
           id?: string
+          instagram_username?: string | null
           is_connected?: boolean
           keyword_router_id?: string | null
           last_assigned_user_id?: string | null
           manual_device_label?: string | null
           manual_instance_number?: string | null
+          meta_access_token?: string | null
+          meta_account_id?: string | null
+          meta_page_id?: string | null
           monthly_price_cents?: number
           name: string
           organization_id: string
@@ -18465,6 +18478,7 @@ export type Database = {
           auto_transcribe_inbound?: boolean | null
           auto_transcribe_outbound?: boolean | null
           bot_team_id?: string | null
+          channel_type?: Database["public"]["Enums"]["channel_type"] | null
           created_at?: string
           deleted_at?: string | null
           discount_applied_cents?: number | null
@@ -18475,11 +18489,15 @@ export type Database = {
           evolution_settings?: Json | null
           evolution_webhook_configured?: boolean | null
           id?: string
+          instagram_username?: string | null
           is_connected?: boolean
           keyword_router_id?: string | null
           last_assigned_user_id?: string | null
           manual_device_label?: string | null
           manual_instance_number?: string | null
+          meta_access_token?: string | null
+          meta_account_id?: string | null
+          meta_page_id?: string | null
           monthly_price_cents?: number
           name?: string
           organization_id?: string
@@ -19328,54 +19346,66 @@ export type Database = {
       }
       channels: {
         Row: {
+          channel_type: Database["public"]["Enums"]["channel_type"] | null
           created_at: string | null
-          external_account_id: string | null
+          deleted_at: string | null
+          evolution_api_token: string | null
+          evolution_instance_id: string | null
           id: string | null
+          instagram_username: string | null
           is_connected: boolean | null
-          monthly_price_cents: number | null
+          meta_account_id: string | null
+          meta_page_id: string | null
           name: string | null
-          payment_source: string | null
-          phone_e164: string | null
+          organization_id: string | null
+          phone_number: string | null
           provider: string | null
           qr_code_base64: string | null
           status: string | null
-          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
+          channel_type?: Database["public"]["Enums"]["channel_type"] | null
           created_at?: string | null
-          external_account_id?: never
+          deleted_at?: string | null
+          evolution_api_token?: string | null
+          evolution_instance_id?: string | null
           id?: string | null
+          instagram_username?: string | null
           is_connected?: boolean | null
-          monthly_price_cents?: number | null
+          meta_account_id?: string | null
+          meta_page_id?: string | null
           name?: string | null
-          payment_source?: string | null
-          phone_e164?: string | null
+          organization_id?: string | null
+          phone_number?: string | null
           provider?: string | null
           qr_code_base64?: string | null
           status?: string | null
-          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          channel_type?: Database["public"]["Enums"]["channel_type"] | null
           created_at?: string | null
-          external_account_id?: never
+          deleted_at?: string | null
+          evolution_api_token?: string | null
+          evolution_instance_id?: string | null
           id?: string | null
+          instagram_username?: string | null
           is_connected?: boolean | null
-          monthly_price_cents?: number | null
+          meta_account_id?: string | null
+          meta_page_id?: string | null
           name?: string | null
-          payment_source?: string | null
-          phone_e164?: string | null
+          organization_id?: string | null
+          phone_number?: string | null
           provider?: string | null
           qr_code_base64?: string | null
           status?: string | null
-          tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "whatsapp_instances_organization_id_fkey"
-            columns: ["tenant_id"]
+            columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
@@ -20243,6 +20273,7 @@ export type Database = {
         | "waiting_pickup"
         | "returning_to_sender"
         | "delivered"
+      channel_type: "whatsapp" | "instagram" | "facebook" | "email"
       delivery_payment_type: "cash" | "prepaid" | "pos_card"
       delivery_shift: "morning" | "afternoon" | "full_day"
       delivery_status:
@@ -20535,6 +20566,7 @@ export const Constants = {
         "returning_to_sender",
         "delivered",
       ],
+      channel_type: ["whatsapp", "instagram", "facebook", "email"],
       delivery_payment_type: ["cash", "prepaid", "pos_card"],
       delivery_shift: ["morning", "afternoon", "full_day"],
       delivery_status: [
