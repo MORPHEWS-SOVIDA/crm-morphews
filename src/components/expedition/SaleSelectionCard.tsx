@@ -343,62 +343,54 @@ export function SaleSelectionCard({
                 </Badge>
               )}
 
-              {/* Tracking Code with Label Info */}
-              {sale.tracking_code && (
-                <Badge variant="outline" className="text-xs bg-indigo-50 border-indigo-300 text-indigo-700">
-                  <Package className="w-3 h-3 mr-1" />
-                  {sale.tracking_code}
-                </Badge>
-              )}
+              {/* Helper: check if tracking code is a valid carrier code (not UUID) */}
+              {(() => {
+                // UUIDs have format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+                const isValidTrackingCode = sale.tracking_code && 
+                  !sale.tracking_code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+                
+                return (
+                  <>
+                    {/* Tracking Code Badge - only show valid codes */}
+                    {isValidTrackingCode && (
+                      <Badge variant="outline" className="text-xs bg-indigo-50 border-indigo-300 text-indigo-700">
+                        <Package className="w-3 h-3 mr-1" />
+                        {sale.tracking_code}
+                      </Badge>
+                    )}
 
-              {/* Carrier name */}
-              {sale.melhor_envio_label?.company_name && (
-                <span className="text-xs text-muted-foreground">
-                  {sale.melhor_envio_label.company_name} {sale.melhor_envio_label.service_name && `- ${sale.melhor_envio_label.service_name}`}
-                </span>
-              )}
+                    {/* Carrier name */}
+                    {sale.melhor_envio_label?.company_name && (
+                      <span className="text-xs text-muted-foreground">
+                        {sale.melhor_envio_label.company_name} {sale.melhor_envio_label.service_name && `- ${sale.melhor_envio_label.service_name}`}
+                      </span>
+                    )}
 
-              {/* External Tracking Buttons */}
-              {sale.tracking_code && (
-                <>
-                  {/* Correios button */}
-                  {sale.melhor_envio_label?.company_name?.toLowerCase().includes('correios') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 px-2 text-xs bg-yellow-50 border-yellow-400 text-yellow-700 hover:bg-yellow-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(`https://rastreamento.correios.com.br/app/index.php?objeto=${sale.tracking_code}`, '_blank');
-                      }}
-                      title="Ver no site dos Correios"
-                    >
-                      📦 Correios
-                    </Button>
-                  )}
+                    {/* External Tracking Button - PROMINENT, only show with valid tracking code */}
+                    {isValidTrackingCode && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-7 px-3 text-xs bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`https://rastreamento.correios.com.br/app/index.php?objeto=${sale.tracking_code}`, '_blank');
+                        }}
+                        title="Rastrear no site dos Correios"
+                      >
+                        📦 Rastrear Correios
+                      </Button>
+                    )}
 
-                  {/* Melhor Rastreio button - universal */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-xs bg-blue-50 border-blue-400 text-blue-700 hover:bg-blue-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(`https://app.melhorrastreio.com.br/app/public/tracking/${sale.tracking_code}`, '_blank');
-                    }}
-                    title="Ver no Melhor Rastreio"
-                  >
-                    🔍 Melhor Rastreio
-                  </Button>
-                </>
-              )}
-
-              {/* No tracking yet - show label generated status */}
-              {!sale.tracking_code && sale.melhor_envio_label?.id && (
-                <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-300">
-                  🏷️ Etiqueta gerada
-                </Badge>
-              )}
+                    {/* Status: Label generated but not yet posted */}
+                    {!isValidTrackingCode && sale.melhor_envio_label?.id && (
+                      <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                        🏷️ Etiqueta gerada (aguardando postagem)
+                      </Badge>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
