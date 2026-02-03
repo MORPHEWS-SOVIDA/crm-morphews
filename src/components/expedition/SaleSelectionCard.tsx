@@ -123,7 +123,9 @@ export function SaleSelectionCard({
   const [proofImageUrl, setProofImageUrl] = useState<string | null>(null);
   const [loadingProof, setLoadingProof] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>(sale.payment_method_id || '');
+  // Use special value for "none" to avoid Radix UI Select empty value error
+  const NONE_VALUE = '__none__';
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>(sale.payment_method_id || NONE_VALUE);
 
   // Fetch active payment methods for the organization
   const { data: paymentMethods = [] } = useQuery({
@@ -163,14 +165,14 @@ export function SaleSelectionCard({
 
   const handleOpenEditPayment = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedPaymentMethodId(sale.payment_method_id || '');
+    setSelectedPaymentMethodId(sale.payment_method_id || NONE_VALUE);
     setIsEditPaymentOpen(true);
   };
 
   const handleSavePaymentMethod = async () => {
     setIsSaving(true);
     try {
-      if (!selectedPaymentMethodId) {
+      if (selectedPaymentMethodId === NONE_VALUE) {
         // Clear payment method
         const { error } = await supabase
           .from('sales')
@@ -210,7 +212,7 @@ export function SaleSelectionCard({
       queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
       
-      if (onPaymentCategoryChange && selectedPaymentMethodId) {
+      if (onPaymentCategoryChange && selectedPaymentMethodId !== NONE_VALUE) {
         const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
         if (selectedMethod?.category) {
           onPaymentCategoryChange(sale.id, selectedMethod.category as PaymentCategory);
@@ -256,15 +258,22 @@ export function SaleSelectionCard({
             </Button>
           </div>
 
-          {/* Line 2: Price + Date + Payment Method Name + Actions */}
+          {/* Line 2: Price + Sale Date + Delivery Date + Payment Method Name + Actions */}
           <div className="flex items-center gap-2 text-sm flex-wrap">
             <span className="font-semibold text-lg text-foreground">
               {formatCurrency(sale.total_cents || 0)}
             </span>
+            {/* Sale Date - when the sale was created */}
+            {sale.created_at && (
+              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                Venda: {format(parseISO(sale.created_at), "dd/MM/yy", { locale: ptBR })}
+              </span>
+            )}
+            {/* Delivery Date - when it was delivered */}
             {sale.delivered_at && (
               <span className="flex items-center gap-1 text-muted-foreground">
                 <Clock className="w-3 h-3" />
-                {format(parseISO(sale.delivered_at), "dd/MM HH:mm", { locale: ptBR })}
+                Entregue: {format(parseISO(sale.delivered_at), "dd/MM HH:mm", { locale: ptBR })}
               </span>
             )}
             
@@ -457,7 +466,7 @@ export function SaleSelectionCard({
                   <SelectValue placeholder="Selecione uma forma de pagamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">
+                  <SelectItem value={NONE_VALUE}>
                     <span className="text-muted-foreground">Não informado</span>
                   </SelectItem>
                   {paymentMethods.map(pm => {
