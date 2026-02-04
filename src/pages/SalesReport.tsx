@@ -45,7 +45,6 @@ import {
 } from "lucide-react";
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { CommissionReport } from '@/components/reports/CommissionReport';
-import { SalesDetailedReport } from '@/components/reports/SalesDetailedReport';
 import { SalesReportSummaryCards } from '@/components/reports/SalesReportSummaryCards';
 import { SalesReportSellerSummary } from '@/components/reports/SalesReportSellerSummary';
 import { useSales } from "@/hooks/useSales";
@@ -124,7 +123,6 @@ export default function SalesReport() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
   const [showCommissionReport, setShowCommissionReport] = useState(false);
-  const [showDetailedReport, setShowDetailedReport] = useState(false);
   
   // Date filters
   const today = new Date();
@@ -368,19 +366,6 @@ export default function SalesReport() {
     );
   }
 
-  // Show detailed report view
-  if (showDetailedReport) {
-    return (
-      <Layout>
-        <SalesDetailedReport 
-          sales={filteredSales}
-          isLoading={salesLoading}
-          onClose={() => setShowDetailedReport(false)} 
-        />
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <div className="space-y-6">
@@ -399,11 +384,13 @@ export default function SalesReport() {
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
-              onClick={() => setShowDetailedReport(true)}
+               asChild
               className="gap-2 bg-blue-50 border-blue-300 hover:bg-blue-100 text-blue-800"
             >
-              <FileText className="h-4 w-4" />
-              Relatório Detalhado
+               <Link to="/relatorios/vendas/detalhado-super">
+                 <FileText className="h-4 w-4" />
+                 Relatório Detalhado
+               </Link>
             </Button>
             <Button
               variant="outline"
