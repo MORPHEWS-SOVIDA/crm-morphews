@@ -75,6 +75,8 @@ export function useUserAssociations() {
       })) as UserAssociation[];
     },
     enabled: !!tenantId,
+    staleTime: 30_000, // 30 segundos
+    refetchOnMount: true,
   });
 }
 
