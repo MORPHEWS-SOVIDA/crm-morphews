@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   DollarSign,
@@ -13,6 +14,8 @@ import {
   Loader2,
   Calendar,
   Package,
+  ExternalLink,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,9 +85,11 @@ interface SellerCommissionData {
 
 export function CommissionReport({ onClose }: CommissionReportProps) {
   const { tenantId } = useTenant();
+  const navigate = useNavigate();
   const [reportType, setReportType] = useState<'synthetic' | 'analytical'>('synthetic');
   const [selectedSeller, setSelectedSeller] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedSellers, setExpandedSellers] = useState<Set<string>>(new Set());
   const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
 
@@ -158,13 +163,24 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
     enabled: !!tenantId,
   });
 
+  // Filter sales by status first
+  const filteredSalesData = useMemo(() => {
+    if (!salesData) return [];
+    
+    if (selectedStatus === 'all') return salesData;
+    if (selectedStatus === 'finalized') return salesData.filter(s => s.status === 'finalized');
+    if (selectedStatus === 'pending') return salesData.filter(s => s.status !== 'finalized');
+    
+    return salesData;
+  }, [salesData, selectedStatus]);
+
   // Process data by seller
   const sellerData = useMemo(() => {
-    if (!salesData) return [];
+    if (!filteredSalesData) return [];
 
     const sellersMap = new Map<string, SellerCommissionData>();
 
-    salesData.forEach((sale) => {
+    filteredSalesData.forEach((sale) => {
       if (!sale.seller_user_id) return;
 
       const seller = users.find((u) => u.user_id === sale.seller_user_id);
@@ -226,7 +242,7 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
     }
 
     return result;
-  }, [salesData, users, memberCommissions, selectedSeller]);
+  }, [filteredSalesData, users, memberCommissions, selectedSeller]);
 
   // Totals
   const totals = useMemo(() => {
@@ -256,6 +272,16 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
   };
 
   const getStatusBadge = (status: string, paymentStatus: string) => {
+    const isFinalized = status === 'finalized';
+    
+    if (isFinalized) {
+      return (
+        <Badge className="bg-purple-100 text-purple-800 border-purple-300">
+          ✓ Finalizado
+        </Badge>
+      );
+    }
+    
     const isDelivered = status === 'delivered';
     const isPaid = paymentStatus === 'paid_now' || paymentStatus === 'paid_in_delivery';
 
@@ -271,6 +297,11 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
         Pendente
       </Badge>
     );
+  };
+  
+  const openSale = (saleId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`/vendas/${saleId}`, '_blank');
   };
 
   const toggleSeller = (userId: string) => {
@@ -372,6 +403,18 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
                 {user.first_name} {user.last_name}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <SelectTrigger className="w-[200px]">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Status</SelectItem>
+            <SelectItem value="finalized">✓ Finalizado (A Pagar)</SelectItem>
+            <SelectItem value="pending">Pendentes</SelectItem>
           </SelectContent>
         </Select>
 
@@ -579,11 +622,15 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
                                   ) : (
                                     <ChevronRight className="w-4 h-4" />
                                   )}
-                                  <div className="text-left">
-                                    <span className="font-medium">
+                                  <div className="text-left flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => openSale(sale.id, e)}
+                                      className="font-medium text-primary hover:underline flex items-center gap-1"
+                                    >
                                       {sale.lead?.name || 'Cliente'}
-                                    </span>
-                                    <span className="text-sm text-muted-foreground ml-2">
+                                      <ExternalLink className="w-3 h-3" />
+                                    </button>
+                                    <span className="text-sm text-muted-foreground">
                                       {format(parseISO(sale.created_at), 'dd/MM/yyyy')}
                                     </span>
                                   </div>
