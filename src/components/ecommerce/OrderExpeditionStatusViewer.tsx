@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { useMelhorEnvioLabelDownload } from '@/hooks/useMelhorEnvioLabelDownload';
+import { Loader2 } from 'lucide-react';
 
 interface OrderExpeditionStatusViewerProps {
   saleId: string | null;
@@ -132,6 +134,7 @@ export function OrderExpeditionStatusViewer({ saleId, trackingCode, carrier }: O
           carrier_tracking_status,
           tracking_code,
           updated_at,
+          organization_id,
           melhor_envio_labels:melhor_envio_labels(
             id,
             tracking_code,
@@ -139,7 +142,8 @@ export function OrderExpeditionStatusViewer({ saleId, trackingCode, carrier }: O
             service_name,
             label_pdf_url,
             status,
-            created_at
+            created_at,
+            melhor_envio_order_id
           ),
           correios_labels:correios_labels(
             id,
@@ -157,6 +161,8 @@ export function OrderExpeditionStatusViewer({ saleId, trackingCode, carrier }: O
       return data;
     },
   });
+
+  const { downloadLabel, isDownloading: isDownloadingLabel } = useMelhorEnvioLabelDownload();
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -307,7 +313,26 @@ export function OrderExpeditionStatusViewer({ saleId, trackingCode, carrier }: O
                       </p>
                     </div>
                   </div>
-                  {labelData.label_pdf_url && (
+                  {melhorEnvioLabel?.melhor_envio_order_id ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="text-green-600 border-green-300 hover:bg-green-100"
+                      onClick={() => downloadLabel(
+                        melhorEnvioLabel.melhor_envio_order_id!, 
+                        melhorEnvioLabel.tracking_code, 
+                        saleData.organization_id
+                      )}
+                      disabled={isDownloadingLabel(melhorEnvioLabel.melhor_envio_order_id)}
+                    >
+                      {isDownloadingLabel(melhorEnvioLabel.melhor_envio_order_id) ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-1" />
+                      )}
+                      PDF
+                    </Button>
+                  ) : labelData?.label_pdf_url && (
                     <Button 
                       variant="outline" 
                       size="sm"

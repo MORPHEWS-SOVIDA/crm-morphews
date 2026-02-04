@@ -91,6 +91,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useCorreiosTrackingStatus } from '@/hooks/useCorreiosTrackingStatus';
 import { useExpeditionAlerts } from '@/hooks/useExpeditionAlerts';
 import { ExpeditionAlertsDashboard } from '@/components/expedition/ExpeditionAlertsDashboard';
+import { useMelhorEnvioLabelDownload } from '@/hooks/useMelhorEnvioLabelDownload';
 
 type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'pickup' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
@@ -135,6 +136,7 @@ export default function Expedition() {
   const updateMotoboyTracking = useUpdateMotoboyTracking();
   const updateCarrierTracking = useUpdateCarrierTracking();
   const { loading: trackingLoading, statuses: trackingStatuses2, fetchStatus: fetchTrackingStatus, getCorreiosTrackingUrl } = useCorreiosTrackingStatus();
+  const { downloadLabel, isDownloading: isDownloadingLabel } = useMelhorEnvioLabelDownload();
 
   // Avoid spamming toast on retries
   const shownErrorRef = useRef<string | null>(null);
@@ -1467,8 +1469,9 @@ export default function Expedition() {
                               
                               {/* Download label button - Melhor Envio or imported */}
                               {(() => {
-                                const labelUrl = sale.melhor_envio_labels?.[0]?.label_pdf_url;
-                                if (labelUrl) {
+                                const melhorEnvioLabel = sale.melhor_envio_labels?.[0];
+                                if (melhorEnvioLabel?.melhor_envio_order_id) {
+                                  const orderId = melhorEnvioLabel.melhor_envio_order_id;
                                   return (
                                     <Button
                                       variant="outline"
@@ -1476,10 +1479,15 @@ export default function Expedition() {
                                       className="h-7 text-xs text-green-600 border-green-300 hover:bg-green-50"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        window.open(labelUrl, '_blank');
+                                        downloadLabel(orderId, melhorEnvioLabel.tracking_code, sale.organization_id);
                                       }}
+                                      disabled={isDownloadingLabel(orderId)}
                                     >
-                                      <Download className="w-3 h-3 mr-1" />
+                                      {isDownloadingLabel(orderId) ? (
+                                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      ) : (
+                                        <Download className="w-3 h-3 mr-1" />
+                                      )}
                                       Etiqueta
                                     </Button>
                                   );

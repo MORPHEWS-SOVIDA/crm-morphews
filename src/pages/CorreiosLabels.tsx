@@ -36,6 +36,8 @@ import { CorreiosLabelGenerator } from '@/components/correios/CorreiosLabelGener
 import { formatCurrency } from '@/hooks/useSales';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useMelhorEnvioLabelDownload } from '@/hooks/useMelhorEnvioLabelDownload';
+import { useAuth } from '@/hooks/useAuth';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-600', icon: <Clock className="w-3 h-3" /> },
@@ -56,6 +58,8 @@ export default function CorreiosLabels() {
   const { data: labels, isLoading: labelsLoading, refetch: refetchLabels } = useCorreiosLabels();
   const { data: pendingSales, isLoading: salesLoading, refetch: refetchSales } = usePendingCorreiosSales();
   const generateLabel = useGenerateCorreiosLabel();
+  const { profile } = useAuth();
+  const { downloadLabel, isDownloading: isDownloadingLabel } = useMelhorEnvioLabelDownload();
 
   const filteredLabels = labels?.filter(label => 
     label.tracking_code.toLowerCase().includes(searchTerm.toLowerCase()) ||

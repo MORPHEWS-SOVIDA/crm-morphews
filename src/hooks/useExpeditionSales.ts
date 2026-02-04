@@ -42,7 +42,7 @@ export function useExpeditionSales() {
           lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at),
           delivery_region:delivery_regions!sales_delivery_region_id_fkey(id, name),
-          melhor_envio_labels(id, label_pdf_url, tracking_code, status)
+          melhor_envio_labels(id, label_pdf_url, tracking_code, status, melhor_envio_order_id)
         `)
         .eq('organization_id', organizationId)
         .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed'])
