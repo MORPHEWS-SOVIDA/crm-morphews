@@ -20,6 +20,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   Package,
   Printer,
@@ -45,6 +51,8 @@ import {
   Store,
   Bike,
   Download,
+  ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -80,6 +88,7 @@ import { CashPaymentVerificationDialog } from '@/components/expedition/CashPayme
 import { SelectMotoboyDialog } from '@/components/expedition/SelectMotoboyDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { useCorreiosTrackingStatus } from '@/hooks/useCorreiosTrackingStatus';
 
 type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'pickup' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
@@ -123,6 +132,7 @@ export default function Expedition() {
   const updateSale = useUpdateSale();
   const updateMotoboyTracking = useUpdateMotoboyTracking();
   const updateCarrierTracking = useUpdateCarrierTracking();
+  const { loading: trackingLoading, statuses: trackingStatuses2, fetchStatus: fetchTrackingStatus, getCorreiosTrackingUrl } = useCorreiosTrackingStatus();
 
   // Avoid spamming toast on retries
   const shownErrorRef = useRef<string | null>(null);
@@ -1340,9 +1350,113 @@ export default function Expedition() {
                           {sale.delivery_type === 'carrier' && (
                             <div className="flex items-center gap-1 flex-wrap">
                               {sale.tracking_code ? (
-                                <Badge variant="outline" className="text-xs">
-                                  🔗 {sale.tracking_code}
-                                </Badge>
+                                <>
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    🔗 {sale.tracking_code}
+                                  </Badge>
+                                  
+                                  {/* View tracking on Correios website button */}
+                                  {/^[A-Z]{2}[0-9]{9}[A-Z]{2}$/i.test(sale.tracking_code) && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs text-blue-600 border-blue-300 hover:bg-blue-50"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              window.open(getCorreiosTrackingUrl(sale.tracking_code!), '_blank');
+                                            }}
+                                          >
+                                            <ExternalLink className="w-3 h-3 mr-1" />
+                                            Ver Rastreio
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-xs">
+                                          <p className="text-xs">Abrir rastreamento no site dos Correios</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                  
+                                  {/* Fetch and display current status */}
+                                  {/^[A-Z]{2}[0-9]{9}[A-Z]{2}$/i.test(sale.tracking_code) && (
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs px-2"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const result = await fetchTrackingStatus(sale.tracking_code!);
+                                          if (result) {
+                                            toast.info(
+                                              <div>
+                                                <strong>Status Correios:</strong>
+                                                <p className="text-sm mt-1">{result.current_status}</p>
+                                                {result.last_update && (
+                                                  <p className="text-xs text-muted-foreground mt-1">
+                                                    Atualizado: {result.last_update}
+                                                  </p>
+                                                )}
+                                                {result.location && (
+                                                  <p className="text-xs text-muted-foreground">
+                                                    📍 {result.location}
+                                                  </p>
+                                                )}
+                                              </div>,
+                                              { duration: 8000 }
+                                            );
+                                          }
+                                        }}
+                                        disabled={trackingLoading[sale.tracking_code]}
+                                      >
+                                        {trackingLoading[sale.tracking_code] ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                      
+                                      {/* Show cached status if available */}
+                                      {trackingStatuses2[sale.tracking_code] && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Badge 
+                                                variant="secondary" 
+                                                className={`text-xs max-w-[200px] truncate ${
+                                                  trackingStatuses2[sale.tracking_code].delivered 
+                                                    ? 'bg-green-100 text-green-700 border-green-300' 
+                                                    : 'bg-blue-50 text-blue-700'
+                                                }`}
+                                              >
+                                                {trackingStatuses2[sale.tracking_code].delivered && '✅ '}
+                                                {trackingStatuses2[sale.tracking_code].current_status}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-sm">
+                                              <div className="text-xs">
+                                                <p className="font-medium">{trackingStatuses2[sale.tracking_code].current_status}</p>
+                                                {trackingStatuses2[sale.tracking_code].last_update && (
+                                                  <p className="text-muted-foreground mt-1">
+                                                    Atualizado: {trackingStatuses2[sale.tracking_code].last_update}
+                                                  </p>
+                                                )}
+                                                {trackingStatuses2[sale.tracking_code].location && (
+                                                  <p className="text-muted-foreground">
+                                                    📍 {trackingStatuses2[sale.tracking_code].location}
+                                                  </p>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
                               ) : (
                                 <>
                                   <Input
