@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -18,6 +18,11 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { 
   RefreshCw, 
   ArrowRightLeft, 
@@ -25,8 +30,10 @@ import {
   AlertTriangle,
   WifiOff,
   CheckCircle,
+  ChevronDown,
+  MessageSquare,
 } from 'lucide-react';
-import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
+import { useEvolutionInstances } from '@/hooks/useEvolutionInstances';
 import { 
   useRetryFailedMessagesBulk, 
   useChangeMessageInstance,
@@ -43,10 +50,23 @@ export function FailedMessagesBulkActions({ messages, onComplete }: FailedMessag
   const [showRetryDialog, setShowRetryDialog] = useState(false);
   const [showChangeInstanceDialog, setShowChangeInstanceDialog] = useState(false);
   const [targetInstanceId, setTargetInstanceId] = useState('');
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 
-  const { data: instances = [] } = useWhatsAppInstances();
+  const { instances: evolutionInstances = [] } = useEvolutionInstances();
   const retryBulk = useRetryFailedMessagesBulk();
   const changeInstance = useChangeMessageInstance();
+
+  // Filter active WhatsApp instances
+  const activeInstances = useMemo(() => 
+    (evolutionInstances || []).filter(i => !i.deleted_at && i.channel_type !== 'instagram'),
+    [evolutionInstances]
+  );
+
+  // Connected instances for selection
+  const connectedInstances = useMemo(() => 
+    activeInstances.filter(i => i.is_connected && i.status === 'active'),
+    [activeInstances]
+  );
 
   const failedMessages = messages.filter(
     m => m.status === 'failed_offline' || m.status === 'failed_other'
@@ -74,6 +94,16 @@ export function FailedMessagesBulkActions({ messages, onComplete }: FailedMessag
       newSet.add(id);
     }
     setSelectedIds(newSet);
+  };
+
+  const toggleExpanded = (id: string) => {
+    const newSet = new Set(expandedMessages);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setExpandedMessages(newSet);
   };
 
   const selectAll = () => {
@@ -129,7 +159,7 @@ export function FailedMessagesBulkActions({ messages, onComplete }: FailedMessag
     );
   }
 
-  const connectedInstances = instances.filter(i => i.is_connected && i.status === 'active');
+  
 
   return (
     <div className="space-y-4">
@@ -237,46 +267,76 @@ export function FailedMessagesBulkActions({ messages, onComplete }: FailedMessag
       )}
 
       {/* Failed messages list */}
-      <ScrollArea className="h-64">
+      <ScrollArea className="h-80">
         <div className="space-y-2">
           {failedMessages.map(msg => (
-            <div 
-              key={msg.id}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedIds.has(msg.id) 
-                  ? 'bg-primary/10 border-primary' 
-                  : 'bg-background hover:bg-muted/50'
-              }`}
-              onClick={() => toggleSelect(msg.id)}
+            <Collapsible 
+              key={msg.id} 
+              open={expandedMessages.has(msg.id)}
+              onOpenChange={() => toggleExpanded(msg.id)}
             >
-              <Checkbox 
-                checked={selectedIds.has(msg.id)}
-                onCheckedChange={() => toggleSelect(msg.id)}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm truncate">{msg.lead?.name}</span>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${
-                      msg.status === 'failed_offline' 
-                        ? 'border-amber-400 text-amber-600' 
-                        : 'border-red-400 text-red-600'
-                    }`}
-                  >
-                    {msg.status === 'failed_offline' ? 'Offline' : 'Falhou'}
-                  </Badge>
+              <div 
+                className={`rounded-lg border transition-colors ${
+                  selectedIds.has(msg.id) 
+                    ? 'bg-primary/10 border-primary' 
+                    : 'bg-background hover:bg-muted/50'
+                }`}
+              >
+                <div 
+                  className="flex items-center gap-3 p-3 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(msg.id);
+                  }}
+                >
+                  <Checkbox 
+                    checked={selectedIds.has(msg.id)}
+                    onCheckedChange={() => toggleSelect(msg.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm truncate">{msg.lead?.name}</span>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          msg.status === 'failed_offline' 
+                            ? 'border-amber-400 text-amber-600' 
+                            : 'border-red-400 text-red-600'
+                        }`}
+                      >
+                        {msg.status === 'failed_offline' ? 'Offline' : 'Falhou'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {msg.failure_reason || 'Erro desconhecido'}
+                    </p>
+                  </div>
+                  {msg.whatsapp_instance?.name && (
+                    <span className="text-xs text-muted-foreground">
+                      {msg.whatsapp_instance.name}
+                    </span>
+                  )}
+                  <CollapsibleTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <ChevronDown className={`h-4 w-4 transition-transform ${expandedMessages.has(msg.id) ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
                 </div>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {msg.failure_reason || 'Erro desconhecido'}
-                </p>
+                <CollapsibleContent>
+                  <div className="px-3 pb-3 pt-0">
+                    <div className="bg-muted/50 rounded-md p-3 border">
+                      <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+                        <MessageSquare className="h-3 w-3" />
+                        <span>Conteúdo da mensagem:</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {msg.final_message || <span className="italic text-muted-foreground">Sem conteúdo</span>}
+                      </p>
+                    </div>
+                  </div>
+                </CollapsibleContent>
               </div>
-              {msg.whatsapp_instance?.name && (
-                <span className="text-xs text-muted-foreground">
-                  {msg.whatsapp_instance.name}
-                </span>
-              )}
-            </div>
+            </Collapsible>
           ))}
         </div>
       </ScrollArea>
@@ -303,11 +363,12 @@ export function FailedMessagesBulkActions({ messages, onComplete }: FailedMessag
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Manter instância atual</SelectItem>
-                  {connectedInstances.map(inst => (
+                  {activeInstances.map(inst => (
                     <SelectItem key={inst.id} value={inst.id}>
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                        {inst.name}
+                        <span className={`w-2 h-2 rounded-full ${inst.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        {inst.name || inst.phone_number}
+                        {!inst.is_connected && <span className="text-xs text-muted-foreground">(offline)</span>}
                       </div>
                     </SelectItem>
                   ))}
@@ -349,11 +410,12 @@ export function FailedMessagesBulkActions({ messages, onComplete }: FailedMessag
                   <SelectValue placeholder="Selecionar instância..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {connectedInstances.map(inst => (
+                  {activeInstances.map(inst => (
                     <SelectItem key={inst.id} value={inst.id}>
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                        {inst.name}
+                        <span className={`w-2 h-2 rounded-full ${inst.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        {inst.name || inst.phone_number}
+                        {!inst.is_connected && <span className="text-xs text-muted-foreground">(offline)</span>}
                       </div>
                     </SelectItem>
                   ))}
