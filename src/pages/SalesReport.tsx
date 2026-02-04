@@ -46,6 +46,8 @@ import {
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { CommissionReport } from '@/components/reports/CommissionReport';
 import { SalesDetailedReport } from '@/components/reports/SalesDetailedReport';
+import { SalesReportSummaryCards } from '@/components/reports/SalesReportSummaryCards';
+import { SalesReportSellerSummary } from '@/components/reports/SalesReportSellerSummary';
 import { useSales } from "@/hooks/useSales";
 import { useUsers } from "@/hooks/useUsers";
 import { useDeliveryRegions, useShippingCarriers } from "@/hooks/useDeliveryConfig";
@@ -440,58 +442,11 @@ export default function SalesReport() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totals.totalSales}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totals.totalValue)}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totals.avgTicket)}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Descontos</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{formatCurrency(totals.totalDiscount)}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Frete</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totals.totalShipping)}</div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Summary Cards - Estilo Sistema Antigo */}
+        <SalesReportSummaryCards sales={filteredSales} formatCurrency={formatCurrency} />
+
+        {/* Seller Summary Table */}
+        <SalesReportSellerSummary sales={filteredSales} formatCurrency={formatCurrency} />
 
         {/* Filters */}
         <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
