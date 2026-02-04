@@ -7675,20 +7675,25 @@ export type Database = {
       }
       lead_scheduled_messages: {
         Row: {
+          attempt_count: number | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
           created_by: string | null
+          current_instance_index: number | null
           deleted_at: string | null
           failure_reason: string | null
           fallback_bot_enabled: boolean | null
           fallback_bot_id: string | null
+          fallback_instance_ids: string[] | null
           fallback_status: string | null
           fallback_timeout_minutes: number | null
           fallback_triggered_at: string | null
           final_message: string
           id: string
+          last_attempt_at: string | null
           lead_id: string
+          max_attempts: number | null
           media_filename: string | null
           media_type: string | null
           media_url: string | null
@@ -7702,20 +7707,25 @@ export type Database = {
           whatsapp_instance_id: string | null
         }
         Insert: {
+          attempt_count?: number | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_instance_index?: number | null
           deleted_at?: string | null
           failure_reason?: string | null
           fallback_bot_enabled?: boolean | null
           fallback_bot_id?: string | null
+          fallback_instance_ids?: string[] | null
           fallback_status?: string | null
           fallback_timeout_minutes?: number | null
           fallback_triggered_at?: string | null
           final_message: string
           id?: string
+          last_attempt_at?: string | null
           lead_id: string
+          max_attempts?: number | null
           media_filename?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -7729,20 +7739,25 @@ export type Database = {
           whatsapp_instance_id?: string | null
         }
         Update: {
+          attempt_count?: number | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_instance_index?: number | null
           deleted_at?: string | null
           failure_reason?: string | null
           fallback_bot_enabled?: boolean | null
           fallback_bot_id?: string | null
+          fallback_instance_ids?: string[] | null
           fallback_status?: string | null
           fallback_timeout_minutes?: number | null
           fallback_triggered_at?: string | null
           final_message?: string
           id?: string
+          last_attempt_at?: string | null
           lead_id?: string
+          max_attempts?: number | null
           media_filename?: string | null
           media_type?: string | null
           media_url?: string | null
