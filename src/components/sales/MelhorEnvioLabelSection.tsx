@@ -48,6 +48,7 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
   const { data: label, isLoading: labelLoading } = useSaleMelhorEnvioLabel(sale?.id);
   const [showGenerator, setShowGenerator] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const queryClient = useQueryClient();
 
   // Only show for carrier delivery type
@@ -123,24 +124,50 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
     }
   };
 
-  // Handler to download PDF
-  const handleDownloadPdf = async (url: string, trackingCode: string) => {
+  // Handler to download/print PDF via edge function (avoids CORS/login issues)
+  const handleDownloadPdf = async (orderId: string, trackingCode: string) => {
+    if (!orderId) {
+      toast.error('ID do pedido não encontrado');
+      return;
+    }
+
+    setDownloading(true);
     try {
-      // Fetch the PDF and trigger download
-      const response = await fetch(url);
-      const blob = await response.blob();
+      const { data, error } = await supabase.functions.invoke('melhor-envio-label', {
+        body: { 
+          action: 'download_pdf',
+          organization_id: sale?.organization_id,
+          order_id: orderId,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao baixar PDF');
+
+      // Convert base64 to blob and download
+      const byteCharacters = atob(data.pdf_base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `etiqueta-${trackingCode}.pdf`;
+      link.download = `etiqueta-${trackingCode || orderId.slice(0, 8)}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
+      
       toast.success('Download iniciado!');
-    } catch {
-      // Fallback: open in new tab
-      window.open(url, '_blank');
+    } catch (err) {
+      console.error('[MelhorEnvio] PDF download error:', err);
+      toast.error('Erro ao baixar etiqueta. Tente novamente.');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -294,16 +321,24 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            {label.label_pdf_url && (
+            {label.melhor_envio_order_id && (
               <>
                 <Button
                   size="sm"
                   variant="outline"
                   className="flex-1 gap-2"
-                  onClick={() => window.open(label.label_pdf_url!, '_blank')}
+                  onClick={() => handleDownloadPdf(
+                    label.melhor_envio_order_id!,
+                    hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta'
+                  )}
+                  disabled={downloading}
                 >
-                  <Printer className="w-4 h-4" />
-                  Imprimir
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Printer className="w-4 h-4" />
+                  )}
+                  {downloading ? 'Baixando...' : 'Imprimir'}
                 </Button>
                 <TooltipProvider>
                   <Tooltip>
@@ -313,11 +348,16 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
                         variant="outline"
                         className="h-9 w-9"
                         onClick={() => handleDownloadPdf(
-                          label.label_pdf_url!, 
+                          label.melhor_envio_order_id!,
                           hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta'
                         )}
+                        disabled={downloading}
                       >
-                        <Download className="w-4 h-4" />
+                        {downloading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Baixar PDF</TooltipContent>
