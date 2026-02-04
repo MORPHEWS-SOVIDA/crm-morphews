@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +28,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Pencil, Trash2, GripVertical, Clock, Webhook, Users, HelpCircle, Star } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Loader2, Pencil, Trash2, GripVertical, Clock, Webhook, Users, HelpCircle, Star, AlertTriangle, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
   Tooltip,
@@ -46,6 +47,8 @@ import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useTenant } from '@/hooks/useTenant';
 import { toast } from '@/hooks/use-toast';
 import { MessageTemplatesManager } from './MessageTemplatesManager';
+import { useEvolutionInstances } from '@/hooks/useEvolutionInstances';
+import { useNonPurchaseMessageTemplates } from '@/hooks/useNonPurchaseMessageTemplates';
 
 interface ReasonFormData {
   name: string;
@@ -72,6 +75,8 @@ const initialFormData: ReasonFormData = {
 export function NonPurchaseReasonsManager() {
   const { data: reasons = [], isLoading } = useNonPurchaseReasons();
   const { data: stages = [] } = useFunnelStages();
+  const { data: allTemplates = [] } = useNonPurchaseMessageTemplates(); // All templates
+  const { instances: evolutionInstances = [] } = useEvolutionInstances();
   const { tenantId } = useTenant();
   
   const createReason = useCreateNonPurchaseReason();
@@ -82,6 +87,39 @@ export function NonPurchaseReasonsManager() {
   const [editingReason, setEditingReason] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ReasonFormData>(initialFormData);
+  const [showProblemsOnly, setShowProblemsOnly] = useState(false);
+
+  // Get instances that are active (not archived)
+  const activeInstances = useMemo(() => 
+    (evolutionInstances || []).filter(i => !i.deleted_at),
+    [evolutionInstances]
+  );
+
+  // Find templates with problems (no instance or disconnected instance)
+  const templatesWithProblems = useMemo(() => {
+    return allTemplates.filter(template => {
+      // No instance configured
+      if (!template.whatsapp_instance_id) return true;
+      
+      // Instance not found or disconnected
+      const instance = activeInstances.find(i => i.id === template.whatsapp_instance_id);
+      if (!instance) return true;
+      if (!instance.is_connected) return true;
+      
+      return false;
+    });
+  }, [allTemplates, activeInstances]);
+
+  // Get reason IDs that have problematic templates
+  const reasonIdsWithProblems = useMemo(() => {
+    return new Set(templatesWithProblems.map(t => t.non_purchase_reason_id));
+  }, [templatesWithProblems]);
+
+  // Filter reasons based on showProblemsOnly
+  const filteredReasons = useMemo(() => {
+    if (!showProblemsOnly) return reasons;
+    return reasons.filter(r => reasonIdsWithProblems.has(r.id));
+  }, [reasons, showProblemsOnly, reasonIdsWithProblems]);
 
   const handleCreate = async () => {
     if (!formData.name.trim()) {
@@ -181,8 +219,8 @@ export function NonPurchaseReasonsManager() {
 
   return (
     <div className="space-y-4">
-      {/* Header with Help Tooltip */}
-      <div className="flex items-center gap-2">
+      {/* Header with Help Tooltip and Problem Filter */}
+      <div className="flex flex-wrap items-center gap-2">
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setFormData(initialFormData)}>
@@ -210,6 +248,25 @@ export function NonPurchaseReasonsManager() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Problem Filter Button */}
+        {templatesWithProblems.length > 0 && (
+          <Button
+            variant={showProblemsOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowProblemsOnly(!showProblemsOnly)}
+            className={showProblemsOnly 
+              ? "bg-red-600 hover:bg-red-700 text-white" 
+              : "border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+            }
+          >
+            <AlertTriangle className="w-4 h-4 mr-2" />
+            {templatesWithProblems.length} mensagem(ns) com problema
+            {showProblemsOnly && (
+              <X className="w-4 h-4 ml-2" />
+            )}
+          </Button>
+        )}
         
         <TooltipProvider>
           <Tooltip>
@@ -231,14 +288,40 @@ export function NonPurchaseReasonsManager() {
         </TooltipProvider>
       </div>
 
+      {/* Filter Active Banner */}
+      {showProblemsOnly && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+          <AlertTriangle className="w-5 h-5 text-red-600" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">
+              Mostrando apenas motivos com mensagens sem instância ou com instância desconectada
+            </p>
+            <p className="text-xs text-red-600 dark:text-red-400">
+              {templatesWithProblems.length} mensagem(ns) precisam de atenção • {filteredReasons.length} motivo(s) afetado(s)
+            </p>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowProblemsOnly(false)}
+            className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          >
+            Mostrar todos
+          </Button>
+        </div>
+      )}
+
       {/* List */}
-      {reasons.length === 0 ? (
+      {filteredReasons.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          Nenhum motivo cadastrado. Clique em "Adicionar Motivo" para começar.
+          {showProblemsOnly 
+            ? "Nenhuma mensagem com problema encontrada. Tudo certo! 🎉"
+            : "Nenhum motivo cadastrado. Clique em \"Adicionar Motivo\" para começar."
+          }
         </div>
       ) : (
         <div className="space-y-2">
-          {reasons.map((reason) => (
+          {filteredReasons.map((reason) => (
             <div 
               key={reason.id} 
               className="rounded-lg bg-muted/50 border overflow-hidden"
