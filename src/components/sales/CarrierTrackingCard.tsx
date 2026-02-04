@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Truck, Clock, User, ChevronDown, ChevronUp, Package, Copy, Pencil } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Truck, Clock, User, ChevronDown, ChevronUp, Package, Copy, Pencil, ExternalLink, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -26,7 +27,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { DeliveryDateDialog } from './DeliveryDateDialog';
-import { CorreiosLabelSection } from './CorreiosLabelSection';
+import { MelhorEnvioLabelSection } from './MelhorEnvioLabelSection';
 
 interface CarrierTrackingCardProps {
   saleId: string;
@@ -139,7 +140,7 @@ export function CarrierTrackingCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Tracking Code */}
+        {/* Tracking Code - Enhanced Display */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Código de Rastreio</Label>
           {editingTrackingCode ? (
@@ -157,39 +158,92 @@ export function CarrierTrackingCard({
                 Cancelar
               </Button>
             </div>
+          ) : trackingCode && !trackingCode.includes('-') ? (
+            // Real tracking code - prominent display
+            <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+              <Package className="w-5 h-5 text-primary" />
+              <span className="text-lg font-mono font-bold flex-1 tracking-wider">
+                {trackingCode}
+              </span>
+              <div className="flex gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          navigator.clipboard.writeText(trackingCode);
+                          toast.success('Código copiado!');
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Copiar código</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          window.open(`https://www.melhorrastreio.com.br/rastreio/${trackingCode}`, '_blank');
+                        }}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Ver rastreio online</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {canUpdate && !isCancelled && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setNewTrackingCode(trackingCode || '');
+                            setEditingTrackingCode(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Editar código</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+            </div>
           ) : (
+            // No tracking code or UUID - show as not available
             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
               <Package className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-mono flex-1">
-                {trackingCode || 'Não informado'}
+              <span className="text-sm text-muted-foreground flex-1">
+                {trackingCode?.includes('-') ? 'Aguardando postagem' : 'Não informado'}
               </span>
               {canUpdate && !isCancelled && (
-                <>
-                  {trackingCode && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => {
-                        navigator.clipboard.writeText(trackingCode);
-                        toast.success('Código copiado!');
-                      }}
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => {
-                      setNewTrackingCode(trackingCode || '');
-                      setEditingTrackingCode(true);
-                    }}
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                </>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setNewTrackingCode(trackingCode?.includes('-') ? '' : trackingCode || '');
+                    setEditingTrackingCode(true);
+                  }}
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
               )}
             </div>
           )}
@@ -294,11 +348,11 @@ export function CarrierTrackingCard({
           </Collapsible>
         )}
 
-        {/* Correios Label Section - only if sale is provided */}
+        {/* Melhor Envio Label Section - only if sale is provided */}
         {sale && (
           <>
             <Separator />
-            <CorreiosLabelSection sale={sale} isCancelled={isCancelled} />
+            <MelhorEnvioLabelSection sale={sale} isCancelled={isCancelled} />
           </>
         )}
       </CardContent>
