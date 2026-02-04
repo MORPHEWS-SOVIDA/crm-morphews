@@ -54,7 +54,7 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, startOfDay, addDays, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   useExpeditionSales,
@@ -89,6 +89,8 @@ import { SelectMotoboyDialog } from '@/components/expedition/SelectMotoboyDialog
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useCorreiosTrackingStatus } from '@/hooks/useCorreiosTrackingStatus';
+import { useExpeditionAlerts } from '@/hooks/useExpeditionAlerts';
+import { ExpeditionAlertsDashboard } from '@/components/expedition/ExpeditionAlertsDashboard';
 
 type TabFilter = 'todo' | 'draft' | 'printed' | 'separated' | 'dispatched' | 'returned' | 'carrier-no-tracking' | 'carrier-tracking' | 'pickup' | 'delivered' | 'cancelled';
 type SortOrder = 'created' | 'delivery';
@@ -183,6 +185,7 @@ export default function Expedition() {
   }, []);
 
   const stats = useExpeditionStats(sales);
+  const alertMetrics = useExpeditionAlerts(sales);
 
   // Get motoboy tracking status labels (custom or default)
   const getMotoboyStatusLabel = useCallback((status: MotoboyTrackingStatus): string => {
@@ -821,44 +824,11 @@ export default function Expedition() {
           </div>
         </div>
 
-        {/* Alert Cards */}
-        {(stats.urgentToday > 0 || stats.carrierNoTracking > 0 || stats.returned > 0) && (
-          <div className="grid gap-2 sm:grid-cols-3">
-            {stats.urgentToday > 0 && (
-              <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  <div>
-                    <p className="font-semibold text-red-700 dark:text-red-400">{stats.urgentToday} rascunhos para HOJE</p>
-                    <p className="text-xs text-red-600 dark:text-red-500">Precisam sair urgente!</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {stats.carrierNoTracking > 0 && (
-              <Card className="border-orange-300 bg-orange-50 dark:bg-orange-950/30">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <PackageX className="w-5 h-5 text-orange-600" />
-                  <div>
-                    <p className="font-semibold text-orange-700 dark:text-orange-400">{stats.carrierNoTracking} correios sem rastreio</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-500">Adicione os códigos</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {stats.returned > 0 && (
-              <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <RotateCcw className="w-5 h-5 text-red-600" />
-                  <div>
-                    <p className="font-semibold text-red-700 dark:text-red-400">{stats.returned} vendas voltaram</p>
-                    <p className="text-xs text-red-600 dark:text-red-500">Ação necessária</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
+        {/* Smart Alerts Dashboard */}
+        <ExpeditionAlertsDashboard 
+          metrics={alertMetrics}
+          onRefresh={() => queryClient.invalidateQueries({ queryKey: ['expedition-sales'] })}
+        />
 
         {/* Stats Cards - Row 1: Primary button + Status filters */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
@@ -1105,6 +1075,11 @@ export default function Expedition() {
               const sellerName = sale.seller_profile ? `${sale.seller_profile.first_name || ''} ${sale.seller_profile.last_name || ''}`.trim() : null;
               const regionName = (sale as any).delivery_region?.name;
               const requisitionNumbers = sale.items?.filter((i: any) => i.requisition_number).map((i: any) => i.requisition_number) || [];
+              
+              // Calculate days since creation (inactivity indicator)
+              const daysOld = sale.created_at ? differenceInDays(new Date(), parseISO(sale.created_at)) : 0;
+              const isStalled = daysOld > 3 && !['delivered', 'cancelled', 'finalized', 'closed'].includes(sale.status);
+
 
               return (
                 <Card 
@@ -1141,6 +1116,19 @@ export default function Expedition() {
                           <Badge variant="outline" className="text-xs text-muted-foreground">
                             📅 {format(parseISO(sale.created_at), 'dd/MM', { locale: ptBR })}
                           </Badge>
+                          {/* Inactivity indicator - show if sale is stalled */}
+                          {isStalled && (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                daysOld > 7 
+                                  ? 'bg-red-100 text-red-700 border-red-300' 
+                                  : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                              }`}
+                            >
+                              ⏱️ {daysOld}d parada
+                            </Badge>
+                          )}
                           {/* Show status when searching globally */}
                           {searchQuery.trim() && (
                             <Badge variant="secondary" className="text-xs">
