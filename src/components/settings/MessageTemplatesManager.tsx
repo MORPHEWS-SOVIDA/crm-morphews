@@ -62,6 +62,8 @@ interface MessageTemplatesManagerProps {
 
 interface TemplateFormData {
   whatsapp_instance_id: string;
+  fallback_instance_id_1: string;
+  fallback_instance_id_2: string;
   delay_minutes: number;
   message_template: string;
   send_start_hour: number | null;
@@ -78,6 +80,8 @@ interface TemplateFormData {
 
 const initialFormData: TemplateFormData = {
   whatsapp_instance_id: '',
+  fallback_instance_id_1: '',
+  fallback_instance_id_2: '',
   delay_minutes: 0,
   message_template: '',
   send_start_hour: null,
@@ -142,9 +146,15 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
       return;
     }
 
+    // Build fallback instance IDs array
+    const fallbackIds: string[] = [];
+    if (formData.fallback_instance_id_1) fallbackIds.push(formData.fallback_instance_id_1);
+    if (formData.fallback_instance_id_2) fallbackIds.push(formData.fallback_instance_id_2);
+
     await createTemplate.mutateAsync({
       non_purchase_reason_id: reasonId,
       whatsapp_instance_id: formData.whatsapp_instance_id || null,
+      fallback_instance_ids: fallbackIds.length > 0 ? fallbackIds : null,
       delay_minutes: formData.delay_minutes,
       message_template: formData.message_template.trim(),
       send_start_hour: formData.use_business_hours ? formData.send_start_hour : null,
@@ -165,10 +175,16 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
   const handleUpdate = async () => {
     if (!editingId || !formData.message_template.trim()) return;
 
+    // Build fallback instance IDs array
+    const fallbackIds: string[] = [];
+    if (formData.fallback_instance_id_1) fallbackIds.push(formData.fallback_instance_id_1);
+    if (formData.fallback_instance_id_2) fallbackIds.push(formData.fallback_instance_id_2);
+
     await updateTemplate.mutateAsync({
       id: editingId,
       data: {
         whatsapp_instance_id: formData.whatsapp_instance_id || null,
+        fallback_instance_ids: fallbackIds.length > 0 ? fallbackIds : null,
         delay_minutes: formData.delay_minutes,
         message_template: formData.message_template.trim(),
         send_start_hour: formData.use_business_hours ? formData.send_start_hour : null,
@@ -193,8 +209,11 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
   };
 
   const openEdit = (template: typeof templates[0]) => {
+    const fallbackIds = template.fallback_instance_ids || [];
     setFormData({
       whatsapp_instance_id: template.whatsapp_instance_id || '',
+      fallback_instance_id_1: fallbackIds[0] || '',
+      fallback_instance_id_2: fallbackIds[1] || '',
       delay_minutes: template.delay_minutes,
       message_template: template.message_template,
       send_start_hour: template.send_start_hour,
@@ -373,27 +392,107 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Instância WhatsApp</Label>
-                <Select
-                  value={formData.whatsapp_instance_id || '__none__'}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    whatsapp_instance_id: value === '__none__' ? '' : value 
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a instância" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhuma (configurar depois)</SelectItem>
-                    {instances.map((instance) => (
-                      <SelectItem key={instance.id} value={instance.id}>
-                        {instance.name}{instance.phone_number ? ` • ${instance.phone_number}` : ''} {instance.is_connected ? '🟢' : '🔴'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Instance Chain - Primary + 2 Fallbacks */}
+              <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Label className="text-sm font-medium">Cadeia de Instâncias WhatsApp</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs p-3 text-xs">
+                        <p className="font-semibold mb-1">Sistema de Fallback:</p>
+                        <p className="text-muted-foreground">
+                          Se a instância primária estiver offline ou falhar, o sistema tentará automaticamente enviar pela Reserva 1. 
+                          Se também falhar, tentará pela Reserva 2.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Primary Instance */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Instância Principal</Label>
+                  <Select
+                    value={formData.whatsapp_instance_id || '__none__'}
+                    onValueChange={(value) => setFormData(prev => ({ 
+                      ...prev, 
+                      whatsapp_instance_id: value === '__none__' ? '' : value 
+                    }))}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecione a instância" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhuma (configurar depois)</SelectItem>
+                      {instances.map((instance) => (
+                        <SelectItem key={instance.id} value={instance.id}>
+                          {instance.name}{instance.phone_number ? ` • ${instance.phone_number}` : ''} {instance.is_connected ? '🟢' : '🔴'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Fallback Instance 1 */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-bold">1</span>
+                    Reserva 1 (se a principal falhar)
+                  </Label>
+                  <Select
+                    value={formData.fallback_instance_id_1 || '__none__'}
+                    onValueChange={(value) => setFormData(prev => ({ 
+                      ...prev, 
+                      fallback_instance_id_1: value === '__none__' ? '' : value 
+                    }))}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecione (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhuma</SelectItem>
+                      {instances
+                        .filter(i => i.id !== formData.whatsapp_instance_id)
+                        .map((instance) => (
+                          <SelectItem key={instance.id} value={instance.id}>
+                            {instance.name}{instance.phone_number ? ` • ${instance.phone_number}` : ''} {instance.is_connected ? '🟢' : '🔴'}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Fallback Instance 2 */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-orange-500/20 text-orange-600 text-[10px] font-bold">2</span>
+                    Reserva 2 (se a reserva 1 falhar)
+                  </Label>
+                  <Select
+                    value={formData.fallback_instance_id_2 || '__none__'}
+                    onValueChange={(value) => setFormData(prev => ({ 
+                      ...prev, 
+                      fallback_instance_id_2: value === '__none__' ? '' : value 
+                    }))}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecione (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhuma</SelectItem>
+                      {instances
+                        .filter(i => i.id !== formData.whatsapp_instance_id && i.id !== formData.fallback_instance_id_1)
+                        .map((instance) => (
+                          <SelectItem key={instance.id} value={instance.id}>
+                            {instance.name}{instance.phone_number ? ` • ${instance.phone_number}` : ''} {instance.is_connected ? '🟢' : '🔴'}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
