@@ -162,6 +162,8 @@ export function ProductOfferCard({
   
   // State to control whether script/questions have been completed
   const [questionsCompleted, setQuestionsCompleted] = useState(false);
+  // State for when client refuses to answer questions
+  const [clientRefusedQuestions, setClientRefusedQuestions] = useState(false);
   
   // State for negotiation dialog
   const [showNegotiationDialog, setShowNegotiationDialog] = useState(false);
@@ -454,6 +456,32 @@ export function ProductOfferCard({
                 ))}
               </div>
               
+              {/* Skip questions button */}
+              {!questionsCompleted && !clientRefusedQuestions && (
+                <div className="mt-4 pt-4 border-t border-amber-200 dark:border-amber-700">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setClientRefusedQuestions(true);
+                      setQuestionsCompleted(true);
+                    }}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Cliente não quer responder as perguntas
+                  </Button>
+                </div>
+              )}
+              
+              {clientRefusedQuestions && (
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    Cliente recusou responder - continuando sem respostas
+                  </p>
+                </div>
+              )}
             </div>
           </>
         ) : null}
@@ -498,6 +526,31 @@ export function ProductOfferCard({
                     placeholder="Resposta..."
                     rows={2}
                   />
+                </div>
+              )}
+              
+              {/* Skip legacy questions button */}
+              {!clientRefusedQuestions && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground hover:text-foreground mt-2"
+                  onClick={() => {
+                    setClientRefusedQuestions(true);
+                    setQuestionsCompleted(true);
+                  }}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Cliente não quer responder as perguntas
+                </Button>
+              )}
+              
+              {clientRefusedQuestions && (
+                <div className="p-3 bg-muted rounded-lg mt-2">
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    Cliente recusou responder
+                  </p>
                 </div>
               )}
             </div>
