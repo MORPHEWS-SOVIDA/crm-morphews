@@ -6,11 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Melhor Envio API URLs
+// Melhor Envio API URLs - PRODUCTION ONLY (sandbox disabled)
 const MELHOR_ENVIO_API = {
   SANDBOX: 'https://sandbox.melhorenvio.com.br/api/v2',
-  // Use the official domain to avoid intermittent DNS issues seen with api.melhorenvio.com.br
-  PRODUCTION: 'https://melhorenvio.com.br/api/v2',
+  // Official production API - this is the correct endpoint
+  PRODUCTION: 'https://api.melhorenvio.com.br/api/v2',
 };
 
 interface LabelRequest {
