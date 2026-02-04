@@ -58,8 +58,31 @@ function DateBadge({ date }: { date: string }) {
   );
 }
 
+function getDaysAgo(dateString: string): number {
+  const date = parseISO(dateString);
+  const now = new Date();
+  return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function DaysAgoBadge({ days }: { days: number }) {
+  if (days <= 1) return null;
+  
+  const isUrgent = days >= 7;
+  const isWarning = days >= 3;
+  
+  return (
+    <Badge 
+      variant={isUrgent ? "destructive" : isWarning ? "outline" : "secondary"}
+      className={`text-xs ${isWarning && !isUrgent ? 'border-amber-400 text-amber-600' : ''}`}
+    >
+      <Clock className="w-3 h-3 mr-1" />
+      {days}d
+    </Badge>
+  );
+}
+
 function SaleCard({ sale, type }: { sale: SaleSummary; type: 'motoboy' | 'carrier' | 'other' }) {
-  const navigate = useNavigate();
+  const daysAgo = getDaysAgo(sale.created_at);
   
   const getSubStatus = () => {
     if (type === 'motoboy' && sale.motoboy_tracking_status) {
@@ -85,7 +108,7 @@ function SaleCard({ sale, type }: { sale: SaleSummary; type: 'motoboy' | 'carrie
             <Badge variant="outline" className="text-xs">#{sale.romaneio_number}</Badge>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-xs text-muted-foreground">
             {formatCurrency(sale.total_cents)}
           </span>
@@ -94,6 +117,7 @@ function SaleCard({ sale, type }: { sale: SaleSummary; type: 'motoboy' | 'carrie
               {subStatus}
             </Badge>
           )}
+          <DaysAgoBadge days={daysAgo} />
         </div>
       </div>
       <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -128,15 +152,23 @@ function SalesSection({
     ? 'text-red-600'
     : 'text-muted-foreground';
 
+  // Calculate total value
+  const totalCents = sales.reduce((sum, sale) => sum + (sale.total_cents || 0), 0);
+
   return (
     <div className={`rounded-lg border p-4 ${bgClass}`}>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-1">
         <Icon className={`w-4 h-4 ${iconColor}`} />
         <h4 className="font-medium text-sm">{title}</h4>
         <Badge variant="secondary" className="text-xs ml-auto">
           {sales.length}
         </Badge>
       </div>
+      {sales.length > 0 && (
+        <p className="text-xs text-muted-foreground mb-3 pl-6">
+          Total: <span className="font-medium text-foreground">{formatCurrency(totalCents)}</span>
+        </p>
+      )}
       {sales.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-2">{emptyMessage}</p>
       ) : (
