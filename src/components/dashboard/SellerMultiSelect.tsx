@@ -100,9 +100,9 @@ export function SellerMultiSelect({
 
   const renderContent = () => (
     <Command>
-      <CommandInput placeholder="Buscar vendedor..." />
+      <CommandInput placeholder="Buscar membro..." />
       <CommandList>
-        <CommandEmpty>Nenhum vendedor encontrado.</CommandEmpty>
+        <CommandEmpty>Nenhum membro encontrado.</CommandEmpty>
         
         {selectedSellers.length > 0 && (
           <CommandGroup>
@@ -186,10 +186,11 @@ export function SellerMultiSelect({
             aria-expanded={open}
             className="w-40 h-8 text-xs justify-between"
           >
-            <span className="truncate">
+            <Users className="mr-1 h-3 w-3" />
+            <span className="truncate flex-1 text-left">
               {selectedSellers.length === 0 
-                ? 'Vendedores' 
-                : `${selectedSellers.length} selecionados`}
+                ? 'Membros' 
+                : `${selectedSellers.length} selecionado(s)`}
             </span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
           </Button>
@@ -206,7 +207,7 @@ export function SellerMultiSelect({
     <div className="bg-card rounded-xl p-4 shadow-card">
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-foreground">Vendedores</h3>
+        <h3 className="font-semibold text-foreground">Membros da Equipe</h3>
       </div>
       
       <Popover open={open} onOpenChange={setOpen}>
@@ -218,8 +219,8 @@ export function SellerMultiSelect({
             className="w-full justify-between"
           >
             {selectedSellers.length === 0 
-              ? 'Selecionar vendedores...' 
-              : `${selectedSellers.length} vendedor(es) selecionado(s)`}
+              ? 'Selecionar membros...' 
+              : `${selectedSellers.length} membro(s) selecionado(s)`}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
