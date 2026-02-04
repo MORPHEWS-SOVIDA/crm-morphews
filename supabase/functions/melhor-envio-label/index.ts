@@ -14,9 +14,10 @@ const MELHOR_ENVIO_API = {
 };
 
 interface LabelRequest {
-  action: 'create_label' | 'get_services' | 'get_balance';
+  action: 'create_label' | 'get_services' | 'get_balance' | 'download_pdf';
   organization_id: string;
   sale_id?: string;
+  order_id?: string; // For download_pdf action
   service_id?: number;
   recipient?: {
     name: string;
@@ -518,6 +519,95 @@ serve(async (req) => {
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Download PDF directly from Melhor Envio API (proxy to avoid CORS/login issues)
+    if (action === 'download_pdf') {
+      const orderId = body.order_id;
+      if (!orderId) {
+        throw new Error('order_id é obrigatório para download do PDF');
+      }
+
+      console.log('[Melhor Envio] Downloading PDF for order:', orderId);
+
+      // Request PDF from Melhor Envio print endpoint
+      const printPayload = { orders: [orderId] };
+      
+      const printResponse = await fetch(`${baseUrl}/me/shipment/print`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/pdf', // Request PDF directly!
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+        },
+        body: JSON.stringify(printPayload),
+      });
+
+      console.log('[Melhor Envio] Print PDF response status:', printResponse.status);
+
+      if (!printResponse.ok) {
+        // If PDF request fails, try to get JSON URL
+        const errorText = await printResponse.text();
+        console.error('[Melhor Envio] PDF download failed:', errorText);
+        throw new Error('Não foi possível baixar o PDF da etiqueta. Verifique se a etiqueta foi gerada corretamente.');
+      }
+
+      // Check if response is PDF or JSON
+      const contentType = printResponse.headers.get('content-type') || '';
+      
+      if (contentType.includes('application/pdf')) {
+        // Return PDF as base64
+        const pdfBuffer = await printResponse.arrayBuffer();
+        const base64Pdf = btoa(
+          new Uint8Array(pdfBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            pdf_base64: base64Pdf,
+            content_type: 'application/pdf'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        // Response is JSON with URL - fetch the URL and return PDF
+        const jsonData = await printResponse.json();
+        const pdfUrl = jsonData.url;
+        
+        if (!pdfUrl) {
+          throw new Error('URL do PDF não retornada pelo Melhor Envio');
+        }
+
+        console.log('[Melhor Envio] Got PDF URL, fetching:', pdfUrl);
+
+        // Fetch PDF from the URL
+        const pdfResponse = await fetch(pdfUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+          },
+        });
+
+        if (!pdfResponse.ok) {
+          throw new Error('Não foi possível baixar o PDF da URL fornecida');
+        }
+
+        const pdfBuffer = await pdfResponse.arrayBuffer();
+        const base64Pdf = btoa(
+          new Uint8Array(pdfBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            pdf_base64: base64Pdf,
+            content_type: 'application/pdf'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     throw new Error(`Ação desconhecida: ${action}`);
