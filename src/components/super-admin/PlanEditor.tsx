@@ -50,6 +50,9 @@ interface SubscriptionPlan {
   atomicpay_monthly_url: string | null;
   atomicpay_annual_url: string | null;
   annual_price_cents: number | null;
+  // Trial configuration
+  trial_days: number | null;
+  trial_requires_card: boolean | null;
 }
 
 interface PlanFormData {
@@ -69,6 +72,9 @@ interface PlanFormData {
   atomicpay_monthly_url: string;
   atomicpay_annual_url: string;
   annual_price_cents: number | null;
+  // Trial configuration
+  trial_days: number;
+  trial_requires_card: boolean;
 }
 
 const defaultFormData: PlanFormData = {
@@ -88,6 +94,9 @@ const defaultFormData: PlanFormData = {
   atomicpay_monthly_url: "",
   atomicpay_annual_url: "",
   annual_price_cents: null,
+  // Trial configuration
+  trial_days: 0,
+  trial_requires_card: true,
 };
 
 export function PlanEditor() {
@@ -137,6 +146,8 @@ export function PlanEditor() {
           atomicpay_monthly_url: data.atomicpay_monthly_url || null,
           atomicpay_annual_url: data.atomicpay_annual_url || null,
           annual_price_cents: data.annual_price_cents,
+          trial_days: data.trial_days || 0,
+          trial_requires_card: data.trial_requires_card,
         })
         .select()
         .single();
@@ -177,6 +188,8 @@ export function PlanEditor() {
           atomicpay_monthly_url: data.atomicpay_monthly_url || null,
           atomicpay_annual_url: data.atomicpay_annual_url || null,
           annual_price_cents: data.annual_price_cents,
+          trial_days: data.trial_days || 0,
+          trial_requires_card: data.trial_requires_card,
         })
         .eq("id", id);
       if (error) throw error;
@@ -213,6 +226,9 @@ export function PlanEditor() {
           atomicpay_monthly_url: plan.atomicpay_monthly_url || "",
           atomicpay_annual_url: plan.atomicpay_annual_url || "",
           annual_price_cents: plan.annual_price_cents,
+          // Trial configuration
+          trial_days: plan.trial_days || 0,
+          trial_requires_card: plan.trial_requires_card ?? true,
         });
         setHasChanges(false);
       }
@@ -724,6 +740,70 @@ export function PlanEditor() {
                         </div>
                       </div>
                       
+                      {/* Trial Configuration */}
+                      <div className="p-4 rounded-lg border bg-gradient-to-r from-purple-500/10 to-blue-500/10 mt-4">
+                        <Label className="flex items-center gap-2 mb-3 text-sm font-semibold">
+                          <Zap className="h-4 w-4 text-purple-600" />
+                          Período de Teste (Trial)
+                        </Label>
+                        <p className="text-xs text-muted-foreground mb-4">
+                          Configure dias grátis para novos clientes experimentarem antes de pagar
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Dias de Trial Grátis</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={365}
+                              value={formData.trial_days}
+                              onChange={(e) => handleFormChange("trial_days", parseInt(e.target.value) || 0)}
+                              placeholder="0 = sem trial"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              {formData.trial_days === 0 
+                                ? "Trial desativado" 
+                                : `${formData.trial_days} dias grátis`}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                            <div>
+                              <Label className="flex items-center gap-2">
+                                <CreditCard className="h-4 w-4" />
+                                Exigir Cartão no Cadastro
+                              </Label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {formData.trial_requires_card 
+                                  ? "Cobra automaticamente após o trial" 
+                                  : "Sem cartão, usuário assina depois"}
+                              </p>
+                            </div>
+                            <Switch
+                              checked={formData.trial_requires_card}
+                              onCheckedChange={(checked) => handleFormChange("trial_requires_card", checked)}
+                              disabled={formData.trial_days === 0}
+                            />
+                          </div>
+                        </div>
+                        {formData.trial_days > 0 && (
+                          <div className={`mt-3 p-3 rounded-lg text-xs ${
+                            formData.trial_requires_card 
+                              ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20" 
+                              : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                          }`}>
+                            {formData.trial_requires_card ? (
+                              <>
+                                <strong>Modo Apple/iOS:</strong> Cartão coletado no cadastro, cobrado automaticamente após {formData.trial_days} dias via Stripe.
+                              </>
+                            ) : (
+                              <>
+                                <strong>Modo Freemium:</strong> Acesso grátis por {formData.trial_days} dias. Após expirar, usuário será bloqueado até assinar.
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Checkout Link */}
                       <div className="p-4 rounded-lg border bg-muted/30 mt-4">
                         <Label className="flex items-center gap-2 mb-2">
