@@ -6,32 +6,34 @@ import { LeadsTable } from '@/components/dashboard/LeadsTable';
 import { MobileLeadsList } from '@/components/dashboard/MobileLeadsList';
 import { MobileFilters } from '@/components/dashboard/MobileFilters';
 import { useLeads } from '@/hooks/useLeads';
+import { useLeadsSalesData } from '@/hooks/useLeadsSalesData';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
+import { LeadsAdvancedFilters, LeadsFilters } from '@/components/leads/LeadsAdvancedFilters';
+import { FunnelStage } from '@/types/lead';
 
 export default function LeadsList() {
   const navigate = useNavigate();
   const { data: leads = [], isLoading, error } = useLeads();
+  const { data: salesData = {} } = useLeadsSalesData();
   const isMobile = useIsMobile();
   const { isAdmin: isGlobalAdmin } = useAuth();
   const { isAdmin: isTenantAdmin, isOwner } = useTenant();
   const { data: permissions } = useMyPermissions();
   const [search, setSearch] = useState('');
-  const [stageFilter, setStageFilter] = useState<string>('all');
-  const [starsFilter, setStarsFilter] = useState<string>('all');
-  const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null);
+  
+  const [filters, setFilters] = useState<LeadsFilters>({
+    stage: 'all',
+    stars: 'all',
+    responsavel: null,
+    assignedUserId: null,
+    salesStatus: 'all',
+    noSalesDays: null,
+  });
   
   // Check if user can see "Novo Lead" button
   const isAdmin = isGlobalAdmin || isTenantAdmin || isOwner;
@@ -45,6 +47,7 @@ export default function LeadsList() {
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
 
+    // Text search
     if (search) {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(
@@ -57,20 +60,44 @@ export default function LeadsList() {
       );
     }
 
-    if (stageFilter !== 'all') {
-      filtered = filtered.filter((lead) => lead.stage === stageFilter);
+    // Stage filter
+    if (filters.stage !== 'all') {
+      filtered = filtered.filter((lead) => lead.stage === filters.stage);
     }
 
-    if (starsFilter !== 'all') {
-      filtered = filtered.filter((lead) => lead.stars === parseInt(starsFilter));
+    // Stars filter
+    if (filters.stars !== 'all') {
+      filtered = filtered.filter((lead) => lead.stars === parseInt(filters.stars));
     }
 
-    if (responsavelFilter) {
-      filtered = filtered.filter((lead) => lead.assigned_to === responsavelFilter);
+    // Responsavel filter (legacy)
+    if (filters.responsavel) {
+      filtered = filtered.filter((lead) => lead.assigned_to === filters.responsavel);
+    }
+
+    // Assigned user filter (new - by user_id)
+    if (filters.assignedUserId) {
+      filtered = filtered.filter((lead) => lead.assigned_to === filters.assignedUserId);
+    }
+
+    // Sales status filters
+    if (filters.salesStatus === 'no_sales') {
+      // Leads that have no sales at all
+      filtered = filtered.filter((lead) => !salesData[lead.id]?.has_any_sale);
+    } else if (filters.salesStatus === 'has_sales_this_month') {
+      // Leads with sales this month
+      filtered = filtered.filter((lead) => salesData[lead.id]?.has_sale_this_month);
+    } else if (filters.salesStatus === 'no_sales_x_days' && filters.noSalesDays) {
+      // Leads with last sale older than X days OR no sales at all
+      filtered = filtered.filter((lead) => {
+        const data = salesData[lead.id];
+        if (!data?.has_any_sale) return true; // No sales = include
+        return (data.days_since_last_sale ?? 0) >= filters.noSalesDays!;
+      });
     }
 
     return filtered;
-  }, [leads, search, stageFilter, starsFilter, responsavelFilter]);
+  }, [leads, search, filters, salesData]);
 
   if (isLoading) {
     return (
@@ -116,7 +143,7 @@ export default function LeadsList() {
 
         {/* Filters */}
         <div className="bg-card rounded-xl p-3 lg:p-4 shadow-card">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -128,46 +155,24 @@ export default function LeadsList() {
               />
             </div>
             
-            {/* Desktop Filters */}
-            <div className="hidden sm:flex gap-3">
-              <Select value={stageFilter} onValueChange={setStageFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Etapa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as etapas</SelectItem>
-                  {Object.entries(FUNNEL_STAGES).map(([key, value]) => (
-                    <SelectItem key={key} value={key}>
-                      {value.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={starsFilter} onValueChange={setStarsFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Estrelas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="5">5 estrelas</SelectItem>
-                  <SelectItem value="4">4 estrelas</SelectItem>
-                  <SelectItem value="3">3 estrelas</SelectItem>
-                  <SelectItem value="2">2 estrelas</SelectItem>
-                  <SelectItem value="1">1 estrela</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Desktop Advanced Filters */}
+            {!isMobile && (
+              <LeadsAdvancedFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                responsaveis={responsaveis}
+              />
+            )}
 
             {/* Mobile Filter Button */}
             {isMobile && (
               <MobileFilters
-                selectedStars={starsFilter !== 'all' ? parseInt(starsFilter) : null}
-                selectedStage={stageFilter !== 'all' ? stageFilter as FunnelStage : null}
-                selectedResponsavel={responsavelFilter}
-                onSelectStars={(stars) => setStarsFilter(stars?.toString() || 'all')}
-                onSelectStage={(stage) => setStageFilter(stage || 'all')}
-                onSelectResponsavel={setResponsavelFilter}
+                selectedStars={filters.stars !== 'all' ? parseInt(filters.stars) : null}
+                selectedStage={filters.stage !== 'all' ? filters.stage as FunnelStage : null}
+                selectedResponsavel={filters.responsavel}
+                onSelectStars={(stars) => setFilters(f => ({ ...f, stars: stars?.toString() || 'all' }))}
+                onSelectStage={(stage) => setFilters(f => ({ ...f, stage: stage || 'all' }))}
+                onSelectResponsavel={(resp) => setFilters(f => ({ ...f, responsavel: resp }))}
                 responsaveis={responsaveis}
               />
             )}
