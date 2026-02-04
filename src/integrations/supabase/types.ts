@@ -16207,6 +16207,304 @@ export type Database = {
         }
         Relationships: []
       }
+      team_conversation_members: {
+        Row: {
+          can_send_messages: boolean | null
+          conversation_id: string
+          id: string
+          is_muted: boolean | null
+          joined_at: string
+          last_read_at: string | null
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          can_send_messages?: boolean | null
+          conversation_id: string
+          id?: string
+          is_muted?: boolean | null
+          joined_at?: string
+          last_read_at?: string | null
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          can_send_messages?: boolean | null
+          conversation_id?: string
+          id?: string
+          is_muted?: boolean | null
+          joined_at?: string
+          last_read_at?: string | null
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_conversation_members_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_conversation_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_conversations: {
+        Row: {
+          avatar_url: string | null
+          context_id: string | null
+          context_name: string | null
+          context_type: string | null
+          conversation_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_archived: boolean | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          name: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          context_id?: string | null
+          context_name?: string | null
+          context_type?: string | null
+          conversation_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_archived?: boolean | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          name?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          context_id?: string | null
+          context_name?: string | null
+          context_type?: string | null
+          conversation_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_archived?: boolean | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          name?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_mentions: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          entity_id: string | null
+          entity_name: string | null
+          id: string
+          is_read: boolean | null
+          mention_type: string
+          mentioned_by: string
+          mentioned_user_id: string | null
+          message_id: string
+          organization_id: string
+          read_at: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          id?: string
+          is_read?: boolean | null
+          mention_type: string
+          mentioned_by: string
+          mentioned_user_id?: string | null
+          message_id: string
+          organization_id: string
+          read_at?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          id?: string
+          is_read?: boolean | null
+          mention_type?: string
+          mentioned_by?: string
+          mentioned_user_id?: string | null
+          message_id?: string
+          organization_id?: string
+          read_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_mentions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_mentions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_mentions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_messages: {
+        Row: {
+          attachments: Json | null
+          content: string
+          content_type: string
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          is_deleted: boolean | null
+          is_edited: boolean | null
+          mentions: Json | null
+          organization_id: string
+          reply_to_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          content_type?: string
+          conversation_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
+          mentions?: Json | null
+          organization_id: string
+          reply_to_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          content_type?: string
+          conversation_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
+          mentions?: Json | null
+          organization_id?: string
+          reply_to_id?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_unread_counts: {
+        Row: {
+          conversation_id: string
+          id: string
+          last_updated_at: string
+          organization_id: string
+          unread_count: number
+          unread_mentions: number
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          last_updated_at?: string
+          organization_id: string
+          unread_count?: number
+          unread_mentions?: number
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          last_updated_at?: string
+          organization_id?: string
+          unread_count?: number
+          unread_mentions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_unread_counts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_unread_counts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           color: string | null
