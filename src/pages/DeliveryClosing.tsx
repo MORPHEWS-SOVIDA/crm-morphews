@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SaleSelectionCard } from '@/components/expedition/SaleSelectionCard';
 import { 
   Store, 
@@ -22,6 +24,9 @@ import {
   Lock,
   Banknote,
   AlertCircle,
+  Search,
+  Filter,
+  X,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -75,6 +80,11 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
   const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
   const [pendingCashAmount, setPendingCashAmount] = useState(0);
+  
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sellerFilter, setSellerFilter] = useState<string>('all');
 
   const { data: availableSales = [], isLoading: loadingSales } = useAvailableClosingSales(closingType);
   const { data: closings = [], isLoading: loadingClosings } = useDeliveryClosings(closingType);
@@ -101,12 +111,74 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   };
 
   const selectAll = () => {
-    setSelectedSales(new Set(availableSales.map(s => s.id)));
+    setSelectedSales(new Set(filteredSales.map(s => s.id)));
   };
 
   const clearSelection = () => {
     setSelectedSales(new Set());
   };
+  
+  // Get unique sellers for filter dropdown
+  const uniqueSellers = useMemo(() => {
+    const sellers = new Map<string, string>();
+    availableSales.forEach(sale => {
+      if (sale.seller_user_id && sale.seller_profile) {
+        const name = `${sale.seller_profile.first_name || ''} ${sale.seller_profile.last_name || ''}`.trim();
+        if (name) sellers.set(sale.seller_user_id, name);
+      }
+    });
+    return Array.from(sellers.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [availableSales]);
+
+  // Filter sales based on search and filters
+  const filteredSales = useMemo(() => {
+    return availableSales.filter(sale => {
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const leadName = sale.lead?.name?.toLowerCase() || '';
+        const romaneioNum = String(sale.romaneio_number || '');
+        const trackingCode = sale.tracking_code?.toLowerCase() || '';
+        
+        if (!leadName.includes(search) && !romaneioNum.includes(search) && !trackingCode.includes(search)) {
+          return false;
+        }
+      }
+      
+      // Status filter for carrier
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'delivered') {
+          // Has delivery_status = 'entregue' or carrier_tracking_status = 'delivered'
+          const deliveryStatus = String(sale.delivery_status || '').toLowerCase();
+          const trackingStatus = String(sale.carrier_tracking_status || '').toLowerCase();
+          const isDelivered = deliveryStatus === 'entregue' || 
+            trackingStatus === 'delivered' ||
+            trackingStatus === 'entregue';
+          if (!isDelivered) return false;
+        } else if (statusFilter === 'not_printed') {
+          // Doesn't have a label or tracking code
+          const hasLabel = sale.tracking_code || sale.melhor_envio_label;
+          if (hasLabel) return false;
+        } else if (statusFilter === 'pending') {
+          // Has label but not delivered yet
+          const hasLabel = sale.tracking_code || sale.melhor_envio_label;
+          const deliveryStatus = String(sale.delivery_status || '').toLowerCase();
+          const trackingStatus = String(sale.carrier_tracking_status || '').toLowerCase();
+          const isDelivered = deliveryStatus === 'entregue' || 
+            trackingStatus === 'delivered' ||
+            trackingStatus === 'entregue';
+          if (!hasLabel || isDelivered) return false;
+        }
+      }
+      
+      // Seller filter
+      if (sellerFilter !== 'all' && sale.seller_user_id !== sellerFilter) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [availableSales, searchTerm, statusFilter, sellerFilter]);
 
   const selectedSalesData = useMemo(() => {
     return availableSales.filter(s => selectedSales.has(s.id));
@@ -115,6 +187,14 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const totals = useMemo(() => {
     return calculateCategoryTotals(selectedSalesData);
   }, [selectedSalesData]);
+  
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setSellerFilter('all');
+  };
+  
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || sellerFilter !== 'all';
 
   const handleCreateClosing = async () => {
     if (selectedSalesData.length === 0) {
@@ -272,14 +352,74 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
               </Card>
             ) : (
               <div className="space-y-4">
+                {/* Filters */}
+                <Card className="bg-muted/30">
+                  <CardContent className="py-3">
+                    <div className="flex flex-col md:flex-row gap-3">
+                      {/* Search */}
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por cliente, nº venda ou rastreio..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      
+                      {/* Status Filter (only for carrier) */}
+                      {closingType === 'carrier' && (
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="w-full md:w-[200px]">
+                            <Filter className="w-4 h-4 mr-2" />
+                            <SelectValue placeholder="Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos os Status</SelectItem>
+                            <SelectItem value="not_printed">🖨️ Sem Etiqueta</SelectItem>
+                            <SelectItem value="pending">📦 Com Etiqueta</SelectItem>
+                            <SelectItem value="delivered">✅ Entregue</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      
+                      {/* Seller Filter */}
+                      {uniqueSellers.length > 1 && (
+                        <Select value={sellerFilter} onValueChange={setSellerFilter}>
+                          <SelectTrigger className="w-full md:w-[180px]">
+                            <SelectValue placeholder="Vendedor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos Vendedores</SelectItem>
+                            {uniqueSellers.map(([id, name]) => (
+                              <SelectItem key={id} value={id}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      
+                      {/* Clear Filters */}
+                      {hasActiveFilters && (
+                        <Button variant="ghost" size="icon" onClick={clearFilters} title="Limpar filtros">
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Selection controls */}
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
-                    {availableSales.length} venda(s) disponível(eis) • {selectedSales.size} selecionada(s)
+                    {hasActiveFilters ? (
+                      <>{filteredSales.length} de {availableSales.length} venda(s) • {selectedSales.size} selecionada(s)</>
+                    ) : (
+                      <>{availableSales.length} venda(s) disponível(eis) • {selectedSales.size} selecionada(s)</>
+                    )}
                   </p>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={selectAll}>
-                      Selecionar Todas
+                      Selecionar {hasActiveFilters ? 'Filtradas' : 'Todas'}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={clearSelection}>
                       Limpar
@@ -290,20 +430,30 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                 {/* Sales list */}
                 <Card>
                   <CardContent className="p-0">
-                    <div className="divide-y">
-                      {availableSales.map(sale => (
-                        <SaleSelectionCard
-                          key={sale.id}
-                          sale={sale}
-                          isSelected={selectedSales.has(sale.id)}
-                          onToggle={() => toggleSale(sale.id)}
-                          selectedBgClass={colors.selected}
-                          showTracking={closingType === 'carrier'}
-                          showProofLink={closingType === 'motoboy' || closingType === 'carrier'}
-                          showEditPayment={closingType === 'motoboy' || closingType === 'carrier'}
-                        />
-                      ))}
-                    </div>
+                    {filteredSales.length === 0 ? (
+                      <div className="py-12 text-center text-muted-foreground">
+                        <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p>Nenhuma venda encontrada com os filtros aplicados</p>
+                        <Button variant="link" onClick={clearFilters} className="mt-2">
+                          Limpar filtros
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {filteredSales.map(sale => (
+                          <SaleSelectionCard
+                            key={sale.id}
+                            sale={sale}
+                            isSelected={selectedSales.has(sale.id)}
+                            onToggle={() => toggleSale(sale.id)}
+                            selectedBgClass={colors.selected}
+                            showTracking={closingType === 'carrier'}
+                            showProofLink={closingType === 'motoboy' || closingType === 'carrier'}
+                            showEditPayment={closingType === 'motoboy' || closingType === 'carrier'}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
