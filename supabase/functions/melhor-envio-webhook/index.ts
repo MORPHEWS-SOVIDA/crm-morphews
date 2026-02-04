@@ -395,14 +395,19 @@ async function triggerTrackingNotification(
       return;
     }
 
-    // Get sale info with lead data
+    // Get sale info with lead data, items and label info
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .select(`
         id,
+        romaneio_number,
+        total_cents,
+        tracking_code,
         lead_id,
         seller_user_id,
-        leads!inner(id, name, whatsapp, lead_products(name))
+        leads!inner(id, name, whatsapp, lead_products(name, brand)),
+        sale_items(product_name),
+        melhor_envio_labels(tracking_code, company_name, service_name, melhor_envio_order_id)
       `)
       .eq('id', saleId)
       .single();
@@ -432,16 +437,46 @@ async function triggerTrackingNotification(
       }
     }
 
-    // Replace variables in message template
+    // Prepare all variables for replacement
     const leadName = lead.name || '';
     const firstName = leadName.split(' ')[0] || '';
-    const productName = (lead.lead_products as any)?.name || '';
+    const productName = (lead.lead_products as any)?.name || (sale.sale_items as any)?.[0]?.product_name || '';
+    const brandName = (lead.lead_products as any)?.brand || '';
+    
+    // Get tracking info from melhor_envio_labels or sale
+    const melhorEnvioLabel = (sale.melhor_envio_labels as any)?.[0];
+    const trackingCode = sale.tracking_code || melhorEnvioLabel?.tracking_code || '';
+    const carrierName = melhorEnvioLabel?.company_name || 'Correios';
+    const orderId = melhorEnvioLabel?.melhor_envio_order_id || '';
+    
+    // Build tracking link - use the real tracking code if available, not the UUID
+    // Real tracking codes from Correios don't have dashes and look like "AB123456789BR"
+    const isRealTrackingCode = trackingCode && !trackingCode.includes('-');
+    let trackingLink = '';
+    if (isRealTrackingCode && trackingCode) {
+      // Use Melhor Rastreio for easy tracking
+      const carrierType = carrierName.toLowerCase().includes('correios') ? 'correios' : 'rastreio';
+      trackingLink = `https://www.melhorrastreio.com.br/app/${carrierType}/${trackingCode}`;
+    } else if (orderId) {
+      // If no real tracking code yet, link to melhor envio order (limited usefulness for customer)
+      trackingLink = `https://www.melhorrastreio.com.br/rastreio/${orderId}`;
+    }
+    
+    // Format value
+    const totalValue = sale.total_cents ? `R$ ${(sale.total_cents / 100).toFixed(2).replace('.', ',')}` : '';
+    const saleNumber = sale.romaneio_number ? String(sale.romaneio_number) : sale.id.slice(0, 8);
 
     let finalMessage = statusConfig.message_template
       .replace(/\{\{nome\}\}/g, leadName)
       .replace(/\{\{primeiro_nome\}\}/g, firstName)
       .replace(/\{\{vendedor\}\}/g, sellerName)
-      .replace(/\{\{produto\}\}/g, productName);
+      .replace(/\{\{produto\}\}/g, productName)
+      .replace(/\{\{marca\}\}/g, brandName)
+      .replace(/\{\{link_rastreio\}\}/g, trackingLink)
+      .replace(/\{\{codigo_rastreio\}\}/g, isRealTrackingCode ? trackingCode : '')
+      .replace(/\{\{transportadora\}\}/g, carrierName)
+      .replace(/\{\{numero_venda\}\}/g, saleNumber)
+      .replace(/\{\{valor\}\}/g, totalValue);
 
     console.log(`[melhor-envio-webhook] Scheduling message for lead ${lead.id}`);
 
