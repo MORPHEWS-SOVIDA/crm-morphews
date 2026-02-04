@@ -320,35 +320,62 @@ async function createLabel(
   }
 
   // After generate, fetch updated order info to get the real tracking code
+  // The tracking code should be available immediately after generation
   let realTrackingCode = purchasedOrder.tracking;
+  const serviceName = purchasedOrder.service?.name || `Serviço ${service_id}`;
   
-  // If tracking is not available yet, query the order info endpoint
-  if (!realTrackingCode || realTrackingCode === orderId) {
-    try {
-      const orderInfoResponse = await fetch(`${baseUrl}/me/orders/${orderId}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
-        },
-      });
-      
-      if (orderInfoResponse.ok) {
-        const orderInfo = await orderInfoResponse.json();
-        console.log('[Melhor Envio] Order info for tracking:', JSON.stringify(orderInfo).substring(0, 500));
-        realTrackingCode = orderInfo.tracking || orderInfo.self_tracking || null;
+  // Helper to check if tracking is a real code (not UUID)
+  const isRealTrackingCode = (code: string | null | undefined): boolean => {
+    if (!code) return false;
+    // Real tracking codes don't contain hyphens (UUIDs do) and follow carrier patterns
+    // Correios: 2 letters + 9 digits + 2 letters (e.g., AB123456789BR)
+    // Other carriers may vary but won't be UUIDs
+    return !code.includes('-') && code !== orderId;
+  };
+  
+  // If tracking is not available yet, query the order info endpoint with retries
+  // Melhor Envio may take a moment to generate the tracking code after label generation
+  if (!isRealTrackingCode(realTrackingCode)) {
+    console.log('[Melhor Envio] Tracking not in checkout response, querying order info...');
+    
+    // Try up to 3 times with increasing delays
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Wait before querying (500ms, 1000ms, 1500ms)
+        await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        
+        const orderInfoResponse = await fetch(`${baseUrl}/me/orders/${orderId}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+          },
+        });
+        
+        if (orderInfoResponse.ok) {
+          const orderInfo = await orderInfoResponse.json();
+          console.log(`[Melhor Envio] Order info attempt ${attempt}:`, JSON.stringify(orderInfo).substring(0, 800));
+          
+          // Check multiple possible fields for tracking code
+          const potentialCode = orderInfo.tracking || orderInfo.self_tracking || orderInfo.protocol;
+          
+          if (isRealTrackingCode(potentialCode)) {
+            realTrackingCode = potentialCode;
+            console.log(`[Melhor Envio] Got real tracking code on attempt ${attempt}: ${realTrackingCode}`);
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn(`[Melhor Envio] Attempt ${attempt} failed:`, err);
       }
-    } catch (err) {
-      console.warn('[Melhor Envio] Could not fetch order info for tracking:', err);
     }
   }
   
   // Use real tracking code if available, otherwise store the order ID (webhook will update later)
-  const trackingCode = realTrackingCode || orderId;
-  const serviceName = purchasedOrder.service?.name || `Serviço ${service_id}`;
+  const trackingCode = isRealTrackingCode(realTrackingCode) ? realTrackingCode : orderId;
   
-  console.log(`[Melhor Envio] Final tracking code: ${trackingCode} (real: ${!!realTrackingCode})`);
+  console.log(`[Melhor Envio] Final tracking code: ${trackingCode} (isReal: ${isRealTrackingCode(trackingCode)})`);
 
   // Save label to database
   const labelData = {
