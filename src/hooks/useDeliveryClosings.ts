@@ -41,6 +41,21 @@ export interface DeliveryClosingSale {
   total_cents: number | null;
   payment_method: string | null;
   delivered_at: string | null;
+  // Enriched data from join with sales table
+  tracking_code?: string | null;
+  carrier_tracking_status?: string | null;
+  created_at?: string | null;
+  delivery_status?: string | null;
+  payment_proof_url?: string | null;
+  payment_category?: string | null;
+  seller_profile?: { first_name: string | null; last_name: string | null } | null;
+  melhor_envio_label?: {
+    id: string;
+    tracking_code: string | null;
+    status: string | null;
+    company_name: string | null;
+    service_name: string | null;
+  } | null;
 }
 
 // Map closing type to delivery type filter
@@ -207,21 +222,70 @@ export function useDeliveryClosings(closingType: ClosingType) {
   });
 }
 
-// Fetch sales for a specific closing
+// Fetch sales for a specific closing (with enriched data from sales table)
 export function useDeliveryClosingSales(closingId: string | undefined) {
   return useQuery({
     queryKey: ['delivery-closing-sales', closingId],
     queryFn: async () => {
       if (!closingId) return [];
 
-      const { data, error } = await supabase
+      // First get the closing sales
+      const { data: closingSales, error } = await supabase
         .from('pickup_closing_sales')
         .select('*')
         .eq('closing_id', closingId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as DeliveryClosingSale[];
+      if (!closingSales || closingSales.length === 0) return [];
+
+      // Get sale IDs to fetch enriched data
+      const saleIds = closingSales.map(cs => cs.sale_id);
+
+      // Fetch enriched data from sales table
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select(`
+          id,
+          tracking_code,
+          carrier_tracking_status,
+          created_at,
+          delivery_status,
+          payment_proof_url,
+          seller_user_id,
+          seller_profile:profiles!sales_seller_user_id_fkey(first_name, last_name),
+          payment_method_rel:payment_methods(id, name, category),
+          melhor_envio_labels(id, tracking_code, status, company_name, service_name)
+        `)
+        .in('id', saleIds);
+
+      if (salesError) {
+        console.warn('[DeliveryClosings] Error fetching enriched data:', salesError);
+        return closingSales as DeliveryClosingSale[];
+      }
+
+      // Create a map for quick lookup
+      const salesMap = new Map(salesData?.map(s => [s.id, s]) || []);
+
+      // Merge data
+      return closingSales.map(cs => {
+        const enrichedSale = salesMap.get(cs.sale_id);
+        // seller_profile comes as array from join, take first
+        const sellerProfile = Array.isArray(enrichedSale?.seller_profile) 
+          ? enrichedSale?.seller_profile[0] 
+          : enrichedSale?.seller_profile;
+        return {
+          ...cs,
+          tracking_code: enrichedSale?.tracking_code,
+          carrier_tracking_status: enrichedSale?.carrier_tracking_status,
+          created_at: enrichedSale?.created_at || cs.created_at,
+          delivery_status: enrichedSale?.delivery_status,
+          payment_proof_url: enrichedSale?.payment_proof_url,
+          payment_category: enrichedSale?.payment_method_rel?.category,
+          seller_profile: sellerProfile || null,
+          melhor_envio_label: enrichedSale?.melhor_envio_labels?.[0] || null,
+        } as DeliveryClosingSale;
+      });
     },
     enabled: !!closingId,
   });
