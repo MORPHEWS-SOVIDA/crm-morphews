@@ -44,10 +44,16 @@ interface TrackingStatusMessageEditorProps {
 }
 
 const VARIABLES = [
-  { key: '{{nome}}', label: 'Nome do cliente' },
-  { key: '{{primeiro_nome}}', label: 'Primeiro nome' },
+  { key: '{{nome}}', label: 'Nome completo do cliente' },
+  { key: '{{primeiro_nome}}', label: 'Primeiro nome do cliente' },
   { key: '{{vendedor}}', label: 'Nome do vendedor' },
-  { key: '{{produto}}', label: 'Produto comprado' },
+  { key: '{{produto}}', label: 'Nome do produto' },
+  { key: '{{marca}}', label: 'Marca do produto' },
+  { key: '{{link_rastreio}}', label: 'Link de rastreio' },
+  { key: '{{codigo_rastreio}}', label: 'Código de rastreio' },
+  { key: '{{transportadora}}', label: 'Nome da transportadora' },
+  { key: '{{numero_venda}}', label: 'Número da venda' },
+  { key: '{{valor}}', label: 'Valor total da venda' },
 ];
 
 export function TrackingStatusMessageEditor({
