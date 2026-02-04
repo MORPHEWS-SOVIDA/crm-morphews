@@ -10,6 +10,11 @@ export interface ScheduledMessage {
   lead_id: string;
   template_id: string | null;
   whatsapp_instance_id: string | null;
+  fallback_instance_ids: string[] | null;
+  attempt_count: number;
+  current_instance_index: number;
+  max_attempts: number;
+  last_attempt_at: string | null;
   scheduled_at: string;
   original_scheduled_at: string;
   sent_at: string | null;
@@ -181,19 +186,28 @@ export function useRetryFailedMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, newInstanceId }: { id: string; newInstanceId?: string }) => {
       // Reset to pending with a new scheduled time (now + 1 minute)
       const newScheduledAt = new Date();
       newScheduledAt.setMinutes(newScheduledAt.getMinutes() + 1);
 
+      const updates: Record<string, unknown> = {
+        status: 'pending',
+        scheduled_at: newScheduledAt.toISOString(),
+        failure_reason: null,
+        attempt_count: 0,
+        current_instance_index: 0,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If a new instance was specified, update it
+      if (newInstanceId) {
+        updates.whatsapp_instance_id = newInstanceId;
+      }
+
       const { error } = await supabase
         .from('lead_scheduled_messages')
-        .update({
-          status: 'pending',
-          scheduled_at: newScheduledAt.toISOString(),
-          failure_reason: null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updates)
         .eq('id', id);
 
       if (error) throw error;
@@ -205,6 +219,73 @@ export function useRetryFailedMessage() {
     onError: (error: Error) => {
       console.error('Error retrying message:', error);
       toast.error('Erro ao reagendar mensagem');
+    },
+  });
+}
+
+export function useRetryFailedMessagesBulk() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ids, newInstanceId }: { ids: string[]; newInstanceId?: string }) => {
+      const newScheduledAt = new Date();
+      newScheduledAt.setMinutes(newScheduledAt.getMinutes() + 1);
+
+      const updates: Record<string, unknown> = {
+        status: 'pending',
+        scheduled_at: newScheduledAt.toISOString(),
+        failure_reason: null,
+        attempt_count: 0,
+        current_instance_index: 0,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (newInstanceId) {
+        updates.whatsapp_instance_id = newInstanceId;
+      }
+
+      const { error } = await supabase
+        .from('lead_scheduled_messages')
+        .update(updates)
+        .in('id', ids);
+
+      if (error) throw error;
+      return { count: ids.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
+      toast.success(`${data.count} mensagens reagendadas`);
+    },
+    onError: (error: Error) => {
+      console.error('Error retrying messages:', error);
+      toast.error('Erro ao reagendar mensagens');
+    },
+  });
+}
+
+export function useChangeMessageInstance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ids, newInstanceId }: { ids: string[]; newInstanceId: string }) => {
+      const { error } = await supabase
+        .from('lead_scheduled_messages')
+        .update({
+          whatsapp_instance_id: newInstanceId,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', ids);
+
+      if (error) throw error;
+      return { count: ids.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
+      toast.success(`${data.count} mensagens atualizadas`);
+    },
+    onError: (error: Error) => {
+      console.error('Error changing instance:', error);
+      toast.error('Erro ao trocar instância');
     },
   });
 }

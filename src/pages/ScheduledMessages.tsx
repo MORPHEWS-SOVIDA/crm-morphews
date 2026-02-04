@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Select, 
   SelectContent, 
@@ -46,7 +47,6 @@ import {
   Search,
   RefreshCw,
   MessageSquare,
-  
   Calendar,
   Loader2,
   WifiOff,
@@ -58,6 +58,10 @@ import {
   Image,
   Mic,
   FileIcon,
+  LayoutDashboard,
+  List,
+  Zap,
+  TrendingUp,
 } from 'lucide-react';
 import { 
   useScheduledMessages, 
@@ -72,10 +76,11 @@ import { useTenant } from '@/hooks/useTenant';
 import { useUsers } from '@/hooks/useUsers';
 import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
 import { useLeads } from '@/hooks/useLeads';
-import { format, formatDistanceToNow, isPast } from 'date-fns';
+import { format, formatDistanceToNow, isPast, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { MediaUploader } from '@/components/scheduled-messages/MediaUploader';
+import { FailedMessagesBulkActions } from '@/components/scheduled-messages/FailedMessagesBulkActions';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pending: { label: 'Pendente', icon: Clock, className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
@@ -369,6 +374,7 @@ function CreateMessageDialog({ open, onClose }: CreateDialogProps) {
 }
 
 export default function ScheduledMessages() {
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
@@ -385,6 +391,7 @@ export default function ScheduledMessages() {
   const { data: permissions } = useMyPermissions();
   const { isAdmin, isOwner } = useTenant();
   const { data: users = [] } = useUsers();
+  const { data: instances = [] } = useWhatsAppInstances();
 
   const canManage = isAdmin || isOwner || permissions?.scheduled_messages_manage;
   const canViewAll = isAdmin || isOwner;
@@ -418,15 +425,36 @@ export default function ScheduledMessages() {
     pending: messages.filter((m) => m.status === 'pending').length,
     sent: messages.filter((m) => m.status === 'sent').length,
     failed: messages.filter((m) => m.status === 'failed_offline' || m.status === 'failed_other').length,
+    failedOffline: messages.filter((m) => m.status === 'failed_offline').length,
+    failedOther: messages.filter((m) => m.status === 'failed_other').length,
     cancelled: messages.filter((m) => m.status === 'cancelled').length,
+    total: messages.length,
   };
+
+  // Calculate additional metrics
+  const now = new Date();
+  const last24h = subDays(now, 1);
+  const recentSent = messages.filter(m => 
+    m.status === 'sent' && 
+    m.sent_at && 
+    new Date(m.sent_at) >= last24h
+  ).length;
+  
+  const overdueCount = messages.filter(m => 
+    m.status === 'pending' && 
+    isPast(new Date(m.scheduled_at))
+  ).length;
+
+  // Connected instances
+  const connectedInstances = instances.filter(i => i.is_connected && i.status === 'active');
+  const disconnectedInstances = instances.filter(i => !i.is_connected || i.status !== 'active');
 
   const handleCancel = (id: string) => {
     cancelMessage.mutate({ id });
   };
 
   const handleRetry = (id: string) => {
-    retryMessage.mutate(id);
+    retryMessage.mutate({ id });
   };
 
   const clearFilters = () => {
@@ -465,53 +493,230 @@ export default function ScheduledMessages() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Pendentes</p>
-                  <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+            <TabsTrigger value="overview" className="gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden sm:inline">Visão Geral</span>
+              <span className="sm:hidden">Geral</span>
+            </TabsTrigger>
+            <TabsTrigger value="failed" className="gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="hidden sm:inline">Falhadas</span>
+              <span className="sm:hidden">Falhas</span>
+              {stats.failed > 0 && (
+                <Badge variant="destructive" className="text-xs px-1.5">{stats.failed}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="all" className="gap-2">
+              <List className="w-4 h-4" />
+              <span className="hidden sm:inline">Todas</span>
+              <span className="sm:hidden">Lista</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* Stats Cards - Enhanced */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card className={overdueCount > 0 ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pendentes</p>
+                      <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                      {overdueCount > 0 && (
+                        <p className="text-xs text-amber-600 font-medium mt-1">
+                          {overdueCount} atrasadas!
+                        </p>
+                      )}
+                    </div>
+                    <Clock className="w-8 h-8 text-amber-500/30" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Enviadas</p>
+                      <p className="text-2xl font-bold text-green-600">{stats.sent}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        +{recentSent} (24h)
+                      </p>
+                    </div>
+                    <CheckCircle className="w-8 h-8 text-green-500/30" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className={stats.failed > 0 ? 'border-red-500 bg-red-50/50 dark:bg-red-950/20' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Falharam</p>
+                      <p className="text-2xl font-bold text-red-600">{stats.failed}</p>
+                      {stats.failed > 0 && (
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="h-auto p-0 text-xs text-red-600"
+                          onClick={() => setActiveTab('failed')}
+                        >
+                          Gerenciar →
+                        </Button>
+                      )}
+                    </div>
+                    <AlertTriangle className="w-8 h-8 text-red-500/30" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Canceladas</p>
+                      <p className="text-2xl font-bold text-slate-600">{stats.cancelled}</p>
+                    </div>
+                    <XCircle className="w-8 h-8 text-slate-500/30" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-green-200 dark:border-green-800">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Inst. Conectadas</p>
+                      <p className="text-2xl font-bold text-green-600">{connectedInstances.length}</p>
+                    </div>
+                    <Zap className="w-8 h-8 text-green-500/30" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Taxa Sucesso</p>
+                      <p className="text-2xl font-bold">
+                        {stats.total > 0 
+                          ? Math.round((stats.sent / (stats.sent + stats.failed)) * 100) || 0
+                          : 0}%
+                      </p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-blue-500/30" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Instance Health */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Saúde das Instâncias WhatsApp
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {instances.map(inst => (
+                    <div 
+                      key={inst.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border ${
+                        inst.is_connected && inst.status === 'active'
+                          ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                          : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                      }`}
+                    >
+                      <div className={`w-3 h-3 rounded-full ${
+                        inst.is_connected && inst.status === 'active' 
+                          ? 'bg-green-500 animate-pulse' 
+                          : 'bg-red-500'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{inst.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {inst.is_connected && inst.status === 'active' ? 'Online' : 'Offline'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {instances.length === 0 && (
+                    <p className="text-sm text-muted-foreground col-span-full text-center py-4">
+                      Nenhuma instância configurada
+                    </p>
+                  )}
                 </div>
-                <Clock className="w-8 h-8 text-amber-500/30" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Enviadas</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.sent}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500/30" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Falharam</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.failed}</p>
-                </div>
-                <AlertTriangle className="w-8 h-8 text-red-500/30" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Canceladas</p>
-                  <p className="text-2xl font-bold text-slate-600">{stats.cancelled}</p>
-                </div>
-                <XCircle className="w-8 h-8 text-slate-500/30" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                {disconnectedInstances.length > 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      ⚠️ {disconnectedInstances.length} instância(s) desconectada(s). 
+                      Mensagens podem falhar se usarem essas instâncias.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick stats about fallback */}
+            {stats.failed > 0 && (
+              <Card className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <AlertTriangle className="w-8 h-8 text-red-500 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-red-800 dark:text-red-200">
+                        {stats.failed} mensagens falharam
+                      </h3>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                        {stats.failedOffline} por instância offline, {stats.failedOther} por outros erros.
+                        Use a aba "Falhadas" para reagendar em massa ou trocar de instância.
+                      </p>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="mt-3 border-red-300 text-red-700 hover:bg-red-100"
+                        onClick={() => setActiveTab('failed')}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Gerenciar Falhas
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Failed Messages Tab */}
+          <TabsContent value="failed" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  Gerenciar Mensagens Falhadas
+                </CardTitle>
+                <CardDescription>
+                  Reagende em massa, troque instância ou cancele mensagens com erro
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FailedMessagesBulkActions 
+                  messages={messages} 
+                  onComplete={() => refetch()}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* All Messages Tab */}
+          <TabsContent value="all" className="space-y-4">
 
         {/* Filters */}
         <Card>
@@ -757,6 +962,8 @@ export default function ScheduledMessages() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Dialog */}
