@@ -84,11 +84,12 @@ export default function DashboardKanban() {
   const filteredLeads = useMemo(() => {
     let result = [...leads];
     
-    console.log('[DashboardKanban] Filtering - selectedSellers:', selectedSellers, 'totalLeads:', leads.length);
+    console.log('[DashboardKanban] Filtering - selectedSellers:', selectedSellers, 'totalLeads:', leads.length, 'selectedManager:', selectedManager);
     
     // Se um gerente está selecionado e ele não tem vendedores associados,
     // o resultado deve ser vazio (senão o filtro parece "não funcionar").
     if (selectedManager && selectedSellers.length === 0) {
+      console.log('[DashboardKanban] Manager selected but no sellers - returning empty');
       return [];
     }
 
@@ -97,26 +98,38 @@ export default function DashboardKanban() {
       const selectedSellerIds = new Set(selectedSellers);
 
       // Get full names for selected user IDs to support legacy data
-      const selectedSellerNames = teamMembers
-        .filter(m => selectedSellerIds.has(m.user_id))
-        .map(m => m.full_name)
-        .filter(Boolean);
+      // Usar full_name_normalized para comparação caso exista
+      const selectedSellerNamesMap = new Map<string, string>();
+      teamMembers.forEach(m => {
+        if (selectedSellerIds.has(m.user_id)) {
+          const normalized = (m as any).full_name_normalized || normalizeAssignee(m.full_name);
+          selectedSellerNamesMap.set(normalized, m.full_name);
+        }
+      });
 
-      const selectedSellerNamesNormalized = new Set(
-        selectedSellerNames.map(normalizeAssignee)
-      );
+      const selectedSellerNamesNormalized = new Set(selectedSellerNamesMap.keys());
 
-      console.log('[DashboardKanban] selectedSellerNames:', selectedSellerNames);
+      console.log('[DashboardKanban] selectedSellersIds:', [...selectedSellerIds], 'selectedSellerNamesNormalized:', [...selectedSellerNamesNormalized]);
 
       result = result.filter((lead) => {
         const assigned = lead.assigned_to || '';
         if (!assigned) return false;
 
-        // assigned_to pode ser UUID (novo fluxo) ou nome (legado)
+        // 1. Match direto por UUID (novo fluxo)
         if (selectedSellerIds.has(assigned)) return true;
 
+        // 2. Match por nome normalizado (dados legados)
         const assignedNormalized = normalizeAssignee(assigned);
-        return selectedSellerNamesNormalized.has(assignedNormalized);
+        if (selectedSellerNamesNormalized.has(assignedNormalized)) return true;
+
+        // 3. Match parcial - verifica se algum nome normalizado está contido ou contém o assigned
+        for (const name of selectedSellerNamesNormalized) {
+          if (assignedNormalized.includes(name) || name.includes(assignedNormalized)) {
+            return true;
+          }
+        }
+
+        return false;
       });
 
       console.log('[DashboardKanban] After filtering:', result.length, 'leads');
