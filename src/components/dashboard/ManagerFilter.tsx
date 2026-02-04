@@ -33,10 +33,6 @@ export function ManagerFilter({
   const { data: managers = [], isLoading: managersLoading } = useManagers();
   const { data: teamMembers = [], isLoading: teamLoading } = useTeamMembers();
 
-  // Debug: Log de dados carregados
-  console.log('[ManagerFilter] managers:', managers.length, managers);
-  console.log('[ManagerFilter] teamMembers:', teamMembers.length, teamMembers.slice(0, 5));
-
   // Mapa de gerente -> vendedores associados
   const managerMembersMap = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -45,12 +41,15 @@ export function ManagerFilter({
         if (!map[member.manager_user_id]) {
           map[member.manager_user_id] = [];
         }
-        map[member.manager_user_id].push(member.user_id);
+        // Adiciona o membro ao time do gerente (se ainda não foi adicionado)
+        if (!map[member.manager_user_id].includes(member.user_id)) {
+          map[member.manager_user_id].push(member.user_id);
+        }
       }
     });
-    console.log('[ManagerFilter] teamMembers:', teamMembers.length, 'managerMembersMap:', map);
+    console.log('[ManagerFilter] Loaded - managers:', managers.length, 'teamMembers:', teamMembers.length, 'managerMembersMap:', map);
     return map;
-  }, [teamMembers]);
+  }, [teamMembers, managers]);
 
   // Contagem de vendedores por gerente
   const getManagerMemberCount = (managerId: string) => {
