@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, MessageCircle, ChevronLeft, ChevronRight, Loader2, Package, AlertCircle, DollarSign, TrendingUp, Clock, Truck, CheckCircle } from 'lucide-react';
+import { ExternalLink, ChevronLeft, ChevronRight, Loader2, Package, DollarSign, TrendingUp, Clock, Truck, CheckCircle } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,7 +19,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { formatCurrency } from '@/hooks/useSales';
 import { motoboyTrackingLabels } from '@/hooks/useMotoboyTracking';
 import { carrierTrackingLabels } from '@/hooks/useCarrierTracking';
-
+import { WhatsAppButton } from '@/components/WhatsAppButton';
 // Melhor Envio tracking labels
 const melhorEnvioTrackingLabels: Record<string, string> = {
   pending: 'Pendente',
@@ -69,11 +68,8 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
   const isReturned = sale.status === 'returned';
   const isPaid = sale.payment_status === 'paid_now' || sale.payment_status === 'paid_in_delivery';
   
-  // Build WhatsApp link
-  const whatsappNumber = sale.lead_whatsapp?.replace(/\D/g, '');
-  const whatsappLink = whatsappNumber 
-    ? `https://wa.me/55${whatsappNumber}` 
-    : null;
+  // Get clean WhatsApp number
+  const whatsappNumber = sale.lead_whatsapp?.replace(/\D/g, '') || '';
   
   return (
     <TableRow className={isReturned ? 'bg-red-50 dark:bg-red-950/30' : undefined}>
@@ -139,18 +135,14 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
         <DeliveryStatusBadge sale={sale} />
       </TableCell>
       
-      {/* Falar com Cliente */}
+      {/* Falar com Cliente - usa sistema interno de WhatsApp */}
       <TableCell>
-        {whatsappLink ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-green-600 border-green-300 hover:bg-green-50"
-            onClick={() => window.open(whatsappLink, '_blank')}
-          >
-            <MessageCircle className="w-4 h-4 mr-1" />
-            WhatsApp
-          </Button>
+        {whatsappNumber ? (
+          <WhatsAppButton 
+            phone={whatsappNumber} 
+            variant="icon"
+            className="h-8 w-8"
+          />
         ) : (
           <span className="text-xs text-muted-foreground">-</span>
         )}
@@ -490,8 +482,8 @@ export function SellerSalesList() {
                     <TableHead>Valor</TableHead>
                     <TableHead>Comissão</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Entrega</TableHead>
-                    <TableHead className="w-[120px]">Contato</TableHead>
+                    <TableHead>Rastreamento</TableHead>
+                    <TableHead className="w-[60px]">Contato</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
