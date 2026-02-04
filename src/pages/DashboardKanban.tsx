@@ -348,7 +348,7 @@ export default function DashboardKanban() {
                 )}
                 {selectedSellers.length > 0 && (
                   <span className="bg-muted px-2 py-1 rounded">
-                    {selectedSellers.length} vendedor(es) selecionado(s)
+                    {selectedSellers.length} membro(s) selecionado(s)
                   </span>
                 )}
                 {selectedInactivityDays && (
