@@ -162,8 +162,9 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
       }));
 
       // 4. Treatments ending soon (based on delivered sales + kit's usage_period_days)
-      // Since sale_items doesn't have kit_id, we need to match by product_id and quantity
-      const { data: treatmentsData } = myLeadIds.length > 0 ? await supabase
+      // Filter by seller_user_id - shows treatments for sales made by this seller
+      // Include both 'delivered' and 'finalized' status since finalized sales were also delivered
+      const { data: treatmentsData } = await supabase
         .from('sales')
         .select(`
           id,
@@ -177,11 +178,11 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           )
         `)
         .eq('organization_id', tenantId)
-        .eq('status', 'delivered')
-        .in('lead_id', myLeadIds)
+        .eq('seller_user_id', user.id)
+        .in('status', ['delivered', 'finalized'])
         .not('delivered_at', 'is', null)
         .order('delivered_at', { ascending: false })
-        .limit(200) : { data: [] };
+        .limit(200);
 
       // Get all kits with usage_period_days to match with sale_items
       const { data: kitsWithUsageDays } = await supabase
