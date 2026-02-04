@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,7 +50,7 @@ import {
   useDeleteMessageTemplate,
   type MessageTemplateFormData
 } from '@/hooks/useNonPurchaseMessageTemplates';
-import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
+import { useEvolutionInstances } from '@/hooks/useEvolutionInstances';
 import { useAIBots } from '@/hooks/useAIBots';
 import { useAuth } from '@/hooks/useAuth';
 import { MediaUploader } from '@/components/scheduled-messages/MediaUploader';
@@ -101,7 +101,7 @@ const VARIABLES = [
 
 export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplatesManagerProps) {
   const { data: templates = [], isLoading } = useNonPurchaseMessageTemplates(reasonId);
-  const { data: instances = [] } = useWhatsAppInstances();
+  const { instances: evolutionInstances = [], isLoading: instancesLoading } = useEvolutionInstances();
   const { data: bots = [] } = useAIBots();
   const { profile } = useAuth();
   
@@ -115,11 +115,18 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TemplateFormData>(initialFormData);
 
+  // Filter only WhatsApp instances (not archived)
+  const instances = useMemo(() => 
+    (evolutionInstances || []).filter(i => !i.deleted_at && i.channel_type !== 'instagram'),
+    [evolutionInstances]
+  );
+
   const activeBots = bots.filter(b => b.is_active);
 
   // Check if selected instance has compatible distribution mode
   const selectedInstance = instances.find(i => i.id === formData.whatsapp_instance_id);
-  const isDistributionModeCompatible = selectedInstance?.distribution_mode === 'manual' || selectedInstance?.distribution_mode === 'auto';
+  const instanceDistMode = (selectedInstance as any)?.distribution_mode;
+  const isDistributionModeCompatible = instanceDistMode === 'manual' || instanceDistMode === 'auto';
 
   const formatDelay = (minutes: number) => {
     if (minutes === 0) return 'Imediato';
