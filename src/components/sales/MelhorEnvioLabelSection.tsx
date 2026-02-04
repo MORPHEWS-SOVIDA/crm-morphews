@@ -4,11 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { useMelhorEnvioConfig, useSaleMelhorEnvioLabel } from '@/hooks/useMelhorEnvio';
+import { useMelhorEnvioConfig, useSaleMelhorEnvioLabel, MelhorEnvioLabel } from '@/hooks/useMelhorEnvio';
 import { MelhorEnvioLabelGenerator } from '@/components/melhorenvio/MelhorEnvioLabelGenerator';
 import { formatCurrency } from '@/hooks/useSales';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Extended type with melhor_envio_order_id for tracking comparison
+interface ExtendedLabel extends MelhorEnvioLabel {
+  melhor_envio_order_id: string;
+}
 
 interface MelhorEnvioLabelSectionProps {
   sale: any;
@@ -35,8 +40,19 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
 
   // If label exists, show label info
   if (label) {
+    // Check if tracking_code is the real one or just the internal UUID
+    const hasRealTrackingCode = label.tracking_code && 
+      label.tracking_code !== label.melhor_envio_order_id &&
+      !label.tracking_code.includes('-'); // UUIDs have dashes, real tracking codes don't
+    
+    const isPosted = !!label.posted_at;
+    const statusLabel = isPosted ? 'Postada' : 'Aguardando Postagem';
+    const statusColor = isPosted 
+      ? 'bg-green-100 text-green-700 border-green-300' 
+      : 'bg-amber-100 text-amber-700 border-amber-300';
+    
     return (
-      <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+      <div className={`space-y-3 p-4 rounded-lg border ${isPosted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-green-600" />
@@ -44,16 +60,28 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
               Etiqueta Gerada
             </span>
           </div>
-          <Badge className="bg-green-100 text-green-700 border-green-300">
-            {label.company_name} - {label.service_name}
-          </Badge>
+          <div className="flex gap-2">
+            <Badge className={statusColor}>
+              {statusLabel}
+            </Badge>
+            <Badge className="bg-green-100 text-green-700 border-green-300">
+              {label.company_name} - {label.service_name}
+            </Badge>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>
-            <span className="text-muted-foreground">Rastreio:</span>
-            <p className="font-mono font-medium">{label.tracking_code}</p>
-          </div>
+          {hasRealTrackingCode ? (
+            <div>
+              <span className="text-muted-foreground">Rastreio:</span>
+              <p className="font-mono font-medium">{label.tracking_code}</p>
+            </div>
+          ) : (
+            <div>
+              <span className="text-muted-foreground">ID Pedido:</span>
+              <p className="font-mono font-medium text-xs">{label.melhor_envio_order_id?.slice(0, 8)}...</p>
+            </div>
+          )}
           <div>
             <span className="text-muted-foreground">Gerada em:</span>
             <p>{format(new Date(label.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
@@ -92,7 +120,7 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
                 onClick={() => {
                   const link = document.createElement('a');
                   link.href = label.label_pdf_url!;
-                  link.download = `etiqueta-${label.tracking_code}.pdf`;
+                  link.download = `etiqueta-${hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8)}.pdf`;
                   link.click();
                 }}
               >
@@ -100,18 +128,26 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
               </Button>
             </>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              // Format: /app/correios/TRACKING_CODE for Correios
-              const carrier = label.company_name?.toLowerCase().includes('correios') ? 'correios' : 'rastreio';
-              window.open(`https://www.melhorrastreio.com.br/app/${carrier}/${label.tracking_code}`, '_blank');
-            }}
-          >
-            <ExternalLink className="w-4 h-4" />
-          </Button>
+          {hasRealTrackingCode && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                // Format: /app/correios/TRACKING_CODE for Correios
+                const carrier = label.company_name?.toLowerCase().includes('correios') ? 'correios' : 'rastreio';
+                window.open(`https://www.melhorrastreio.com.br/app/${carrier}/${label.tracking_code}`, '_blank');
+              }}
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          )}
         </div>
+        
+        {!isPosted && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            ⚠️ Esta etiqueta ainda não foi postada no Melhor Envio. O código de rastreio real será disponibilizado após a postagem.
+          </p>
+        )}
       </div>
     );
   }
