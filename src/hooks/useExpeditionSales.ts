@@ -19,6 +19,7 @@ export interface ExpeditionStats {
   returned: number;
   delivered: number;
   cancelled: number;
+  payment_confirmed: number; // Vendas online pagas
   carrierNoTracking: number;
   carrierWithTracking: number;
   pickup: number; // Retirada no Balcão pending
@@ -44,7 +45,7 @@ export function useExpeditionSales() {
           melhor_envio_labels(id, label_pdf_url, tracking_code, status)
         `)
         .eq('organization_id', organizationId)
-        .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled'])
+        .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed'])
         .order('scheduled_delivery_date', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -99,6 +100,7 @@ export function useExpeditionStats(sales: Sale[]) {
     returned: 0,
     delivered: 0,
     cancelled: 0,
+    payment_confirmed: 0,
     carrierNoTracking: 0,
     carrierWithTracking: 0,
     pickup: 0,
@@ -130,6 +132,9 @@ export function useExpeditionStats(sales: Sale[]) {
         break;
       case 'cancelled':
         stats.cancelled++;
+        break;
+      case 'payment_confirmed':
+        stats.payment_confirmed++;
         break;
     }
 

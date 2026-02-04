@@ -87,6 +87,7 @@ type SortOrder = 'created' | 'delivery';
 // Status colors for sale cards
 const STATUS_BG_COLORS: Record<string, string> = {
   draft: '', // No background
+  payment_confirmed: 'bg-green-50 dark:bg-green-950/30 border-green-200', // Green for online paid
   pending_expedition: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200', // Light blue
   dispatched: 'bg-pink-50 dark:bg-pink-950/30 border-pink-200', // Light pink
   returned: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200', // Light yellow
@@ -100,6 +101,7 @@ const STATUS_BG_COLORS: Record<string, string> = {
 // Button colors for stats cards
 const STATUS_BUTTON_COLORS: Record<string, { text: string; bg: string; border: string }> = {
   draft: { text: 'text-gray-700 dark:text-gray-300', bg: '', border: '' },
+  payment_confirmed: { text: 'text-green-700 dark:text-green-300', bg: 'bg-green-50 dark:bg-green-950/30', border: 'border-green-200 dark:border-green-800' },
   printed: { text: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800' },
   dispatched: { text: 'text-pink-700 dark:text-pink-300', bg: 'bg-pink-50 dark:bg-pink-950/30', border: 'border-pink-200 dark:border-pink-800' },
   returned: { text: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-50 dark:bg-yellow-950/30', border: 'border-yellow-200 dark:border-yellow-800' },
@@ -229,16 +231,18 @@ export default function Expedition() {
     // Tab filter
     switch (activeTab) {
       case 'todo':
-        // A FAZER: RASCUNHO + IMPRESSO + DESPACHADO + CORREIOS
+        // A FAZER: RASCUNHO + PAGO ONLINE + IMPRESSO + DESPACHADO + CORREIOS
         filtered = filtered.filter(s => 
           s.status === 'draft' || 
+          s.status === 'payment_confirmed' ||
           s.status === 'pending_expedition' || 
           s.status === 'dispatched' ||
           (s.delivery_type === 'carrier' && s.status !== 'cancelled' && s.status !== 'delivered')
         );
         break;
       case 'draft':
-        filtered = filtered.filter(s => s.status === 'draft');
+        // Rascunho inclui vendas pagas online (precisam ser impressas)
+        filtered = filtered.filter(s => s.status === 'draft' || s.status === 'payment_confirmed');
         break;
       case 'printed':
         filtered = filtered.filter(s => s.status === 'pending_expedition');
@@ -686,6 +690,7 @@ export default function Expedition() {
     const category = getSaleCategory(sale);
     const labels: Record<string, string> = {
       draft: '👀 Rascunho',
+      payment_confirmed: '💳 Pago Online',
       printed: '🖨️ Impresso',
       pending_expedition: '🖨️ Impresso',
       dispatched: '🚚 Despachado',
