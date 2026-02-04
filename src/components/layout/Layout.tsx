@@ -4,6 +4,7 @@ import { MobileNav } from './MobileNav';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { DonnaHelperButton } from '@/components/helper';
+import { TeamChatFloatingButton } from '@/components/team-chat';
 import { MelhorEnvioBalanceAlert } from '@/components/alerts/MelhorEnvioBalanceAlert';
 import { TrialExpiredBlocker } from '@/components/TrialExpiredBlocker';
 
@@ -32,6 +33,7 @@ export function Layout({ children }: LayoutProps) {
               {children}
             </div>
           </main>
+          <TeamChatFloatingButton />
           {canSeeHelper && <DonnaHelperButton />}
         </div>
       </TrialExpiredBlocker>
@@ -49,6 +51,8 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </main>
         <MobileNav />
+        {/* Team Chat Floating Button */}
+        <TeamChatFloatingButton />
         {/* Only show floating Donna on mobile - desktop Donna is in sidebar */}
         {canSeeHelper && <div className="lg:hidden"><DonnaHelperButton /></div>}
       </div>
