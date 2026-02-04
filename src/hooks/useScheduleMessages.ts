@@ -152,6 +152,7 @@ export function useScheduleMessages() {
           lead_id: params.leadId,
           template_id: template.id,
           whatsapp_instance_id: template.whatsapp_instance_id,
+          fallback_instance_ids: template.fallback_instance_ids || null,
           scheduled_at: scheduledAt.toISOString(),
           original_scheduled_at: scheduledAt.toISOString(),
           final_message: finalMessage,

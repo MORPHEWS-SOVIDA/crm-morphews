@@ -8648,6 +8648,7 @@ export type Database = {
           delay_minutes: number
           fallback_bot_enabled: boolean | null
           fallback_bot_id: string | null
+          fallback_instance_ids: string[] | null
           fallback_timeout_minutes: number | null
           id: string
           is_active: boolean
@@ -8668,6 +8669,7 @@ export type Database = {
           delay_minutes?: number
           fallback_bot_enabled?: boolean | null
           fallback_bot_id?: string | null
+          fallback_instance_ids?: string[] | null
           fallback_timeout_minutes?: number | null
           id?: string
           is_active?: boolean
@@ -8688,6 +8690,7 @@ export type Database = {
           delay_minutes?: number
           fallback_bot_enabled?: boolean | null
           fallback_bot_id?: string | null
+          fallback_instance_ids?: string[] | null
           fallback_timeout_minutes?: number | null
           id?: string
           is_active?: boolean

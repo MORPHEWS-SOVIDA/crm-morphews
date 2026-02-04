@@ -8,6 +8,7 @@ export interface NonPurchaseMessageTemplate {
   organization_id: string;
   non_purchase_reason_id: string;
   whatsapp_instance_id: string | null;
+  fallback_instance_ids: string[] | null;
   delay_minutes: number;
   message_template: string;
   send_start_hour: number | null;
@@ -29,6 +30,7 @@ export interface NonPurchaseMessageTemplate {
 export interface MessageTemplateFormData {
   non_purchase_reason_id: string;
   whatsapp_instance_id?: string | null;
+  fallback_instance_ids?: string[] | null;
   delay_minutes: number;
   message_template: string;
   send_start_hour?: number | null;
