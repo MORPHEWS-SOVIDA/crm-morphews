@@ -151,6 +151,7 @@ export interface Sale {
     label_pdf_url: string | null;
     tracking_code: string | null;
     status: string | null;
+    melhor_envio_order_id: string | null;
   }>;
 }
 
