@@ -15,8 +15,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
-import { useManagers } from '@/hooks/useUserAssociations';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useManagers, useUserAssociations } from '@/hooks/useUserAssociations';
 
 interface ManagerFilterProps {
   selectedManager: string | null;
@@ -31,25 +30,37 @@ export function ManagerFilter({
 }: ManagerFilterProps) {
   const [open, setOpen] = useState(false);
   const { data: managers = [], isLoading: managersLoading } = useManagers();
-  const { data: teamMembers = [], isLoading: teamLoading } = useTeamMembers();
+  const { data: associations = [], isLoading: associationsLoading } = useUserAssociations();
 
-  // Mapa de gerente -> vendedores associados
+  // Mapa de gerente -> vendedores associados (usando diretamente as associações)
   const managerMembersMap = useMemo(() => {
     const map: Record<string, string[]> = {};
-    teamMembers.forEach(member => {
-      if (member.manager_user_id) {
-        if (!map[member.manager_user_id]) {
-          map[member.manager_user_id] = [];
-        }
-        // Adiciona o membro ao time do gerente (se ainda não foi adicionado)
-        if (!map[member.manager_user_id].includes(member.user_id)) {
-          map[member.manager_user_id].push(member.user_id);
-        }
+    
+    // Iterar diretamente pelas associações para construir o mapa
+    associations.forEach(assoc => {
+      if (!map[assoc.manager_user_id]) {
+        map[assoc.manager_user_id] = [];
+      }
+      // Adiciona o membro ao mapa do gerente (evita duplicatas)
+      if (!map[assoc.manager_user_id].includes(assoc.team_member_user_id)) {
+        map[assoc.manager_user_id].push(assoc.team_member_user_id);
       }
     });
-    console.log('[ManagerFilter] Loaded - managers:', managers.length, 'teamMembers:', teamMembers.length, 'managerMembersMap:', map);
+    
+    // Debug: verificar se os gerentes têm membros
+    const debugInfo = managers.map(m => ({
+      name: m.full_name,
+      id: m.user_id,
+      members: map[m.user_id]?.length || 0,
+    }));
+    console.log('[ManagerFilter] Map:', { 
+      managersCount: managers.length, 
+      associationsCount: associations.length,
+      managerDetails: debugInfo,
+    });
+    
     return map;
-  }, [teamMembers, managers]);
+  }, [associations, managers]);
 
   // Contagem de vendedores por gerente
   const getManagerMemberCount = (managerId: string) => {

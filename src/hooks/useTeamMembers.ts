@@ -34,35 +34,37 @@ export function useTeamMembers() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Buscar membros da organização
-      const { data: members, error: membersError } = await supabase
-        .from('organization_members')
-        .select(`
-          user_id,
-          team_id,
-          profiles!inner(first_name, last_name)
-        `)
-        .eq('organization_id', tenantId);
+      // Buscar membros da organização e associações em paralelo
+      const [membersResult, associationsResult] = await Promise.all([
+        supabase
+          .from('organization_members')
+          .select(`
+            user_id,
+            team_id,
+            profiles!inner(first_name, last_name)
+          `)
+          .eq('organization_id', tenantId),
+        supabase
+          .from('sales_manager_team_members')
+          .select('manager_user_id, team_member_user_id')
+          .eq('organization_id', tenantId),
+      ]);
 
-      if (membersError) throw membersError;
+      if (membersResult.error) throw membersResult.error;
+      if (associationsResult.error) throw associationsResult.error;
 
-      // Buscar associações gerente→vendedor
-      const { data: associations, error: assocError } = await supabase
-        .from('sales_manager_team_members')
-        .select('manager_user_id, team_member_user_id')
-        .eq('organization_id', tenantId);
+      const members = membersResult.data || [];
+      const associations = associationsResult.data || [];
 
-      if (assocError) throw assocError;
-
-      console.log('[useTeamMembers] Members loaded:', members?.length, 'Associations:', associations?.length);
+      console.log('[useTeamMembers] Members loaded:', members.length, 'Associations:', associations.length);
 
       // Criar mapa de vendedor → gerente
       const memberToManager: Record<string, string> = {};
-      (associations || []).forEach(a => {
+      associations.forEach(a => {
         memberToManager[a.team_member_user_id] = a.manager_user_id;
       });
 
-      return (members || []).map((m: any) => {
+      return members.map((m: any) => {
         const firstName = m.profiles?.first_name || '';
         const lastName = m.profiles?.last_name || '';
         const fullName = `${firstName} ${lastName}`.trim();
@@ -76,6 +78,7 @@ export function useTeamMembers() {
       }) as TeamMemberInfo[];
     },
     enabled: !!tenantId,
-    staleTime: 60_000,
+    staleTime: 30_000, // 30 segundos para refresh mais frequente
+    refetchOnMount: true, // Garantir que sempre busca ao montar
   });
 }
