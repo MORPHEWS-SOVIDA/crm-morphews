@@ -140,6 +140,9 @@ serve(async (req) => {
         .from('ecommerce_carts')
         .update({ status: 'paid' })
         .eq('converted_sale_id', saleRecord.id);
+      
+      // Move lead to configured funnel stage and schedule automatic messages
+      await moveLeadToConfiguredStage(supabase, saleRecord);
     } else if (eventType === 'refunded') {
       await supabase
         .from('ecommerce_orders')
@@ -484,7 +487,7 @@ async function findSale(supabase: SupabaseClient, saleId: string): Promise<Recor
   // Try direct ID match
   const { data: sale } = await supabase
     .from('sales')
-    .select('id, organization_id, total_cents, status, payment_status')
+    .select('id, organization_id, lead_id, total_cents, status, payment_status')
     .eq('id', saleId)
     .maybeSingle();
 
@@ -493,7 +496,7 @@ async function findSale(supabase: SupabaseClient, saleId: string): Promise<Recor
   // Try finding by notes containing the ID
   const { data: salesByNote } = await supabase
     .from('sales')
-    .select('id, organization_id, total_cents, status, payment_status')
+    .select('id, organization_id, lead_id, total_cents, status, payment_status')
     .ilike('notes', `%${saleId}%`)
     .limit(1);
 
@@ -531,6 +534,186 @@ async function logPaymentAttempt(supabase: SupabaseClient, params: LogParams): P
       });
   } catch (error) {
     console.error('[PaymentWebhook] Error logging payment attempt:', error);
+  }
+}
+
+// =====================================================
+// MOVE LEAD TO CONFIGURED FUNNEL STAGE & SCHEDULE MESSAGES
+// =====================================================
+async function moveLeadToConfiguredStage(
+  supabase: SupabaseClient,
+  saleRecord: Record<string, unknown>
+): Promise<void> {
+  const organizationId = saleRecord.organization_id as string;
+  const leadId = saleRecord.lead_id as string;
+  
+  if (!organizationId || !leadId) {
+    console.log('[PaymentWebhook] Missing org or lead ID for stage move');
+    return;
+  }
+
+  try {
+    // 1. Get e-commerce automation config
+    const { data: automationConfig } = await supabase
+      .from('ecommerce_automation_config')
+      .select('paid_notification_funnel_stage_id')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (!automationConfig?.paid_notification_funnel_stage_id) {
+      console.log('[PaymentWebhook] No funnel stage configured for e-commerce sales');
+      return;
+    }
+
+    const targetStageId = automationConfig.paid_notification_funnel_stage_id;
+
+    // 2. Get the target stage with its default follow-up reason
+    const { data: targetStage } = await supabase
+      .from('organization_funnel_stages')
+      .select('id, name, default_followup_reason_id, enum_value')
+      .eq('id', targetStageId)
+      .single();
+
+    if (!targetStage) {
+      console.log('[PaymentWebhook] Target funnel stage not found:', targetStageId);
+      return;
+    }
+
+    // 3. Update lead's funnel stage
+    const leadUpdate: Record<string, unknown> = {
+      custom_funnel_stage_id: targetStage.id,
+    };
+    
+    // Also update enum stage if set
+    if (targetStage.enum_value) {
+      leadUpdate.stage = targetStage.enum_value;
+    }
+
+    const { error: leadUpdateError } = await supabase
+      .from('leads')
+      .update(leadUpdate)
+      .eq('id', leadId);
+
+    if (leadUpdateError) {
+      console.error('[PaymentWebhook] Failed to update lead stage:', leadUpdateError);
+    } else {
+      console.log(`[PaymentWebhook] Lead ${leadId} moved to stage "${targetStage.name}"`);
+    }
+
+    // 4. If the stage has a default follow-up reason, schedule automatic messages
+    if (targetStage.default_followup_reason_id) {
+      await scheduleAutomaticMessages(
+        supabase, 
+        organizationId, 
+        leadId, 
+        targetStage.default_followup_reason_id,
+        saleRecord.id as string
+      );
+    }
+
+  } catch (error) {
+    console.error('[PaymentWebhook] Error moving lead to configured stage:', error);
+  }
+}
+
+// Schedule automatic WhatsApp messages based on follow-up reason templates
+async function scheduleAutomaticMessages(
+  supabase: SupabaseClient,
+  organizationId: string,
+  leadId: string,
+  followupReasonId: string,
+  saleId: string
+): Promise<void> {
+  try {
+    // Get lead info
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('id, name, whatsapp')
+      .eq('id', leadId)
+      .single();
+
+    if (!lead?.whatsapp) {
+      console.log('[PaymentWebhook] Lead has no WhatsApp for scheduled messages');
+      return;
+    }
+
+    // Get message templates for this follow-up reason
+    const { data: templates } = await supabase
+      .from('non_purchase_message_templates')
+      .select('*')
+      .eq('non_purchase_reason_id', followupReasonId)
+      .eq('is_active', true)
+      .order('position', { ascending: true });
+
+    if (!templates || templates.length === 0) {
+      console.log('[PaymentWebhook] No active message templates for follow-up reason:', followupReasonId);
+      return;
+    }
+
+    // Get sale info for template variables
+    const { data: sale } = await supabase
+      .from('sales')
+      .select(`
+        id, total_cents, 
+        sale_items(quantity, product:lead_products(name, brand))
+      `)
+      .eq('id', saleId)
+      .single();
+
+    // Build template variables
+    const firstName = lead.name?.split(' ')[0] || '';
+    const productName = (sale?.sale_items as any)?.[0]?.product?.name || 'seu produto';
+    const brandName = (sale?.sale_items as any)?.[0]?.product?.brand || '';
+
+    const now = new Date();
+
+    // Schedule each message
+    const scheduledMessages = templates.map((template: any) => {
+      const scheduledAt = new Date(now.getTime() + (template.delay_minutes || 0) * 60 * 1000);
+      
+      // Replace template variables
+      let messageText = template.message_template || '';
+      messageText = messageText
+        .replace(/\{\{primeiro_nome\}\}/gi, firstName)
+        .replace(/\{\{nome\}\}/gi, lead.name || '')
+        .replace(/\{\{produto\}\}/gi, productName)
+        .replace(/\{\{marca_do_produto\}\}/gi, brandName)
+        .replace(/\{\{whatsapp\}\}/gi, lead.whatsapp || '');
+
+      return {
+        organization_id: organizationId,
+        lead_id: leadId,
+        lead_name: lead.name,
+        lead_whatsapp: lead.whatsapp,
+        non_purchase_reason_id: followupReasonId,
+        template_id: template.id,
+        message: messageText,
+        scheduled_at: scheduledAt.toISOString(),
+        status: 'pending',
+        whatsapp_instance_id: template.whatsapp_instance_id,
+        media_type: template.media_type,
+        media_url: template.media_url,
+        media_filename: template.media_filename,
+        fallback_bot_enabled: template.fallback_bot_enabled,
+        fallback_bot_id: template.fallback_bot_id,
+        fallback_timeout_minutes: template.fallback_timeout_minutes,
+      };
+    });
+
+    if (scheduledMessages.length > 0) {
+      const { error: insertError } = await supabase
+        .from('lead_scheduled_messages')
+        .insert(scheduledMessages);
+
+      if (insertError) {
+        console.error('[PaymentWebhook] Failed to schedule messages:', insertError);
+      } else {
+        console.log(`[PaymentWebhook] Scheduled ${scheduledMessages.length} automatic messages for lead ${leadId}`);
+      }
+    }
+
+  } catch (error) {
+    console.error('[PaymentWebhook] Error scheduling automatic messages:', error);
   }
 }
 
