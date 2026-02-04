@@ -161,7 +161,7 @@ serve(async (req) => {
       throw new Error("Plano não encontrado ou inativo");
     }
 
-    console.log("Plan found:", plan.name, "Price:", plan.price_cents);
+    console.log("Plan found:", plan.name, "Price:", plan.price_cents, "Trial:", plan.trial_days, "RequiresCard:", plan.trial_requires_card);
 
     // Determine customer email
     let email = customerEmail;
@@ -351,7 +351,187 @@ serve(async (req) => {
       });
     }
 
-    // ============= PAID PLAN - STRIPE CHECKOUT =============
+    // ============= TRIAL WITHOUT CARD (NO-CARD TRIAL) =============
+    // If plan has trial AND doesn't require card, create account immediately in "trialing" status
+    const hasTrial = plan.trial_days && plan.trial_days > 0;
+    const isNoCardTrial = hasTrial && plan.trial_requires_card === false;
+
+    if (isNoCardTrial) {
+      console.log("Processing NO-CARD TRIAL signup for:", email, "Trial days:", plan.trial_days);
+
+      // Check if user already exists
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = existingUsers?.users?.find(u => u.email === email);
+      
+      if (existingUser) {
+        throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+      }
+
+      // Generate temp password
+      const tempPassword = generateTempPassword();
+      
+      // Create user
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          first_name: customerName?.split(' ')[0] || 'Usuário',
+          last_name: customerName?.split(' ').slice(1).join(' ') || 'Novo',
+        }
+      });
+
+      if (authError) {
+        console.error("Error creating user:", authError);
+        throw new Error("Erro ao criar usuário: " + authError.message);
+      }
+
+      const userId = authData.user.id;
+      console.log("Trial user created:", userId);
+
+      // Create organization
+      const orgName = customerName ? `${customerName.split(' ')[0]}'s Workspace` : 'Meu Workspace';
+      const { data: org, error: orgError } = await supabaseAdmin
+        .from('organizations')
+        .insert({
+          name: orgName,
+          slug: generateSlug(orgName),
+          owner_name: customerName || null,
+          owner_email: email,
+          phone: customerWhatsapp || null,
+        })
+        .select()
+        .single();
+
+      if (orgError) {
+        console.error("Error creating organization:", orgError);
+        throw new Error("Erro ao criar organização");
+      }
+
+      console.log("Organization created:", org.id);
+
+      // Add user to organization
+      await supabaseAdmin.from('organization_members').insert({
+        organization_id: org.id,
+        user_id: userId,
+        role: 'owner',
+      });
+
+      // Normalize WhatsApp
+      let normalizedWhatsapp = customerWhatsapp?.replace(/\D/g, '') || null;
+      if (normalizedWhatsapp) {
+        if (!normalizedWhatsapp.startsWith('55')) {
+          normalizedWhatsapp = '55' + normalizedWhatsapp;
+        }
+        if (normalizedWhatsapp.length === 12 && normalizedWhatsapp.startsWith('55')) {
+          normalizedWhatsapp = normalizedWhatsapp.slice(0, 4) + '9' + normalizedWhatsapp.slice(4);
+        }
+      }
+
+      // Update profile
+      await supabaseAdmin.from('profiles').update({
+        first_name: customerName?.split(' ')[0] || 'Usuário',
+        last_name: customerName?.split(' ').slice(1).join(' ') || 'Novo',
+        organization_id: org.id,
+        email: email,
+        whatsapp: normalizedWhatsapp,
+      }).eq('user_id', userId);
+
+      // Calculate trial end date
+      const trialStartedAt = new Date();
+      const trialEndsAt = new Date(trialStartedAt.getTime() + (plan.trial_days * 24 * 60 * 60 * 1000));
+
+      // Create subscription in TRIALING status
+      await supabaseAdmin.from('subscriptions').insert({
+        organization_id: org.id,
+        plan_id: plan.id,
+        status: 'trialing',
+        current_period_start: trialStartedAt.toISOString(),
+        current_period_end: trialEndsAt.toISOString(),
+        trial_started_at: trialStartedAt.toISOString(),
+        trial_ends_at: trialEndsAt.toISOString(),
+      });
+
+      // Record temp password reset
+      await supabaseAdmin.from('temp_password_resets').insert({
+        user_id: userId,
+        email: email,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+
+      // Update interested lead if exists
+      await supabaseAdmin
+        .from('interested_leads')
+        .update({ status: 'converted', converted_at: new Date().toISOString() })
+        .eq('email', email);
+
+      // Send trial welcome email
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      if (RESEND_API_KEY) {
+        try {
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: "Morphews CRM <noreply@morphews.com>",
+              to: [email],
+              subject: `🎁 Seu trial de ${plan.trial_days} dias começou - ${plan.name}!`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <img src="https://crm.morphews.com/images/logo-morphews-email.png" alt="Morphews" style="max-width: 150px; margin-bottom: 20px;">
+                  <h1 style="color: #8b5cf6;">Seu período de teste começou! 🚀</h1>
+                  <p>Olá ${customerName?.split(' ')[0] || 'você'},</p>
+                  <p>Você tem <strong>${plan.trial_days} dias grátis</strong> para experimentar o plano <strong>${plan.name}</strong>!</p>
+                  <div style="background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); color: white; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 18px;">⏰ Seu trial termina em:</p>
+                    <p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold;">${trialEndsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p><strong>E-mail:</strong> ${email}</p>
+                    <p><strong>Senha temporária:</strong> ${tempPassword}</p>
+                  </div>
+                  <p style="color: #ef4444;"><strong>⚠️ Por segurança, você deverá trocar sua senha no primeiro acesso.</strong></p>
+                  <div style="margin: 30px 0;">
+                    <a href="https://crm.morphews.com/login" style="background: #8b5cf6; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                      Começar a Usar
+                    </a>
+                  </div>
+                  <p style="color: #6b7280;">Após o período de teste, você precisará assinar para continuar usando todas as funcionalidades.</p>
+                  <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                  <p style="color: #6b7280; font-size: 12px;">Morphews CRM - Sua secretária comercial com IA</p>
+                </div>
+              `,
+            }),
+          });
+          console.log("Trial welcome email sent to:", email);
+        } catch (emailError) {
+          console.error("Error sending email:", emailError);
+        }
+      }
+
+      // Send WhatsApp welcome
+      if (normalizedWhatsapp) {
+        await sendWhatsAppWelcome(
+          normalizedWhatsapp, 
+          customerName?.split(' ')[0] || 'você',
+          tempPassword
+        );
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: `Trial de ${plan.trial_days} dias ativado! Verifique seu e-mail.`,
+        redirect: "/login?signup=trial"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // ============= PAID PLAN WITH OR WITHOUT TRIAL (STRIPE CHECKOUT) =============
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
     });
@@ -405,6 +585,27 @@ serve(async (req) => {
         .eq("id", plan.id);
     }
 
+    // Build subscription_data with trial if applicable
+    const subscriptionData: Stripe.Checkout.SessionCreateParams['subscription_data'] = {
+      metadata: {
+        plan_id: plan.id,
+        customer_email: email,
+        customer_name: customerName || "",
+        customer_whatsapp: customerWhatsapp || "",
+        ...(implementerId && {
+          is_implementer_sale: "true",
+          implementer_id: implementerId,
+          implementation_fee_cents: "0",
+        }),
+      },
+    };
+
+    // Add trial period if plan has trial with card required
+    if (hasTrial && plan.trial_requires_card === true) {
+      subscriptionData.trial_period_days = plan.trial_days;
+      console.log("Adding Stripe trial period:", plan.trial_days, "days");
+    }
+
     // Create checkout session
     const appOrigin = req.headers.get("origin") || "https://crm.morphews.com";
     const session = await stripe.checkout.sessions.create({
@@ -413,21 +614,25 @@ serve(async (req) => {
       mode: "subscription",
       success_url: successUrl || `${appOrigin}/?subscription=success`,
       cancel_url: cancelUrl || `${appOrigin}/planos`,
+      subscription_data: subscriptionData,
+      // Always collect payment method for card-required trials
+      payment_method_collection: hasTrial && plan.trial_requires_card ? 'always' : 'always',
       metadata: {
         plan_id: plan.id,
         customer_email: email,
         customer_name: customerName || "",
         customer_whatsapp: customerWhatsapp || "",
-        // Implementer referral tracking
+        has_trial: hasTrial ? "true" : "false",
+        trial_days: plan.trial_days?.toString() || "0",
         ...(implementerId && {
           is_implementer_sale: "true",
           implementer_id: implementerId,
-          implementation_fee_cents: "0", // Referral = no implementation fee
+          implementation_fee_cents: "0",
         }),
       },
     });
 
-    console.log("Checkout session created:", session.id);
+    console.log("Checkout session created:", session.id, "Trial:", hasTrial ? `${plan.trial_days} days` : "none");
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

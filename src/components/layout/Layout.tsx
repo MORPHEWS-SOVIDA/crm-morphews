@@ -5,6 +5,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { DonnaHelperButton } from '@/components/helper';
 import { MelhorEnvioBalanceAlert } from '@/components/alerts/MelhorEnvioBalanceAlert';
+import { TrialExpiredBlocker } from '@/components/TrialExpiredBlocker';
 
 interface LayoutProps {
   children: ReactNode;
@@ -24,29 +25,33 @@ export function Layout({ children }: LayoutProps) {
   // If user has hide_sidebar preference, show minimal layout
   if (permissions?.hide_sidebar) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="min-h-screen">
-          <div className="p-4">
-            {children}
-          </div>
-        </main>
-        {canSeeHelper && <DonnaHelperButton />}
-      </div>
+      <TrialExpiredBlocker>
+        <div className="min-h-screen bg-background">
+          <main className="min-h-screen">
+            <div className="p-4">
+              {children}
+            </div>
+          </main>
+          {canSeeHelper && <DonnaHelperButton />}
+        </div>
+      </TrialExpiredBlocker>
     );
   }
   
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
-        <MelhorEnvioBalanceAlert />
-        <div className="p-4 lg:p-8">
-          {children}
-        </div>
-      </main>
-      <MobileNav />
-      {/* Only show floating Donna on mobile - desktop Donna is in sidebar */}
-      {canSeeHelper && <div className="lg:hidden"><DonnaHelperButton /></div>}
-    </div>
+    <TrialExpiredBlocker>
+      <div className="min-h-screen bg-background">
+        <Sidebar />
+        <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
+          <MelhorEnvioBalanceAlert />
+          <div className="p-4 lg:p-8">
+            {children}
+          </div>
+        </main>
+        <MobileNav />
+        {/* Only show floating Donna on mobile - desktop Donna is in sidebar */}
+        {canSeeHelper && <div className="lg:hidden"><DonnaHelperButton /></div>}
+      </div>
+    </TrialExpiredBlocker>
   );
 }

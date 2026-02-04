@@ -15818,6 +15818,8 @@ export type Database = {
           stripe_extra_users_price_id: string | null
           stripe_extra_whatsapp_instances_price_id: string | null
           stripe_price_id: string | null
+          trial_days: number | null
+          trial_requires_card: boolean | null
         }
         Insert: {
           allows_white_label?: boolean | null
@@ -15843,6 +15845,8 @@ export type Database = {
           stripe_extra_users_price_id?: string | null
           stripe_extra_whatsapp_instances_price_id?: string | null
           stripe_price_id?: string | null
+          trial_days?: number | null
+          trial_requires_card?: boolean | null
         }
         Update: {
           allows_white_label?: boolean | null
@@ -15868,6 +15872,8 @@ export type Database = {
           stripe_extra_users_price_id?: string | null
           stripe_extra_whatsapp_instances_price_id?: string | null
           stripe_price_id?: string | null
+          trial_days?: number | null
+          trial_requires_card?: boolean | null
         }
         Relationships: []
       }
@@ -15885,6 +15891,8 @@ export type Database = {
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          trial_started_at: string | null
           updated_at: string
         }
         Insert: {
@@ -15900,6 +15908,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -15915,6 +15925,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -19938,6 +19950,7 @@ export type Database = {
         Args: { p_organization_id: string }
         Returns: Json
       }
+      get_my_subscription_status: { Args: never; Returns: Json }
       get_my_white_label_config: { Args: never; Returns: string }
       get_next_available_user_for_distribution: {
         Args: { p_instance_id: string; p_organization_id: string }
@@ -20116,6 +20129,10 @@ export type Database = {
       }
       is_real_team_member: {
         Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_subscription_active: {
+        Args: { sub_row: Database["public"]["Tables"]["subscriptions"]["Row"] }
         Returns: boolean
       }
       is_tenant_admin: {
