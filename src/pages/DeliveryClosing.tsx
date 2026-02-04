@@ -27,6 +27,7 @@ import {
   Search,
   Filter,
   X,
+  User,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -648,23 +649,105 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                         )}
                       </div>
 
-                      {/* Sales detail */}
+                      {/* Sales detail - same format as new closing */}
                       {viewingClosingId === closing.id && closingSales.length > 0 && (
                         <div className="mt-4 border-t pt-4">
                           <h4 className="font-medium mb-2 text-sm">Vendas incluídas:</h4>
-                          <div className="space-y-1 max-h-64 overflow-y-auto">
-                            {closingSales.map(sale => (
-                              <div key={sale.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono text-xs">#{sale.sale_number}</span>
-                                  <span className="truncate max-w-[200px]">{sale.lead_name}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {formatPaymentMethod(sale.payment_method)}
-                                  </Badge>
+                          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                            {closingSales.map(sale => {
+                              // Check if tracking code is valid (not UUID)
+                              const isValidTrackingCode = sale.tracking_code && 
+                                !sale.tracking_code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+                              
+                              return (
+                                <div key={sale.id} className="p-3 bg-muted/30 rounded-lg border space-y-2">
+                                  {/* Line 1: Sale number + Client + View Button */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-primary">#{sale.sale_number}</span>
+                                    <span className="font-medium truncate max-w-[200px]">{sale.lead_name || 'Cliente'}</span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() => window.open(`/vendas/${sale.sale_id}`, '_blank')}
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      Ver Venda
+                                    </Button>
+                                    <span className="ml-auto font-semibold">{formatCurrency(sale.total_cents || 0)}</span>
+                                  </div>
+                                  
+                                  {/* Line 2: Payment + Date + Seller */}
+                                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                                    <Badge variant="outline" className="text-xs">
+                                      {formatPaymentMethod(sale.payment_method)}
+                                    </Badge>
+                                    {sale.created_at && (
+                                      <span className="text-xs text-muted-foreground">
+                                        Venda: {format(parseISO(sale.created_at), "dd/MM/yy", { locale: ptBR })}
+                                      </span>
+                                    )}
+                                    {sale.delivered_at && (
+                                      <span className="text-xs text-muted-foreground">
+                                        Entregue: {format(parseISO(sale.delivered_at), "dd/MM HH:mm", { locale: ptBR })}
+                                      </span>
+                                    )}
+                                    {sale.seller_profile?.first_name && (
+                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                        <User className="w-3 h-3 mr-1" />
+                                        {sale.seller_profile.first_name}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Line 3: Tracking (for carrier) */}
+                                  {closingType === 'carrier' && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {sale.delivery_status && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className={`text-xs ${
+                                            sale.delivery_status.startsWith('delivered') 
+                                              ? 'bg-green-100 text-green-700 border-green-300' 
+                                              : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                          }`}
+                                        >
+                                          {sale.delivery_status.startsWith('delivered') ? '✅ Entregue' : '⏳ Pendente'}
+                                        </Badge>
+                                      )}
+                                      {isValidTrackingCode && (
+                                        <>
+                                          <Badge variant="outline" className="text-xs bg-indigo-50 border-indigo-300 text-indigo-700">
+                                            📦 {sale.tracking_code}
+                                          </Badge>
+                                          <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="h-6 px-2 text-xs bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              window.open(`https://rastreamento.correios.com.br/app/index.php?objeto=${sale.tracking_code}`, '_blank');
+                                            }}
+                                          >
+                                            📦 Rastrear
+                                          </Button>
+                                        </>
+                                      )}
+                                      {sale.melhor_envio_label?.company_name && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {sale.melhor_envio_label.company_name} - {sale.melhor_envio_label.service_name}
+                                        </span>
+                                      )}
+                                      {!isValidTrackingCode && sale.melhor_envio_label?.id && (
+                                        <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                                          🏷️ Etiqueta gerada (aguardando postagem)
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                                <span className="font-medium">{formatCurrency(sale.total_cents || 0)}</span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
