@@ -780,6 +780,76 @@ export function SellerDashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* Clients to Call - key feature for sellers */}
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <Phone className="w-4 h-4" />
+                Clientes para Ligar
+                <Badge variant="secondary" className="ml-auto text-xs bg-blue-100 dark:bg-blue-900">
+                  {data.clientsToCall.length}
+                </Badge>
+              </CardTitle>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Clientes sem compra este mês
+              </p>
+            </CardHeader>
+            <CardContent>
+              {data.clientsToCall.length === 0 ? (
+                <p className="text-sm text-blue-600/70 dark:text-blue-400/70 text-center py-4">
+                  Todos os clientes já compraram este mês! 🎉
+                </p>
+              ) : (
+                <ScrollArea className="h-64">
+                  <div className="space-y-2">
+                    {data.clientsToCall.slice(0, 20).map(client => (
+                      <div 
+                        key={client.lead_id}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer ${
+                          client.days_since_sale >= 30 
+                            ? 'bg-red-100 dark:bg-red-900/30 hover:bg-red-200' 
+                            : client.days_since_sale >= 14
+                            ? 'bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200'
+                            : 'bg-white/60 dark:bg-white/5 hover:bg-white/80'
+                        }`}
+                        onClick={() => navigate(`/leads/${client.lead_id}`)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{client.lead_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {client.last_product}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge 
+                              variant={client.days_since_sale >= 30 ? "destructive" : client.days_since_sale >= 14 ? "outline" : "secondary"}
+                              className={`text-xs ${client.days_since_sale >= 14 && client.days_since_sale < 30 ? 'border-amber-400 text-amber-600' : ''}`}
+                            >
+                              {client.days_since_sale}d sem comprar
+                            </Badge>
+                            {client.total_purchases > 1 && (
+                              <span className="text-xs text-muted-foreground">
+                                {client.total_purchases} compras
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <WhatsAppButton 
+                          phone={client.lead_whatsapp} 
+                          variant="icon"
+                        />
+                      </div>
+                    ))}
+                    {data.clientsToCall.length > 20 && (
+                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        +{data.clientsToCall.length - 20} clientes...
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Middle Column - Treatments Ending */}

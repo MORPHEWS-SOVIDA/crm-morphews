@@ -36,6 +36,17 @@ export interface SellerDashboardData {
     sale_id: string;
   }>;
   
+  // Clientes para ligar (sem compra recente e sem contato)
+  clientsToCall: Array<{
+    lead_id: string;
+    lead_name: string;
+    lead_whatsapp: string;
+    last_sale_date: string;
+    days_since_sale: number;
+    last_product: string;
+    total_purchases: number;
+  }>;
+  
   // Vendas pendentes por status
   pendingSales: {
     draft: SaleSummary[];
@@ -299,7 +310,85 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         cancelled: allSales.filter(s => s.status === 'cancelled'),
       };
 
-      // 6. Commission calculation
+      // 6. Clients to call - customers with past purchases but no purchase this month
+      // Find leads with delivered/finalized sales from this seller, ordered by last sale date
+      const { data: pastCustomersData } = await supabase
+        .from('sales')
+        .select(`
+          lead_id,
+          created_at,
+          status,
+          lead:leads!sales_lead_id_fkey(id, name, whatsapp),
+          sale_items(product_name)
+        `)
+        .eq('organization_id', tenantId)
+        .eq('seller_user_id', user.id)
+        .in('status', ['delivered', 'finalized'])
+        .order('created_at', { ascending: false });
+
+      // Group by lead and find those without purchase this month
+      const leadPurchases = new Map<string, {
+        lead_id: string;
+        lead_name: string;
+        lead_whatsapp: string;
+        last_sale_date: string;
+        last_product: string;
+        total_purchases: number;
+        has_purchase_this_month: boolean;
+      }>();
+
+      (pastCustomersData || []).forEach((sale: any) => {
+        if (!sale.lead_id || !sale.lead) return;
+        
+        const saleDate = parseISO(sale.created_at);
+        const isThisMonth = saleDate >= monthStart && saleDate <= monthEnd;
+        
+        if (!leadPurchases.has(sale.lead_id)) {
+          leadPurchases.set(sale.lead_id, {
+            lead_id: sale.lead_id,
+            lead_name: sale.lead.name || 'Lead',
+            lead_whatsapp: sale.lead.whatsapp || '',
+            last_sale_date: sale.created_at,
+            last_product: sale.sale_items?.[0]?.product_name || 'Produto',
+            total_purchases: 1,
+            has_purchase_this_month: isThisMonth,
+          });
+        } else {
+          const existing = leadPurchases.get(sale.lead_id)!;
+          existing.total_purchases++;
+          if (isThisMonth) {
+            existing.has_purchase_this_month = true;
+          }
+        }
+      });
+
+      // Filter to only leads without purchase this month, calculate days since last sale
+      const clientsToCall: SellerDashboardData['clientsToCall'] = [];
+      const currentDate = new Date();
+      leadPurchases.forEach((lead) => {
+        if (lead.has_purchase_this_month) return; // Skip if they already bought this month
+        
+        const lastSaleDate = parseISO(lead.last_sale_date);
+        const daysSinceSale = Math.floor((currentDate.getTime() - lastSaleDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Only show if more than 7 days since last purchase
+        if (daysSinceSale >= 7) {
+          clientsToCall.push({
+            lead_id: lead.lead_id,
+            lead_name: lead.lead_name,
+            lead_whatsapp: lead.lead_whatsapp,
+            last_sale_date: lead.last_sale_date,
+            days_since_sale: daysSinceSale,
+            last_product: lead.last_product,
+            total_purchases: lead.total_purchases,
+          });
+        }
+      });
+
+      // Sort by days since sale (oldest first - most urgent to contact)
+      clientsToCall.sort((a, b) => b.days_since_sale - a.days_since_sale);
+
+      // 7. Commission calculation
       // Get seller's default commission percentage from organization_members
       const { data: memberData } = await supabase
         .from('organization_members')
@@ -384,6 +473,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         pendingFollowups,
         scheduledMessages,
         treatmentsEnding,
+        clientsToCall,
         pendingSales,
         commissions: {
           pending: pendingCommission,
