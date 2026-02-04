@@ -14,16 +14,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { 
   Phone, PhoneIncoming, PhoneOutgoing, Bot, Plus, 
   Settings, BarChart3, Clock, CheckCircle, XCircle,
-  Loader2, Mic, Play
+  Loader2, Mic, Play, Hash
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { VoiceAITestPanel } from "@/components/voice-ai/VoiceAITestPanel";
+import { VoicePhoneNumbersTab } from "./voice/VoicePhoneNumbersTab";
 
 export function VoiceAITab() {
   const queryClient = useQueryClient();
-  const [selectedTab, setSelectedTab] = useState("test");
+  const [selectedTab, setSelectedTab] = useState("numbers");
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
   const [newAgent, setNewAgent] = useState({
     name: "",
@@ -167,6 +168,10 @@ export function VoiceAITab() {
       {/* Main Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList>
+          <TabsTrigger value="numbers" className="gap-2">
+            <Hash className="w-4 h-4" />
+            Números
+          </TabsTrigger>
           <TabsTrigger value="test" className="gap-2">
             <Play className="w-4 h-4" />
             Testar
@@ -180,6 +185,10 @@ export function VoiceAITab() {
             Agentes
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="numbers" className="mt-4">
+          <VoicePhoneNumbersTab />
+        </TabsContent>
 
         <TabsContent value="test" className="mt-4">
           <VoiceAITestPanel />

@@ -17838,6 +17838,305 @@ export type Database = {
           },
         ]
       }
+      voice_call_logs: {
+        Row: {
+          ai_bot_id: string | null
+          answered_at: string | null
+          call_sid: string | null
+          cost_cents: number | null
+          created_at: string
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          energy_consumed: number | null
+          from_number: string
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          organization_id: string
+          phone_number_id: string | null
+          recording_url: string | null
+          started_at: string
+          status: string | null
+          to_number: string
+          transcription: string | null
+        }
+        Insert: {
+          ai_bot_id?: string | null
+          answered_at?: string | null
+          call_sid?: string | null
+          cost_cents?: number | null
+          created_at?: string
+          direction: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          energy_consumed?: number | null
+          from_number: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          organization_id: string
+          phone_number_id?: string | null
+          recording_url?: string | null
+          started_at?: string
+          status?: string | null
+          to_number: string
+          transcription?: string | null
+        }
+        Update: {
+          ai_bot_id?: string | null
+          answered_at?: string | null
+          call_sid?: string | null
+          cost_cents?: number | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          energy_consumed?: number | null
+          from_number?: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          phone_number_id?: string | null
+          recording_url?: string | null
+          started_at?: string
+          status?: string | null
+          to_number?: string
+          transcription?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_call_logs_ai_bot_id_fkey"
+            columns: ["ai_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_call_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_call_logs_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "voice_phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_number_allocations: {
+        Row: {
+          allocated_at: string
+          billing_status: string | null
+          created_at: string
+          id: string
+          monthly_cost_cents: number
+          next_billing_date: string | null
+          organization_id: string
+          phone_number_id: string
+          release_reason: string | null
+          released_at: string | null
+        }
+        Insert: {
+          allocated_at?: string
+          billing_status?: string | null
+          created_at?: string
+          id?: string
+          monthly_cost_cents: number
+          next_billing_date?: string | null
+          organization_id: string
+          phone_number_id: string
+          release_reason?: string | null
+          released_at?: string | null
+        }
+        Update: {
+          allocated_at?: string
+          billing_status?: string | null
+          created_at?: string
+          id?: string
+          monthly_cost_cents?: number
+          next_billing_date?: string | null
+          organization_id?: string
+          phone_number_id?: string
+          release_reason?: string | null
+          released_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_number_allocations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_number_allocations_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "voice_phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_number_requests: {
+        Row: {
+          admin_notes: string | null
+          allocated_number_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          preferred_locality: string | null
+          preferred_region: string | null
+          processed_at: string | null
+          processed_by: string | null
+          purpose: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          allocated_number_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          preferred_locality?: string | null
+          preferred_region?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          allocated_number_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          preferred_locality?: string | null
+          preferred_region?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_number_requests_allocated_number_id_fkey"
+            columns: ["allocated_number_id"]
+            isOneToOne: false
+            referencedRelation: "voice_phone_numbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_number_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_phone_numbers: {
+        Row: {
+          allocated_at: string | null
+          allocated_to_org_id: string | null
+          capabilities: Json | null
+          country_code: string | null
+          created_at: string
+          created_by: string | null
+          friendly_name: string | null
+          id: string
+          locality: string | null
+          monthly_cost_cents: number
+          phone_number: string
+          phone_number_sid: string | null
+          region: string | null
+          released_at: string | null
+          status: string
+          twilio_monthly_cost_cents: number | null
+          updated_at: string
+          voice_bot_id: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          allocated_at?: string | null
+          allocated_to_org_id?: string | null
+          capabilities?: Json | null
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          friendly_name?: string | null
+          id?: string
+          locality?: string | null
+          monthly_cost_cents?: number
+          phone_number: string
+          phone_number_sid?: string | null
+          region?: string | null
+          released_at?: string | null
+          status?: string
+          twilio_monthly_cost_cents?: number | null
+          updated_at?: string
+          voice_bot_id?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          allocated_at?: string | null
+          allocated_to_org_id?: string | null
+          capabilities?: Json | null
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          friendly_name?: string | null
+          id?: string
+          locality?: string | null
+          monthly_cost_cents?: number
+          phone_number?: string
+          phone_number_sid?: string | null
+          region?: string | null
+          released_at?: string | null
+          status?: string
+          twilio_monthly_cost_cents?: number | null
+          updated_at?: string
+          voice_bot_id?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_phone_numbers_allocated_to_org_id_fkey"
+            columns: ["allocated_to_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_phone_numbers_voice_bot_id_fkey"
+            columns: ["voice_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voip_3c_config: {
         Row: {
           blacklist_numbers: string[]
@@ -20433,6 +20732,7 @@ export type Database = {
         Args: { sub_row: Database["public"]["Tables"]["subscriptions"]["Row"] }
         Returns: boolean
       }
+      is_super_admin: { Args: { user_id: string }; Returns: boolean }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
