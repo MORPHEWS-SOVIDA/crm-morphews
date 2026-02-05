@@ -1,15 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Melhor Envio API URLs
 const MELHOR_ENVIO_API = {
   SANDBOX: 'https://sandbox.melhorenvio.com.br/api/v2',
-  PRODUCTION: 'https://api.melhorenvio.com.br/api/v2',
+  // Base oficial de produção (docs): https://melhorenvio.com.br
+  PRODUCTION: 'https://melhorenvio.com.br/api/v2',
 };
 
 interface QuoteRequest {
@@ -35,7 +36,7 @@ interface QuoteResult {
   error?: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
