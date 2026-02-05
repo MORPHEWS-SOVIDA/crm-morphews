@@ -86,6 +86,7 @@ import { ProductConference } from '@/components/expedition/ProductConference';
 import { DispatchConfirmationDialog } from '@/components/expedition/DispatchConfirmationDialog';
 import { CashPaymentVerificationDialog } from '@/components/expedition/CashPaymentVerificationDialog';
 import { SelectMotoboyDialog } from '@/components/expedition/SelectMotoboyDialog';
+import { SelectDistributionCenterDialog } from '@/components/expedition/SelectDistributionCenterDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useCorreiosTrackingStatus } from '@/hooks/useCorreiosTrackingStatus';
@@ -175,6 +176,12 @@ export default function Expedition() {
   
   // Select motoboy dialog state
   const [selectMotoboyDialog, setSelectMotoboyDialog] = useState<{
+    open: boolean;
+    sale: Sale | null;
+  }>({ open: false, sale: null });
+  
+  // Select distribution center dialog state (for carrier deliveries)
+  const [selectCDDialog, setSelectCDDialog] = useState<{
     open: boolean;
     sale: Sale | null;
   }>({ open: false, sale: null });
@@ -433,6 +440,12 @@ export default function Expedition() {
     // RULE 2: Motoboy delivery must have a motoboy selected
     if (sale.delivery_type === 'motoboy' && !sale.assigned_delivery_user_id) {
       setSelectMotoboyDialog({ open: true, sale });
+      return;
+    }
+    
+    // RULE 2b: Carrier delivery must have a distribution center selected
+    if (sale.delivery_type === 'carrier' && !sale.assigned_delivery_user_id) {
+      setSelectCDDialog({ open: true, sale });
       return;
     }
     
@@ -1684,6 +1697,40 @@ export default function Expedition() {
           }}
           isLoading={isUpdating === selectMotoboyDialog.sale?.id}
           saleName={selectMotoboyDialog.sale?.lead?.name}
+        />
+        
+        {/* Select Distribution Center Dialog - shown when dispatching carrier without CD selected */}
+        <SelectDistributionCenterDialog
+          open={selectCDDialog.open}
+          onOpenChange={(open) => setSelectCDDialog(prev => ({ ...prev, open }))}
+          distributionCenters={members.filter(m => m.profile).map(m => ({
+            id: m.user_id,
+            firstName: m.profile!.first_name || 'CD',
+            lastName: m.profile!.last_name,
+          }))}
+          onSelect={(centerId) => {
+            if (selectCDDialog.sale) {
+              const sale = selectCDDialog.sale;
+              // First update the sale with the selected CD, then check conference
+              const allItemsChecked = conferenceStatus[sale.id] ?? false;
+              
+              if (!allItemsChecked) {
+                // Close CD dialog and open conference confirmation
+                setSelectCDDialog({ open: false, sale: null });
+                setDispatchConfirmDialog({
+                  open: true,
+                  saleId: sale.id,
+                  motoboyId: centerId,
+                });
+              } else {
+                // All good - dispatch with selected CD
+                handleDispatch(sale.id, centerId, false);
+                setSelectCDDialog({ open: false, sale: null });
+              }
+            }
+          }}
+          isLoading={isUpdating === selectCDDialog.sale?.id}
+          saleName={selectCDDialog.sale?.lead?.name}
         />
       </div>
     </SmartLayout>
