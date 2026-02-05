@@ -27,9 +27,11 @@ import {
   useSmsUsage,
   useSmsProviderConfig, 
   useUpdateSmsProviderConfig,
-  useAddSmsCredits
 } from '@/hooks/useSmsCredits';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -179,18 +181,36 @@ function SmsBalanceTab() {
 
 function SmsPackagesTab() {
   const { data: packages, isLoading } = useSmsPackages();
-  const addCredits = useAddSmsCredits();
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const { tenantId } = useTenant();
 
-  const handlePurchase = (pkg: { id: string; sms_count: number; price_cents: number }) => {
-    // In a real app, this would redirect to a payment page
-    // For now, we'll just add the credits directly (admin mode)
-    if (confirm(`Confirma a compra de ${pkg.sms_count} SMS por ${formatCurrency(pkg.price_cents)}?`)) {
-      addCredits.mutate({
-        packageId: pkg.id,
-        credits: pkg.sms_count,
-        priceCents: pkg.price_cents,
-        paymentMethod: 'manual',
+  const handlePurchase = async (pkg: { id: string; sms_count: number; price_cents: number }) => {
+    if (!tenantId) {
+      toast.error('Organização não encontrada');
+      return;
+    }
+
+    setPurchasingId(pkg.id);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sms-checkout', {
+        body: {
+          packageId: pkg.id,
+          organizationId: tenantId,
+        },
       });
+
+      if (error) throw error;
+      
+      if (data?.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('URL de checkout não retornada');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao iniciar pagamento');
+      setPurchasingId(null);
     }
   };
 
@@ -224,9 +244,9 @@ function SmsPackagesTab() {
             <Button 
               className="w-full" 
               onClick={() => handlePurchase(pkg)}
-              disabled={addCredits.isPending}
+              disabled={purchasingId !== null}
             >
-              {addCredits.isPending ? (
+              {purchasingId === pkg.id ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 'Comprar Agora'
