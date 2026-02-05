@@ -318,16 +318,84 @@ export function useConfirmPickupClosing() {
             .in('id', saleIds)
             .not('status', 'in', '("cancelled","returned","finalized")');
         } else {
-          // Update to 'finalized' status
-          await supabase
-            .from('sales')
-            .update({ 
+          // Update to 'finalized' status + mark ALL checkpoints as complete
+          // This ensures any missed steps are automatically completed on finalization
+          // But preserves existing timestamps if they already exist
+          
+          for (const saleId of saleIds) {
+            // Get current sale to check existing values
+            const { data: sale } = await supabase
+              .from('sales')
+              .select('organization_id, status, printed_at, expedition_validated_at, dispatched_at, delivered_at, payment_confirmed_at')
+              .eq('id', saleId)
+              .single();
+
+            if (!sale || sale.status === 'cancelled' || sale.status === 'returned') continue;
+
+            // Build update with only missing fields filled
+            const updateFields: Record<string, any> = {
               status: 'finalized',
               finalized_at: now,
               finalized_by: user.id,
-            })
-            .in('id', saleIds)
-            .not('status', 'in', '("cancelled","returned")');
+            };
+
+            // Only fill missing checkpoints (preserve original dates if they exist)
+            if (!sale.printed_at) {
+              updateFields.printed_at = now;
+              updateFields.printed_by = user.id;
+            }
+            if (!sale.expedition_validated_at) {
+              updateFields.expedition_validated_at = now;
+              updateFields.expedition_validated_by = user.id;
+            }
+            if (!sale.dispatched_at) {
+              updateFields.dispatched_at = now;
+            }
+            if (!sale.delivered_at) {
+              updateFields.delivered_at = now;
+              updateFields.delivery_status = 'delivered_normal';
+            }
+            if (!sale.payment_confirmed_at) {
+              updateFields.payment_confirmed_at = now;
+              updateFields.payment_confirmed_by = user.id;
+            }
+
+            await supabase
+              .from('sales')
+              .update(updateFields)
+              .eq('id', saleId);
+
+            // Also mark checkpoints in the sale_checkpoints table
+            const checkpointTypes = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
+            for (const checkpointType of checkpointTypes) {
+              // Upsert checkpoint as completed
+              const { data: existing } = await supabase
+                .from('sale_checkpoints')
+                .select('id, completed_at')
+                .eq('sale_id', saleId)
+                .eq('checkpoint_type', checkpointType)
+                .maybeSingle();
+
+              if (existing && !existing.completed_at) {
+                // Update existing checkpoint to completed
+                await supabase
+                  .from('sale_checkpoints')
+                  .update({ completed_at: now, completed_by: user.id })
+                  .eq('id', existing.id);
+              } else if (!existing) {
+                // Create completed checkpoint
+                await supabase
+                  .from('sale_checkpoints')
+                  .insert({
+                    sale_id: saleId,
+                    organization_id: sale.organization_id,
+                    checkpoint_type: checkpointType,
+                    completed_at: now,
+                    completed_by: user.id,
+                  });
+              }
+            }
+          }
         }
       }
     },
