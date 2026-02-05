@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Instagram, Bell, Tag, Plus, X, Loader2, Lock, Eye, EyeOff, Filter, ShieldAlert, MapPin, Truck, CreditCard, Users, Bike, Award, Database, Package, FileUp, Zap, HelpCircle, Plug2, User, FileText, Wallet, Send, QrCode } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { useLeadSources, useCreateLeadSource, useDeleteLeadSource } from '@/hooks/useConfigOptions';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +37,7 @@ import { ShippingServicesConfig } from '@/components/shipping/ShippingServicesCo
 import { MelhorEnvioConfigSection } from '@/components/settings/MelhorEnvioConfigSection';
 import { EfiPayConfigManager } from '@/components/settings/EfiPayConfigManager';
 import { EfiPayTransactionsViewer } from '@/components/settings/EfiPayTransactionsViewer';
+import { SmsConfigManager } from '@/components/settings/SmsConfigManager';
 import { cn } from '@/lib/utils';
 
 // Define setting categories with their tabs
@@ -46,6 +48,7 @@ const SETTINGS_TABS = [
   { id: 'qualificacao', label: 'Qualificação', icon: HelpCircle },
   { id: 'equipe', label: 'Equipe', icon: Users },
   { id: 'notas_fiscais', label: 'Notas Fiscais', icon: FileText },
+  { id: 'sms', label: 'SMS', icon: MessageSquare },
   { id: 'integracoes', label: 'Integrações', icon: Plug2 },
   { id: 'conta', label: 'Minha Conta', icon: User },
 ] as const;
@@ -664,6 +667,15 @@ export default function Settings() {
             {/* Notas Emitidas */}
             <div className="bg-card rounded-xl p-6 shadow-card">
               <FiscalInvoicesManager />
+            </div>
+          </TabsContent>
+
+          {/* CONTA TAB */}
+
+          {/* SMS TAB */}
+          <TabsContent value="sms" className="space-y-6 mt-6">
+            <div className="bg-card rounded-xl p-6 shadow-card">
+              <SmsConfigManager />
             </div>
           </TabsContent>
 

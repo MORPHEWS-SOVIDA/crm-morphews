@@ -211,7 +211,8 @@ export function useUpdateMotoboyTracking() {
         product_name: null 
       };
       if (sale.lead_id) {
-        const { data: lead } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: lead }: any = await (supabase as any)
           .from('leads')
           .select('name, whatsapp, lead_products(name)')
           .eq('id', sale.lead_id)

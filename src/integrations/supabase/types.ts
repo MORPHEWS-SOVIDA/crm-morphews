@@ -14918,6 +14918,229 @@ export type Database = {
           },
         ]
       }
+      sms_credits_balance: {
+        Row: {
+          current_credits: number
+          id: string
+          organization_id: string
+          total_purchased: number
+          total_used: number
+          updated_at: string | null
+        }
+        Insert: {
+          current_credits?: number
+          id?: string
+          organization_id: string
+          total_purchased?: number
+          total_used?: number
+          updated_at?: string | null
+        }
+        Update: {
+          current_credits?: number
+          id?: string
+          organization_id?: string
+          total_purchased?: number
+          total_used?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_credits_balance_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_credits_purchases: {
+        Row: {
+          created_at: string | null
+          credits_amount: number
+          id: string
+          organization_id: string
+          package_id: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          price_cents: number
+          purchased_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_amount: number
+          id?: string
+          organization_id: string
+          package_id?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          price_cents: number
+          purchased_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_amount?: number
+          id?: string
+          organization_id?: string
+          package_id?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          price_cents?: number
+          purchased_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_credits_purchases_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_credits_purchases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "sms_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_packages: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price_cents: number
+          price_per_sms_cents: number
+          sms_count: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_cents: number
+          price_per_sms_cents: number
+          sms_count: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_cents?: number
+          price_per_sms_cents?: number
+          sms_count?: number
+        }
+        Relationships: []
+      }
+      sms_provider_config: {
+        Row: {
+          api_password: string | null
+          api_user: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          provider: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_password?: string | null
+          api_user?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          provider?: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_password?: string | null
+          api_user?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          provider?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_provider_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_usage: {
+        Row: {
+          credits_used: number | null
+          delivered_at: string | null
+          error_message: string | null
+          external_key: string | null
+          facilita_sms_id: string | null
+          id: string
+          lead_id: string | null
+          message: string
+          organization_id: string
+          phone: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          status_code: number | null
+        }
+        Insert: {
+          credits_used?: number | null
+          delivered_at?: string | null
+          error_message?: string | null
+          external_key?: string | null
+          facilita_sms_id?: string | null
+          id?: string
+          lead_id?: string | null
+          message: string
+          organization_id: string
+          phone: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          credits_used?: number | null
+          delivered_at?: string | null
+          error_message?: string | null
+          external_key?: string | null
+          facilita_sms_id?: string | null
+          id?: string
+          lead_id?: string | null
+          message?: string
+          organization_id?: string
+          phone?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_usage_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       standalone_checkouts: {
         Row: {
           attribution_model: string | null
@@ -20535,6 +20758,10 @@ export type Database = {
         Args: { amount: number; org_id: string }
         Returns: undefined
       }
+      add_sms_credits: {
+        Args: { p_credits_to_add: number; p_organization_id: string }
+        Returns: boolean
+      }
       add_voice_minutes: {
         Args: { p_minutes: number; p_organization_id: string }
         Returns: number
@@ -20600,6 +20827,10 @@ export type Database = {
       debit_organization_energy: {
         Args: { amount: number; description?: string; org_id: string }
         Returns: undefined
+      }
+      deduct_sms_credits: {
+        Args: { p_credits_to_deduct: number; p_organization_id: string }
+        Returns: boolean
       }
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
