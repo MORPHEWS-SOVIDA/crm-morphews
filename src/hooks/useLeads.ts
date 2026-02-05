@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { toastFriendlyError } from '@/lib/errorMessages';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-
 export type Lead = Tables<'leads'>;
 export type LeadInsert = TablesInsert<'leads'>;
 export type LeadUpdate = TablesUpdate<'leads'>;
@@ -171,9 +171,10 @@ export function useCreateLead() {
       });
     },
     onError: (error: Error) => {
+      const friendly = toastFriendlyError(error);
       toast({
-        title: 'Erro ao criar lead',
-        description: error.message,
+        title: friendly.title,
+        description: friendly.description,
         variant: 'destructive',
       });
     },
@@ -208,9 +209,10 @@ export function useUpdateLead() {
       });
     },
     onError: (error) => {
+      const friendly = toastFriendlyError(error);
       toast({
-        title: 'Erro ao atualizar lead',
-        description: error.message,
+        title: friendly.title,
+        description: friendly.description,
         variant: 'destructive',
       });
     },
@@ -240,9 +242,10 @@ export function useDeleteLead() {
       });
     },
     onError: (error) => {
+      const friendly = toastFriendlyError(error);
       toast({
-        title: 'Erro ao excluir lead',
-        description: error.message,
+        title: friendly.title,
+        description: friendly.description,
         variant: 'destructive',
       });
     },

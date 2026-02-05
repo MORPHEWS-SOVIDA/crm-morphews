@@ -28,6 +28,7 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useCreateLeadAddress, LeadAddress } from '@/hooks/useLeadAddresses';
 import { leadSchema } from '@/lib/validations';
+import { getFriendlyError } from '@/lib/errorMessages';
 import { toast } from '@/hooks/use-toast';
 import { checkLeadExistsForOtherUser, ExistingLeadWithOwner } from '@/hooks/useLeadOwnership';
 
@@ -46,6 +47,28 @@ const GENDER_OPTIONS = [
   { value: 'outro', label: 'Outro', emoji: '🧑' },
   { value: 'prefiro_nao_informar', label: 'Prefiro não informar', emoji: '🤐' },
 ];
+
+// Translate field names for user-friendly validation messages
+const FIELD_DISPLAY_NAMES: Record<string, string> = {
+  name: 'Nome',
+  whatsapp: 'WhatsApp',
+  email: 'E-mail',
+  stage: 'Etapa',
+  assigned_to: 'Responsável',
+  instagram: 'Instagram',
+  specialty: 'Empresa/Especialidade',
+  followers: 'Seguidores',
+  secondary_phone: 'Telefone Secundário',
+  cpf_cnpj: 'CPF/CNPJ',
+  site: 'Site',
+  linkedin: 'LinkedIn',
+  meeting_link: 'Link da Reunião',
+  recorded_call_link: 'Link da Chamada',
+};
+
+function getFieldDisplayName(field: string): string {
+  return FIELD_DISPLAY_NAMES[field] || field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 export default function NewLead() {
   const navigate = useNavigate();
@@ -180,16 +203,22 @@ export default function NewLead() {
     const result = leadSchema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
-      const errorMessages: string[] = [];
+      const friendlyMessages: string[] = [];
+      
       result.error.errors.forEach((err) => {
         const field = err.path[0] as string;
-        fieldErrors[field] = err.message;
-        errorMessages.push(`${field}: ${err.message}`);
+        const fieldName = getFieldDisplayName(field);
+        const message = err.message;
+        fieldErrors[field] = message;
+        friendlyMessages.push(`${fieldName}: ${message}`);
       });
+      
       setErrors(fieldErrors);
       toast({
-        title: 'Erro de validação',
-        description: errorMessages.slice(0, 3).join(', '),
+        title: 'Campos precisam de atenção',
+        description: friendlyMessages.length === 1 
+          ? friendlyMessages[0] 
+          : `${friendlyMessages.length} campos precisam ser corrigidos: ${friendlyMessages.slice(0, 2).join('; ')}${friendlyMessages.length > 2 ? '...' : ''}`,
         variant: 'destructive',
       });
       return;
