@@ -344,7 +344,17 @@ const App = () => (
                   }
                 />
                 
-                {/* SMS Center */}
+                {/* SMS Center - Main page for sending */}
+                <Route
+                  path="/sms"
+                  element={
+                    <ProtectedRoute>
+                      <SmsCenter />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* SMS Settings/Config - Settings page */}
                 <Route
                   path="/settings/sms"
                   element={

@@ -261,6 +261,54 @@ serve(async (req) => {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         
+        // ============================================
+        // SMS CREDITS PURCHASE
+        // ============================================
+        if (session.metadata?.type === "sms_credits") {
+          const packageId = session.metadata.package_id;
+          const smsCount = parseInt(session.metadata.sms_count || "0", 10);
+          const priceCents = parseInt(session.metadata.price_cents || "0", 10);
+          const organizationId = session.metadata.organization_id;
+          const userId = session.metadata.user_id;
+
+          console.log("SMS credits purchase completed:", { 
+            packageId, 
+            smsCount, 
+            priceCents, 
+            organizationId 
+          });
+
+          if (organizationId && smsCount > 0) {
+            try {
+              // Create purchase record
+              await supabaseAdmin.from("sms_credits_purchases").insert({
+                organization_id: organizationId,
+                package_id: packageId,
+                credits_amount: smsCount,
+                price_cents: priceCents,
+                payment_method: "stripe",
+                payment_reference: session.payment_intent as string || session.id,
+                purchased_by: userId,
+              });
+
+              // Add credits via RPC
+              const { error: rpcError } = await supabaseAdmin.rpc("add_sms_credits", {
+                p_organization_id: organizationId,
+                p_credits_to_add: smsCount,
+              });
+
+              if (rpcError) {
+                console.error("Error adding SMS credits:", rpcError);
+              } else {
+                console.log(`Successfully added ${smsCount} SMS credits to org ${organizationId}`);
+              }
+            } catch (smsError) {
+              console.error("Error processing SMS credits:", smsError);
+            }
+          }
+          break;
+        }
+
         // Check if this is an e-commerce checkout (has sale_id)
         if (session.metadata?.sale_id) {
           const saleId = session.metadata.sale_id;
