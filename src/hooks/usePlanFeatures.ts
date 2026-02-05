@@ -49,6 +49,7 @@ export const AVAILABLE_FEATURES = {
   
   // Canais Adicionais
   instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
+  sms: { label: "Envio de SMS", group: "Canais Adicionais" },
   
   // E-commerce
   ecommerce: { label: "E-commerce (Menu)", group: "E-commerce" },

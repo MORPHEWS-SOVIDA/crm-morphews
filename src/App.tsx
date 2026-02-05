@@ -133,6 +133,7 @@ const AIBots = lazy(() => import("./pages/AIBots"));
 const VoiceAI = lazy(() => import("./pages/VoiceAI"));
 const Demands = lazy(() => import("./pages/Demands"));
 const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
+const SmsCenter = lazy(() => import("./pages/SmsCenter"));
 
 // Fiscal
 const FiscalInvoices = lazy(() => import("./pages/FiscalInvoices"));
@@ -339,6 +340,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* SMS Center */}
+                <Route
+                  path="/sms"
+                  element={
+                    <ProtectedRoute>
+                      <SmsCenter />
                     </ProtectedRoute>
                   }
                 />
