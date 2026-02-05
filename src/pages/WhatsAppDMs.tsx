@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3 } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3, Zap, RotateCw } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,7 +51,16 @@ interface EvolutionInstance {
   manual_instance_number: string | null;
   manual_device_label: string | null;
   display_name_for_team: string | null;
+  distribution_mode: "manual" | "auto" | "bot" | null;
 }
+
+type DistributionModeFilter = "all" | "manual" | "auto" | "bot";
+
+const DISTRIBUTION_MODE_LABELS: Record<string, string> = {
+  manual: "Pendentes",
+  auto: "Distribuição Auto",
+  bot: "Robô IA",
+};
 
 export default function WhatsAppDMs() {
   const { profile, isAdmin, user } = useAuth();
@@ -107,6 +116,7 @@ export default function WhatsAppDMs() {
 
   // Filtros
   const [statusFilter, setStatusFilter] = useState<"all" | "connected" | "disconnected">("all");
+  const [distributionFilter, setDistributionFilter] = useState<DistributionModeFilter>("all");
 
   // Polling interval ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -117,7 +127,7 @@ export default function WhatsAppDMs() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("*")
+        .select("*, distribution_mode")
         .eq("organization_id", profile?.organization_id)
         .order("created_at", { ascending: false });
 
@@ -686,46 +696,98 @@ export default function WhatsAppDMs() {
         </Dialog>
 
         {/* Filtros */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-muted-foreground mr-2">Filtros:</span>
-          
+        <div className="flex flex-wrap gap-4 items-center">
           {/* Status Filter */}
-          <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
-            <Button
-              variant={statusFilter === "all" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-              className="h-7 px-3 text-xs"
-            >
-              Todas
-              <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
-                {instances?.length || 0}
-              </Badge>
-            </Button>
-            <Button
-              variant={statusFilter === "connected" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setStatusFilter("connected")}
-              className="h-7 px-3 text-xs"
-            >
-              <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
-              Conectadas
-              <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-green-600">
-                {instances?.filter(i => i.is_connected).length || 0}
-              </Badge>
-            </Button>
-            <Button
-              variant={statusFilter === "disconnected" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setStatusFilter("disconnected")}
-              className="h-7 px-3 text-xs"
-            >
-              <span className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
-              Desconectadas
-              <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-yellow-600">
-                {instances?.filter(i => !i.is_connected).length || 0}
-              </Badge>
-            </Button>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Status:</span>
+            <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+              <Button
+                variant={statusFilter === "all" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setStatusFilter("all")}
+                className="h-7 px-3 text-xs"
+              >
+                Todas
+                <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                  {instances?.length || 0}
+                </Badge>
+              </Button>
+              <Button
+                variant={statusFilter === "connected" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setStatusFilter("connected")}
+                className="h-7 px-3 text-xs"
+              >
+                <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
+                Conectadas
+                <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-green-600">
+                  {instances?.filter(i => i.is_connected).length || 0}
+                </Badge>
+              </Button>
+              <Button
+                variant={statusFilter === "disconnected" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setStatusFilter("disconnected")}
+                className="h-7 px-3 text-xs"
+              >
+                <span className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
+                Desconectadas
+                <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-yellow-600">
+                  {instances?.filter(i => !i.is_connected).length || 0}
+                </Badge>
+              </Button>
+            </div>
+          </div>
+
+          {/* Distribution Mode Filter */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Modo de Distribuição:</span>
+            <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+              <Button
+                variant={distributionFilter === "all" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setDistributionFilter("all")}
+                className="h-7 px-3 text-xs"
+              >
+                Todos
+              </Button>
+              <Button
+                variant={distributionFilter === "manual" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setDistributionFilter("manual")}
+                className="h-7 px-3 text-xs"
+              >
+                <Zap className="h-3 w-3 mr-1 text-amber-500" />
+                Pendentes
+                <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                  {instances?.filter(i => i.distribution_mode === "manual" || !i.distribution_mode).length || 0}
+                </Badge>
+              </Button>
+              <Button
+                variant={distributionFilter === "bot" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setDistributionFilter("bot")}
+                className="h-7 px-3 text-xs"
+              >
+                <Bot className="h-3 w-3 mr-1 text-purple-500" />
+                Robô IA
+                <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                  {instances?.filter(i => i.distribution_mode === "bot").length || 0}
+                </Badge>
+              </Button>
+              <Button
+                variant={distributionFilter === "auto" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setDistributionFilter("auto")}
+                className="h-7 px-3 text-xs"
+              >
+                <RotateCw className="h-3 w-3 mr-1 text-blue-500" />
+                Distribuição
+                <Badge variant="outline" className="ml-1.5 h-5 px-1.5">
+                  {instances?.filter(i => i.distribution_mode === "auto").length || 0}
+                </Badge>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -757,6 +819,14 @@ export default function WhatsAppDMs() {
                 // Status filter
                 if (statusFilter === "connected" && !instance.is_connected) return false;
                 if (statusFilter === "disconnected" && instance.is_connected) return false;
+                
+                // Distribution mode filter
+                if (distributionFilter !== "all") {
+                  const mode = instance.distribution_mode || "manual"; // default is manual/pendentes
+                  if (distributionFilter === "manual" && mode !== "manual") return false;
+                  if (distributionFilter === "bot" && mode !== "bot") return false;
+                  if (distributionFilter === "auto" && mode !== "auto") return false;
+                }
                 
                 return true;
               })
