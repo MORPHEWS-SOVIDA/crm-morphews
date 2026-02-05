@@ -397,13 +397,15 @@ export function useOrgFeatures() {
         }, {} as Record<FeatureKey, boolean>);
       }
       
-      // Get org's subscription plan
+      // Get org's subscription plan (include both active and trialing)
       const { data: subscription } = await supabase
         .from("subscriptions")
         .select("plan_id")
         .eq("organization_id", profile.organization_id)
-        .eq("status", "active")
-        .single();
+        .in("status", ["active", "trialing"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       
       // Get plan features
       const planFeatures: Record<string, boolean> = {};
