@@ -17854,6 +17854,121 @@ export type Database = {
           },
         ]
       }
+      voice_ai_call_logs: {
+        Row: {
+          agent_id: string | null
+          answered_at: string | null
+          caller_id_number: string | null
+          campaign_batch_id: string | null
+          campaign_id: string | null
+          cost_cents: number | null
+          created_at: string
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          from_number: string
+          id: string
+          key_topics: string[] | null
+          lead_id: string | null
+          lead_name: string | null
+          minutes_consumed: number | null
+          organization_id: string
+          outcome: string | null
+          outcome_notes: string | null
+          sentiment: string | null
+          started_at: string
+          status: string
+          to_number: string
+          transcription: string | null
+          transcription_summary: string | null
+          twilio_call_sid: string | null
+          twilio_parent_call_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          answered_at?: string | null
+          caller_id_number?: string | null
+          campaign_batch_id?: string | null
+          campaign_id?: string | null
+          cost_cents?: number | null
+          created_at?: string
+          direction: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number: string
+          id?: string
+          key_topics?: string[] | null
+          lead_id?: string | null
+          lead_name?: string | null
+          minutes_consumed?: number | null
+          organization_id: string
+          outcome?: string | null
+          outcome_notes?: string | null
+          sentiment?: string | null
+          started_at?: string
+          status?: string
+          to_number: string
+          transcription?: string | null
+          transcription_summary?: string | null
+          twilio_call_sid?: string | null
+          twilio_parent_call_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          answered_at?: string | null
+          caller_id_number?: string | null
+          campaign_batch_id?: string | null
+          campaign_id?: string | null
+          cost_cents?: number | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string
+          id?: string
+          key_topics?: string[] | null
+          lead_id?: string | null
+          lead_name?: string | null
+          minutes_consumed?: number | null
+          organization_id?: string
+          outcome?: string | null
+          outcome_notes?: string | null
+          sentiment?: string | null
+          started_at?: string
+          status?: string
+          to_number?: string
+          transcription?: string | null
+          transcription_summary?: string | null
+          twilio_call_sid?: string | null
+          twilio_parent_call_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_call_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_call_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_ai_calls: {
         Row: {
           agent_id: string | null
@@ -17992,6 +18107,86 @@ export type Database = {
           },
         ]
       }
+      voice_ai_campaign_contacts: {
+        Row: {
+          attempts: number | null
+          call_log_id: string | null
+          campaign_id: string
+          created_at: string
+          custom_data: Json | null
+          email: string | null
+          id: string
+          last_attempt_at: string | null
+          lead_id: string | null
+          name: string | null
+          organization_id: string
+          outcome: string | null
+          phone: string
+          status: string
+        }
+        Insert: {
+          attempts?: number | null
+          call_log_id?: string | null
+          campaign_id: string
+          created_at?: string
+          custom_data?: Json | null
+          email?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          organization_id: string
+          outcome?: string | null
+          phone: string
+          status?: string
+        }
+        Update: {
+          attempts?: number | null
+          call_log_id?: string | null
+          campaign_id?: string
+          created_at?: string
+          custom_data?: Json | null
+          email?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          organization_id?: string
+          outcome?: string | null
+          phone?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_campaign_contacts_call_log_id_fkey"
+            columns: ["call_log_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_call_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_campaign_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_outbound_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_campaign_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_campaign_contacts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_ai_campaigns: {
         Row: {
           agent_id: string | null
@@ -18063,6 +18258,105 @@ export type Database = {
           },
           {
             foreignKeyName: "voice_ai_campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_ai_outbound_campaigns: {
+        Row: {
+          agent_id: string
+          appointments_booked: number | null
+          caller_id_number: string | null
+          calls_attempted: number | null
+          calls_completed: number | null
+          calls_connected: number | null
+          calls_per_minute: number | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          max_concurrent_calls: number | null
+          max_retries: number | null
+          name: string
+          organization_id: string
+          retry_delay_minutes: number | null
+          scheduled_start_at: string | null
+          started_at: string | null
+          status: string
+          total_contacts: number | null
+          updated_at: string
+          working_days: number[] | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          agent_id: string
+          appointments_booked?: number | null
+          caller_id_number?: string | null
+          calls_attempted?: number | null
+          calls_completed?: number | null
+          calls_connected?: number | null
+          calls_per_minute?: number | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          max_concurrent_calls?: number | null
+          max_retries?: number | null
+          name: string
+          organization_id: string
+          retry_delay_minutes?: number | null
+          scheduled_start_at?: string | null
+          started_at?: string | null
+          status?: string
+          total_contacts?: number | null
+          updated_at?: string
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          agent_id?: string
+          appointments_booked?: number | null
+          caller_id_number?: string | null
+          calls_attempted?: number | null
+          calls_completed?: number | null
+          calls_connected?: number | null
+          calls_per_minute?: number | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          max_concurrent_calls?: number | null
+          max_retries?: number | null
+          name?: string
+          organization_id?: string
+          retry_delay_minutes?: number | null
+          scheduled_start_at?: string | null
+          started_at?: string | null
+          status?: string
+          total_contacts?: number | null
+          updated_at?: string
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_outbound_campaigns_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_outbound_campaigns_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
