@@ -1318,8 +1318,8 @@ export default function AddReceptivo() {
         });
       }
 
-      // Add current product if valid
-      if (currentProductId && currentUnitPrice > 0) {
+      // Add current product if valid (allow zero price for service products like "Buscar ALGO")
+      if (currentProductId && currentQuantity > 0) {
         // Calculate effective commission for current product
         const effectiveCommission = hasDiscount ? defaultCommission : currentCommission;
         const effectiveCommissionCents = Math.round(currentProductSubtotal * (effectiveCommission / 100));
