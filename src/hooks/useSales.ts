@@ -1059,7 +1059,8 @@ export function useMyDeliveries() {
         .from('sales')
         .select(`
           *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link)
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
+          melhor_envio_labels(id, label_pdf_url, tracking_code, status, melhor_envio_order_id)
         `)
         .eq('assigned_delivery_user_id', user.id)
         .in('status', ['dispatched', 'delivered', 'returned'])
