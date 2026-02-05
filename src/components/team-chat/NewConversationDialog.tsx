@@ -49,24 +49,54 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
   const createGroup = useCreateGroupConversation();
 
   // Buscar membros da organização
+  // Usamos LEFT JOIN via profiles para garantir que membros apareçam mesmo sem perfil completo
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['org-members-for-chat', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      // Primeiro buscar os user_ids da org
+      const { data: orgMembers, error: orgError } = await supabase
         .from('organization_members')
-        .select('user_id, profiles!inner(first_name, last_name, avatar_url)')
+        .select('user_id')
         .eq('organization_id', tenantId);
 
-      if (error) throw error;
+      if (orgError) {
+        console.error('[Conecta Time] Error fetching org members:', orgError);
+        throw orgError;
+      }
 
-      return (data || []).map((m: any) => ({
-        user_id: m.user_id,
-        first_name: m.profiles?.first_name,
-        last_name: m.profiles?.last_name,
-        avatar_url: m.profiles?.avatar_url,
-      })) as TeamMember[];
+      if (!orgMembers?.length) {
+        console.warn('[Conecta Time] No members found for tenant:', tenantId);
+        return [];
+      }
+
+      const userIds = orgMembers.map(m => m.user_id);
+
+      // Buscar perfis separadamente
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, avatar_url')
+        .in('user_id', userIds);
+
+      if (profileError) {
+        console.error('[Conecta Time] Error fetching profiles:', profileError);
+        throw profileError;
+      }
+
+      // Criar mapa de perfis
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+      // Combinar dados - mostra todos os membros, mesmo sem perfil
+      return orgMembers.map((m) => {
+        const profile = profileMap.get(m.user_id);
+        return {
+          user_id: m.user_id,
+          first_name: profile?.first_name || null,
+          last_name: profile?.last_name || null,
+          avatar_url: profile?.avatar_url || null,
+        };
+      }) as TeamMember[];
     },
     enabled: open && !!tenantId,
   });

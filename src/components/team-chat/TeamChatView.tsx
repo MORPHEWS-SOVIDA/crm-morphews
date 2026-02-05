@@ -17,9 +17,10 @@ interface TeamChatViewProps {
   conversation: TeamConversation;
   onBack: () => void;
   onClose: () => void;
+  isFullPage?: boolean;
 }
 
-export function TeamChatView({ conversation, onBack, onClose }: TeamChatViewProps) {
+export function TeamChatView({ conversation, onBack, onClose, isFullPage = false }: TeamChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { data: messages = [], isLoading } = useTeamMessages(conversation.id);
   const markAsRead = useMarkTeamConversationRead();
@@ -58,14 +59,18 @@ export function TeamChatView({ conversation, onBack, onClose }: TeamChatViewProp
 
   return (
     <div className={cn(
-      "fixed bottom-24 left-6 z-50",
-      "w-[380px] max-h-[600px] h-[calc(100vh-120px)]",
-      "bg-background border rounded-xl shadow-2xl",
-      "flex flex-col overflow-hidden",
-      "lg:bottom-28 lg:left-8"
+      isFullPage 
+        ? "flex flex-col h-full w-full bg-background"
+        : cn(
+            "fixed bottom-24 left-6 z-50",
+            "w-[380px] max-h-[600px] h-[calc(100vh-120px)]",
+            "bg-background border rounded-xl shadow-2xl",
+            "flex flex-col overflow-hidden",
+            "lg:bottom-28 lg:left-8"
+          )
     )}>
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b bg-muted/30">
+      <div className={cn("flex items-center gap-2 p-3 border-b", !isFullPage && "bg-muted/30")}>
         <Button
           variant="ghost"
           size="icon"
