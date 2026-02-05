@@ -28,7 +28,10 @@ import {
   ShoppingBag,
   UserPlus,
 } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, addMonths, subMonths, startOfMonth } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, addMonths, subMonths, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { ptBR } from 'date-fns/locale';
 import { useSellerDashboard, SaleSummary } from '@/hooks/useSellerDashboard';
 import { useUncontactedLeads, useClaimLead } from '@/hooks/useUncontactedLeads';
@@ -204,11 +207,19 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// Period filter types
+type PeriodFilterType = 'today' | 'custom' | 'month';
+
 export function SellerDashboard() {
   const navigate = useNavigate();
   const [treatmentDaysInput, setTreatmentDaysInput] = useState('5');
   const [commissionMonth, setCommissionMonth] = useState(new Date());
   const [claimingLeadId, setClaimingLeadId] = useState<string | null>(null);
+  
+  // Period filter state
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>('month');
+  const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>(undefined);
+  const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
   
   // Modal states for AI suggestions
   const [selectedSuggestion, setSelectedSuggestion] = useState<LeadSuggestion | null>(null);
@@ -217,9 +228,26 @@ export function SellerDashboard() {
   // Debounce the treatment days to avoid excessive re-renders
   const debouncedTreatmentDays = useDebounce(parseInt(treatmentDaysInput) || 5, 500);
   
+  // Calculate date range based on filter
+  const getPeriodDates = () => {
+    const now = new Date();
+    if (periodFilter === 'today') {
+      return { start: startOfDay(now), end: endOfDay(now) };
+    }
+    if (periodFilter === 'custom' && customDateFrom && customDateTo) {
+      return { start: startOfDay(customDateFrom), end: endOfDay(customDateTo) };
+    }
+    // Default: month
+    return { start: startOfMonth(now), end: endOfMonth(now) };
+  };
+  
+  const periodDates = getPeriodDates();
+  
   const { data, isLoading, error } = useSellerDashboard({
     treatmentDays: debouncedTreatmentDays,
     commissionMonth,
+    pendingSalesStart: periodDates.start,
+    pendingSalesEnd: periodDates.end,
   });
   
   const { data: uncontactedLeads = [], isLoading: loadingUncontacted } = useUncontactedLeads();
@@ -927,10 +955,61 @@ export function SellerDashboard() {
         {/* Right Column - Pending Sales */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Vendas Pendentes
-            </CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Vendas Pendentes
+              </CardTitle>
+              {/* Period Filter */}
+              <div className="flex items-center gap-1">
+                <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as PeriodFilterType)}>
+                  <SelectTrigger className="h-7 w-auto text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Hoje</SelectItem>
+                    <SelectItem value="custom">Período</SelectItem>
+                    <SelectItem value="month">Mês Corrente</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {periodFilter === 'custom' && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className={cn(
+                        "h-7 text-xs justify-start text-left font-normal",
+                        !customDateFrom && !customDateTo && "text-muted-foreground"
+                      )}>
+                        <Calendar className="mr-1 h-3 w-3" />
+                        {customDateFrom && customDateTo 
+                          ? `${format(customDateFrom, 'dd/MM')} - ${format(customDateTo, 'dd/MM')}`
+                          : 'Selecionar'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <CalendarComponent
+                        mode="range"
+                        selected={customDateFrom && customDateTo ? { from: customDateFrom, to: customDateTo } : undefined}
+                        onSelect={(range) => {
+                          setCustomDateFrom(range?.from);
+                          setCustomDateTo(range?.to);
+                        }}
+                        numberOfMonths={2}
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {periodFilter === 'today' && 'Mostrando vendas de hoje'}
+              {periodFilter === 'month' && `Mostrando vendas de ${format(new Date(), 'MMMM', { locale: ptBR })}`}
+              {periodFilter === 'custom' && customDateFrom && customDateTo && 
+                `${format(customDateFrom, 'dd/MM/yyyy')} até ${format(customDateTo, 'dd/MM/yyyy')}`}
+              {periodFilter === 'custom' && (!customDateFrom || !customDateTo) && 
+                'Selecione um período'}
+            </p>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[450px]">
