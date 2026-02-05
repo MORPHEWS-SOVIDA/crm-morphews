@@ -37,6 +37,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Pencil, Trash2, ChevronDown, Clock, MessageSquare, Info, HelpCircle, Image, Mic, FileIcon, Bot, AlertTriangle } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -61,6 +62,7 @@ interface MessageTemplatesManagerProps {
 }
 
 interface TemplateFormData {
+  channel_type: 'whatsapp' | 'sms';
   whatsapp_instance_id: string;
   fallback_instance_id_1: string;
   fallback_instance_id_2: string;
@@ -79,6 +81,7 @@ interface TemplateFormData {
 }
 
 const initialFormData: TemplateFormData = {
+  channel_type: 'whatsapp',
   whatsapp_instance_id: '',
   fallback_instance_id_1: '',
   fallback_instance_id_2: '',
@@ -148,24 +151,27 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
 
     // Build fallback instance IDs array
     const fallbackIds: string[] = [];
-    if (formData.fallback_instance_id_1) fallbackIds.push(formData.fallback_instance_id_1);
-    if (formData.fallback_instance_id_2) fallbackIds.push(formData.fallback_instance_id_2);
+    if (formData.channel_type === 'whatsapp') {
+      if (formData.fallback_instance_id_1) fallbackIds.push(formData.fallback_instance_id_1);
+      if (formData.fallback_instance_id_2) fallbackIds.push(formData.fallback_instance_id_2);
+    }
 
     await createTemplate.mutateAsync({
       non_purchase_reason_id: reasonId,
-      whatsapp_instance_id: formData.whatsapp_instance_id || null,
+      channel_type: formData.channel_type,
+      whatsapp_instance_id: formData.channel_type === 'whatsapp' ? (formData.whatsapp_instance_id || null) : null,
       fallback_instance_ids: fallbackIds.length > 0 ? fallbackIds : null,
       delay_minutes: formData.delay_minutes,
       message_template: formData.message_template.trim(),
       send_start_hour: formData.use_business_hours ? formData.send_start_hour : null,
       send_end_hour: formData.use_business_hours ? formData.send_end_hour : null,
       position: templates.length,
-      media_type: formData.media_type,
-      media_url: formData.media_url,
-      media_filename: formData.media_filename,
-      fallback_bot_enabled: formData.fallback_bot_enabled,
-      fallback_bot_id: formData.fallback_bot_id,
-      fallback_timeout_minutes: formData.fallback_timeout_minutes,
+      media_type: formData.channel_type === 'whatsapp' ? formData.media_type : null,
+      media_url: formData.channel_type === 'whatsapp' ? formData.media_url : null,
+      media_filename: formData.channel_type === 'whatsapp' ? formData.media_filename : null,
+      fallback_bot_enabled: formData.channel_type === 'whatsapp' ? formData.fallback_bot_enabled : false,
+      fallback_bot_id: formData.channel_type === 'whatsapp' ? formData.fallback_bot_id : null,
+      fallback_timeout_minutes: formData.channel_type === 'whatsapp' ? formData.fallback_timeout_minutes : 30,
     });
 
     setFormData(initialFormData);
@@ -177,24 +183,27 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
 
     // Build fallback instance IDs array
     const fallbackIds: string[] = [];
-    if (formData.fallback_instance_id_1) fallbackIds.push(formData.fallback_instance_id_1);
-    if (formData.fallback_instance_id_2) fallbackIds.push(formData.fallback_instance_id_2);
+    if (formData.channel_type === 'whatsapp') {
+      if (formData.fallback_instance_id_1) fallbackIds.push(formData.fallback_instance_id_1);
+      if (formData.fallback_instance_id_2) fallbackIds.push(formData.fallback_instance_id_2);
+    }
 
     await updateTemplate.mutateAsync({
       id: editingId,
       data: {
-        whatsapp_instance_id: formData.whatsapp_instance_id || null,
+        channel_type: formData.channel_type,
+        whatsapp_instance_id: formData.channel_type === 'whatsapp' ? (formData.whatsapp_instance_id || null) : null,
         fallback_instance_ids: fallbackIds.length > 0 ? fallbackIds : null,
         delay_minutes: formData.delay_minutes,
         message_template: formData.message_template.trim(),
         send_start_hour: formData.use_business_hours ? formData.send_start_hour : null,
         send_end_hour: formData.use_business_hours ? formData.send_end_hour : null,
-        media_type: formData.media_type,
-        media_url: formData.media_url,
-        media_filename: formData.media_filename,
-        fallback_bot_enabled: formData.fallback_bot_enabled,
-        fallback_bot_id: formData.fallback_bot_id,
-        fallback_timeout_minutes: formData.fallback_timeout_minutes,
+        media_type: formData.channel_type === 'whatsapp' ? formData.media_type : null,
+        media_url: formData.channel_type === 'whatsapp' ? formData.media_url : null,
+        media_filename: formData.channel_type === 'whatsapp' ? formData.media_filename : null,
+        fallback_bot_enabled: formData.channel_type === 'whatsapp' ? formData.fallback_bot_enabled : false,
+        fallback_bot_id: formData.channel_type === 'whatsapp' ? formData.fallback_bot_id : null,
+        fallback_timeout_minutes: formData.channel_type === 'whatsapp' ? formData.fallback_timeout_minutes : 30,
       },
     });
 
@@ -211,13 +220,14 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
   const openEdit = (template: typeof templates[0]) => {
     const fallbackIds = template.fallback_instance_ids || [];
     setFormData({
+      channel_type: template.channel_type || 'whatsapp',
       whatsapp_instance_id: template.whatsapp_instance_id || '',
       fallback_instance_id_1: fallbackIds[0] || '',
       fallback_instance_id_2: fallbackIds[1] || '',
       delay_minutes: template.delay_minutes,
       message_template: template.message_template,
-      send_start_hour: template.send_start_hour,
-      send_end_hour: template.send_end_hour,
+      send_start_hour: template.send_start_hour ?? null,
+      send_end_hour: template.send_end_hour ?? null,
       use_business_hours: template.send_start_hour !== null,
       media_type: template.media_type || null,
       media_url: template.media_url || null,
@@ -300,6 +310,20 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                       <div className="flex items-center gap-1 mb-1">
                         <Badge variant="outline" className="text-[10px] px-1 py-0">
                           {index + 1}
+                        </Badge>
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-[10px] px-1 py-0 ${
+                            template.channel_type === 'sms' 
+                              ? 'bg-blue-500/20 text-blue-700' 
+                              : 'bg-green-500/20 text-green-700'
+                          }`}
+                        >
+                          {template.channel_type === 'sms' ? (
+                            <><Smartphone className="w-2 h-2 mr-0.5" />SMS</>
+                          ) : (
+                            <><MessageSquare className="w-2 h-2 mr-0.5" />WhatsApp</>
+                          )}
                         </Badge>
                         <Badge variant="secondary" className="text-[10px] px-1 py-0">
                           <Clock className="w-2 h-2 mr-0.5" />
@@ -392,7 +416,40 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
             </DialogHeader>
             
             <div className="space-y-4">
-              {/* Instance Chain - Primary + 2 Fallbacks */}
+              {/* Channel Type Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Canal de Envio</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={formData.channel_type === 'whatsapp' ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setFormData(prev => ({ ...prev, channel_type: 'whatsapp' }))}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    WhatsApp
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formData.channel_type === 'sms' ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setFormData(prev => ({ ...prev, channel_type: 'sms' }))}
+                  >
+                    <Smartphone className="w-4 h-4 mr-2" />
+                    SMS
+                  </Button>
+                </div>
+                {formData.channel_type === 'sms' && (
+                  <p className="text-xs text-muted-foreground">
+                    SMS será enviado para o número de WhatsApp do lead. Limite de 160 caracteres por mensagem.
+                  </p>
+                )}
+              </div>
+
+              {/* Instance Chain - Primary + 2 Fallbacks (WhatsApp only) */}
+              {formData.channel_type === 'whatsapp' && (
               <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
                 <div className="flex items-center gap-2 mb-2">
                   <Label className="text-sm font-medium">Cadeia de Instâncias WhatsApp</Label>
@@ -494,6 +551,7 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                   </Select>
                 </div>
               </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Enviar após (minutos)</Label>
@@ -605,6 +663,7 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
               </div>
 
               {/* Media Upload Section */}
+              {formData.channel_type === 'whatsapp' && (
               <div className="space-y-2">
                 <Label>Mídia (opcional)</Label>
                 {profile?.organization_id && (
@@ -625,8 +684,10 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                   Anexe uma imagem, documento ou grave um áudio para enviar junto com a mensagem.
                 </p>
               </div>
+              )}
 
               {/* Bot Fallback Section */}
+              {formData.channel_type === 'whatsapp' && (
               <div className="space-y-3 pt-2 border-t">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -724,6 +785,7 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                   </div>
                 )}
               </div>
+              )}
             </div>
 
             <DialogFooter>
