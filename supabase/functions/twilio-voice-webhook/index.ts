@@ -14,6 +14,9 @@ serve(async (req) => {
 
   try {
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     if (!ELEVENLABS_API_KEY) {
       console.error("ELEVENLABS_API_KEY not configured");
       return new Response(
@@ -27,9 +30,7 @@ serve(async (req) => {
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Parse Twilio webhook data
     const formData = await req.formData();
@@ -99,6 +100,25 @@ serve(async (req) => {
       );
     }
 
+    // Check if organization has minutes balance
+    const { data: minutesBalance } = await supabase
+      .from("voice_minutes_balance")
+      .select("minutes_remaining")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!minutesBalance || minutesBalance.minutes_remaining <= 0) {
+      console.log("No minutes balance for org:", organizationId);
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+          <Say language="pt-BR">Desculpe, sua organização não possui minutos disponíveis. Por favor, contrate um pacote de minutos para continuar.</Say>
+          <Hangup/>
+        </Response>`,
+        { headers: { "Content-Type": "application/xml" } }
+      );
+    }
+
     // Create call log entry
     const { data: callLog, error: logError } = await supabase
       .from("voice_call_logs")
@@ -120,65 +140,22 @@ serve(async (req) => {
       console.error("Error creating call log:", logError);
     }
 
-    // Get ElevenLabs conversation token
-    const tokenResponse = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${agent.elevenlabs_agent_id}`,
-      {
-        method: "GET",
-        headers: {
-          "xi-api-key": ELEVENLABS_API_KEY,
-        },
-      }
-    );
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error("ElevenLabs token error:", errorText);
-      
-      // Update call log
-      if (callLog) {
-        await supabase
-          .from("voice_call_logs")
-          .update({ status: "failed", error_message: "Failed to get ElevenLabs token" })
-          .eq("id", callLog.id);
-      }
-
-      return new Response(
-        `<?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-          <Say language="pt-BR">Desculpe, não foi possível conectar ao atendente virtual. Por favor, tente novamente.</Say>
-          <Hangup/>
-        </Response>`,
-        { headers: { "Content-Type": "application/xml" } }
-      );
-    }
-
-    const tokenData = await tokenResponse.json();
-    const conversationToken = tokenData.token;
-
     // Update call log to in_progress
     if (callLog) {
       await supabase
         .from("voice_call_logs")
-        .update({ 
-          status: "in_progress", 
-          started_at: new Date().toISOString(),
-          elevenlabs_conversation_id: conversationToken 
-        })
+        .update({ status: "in_progress", started_at: new Date().toISOString() })
         .eq("id", callLog.id);
     }
 
-    // Build TwiML to connect to ElevenLabs via WebSocket
-    // Note: ElevenLabs Conversational AI uses WebSocket streaming
-    // Twilio <Stream> connects to ElevenLabs WebSocket endpoint
-    const streamUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${agent.elevenlabs_agent_id}`;
-    
+    // Build TwiML to connect to our Media Stream Bridge
+    // The bridge handles Twilio ↔ ElevenLabs WebSocket conversion
+    const mediaStreamUrl = `${SUPABASE_URL.replace("https://", "wss://")}/functions/v1/twilio-media-stream?agent_id=${agent.elevenlabs_agent_id}`;
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
     <Response>
       <Connect>
-        <Stream url="${streamUrl}">
-          <Parameter name="xi-api-key" value="${ELEVENLABS_API_KEY}"/>
-        </Stream>
+        <Stream url="${mediaStreamUrl}" />
       </Connect>
     </Response>`;
 
