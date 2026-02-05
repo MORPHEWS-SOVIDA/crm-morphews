@@ -49,7 +49,15 @@ export const AVAILABLE_FEATURES = {
   
   // Canais Adicionais
   instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
-  sms: { label: "Envio de SMS", group: "Canais Adicionais" },
+  sms: { label: "Centro de SMS", group: "Canais Adicionais" },
+  slack_integration: { label: "Integração Slack", group: "Canais Adicionais" },
+  
+  // Voice AI (Twilio)
+  voice_ai_inbound: { label: "Voice AI Receptivo", group: "Voice AI" },
+  voice_ai_outbound: { label: "Voice AI Campanhas Ativas", group: "Voice AI" },
+  voice_ai_knowledge_base: { label: "Base de Conhecimento Voice AI", group: "Voice AI" },
+  voice_ai_automations: { label: "Automações Pós-Ligação", group: "Voice AI" },
+  voice_ai_tools: { label: "Tools na Chamada (Transfer/DTMF)", group: "Voice AI" },
   
   // E-commerce
   ecommerce: { label: "E-commerce (Menu)", group: "E-commerce" },
